@@ -3,10 +3,11 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) Research In Motion, Limited 2010-2011.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,6 +34,7 @@
 #include "Attr.h"
 #include "Attribute.h"
 #include "CDATASection.h"
+#include "CSSPrimitiveValueCache.h"
 #include "CSSStyleSelector.h"
 #include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
@@ -121,6 +123,7 @@
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "ScopedEventQueue.h" 
 #include "ScriptCallStack.h"
 #include "ScriptController.h"
 #include "ScriptElement.h"
@@ -224,6 +227,7 @@
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
 #include "RequestAnimationFrameCallback.h"
+#include "ScriptedAnimationController.h"
 #endif
 
 using namespace std;
@@ -341,11 +345,13 @@ static bool acceptsEditingFocus(Node* node)
 
 static bool disableRangeMutation(Page* page)
 {
-#if PLATFORM(MAC)
+    // This check is made on super-hot code paths, so we only want this on Tiger and Leopard.
+#if defined(TARGETING_TIGER) || defined(TARGETING_LEOPARD)
     // Disable Range mutation on document modifications in Tiger and Leopard Mail
     // See <rdar://problem/5865171>
     return page && (page->settings()->needsLeopardMailQuirks() || page->settings()->needsTigerMailQuirks());
 #else
+    UNUSED_PARAM(page);
     return false;
 #endif
 }
@@ -423,6 +429,8 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_useSecureKeyboardEntryWhenActive(false)
     , m_isXHTML(isXHTML)
     , m_isHTML(isHTML)
+    , m_usesViewSourceStyles(false)
+    , m_sawElementsInKnownNamespaces(false)
     , m_numNodeListCaches(0)
 #if USE(JSC)
     , m_normalWorldWrapperCache(0)
@@ -446,9 +454,7 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_writingModeSetOnDocumentElement(false)
     , m_writeRecursionIsTooDeep(false)
     , m_writeRecursionDepth(0)
-#if ENABLE(REQUEST_ANIMATION_FRAME)
-    , m_nextRequestAnimationFrameCallbackId(0)
-#endif
+    , m_pendingTasksTimer(this, &Document::pendingTasksTimerFired)
 {
     m_document = this;
 
@@ -488,17 +494,19 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     m_inStyleRecalc = false;
     m_closeAfterStyleRecalc = false;
 
-    m_usesDescendantRules = false;
     m_usesSiblingRules = false;
+    m_usesSiblingRulesOverride = false;
     m_usesFirstLineRules = false;
     m_usesFirstLetterRules = false;
     m_usesBeforeAfterRules = false;
+    m_usesBeforeAfterRulesOverride = false;
     m_usesRemUnits = false;
     m_usesLinkRules = false;
 
     m_gotoAnchorNeededAfterStylesheetsLoad = false;
  
     m_didCalculateStyleSelector = false;
+    m_hasDirtyStyleSelector = false;
     m_pendingStylesheets = 0;
     m_ignorePendingStylesheets = false;
     m_hasNodesWithPlaceholderStyle = false;
@@ -622,6 +630,9 @@ Document::~Document()
 
     if (m_mediaQueryMatcher)
         m_mediaQueryMatcher->documentDestroyed();
+
+    if (m_implementation)
+        m_implementation->ownerDocumentDestroyed();
 }
 
 MediaQueryMatcher* Document::mediaQueryMatcher()
@@ -713,10 +724,10 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
 #endif
 }
 
-DOMImplementation* Document::implementation() const
+DOMImplementation* Document::implementation()
 {
     if (!m_implementation)
-        m_implementation = DOMImplementation::create();
+        m_implementation = DOMImplementation::create(this);
     return m_implementation.get();
 }
 
@@ -909,6 +920,8 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
         return 0;
     }
 
+    EventQueueScope scope;
+
     switch (source->nodeType()) {
     case ENTITY_NODE:
     case NOTATION_NODE:
@@ -984,7 +997,9 @@ PassRefPtr<Element> Document::createElement(const QualifiedName& qName, bool cre
         e = MathMLElementFactory::createMathMLElement(qName, this, createdByParser);
 #endif
 
-    if (!e)
+    if (e)
+        m_sawElementsInKnownNamespaces = true;
+    else
         e = Element::create(qName, document());
 
     // <image> uses imgTag so we need a special rule.
@@ -1120,12 +1135,9 @@ KURL Document::baseURI() const
 
 void Document::setContent(const String& content)
 {
-    removeAllChildren();
-
     open();
     m_parser->append(content);
-    m_parser->finish();
-    explicitClose();
+    close();
 }
 
 // FIXME: We need to discuss the DOM API here at some point. Ideas:
@@ -1184,12 +1196,8 @@ PassRefPtr<NodeList> Document::handleZeroPadding(const HitTestRequest& request, 
     return StaticHashSetNodeList::adopt(list);
 }
 
-Element* Document::elementFromPoint(int x, int y) const
+static Node* nodeFromPoint(Frame* frame, RenderView* renderView, int x, int y, IntPoint* localPoint = 0)
 {
-    // FIXME: Share code between this and caretRangeFromPoint.
-    if (!renderer())
-        return 0;
-    Frame* frame = this->frame();
     if (!frame)
         return 0;
     FrameView* frameView = frame->view();
@@ -1197,46 +1205,39 @@ Element* Document::elementFromPoint(int x, int y) const
         return 0;
 
     float zoomFactor = frame->pageZoomFactor();
-    IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor  + view()->scrollX(), y * zoomFactor + view()->scrollY()));
+    IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor  + frameView->scrollX(), y * zoomFactor + frameView->scrollY()));
 
     if (!frameView->visibleContentRect().contains(point))
         return 0;
 
     HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active);
     HitTestResult result(point);
-    renderView()->layer()->hitTest(request, result);
+    renderView->layer()->hitTest(request, result);
 
-    Node* n = result.innerNode();
-    while (n && !n->isElementNode())
-        n = n->parentNode();
-    if (n)
-        n = n->shadowAncestorNode();
-    return static_cast<Element*>(n);
+    if (localPoint)
+        *localPoint = result.localPoint();
+
+    return result.innerNode();
+}
+
+Element* Document::elementFromPoint(int x, int y) const
+{
+    if (!renderer())
+        return 0;
+    Node* node = nodeFromPoint(frame(), renderView(), x, y);
+    while (node && !node->isElementNode())
+        node = node->parentNode();
+    if (node)
+        node = node->shadowAncestorNode();
+    return static_cast<Element*>(node);
 }
 
 PassRefPtr<Range> Document::caretRangeFromPoint(int x, int y)
 {
-    // FIXME: Share code between this and elementFromPoint.
     if (!renderer())
         return 0;
-    Frame* frame = this->frame();
-    if (!frame)
-        return 0;
-    FrameView* frameView = frame->view();
-    if (!frameView)
-        return 0;
-
-    float zoomFactor = frame->pageZoomFactor();
-    IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor + view()->scrollX(), y * zoomFactor + view()->scrollY()));
-
-    if (!frameView->visibleContentRect().contains(point))
-        return 0;
-
-    HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active);
-    HitTestResult result(point);
-    renderView()->layer()->hitTest(request, result);
-
-    Node* node = result.innerNode();
+    IntPoint localPoint;
+    Node* node = nodeFromPoint(frame(), renderView(), x, y, &localPoint);
     if (!node)
         return 0;
 
@@ -1250,7 +1251,7 @@ PassRefPtr<Range> Document::caretRangeFromPoint(int x, int y)
     RenderObject* renderer = node->renderer();
     if (!renderer)
         return 0;
-    VisiblePosition visiblePosition = renderer->positionForPoint(result.localPoint());
+    VisiblePosition visiblePosition = renderer->positionForPoint(localPoint);
     if (visiblePosition.isNull())
         return 0;
 
@@ -1519,6 +1520,9 @@ void Document::recalcStyle(StyleChange change)
     
     if (m_inStyleRecalc)
         return; // Guard against re-entrancy. -dwh
+    
+    if (m_hasDirtyStyleSelector)
+        recalcStyleSelector();
 
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willRecalculateStyle(this);
 
@@ -1570,6 +1574,14 @@ bail_out:
     clearNeedsStyleRecalc();
     clearChildNeedsStyleRecalc();
     unscheduleStyleRecalc();
+    
+    // Pseudo element removal and similar may only work with these flags still set. Reset them after the style recalc.
+    if (m_styleSelector) {
+        m_usesSiblingRules = m_styleSelector->usesSiblingRules();
+        m_usesFirstLineRules = m_styleSelector->usesFirstLineRules();
+        m_usesBeforeAfterRules = m_styleSelector->usesBeforeAfterRules();
+        m_usesLinkRules = m_styleSelector->usesLinkRules();
+    }
 
     if (view())
         view()->resumeScheduledEvents();
@@ -1726,6 +1738,13 @@ void Document::pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int&
     marginLeft = style->marginLeft().isAuto() ? marginLeft : style->marginLeft().calcValue(width);
 }
 
+PassRefPtr<CSSPrimitiveValueCache> Document::cssPrimitiveValueCache() const
+{
+    if (!m_cssPrimitiveValueCache)
+        m_cssPrimitiveValueCache = CSSPrimitiveValueCache::create();
+    return m_cssPrimitiveValueCache;
+}
+
 void Document::createStyleSelector()
 {
     bool matchAuthorAndUserStyles = true;
@@ -1733,6 +1752,11 @@ void Document::createStyleSelector()
         matchAuthorAndUserStyles = docSettings->authorAndUserStylesEnabled();
     m_styleSelector.set(new CSSStyleSelector(this, m_styleSheets.get(), m_mappedElementSheet.get(), pageUserSheet(), pageGroupUserSheets(), 
                                              !inQuirksMode(), matchAuthorAndUserStyles));
+    // Delay resetting the flags until after next style recalc since unapplying the style may not work without these set (this is true at least with before/after).
+    m_usesSiblingRules = m_usesSiblingRules || m_styleSelector->usesSiblingRules();
+    m_usesFirstLineRules = m_usesFirstLineRules || m_styleSelector->usesFirstLineRules();
+    m_usesBeforeAfterRules = m_usesBeforeAfterRules || m_styleSelector->usesBeforeAfterRules();
+    m_usesLinkRules = m_usesLinkRules || m_styleSelector->usesLinkRules();
 }
 
 void Document::attach()
@@ -1944,9 +1968,16 @@ void Document::open(Document* ownerDocument)
     }
 
     if (m_frame) {
-        ScriptableDocumentParser* parser = scriptableDocumentParser();
-        if (m_frame->loader()->isLoadingMainResource() || (parser && parser->isParsing() && parser->isExecutingScript()))
-            return;
+        if (ScriptableDocumentParser* parser = scriptableDocumentParser()) {
+            if (parser->isParsing()) {
+                // FIXME: HTML5 doesn't tell us to check this, it might not be correct.
+                if (parser->isExecutingScript())
+                    return;
+
+                if (!parser->wasCreatedByScript() && parser->hasInsertionPoint())
+                    return;
+            }
+        }
 
         if (m_frame->loader()->state() == FrameStateProvisional)
             m_frame->loader()->stopAllLoaders();
@@ -2065,13 +2096,16 @@ void Document::explicitClose()
         // Because we have no frame, we don't know if all loading has completed,
         // so we just call implicitClose() immediately. FIXME: This might fire
         // the load event prematurely <http://bugs.webkit.org/show_bug.cgi?id=14568>.
+        if (m_parser)
+            m_parser->finish();
         implicitClose();
         return;
     }
 
     // This code calls implicitClose() if all loading has completed.
     loader()->writer()->endIfNotLoadingMainResource();
-    m_frame->loader()->checkCompleted();
+    if (m_frame)
+        m_frame->loader()->checkCompleted();
 }
 
 void Document::implicitClose()
@@ -2202,6 +2236,14 @@ bool Document::shouldScheduleLayout()
     return (haveStylesheetsLoaded() && body())
         || (documentElement() && !documentElement()->hasTagName(htmlTag));
 }
+    
+bool Document::isLayoutTimerActive()
+{
+    if (!view() || !view()->layoutPending())
+        return false;
+    bool isPendingLayoutImmediate = minimumLayoutDelay() == m_extraLayoutDelay;
+    return isPendingLayoutImmediate;
+}
 
 int Document::minimumLayoutDelay()
 {
@@ -2286,6 +2328,14 @@ const KURL& Document::virtualURL() const
 KURL Document::virtualCompleteURL(const String& url) const
 {
     return completeURL(url);
+}
+
+double Document::minimumTimerInterval() const
+{
+    Page* p = page();
+    if (!p)
+        return ScriptExecutionContext::minimumTimerInterval();
+    return p->settings()->minDOMTimerInterval();
 }
 
 EventTarget* Document::errorEventTarget()
@@ -3007,6 +3057,14 @@ void Document::removeStyleSheetCandidateNode(Node* node)
 
 void Document::recalcStyleSelector()
 {
+    if (m_inStyleRecalc) {
+        // SVG <use> element may manage to invalidate style selector in the middle of a style recalc.
+        // https://bugs.webkit.org/show_bug.cgi?id=54344
+        // FIXME: This should be fixed in SVG and this code replaced with ASSERT(!m_inStyleRecalc).
+        m_hasDirtyStyleSelector = true;
+        scheduleForcedStyleRecalc();
+        return;
+    }
     if (!renderer() || !attached())
         return;
 
@@ -3109,6 +3167,7 @@ void Document::recalcStyleSelector()
 
     m_styleSelector.clear();
     m_didCalculateStyleSelector = true;
+    m_hasDirtyStyleSelector = false;
 }
 
 void Document::setHoverNode(PassRefPtr<Node> newHoverNode)
@@ -3200,12 +3259,10 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
         oldFocusedNode->setFocus(false);
 
         // Dispatch a change event for text fields or textareas that have been edited
-        RenderObject* r = oldFocusedNode->renderer();
-        if (r && r->isTextControl() && toRenderTextControl(r)->wasChangedSinceLastChangeEvent()) {
-            static_cast<Element*>(oldFocusedNode.get())->dispatchFormControlChangeEvent();
-            r = oldFocusedNode->renderer();
-            if (r && r->isTextControl())
-                toRenderTextControl(r)->setChangedSinceLastChangeEvent(false);
+        if (oldFocusedNode->isElementNode()) {
+            Element* element = static_cast<Element*>(oldFocusedNode.get());
+            if (element->wasChangedSinceLastFormControlChangeEvent())
+                element->dispatchFormControlChangeEvent();
         }
 
         // Dispatch the blur event and let the node do any other blur related activities (important for text fields)
@@ -3360,7 +3417,7 @@ void Document::moveNodeIteratorsToNewDocument(Node* node, Document* newDocument)
 
 void Document::nodeChildrenChanged(ContainerNode* container)
 {
-    if (!disableRangeMutation(page())) {
+    if (!disableRangeMutation(page()) && !m_ranges.isEmpty()) {
         HashSet<Range*>::const_iterator end = m_ranges.end();
         for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != end; ++it)
             (*it)->nodeChildrenChanged(container);
@@ -3369,7 +3426,7 @@ void Document::nodeChildrenChanged(ContainerNode* container)
 
 void Document::nodeChildrenWillBeRemoved(ContainerNode* container)
 {
-    if (!disableRangeMutation(page())) {
+    if (!disableRangeMutation(page()) && !m_ranges.isEmpty()) {
         HashSet<Range*>::const_iterator end = m_ranges.end();
         for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != end; ++it)
             (*it)->nodeChildrenWillBeRemoved(container);
@@ -3395,7 +3452,7 @@ void Document::nodeWillBeRemoved(Node* n)
     for (HashSet<NodeIterator*>::const_iterator it = m_nodeIterators.begin(); it != nodeIteratorsEnd; ++it)
         (*it)->nodeWillBeRemoved(n);
 
-    if (!disableRangeMutation(page())) {
+    if (!disableRangeMutation(page()) && !m_ranges.isEmpty()) {
         HashSet<Range*>::const_iterator rangesEnd = m_ranges.end();
         for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != rangesEnd; ++it)
             (*it)->nodeWillBeRemoved(n);
@@ -3427,7 +3484,7 @@ void Document::nodeWillBeRemoved(Node* n)
 
 void Document::textInserted(Node* text, unsigned offset, unsigned length)
 {
-    if (!disableRangeMutation(page())) {
+    if (!disableRangeMutation(page()) && !m_ranges.isEmpty()) {
         HashSet<Range*>::const_iterator end = m_ranges.end();
         for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != end; ++it)
             (*it)->textInserted(text, offset, length);
@@ -3439,7 +3496,7 @@ void Document::textInserted(Node* text, unsigned offset, unsigned length)
 
 void Document::textRemoved(Node* text, unsigned offset, unsigned length)
 {
-    if (!disableRangeMutation(page())) {
+    if (!disableRangeMutation(page()) && !m_ranges.isEmpty()) {
         HashSet<Range*>::const_iterator end = m_ranges.end();
         for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != end; ++it)
             (*it)->textRemoved(text, offset, length);
@@ -3452,7 +3509,7 @@ void Document::textRemoved(Node* text, unsigned offset, unsigned length)
 
 void Document::textNodesMerged(Text* oldNode, unsigned offset)
 {
-    if (!disableRangeMutation(page())) {
+    if (!disableRangeMutation(page()) && !m_ranges.isEmpty()) {
         NodeWithIndex oldNodeWithIndex(oldNode);
         HashSet<Range*>::const_iterator end = m_ranges.end();
         for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != end; ++it)
@@ -3464,7 +3521,7 @@ void Document::textNodesMerged(Text* oldNode, unsigned offset)
 
 void Document::textNodeSplit(Text* oldNode)
 {
-    if (!disableRangeMutation(page())) {
+    if (!disableRangeMutation(page()) && !m_ranges.isEmpty()) {
         HashSet<Range*>::const_iterator end = m_ranges.end();
         for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != end; ++it)
             (*it)->textNodeSplit(oldNode);
@@ -3524,6 +3581,12 @@ void Document::dispatchWindowLoadEvent()
 void Document::enqueueWindowEvent(PassRefPtr<Event> event)
 {
     event->setTarget(domWindow());
+    m_eventQueue->enqueueEvent(event);
+}
+
+void Document::enqueueDocumentEvent(PassRefPtr<Event> event)
+{
+    event->setTarget(this);
     m_eventQueue->enqueueEvent(event);
 }
 
@@ -4001,6 +4064,23 @@ void Document::unregisterForMediaVolumeCallbacks(Element* e)
     m_mediaVolumeCallbackElements.remove(e);
 }
 
+void Document::privateBrowsingStateDidChange() 
+{
+    HashSet<Element*>::iterator end = m_privateBrowsingStateChangedElements.end();
+    for (HashSet<Element*>::iterator it = m_privateBrowsingStateChangedElements.begin(); it != end; ++it)
+        (*it)->privateBrowsingStateDidChange();
+}
+
+void Document::registerForPrivateBrowsingStateChangedCallbacks(Element* e)
+{
+    m_privateBrowsingStateChangedElements.add(e);
+}
+
+void Document::unregisterForPrivateBrowsingStateChangedCallbacks(Element* e)
+{
+    m_privateBrowsingStateChangedElements.remove(e);
+}
+
 void Document::setShouldCreateRenderers(bool f)
 {
     m_createRenderers = f;
@@ -4463,13 +4543,15 @@ void Document::initSecurityContext()
         // This can occur via document.implementation.createDocument().
         m_cookieURL = KURL(ParsedURLString, "");
         ScriptExecutionContext::setSecurityOrigin(SecurityOrigin::createEmpty());
+        m_contentSecurityPolicy = ContentSecurityPolicy::create();
         return;
     }
 
     // In the common case, create the security context from the currently
-    // loading URL.
+    // loading URL with a fresh content security policy.
     m_cookieURL = m_url;
     ScriptExecutionContext::setSecurityOrigin(SecurityOrigin::create(m_url, m_frame->loader()->sandboxFlags()));
+    m_contentSecurityPolicy = ContentSecurityPolicy::create();
 
     if (SecurityOrigin::allowSubstituteDataAccessToLocal()) {
         // If this document was loaded with substituteData, then the document can
@@ -4513,6 +4595,8 @@ void Document::initSecurityContext()
         // We alias the SecurityOrigins to match Firefox, see Bug 15313
         // https://bugs.webkit.org/show_bug.cgi?id=15313
         ScriptExecutionContext::setSecurityOrigin(ownerFrame->document()->securityOrigin());
+        // FIXME: Consider moving m_contentSecurityPolicy into SecurityOrigin.
+        m_contentSecurityPolicy = ownerFrame->document()->contentSecurityPolicy();
     }
 }
 
@@ -4696,22 +4780,75 @@ public:
     OwnPtr<ScriptExecutionContext::Task> task;
 };
 
-static void performTask(void* ctx)
+void Document::didReceiveTask(void* untypedContext)
 {
     ASSERT(isMainThread());
 
-    PerformTaskContext* context = reinterpret_cast<PerformTaskContext*>(ctx);
+    OwnPtr<PerformTaskContext> context = adoptPtr(static_cast<PerformTaskContext*>(untypedContext));
     ASSERT(context);
 
-    if (Document* document = context->documentReference->document())
-        context->task->performTask(document);
+    Document* document = context->documentReference->document();
+    if (!document)
+        return;
 
-    delete context;
+    Page* page = document->page();
+    if ((page && page->defersLoading()) || !document->m_pendingTasks.isEmpty()) {
+        document->m_pendingTasks.append(context->task.release());
+        return;
+    }
+
+    context->task->performTask(document);
 }
 
 void Document::postTask(PassOwnPtr<Task> task)
 {
-    callOnMainThread(performTask, new PerformTaskContext(m_weakReference, task));
+    callOnMainThread(didReceiveTask, new PerformTaskContext(m_weakReference, task));
+}
+
+void Document::pendingTasksTimerFired(Timer<Document>*)
+{
+    while (!m_pendingTasks.isEmpty()) {
+        OwnPtr<Task> task = m_pendingTasks[0].release();
+        m_pendingTasks.remove(0);
+        task->performTask(this);
+    }
+}
+
+void Document::suspendScheduledTasks()
+{
+    suspendScriptedAnimationControllerCallbacks();
+    suspendActiveDOMObjects(ActiveDOMObject::WillShowDialog);
+    asyncScriptRunner()->suspend();
+    m_pendingTasksTimer.stop();
+    if (m_parser)
+        m_parser->suspendScheduledTasks();
+}
+
+void Document::resumeScheduledTasks()
+{
+    if (m_parser)
+        m_parser->resumeScheduledTasks();
+    if (!m_pendingTasks.isEmpty())
+        m_pendingTasksTimer.startOneShot(0);
+    asyncScriptRunner()->resume();
+    resumeActiveDOMObjects();
+    resumeScriptedAnimationControllerCallbacks();
+}
+
+void Document::suspendScriptedAnimationControllerCallbacks()
+{
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    if (m_scriptedAnimationController)
+        m_scriptedAnimationController->suspend();
+#endif
+}
+
+void Document::resumeScriptedAnimationControllerCallbacks()
+{
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    if (m_scriptedAnimationController)
+        m_scriptedAnimationController->resume();
+#endif
 }
 
 Element* Document::findAnchor(const String& name)
@@ -4805,7 +4942,7 @@ bool Document::isXHTMLMPDocument() const
     // MUST accept XHTMLMP document identified as "application/vnd.wap.xhtml+xml"
     // and SHOULD accept it identified as "application/xhtml+xml" , "application/xhtml+xml" is a 
     // general MIME type for all XHTML documents, not only for XHTMLMP
-    return frame()->loader()->writer()->mimeType() == "application/vnd.wap.xhtml+xml";
+    return loader()->writer()->mimeType() == "application/vnd.wap.xhtml+xml";
 }
 #endif
 
@@ -4944,82 +5081,26 @@ void Document::loadEventDelayTimerFired(Timer<Document>*)
 }
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-int Document::webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback> callback, Element* e)
+int Document::webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback> callback, Element* animationElement)
 {
-    if (!m_requestAnimationFrameCallbacks)
-        m_requestAnimationFrameCallbacks = new RequestAnimationFrameCallbackList;
-    int id = m_nextRequestAnimationFrameCallbackId++;
-    callback->m_firedOrCancelled = false;
-    callback->m_id = id;
-    callback->m_element = e;
-    m_requestAnimationFrameCallbacks->append(callback);
-    if (FrameView* v = view())
-        v->scheduleAnimation();
-    return id;
+    if (!m_scriptedAnimationController)
+        m_scriptedAnimationController = ScriptedAnimationController::create(this);
+
+    return m_scriptedAnimationController->registerCallback(callback, animationElement);
 }
 
 void Document::webkitCancelRequestAnimationFrame(int id)
 {
-    if (!m_requestAnimationFrameCallbacks)
+    if (!m_scriptedAnimationController)
         return;
-    for (size_t i = 0; i < m_requestAnimationFrameCallbacks->size(); ++i) {
-        if (m_requestAnimationFrameCallbacks->at(i)->m_id == id) {
-            m_requestAnimationFrameCallbacks->at(i)->m_firedOrCancelled = true;
-            m_requestAnimationFrameCallbacks->remove(i);
-            return;
-        }
-    }
+    m_scriptedAnimationController->cancelCallback(id);
 }
 
 void Document::serviceScriptedAnimations(DOMTimeStamp time)
 {
-    if (!m_requestAnimationFrameCallbacks)
+    if (!m_scriptedAnimationController)
         return;
-    // We want to run the callback for all elements in the document that have registered
-    // for a callback and that are visible.  Running the callbacks can cause new callbacks
-    // to be registered, existing callbacks to be cancelled, and elements to gain or lose
-    // visibility so this code has to iterate carefully.
-
-    // FIXME: Currently, this code doesn't do any visibility tests beyond checking display:
-
-    // First, generate a list of callbacks to consider.  Callbacks registered from this point
-    // on are considered only for the "next" frame, not this one.
-    RequestAnimationFrameCallbackList callbacks(*m_requestAnimationFrameCallbacks);
-
-    // Firing the callback may cause the visibility of other elements to change.  To avoid
-    // missing any callbacks, we keep iterating through the list of candiate callbacks and firing
-    // them until nothing new becomes visible.
-    bool firedCallback;
-    do {
-        firedCallback = false;
-        // A previous iteration may have invalidated style (or layout).  Update styles for each iteration
-        // for now since all we check is the existence of a renderer.
-        updateStyleIfNeeded();
-        for (size_t i = 0; i < callbacks.size(); ++i) {
-            RequestAnimationFrameCallback* callback = callbacks[i].get();
-            if (!callback->m_firedOrCancelled && (!callback->m_element || callback->m_element->renderer())) {
-                callback->m_firedOrCancelled = true;
-                callback->handleEvent(time);
-                firedCallback = true;
-                callbacks.remove(i);
-                break;
-            }
-        }
-    } while (firedCallback);
-
-    // Remove any callbacks we fired from the list of pending callbacks.
-    for (size_t i = 0; i < m_requestAnimationFrameCallbacks->size();) {
-        if (m_requestAnimationFrameCallbacks->at(i)->m_firedOrCancelled)
-            m_requestAnimationFrameCallbacks->remove(i);
-        else
-            ++i;
-    }
-
-    // In most cases we expect this list to be empty, so no need to keep around the vector's inline buffer.
-    if (!m_requestAnimationFrameCallbacks->size())
-        m_requestAnimationFrameCallbacks.clear();
-    else if (FrameView* v = view())
-        v->scheduleAnimation();
+    m_scriptedAnimationController->serviceScriptedAnimations(time);
 }
 #endif
 

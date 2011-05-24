@@ -107,6 +107,9 @@ namespace WebCore {
         typedef const HashMap<ActiveDOMObject*, void*> ActiveDOMObjectsMap;
         ActiveDOMObjectsMap& activeDOMObjects() const { return m_activeDOMObjects; }
 
+        virtual void suspendScriptedAnimationControllerCallbacks() { }
+        virtual void resumeScriptedAnimationControllerCallbacks() { }
+
         // MessagePort is conceptually a kind of ActiveDOMObject, but it needs to be tracked separately for message dispatch.
         void processMessagePortMessagesSoon();
         void dispatchMessagePortEvents();
@@ -152,6 +155,10 @@ namespace WebCore {
         void stopFileThread();
 #endif
 
+        // Interval is in seconds.
+        void adjustMinimumTimerInterval(double oldMinimumTimerInterval);
+        virtual double minimumTimerInterval() const;
+
     protected:
         // Explicitly override the security origin for this script context.
         // Note: It is dangerous to change the security origin of a script context
@@ -176,7 +183,8 @@ namespace WebCore {
         bool m_iteratingActiveDOMObjects;
         bool m_inDestructor;
 
-        HashMap<int, DOMTimer*> m_timeouts;
+        typedef HashMap<int, DOMTimer*> TimeoutMap;
+        TimeoutMap m_timeouts;
 
 #if ENABLE(BLOB)
         HashSet<String> m_publicBlobURLs;

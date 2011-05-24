@@ -36,6 +36,7 @@
 #include "WebCommon.h"
 #include "WebData.h"
 #include "WebLocalizedString.h"
+#include "WebSerializedScriptValue.h"
 #include "WebString.h"
 #include "WebVector.h"
 #include "WebURL.h"
@@ -62,7 +63,6 @@ class WebMessagePortChannel;
 class WebMimeRegistry;
 class WebPluginListBuilder;
 class WebSandboxSupport;
-class WebSerializedScriptValue;
 class WebSharedWorkerRepository;
 class WebSocketStreamHandle;
 class WebStorageNamespace;
@@ -144,6 +144,7 @@ public:
 
     virtual WebIDBFactory* idbFactory() { return 0; }
     virtual void createIDBKeysFromSerializedValuesAndKeyPath(const WebVector<WebSerializedScriptValue>& values,  const WebString& keyPath, WebVector<WebIDBKey>& keys) { }
+    virtual WebSerializedScriptValue injectIDBKeyIntoSerializedValue(const WebIDBKey& key, const WebSerializedScriptValue& value, const WebString& keyPath) { return WebSerializedScriptValue(); }
 
 
     // Keygen --------------------------------------------------------------
@@ -262,6 +263,12 @@ public:
 
     // Wall clock time in seconds since the epoch.
     virtual double currentTime() { return 0; }
+
+    virtual void cryptographicallyRandomValues(unsigned char* buffer, size_t length)
+    {
+        // WebKit clients must implement this funcion if they use cryptographic randomness.
+        WEBKIT_ASSERT_NOT_REACHED();
+    }
 
     // Delayed work is driven by a shared timer.
     virtual void setSharedTimerFiredFunction(void (*func)()) { }

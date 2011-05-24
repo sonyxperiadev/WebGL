@@ -501,6 +501,8 @@ void HTMLInputElement::updateType()
             updateFocusAppearance(true);
     }
 
+    setChangedSinceLastFormControlChangeEvent(false);
+
     checkedRadioButtons().addButton(this);
 
     setNeedsValidityCheck();
@@ -905,10 +907,14 @@ void HTMLInputElement::setValue(const String& value, bool sendChangeEvent)
     }
     m_inputType->valueChanged();
 
-    // Don't dispatch the change event when focused, it will be dispatched
-    // when the control loses focus.
-    if (sendChangeEvent && document()->focusedNode() != this)
-        dispatchFormControlChangeEvent();
+    if (sendChangeEvent) {
+        // If the user is still editing this field, dispatch an input event rather than a change event.
+        // The change event will be dispatched when editing finishes.
+        if (isTextField() && focused())
+            dispatchFormControlInputEvent();
+        else
+            dispatchFormControlChangeEvent();
+    }
 
     InputElement::notifyFormStateChanged(this);
 }
@@ -977,6 +983,10 @@ void HTMLInputElement::setFileListFromRenderer(const Vector<String>& paths)
 
 void* HTMLInputElement::preDispatchEventHandler(Event* event)
 {
+    if (event->type() == eventNames().textInputEvent && m_inputType->shouldSubmitImplicitly(event)) {
+        event->stopPropagation();
+        return 0;
+    }
     if (event->type() != eventNames().clickEvent)
         return 0;
     if (!event->isMouseEvent() || static_cast<MouseEvent*>(event)->button() != LeftButton)
@@ -1045,15 +1055,10 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             addSearchResult();
             onSearch();
         }
-        // Fire onChange for text fields.
-        RenderObject* r = renderer();
-        if (r && r->isTextField() && toRenderTextControl(r)->wasChangedSinceLastChangeEvent()) {
+        // Form submission finishes editing, just as loss of focus does.
+        // If there was a change, send the event now.
+        if (wasChangedSinceLastFormControlChangeEvent())
             dispatchFormControlChangeEvent();
-            // Refetch the renderer since arbitrary JS code run during onchange can do anything, including destroying it.
-            r = renderer();
-            if (r && r->isTextField())
-                toRenderTextControl(r)->setChangedSinceLastChangeEvent(false);
-        }
 
         RefPtr<HTMLFormElement> formForSubmission = m_inputType->formForSubmission();
         // Form may never have been present, or may have been destroyed by code responding to the change event.
@@ -1168,6 +1173,11 @@ FileList* HTMLInputElement::files()
 String HTMLInputElement::visibleValue() const
 {
     return m_inputType->visibleValue();
+}
+
+String HTMLInputElement::convertFromVisibleValue(const String& visibleValue) const
+{
+    return m_inputType->convertFromVisibleValue(visibleValue);
 }
 
 bool HTMLInputElement::isAcceptableValue(const String& proposedValue) const
@@ -1430,8 +1440,6 @@ void HTMLInputElement::stepUpFromRenderer(int n)
     }
 
     if (currentStringValue != value()) {
-        if (renderer() && renderer()->isTextField())
-            toRenderTextControl(renderer())->setChangedSinceLastChangeEvent(true);
         if (m_inputType->isRangeControl())
             dispatchFormControlChangeEvent();
         else

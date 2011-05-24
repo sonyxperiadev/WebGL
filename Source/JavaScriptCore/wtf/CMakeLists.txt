@@ -16,6 +16,7 @@ SET(WTF_HEADERS
     Decoder.h
     Deque.h
     DisallowCType.h
+    DoublyLinkedList.h
     Encoder.h
     FastAllocBase.h
     FastMalloc.h
@@ -64,6 +65,7 @@ SET(WTF_HEADERS
     RefPtrHashMap.h
     RetainPtr.h
     SegmentedVector.h
+    SHA1.h
     StackBounds.h
     StaticConstructors.h
     StdLibExtras.h
@@ -115,6 +117,7 @@ SET(WTF_SOURCES
     OSRandomSource.cpp
     RandomNumber.cpp
     RefCountedLeakCounter.cpp
+    SHA1.cpp
     StackBounds.cpp
     StringExtras.cpp
     Threading.cpp

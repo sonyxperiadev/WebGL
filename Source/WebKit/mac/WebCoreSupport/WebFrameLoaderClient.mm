@@ -75,6 +75,7 @@
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
 #import <WebCore/AuthenticationMac.h>
+#import <WebCore/BackForwardController.h>
 #import <WebCore/BlockExceptions.h>
 #import <WebCore/CachedFrame.h>
 #import <WebCore/Chrome.h>
@@ -439,6 +440,18 @@ bool WebFrameLoaderClient::canAuthenticateAgainstProtectionSpace(DocumentLoader*
 }
 #endif
 
+bool WebFrameLoaderClient::shouldPaintBrokenImage(const KURL& imageURL) const
+{
+    WebView *webView = getWebView(m_webFrame.get());
+    WebResourceDelegateImplementationCache* implementations = WebViewGetResourceLoadDelegateImplementations(webView);
+
+    if (implementations->shouldPaintBrokenImageForURLFunc) {
+        NSURL* url = imageURL;
+        return CallResourceLoadDelegateReturningBoolean(YES, implementations->shouldPaintBrokenImageForURLFunc, webView, @selector(webView:shouldPaintBrokenImageForURL:), url);
+    }
+    return true;
+}
+
 void WebFrameLoaderClient::dispatchDidCancelAuthenticationChallenge(DocumentLoader* loader, unsigned long identifier, const AuthenticationChallenge&challenge)
 {
     WebView *webView = getWebView(m_webFrame.get());
@@ -729,13 +742,13 @@ void WebFrameLoaderClient::dispatchShow()
     [[webView _UIDelegateForwarder] webViewShow:webView];
 }
 
-void WebFrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction function,
-    const String& MIMEType, const ResourceRequest& request)
+void WebFrameLoaderClient::dispatchDecidePolicyForResponse(FramePolicyFunction function,
+    const ResourceResponse& response, const ResourceRequest& request)
 {
     WebView *webView = getWebView(m_webFrame.get());
 
     [[webView _policyDelegateForwarder] webView:webView
-                        decidePolicyForMIMEType:MIMEType
+                        decidePolicyForMIMEType:response.mimeType()
                                         request:request.nsURLRequest()
                                           frame:m_webFrame.get()
                                decisionListener:setUpPolicyListener(function).get()];
@@ -937,6 +950,11 @@ bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem* item) const
     return [[view _policyDelegateForwarder] webView:view shouldGoToHistoryItem:webItem];
 }
 
+bool WebFrameLoaderClient::shouldStopLoadingForHistoryItem(HistoryItem* item) const
+{
+    return true;
+}
+
 void WebFrameLoaderClient::dispatchDidAddBackForwardItem(HistoryItem*) const
 {
 }
@@ -947,6 +965,19 @@ void WebFrameLoaderClient::dispatchDidRemoveBackForwardItem(HistoryItem*) const
 
 void WebFrameLoaderClient::dispatchDidChangeBackForwardIndex() const
 {
+}
+
+void WebFrameLoaderClient::updateGlobalHistoryItemForPage()
+{
+    HistoryItem* historyItem = 0;
+
+    if (Page* page = core(m_webFrame.get())->page()) {
+        if (!page->settings()->privateBrowsingEnabled())
+            historyItem = page->backForward()->currentItem();
+    }
+
+    WebView *webView = getWebView(m_webFrame.get());
+    [webView _setGlobalHistoryItem:historyItem];
 }
 
 void WebFrameLoaderClient::didDisplayInsecureContent()

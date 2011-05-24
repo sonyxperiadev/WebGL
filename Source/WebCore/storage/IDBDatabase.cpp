@@ -26,13 +26,17 @@
 #include "config.h"
 #include "IDBDatabase.h"
 
+#include "Document.h"
+#include "EventQueue.h"
 #include "IDBAny.h"
 #include "IDBDatabaseError.h"
 #include "IDBDatabaseException.h"
+#include "IDBEventDispatcher.h"
 #include "IDBFactoryBackendInterface.h"
 #include "IDBIndex.h"
 #include "IDBObjectStore.h"
-#include "IDBRequest.h"
+#include "IDBVersionChangeEvent.h"
+#include "IDBVersionChangeRequest.h"
 #include "IDBTransaction.h"
 #include "ScriptExecutionContext.h"
 #include <limits>
@@ -58,7 +62,6 @@ IDBDatabase::IDBDatabase(ScriptExecutionContext* context, PassRefPtr<IDBDatabase
 
 IDBDatabase::~IDBDatabase()
 {
-    ASSERT(m_stopped);
 }
 
 void IDBDatabase::setSetVersionTransaction(IDBTransaction* transaction)
@@ -97,10 +100,10 @@ void IDBDatabase::deleteObjectStore(const String& name, ExceptionCode& ec)
     m_backend->deleteObjectStore(name, m_setVersionTransaction->backend(), ec);
 }
 
-PassRefPtr<IDBRequest> IDBDatabase::setVersion(ScriptExecutionContext* context, const String& version, ExceptionCode& ec)
+PassRefPtr<IDBVersionChangeRequest> IDBDatabase::setVersion(ScriptExecutionContext* context, const String& version, ExceptionCode& ec)
 {
-    RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), 0);
-    m_backend->setVersion(version, request, ec);
+    RefPtr<IDBVersionChangeRequest> request = IDBVersionChangeRequest::create(context, IDBAny::create(this), version);
+    m_backend->setVersion(version, request, this, ec);
     return request;
 }
 
@@ -136,7 +139,27 @@ PassRefPtr<IDBTransaction> IDBDatabase::transaction(ScriptExecutionContext* cont
 
 void IDBDatabase::close()
 {
+    if (m_noNewTransactions)
+        return;
+
+    ASSERT(scriptExecutionContext()->isDocument());
+    EventQueue* eventQueue = static_cast<Document*>(scriptExecutionContext())->eventQueue();
+    // Remove any pending versionchange events scheduled to fire on this
+    // connection. They would have been scheduled by the backend when another
+    // connection called setVersion, but the frontend connection is being
+    // closed before they could fire.
+    for (size_t i = 0; i < m_enqueuedEvents.size(); ++i) {
+        bool removed = eventQueue->cancelEvent(m_enqueuedEvents[i].get());
+        ASSERT_UNUSED(removed, removed);
+    }
+
     m_noNewTransactions = true;
+    m_backend->close(this);
+}
+
+void IDBDatabase::onVersionChange(const String& version)
+{
+    enqueueEvent(IDBVersionChangeEvent::create(version, eventNames().versionchangeEvent));
 }
 
 bool IDBDatabase::hasPendingActivity() const
@@ -147,6 +170,30 @@ bool IDBDatabase::hasPendingActivity() const
     //        of those have event listeners. This is in order to handle user generated
     //        events properly.
     return !m_stopped || ActiveDOMObject::hasPendingActivity();
+}
+
+void IDBDatabase::open()
+{
+    m_backend->open(this);
+}
+
+void IDBDatabase::enqueueEvent(PassRefPtr<Event> event)
+{
+    ASSERT(scriptExecutionContext()->isDocument());
+    EventQueue* eventQueue = static_cast<Document*>(scriptExecutionContext())->eventQueue();
+    event->setTarget(this);
+    eventQueue->enqueueEvent(event.get());
+    m_enqueuedEvents.append(event);
+}
+
+bool IDBDatabase::dispatchEvent(PassRefPtr<Event> event)
+{
+    ASSERT(event->type() == eventNames().versionchangeEvent);
+    for (size_t i = 0; i < m_enqueuedEvents.size(); ++i) {
+        if (m_enqueuedEvents[i].get() == event.get())
+            m_enqueuedEvents.remove(i);
+    }
+    return EventTarget::dispatchEvent(event.get());
 }
 
 void IDBDatabase::stop()

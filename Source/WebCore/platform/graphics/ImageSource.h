@@ -46,12 +46,16 @@ QT_END_NAMESPACE
 #elif PLATFORM(CAIRO)
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
+<<<<<<< HEAD
 #elif PLATFORM(SKIA)
 #if PLATFORM(ANDROID)
 #include "SkString.h"
 class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
 #else
+=======
+#elif USE(SKIA)
+>>>>>>> WebKit at r80534
 namespace WebCore {
 class NativeImageSkia;
 }
@@ -109,7 +113,7 @@ typedef wxBitmap* NativeImagePtr;
 #endif
 #elif PLATFORM(CAIRO)
 typedef cairo_surface_t* NativeImagePtr;
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
 typedef WebCore::NativeImageSkia* NativeImagePtr;
 #elif PLATFORM(HAIKU)
 typedef BBitmap* NativeImagePtr;
@@ -187,6 +191,8 @@ public:
     IntSize size() const;
     IntSize frameSizeAtIndex(size_t) const;
     bool getHotSpot(IntPoint&) const;
+
+    size_t bytesDecodedToDetermineProperties() const;
 
     int repetitionCount();
 

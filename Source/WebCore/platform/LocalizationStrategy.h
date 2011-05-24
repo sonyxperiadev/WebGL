@@ -43,6 +43,7 @@ public:
     virtual String submitButtonDefaultLabel() = 0;
     virtual String fileButtonChooseFileLabel() = 0;
     virtual String fileButtonNoFileSelectedLabel() = 0;
+    virtual String defaultDetailsSummaryText() = 0;
 
 #if PLATFORM(MAC)
     virtual String copyImageUnknownFileLabel() = 0;
@@ -55,7 +56,7 @@ public:
     virtual String contextMenuItemTagOpenImageInNewWindow() = 0;
     virtual String contextMenuItemTagDownloadImageToDisk() = 0;
     virtual String contextMenuItemTagCopyImageToClipboard() = 0;
-#if PLATFORM(QT)
+#if PLATFORM(QT) || PLATFORM(GTK)
     virtual String contextMenuItemTagCopyImageUrlToClipboard() = 0;
 #endif
     virtual String contextMenuItemTagOpenFrameInNewWindow() = 0;

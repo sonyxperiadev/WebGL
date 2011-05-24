@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,9 +45,12 @@ class AuthenticationChallengeProxy;
 class AuthenticationDecisionListener;
 class DownloadProxy;
 class GeolocationPermissionRequestProxy;
+class WebApplicationCacheManagerProxy;
 class WebBackForwardList;
 class WebBackForwardListItem;
+class WebResourceCacheManagerProxy;
 class WebContext;
+class WebCookieManagerProxy;
 class WebCredential;
 class WebDatabaseManagerProxy;
 class WebFormSubmissionListenerProxy;
@@ -56,19 +59,24 @@ class WebFrameProxy;
 class WebGeolocationManagerProxy;
 class WebGeolocationPosition;
 class WebInspectorProxy;
+class WebKeyValueStorageManagerProxy;
 class WebNavigationData;
 class WebOpenPanelParameters;
 class WebOpenPanelResultListenerProxy;
 class WebPageGroup;
 class WebPageProxy;
+class WebPluginSiteDataManager;
 class WebPreferences;
 class WebProtectionSpace;
 
+WK_ADD_API_MAPPING(WKApplicationCacheManagerRef, WebApplicationCacheManagerProxy)
 WK_ADD_API_MAPPING(WKAuthenticationChallengeRef, AuthenticationChallengeProxy)
 WK_ADD_API_MAPPING(WKAuthenticationDecisionListenerRef, AuthenticationDecisionListener)
 WK_ADD_API_MAPPING(WKBackForwardListItemRef, WebBackForwardListItem)
 WK_ADD_API_MAPPING(WKBackForwardListRef, WebBackForwardList)
+WK_ADD_API_MAPPING(WKResourceCacheManagerRef, WebResourceCacheManagerProxy)
 WK_ADD_API_MAPPING(WKContextRef, WebContext)
+WK_ADD_API_MAPPING(WKCookieManagerRef, WebCookieManagerProxy)
 WK_ADD_API_MAPPING(WKCredentialRef, WebCredential)
 WK_ADD_API_MAPPING(WKDatabaseManagerRef, WebDatabaseManagerProxy)
 WK_ADD_API_MAPPING(WKDownloadRef, DownloadProxy)
@@ -78,11 +86,13 @@ WK_ADD_API_MAPPING(WKFrameRef, WebFrameProxy)
 WK_ADD_API_MAPPING(WKGeolocationManagerRef, WebGeolocationManagerProxy)
 WK_ADD_API_MAPPING(WKGeolocationPermissionRequestRef, GeolocationPermissionRequestProxy)
 WK_ADD_API_MAPPING(WKGeolocationPositionRef, WebGeolocationPosition)
+WK_ADD_API_MAPPING(WKKeyValueStorageManagerRef, WebKeyValueStorageManagerProxy)
 WK_ADD_API_MAPPING(WKNavigationDataRef, WebNavigationData)
 WK_ADD_API_MAPPING(WKOpenPanelParametersRef, WebOpenPanelParameters)
 WK_ADD_API_MAPPING(WKOpenPanelResultListenerRef, WebOpenPanelResultListenerProxy)
 WK_ADD_API_MAPPING(WKPageGroupRef, WebPageGroup)
 WK_ADD_API_MAPPING(WKPageRef, WebPageProxy)
+WK_ADD_API_MAPPING(WKPluginSiteDataManagerRef, WebPluginSiteDataManager)
 WK_ADD_API_MAPPING(WKPreferencesRef, WebPreferences)
 WK_ADD_API_MAPPING(WKProtectionSpaceRef, WebProtectionSpace)
 

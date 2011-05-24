@@ -23,9 +23,13 @@
 VPATH = \
     $(WebKit2)/PluginProcess \
     $(WebKit2)/Shared/Plugins \
+    $(WebKit2)/WebProcess/ApplicationCache \
     $(WebKit2)/WebProcess/Authentication \
+    $(WebKit2)/WebProcess/Cookies \
     $(WebKit2)/WebProcess/Geolocation \
+    $(WebKit2)/WebProcess/KeyValueStorage \
     $(WebKit2)/WebProcess/Plugins \
+    $(WebKit2)/WebProcess/ResourceCache \
     $(WebKit2)/WebProcess/WebCoreSupport \
     $(WebKit2)/WebProcess/WebPage \
     $(WebKit2)/WebProcess \
@@ -44,6 +48,10 @@ MESSAGE_RECEIVERS = \
     PluginProcess \
     PluginProcessProxy \
     PluginProxy \
+    WebApplicationCacheManager \
+    WebApplicationCacheManagerProxy \
+    WebCookieManager \
+    WebCookieManagerProxy \
     WebContext \
     WebDatabaseManager \
     WebDatabaseManagerProxy \
@@ -51,11 +59,15 @@ MESSAGE_RECEIVERS = \
     WebGeolocationManagerProxy \
     WebInspector \
     WebInspectorProxy \
+    WebKeyValueStorageManager \
+    WebKeyValueStorageManagerProxy \
     WebPage \
     WebPageProxy \
     WebProcess \
     WebProcessConnection \
     WebProcessProxy \
+    WebResourceCacheManager \
+    WebResourceCacheManagerProxy \
 #
 
 SCRIPTS = \

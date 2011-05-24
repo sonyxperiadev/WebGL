@@ -33,6 +33,7 @@
 
 using namespace WebCore;
 
+NSString *WebDatabaseDirectoryDefaultsKey = @"WebDatabaseDirectory";
 NSString *WebKitLocalCacheDefaultsKey = @"WebKitLocalCache";
 
 namespace WebKit {
@@ -81,6 +82,9 @@ void WebContext::platformInitializeWebProcess(WebProcessCreationParameters& para
     parameters.nsURLCacheMemoryCapacity = [urlCache memoryCapacity];
     parameters.nsURLCacheDiskCapacity = [urlCache diskCapacity];
 
+    ASSERT(strlen(parameters.nsURLCachePath.data()));
+    ASSERT(parameters.nsURLCachePath.data()[strlen(parameters.nsURLCachePath.data()) - 1] != '/'); // Necessary for NSURLCache to find the cache file.
+
 #if USE(ACCELERATED_COMPOSITING) && HAVE(HOSTED_CORE_ANIMATION)
     mach_port_t renderServerPort = WKInitializeRenderServer();
     if (renderServerPort != MACH_PORT_NULL)
@@ -89,11 +93,18 @@ void WebContext::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     // FIXME: This should really be configurable; we shouldn't just blindly allow read access to the UI process bundle.
     parameters.uiProcessBundleResourcePath = fileSystemRepresentation([[NSBundle mainBundle] resourcePath]);
+
+#if USE(CFURLSTORAGESESSIONS)
+    parameters.uiProcessBundleIdentifier = String([[NSBundle mainBundle] bundleIdentifier]);
+#endif
 }
 
 String WebContext::platformDefaultDatabaseDirectory() const
 {
-    return [@"~/Library/WebKit/Databases" stringByStandardizingPath];
+    NSString *databasesDirectory = [[NSUserDefaults standardUserDefaults] objectForKey:WebDatabaseDirectoryDefaultsKey];
+    if (!databasesDirectory || ![databasesDirectory isKindOfClass:[NSString class]])
+        databasesDirectory = @"~/Library/WebKit/Databases";
+    return [databasesDirectory stringByStandardizingPath];
 }
 
 } // namespace WebKit

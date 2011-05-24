@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -158,6 +158,16 @@ void WKContextClearApplicationCache(WKContextRef contextRef)
     toImpl(contextRef)->clearApplicationCache();
 }
 
+WKCookieManagerRef WKContextGetCookieManager(WKContextRef contextRef)
+{
+    return toAPI(toImpl(contextRef)->cookieManagerProxy());
+}
+
+WKApplicationCacheManagerRef WKContextGetApplicationCacheManager(WKContextRef contextRef)
+{
+    return toAPI(toImpl(contextRef)->applicationCacheManagerProxy());
+}
+
 WKDatabaseManagerRef WKContextGetDatabaseManager(WKContextRef contextRef)
 {
     return toAPI(toImpl(contextRef)->databaseManagerProxy());
@@ -166,6 +176,21 @@ WKDatabaseManagerRef WKContextGetDatabaseManager(WKContextRef contextRef)
 WKGeolocationManagerRef WKContextGetGeolocationManager(WKContextRef contextRef)
 {
     return toAPI(toImpl(contextRef)->geolocationManagerProxy());
+}
+
+WKKeyValueStorageManagerRef WKContextGetKeyValueStorageManager(WKContextRef contextRef)
+{
+    return toAPI(toImpl(contextRef)->keyValueStorageManagerProxy());
+}
+
+WKPluginSiteDataManagerRef WKContextGetPluginSiteDataManager(WKContextRef contextRef)
+{
+    return toAPI(toImpl(contextRef)->pluginSiteDataManager());
+}
+
+WKResourceCacheManagerRef WKContextGetResourceCacheManager(WKContextRef contextRef)
+{
+    return toAPI(toImpl(contextRef)->resourceCacheManagerProxy());
 }
 
 void WKContextStartMemorySampler(WKContextRef contextRef, WKDoubleRef interval)

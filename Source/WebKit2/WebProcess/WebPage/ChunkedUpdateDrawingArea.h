@@ -36,7 +36,7 @@ class UpdateChunk;
 
 class ChunkedUpdateDrawingArea : public DrawingArea {
 public:
-    ChunkedUpdateDrawingArea(DrawingAreaInfo::Identifier identifier, WebPage*);
+    explicit ChunkedUpdateDrawingArea(WebPage*);
     virtual ~ChunkedUpdateDrawingArea();
 
     virtual void setNeedsDisplay(const WebCore::IntRect&);
@@ -45,8 +45,6 @@ public:
     virtual void forceRepaint();
 
 #if USE(ACCELERATED_COMPOSITING)
-    virtual void attachCompositingContext() { }
-    virtual void detachCompositingContext() { }
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) { }
     virtual void scheduleCompositingLayerSync() { }
     virtual void syncCompositingLayers() { }
@@ -60,7 +58,7 @@ private:
     // CoreIPC message handlers.
     void setSize(const WebCore::IntSize& viewSize);
     void suspendPainting();
-    void resumePainting(bool forceRepaint);
+    void deprecatedResumePainting(bool forceRepaint);
     void didUpdate();
 
     // Platform overrides

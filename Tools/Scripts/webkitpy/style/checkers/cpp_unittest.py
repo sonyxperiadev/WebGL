@@ -1002,9 +1002,9 @@ class CppStyleTest(CppStyleTestBase):
         mock_header_contents = ['']
         message = self.perform_include_what_you_use(
             '''#include "config.h"
-               #include "%s/a.h"
+               #include "%s%sa.h"
 
-               std::set<int> foo;''' % os.path.basename(os.getcwd()),
+               std::set<int> foo;''' % (os.path.basename(os.getcwd()), os.path.sep),
             filename='a.cpp',
             io=MockIo(mock_header_contents))
         self.assertEquals(message, 'Add #include <set> for set<>  '
@@ -1779,7 +1779,7 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_multi_line_lint('#endif\n    );',
                                     '')
 
-    def test_two_spaces_between_code_and_comments(self):
+    def test_one_spaces_between_code_and_comments(self):
         self.assert_lint('} // namespace foo',
                          '')
         self.assert_lint('}// namespace foo',
@@ -1805,6 +1805,24 @@ class CppStyleTest(CppStyleTestBase):
         self.assert_lint('printf("// In quotes.")', '')
         self.assert_lint('printf("\\"%s // In quotes.")', '')
         self.assert_lint('printf("%s", "// In quotes.")', '')
+
+    def test_one_spaces_after_punctuation_in_comments(self):
+        self.assert_lint('int a; // This is a sentence.',
+                         '')
+        self.assert_lint('int a; // This is a sentence. This is a another sentence.',
+                         '')
+        self.assert_lint('int a; // This is a sentence.  This is a another sentence.',
+                         'Should only a single space after a punctuation in a comment.  [whitespace/comments] [5]')
+        self.assert_lint('int a; // This is a sentence!  This is a another sentence.',
+                         'Should only a single space after a punctuation in a comment.  [whitespace/comments] [5]')
+        self.assert_lint('int a; // Why did I write this?  This is a another sentence.',
+                         'Should only a single space after a punctuation in a comment.  [whitespace/comments] [5]')
+        self.assert_lint('int a; // Elementary,  my dear.',
+                         'Should only a single space after a punctuation in a comment.  [whitespace/comments] [5]')
+        self.assert_lint('int a; // The following should be clear:  Is it?',
+                         'Should only a single space after a punctuation in a comment.  [whitespace/comments] [5]')
+        self.assert_lint('int a; // Look at the follow semicolon;  I hope this gives an error.',
+                         'Should only a single space after a punctuation in a comment.  [whitespace/comments] [5]')
 
     def test_space_after_comment_marker(self):
         self.assert_lint('//', '')
@@ -3616,6 +3634,21 @@ class WebKitStyleTest(CppStyleTestBase):
             ['More than one command on the same line in if  [whitespace/parens] [4]',
              'One line control clauses should not use braces.  [whitespace/braces] [4]'])
         self.assert_multi_line_lint(
+            'if (condition)\n'
+            '    doSomething();\n'
+            'else {\n'
+            '    doSomethingElse();\n'
+            '}\n',
+            'One line control clauses should not use braces.  [whitespace/braces] [4]')
+        self.assert_multi_line_lint(
+            'if (condition) {\n'
+            '    doSomething1();\n'
+            '    doSomething2();\n'
+            '} else {\n'
+            '    doSomethingElse();\n'
+            '}\n',
+            'One line control clauses should not use braces.  [whitespace/braces] [4]')
+        self.assert_multi_line_lint(
             'void func()\n'
             '{\n'
             '    while (condition) { }\n'
@@ -4331,6 +4364,48 @@ class WebKitStyleTest(CppStyleTestBase):
         self.assert_lint('}  // namespace WebCore',
                          'One space before end of line comments'
                          '  [whitespace/comments] [5]')
+
+    def test_webkit_api_check(self):
+        webkit_api_error_rules = ('-',
+                                  '+readability/webkit_api')
+        self.assertEquals('',
+                          self.perform_lint('WEBKIT_API int foo();\n',
+                                            'WebKit/chromium/public/test.h',
+                                            webkit_api_error_rules))
+        self.assertEquals('WEBKIT_API should only be used in header files.  [readability/webkit_api] [5]',
+                          self.perform_lint('WEBKIT_API int foo();\n',
+                                            'WebKit/chromium/public/test.cpp',
+                                            webkit_api_error_rules))
+        self.assertEquals('WEBKIT_API should only appear in the chromium public directory.  [readability/webkit_api] [5]',
+                          self.perform_lint('WEBKIT_API int foo();\n',
+                                            'WebKit/chromium/src/test.h',
+                                            webkit_api_error_rules))
+        self.assertEquals('WEBKIT_API should not be used on a function with a body.  [readability/webkit_api] [5]',
+                          self.perform_lint('WEBKIT_API int foo() { }\n',
+                                            'WebKit/chromium/public/test.h',
+                                            webkit_api_error_rules))
+        self.assertEquals('WEBKIT_API should not be used on a function with a body.  [readability/webkit_api] [5]',
+                          self.perform_lint('WEBKIT_API inline int foo()\n'
+                                            '{\n'
+                                            '}\n',
+                                            'WebKit/chromium/public/test.h',
+                                            webkit_api_error_rules))
+        self.assertEquals('WEBKIT_API should not be used with a pure virtual function.  [readability/webkit_api] [5]',
+                          self.perform_lint('{}\n'
+                                            'WEBKIT_API\n'
+                                            'virtual\n'
+                                            'int\n'
+                                            'foo() = 0;\n',
+                                            'WebKit/chromium/public/test.h',
+                                            webkit_api_error_rules))
+        self.assertEquals('',
+                          self.perform_lint('{}\n'
+                                            'WEBKIT_API\n'
+                                            'virtual\n'
+                                            'int\n'
+                                            'foo() = 0;\n',
+                                            'test.h',
+                                            webkit_api_error_rules))
 
     def test_other(self):
         # FIXME: Implement this.

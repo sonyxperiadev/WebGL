@@ -80,6 +80,11 @@ WebInspector.HeapSnapshotEdge.prototype = {
         return this._type() === this._snapshot._edgeInternalType;
     },
 
+    get isInvisible()
+    {
+        return this._type() === this._snapshot._edgeInvisibleType;
+    },
+
     get isShortcut()
     {
         return this._type() === this._snapshot._edgeShortcutType;
@@ -123,6 +128,7 @@ WebInspector.HeapSnapshotEdge.prototype = {
                 return "[" + this.name + "]";
         case "internal":
         case "hidden":
+        case "invisible":
             return "{" + this.name + "}";
         };
         return "?" + this.name + "?";
@@ -377,6 +383,10 @@ WebInspector.HeapSnapshot.prototype = {
         this._edgeHiddenType = this._edgeTypes.indexOf("hidden");
         this._edgeInternalType = this._edgeTypes.indexOf("internal");
         this._edgeShortcutType = this._edgeTypes.indexOf("shortcut");
+        this._edgeInvisibleType = this._edgeTypes.length;
+        this._edgeTypes.push("invisible");
+
+        this._markInvisibleEdges();
     },
 
     dispose: function()
@@ -549,17 +559,44 @@ WebInspector.HeapSnapshot.prototype = {
                 });
 
         this._aggregatesWithIndexes = true;
+    },
+
+    _markInvisibleEdges: function()
+    {
+        // Mark hidden edges of global objects as invisible.
+        // FIXME: This is a temporary measure. Normally, we should
+        // really hide all hidden nodes.
+        for (var iter = this.rootNode.edges; iter.hasNext(); iter.next()) {
+            var edge = iter.edge;
+            if (!edge.isShortcut)
+                continue;
+            var node = edge.node;
+            var propNames = {};
+            for (var innerIter = node.edges; innerIter.hasNext(); innerIter.next()) {
+                var globalObjEdge = innerIter.edge;
+                if (globalObjEdge.isShortcut)
+                    propNames[globalObjEdge._nameOrIndex] = true;
+            }
+            for (innerIter.first(); innerIter.hasNext(); innerIter.next()) {
+                var globalObjEdge = innerIter.edge;
+                if (!globalObjEdge.isShortcut
+                    && globalObjEdge.node.isHidden
+                    && globalObjEdge._hasStringName
+                    && (globalObjEdge._nameOrIndex in propNames))
+                    this._nodes[globalObjEdge._edges._start + globalObjEdge.edgeIndex + this._edgeTypeOffset] = this._edgeInvisibleType;
+            }
+        }
     }
 };
 
-WebInspector.HeapSnapshotFilteredOrderedIterator = function(snapshot, iterator, filter)
+WebInspector.HeapSnapshotFilteredOrderedIterator = function(iterator, filter)
 {
-    this._snapshot = snapshot;
     this._filter = filter;
     this._iterator = iterator;
     this._iterationOrder = null;
     this._position = 0;
     this._lastComparator = null;
+    this._instancesCount = 0;
 }
 
 WebInspector.HeapSnapshotFilteredOrderedIterator.prototype = {
@@ -586,6 +623,16 @@ WebInspector.HeapSnapshotFilteredOrderedIterator.prototype = {
     hasNext: function()
     {
         return this._position < this._iterationOrder.length;
+    },
+
+    incInstancesCount: function()
+    {
+        ++this._instancesCount;
+    },
+
+    get instancesCount()
+    {
+        return this._instancesCount;
     },
 
     get isEmpty()
@@ -623,6 +670,11 @@ WebInspector.HeapSnapshotFilteredOrderedIterator.prototype = {
     next: function()
     {
         ++this._position;
+    },
+
+    resetInstancesCount: function()
+    {
+        this._instancesCount = 0;
     }
 }
 
@@ -633,7 +685,8 @@ WebInspector.HeapSnapshotFilteredOrderedIterator.prototype.createComparator = fu
 
 WebInspector.HeapSnapshotEdgesProvider = function(snapshot, rawEdges, filter)
 {
-    WebInspector.HeapSnapshotFilteredOrderedIterator.call(this, snapshot, new WebInspector.HeapSnapshotEdgeIterator(new WebInspector.HeapSnapshotEdge(snapshot, rawEdges)), filter);
+    this.snapshot = snapshot;
+    WebInspector.HeapSnapshotFilteredOrderedIterator.call(this, new WebInspector.HeapSnapshotEdgeIterator(new WebInspector.HeapSnapshotEdge(snapshot, rawEdges)), filter);
 }
 
 WebInspector.HeapSnapshotEdgesProvider.prototype = {
@@ -649,8 +702,8 @@ WebInspector.HeapSnapshotEdgesProvider.prototype = {
 
         var edgeA = this._iterator.item.clone();
         var edgeB = edgeA.clone();
-        var nodeA = new WebInspector.HeapSnapshotNode(this._snapshot);
-        var nodeB = new WebInspector.HeapSnapshotNode(this._snapshot);
+        var nodeA = new WebInspector.HeapSnapshotNode(this.snapshot);
+        var nodeB = new WebInspector.HeapSnapshotNode(this.snapshot);
 
         function sortByEdgeFieldName(ascending, indexA, indexB)
         {
@@ -715,7 +768,8 @@ WebInspector.HeapSnapshotEdgesProvider.prototype.__proto__ = WebInspector.HeapSn
 
 WebInspector.HeapSnapshotNodesProvider = function(snapshot, nodes, filter)
 {
-    WebInspector.HeapSnapshotFilteredOrderedIterator.call(this, snapshot, nodes, filter);
+    this.snapshot = snapshot;
+    WebInspector.HeapSnapshotFilteredOrderedIterator.call(this, nodes, filter);
 }
 
 WebInspector.HeapSnapshotNodesProvider.prototype = {
@@ -729,8 +783,8 @@ WebInspector.HeapSnapshotNodesProvider.prototype = {
         var ascending1 = comparator.ascending1;
         var ascending2 = comparator.ascending2;
 
-        var nodeA = new WebInspector.HeapSnapshotNode(this._snapshot);
-        var nodeB = new WebInspector.HeapSnapshotNode(this._snapshot);
+        var nodeA = new WebInspector.HeapSnapshotNode(this.snapshot);
+        var nodeB = new WebInspector.HeapSnapshotNode(this.snapshot);
 
         function sortByNodeField(fieldName, ascending, indexA, indexB)
         {
@@ -832,7 +886,8 @@ WebInspector.HeapSnapshotPathFinder.prototype = {
 
     _skipEdge: function(edge)
     {
-        return (this._skipHidden && (edge.isHidden || edge.node.isHidden))
+        return edge.isInvisible
+            || (this._skipHidden && (edge.isHidden || edge.node.isHidden))
             || this._hasInPath(edge.nodeIndex);
     },
 

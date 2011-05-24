@@ -43,19 +43,15 @@ public:
     }
     ~IDBKeyRange() { }
 
-
     PassRefPtr<IDBKey> lower() const { return m_lower; }
     PassRefPtr<IDBKey> upper() const { return m_upper; }
     bool lowerOpen() const { return m_lowerOpen; }
     bool upperOpen() const { return m_upperOpen; }
 
-    String lowerWhereClauseComparisonOperator() const;
-    String upperWhereClauseComparisonOperator() const;
-
     static PassRefPtr<IDBKeyRange> only(PassRefPtr<IDBKey> value);
     static PassRefPtr<IDBKeyRange> lowerBound(PassRefPtr<IDBKey> bound, bool open = false);
     static PassRefPtr<IDBKeyRange> upperBound(PassRefPtr<IDBKey> bound, bool open = false);
-    static PassRefPtr<IDBKeyRange> bound(PassRefPtr<IDBKey> lower, PassRefPtr<IDBKey> upper, const OptionsObject& = OptionsObject());
+    static PassRefPtr<IDBKeyRange> bound(PassRefPtr<IDBKey> lower, PassRefPtr<IDBKey> upper, bool lowerOpen = false, bool upperOpen = false);
 
 private:
     IDBKeyRange(PassRefPtr<IDBKey> lower, PassRefPtr<IDBKey> upper, bool lowerOpen, bool upperOpen);

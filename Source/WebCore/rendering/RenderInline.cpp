@@ -53,6 +53,19 @@ RenderInline::RenderInline(Node* node)
 
 void RenderInline::destroy()
 {
+#ifndef NDEBUG
+    // Make sure we do not retain "this" in the continuation outline table map of our containing blocks.
+    if (parent() && style()->visibility() == VISIBLE && hasOutline()) {
+        bool containingBlockPaintsContinuationOutline = continuation() || isInlineElementContinuation();
+        if (containingBlockPaintsContinuationOutline) {
+            if (RenderBlock* cb = containingBlock()) {
+                if (RenderBlock* cbCb = cb->containingBlock())
+                    ASSERT(!cbCb->paintsContinuationOutline(this));
+            }
+        }
+    }
+#endif
+
     // Make sure to destroy anonymous children first while they are still connected to the rest of the tree, so that they will
     // properly dirty line boxes that they are removed from.  Effects that do :before/:after only on hover could crash otherwise.
     children()->destroyLeftoverChildren();
@@ -559,8 +572,8 @@ IntRect RenderInline::linesBoundingBox() const
     ASSERT(!firstLineBox() == !lastLineBox());  // Either both are null or both exist.
     if (firstLineBox() && lastLineBox()) {
         // Return the width of the minimal left side and the maximal right side.
-        int logicalLeftSide = 0;
-        int logicalRightSide = 0;
+        float logicalLeftSide = 0;
+        float logicalRightSide = 0;
         for (InlineFlowBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
             if (curr == firstLineBox() || curr->logicalLeft() < logicalLeftSide)
                 logicalLeftSide = curr->logicalLeft();
@@ -570,11 +583,11 @@ IntRect RenderInline::linesBoundingBox() const
         
         bool isHorizontal = style()->isHorizontalWritingMode();
         
-        int x = isHorizontal ? logicalLeftSide : firstLineBox()->x();
-        int y = isHorizontal ? firstLineBox()->y() : logicalLeftSide;
-        int width = isHorizontal ? logicalRightSide - logicalLeftSide : lastLineBox()->logicalBottom() - x;
-        int height = isHorizontal ? lastLineBox()->logicalBottom() - y : logicalRightSide - logicalLeftSide;
-        result = IntRect(x, y, width, height);
+        float x = isHorizontal ? logicalLeftSide : firstLineBox()->x();
+        float y = isHorizontal ? firstLineBox()->y() : logicalLeftSide;
+        float width = isHorizontal ? logicalRightSide - logicalLeftSide : lastLineBox()->logicalBottom() - x;
+        float height = isHorizontal ? lastLineBox()->logicalBottom() - y : logicalRightSide - logicalLeftSide;
+        result = enclosingIntRect(FloatRect(x, y, width, height));
     }
 
     return result;
@@ -586,20 +599,20 @@ IntRect RenderInline::linesVisualOverflowBoundingBox() const
         return IntRect();
 
     // Return the width of the minimal left side and the maximal right side.
-    int logicalLeftSide = numeric_limits<int>::max();
-    int logicalRightSide = numeric_limits<int>::min();
+    float logicalLeftSide = numeric_limits<int>::max();
+    float logicalRightSide = numeric_limits<int>::min();
     for (InlineFlowBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
-        logicalLeftSide = min(logicalLeftSide, curr->logicalLeftVisualOverflow());
-        logicalRightSide = max(logicalRightSide, curr->logicalRightVisualOverflow());
+        logicalLeftSide = min(logicalLeftSide, static_cast<float>(curr->logicalLeftVisualOverflow()));
+        logicalRightSide = max(logicalRightSide, static_cast<float>(curr->logicalRightVisualOverflow()));
     }
 
     bool isHorizontal = style()->isHorizontalWritingMode();
         
-    int x = isHorizontal ? logicalLeftSide : firstLineBox()->minXVisualOverflow();
-    int y = isHorizontal ? firstLineBox()->minYVisualOverflow() : logicalLeftSide;
-    int width = isHorizontal ? logicalRightSide - logicalLeftSide : lastLineBox()->maxXVisualOverflow() - firstLineBox()->minXVisualOverflow();
-    int height = isHorizontal ? lastLineBox()->maxYVisualOverflow() - firstLineBox()->minYVisualOverflow() : logicalRightSide - logicalLeftSide;
-    return IntRect(x, y, width, height);
+    float x = isHorizontal ? logicalLeftSide : firstLineBox()->minXVisualOverflow();
+    float y = isHorizontal ? firstLineBox()->minYVisualOverflow() : logicalLeftSide;
+    float width = isHorizontal ? logicalRightSide - logicalLeftSide : lastLineBox()->maxXVisualOverflow() - firstLineBox()->minXVisualOverflow();
+    float height = isHorizontal ? lastLineBox()->maxYVisualOverflow() - firstLineBox()->minYVisualOverflow() : logicalRightSide - logicalLeftSide;
+    return enclosingIntRect(FloatRect(x, y, width, height));
 }
 
 IntRect RenderInline::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
@@ -915,6 +928,8 @@ int RenderInline::baselinePosition(FontBaseline baselineType, bool firstLine, Li
 
 IntSize RenderInline::relativePositionedInlineOffset(const RenderBox* child) const
 {
+    // FIXME: This function isn't right with mixed writing modes.
+
     ASSERT(isRelPositioned());
     if (!isRelPositioned())
         return IntSize();
@@ -923,31 +938,32 @@ IntSize RenderInline::relativePositionedInlineOffset(const RenderBox* child) con
     // box from the rest of the content, but only in the cases where we know we're positioned
     // relative to the inline itself.
 
-    IntSize offset;
-    int sx;
-    int sy;
+    IntSize logicalOffset;
+    int inlinePosition;
+    int blockPosition;
     if (firstLineBox()) {
-        sx = firstLineBox()->x();
-        sy = firstLineBox()->y();
+        inlinePosition = lroundf(firstLineBox()->logicalLeft());
+        blockPosition = firstLineBox()->logicalTop();
     } else {
-        sx = layer()->staticX();
-        sy = layer()->staticY();
+        inlinePosition = layer()->staticInlinePosition();
+        blockPosition = layer()->staticBlockPosition();
     }
 
-    if (!child->style()->hasStaticX())
-        offset.setWidth(sx);
+    if (!child->style()->hasStaticInlinePosition(style()->isHorizontalWritingMode()))
+        logicalOffset.setWidth(inlinePosition);
+
     // This is not terribly intuitive, but we have to match other browsers.  Despite being a block display type inside
     // an inline, we still keep our x locked to the left of the relative positioned inline.  Arguably the correct
     // behavior would be to go flush left to the block that contains the inline, but that isn't what other browsers
     // do.
     else if (!child->style()->isOriginalDisplayInlineType())
         // Avoid adding in the left border/padding of the containing block twice.  Subtract it out.
-        offset.setWidth(sx - (child->containingBlock()->borderLeft() + child->containingBlock()->paddingLeft()));
+        logicalOffset.setWidth(inlinePosition - child->containingBlock()->borderAndPaddingLogicalLeft());
 
-    if (!child->style()->hasStaticY())
-        offset.setHeight(sy);
+    if (!child->style()->hasStaticBlockPosition(style()->isHorizontalWritingMode()))
+        logicalOffset.setHeight(blockPosition);
 
-    return offset;
+    return style()->isHorizontalWritingMode() ? logicalOffset : logicalOffset.transposedSize();
 }
 
 void RenderInline::imageChanged(WrappedImagePtr, const IntRect*)
@@ -963,8 +979,8 @@ void RenderInline::addFocusRingRects(Vector<IntRect>& rects, int tx, int ty)
 {
     for (InlineFlowBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
         RootInlineBox* root = curr->root();
-        int top = max(root->lineTop(), curr->y());
-        int bottom = min(root->lineBottom(), curr->y() + curr->logicalHeight());
+        int top = max(root->lineTop(), curr->logicalTop());
+        int bottom = min(root->lineBottom(), curr->logicalBottom());
         IntRect rect(tx + curr->x(), ty + top, curr->logicalWidth(), bottom - top);
         if (!rect.isEmpty())
             rects.append(rect);
@@ -1015,8 +1031,8 @@ void RenderInline::paintOutline(GraphicsContext* graphicsContext, int tx, int ty
     rects.append(IntRect());
     for (InlineFlowBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
         RootInlineBox* root = curr->root();
-        int top = max(root->lineTop(), curr->y());
-        int bottom = min(root->lineBottom(), curr->y() + curr->logicalHeight());
+        int top = max(root->lineTop(), curr->logicalTop());
+        int bottom = min(root->lineBottom(), curr->logicalBottom());
         rects.append(IntRect(curr->x(), top, curr->logicalWidth(), bottom - top));
     }
     rects.append(IntRect());

@@ -32,7 +32,7 @@
 namespace WebCore {
 
 MoveSelectionCommand::MoveSelectionCommand(PassRefPtr<DocumentFragment> fragment, const Position& position, bool smartInsert, bool smartDelete) 
-    : CompositeEditCommand(position.node()->document()), m_fragment(fragment), m_position(position), m_smartInsert(smartInsert), m_smartDelete(smartDelete)
+    : CompositeEditCommand(position.anchorNode()->document()), m_fragment(fragment), m_position(position), m_smartInsert(smartInsert), m_smartDelete(smartDelete)
 {
     ASSERT(m_fragment);
 }
@@ -62,7 +62,7 @@ void MoveSelectionCommand::doApply()
     // set the destination to the ending point after the deletion.
     // Fixes: <rdar://problem/3910425> REGRESSION (Mail): Crash in ReplaceSelectionCommand; 
     //        selection is empty, leading to null deref
-    if (!pos.node()->inDocument())
+    if (!pos.anchorNode()->inDocument())
         pos = endingSelection().start();
 
     setEndingSelection(VisibleSelection(pos, endingSelection().affinity()));
@@ -70,7 +70,10 @@ void MoveSelectionCommand::doApply()
         // Document was modified out from under us.
         return;
     }
-    applyCommandToComposite(ReplaceSelectionCommand::create(document(), m_fragment, true, m_smartInsert));
+    ReplaceSelectionCommand::CommandOptions options = ReplaceSelectionCommand::SelectReplacement | ReplaceSelectionCommand::PreventNesting;
+    if (m_smartInsert)
+        options |= ReplaceSelectionCommand::SmartReplace;
+    applyCommandToComposite(ReplaceSelectionCommand::create(document(), m_fragment, options));
 }
 
 EditAction MoveSelectionCommand::editingAction() const

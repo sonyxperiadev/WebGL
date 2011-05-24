@@ -28,21 +28,32 @@
 
 #if USE(CFNETWORK)
 
+#include "LoaderRunLoopCF.h"
+#include "ResourceHandle.h"
 #include <CFNetwork/CFHTTPCookiesPriv.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <wtf/MainThread.h>
 #include <wtf/RetainPtr.h>
 
+#if USE(PLATFORM_STRATEGIES)
+#include "CookiesStrategy.h"
+#include "PlatformStrategies.h"
+#endif
+
 namespace WebCore {
 
-static RetainPtr<CFHTTPCookieStorageRef> s_cookieStorage;
+static RetainPtr<CFHTTPCookieStorageRef>& privateBrowsingCookieStorage()
+{
+    DEFINE_STATIC_LOCAL(RetainPtr<CFHTTPCookieStorageRef>, cookieStorage, ());
+    return cookieStorage;
+}
 
 CFHTTPCookieStorageRef currentCookieStorage()
 {
     ASSERT(isMainThread());
 
-    if (s_cookieStorage)
-        return s_cookieStorage.get();
+    if (CFHTTPCookieStorageRef privateCookieStorage = privateBrowsingCookieStorage().get())
+        return privateCookieStorage;
     return wkGetDefaultHTTPCookieStorage();
 }
 
@@ -50,17 +61,76 @@ void setCurrentCookieStorage(CFHTTPCookieStorageRef cookieStorage)
 {
     ASSERT(isMainThread());
 
-    s_cookieStorage = cookieStorage;
+    privateBrowsingCookieStorage().adoptCF(cookieStorage);
 }
 
 void setCookieStoragePrivateBrowsingEnabled(bool enabled)
 {
     ASSERT(isMainThread());
 
-    if (enabled)
-        s_cookieStorage.adoptCF(wkCreatePrivateHTTPCookieStorage());
-    else
-        s_cookieStorage = 0;
+    if (!enabled) {
+        privateBrowsingCookieStorage() = nullptr;
+        return;
+    }
+
+#if USE(CFURLSTORAGESESSIONS)
+    privateBrowsingCookieStorage().adoptCF(wkCreatePrivateInMemoryHTTPCookieStorage(ResourceHandle::privateBrowsingStorageSession()));
+#else
+    privateBrowsingCookieStorage().adoptCF(wkCreatePrivateInMemoryHTTPCookieStorage(0));
+#endif
+}
+
+static void notifyCookiesChangedOnMainThread(void* context)
+{
+    ASSERT(isMainThread());
+
+#if USE(PLATFORM_STRATEGIES)
+    platformStrategies()->cookiesStrategy()->notifyCookiesChanged();
+#endif
+}
+
+static void notifyCookiesChanged(CFHTTPCookieStorageRef inStorage, void *context)
+{
+    callOnMainThread(notifyCookiesChangedOnMainThread, 0);
+}
+
+static inline CFRunLoopRef cookieStorageObserverRunLoop()
+{
+    // We're using the loader run loop because we need a CFRunLoop to 
+    // call the CFNetwork cookie storage APIs with. Re-using the loader
+    // run loop is less overhead than starting a new thread to just listen
+    // for changes in cookies.
+    
+    // FIXME: The loaderRunLoop function name should be a little more generic.
+    return loaderRunLoop();
+}
+
+void startObservingCookieChanges()
+{
+    ASSERT(isMainThread());
+
+    CFRunLoopRef runLoop = cookieStorageObserverRunLoop();
+    ASSERT(runLoop);
+
+    CFHTTPCookieStorageRef cookieStorage = currentCookieStorage();
+    ASSERT(cookieStorage);
+
+    CFHTTPCookieStorageScheduleWithRunLoop(cookieStorage, runLoop, kCFRunLoopCommonModes);
+    CFHTTPCookieStorageAddObserver(cookieStorage, runLoop, kCFRunLoopDefaultMode, notifyCookiesChanged, 0);
+}
+
+void stopObservingCookieChanges()
+{
+    ASSERT(isMainThread());
+
+    CFRunLoopRef runLoop = cookieStorageObserverRunLoop();
+    ASSERT(runLoop);
+
+    CFHTTPCookieStorageRef cookieStorage = currentCookieStorage();
+    ASSERT(cookieStorage);
+
+    CFHTTPCookieStorageRemoveObserver(cookieStorage, runLoop, kCFRunLoopDefaultMode, notifyCookiesChanged, 0);
+    CFHTTPCookieStorageUnscheduleFromRunLoop(cookieStorage, runLoop, kCFRunLoopCommonModes);
 }
 
 } // namespace WebCore

@@ -263,8 +263,11 @@ bool SVGImage::dataChanged(bool allDataReceived)
 #endif
 
         // FIXME: If this SVG ends up loading itself, we might leak the world.
-        // The comment said that the Cache code does not know about CachedImages
-        // holding Frames and won't know to break the cycle. But 
+        // The Cache code does not know about CachedImages holding Frames and
+        // won't know to break the cycle.
+        // This will become an issue when SVGImage will be able to load other
+        // SVGImage objects, but we're safe now, because SVGImage can only be
+        // loaded by a top-level document.
         m_page.set(new Page(pageClients));
         m_page->settings()->setMediaEnabled(false);
         m_page->settings()->setJavaScriptEnabled(false);
@@ -273,12 +276,9 @@ bool SVGImage::dataChanged(bool allDataReceived)
         RefPtr<Frame> frame = Frame::create(m_page.get(), 0, dummyFrameLoaderClient);
         frame->setView(FrameView::create(frame.get()));
         frame->init();
-        ResourceRequest fakeRequest(KURL(ParsedURLString, ""));
         FrameLoader* loader = frame->loader();
         loader->setForcedSandboxFlags(SandboxAll);
-        loader->load(fakeRequest, false); // Make sure the DocumentLoader is created
-        loader->policyChecker()->cancelCheck(); // cancel any policy checks
-        loader->commitProvisionalLoad();
+        ASSERT(loader->activeDocumentLoader()); // DocumentLoader should have been created by frame->init().
         loader->activeDocumentLoader()->writer()->setMIMEType("image/svg+xml");
         loader->activeDocumentLoader()->writer()->begin(KURL()); // create the empty document
         loader->activeDocumentLoader()->writer()->addData(data()->data(), data()->size());

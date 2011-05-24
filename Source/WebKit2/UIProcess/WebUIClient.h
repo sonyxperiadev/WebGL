@@ -61,7 +61,7 @@ public:
 
     void setStatusText(WebPageProxy*, const String&);
     void mouseDidMoveOverElement(WebPageProxy*, WebEvent::Modifiers, APIObject*);
-    void missingPluginButtonClicked(WebPageProxy*, const String& mimeType, const String& url);
+    void missingPluginButtonClicked(WebPageProxy*, const String& mimeType, const String& url, const String& pluginsPageURL);
     void didNotHandleKeyEvent(WebPageProxy*, const NativeWebKeyboardEvent&);
 
     bool toolbarsAreVisible(WebPageProxy*);
@@ -76,7 +76,7 @@ public:
     void setWindowFrame(WebPageProxy*, const WebCore::FloatRect&);
     WebCore::FloatRect windowFrame(WebPageProxy*);
 
-    bool canRunBeforeUnloadConfirmPanel();
+    bool canRunBeforeUnloadConfirmPanel() const;
     bool runBeforeUnloadConfirmPanel(WebPageProxy*, const String&, WebFrameProxy*);
 
     void didDraw(WebPageProxy*);

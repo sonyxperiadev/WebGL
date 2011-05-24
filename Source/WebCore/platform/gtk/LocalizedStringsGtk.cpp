@@ -66,6 +66,11 @@ String resetButtonDefaultLabel()
     return String::fromUTF8(_("Reset"));
 }
 
+String defaultDetailsSummaryText()
+{
+    return String::fromUTF8(_("Details"));
+}
+
 String searchableIndexIntroduction()
 {
     return String::fromUTF8(_("This is a searchable index. Enter search keywords: "));
@@ -109,6 +114,11 @@ String contextMenuItemTagDownloadImageToDisk()
 String contextMenuItemTagCopyImageToClipboard()
 {
     return String::fromUTF8(_("Cop_y Image"));
+}
+
+String contextMenuItemTagCopyImageUrlToClipboard()
+{
+    return String::fromUTF8(_("Copy Image _Address"));
 }
 
 String contextMenuItemTagOpenVideoInNewWindow()

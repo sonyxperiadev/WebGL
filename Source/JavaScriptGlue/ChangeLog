@@ -1,3 +1,209 @@
+2011-03-04  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Use target_defaults to reduce boilerplate in GYP build system
+        https://bugs.webkit.org/show_bug.cgi?id=55790
+
+        Instead of setting up the configuration in each target, just defer to
+        target_defaults.  Also, removed a define that was redundant with the
+        xcconfig.
+
+        * gyp/JavaScriptGlue.gyp:
+
+2011-03-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Rolled out 80277 and 80280 because they caused event handler layout test
+        failures.
+
+        * JSRun.cpp:
+        * JSRun.h:
+
+2011-03-01  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add pre- and post-build actions for JavaScriptCore GYP build
+        https://bugs.webkit.org/show_bug.cgi?id=55507
+
+        Remove the portion of this file that was split out into common.gypi.
+
+        * gyp/JavaScriptGlue.gyp:
+
+2011-02-28  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig & Darin Adler.
+
+        Bug 55423 - Clean up property tables in Structure
+
+        Encapsulate, reduce duplication of table search code,
+        and reduce the size of the tables (remove the index,
+        just maintain the tables in the correct order).
+
+        Shows a 0.5% - 1% progression on sunspider.
+
+        * ForwardingHeaders/wtf/HashTable.h: Added.
+
+2011-02-28  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Teach JavaScriptGlue gyp build about DEPTH
+        https://bugs.webkit.org/show_bug.cgi?id=55421
+
+        After this path, we should set DEPTH to the Source directory, which is
+        a common point for all the frameworks that make up WebKit.  These
+        changes to the GYP teach JavaScriptGlue how to find various files based
+        on DEPTH rather than based on the location of the xcodeproj file.
+
+        * gyp/JavaScriptGlue.gyp:
+        * gyp/remove-headers-if-needed.sh: Removed.
+        * gyp/run-if-exists.sh: Removed.
+        * gyp/update-info-plist.sh: Removed.
+
+2011-02-28  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Use more xcconfig files in JavaScriptGlue gyp build
+        https://bugs.webkit.org/show_bug.cgi?id=55395
+
+        Technically this patch breaks the build because the generated project
+        can't find the Info.plist file or the list of exported symbols.  I'll
+        fix that in a follow-up patch.
+
+        * gyp/JavaScriptGlue.gyp:
+
+2011-02-28  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add necessary build steps to JavaScriptGlue GYP project.
+        https://bugs.webkit.org/show_bug.cgi?id=55196
+
+        * gyp/JavaScriptGlue.gyp: Added pre- and post- build steps.
+        * gyp/JavaScriptGlue.gypi: Added Info.plist.
+        * gyp/remove-headers-if-needed.sh: Added.
+        * gyp/run-if-exists.sh: Added.
+        * gyp/update-info-plist.sh: Added.
+
+2011-02-23  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Rolled back in r79367 with SnowLeopard Release bot crash fixed.
+        https://bugs.webkit.org/show_bug.cgi?id=54999
+
+2011-02-22  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Add a GYP project for JavaScriptGlue
+        https://bugs.webkit.org/show_bug.cgi?id=55019
+
+        This is really just a proof-of-concept.  The Xcode project file it
+        produces is able to build JavaScriptGlue, but it's not 100% correct.
+        Also, the GYP declarations aren't properly structured to allow for
+        multiple projects or ports.  That should get better as we add
+        proof-of-concepts for other projects and ports.
+
+        This build system is not used currently.
+
+        * gyp: Added.
+        * gyp/JavaScriptGlue.gyp: Added.
+        * gyp/JavaScriptGlue.gypi: Added.
+
+2011-02-22  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r79367.
+        http://trac.webkit.org/changeset/79367
+        https://bugs.webkit.org/show_bug.cgi?id=55012
+
+        all layout tests are crashing on Snow Leopard (Requested by
+        rniwa on #webkit).
+
+        * ForwardingHeaders/wtf/DoublyLinkedList.h: Removed.
+
+2011-02-22  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Manage MarkedBlocks in a linked list instead of a vector, so arbitrary removal is O(1)
+        https://bugs.webkit.org/show_bug.cgi?id=54999
+        
+        New WTF header.
+
+        * ForwardingHeaders/wtf/DoublyLinkedList.h: Copied from ForwardingHeaders/wtf/FixedArray.h.
+
+2011-02-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 54786 - Devirtualize JSCell::classInfo()
+
+        Instead of making a virtual function call, add a pointer to the ClassInfo
+        onto Structure.
+
+        This removes a virtual function call, and paves the way towards removing all
+        the createStructure methods, and StructureFlags/AnonymousSlotCount properties
+        (these should be able to move onto ClassInfo).
+
+        Calls to Structure::create must now pass a pointer to the ClassInfo for the
+        structure. All objects now have a ClassInfo pointer, non-object cell types
+        still do not.
+
+        Changes are most mechanical, involving three steps:
+            * Remove virtual classInfo() methods.
+            * Add &s_info parameter to calls to Structure::create.
+            * Rename ClassInfo static members on classes from 'info' to 's_info',
+              for consistency.
+
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (KJSValueToCFTypeInternal):
+        * UserObjectImp.cpp:
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2011-02-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 54524 - Allow JSObject to fully utilize cell's capacity for inline storage.
+
+        Currently JSObject is both directly instantiated for regular JS objects, and
+        derived to implement subtypes. A consequence of this is that we need to ensure
+        that sufficient space from the cell is left unused and available for any data
+        members that will be introduced by subclasses of JSObject. By restructuring
+        the internal storage array out of JSObject we can increase the size in the
+        internal storage for regular objects.
+
+        Add classes JSFinalObject and JSNonFinalObject. JSNonFinalObject retains as
+        much additional capacity as is currently available to allow for data members
+        in subclasses. JSFinalObject utilizes all available space for internal storage,
+        and only allows construction through JSFinalObject::create().
+
+        * UserObjectImp.cpp:
+        * UserObjectImp.h:
+            Update JSObject -> JSNonFinalObject.
+
+2011-02-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough and Geoff Garen.
+
+        Refactor handles and weak pointers to become nicer and more automatic
+        https://bugs.webkit.org/show_bug.cgi?id=54415
+
+        Update to use new Global<> type
+
+        * JSRun.cpp:
+        (JSRun::JSRun):
+        (JSRun::GlobalObject):
+        * JSRun.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSValueWrapper):
+        * JSValueWrapper.h:
+
 2011-02-13  Cameron Zwarich  <zwarich@apple.com>
 
         Reviewed by Dan Bernstein.

@@ -111,7 +111,7 @@ void RenderListBox::updateFromElement()
             }
                 
             if (!text.isEmpty()) {
-                float textWidth = itemFont.floatWidth(TextRun(text.impl(), false, 0, 0, TextRun::AllowTrailingExpansion, false, false, false, false));
+                float textWidth = itemFont.width(TextRun(text.impl(), false, 0, 0, TextRun::AllowTrailingExpansion, false, false));
                 width = max(width, textWidth);
             }
         }
@@ -278,6 +278,32 @@ void RenderListBox::paintObject(PaintInfo& paintInfo, int tx, int ty)
     }
 }
 
+void RenderListBox::addFocusRingRects(Vector<IntRect>& rects, int tx, int ty)
+{
+    if (!isSpatialNavigationEnabled(frame()))
+        return RenderBlock::addFocusRingRects(rects, tx, ty);
+
+    SelectElement* select = toSelectElement(static_cast<Element*>(node()));
+
+    // Focus the last selected item.
+    int selectedItem = select->activeSelectionEndListIndex();
+    if (selectedItem >= 0) {
+        rects.append(itemBoundingBoxRect(tx, ty, selectedItem));
+        return;
+    }
+
+    // No selected items, find the first non-disabled item.
+    int size = numItems();
+    const Vector<Element*>& listItems = select->listItems();
+    for (int i = 0; i < size; ++i) {
+        OptionElement* optionElement = toOptionElement(listItems[i]);
+        if (optionElement && !optionElement->disabled()) {
+            rects.append(itemBoundingBoxRect(tx, ty, i));
+            return;
+        }
+    }
+}
+
 void RenderListBox::paintScrollbar(PaintInfo& paintInfo, int tx, int ty)
 {
     if (m_vBar) {
@@ -333,7 +359,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
 
     unsigned length = itemText.length();
     const UChar* string = itemText.characters();
-    TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, !itemStyle->isLeftToRightDirection(), itemStyle->unicodeBidi() == Override, false, false);
+    TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, !itemStyle->isLeftToRightDirection(), itemStyle->unicodeBidi() == Override);
 
     // Draw the item text
     if (itemStyle->visibility() != HIDDEN)
@@ -557,7 +583,7 @@ int RenderListBox::itemHeight() const
 
 int RenderListBox::verticalScrollbarWidth() const
 {
-    return m_vBar && !ScrollbarTheme::nativeTheme()->usesOverlayScrollbars() ? m_vBar->width() : 0;
+    return m_vBar && !m_vBar->isOverlayScrollbar() ? m_vBar->width() : 0;
 }
 
 // FIXME: We ignore padding in the vertical direction as far as these values are concerned, since that's
@@ -721,22 +747,16 @@ IntPoint RenderListBox::currentMousePosition() const
     return view->frameView()->currentMousePosition();
 }
 
-bool RenderListBox::scrollbarWillRenderIntoCompositingLayer() const
-{
-    RenderLayer* layer = this->enclosingLayer();
-    if (!layer)
-        return false;
-    return layer->scrollbarWillRenderIntoCompositingLayer();
-}
-
 PassRefPtr<Scrollbar> RenderListBox::createScrollbar()
 {
     RefPtr<Scrollbar> widget;
     bool hasCustomScrollbarStyle = style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
         widget = RenderScrollbar::createCustomScrollbar(this, VerticalScrollbar, this);
-    else
+    else {
         widget = Scrollbar::createNativeScrollbar(this, VerticalScrollbar, theme()->scrollbarControlSizeForPart(ListboxPart));
+        didAddVerticalScrollbar(widget.get());
+    }
     document()->view()->addChild(widget.get());        
     return widget.release();
 }
@@ -745,7 +765,9 @@ void RenderListBox::destroyScrollbar()
 {
     if (!m_vBar)
         return;
-    
+
+    if (!m_vBar->isCustomScrollbar())
+        ScrollableArea::willRemoveVerticalScrollbar(m_vBar.get());
     m_vBar->removeFromParent();
     m_vBar->disconnectFromScrollableArea();
     m_vBar = 0;
@@ -756,13 +778,10 @@ void RenderListBox::setHasVerticalScrollbar(bool hasScrollbar)
     if (hasScrollbar == (m_vBar != 0))
         return;
 
-    if (hasScrollbar) {
+    if (hasScrollbar)
         m_vBar = createScrollbar();
-        ScrollableArea::didAddVerticalScrollbar(m_vBar.get());
-    } else {
-        ScrollableArea::willRemoveVerticalScrollbar(m_vBar.get());
+    else
         destroyScrollbar();
-    }
 
     if (m_vBar)
         m_vBar->styleChanged();

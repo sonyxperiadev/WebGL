@@ -43,7 +43,6 @@
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "HTMLFormElement.h"
-#include "Language.h"
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
 #include "Page.h"
@@ -118,10 +117,8 @@ static String composeUserAgent()
     // Comment
     ua += " (";
     ua += agentPlatform(); // Platform
-    ua += "; U; "; // Security
-    ua += agentOS(); // OS-or-CPU
     ua += "; ";
-    ua += defaultLanguage(); // Localization information
+    ua += agentOS(); // OS-or-CPU
     ua += ") ";
 
     // WebKit Product
@@ -317,11 +314,11 @@ void FrameLoaderClientEfl::dispatchDidReceiveResponse(DocumentLoader*, unsigned 
     m_response = response;
 }
 
-void FrameLoaderClientEfl::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& MIMEType, const ResourceRequest&)
+void FrameLoaderClientEfl::dispatchDecidePolicyForResponse(FramePolicyFunction function, const ResourceResponse& response, const ResourceRequest&)
 {
     // we need to call directly here (currently callPolicyFunction does that!)
     ASSERT(function);
-    if (canShowMIMEType(MIMEType))
+    if (canShowMIMEType(response.mimeType()))
         callPolicyFunction(function, PolicyUse);
     else
         callPolicyFunction(function, PolicyDownload);
@@ -508,6 +505,11 @@ bool FrameLoaderClientEfl::shouldGoToHistoryItem(HistoryItem* item) const
     // implementation would delegate the decision to a PolicyDelegate.
     // See mac implementation for example.
     return item;
+}
+
+bool FrameLoaderClientEfl::shouldStopLoadingForHistoryItem(HistoryItem* item) const
+{
+    return true;
 }
 
 void FrameLoaderClientEfl::didDisplayInsecureContent()

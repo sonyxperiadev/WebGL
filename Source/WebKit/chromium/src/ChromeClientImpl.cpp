@@ -79,6 +79,7 @@
 #include "WebPopupMenuInfo.h"
 #include "WebPopupType.h"
 #include "WebRect.h"
+#include "WebSettings.h"
 #include "WebTextDirection.h"
 #include "WebURLRequest.h"
 #include "WebViewClient.h"
@@ -484,14 +485,9 @@ bool ChromeClientImpl::shouldInterruptJavaScript()
     return false;
 }
 
-bool ChromeClientImpl::tabsToLinks() const
+KeyboardUIMode ChromeClientImpl::keyboardUIMode()
 {
-    // Returns true if anchors should accept keyboard focus with the tab key.
-    // This method is used in a convoluted fashion by EventHandler::tabsToLinks.
-    // It's a twisted path (self-evident, but more complicated than seems
-    // necessary), but the net result is that returning true from here, on a
-    // platform other than MAC or QT, lets anchors get keyboard focus.
-    return m_webView->tabsToLinks();
+    return m_webView->tabsToLinks() ? KeyboardAccessTabsToLinks : KeyboardAccessDefault;
 }
 
 IntRect ChromeClientImpl::windowResizerRect() const
@@ -505,7 +501,7 @@ IntRect ChromeClientImpl::windowResizerRect() const
 #if ENABLE(REGISTER_PROTOCOL_HANDLER)
 void ChromeClientImpl::registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title)
 {
-    notImplemented();
+    m_webView->client()->registerProtocolHandler(scheme, baseURL, url, title);
 }
 #endif
 
@@ -859,6 +855,32 @@ void ChromeClientImpl::exitFullscreenForNode(WebCore::Node* node)
     if (m_webView->client())
         m_webView->client()->exitFullscreenForNode(WebNode(node));
 }
+
+#if ENABLE(FULLSCREEN_API)
+bool ChromeClientImpl::supportsFullScreenForElement(const WebCore::Element* element)
+{
+    return m_webView->page()->settings()->fullScreenEnabled();
+}
+
+void ChromeClientImpl::enterFullScreenForElement(WebCore::Element* element)
+{
+    // FIXME: We may need to call these someplace else when window resizes.
+    element->document()->webkitWillEnterFullScreenForElement(element);
+    element->document()->webkitDidEnterFullScreenForElement(element);
+}
+
+void ChromeClientImpl::exitFullScreenForElement(WebCore::Element* element)
+{
+    // FIXME: We may need to call these someplace else when window resizes.
+    element->document()->webkitWillExitFullScreenForElement(element);
+    element->document()->webkitDidExitFullScreenForElement(element);
+}
+
+void ChromeClientImpl::fullScreenRendererChanged(RenderBox*)
+{
+    notImplemented();
+}
+#endif
 
 bool ChromeClientImpl::selectItemWritingDirectionIsNatural()
 {

@@ -176,7 +176,9 @@ public:
     int clientTop() const { return borderTop(); }
     int clientWidth() const;
     int clientHeight() const;
-    int clientLogicalBottom() const { return borderBefore() + (style()->isHorizontalWritingMode() ? clientHeight() : clientWidth()); }
+    int clientLogicalWidth() const { return style()->isHorizontalWritingMode() ? clientWidth() : clientHeight(); }
+    int clientLogicalHeight() const { return style()->isHorizontalWritingMode() ? clientHeight() : clientWidth(); }
+    int clientLogicalBottom() const { return borderBefore() + clientLogicalHeight(); }
     IntRect clientBoxRect() const { return IntRect(clientLeft(), clientTop(), clientWidth(), clientHeight()); }
 
     // scrollWidth/scrollHeight will be the same as clientWidth/clientHeight unless the
@@ -385,6 +387,8 @@ public:
     IntPoint flipForWritingModeIncludingColumns(const IntPoint&) const;
     IntSize flipForWritingMode(const IntSize&) const;
     void flipForWritingMode(IntRect&) const;
+    FloatPoint flipForWritingMode(const FloatPoint&) const;
+    void flipForWritingMode(FloatRect&) const;
     IntSize locationOffsetIncludingFlipping() const;
 
     IntRect logicalVisualOverflowRectForPropagation(RenderStyle*) const;
@@ -426,18 +430,18 @@ private:
     // Returns true if we did a full repaint
     bool repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer* layers, bool drawingBackground);
    
-    int containingBlockWidthForPositioned(const RenderBoxModelObject* containingBlock) const;
-    int containingBlockHeightForPositioned(const RenderBoxModelObject* containingBlock) const;
+    int containingBlockLogicalWidthForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode = true) const;
+    int containingBlockLogicalHeightForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode = true) const;
 
     void computePositionedLogicalHeight();
-    void computePositionedLogicalWidthUsing(Length width, const RenderBoxModelObject* cb, TextDirection containerDirection,
-                                      int containerWidth, int bordersPlusPadding,
-                                      Length left, Length right, Length marginLeft, Length marginRight,
-                                      int& widthValue, int& marginLeftValue, int& marginRightValue, int& xPos);
-    void computePositionedLogicalHeightUsing(Length height, const RenderBoxModelObject* cb,
-                                    int containerHeight, int bordersPlusPadding,
-                                    Length top, Length bottom, Length marginTop, Length marginBottom,
-                                    int& heightValue, int& marginTopValue, int& marginBottomValue, int& yPos);
+    void computePositionedLogicalWidthUsing(Length logicalWidth, const RenderBoxModelObject* containerBlock, TextDirection containerDirection,
+                                            int containerLogicalWidth, int bordersPlusPadding,
+                                            Length logicalLeft, Length logicalRight, Length marginLogicalLeft, Length marginLogicalRight,
+                                            int& logicalWidthValue, int& marginLogicalLeftValue, int& marginLogicalRightValue, int& logicalLeftPos);
+    void computePositionedLogicalHeightUsing(Length logicalHeight, const RenderBoxModelObject* containerBlock,
+                                             int containerLogicalHeight, int bordersPlusPadding,
+                                             Length logicalTop, Length logicalBottom, Length marginLogicalTop, Length marginLogicalBottom,
+                                             int& logicalHeightValue, int& marginLogicalTopValue, int& marginLogicalBottomValue, int& logicalTopPos);
 
     void computePositionedLogicalHeightReplaced();
     void computePositionedLogicalWidthReplaced();

@@ -97,7 +97,6 @@ public:
 
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo) = 0;
     virtual void clearAllEditCommands() = 0;
-    virtual void setEditCommandState(const String& commandName, bool isEnabled, int state) = 0;
 #if PLATFORM(MAC)
     virtual void accessibilityWebProcessTokenReceived(const CoreIPC::DataReference&) = 0;
     virtual void interceptKeyEvent(const NativeWebKeyboardEvent&, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines) = 0;
@@ -119,9 +118,6 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&) = 0;
     virtual void exitAcceleratedCompositingMode() = 0;
-    
-    virtual void pageDidEnterAcceleratedCompositing() = 0;
-    virtual void pageDidLeaveAcceleratedCompositing() = 0;
 #endif
 
 #if PLATFORM(WIN)
@@ -131,17 +127,19 @@ public:
 #if PLATFORM(MAC)
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled) = 0;
     virtual void setAutodisplay(bool) = 0;
-
     virtual CGContextRef containingWindowGraphicsContext() = 0;
+    virtual void didPerformDictionaryLookup(const String&, double scaleFactor, const DictionaryPopupInfo&) = 0;
 #endif
 
     virtual void didChangeScrollbarsForMainFrame() const = 0;
 
     // Custom representations.
     virtual void didCommitLoadForMainFrame(bool useCustomRepresentation) = 0;
-    virtual void didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&) = 0;
+    virtual void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&) = 0;
     virtual double customRepresentationZoomFactor() = 0;
     virtual void setCustomRepresentationZoomFactor(double) = 0;
+
+    virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects) = 0;
 };
 
 } // namespace WebKit

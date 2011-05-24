@@ -205,6 +205,8 @@ void WebPage::resetSettings()
     QWebSettings::setMaximumPagesInCache(0); // reset to default
     settings()->setUserStyleSheetUrl(QUrl()); // reset to default
 
+    DumpRenderTreeSupportQt::setMinimumTimerInterval(this, DumpRenderTreeSupportQt::defaultMinimumTimerInterval());
+
     m_pendingGeolocationRequests.clear();
 }
 
@@ -416,11 +418,12 @@ DumpRenderTree::DumpRenderTree()
     , m_graphicsBased(false)
     , m_persistentStoragePath(QString(getenv("DUMPRENDERTREE_TEMP")))
 {
-
     QByteArray viewMode = getenv("QT_DRT_WEBVIEW_MODE");
     if (viewMode == "graphics")
         setGraphicsBased(true);
 
+    // Set running in DRT mode for qwebpage to create testable objects.
+    DumpRenderTreeSupportQt::setDumpRenderTreeModeEnabled(true);
     DumpRenderTreeSupportQt::overwritePluginDirectories();
     DumpRenderTreeSupportQt::activeMockDeviceOrientationClient(true);
     QWebSettings::enablePersistentStorage(m_persistentStoragePath);
@@ -578,6 +581,8 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting(const QUrl& url)
 #ifndef Q_OS_WINCE
     setlocale(LC_ALL, "");
 #endif
+
+    DumpRenderTreeSupportQt::clearOpener(m_page->mainFrame());
 }
 
 static bool isGlobalHistoryTest(const QUrl& url)
@@ -594,6 +599,14 @@ static bool isWebInspectorTest(const QUrl& url)
     return false;
 }
 
+static bool isDumpAsTextTest(const QUrl& url)
+{
+    if (url.path().contains("dumpAsText/"))
+        return true;
+    return false;
+}
+
+
 void DumpRenderTree::open(const QUrl& url)
 {
     DumpRenderTreeSupportQt::dumpResourceLoadCallbacksPath(QFileInfo(url.toString()).path());
@@ -604,6 +617,11 @@ void DumpRenderTree::open(const QUrl& url)
 
     if (isWebInspectorTest(url))
         layoutTestController()->showWebInspector();
+
+    if (isDumpAsTextTest(url)) {
+        layoutTestController()->dumpAsText();
+        setDumpPixels(false);
+    }
 
     if (isGlobalHistoryTest(url))
         layoutTestController()->dumpHistoryCallbacks();

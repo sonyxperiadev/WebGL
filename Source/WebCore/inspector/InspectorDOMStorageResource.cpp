@@ -46,7 +46,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-int InspectorDOMStorageResource::s_nextUnusedId = 1;
+long InspectorDOMStorageResource::s_nextUnusedId = 1;
 
 InspectorDOMStorageResource::InspectorDOMStorageResource(Storage* domStorage, bool isLocalStorage, Frame* frame)
     :  EventListener(InspectorDOMStorageResourceType)
@@ -67,13 +67,13 @@ bool InspectorDOMStorageResource::isSameHostAndType(Frame* frame, bool isLocalSt
 void InspectorDOMStorageResource::bind(InspectorFrontend* frontend)
 {
     ASSERT(!m_frontend);
-    m_frontend = frontend;
+    m_frontend = frontend->domstorage();
 
     RefPtr<InspectorObject> jsonObject = InspectorObject::create();
     jsonObject->setString("host", m_frame->document()->securityOrigin()->host());
     jsonObject->setBoolean("isLocalStorage", m_isLocalStorage);
     jsonObject->setNumber("id", m_id);
-    frontend->addDOMStorage(jsonObject);
+    m_frontend->addDOMStorage(jsonObject);
 }
 
 void InspectorDOMStorageResource::unbind()

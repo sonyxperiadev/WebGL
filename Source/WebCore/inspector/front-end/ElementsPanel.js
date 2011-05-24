@@ -57,7 +57,7 @@ WebInspector.ElementsPanel = function()
         this.panel.updateEventListeners();
 
         if (this._focusedDOMNode) {
-            InspectorBackend.addInspectedNode(this._focusedDOMNode.id);
+            DOMAgent.addInspectedNode(this._focusedDOMNode.id);
             WebInspector.extensionServer.notifyObjectSelected(this.panel.name);
         }
     };
@@ -141,6 +141,9 @@ WebInspector.ElementsPanel.prototype = {
         this.treeOutline.updateSelection();
         if (this.recentlyModifiedNodes.length)
             this.updateModifiedNodes();
+
+        if (!this.rootDOMNode)
+            WebInspector.domAgent.requestDocument();
     },
 
     hide: function()
@@ -211,7 +214,7 @@ WebInspector.ElementsPanel.prototype = {
         }
 
         if (this._selectedPathOnReset)
-            InspectorBackend.pushNodeByPathToFrontend(this._selectedPathOnReset, selectLastSelectedNode.bind(this));
+            WebInspector.domAgent.pushNodeByPathToFrontend(this._selectedPathOnReset, selectLastSelectedNode.bind(this));
         else
             selectNode.call(this);
         delete this._selectedPathOnReset;
@@ -222,11 +225,11 @@ WebInspector.ElementsPanel.prototype = {
         delete this._searchQuery;
         this._hideSearchHighlights();
 
-        WebInspector.updateSearchMatchesCount(0, this);
+        WebInspector.searchController.updateSearchMatchesCount(0, this);
 
-        this._currentSearchResultIndex = 0;
+        delete this._currentSearchResultIndex;
         this._searchResults = [];
-        InspectorBackend.searchCanceled();
+        DOMAgent.searchCanceled();
     },
 
     performSearch: function(query)
@@ -242,7 +245,7 @@ WebInspector.ElementsPanel.prototype = {
         this._matchesCountUpdateTimeout = null;
         this._searchQuery = query;
 
-        InspectorBackend.performSearch(whitespaceTrimmedQuery, false);
+        DOMAgent.performSearch(whitespaceTrimmedQuery, false);
     },
 
     populateHrefContextMenu: function(contextMenu, event, anchorElement)
@@ -264,14 +267,14 @@ WebInspector.ElementsPanel.prototype = {
     switchToAndFocus: function(node)
     {
         // Reset search restore.
-        WebInspector.cancelSearch();
+        WebInspector.searchController.cancelSearch();
         WebInspector.currentPanel = this;
         this.focusedDOMNode = node;
     },
 
     _updateMatchesCount: function()
     {
-        WebInspector.updateSearchMatchesCount(this._searchResults.length, this);
+        WebInspector.searchController.updateSearchMatchesCount(this._searchResults.length, this);
         this._matchesCountUpdateTimeout = null;
         this._updatedMatchCountOnce = true;
     },
@@ -291,6 +294,7 @@ WebInspector.ElementsPanel.prototype = {
         if (!nodeIds.length)
             return;
 
+        var oldSearchResultIndex = this._currentSearchResultIndex;
         for (var i = 0; i < nodeIds.length; ++i) {
             var nodeId = nodeIds[i];
             var node = WebInspector.domAgent.nodeForId(nodeId);
@@ -300,7 +304,10 @@ WebInspector.ElementsPanel.prototype = {
             this._currentSearchResultIndex = 0;
             this._searchResults.push(node);
         }
-        this._highlightCurrentSearchResult();
+
+        // Avoid invocations of highlighting for every chunk of nodeIds.
+        if (oldSearchResultIndex !== this._currentSearchResultIndex)
+            this._highlightCurrentSearchResult();
         this._updateMatchesCountSoon();
     },
 
@@ -375,6 +382,9 @@ WebInspector.ElementsPanel.prototype = {
         this.recentlyModifiedNodes.push({node: event.target, updated: true});
         if (this.visible)
             this._updateModifiedNodesSoon();
+
+        if (!this.sidebarPanes.styles.isModifyingStyle && event.target === this.focusedDOMNode)
+            this._styleSheetChanged();
     },
 
     _characterDataModified: function(event)
@@ -1023,7 +1033,7 @@ WebInspector.ElementsPanel.prototype = {
             return;
         event.clipboardData.clearData();
         event.preventDefault();
-        InspectorBackend.copyNode(this.focusedDOMNode.id);
+        DOMAgent.copyNode(this.focusedDOMNode.id);
     },
 
     rightSidebarResizerDragStart: function(event)
@@ -1070,7 +1080,7 @@ WebInspector.ElementsPanel.prototype = {
 
     setSearchingForNode: function(enabled)
     {
-        InspectorBackend.setSearchingForNode(enabled, this._setSearchingForNode.bind(this));
+        InspectorAgent.setSearchingForNode(enabled, this._setSearchingForNode.bind(this));
     },
 
     toggleSearchingForNode: function()

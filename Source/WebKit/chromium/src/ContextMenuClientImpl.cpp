@@ -41,6 +41,7 @@
 #include "EventHandler.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
+#include "HistoryItem.h"
 #include "HitTestResult.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
@@ -240,8 +241,12 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
 
     // Send the frame and page URLs in any case.
     data.pageURL = urlFromFrame(m_webView->mainFrameImpl()->frame());
-    if (selectedFrame != m_webView->mainFrameImpl()->frame())
+    if (selectedFrame != m_webView->mainFrameImpl()->frame()) {
         data.frameURL = urlFromFrame(selectedFrame);
+        RefPtr<HistoryItem> historyItem = selectedFrame->loader()->history()->currentItem();
+        if (historyItem)
+            data.frameHistoryItem = WebHistoryItem(historyItem);
+    }
 
     if (r.isSelected())
         data.selectedText = selectedFrame->editor()->selectedText().stripWhiteSpace();
@@ -257,13 +262,9 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
     }
 
 #if OS(DARWIN)
-    ExceptionCode ec = 0;
-    RefPtr<CSSStyleDeclaration> style = selectedFrame->document()->createCSSStyleDeclaration();
-    style->setProperty(CSSPropertyDirection, "ltr", false, ec);
-    if (selectedFrame->editor()->selectionHasStyle(style.get()) != FalseTriState)
+    if (selectedFrame->editor()->selectionHasStyle(CSSPropertyDirection, "ltr") != FalseTriState)
         data.writingDirectionLeftToRight |= WebContextMenuData::CheckableMenuItemChecked;
-    style->setProperty(CSSPropertyDirection, "rtl", false, ec);
-    if (selectedFrame->editor()->selectionHasStyle(style.get()) != FalseTriState)
+    if (selectedFrame->editor()->selectionHasStyle(CSSPropertyDirection, "rtl") != FalseTriState)
         data.writingDirectionRightToLeft |= WebContextMenuData::CheckableMenuItemChecked;
 #endif // OS(DARWIN)
 

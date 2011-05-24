@@ -51,6 +51,7 @@ class QWebFrame;
 class QWebPage;
 class QWebHistoryItem;
 class QWebScriptWorld;
+class QUrl;
 
 extern QMap<int, QWebScriptWorld*> m_worldMap;
 
@@ -142,8 +143,10 @@ public:
     static void removeMockDeviceOrientation();
     static void setMockDeviceOrientation(bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma);
 
-    static void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
-    static void setMockGeolocationError(int errorCode, const QString& message);
+    static void resetGeolocationMock(QWebPage*);
+    static void setMockGeolocationPermission(QWebPage*, bool allowed);
+    static void setMockGeolocationPosition(QWebPage*, double latitude, double longitude, double accuracy);
+    static void setMockGeolocationError(QWebPage*, int errorCode, const QString& message);
 
     static int workerThreadCount();
 
@@ -183,12 +186,18 @@ public:
     static QString pageProperty(QWebFrame* frame, const QString& propertyName, int pageNumber);
     static void addUserStyleSheet(QWebPage* page, const QString& sourceCode);
     static void simulateDesktopNotificationClick(const QString& title);
-    static QString viewportAsText(QWebPage*, const QSize&);
+    static QString viewportAsText(QWebPage*, int deviceDPI, const QSize& deviceSize, const QSize& availableSize);
 
     static QVariantList nodesFromRect(const QWebElement& document, int x, int y, unsigned top, unsigned right, unsigned bottom, unsigned left, bool ignoreClipping);
     static QString responseMimeType(QWebFrame*);
+    static void clearOpener(QWebFrame*);
     static void addURLToRedirect(const QString& origin, const QString& destination);
     static QStringList contextMenu(QWebPage*);
+
+    static double defaultMinimumTimerInterval(); // Not really tied to WebView
+    static void setMinimumTimerInterval(QWebPage*, double);
+
+    static QUrl mediaContentUrlByElementId(QWebFrame*, const QString& elementId);
 };
 
 #endif

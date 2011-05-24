@@ -69,6 +69,8 @@ public:
     uint32_t remoteLayerClientID() const;
 #endif
 
+    PluginController* asPluginController() { return this; }
+
 private:
     PluginControllerProxy(WebProcessConnection* connection, uint64_t pluginInstanceID, const String& userAgent, bool isPrivateBrowsingEnabled, bool isAcceleratedCompositingEnabled);
 
@@ -97,6 +99,8 @@ private:
     virtual String cookiesForURL(const String&);
     virtual void setCookiesForURL(const String& urlString, const String& cookieString);
     virtual bool isPrivateBrowsingEnabled();
+    virtual void protectPluginFromDestruction();
+    virtual void unprotectPluginFromDestruction();
     
     // Message handlers.
     void frameDidFinishLoading(uint64_t requestID);
@@ -117,6 +121,7 @@ private:
     void handleMouseLeaveEvent(const WebMouseEvent&, bool& handled);
     void handleKeyboardEvent(const WebKeyboardEvent&, bool& handled);
     void paintEntirePlugin();
+    void snapshot(WebCore::IntSize& bufferSize, SharedMemory::Handle& backingStoreHandle);
     void setFocus(bool);
     void didUpdate();
     void getPluginScriptableNPObject(uint64_t& pluginScriptableNPObjectID);
@@ -152,6 +157,13 @@ private:
 
     // The paint timer, used for coalescing painting.
     RunLoop::Timer<PluginControllerProxy> m_paintTimer;
+    
+    // A counter used to prevent the plug-in from being destroyed.
+    unsigned m_pluginDestructionProtectCount;
+
+    // A timer that we use to prevent destruction of the plug-in while plug-in
+    // code is on the stack.
+    RunLoop::Timer<PluginControllerProxy> m_pluginDestroyTimer;
 
     // Whether we're waiting for the plug-in proxy in the web process to draw the contents of its
     // backing store into the web process backing store.

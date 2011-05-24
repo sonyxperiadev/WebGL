@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebPolicyClient.h"
 
+#include "APIObject.h"
 #include "WKAPICast.h"
 #include "WebURLRequest.h"
 
@@ -55,15 +56,24 @@ bool WebPolicyClient::decidePolicyForNewWindowAction(WebPageProxy* page, WebFram
     return true;
 }
 
-bool WebPolicyClient::decidePolicyForMIMEType(WebPageProxy* page, WebFrameProxy* frame, const String& MIMEType, const ResourceRequest& resourceRequest, WebFramePolicyListenerProxy* listener, APIObject* userData)
+bool WebPolicyClient::decidePolicyForResponse(WebPageProxy* page, WebFrameProxy* frame, const ResourceResponse& resourceResponse, const ResourceRequest& resourceRequest, WebFramePolicyListenerProxy* listener, APIObject* userData)
 {
-    if (!m_client.decidePolicyForMIMEType)
+    if (!m_client.decidePolicyForResponse)
         return false;
 
+    RefPtr<WebURLResponse> response = WebURLResponse::create(resourceResponse);
     RefPtr<WebURLRequest> request = WebURLRequest::create(resourceRequest);
 
-    m_client.decidePolicyForMIMEType(toAPI(page), toAPI(frame), toAPI(MIMEType.impl()), toAPI(request.get()), toAPI(listener), toAPI(userData), m_client.clientInfo);
+    m_client.decidePolicyForResponse(toAPI(page), toAPI(frame), toAPI(response.get()), toAPI(request.get()), toAPI(listener), toAPI(userData), m_client.clientInfo);
     return true;
+}
+
+void WebPolicyClient::unableToImplementPolicy(WebPageProxy* page, WebFrameProxy* frame, const ResourceError& error, APIObject* userData)
+{
+    if (!m_client.unableToImplementPolicy)
+        return;
+
+    m_client.unableToImplementPolicy(toAPI(page), toAPI(frame), toAPI(error), toAPI(userData), m_client.clientInfo);
 }
 
 } // namespace WebKit

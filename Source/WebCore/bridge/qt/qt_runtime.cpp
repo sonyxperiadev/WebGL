@@ -166,11 +166,11 @@ static JSRealType valueRealType(ExecState* exec, JSValue val)
         JSObject *object = val.toObject(exec);
         if (object->inherits(&RuntimeArray::s_info))  // RuntimeArray 'inherits' from Array, but not in C++
             return RTArray;
-        else if (object->inherits(&JSArray::info))
+        else if (object->inherits(&JSArray::s_info))
             return Array;
-        else if (object->inherits(&DateInstance::info))
+        else if (object->inherits(&DateInstance::s_info))
             return Date;
-        else if (object->inherits(&RegExpObject::info))
+        else if (object->inherits(&RegExpObject::s_info))
             return RegExp;
         else if (object->inherits(&RuntimeObject::s_info))
             return QObj;
@@ -227,9 +227,9 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
                 hint = QMetaType::QRegExp;
                 break;
             case Object:
-                if (object->inherits(&NumberObject::info))
+                if (object->inherits(&NumberObject::s_info))
                     hint = QMetaType::Double;
-                else if (object->inherits(&BooleanObject::info))
+                else if (object->inherits(&BooleanObject::s_info))
                     hint = QMetaType::Bool;
                 else
                     hint = QMetaType::QVariantMap;
@@ -263,7 +263,7 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type 
     int dist = -1;
     switch (hint) {
         case QMetaType::Bool:
-            if (type == Object && object->inherits(&BooleanObject::info))
+            if (type == Object && object->inherits(&BooleanObject::s_info))
                 ret = QVariant(asBooleanObject(value)->internalValue().toBoolean(exec));
             else
                 ret = QVariant(value.toBoolean(exec));
@@ -983,7 +983,7 @@ JSValue convertQVariantToValue(ExecState* exec, PassRefPtr<RootObject> root, con
 #define QW_D(Class) Class##Data* d = d_func()
 #define QW_DS(Class,Instance) Class##Data* d = Instance->d_func()
 
-const ClassInfo QtRuntimeMethod::s_info = { "QtRuntimeMethod", 0, 0, 0 };
+const ClassInfo QtRuntimeMethod::s_info = { "QtRuntimeMethod", &InternalFunction::s_info, 0, 0 };
 
 QtRuntimeMethod::QtRuntimeMethod(QtRuntimeMethodData* dd, ExecState* exec, const Identifier& ident, PassRefPtr<QtInstance> inst)
     : InternalFunction(&exec->globalData(), exec->lexicalGlobalObject(), deprecatedGetDOMStructure<QtRuntimeMethod>(exec), ident)
@@ -1629,7 +1629,7 @@ EncodedJSValue QtRuntimeConnectionMethod::call(ExecState* exec)
                 //  receiver function [from arguments]
                 //  receiver this object [from arguments]
 
-                QtConnectionObject* conn = new QtConnectionObject(d->m_instance, signalIndex, thisObject, funcObject);
+                QtConnectionObject* conn = new QtConnectionObject(exec->globalData(), d->m_instance, signalIndex, thisObject, funcObject);
                 bool ok = QMetaObject::connect(sender, signalIndex, conn, conn->metaObject()->methodOffset());
                 if (!ok) {
                     delete conn;
@@ -1723,12 +1723,12 @@ JSValue QtRuntimeConnectionMethod::lengthGetter(ExecState*, JSValue, const Ident
 
 // ===============
 
-QtConnectionObject::QtConnectionObject(PassRefPtr<QtInstance> instance, int signalIndex, JSObject* thisObject, JSObject* funcObject)
+QtConnectionObject::QtConnectionObject(JSGlobalData& globalData, PassRefPtr<QtInstance> instance, int signalIndex, JSObject* thisObject, JSObject* funcObject)
     : m_instance(instance)
     , m_signalIndex(signalIndex)
     , m_originalObject(m_instance->getObject())
-    , m_thisObject(thisObject)
-    , m_funcObject(funcObject)
+    , m_thisObject(globalData, thisObject)
+    , m_funcObject(globalData, funcObject)
 {
     setParent(m_originalObject);
     ASSERT(JSLock::currentThreadIsHoldingLock()); // so our ProtectedPtrs are safe
@@ -1826,27 +1826,25 @@ void QtConnectionObject::execute(void **argv)
                         }
                     }
                     // Stuff in the __qt_sender property, if we can
-                    ScopeChain oldsc = ScopeChain(NoScopeChain());
+                    ScopeChainNode* oldsc = 0;
                     JSFunction* fimp = 0;
-                    if (m_funcObject->inherits(&JSFunction::info)) {
+                    if (m_funcObject->inherits(&JSFunction::s_info)) {
                         fimp = static_cast<JSFunction*>(m_funcObject.get());
 
                         JSObject* qt_sender = QtInstance::getQtInstance(sender(), ro, QScriptEngine::QtOwnership)->createRuntimeObject(exec);
-                        JSObject* wrapper = new (exec) JSObject(JSObject::createStructure(jsNull()));
+                        JSObject* wrapper = constructEmptyObject(exec, createEmptyObjectStructure(jsNull()));
                         PutPropertySlot slot;
                         wrapper->put(exec, Identifier(exec, "__qt_sender__"), qt_sender, slot);
                         oldsc = fimp->scope();
-                        ScopeChain sc = oldsc;
-                        sc.push(wrapper);
-                        fimp->setScope(sc);
+                        fimp->setScope(exec->globalData(), oldsc->push(wrapper));
                     }
 
                     CallData callData;
                     CallType callType = m_funcObject->getCallData(callData);
-                    call(exec, m_funcObject, callType, callData, m_thisObject, l);
+                    call(exec, m_funcObject.get(), callType, callData, m_thisObject.get(), l);
 
                     if (fimp)
-                        fimp->setScope(oldsc);
+                        fimp->setScope(exec->globalData(), oldsc);
                 }
             }
         }
@@ -1859,7 +1857,7 @@ void QtConnectionObject::execute(void **argv)
 bool QtConnectionObject::match(QObject* sender, int signalIndex, JSObject* thisObject, JSObject *funcObject)
 {
     if (m_originalObject == sender && m_signalIndex == signalIndex
-        && thisObject == (JSObject*)m_thisObject && funcObject == (JSObject*)m_funcObject)
+        && thisObject == (JSObject*)m_thisObject.get() && funcObject == (JSObject*)m_funcObject.get())
         return true;
     return false;
 }

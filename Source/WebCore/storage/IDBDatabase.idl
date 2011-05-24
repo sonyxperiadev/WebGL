@@ -35,12 +35,13 @@ module storage {
 
         attribute EventListener onabort;
         attribute EventListener onerror;
+        attribute EventListener onversionchange;
 
         IDBObjectStore createObjectStore(in DOMString name, in [Optional] OptionsObject options)
             raises (IDBDatabaseException);
         void deleteObjectStore(in DOMString name)
             raises (IDBDatabaseException);
-        [CallWith=ScriptExecutionContext] IDBRequest setVersion(in DOMString version)
+        [CallWith=ScriptExecutionContext] IDBVersionChangeRequest setVersion(in DOMString version)
             raises (IDBDatabaseException);
         [CallWith=ScriptExecutionContext] IDBTransaction transaction(in [Optional] DOMStringList storeNames, in [Optional] unsigned short mode)
             raises (IDBDatabaseException);
@@ -53,7 +54,7 @@ module storage {
         void removeEventListener(in DOMString type,
                                  in EventListener listener,
                                  in boolean useCapture);
-        boolean dispatchEvent(in Event evt) 
+        boolean dispatchEvent(in Event evt)
             raises(EventException);
     };
 

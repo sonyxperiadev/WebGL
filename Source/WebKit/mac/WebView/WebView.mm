@@ -85,7 +85,6 @@
 #import "WebNSPrintOperationExtras.h"
 #import "WebNSURLExtras.h"
 #import "WebNSURLRequestExtras.h"
-#import "WebNSUserDefaultsExtras.h"
 #import "WebNSViewExtras.h"
 #import "WebNodeHighlight.h"
 #import "WebPDFView.h"
@@ -548,10 +547,9 @@ static NSString *createUserVisibleWebKitVersionString()
         osVersion = createMacOSXVersionString();
     if (!webKitVersion)
         webKitVersion = createUserVisibleWebKitVersionString();
-    NSString *language = [NSUserDefaults _webkit_preferredLanguageCode];
     if ([applicationName length])
-        return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; U; " PROCESSOR " Mac OS X %@; %@) AppleWebKit/%@ (KHTML, like Gecko) %@", osVersion, language, webKitVersion, applicationName];
-    return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; U; " PROCESSOR " Mac OS X %@; %@) AppleWebKit/%@ (KHTML, like Gecko)", osVersion, language, webKitVersion];
+        return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; " PROCESSOR " Mac OS X %@) AppleWebKit/%@ (KHTML, like Gecko) %@", osVersion, webKitVersion, applicationName];
+    return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; " PROCESSOR " Mac OS X %@) AppleWebKit/%@ (KHTML, like Gecko)", osVersion, webKitVersion];
 }
 
 + (void)_reportException:(JSValueRef)exception inContext:(JSContextRef)context
@@ -694,7 +692,7 @@ static NSString *leakMailQuirksUserScriptPath()
         
         // Initialize our platform strategies.
         WebPlatformStrategies::initialize();
-        Settings::setMinDOMTimerInterval(0.004);
+        Settings::setDefaultMinDOMTimerInterval(0.004);
 
         didOneTimeInitialization = true;
     }
@@ -1553,6 +1551,7 @@ static inline IMP getMethod(id o, SEL s)
     cache->willCacheResponseFunc = getMethod(delegate, @selector(webView:resource:willCacheResponse:fromDataSource:));
     cache->willSendRequestFunc = getMethod(delegate, @selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:));
     cache->shouldUseCredentialStorageFunc = getMethod(delegate, @selector(webView:resource:shouldUseCredentialStorageForDataSource:));
+    cache->shouldPaintBrokenImageForURLFunc = getMethod(delegate, @selector(webView:shouldPaintBrokenImageForURL:));
 }
 
 - (void)_cacheFrameLoadDelegateImplementations
@@ -1872,7 +1871,13 @@ static inline IMP getMethod(id o, SEL s)
 {
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:URL];
     [request _web_setHTTPUserAgent:[self userAgentForURL:URL]];
-    NSCachedURLResponse *cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
+    NSCachedURLResponse *cachedResponse;
+#if USE(CFURLSTORAGESESSIONS)
+    if (CFURLStorageSessionRef storageSession = ResourceHandle::privateBrowsingStorageSession())
+        cachedResponse = WKCachedResponseForRequest(storageSession, request);
+    else
+#endif
+        cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
     [request release];
     return cachedResponse;
 }
@@ -2253,9 +2258,15 @@ static inline IMP getMethod(id o, SEL s)
 
 - (WebHistoryItem *)_globalHistoryItem
 {
-    if (!_private->page)
+    if (!_private)
         return nil;
-    return kit(_private->page->globalHistoryItem());
+
+    return kit(_private->_globalHistoryItem.get());
+}
+
+- (void)_setGlobalHistoryItem:(HistoryItem*)historyItem
+{
+    _private->_globalHistoryItem = historyItem;
 }
 
 - (WebTextIterator *)textIteratorForRect:(NSRect)rect
@@ -2736,6 +2747,17 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
 + (void)_setLoadResourcesSerially:(BOOL)serialize 
 {
     resourceLoadScheduler()->setSerialLoadingEnabled(serialize);
+}
+
++ (double)_defaultMinimumTimerInterval
+{
+    return Settings::defaultMinDOMTimerInterval();
+}
+
+- (void)_setMinimumTimerInterval:(double)intervalInSeconds
+{
+    if (_private->page)
+        _private->page->settings()->setMinDOMTimerInterval(intervalInSeconds);
 }
 
 @end
@@ -4531,7 +4553,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
     }
     if (jsValue.isObject()) {
         JSObject* object = jsValue.getObject();
-        if (object->inherits(&DateInstance::info)) {
+        if (object->inherits(&DateInstance::s_info)) {
             DateInstance* date = static_cast<DateInstance*>(object);
             double ms = date->internalNumber();
             if (!isnan(ms)) {
@@ -4541,7 +4563,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
                     return [NSAppleEventDescriptor descriptorWithDescriptorType:typeLongDateTime bytes:&ldt length:sizeof(ldt)];
             }
         }
-        else if (object->inherits(&JSArray::info)) {
+        else if (object->inherits(&JSArray::s_info)) {
             DEFINE_STATIC_LOCAL(HashSet<JSObject*>, visitedElems, ());
             if (!visitedElems.contains(object)) {
                 visitedElems.add(object);
@@ -4978,12 +5000,12 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (void)setEditable:(BOOL)flag
 {
-    if (_private->editable != flag) {
-        _private->editable = flag;
+    if ([self isEditable] != flag) {
         if (!_private->tabKeyCyclesThroughElementsChanged && _private->page)
             _private->page->setTabKeyCyclesThroughElements(!flag);
         Frame* mainFrame = [self _mainCoreFrame];
         if (mainFrame) {
+            mainFrame->document()->setDesignMode(flag ? WebCore::Document::on : WebCore::Document::off);
             if (flag) {
                 mainFrame->editor()->applyEditingStyleToBodyElement();
                 // If the WebView is made editable and the selection is empty, set it to something.
@@ -4996,7 +5018,10 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)isEditable
 {
-    return _private->editable;
+    Frame* mainFrame = [self _mainCoreFrame];
+    if (mainFrame)
+        return mainFrame->document()->inDesignMode();
+    return false;
 }
 
 - (void)setTypingStyle:(DOMCSSStyleDeclaration *)style
@@ -5834,7 +5859,7 @@ static inline uint64_t roundUpToPowerOf2(uint64_t num)
 
     WebFrameLoadDelegateImplementationCache* cache = &_private->frameLoadDelegateImplementations;
     if (cache->didReceiveIconForFrameFunc) {
-        Image* image = iconDatabase()->iconForPageURL(core(webFrame)->document()->url().string(), IntSize(16, 16));
+        Image* image = iconDatabase().iconForPageURL(core(webFrame)->document()->url().string(), IntSize(16, 16));
         if (NSImage *icon = webGetNSImage(image, NSMakeSize(16, 16)))
             CallFrameLoadDelegate(cache->didReceiveIconForFrameFunc, self, @selector(webView:didReceiveIcon:forFrame:), icon, webFrame);
     }
@@ -5882,10 +5907,6 @@ static inline uint64_t roundUpToPowerOf2(uint64_t num)
     // The keyboard access mode is reported by two bits:
     // Bit 0 is set if feature is on
     // Bit 1 is set if full keyboard access works for any control, not just text boxes and lists
-    // We require both bits to be on.
-    // I do not know that we would ever get one bit on and the other off since
-    // checking the checkbox in system preferences which is marked as "Turn on full keyboard access"
-    // turns on both bits.
     _private->_keyboardUIMode = (mode & 0x2) ? KeyboardAccessFull : KeyboardAccessDefault;
     
     // check for tabbing to links

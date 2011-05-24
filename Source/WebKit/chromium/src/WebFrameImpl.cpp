@@ -158,6 +158,13 @@
 #include <gdk/gdk.h>
 #endif
 
+#if USE(V8)
+#include "AsyncFileSystem.h"
+#include "AsyncFileSystemChromium.h"
+#include "DOMFileSystem.h"
+#include "V8DOMFileSystem.h"
+#endif
+
 using namespace WebCore;
 
 namespace WebKit {
@@ -358,7 +365,7 @@ public:
     {
     }
 
-    virtual void begin(float width)
+    virtual void begin(float width, float height)
     {
     }
 
@@ -544,6 +551,12 @@ WebSize WebFrameImpl::scrollOffset() const
     return WebSize();
 }
 
+void WebFrameImpl::setScrollOffset(const WebSize& offset)
+{
+    if (FrameView* view = frameView())
+        view->setScrollOffset(IntPoint(offset.width, offset.height));
+}
+
 WebSize WebFrameImpl::contentsSize() const
 {
     return frame()->view()->contentsSize();
@@ -571,6 +584,11 @@ bool WebFrameImpl::hasVisibleContent() const
 WebView* WebFrameImpl::view() const
 {
     return viewImpl();
+}
+
+void WebFrameImpl::clearOpener()
+{
+    m_frame->loader()->setOpener(0);
 }
 
 WebFrame* WebFrameImpl::opener() const
@@ -822,6 +840,13 @@ v8::Local<v8::Context> WebFrameImpl::mainWorldScriptContext() const
 
     return V8Proxy::mainWorldContext(m_frame);
 }
+
+v8::Handle<v8::Value> WebFrameImpl::createFileSystem(int type,
+                                                     const WebString& name,
+                                                     const WebString& path)
+{
+    return toV8(DOMFileSystem::create(frame()->document(), name, AsyncFileSystemChromium::create(static_cast<AsyncFileSystem::Type>(type), path)));
+}
 #endif
 
 bool WebFrameImpl::insertStyleText(
@@ -892,8 +917,8 @@ void WebFrameImpl::loadHistoryItem(const WebHistoryItem& item)
         m_frame->page()->backForward()->setCurrentItem(currentItem.get());
     }
 
-    m_frame->loader()->history()->goToItem(
-        historyItem.get(), FrameLoadTypeIndexedBackForward);
+    m_frame->page()->goToItem(historyItem.get(),
+                              FrameLoadTypeIndexedBackForward);
 }
 
 void WebFrameImpl::loadData(const WebData& data,
@@ -1052,12 +1077,17 @@ bool WebFrameImpl::willSuppressOpenerInNewFrame() const
     return frame()->loader()->suppressOpenerInNewFrame();
 }
 
+bool WebFrameImpl::pageDismissalEventBeingDispatched() const
+{
+    return frame()->loader()->pageDismissalEventBeingDispatched();
+}
+
 void WebFrameImpl::replaceSelection(const WebString& text)
 {
     RefPtr<DocumentFragment> fragment = createFragmentFromText(
         frame()->selection()->toNormalizedRange().get(), text);
     applyCommand(ReplaceSelectionCommand::create(
-        frame()->document(), fragment.get(), false, true, true));
+        frame()->document(), fragment.get(), ReplaceSelectionCommand::SmartReplace | ReplaceSelectionCommand::MatchStyle | ReplaceSelectionCommand::PreventNesting));
 }
 
 void WebFrameImpl::insertText(const WebString& text)
@@ -1952,7 +1982,7 @@ void WebFrameImpl::createFrameView()
         view->setParentVisible(true);
 }
 
-WebFrameImpl* WebFrameImpl::fromFrame(const Frame* frame)
+WebFrameImpl* WebFrameImpl::fromFrame(Frame* frame)
 {
     if (!frame)
         return 0;

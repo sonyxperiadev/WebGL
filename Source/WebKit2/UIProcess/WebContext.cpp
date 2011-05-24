@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,19 +33,24 @@
 #include "SandboxExtension.h"
 #include "TextChecker.h"
 #include "WKContextPrivate.h"
+#include "WebApplicationCacheManagerProxy.h"
 #include "WebContextMessageKinds.h"
 #include "WebContextUserMessageCoders.h"
+#include "WebCookieManagerProxy.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebDatabaseManagerProxy.h"
 #include "WebGeolocationManagerProxy.h"
+#include "WebKeyValueStorageManagerProxy.h"
+#include "WebPluginSiteDataManager.h"
 #include "WebPageGroup.h"
 #include "WebMemorySampler.h"
 #include "WebProcessCreationParameters.h"
-#include "WebProcessManager.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxy.h"
+#include "WebResourceCacheManagerProxy.h"
 #include <WebCore/Language.h>
 #include <WebCore/LinkHash.h>
+#include <WebCore/Logging.h>
 #include <wtf/CurrentTime.h>
 
 #ifndef NDEBUG
@@ -83,7 +88,19 @@ PassRefPtr<WebContext> WebContext::create(const String& injectedBundlePath)
     RunLoop::initializeMainRunLoop();
     return adoptRef(new WebContext(ProcessModelSecondaryProcess, injectedBundlePath));
 }
-    
+
+static Vector<WebContext*>& contexts()
+{
+    DEFINE_STATIC_LOCAL(Vector<WebContext*>, contexts, ());
+
+    return contexts;
+}
+
+const Vector<WebContext*>& WebContext::allContexts()
+{
+    return contexts();
+}
+
 WebContext::WebContext(ProcessModel processModel, const String& injectedBundlePath)
     : m_processModel(processModel)
     , m_defaultPageGroup(WebPageGroup::create())
@@ -95,13 +112,22 @@ WebContext::WebContext(ProcessModel processModel, const String& injectedBundlePa
     , m_clearApplicationCacheForNewWebProcess(false)
     , m_memorySamplerEnabled(false)
     , m_memorySamplerInterval(1400.0)
+    , m_applicationCacheManagerProxy(WebApplicationCacheManagerProxy::create(this))
+    , m_cookieManagerProxy(WebCookieManagerProxy::create(this))
     , m_databaseManagerProxy(WebDatabaseManagerProxy::create(this))
     , m_geolocationManagerProxy(WebGeolocationManagerProxy::create(this))
+    , m_keyValueStorageManagerProxy(WebKeyValueStorageManagerProxy::create(this))
+    , m_pluginSiteDataManager(WebPluginSiteDataManager::create(this))
+    , m_resourceCacheManagerProxy(WebResourceCacheManagerProxy::create(this))
 #if PLATFORM(WIN)
     , m_shouldPaintNativeControls(true)
 #endif
 {
+    contexts().append(this);
+
     addLanguageChangeObserver(this, languageChanged);
+
+    WebCore::InitializeLoggingChannelsIfNecessary();
 
 #ifndef NDEBUG
     webContextCounter.increment();
@@ -110,15 +136,31 @@ WebContext::WebContext(ProcessModel processModel, const String& injectedBundlePa
 
 WebContext::~WebContext()
 {
+    ASSERT(contexts().find(this) != notFound);
+    contexts().remove(contexts().find(this));
+
     removeLanguageChangeObserver(this);
 
-    WebProcessManager::shared().contextWasDestroyed(this);
+    m_applicationCacheManagerProxy->invalidate();
+    m_applicationCacheManagerProxy->clearContext();
+
+    m_cookieManagerProxy->invalidate();
+    m_cookieManagerProxy->clearContext();
 
     m_geolocationManagerProxy->invalidate();
     m_geolocationManagerProxy->clearContext();
 
     m_databaseManagerProxy->invalidate();
     m_databaseManagerProxy->clearContext();
+    
+    m_keyValueStorageManagerProxy->invalidate();
+    m_keyValueStorageManagerProxy->clearContext();
+
+    m_pluginSiteDataManager->invalidate();
+    m_pluginSiteDataManager->clearContext();
+
+    m_resourceCacheManagerProxy->invalidate();
+    m_resourceCacheManagerProxy->clearContext();
 
 #ifndef NDEBUG
     webContextCounter.decrement();
@@ -163,7 +205,7 @@ void WebContext::ensureWebProcess()
     if (m_process)
         return;
 
-    m_process = WebProcessManager::shared().getWebProcess(this);
+    m_process = WebProcessProxy::create(this);
 
     WebProcessCreationParameters parameters;
 
@@ -197,6 +239,8 @@ void WebContext::ensureWebProcess()
 
     parameters.textCheckerState = TextChecker::state();
 
+    parameters.defaultRequestTimeoutInterval = WebURLRequest::defaultTimeoutInterval();
+
     // Add any platform specific parameters
     platformInitializeWebProcess(parameters);
 
@@ -209,6 +253,20 @@ void WebContext::ensureWebProcess()
     m_pendingMessagesToPostToInjectedBundle.clear();
 }
 
+bool WebContext::shouldTerminate(WebProcessProxy* process)
+{
+    // FIXME: Once we support multiple processes per context, this assertion won't hold.
+    ASSERT(process == m_process);
+
+    if (!m_downloads.isEmpty())
+        return false;
+
+    if (!m_pluginSiteDataManager->shouldTerminate(process))
+        return false;
+
+    return true;
+}
+
 void WebContext::processDidFinishLaunching(WebProcessProxy* process)
 {
     // FIXME: Once we support multiple processes per context, this assertion won't hold.
@@ -218,7 +276,7 @@ void WebContext::processDidFinishLaunching(WebProcessProxy* process)
     
     // Sometimes the memorySampler gets initialized after process initialization has happened but before the process has finished launching
     // so check if it needs to be started here
-    if(m_memorySamplerEnabled) {
+    if (m_memorySamplerEnabled) {
         SandboxExtension::Handle sampleLogSandboxHandle;        
         double now = WTF::currentTime();
         String sampleLogFilePath = String::format("WebProcess%llu", static_cast<uint64_t>(now));
@@ -228,7 +286,7 @@ void WebContext::processDidFinishLaunching(WebProcessProxy* process)
     }
 }
 
-void WebContext::processDidClose(WebProcessProxy* process)
+void WebContext::disconnectProcess(WebProcessProxy* process)
 {
     // FIXME: Once we support multiple processes per context, this assertion won't hold.
     ASSERT_UNUSED(process, process == m_process);
@@ -243,8 +301,18 @@ void WebContext::processDidClose(WebProcessProxy* process)
 
     m_downloads.clear();
 
+    m_applicationCacheManagerProxy->invalidate();
+    m_cookieManagerProxy->invalidate();
     m_databaseManagerProxy->invalidate();
     m_geolocationManagerProxy->invalidate();
+    m_keyValueStorageManagerProxy->invalidate();
+    m_resourceCacheManagerProxy->invalidate();
+
+    // When out of process plug-ins are enabled, we don't want to invalidate the plug-in site data
+    // manager just because the web process crashes since it's not involved.
+#if !ENABLE(PLUGIN_PROCESS)
+    m_pluginSiteDataManager->invalidate();
+#endif
 
     m_process = 0;
 }
@@ -407,6 +475,14 @@ void WebContext::setCacheModel(CacheModel cacheModel)
     m_process->send(Messages::WebProcess::SetCacheModel(static_cast<uint32_t>(m_cacheModel)), 0);
 }
 
+void WebContext::setDefaultRequestTimeoutInterval(double timeoutInterval)
+{
+    if (!hasValidProcess())
+        return;
+
+    m_process->send(Messages::WebProcess::SetDefaultRequestTimeoutInterval(timeoutInterval), 0);
+}
+
 void WebContext::addVisitedLink(const String& visitedURL)
 {
     if (visitedURL.isEmpty())
@@ -438,6 +514,18 @@ void WebContext::getPluginPath(const String& mimeType, const String& urlString, 
 
     pluginPath = plugin.path;
 }
+
+#if !ENABLE(PLUGIN_PROCESS)
+void WebContext::didGetSitesWithPluginData(const Vector<String>& sites, uint64_t callbackID)
+{
+    m_pluginSiteDataManager->didGetSitesWithData(sites, callbackID);
+}
+
+void WebContext::didClearPluginSiteData(uint64_t callbackID)
+{
+    m_pluginSiteDataManager->didClearSiteData(callbackID);
+}
+#endif
 
 uint64_t WebContext::createDownloadProxy()
 {
@@ -483,6 +571,16 @@ void WebContext::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::Mes
         return;
     }
 
+    if (messageID.is<CoreIPC::MessageClassWebApplicationCacheManagerProxy>()) {
+        m_applicationCacheManagerProxy->didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
+    if (messageID.is<CoreIPC::MessageClassWebCookieManagerProxy>()) {
+        m_cookieManagerProxy->didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
     if (messageID.is<CoreIPC::MessageClassWebDatabaseManagerProxy>()) {
         m_databaseManagerProxy->didReceiveWebDatabaseManagerProxyMessage(connection, messageID, arguments);
         return;
@@ -490,6 +588,16 @@ void WebContext::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::Mes
 
     if (messageID.is<CoreIPC::MessageClassWebGeolocationManagerProxy>()) {
         m_geolocationManagerProxy->didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
+    if (messageID.is<CoreIPC::MessageClassWebKeyValueStorageManagerProxy>()) {
+        m_keyValueStorageManagerProxy->didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
+    if (messageID.is<CoreIPC::MessageClassWebResourceCacheManagerProxy>()) {
+        m_resourceCacheManagerProxy->didReceiveWebResourceCacheManagerProxyMessage(connection, messageID, arguments);
         return;
     }
 

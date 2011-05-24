@@ -29,6 +29,7 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
+#include "IDBBackingStore.h"
 #include "IDBCursor.h"
 #include "IDBCursorBackendInterface.h"
 #include <wtf/OwnPtr.h>
@@ -41,56 +42,34 @@ class IDBDatabaseBackendImpl;
 class IDBIndexBackendImpl;
 class IDBKeyRange;
 class IDBObjectStoreBackendInterface;
-class IDBSQLiteDatabase;
+class IDBBackingStore;
 class IDBTransactionBackendInterface;
-class SQLiteDatabase;
-class SQLiteStatement;
 class SerializedScriptValue;
 
 class IDBCursorBackendImpl : public IDBCursorBackendInterface {
 public:
-    static PassRefPtr<IDBCursorBackendImpl> create(IDBSQLiteDatabase* database, PassRefPtr<IDBKeyRange> keyRange, IDBCursor::Direction direction, PassOwnPtr<SQLiteStatement> query, bool isSerializedScriptValueCursor, IDBTransactionBackendInterface* transaction, IDBObjectStoreBackendInterface* objectStore)
+    static PassRefPtr<IDBCursorBackendImpl> create(PassRefPtr<IDBBackingStore::Cursor> cursor, IDBCursor::Direction direction, CursorType cursorType, IDBTransactionBackendInterface* transaction, IDBObjectStoreBackendInterface* objectStore)
     {
-        return adoptRef(new IDBCursorBackendImpl(database, keyRange, direction, query, isSerializedScriptValueCursor, transaction, objectStore));
+        return adoptRef(new IDBCursorBackendImpl(cursor, direction, cursorType, transaction, objectStore));
     }
     virtual ~IDBCursorBackendImpl();
 
     virtual unsigned short direction() const;
     virtual PassRefPtr<IDBKey> key() const;
-    virtual PassRefPtr<IDBAny> value() const;
+    virtual PassRefPtr<IDBKey> primaryKey() const;
+    virtual PassRefPtr<SerializedScriptValue> value() const;
     virtual void update(PassRefPtr<SerializedScriptValue>, PassRefPtr<IDBCallbacks>, ExceptionCode&);
     virtual void continueFunction(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>, ExceptionCode&);
     virtual void deleteFunction(PassRefPtr<IDBCallbacks>, ExceptionCode&);
 
 private:
-    IDBCursorBackendImpl(IDBSQLiteDatabase*, PassRefPtr<IDBKeyRange>, IDBCursor::Direction, PassOwnPtr<SQLiteStatement> query, bool isSerializedScriptValueCursor, IDBTransactionBackendInterface*, IDBObjectStoreBackendInterface*);
-
-    bool currentRowExists();
-    void loadCurrentRow();
-    SQLiteDatabase& database() const;
+    IDBCursorBackendImpl(PassRefPtr<IDBBackingStore::Cursor>, IDBCursor::Direction, CursorType, IDBTransactionBackendInterface*, IDBObjectStoreBackendInterface*);
 
     static void continueFunctionInternal(ScriptExecutionContext*, PassRefPtr<IDBCursorBackendImpl>, PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>);
 
-    static const int64_t InvalidId = -1;
-
-    RefPtr<IDBSQLiteDatabase> m_database;
-
-    RefPtr<IDBKeyRange> m_keyRange;
+    RefPtr<IDBBackingStore::Cursor> m_cursor;
     IDBCursor::Direction m_direction;
-    OwnPtr<SQLiteStatement> m_query;
-    bool m_isSerializedScriptValueCursor;
-    int64_t m_currentId;
-
-    // The key in the objectStore or index that this cursor iterates over.
-    RefPtr<IDBKey> m_currentKey;
-
-    // m_isSerializedScriptValueCursor will only be available for object cursors.
-    RefPtr<SerializedScriptValue> m_currentSerializedScriptValue;
-
-    // FIXME: make the primary key available via script for all types of cursors.
-    // For cursors on indices, this is the key in the objectstore that corresponds to the current entry in the index.
-    RefPtr<IDBKey> m_currentIDBKeyValue;
-
+    CursorType m_cursorType;
     RefPtr<IDBTransactionBackendInterface> m_transaction;
     RefPtr<IDBObjectStoreBackendInterface> m_objectStore;
 };

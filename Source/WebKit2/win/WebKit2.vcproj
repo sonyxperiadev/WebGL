@@ -419,7 +419,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\Shared\DictionaryPopupInfo.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\DictionaryPopupInfo.h"
+				>
+			</File>
+			<File
 				RelativePath="..\Shared\DrawingAreaInfo.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\FontInfo.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\FontInfo.h"
 				>
 			</File>
 			<File
@@ -467,10 +483,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\Shared\NotImplemented.h"
-				>
-			</File>
-			<File
 				RelativePath="..\Shared\OriginAndDatabases.cpp"
 				>
 			</File>
@@ -496,6 +508,14 @@
 			</File>
 			<File
 				RelativePath="..\Shared\SameDocumentNavigationType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\SecurityOriginData.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\SecurityOriginData.h"
 				>
 			</File>
 			<File
@@ -572,6 +592,10 @@
 			</File>
 			<File
 				RelativePath="..\Shared\WebContextMenuItemData.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebCoreArgumentCoders.cpp"
 				>
 			</File>
 			<File
@@ -1150,6 +1174,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\Shared\win\WebKitBundle.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\win\WebKitBundle.h"
+					>
+				</File>
+				<File
 					RelativePath="..\Shared\win\WebURLRequestWin.cpp"
 					>
 					<FileConfiguration
@@ -1195,6 +1227,26 @@
 				>
 				<File
 					RelativePath="..\Shared\cg\ShareableBitmapCG.cpp"
+					>
+					<FileConfiguration
+						Name="Debug_Cairo_CFLite|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo_CFLite|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\Shared\cg\WebCoreArgumentCodersCG.cpp"
 					>
 					<FileConfiguration
 						Name="Debug_Cairo_CFLite|Win32"
@@ -1303,6 +1355,22 @@
 				>
 			</File>
 			<Filter
+				Name="ApplicationCache"
+				>
+				<File
+					RelativePath="..\WebProcess\ApplicationCache\WebApplicationCacheManager.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\ApplicationCache\WebApplicationCacheManager.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\ApplicationCache\WebApplicationCacheManager.messages.in"
+					>
+				</File>
+			</Filter>
+			<Filter
 				Name="Authentication"
 				>
 				<File
@@ -1339,6 +1407,62 @@
 				</File>
 				<File
 					RelativePath="..\WebProcess\Geolocation\WebGeolocationManager.messages.in"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="KeyValueStorage"
+				>
+				<File
+					RelativePath="..\WebProcess\KeyValueStorage\WebKeyValueStorageManager.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\KeyValueStorage\WebKeyValueStorageManager.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\KeyValueStorage\WebKeyValueStorageManager.messages.in"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="ResourceCache"
+				>
+				<File
+					RelativePath="..\WebProcess\ResourceCache\WebResourceCacheManager.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\ResourceCache\WebResourceCacheManager.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\ResourceCache\WebResourceCacheManager.messages.in"
+					>
+				</File>
+				<Filter
+					Name="cf"
+					>
+					<File
+						RelativePath="..\WebProcess\ResourceCache\cf\WebResourceCacheManagerCFNet.cpp"
+						>
+					</File>
+				</Filter>
+			</Filter>
+			<Filter
+				Name="Cookies"
+				>
+				<File
+					RelativePath="..\WebProcess\Cookies\WebCookieManager.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\Cookies\WebCookieManager.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\Cookies\WebCookieManager.messages.in"
 					>
 				</File>
 			</Filter>
@@ -1453,6 +1577,10 @@
 					Name="win"
 					>
 					<File
+						RelativePath="..\WebProcess\WebCoreSupport\win\WebContextMenuClientWin.cpp"
+						>
+					</File>
+					<File
 						RelativePath="..\WebProcess\WebCoreSupport\win\WebDragClientWin.cpp"
 						>
 					</File>
@@ -1462,10 +1590,6 @@
 					</File>
 					<File
 						RelativePath="..\WebProcess\WebCoreSupport\win\WebDragSource.h"
-						>
-					</File>
-					<File
-						RelativePath="..\WebProcess\WebCoreSupport\win\WebContextMenuClientWin.cpp"
 						>
 					</File>
 					<File
@@ -1514,6 +1638,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\WebProcess\WebPage\DrawingArea.messages.in"
+					>
+				</File>
+				<File
 					RelativePath="..\WebProcess\WebPage\DrawingAreaImpl.cpp"
 					>
 				</File>
@@ -1535,14 +1663,6 @@
 				</File>
 				<File
 					RelativePath="..\WebProcess\WebPage\FindController.h"
-					>
-				</File>
-				<File
-					RelativePath="..\WebProcess\WebPage\LayerBackedDrawingArea.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\WebProcess\WebPage\LayerBackedDrawingArea.h"
 					>
 				</File>
 				<File
@@ -1638,10 +1758,6 @@
 					>
 					<File
 						RelativePath="..\WebProcess\WebPage\win\ChunkedUpdateDrawingAreaWin.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\WebProcess\WebPage\win\LayerBackedDrawingAreaWin.cpp"
 						>
 					</File>
 					<File
@@ -2171,6 +2287,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\UIProcess\DrawingAreaProxy.messages.in"
+				>
+			</File>
+			<File
 				RelativePath="..\UIProcess\DrawingAreaProxyImpl.cpp"
 				>
 			</File>
@@ -2207,14 +2327,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\UIProcess\LayerBackedDrawingAreaProxy.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\UIProcess\LayerBackedDrawingAreaProxy.h"
-				>
-			</File>
-			<File
 				RelativePath="..\UIProcess\PageClient.h"
 				>
 			</File>
@@ -2240,6 +2352,18 @@
 			</File>
 			<File
 				RelativePath="..\UIProcess\VisitedLinkProvider.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebApplicationCacheManagerProxy.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebApplicationCacheManagerProxy.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebApplicationCacheManagerProxy.messages.in"
 				>
 			</File>
 			<File
@@ -2280,6 +2404,26 @@
 			</File>
 			<File
 				RelativePath="..\UIProcess\WebContextUserMessageCoders.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebCookieManagerProxy.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebCookieManagerProxy.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebCookieManagerProxy.messages.in"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebCookieManagerProxyClient.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebCookieManagerProxyClient.h"
 				>
 			</File>
 			<File
@@ -2403,6 +2547,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\UIProcess\WebKeyValueStorageManagerProxy.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebKeyValueStorageManagerProxy.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebKeyValueStorageManagerProxy.messages.in"
+				>
+			</File>
+			<File
 				RelativePath="..\UIProcess\WebLoaderClient.cpp"
 				>
 			</File>
@@ -2471,14 +2627,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\UIProcess\WebProcessManager.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\UIProcess\WebProcessManager.h"
-				>
-			</File>
-			<File
 				RelativePath="..\UIProcess\WebProcessProxy.cpp"
 				>
 			</File>
@@ -2488,6 +2636,18 @@
 			</File>
 			<File
 				RelativePath="..\UIProcess\WebProcessProxy.messages.in"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebResourceCacheManagerProxy.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebResourceCacheManagerProxy.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebResourceCacheManagerProxy.messages.in"
 				>
 			</File>
 			<File
@@ -2518,6 +2678,14 @@
 					</File>
 					<File
 						RelativePath="..\UIProcess\API\C\WKAPICast.h"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKApplicationCacheManager.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKApplicationCacheManager.h"
 						>
 					</File>
 					<File
@@ -2570,6 +2738,14 @@
 					</File>
 					<File
 						RelativePath="..\UIProcess\API\C\win\WKContextWin.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKCookieManager.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKCookieManager.h"
 						>
 					</File>
 					<File
@@ -2657,6 +2833,14 @@
 						>
 					</File>
 					<File
+						RelativePath="..\UIProcess\API\C\WKKeyValueStorageManager.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKKeyValueStorageManager.h"
+						>
+					</File>
+					<File
 						RelativePath="..\UIProcess\API\C\WKNativeEvent.h"
 						>
 					</File>
@@ -2705,6 +2889,14 @@
 						>
 					</File>
 					<File
+						RelativePath="..\UIProcess\API\C\WKPluginSiteDataManager.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKPluginSiteDataManager.h"
+						>
+					</File>
+					<File
 						RelativePath="..\UIProcess\API\C\WKPreferences.cpp"
 						>
 					</File>
@@ -2726,6 +2918,14 @@
 					</File>
 					<File
 						RelativePath="..\UIProcess\API\C\WKProtectionSpaceTypes.h"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKResourceCacheManager.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKResourceCacheManager.h"
 						>
 					</File>
 					<Filter
@@ -2878,10 +3078,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\UIProcess\win\LayerBackedDrawingAreaProxyWin.cpp"
-					>
-				</File>
-				<File
 					RelativePath="..\UIProcess\win\TextCheckerWin.cpp"
 					>
 				</File>
@@ -2931,6 +3127,14 @@
 				</File>
 				<File
 					RelativePath="..\UIProcess\Plugins\PluginInfoStore.h"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Plugins\WebPluginSiteDataManager.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Plugins\WebPluginSiteDataManager.h"
 					>
 				</File>
 				<Filter
@@ -3287,11 +3491,43 @@
 				>
 			</File>
 			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebApplicationCacheManagerMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebApplicationCacheManagerMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebApplicationCacheManagerProxyMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebApplicationCacheManagerProxyMessages.h"
+				>
+			</File>
+			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebContextMessageReceiver.cpp"
 				>
 			</File>
 			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebContextMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebCookieManagerMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebCookieManagerMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebCookieManagerProxyMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebCookieManagerProxyMessages.h"
 				>
 			</File>
 			<File
@@ -3343,6 +3579,22 @@
 				>
 			</File>
 			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebKeyValueStorageManagerMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebKeyValueStorageManagerMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebKeyValueStorageManagerProxyMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebKeyValueStorageManagerProxyMessages.h"
+				>
+			</File>
+			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebPageMessageReceiver.cpp"
 				>
 			</File>
@@ -3374,6 +3626,22 @@
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebProcessProxyMessages.h"
 				>
 			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebResourceCacheManagerMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebResourceCacheManagerMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebResourceCacheManagerProxyMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebResourceCacheManagerProxyMessages.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Scripts"
@@ -3403,6 +3671,10 @@
 				</File>
 			</Filter>
 		</Filter>
+		<File
+			RelativePath="..\config.h"
+			>
+		</File>
 		<File
 			RelativePath=".\WebKit2.def"
 			>

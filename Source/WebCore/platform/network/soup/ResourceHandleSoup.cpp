@@ -171,9 +171,11 @@ static void ensureSessionIsInitialized(SoupSession* session)
         g_object_unref(logger);
     }
 
-    SoupRequester* requester = soup_requester_new();
-    soup_session_add_feature(session, SOUP_SESSION_FEATURE(requester));
-    g_object_unref(requester);
+    if (!soup_session_get_feature(session, SOUP_TYPE_REQUESTER)) {
+        SoupRequester* requester = soup_requester_new();
+        soup_session_add_feature(session, SOUP_SESSION_FEATURE(requester));
+        g_object_unref(requester);
+    }
 
     g_object_set(session,
                  SOUP_SESSION_MAX_CONNS, maxConnections,
@@ -362,7 +364,7 @@ static void gotChunkCallback(SoupMessage* msg, SoupBuffer* chunk, gpointer data)
 
     ASSERT(!d->m_response.isNull());
 
-    client->didReceiveData(handle.get(), chunk->data, chunk->length, false);
+    client->didReceiveData(handle.get(), chunk->data, chunk->length, chunk->length);
 }
 
 static SoupSession* createSoupSession()
@@ -453,7 +455,7 @@ static void sendRequestCallback(GObject* source, GAsyncResult* res, gpointer use
             // response_body->data as libsoup always creates the
             // SoupBuffer for the body even if the length is 0
             if (!d->m_cancelled && soupMsg->response_body->length)
-                client->didReceiveData(handle.get(), soupMsg->response_body->data, soupMsg->response_body->length, true);
+                client->didReceiveData(handle.get(), soupMsg->response_body->data, soupMsg->response_body->length, soupMsg->response_body->length);
         }
 
         // didReceiveData above might have cancelled it
@@ -473,7 +475,6 @@ static void sendRequestCallback(GObject* source, GAsyncResult* res, gpointer use
 
     d->m_inputStream = adoptGRef(in);
     d->m_buffer = static_cast<char*>(g_slice_alloc0(READ_BUFFER_SIZE));
-    d->m_total = 0;
 
     // readCallback needs it
     g_object_set_data(G_OBJECT(d->m_inputStream.get()), "webkit-resource", handle.get());
@@ -698,10 +699,14 @@ void ResourceHandle::platformSetDefersLoading(bool defersLoading)
     if (!d->m_soupMessage)
         return;
 
+    SoupMessage* soupMessage = d->m_soupMessage.get();
+    if (soupMessage->status_code != SOUP_STATUS_NONE)
+        return;
+
     if (defersLoading)
-        soup_session_pause_message(defaultSession(), d->m_soupMessage.get());
+        soup_session_pause_message(defaultSession(), soupMessage);
     else
-        soup_session_unpause_message(defaultSession(), d->m_soupMessage.get());
+        soup_session_unpause_message(defaultSession(), soupMessage);
 }
 
 bool ResourceHandle::loadsBlocked()
@@ -783,13 +788,12 @@ static void readCallback(GObject* source, GAsyncResult* asyncResult, gpointer da
     // It's mandatory to have sent a response before sending data
     ASSERT(!d->m_response.isNull());
 
-    d->m_total += bytesRead;
     if (G_LIKELY(!convertToUTF16))
-        client->didReceiveData(handle.get(), d->m_buffer, bytesRead, d->m_total);
+        client->didReceiveData(handle.get(), d->m_buffer, bytesRead, bytesRead);
     else {
         // We have to convert it to UTF-16 due to limitations in KURL
         String data = String::fromUTF8(d->m_buffer, bytesRead);
-        client->didReceiveData(handle.get(), reinterpret_cast<const char*>(data.characters()), data.length() * sizeof(UChar), 0);
+        client->didReceiveData(handle.get(), reinterpret_cast<const char*>(data.characters()), data.length() * sizeof(UChar), bytesRead);
     }
 
     // didReceiveData may cancel the load, which may release the last reference.

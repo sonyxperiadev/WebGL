@@ -86,6 +86,7 @@ void LayoutTestController::reset()
     DumpRenderTreeSupportQt::setCustomPolicyDelegate(false, false);
     DumpRenderTreeSupportQt::dumpHistoryCallbacks(false);
     DumpRenderTreeSupportQt::dumpVisitedLinksCallbacks(false);
+    DumpRenderTreeSupportQt::resetGeolocationMock(m_drt->webPage());
     setIconDatabaseEnabled(false);
     clearAllDatabases();
 
@@ -235,9 +236,9 @@ QString LayoutTestController::pathToLocalResource(const QString& url)
     return QDir::toNativeSeparators(url);
 }
 
-void LayoutTestController::dumpConfigurationForViewport(int availableWidth, int availableHeight)
+void LayoutTestController::dumpConfigurationForViewport(int deviceDPI, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight)
 {
-    QString res = DumpRenderTreeSupportQt::viewportAsText(m_drt->webPage(), QSize(availableWidth, availableHeight));
+    QString res = DumpRenderTreeSupportQt::viewportAsText(m_drt->webPage(), deviceDPI, QSize(deviceWidth, deviceHeight), QSize(availableWidth, availableHeight));
     fputs(qPrintable(res), stdout);
 }
 
@@ -620,7 +621,7 @@ void LayoutTestController::overridePreference(const QString& name, const QVarian
 
 void LayoutTestController::setUserStyleSheetLocation(const QString& url)
 {
-    m_userStyleSheetLocation = QUrl(url);
+    m_userStyleSheetLocation = QUrl::fromEncoded(url.toAscii(), QUrl::StrictMode);
 
     if (m_userStyleSheetEnabled)
         setUserStyleSheetEnabled(true);
@@ -762,7 +763,7 @@ void LayoutTestController::setMockDeviceOrientation(bool canProvideAlpha, double
 void LayoutTestController::setGeolocationPermission(bool allow)
 {
     setGeolocationPermissionCommon(allow);
-    emit geolocationPermissionSet();
+    DumpRenderTreeSupportQt::setMockGeolocationPermission(m_drt->webPage(), allow);
 }
 
 void LayoutTestController::setGeolocationPermissionCommon(bool allow)
@@ -773,12 +774,12 @@ void LayoutTestController::setGeolocationPermissionCommon(bool allow)
 
 void LayoutTestController::setMockGeolocationError(int code, const QString& message)
 {
-    DumpRenderTreeSupportQt::setMockGeolocationError(code, message);
+    DumpRenderTreeSupportQt::setMockGeolocationError(m_drt->webPage(), code, message);
 }
 
 void LayoutTestController::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
 {
-    DumpRenderTreeSupportQt::setMockGeolocationPosition(latitude, longitude, accuracy);
+    DumpRenderTreeSupportQt::setMockGeolocationPosition(m_drt->webPage(), latitude, longitude, accuracy);
 }
 
 void LayoutTestController::addMockSpeechInputResult(const QString& result, double confidence, const QString& language)
@@ -834,6 +835,11 @@ QVariantList LayoutTestController::nodesFromRect(const QWebElement& document, in
 void LayoutTestController::addURLToRedirect(const QString& origin, const QString& destination)
 {
     DumpRenderTreeSupportQt::addURLToRedirect(origin, destination);
+}
+
+void LayoutTestController::setMinimumTimerInterval(double minimumTimerInterval)
+{
+    DumpRenderTreeSupportQt::setMinimumTimerInterval(m_drt->webPage(), minimumTimerInterval);
 }
 
 const unsigned LayoutTestController::maxViewWidth = 800;

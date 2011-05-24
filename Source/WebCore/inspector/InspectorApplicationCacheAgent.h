@@ -28,42 +28,48 @@
 #if ENABLE(INSPECTOR) && ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #include "ApplicationCacheHost.h"
+#include "InspectorFrontend.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-class DocumentLoader;
 class Frame;
 class InspectorArray;
 class InspectorAgent;
 class InspectorFrontend;
 class InspectorObject;
 class InspectorValue;
+class InstrumentingAgents;
+class Page;
 class ResourceResponse;
+
+typedef String ErrorString;
 
 class InspectorApplicationCacheAgent {
     WTF_MAKE_NONCOPYABLE(InspectorApplicationCacheAgent); WTF_MAKE_FAST_ALLOCATED;
 public:
-    InspectorApplicationCacheAgent(DocumentLoader*, InspectorFrontend*);
+    InspectorApplicationCacheAgent(InstrumentingAgents*, Page*);
     ~InspectorApplicationCacheAgent() { }
 
-    void didCommitLoad(DocumentLoader*);
+    void setFrontend(InspectorFrontend*);
+    void clearFrontend();
 
     // Backend to Frontend
     void updateApplicationCacheStatus(Frame*);
     void networkStateChanged();
 
     // From Frontend
-    void getApplicationCaches(RefPtr<InspectorValue>* applicationCaches);
+    void getApplicationCaches(ErrorString* error, RefPtr<InspectorValue>* applicationCaches);
 
 private:
     PassRefPtr<InspectorObject> buildObjectForApplicationCache(const ApplicationCacheHost::ResourceInfoList&, const ApplicationCacheHost::CacheInfo&);
     PassRefPtr<InspectorArray> buildArrayForApplicationCacheResources(const ApplicationCacheHost::ResourceInfoList&);
     PassRefPtr<InspectorObject> buildObjectForApplicationCacheResource(const ApplicationCacheHost::ResourceInfo&);
 
-    DocumentLoader* m_documentLoader;
-    InspectorFrontend* m_frontend;
+    InstrumentingAgents* m_instrumentingAgents;
+    Page* m_inspectedPage;
+    InspectorFrontend::ApplicationCache* m_frontend;
 };
 
 } // namespace WebCore

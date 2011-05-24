@@ -48,6 +48,7 @@
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
 #include "SecurityOrigin.h"
+#include "Settings.h"
 #include "TextIterator.h"
 #include "WorkerThread.h"
 #include "webkitglobalsprivate.h"
@@ -68,6 +69,7 @@ using namespace WebKit;
 
 bool DumpRenderTreeSupportGtk::s_drtRun = false;
 bool DumpRenderTreeSupportGtk::s_linksIncludedInTabChain = true;
+bool DumpRenderTreeSupportGtk::s_selectTrailingWhitespaceEnabled = false;
 
 DumpRenderTreeSupportGtk::DumpRenderTreeSupportGtk()
 {
@@ -99,6 +101,16 @@ bool DumpRenderTreeSupportGtk::linksIncludedInFocusChain()
 void DumpRenderTreeSupportGtk::setIconDatabaseEnabled(bool enabled)
 {
     WebKit::setIconDatabaseEnabled(enabled);
+}
+
+void DumpRenderTreeSupportGtk::setSelectTrailingWhitespaceEnabled(bool enabled)
+{
+    s_selectTrailingWhitespaceEnabled = enabled;
+}
+
+bool DumpRenderTreeSupportGtk::selectTrailingWhitespaceEnabled()
+{
+    return s_selectTrailingWhitespaceEnabled;
 }
 
 JSValueRef DumpRenderTreeSupportGtk::nodesFromRect(JSContextRef context, JSValueRef value, int x, int y, unsigned top, unsigned right, unsigned bottom, unsigned left, bool ignoreClipping)
@@ -610,15 +622,21 @@ void DumpRenderTreeSupportGtk::layoutFrame(WebKitWebFrame* frame)
 }
 
 // For testing fast/viewport.
-void DumpRenderTreeSupportGtk::dumpConfigurationForViewport(WebKitWebView* webView, gint availableWidth, gint availableHeight)
+void DumpRenderTreeSupportGtk::dumpConfigurationForViewport(WebKitWebView* webView, gint deviceDPI, gint deviceWidth, gint deviceHeight, gint availableWidth, gint availableHeight)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
     ViewportArguments arguments = webView->priv->corePage->mainFrame()->document()->viewportArguments();
-    // desktopWidth = 980, deviceWidth = 320, deviceHeight = 480, deviceDPI = 160
-    ViewportAttributes attrs = computeViewportAttributes(arguments, 980, 320, 480, 160, IntSize(availableWidth, availableHeight));
+    ViewportAttributes attrs = computeViewportAttributes(arguments, /* default layout width for non-mobile pages */ 980, deviceWidth, deviceHeight, deviceDPI, IntSize(availableWidth, availableHeight));
 
     fprintf(stdout, "viewport size %dx%d scale %f with limits [%f, %f]\n", attrs.layoutSize.width(), attrs.layoutSize.height(), attrs.initialScale, attrs.minimumScale, attrs.maximumScale);
+}
+
+void DumpRenderTreeSupportGtk::clearOpener(WebKitWebFrame* frame)
+{
+    Frame* coreFrame = core(frame);
+    if (coreFrame)
+        coreFrame->loader()->setOpener(0);
 }
 
 unsigned int DumpRenderTreeSupportGtk::workerThreadCount()
@@ -642,3 +660,12 @@ bool DumpRenderTreeSupportGtk::findString(WebKitWebView* webView, const gchar* t
     return core(webView)->findString(String::fromUTF8(targetString), findOptions);
 }
 
+double DumpRenderTreeSupportGtk::defaultMinimumTimerInterval()
+{
+    return Settings::defaultMinDOMTimerInterval();
+}
+
+void DumpRenderTreeSupportGtk::setMinimumTimerInterval(WebKitWebView* webView, double interval)
+{
+    core(webView)->settings()->setMinDOMTimerInterval(interval);
+}

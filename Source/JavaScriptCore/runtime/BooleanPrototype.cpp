@@ -26,7 +26,6 @@
 #include "JSFunction.h"
 #include "JSString.h"
 #include "ObjectPrototype.h"
-#include "PrototypeFunction.h"
 
 namespace JSC {
 
@@ -38,13 +37,13 @@ static EncodedJSValue JSC_HOST_CALL booleanProtoFuncValueOf(ExecState*);
 
 // ECMA 15.6.4
 
-BooleanPrototype::BooleanPrototype(ExecState* exec, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, Structure* prototypeFunctionStructure)
+BooleanPrototype::BooleanPrototype(ExecState* exec, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, Structure* functionStructure)
     : BooleanObject(exec->globalData(), structure)
 {
     setInternalValue(exec->globalData(), jsBoolean(false));
 
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, globalObject, prototypeFunctionStructure, 0, exec->propertyNames().toString, booleanProtoFuncToString), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, globalObject, prototypeFunctionStructure, 0, exec->propertyNames().valueOf, booleanProtoFuncValueOf), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, globalObject, functionStructure, 0, exec->propertyNames().toString, booleanProtoFuncToString), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, globalObject, functionStructure, 0, exec->propertyNames().valueOf, booleanProtoFuncValueOf), DontEnum);
 }
 
 
@@ -61,7 +60,7 @@ EncodedJSValue JSC_HOST_CALL booleanProtoFuncToString(ExecState* exec)
     if (thisValue == jsBoolean(true))
         return JSValue::encode(jsNontrivialString(exec, "true"));
 
-    if (!thisValue.inherits(&BooleanObject::info))
+    if (!thisValue.inherits(&BooleanObject::s_info))
         return throwVMTypeError(exec);
 
     if (asBooleanObject(thisValue)->internalValue() == jsBoolean(false))
@@ -77,7 +76,7 @@ EncodedJSValue JSC_HOST_CALL booleanProtoFuncValueOf(ExecState* exec)
     if (thisValue.isBoolean())
         return JSValue::encode(thisValue);
 
-    if (!thisValue.inherits(&BooleanObject::info))
+    if (!thisValue.inherits(&BooleanObject::s_info))
         return throwVMTypeError(exec);
 
     return JSValue::encode(asBooleanObject(thisValue)->internalValue());

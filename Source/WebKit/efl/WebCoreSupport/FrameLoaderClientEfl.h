@@ -115,7 +115,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
 
-    virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction, const String& MIMEType, const ResourceRequest&);
+    virtual void dispatchDecidePolicyForResponse(FramePolicyFunction, const ResourceResponse&, const ResourceRequest&);
     virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, WTF::PassRefPtr<FormState>, const String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, WTF::PassRefPtr<FormState>);
     virtual void cancelPolicyCheck();
@@ -164,6 +164,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void updateGlobalHistory();
     virtual void updateGlobalHistoryRedirectLinks();
     virtual bool shouldGoToHistoryItem(HistoryItem*) const;
+    virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
     virtual void didDisplayInsecureContent();
     virtual void didRunInsecureContent(SecurityOrigin*, const KURL&);
 

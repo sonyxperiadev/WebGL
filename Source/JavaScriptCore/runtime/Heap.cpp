@@ -24,7 +24,6 @@
 #include "CodeBlock.h"
 #include "ConservativeSet.h"
 #include "GCActivityCallback.h"
-#include "GCHandle.h"
 #include "Interpreter.h"
 #include "JSGlobalData.h"
 #include "JSGlobalObject.h"
@@ -33,7 +32,7 @@
 #include "Tracing.h"
 #include <algorithm>
 
-#define COLLECT_ON_EVERY_ALLOCATION 0
+#define COLLECT_ON_EVERY_SLOW_ALLOCATION 0
 
 using namespace std;
 
@@ -49,8 +48,10 @@ Heap::Heap(JSGlobalData* globalData)
     , m_globalData(globalData)
     , m_machineStackMarker(this)
     , m_markStack(globalData->jsArrayVPtr)
+    , m_handleHeap(globalData)
     , m_extraCost(0)
 {
+    m_markedSpace.setHighWaterMark(minBytesPerCycle);
     (*m_activityCallback)();
 }
 
@@ -76,7 +77,8 @@ void Heap::destroy()
 
     delete m_markListSet;
     m_markListSet = 0;
-
+    m_markedSpace.clearMarks();
+    m_handleHeap.clearWeakPointers();
     m_markedSpace.destroy();
 
     m_globalData = 0;
@@ -100,62 +102,27 @@ void Heap::reportExtraMemoryCostSlowCase(size_t cost)
     m_extraCost += cost;
 }
 
-void* Heap::allocate(size_t s)
+void* Heap::allocateSlowCase(size_t bytes)
 {
     ASSERT(globalData()->identifierTable == wtfThreadData().currentIdentifierTable());
     ASSERT(JSLock::lockCount() > 0);
     ASSERT(JSLock::currentThreadIsHoldingLock());
-    ASSERT_UNUSED(s, s <= MarkedBlock::CELL_SIZE);
+    ASSERT(bytes <= MarkedSpace::maxCellSize);
     ASSERT(m_operationInProgress == NoOperation);
 
-#if COLLECT_ON_EVERY_ALLOCATION
+#if COLLECT_ON_EVERY_SLOW_ALLOCATION
     collectAllGarbage();
     ASSERT(m_operationInProgress == NoOperation);
 #endif
 
-    m_operationInProgress = Allocation;
-    void* result = m_markedSpace.allocate(s);
-    m_operationInProgress = NoOperation;
-    if (!result) {
-        reset(DoNotSweep);
+    reset(DoNotSweep);
 
-        m_operationInProgress = Allocation;
-        result = m_markedSpace.allocate(s);
-        m_operationInProgress = NoOperation;
-    }
+    m_operationInProgress = Allocation;
+    void* result = m_markedSpace.allocate(bytes);
+    m_operationInProgress = NoOperation;
 
     ASSERT(result);
     return result;
-}
-
-void Heap::updateWeakGCHandles()
-{
-    for (unsigned i = 0; i < m_weakGCHandlePools.size(); ++i)
-        weakGCHandlePool(i)->update();
-}
-
-void WeakGCHandlePool::update()
-{
-    for (unsigned i = 1; i < WeakGCHandlePool::numPoolEntries; ++i) {
-        if (m_entries[i].isValidPtr()) {
-            JSCell* cell = m_entries[i].get();
-            if (!cell || !Heap::isMarked(cell))
-                m_entries[i].invalidate();
-        }
-    }
-}
-
-WeakGCHandle* Heap::addWeakGCHandle(JSCell* ptr)
-{
-    for (unsigned i = 0; i < m_weakGCHandlePools.size(); ++i)
-        if (!weakGCHandlePool(i)->isFull())
-            return weakGCHandlePool(i)->allocate(ptr);
-
-    PageAllocationAligned allocation = PageAllocationAligned::allocate(WeakGCHandlePool::poolSize, WeakGCHandlePool::poolSize, OSAllocator::JSGCHeapPages);
-    m_weakGCHandlePools.append(allocation);
-
-    WeakGCHandlePool* pool = new (allocation.base()) WeakGCHandlePool();
-    return pool->allocate(ptr);
 }
 
 void Heap::protect(JSValue k)
@@ -269,14 +236,16 @@ void Heap::markRoots()
         JSONObject::markStringifiers(markStack, m_globalData->firstStringifierToMark);
     markStack.drain();
 
+    m_handleHeap.markStrongHandles(markStack);
+
     // Mark the small strings cache last, since it will clear itself if nothing
     // else has marked it.
     m_globalData->smallStrings.markChildren(markStack);
 
     markStack.drain();
     markStack.compact();
-
-    updateWeakGCHandles();
+    
+    m_handleHeap.updateAfterMark();
 
     m_operationInProgress = NoOperation;
 }
@@ -298,18 +267,17 @@ size_t Heap::capacity() const
 
 size_t Heap::globalObjectCount()
 {
-    return m_globalData->globalObjects.uncheckedSize();
+    return m_globalData->globalObjectCount;
 }
 
 size_t Heap::protectedGlobalObjectCount()
 {
-    size_t count = 0;
+    size_t count = m_handleHeap.protectedGlobalObjectCount();
 
-    GlobalObjectMap& map = m_globalData->globalObjects;
-    GlobalObjectMap::iterator end = map.uncheckedEnd();
-    for (GlobalObjectMap::iterator it = map.uncheckedBegin(); it != end; ++it) {
-        if (map.isValid(it) && m_protectedValues.contains(it->second.get()))
-            ++count;
+    ProtectCountSet::iterator end = m_protectedValues.end();
+    for (ProtectCountSet::iterator it = m_protectedValues.begin(); it != end; ++it) {
+        if (it->first->isObject() && asObject(it->first)->isGlobalObject())
+            count++;
     }
 
     return count;
@@ -401,6 +369,10 @@ void Heap::reset(SweepToggle sweepToggle)
 
     m_markedSpace.reset();
     m_extraCost = 0;
+
+#if ENABLE(JSC_ZOMBIES)
+    sweep();
+#endif
 
     if (sweepToggle == DoSweep) {
         m_markedSpace.sweep();

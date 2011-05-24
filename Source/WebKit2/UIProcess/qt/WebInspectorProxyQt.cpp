@@ -28,10 +28,8 @@
 
 #if ENABLE(INSPECTOR)
 
+#include <WebCore/NotImplemented.h>
 #include <wtf/text/WTFString.h>
-
-#define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
-#include "NotImplemented.h"
 
 namespace WebKit {
 
@@ -47,6 +45,11 @@ void WebInspectorProxy::platformOpen()
 }
 
 void WebInspectorProxy::platformClose()
+{
+    notImplemented();
+}
+
+void WebInspectorProxy::platformInspectedURLChanged(const String&)
 {
     notImplemented();
 }

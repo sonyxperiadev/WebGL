@@ -335,12 +335,15 @@ public:
     void markerTextForListItem(const CppArgumentList&, CppVariant*);
     void hasSpellingMarker(const CppArgumentList&, CppVariant*);
 
+    void setMinimumTimerInterval(const CppArgumentList&, CppVariant*);
+
 public:
     // The following methods are not exposed to JavaScript.
     void setWorkQueueFrozen(bool frozen) { m_workQueue.setFrozen(frozen); }
 
     WebKit::WebSpeechInputController* speechInputController(WebKit::WebSpeechInputListener*);
     bool shouldDumpAsText() { return m_dumpAsText; }
+    void setShouldDumpAsText(bool value) { m_dumpAsText = value; }
     bool shouldDumpEditingCallbacks() { return m_dumpEditingCallbacks; }
     bool shouldDumpFrameLoadCallbacks() { return m_dumpFrameLoadCallbacks; }
     void setShouldDumpFrameLoadCallbacks(bool value) { m_dumpFrameLoadCallbacks = value; }
@@ -356,6 +359,7 @@ public:
     bool shouldDumpChildFrameScrollPositions() { return m_dumpChildFrameScrollPositions; }
     bool shouldDumpChildFramesAsText() { return m_dumpChildFramesAsText; }
     bool shouldGeneratePixelResults() { return m_generatePixelResults; }
+    void setShouldGeneratePixelResults(bool value) { m_generatePixelResults = value; }
     bool acceptsEditing() { return m_acceptsEditing; }
     bool canOpenWindows() { return m_canOpenWindows; }
     bool shouldAddFileToPasteboard() { return m_shouldAddFileToPasteboard; }

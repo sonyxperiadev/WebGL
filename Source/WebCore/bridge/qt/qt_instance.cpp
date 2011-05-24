@@ -29,6 +29,7 @@
 #include "qt_class.h"
 #include "qt_runtime.h"
 #include "runtime_object.h"
+#include "runtime/FunctionPrototype.h"
 
 #include <qdebug.h>
 #include <qhash.h>
@@ -60,14 +61,11 @@ public:
 
     static PassRefPtr<Structure> createStructure(JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount);
+        return Structure::create(prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount, &s_info);
     }
 
 protected:
     static const unsigned StructureFlags = RuntimeObject::StructureFlags | OverridesMarkChildren;
-
-private:
-    virtual const ClassInfo* classInfo() const { return &s_info; }
 };
 
 const ClassInfo QtRuntimeObject::s_info = { "QtRuntimeObject", &RuntimeObject::s_info, 0, 0 };
@@ -244,7 +242,7 @@ JSValue QtInstance::getMethod(ExecState* exec, const Identifier& propertyName)
     if (!getClass())
         return jsNull();
     MethodList methodList = m_class->methodsNamed(propertyName, this);
-    return new (exec) RuntimeMethod(exec, exec->lexicalGlobalObject(), propertyName, methodList);
+    return new (exec) RuntimeMethod(exec, exec->lexicalGlobalObject(), WebCore::deprecatedGetDOMStructure<RuntimeMethod>(exec), propertyName, methodList);
 }
 
 JSValue QtInstance::invokeMethod(ExecState*, RuntimeMethod*)

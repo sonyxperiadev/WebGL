@@ -15,14 +15,9 @@ unix:!mac:!symbian:CONFIG += link_pkgconfig
 
 QMAKE_RPATHDIR += $$OUTPUT_DIR/lib
 
-!CONFIG(release, debug|release) {
-    OBJECTS_DIR = obj/debug
-} else { # Release
-    OBJECTS_DIR = obj/release
-}
 OBJECTS_DIR_WTR = $$OBJECTS_DIR$${QMAKE_DIR_SEP}
 include($$PWD/JavaScriptCore.pri)
-addJavaScriptCoreLib(.)
+prependJavaScriptCoreLib(.)
 
 symbian {
     TARGET.CAPABILITY = ReadUserData WriteUserData NetworkServices

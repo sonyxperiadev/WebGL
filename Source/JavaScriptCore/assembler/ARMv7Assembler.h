@@ -369,40 +369,6 @@ private:
     ThumbImmediateValue m_value;
 };
 
-class VFPImmediate {
-public:
-    VFPImmediate(double d)
-        : m_value(-1)
-    {
-        union {
-            uint64_t i;
-            double d;
-        } u;
-
-        u.d = d;
-
-        int sign = static_cast<int>(u.i >> 63);
-        int exponent = static_cast<int>(u.i >> 52) & 0x7ff;
-        uint64_t mantissa = u.i & 0x000fffffffffffffull;
-
-        if ((exponent >= 0x3fc) && (exponent <= 0x403) && !(mantissa & 0x0000ffffffffffffull))
-            m_value = (sign << 7) | ((exponent & 7) << 4) | (int)(mantissa >> 48);
-    }
-
-    bool isValid()
-    {
-        return m_value != -1;
-    }
-    
-    uint8_t value()
-    {
-        return (uint8_t)m_value;
-    }
-
-private:
-    int m_value;
-};
-
 typedef enum {
     SRType_LSL,
     SRType_LSR,
@@ -412,7 +378,6 @@ typedef enum {
     SRType_RRX = SRType_ROR
 } ARMShiftType;
 
-class ARMv7Assembler;
 class ShiftTypeAndAmount {
     friend class ARMv7Assembler;
 
@@ -563,7 +528,7 @@ public:
             ASSERT(m_offset == offset);
         }
 
-        int m_offset : 31;
+        signed int m_offset : 31;
         int m_used : 1;
     };
 
@@ -1878,22 +1843,6 @@ public:
         ASSERT(!(reinterpret_cast<intptr_t>(where) & 1));
         
         setPointer(where, value);
-    }
-
-    static void repatchLoadPtrToLEA(void* where)
-    {
-        ASSERT(!(reinterpret_cast<intptr_t>(where) & 1));
-        uint16_t* loadOp = reinterpret_cast<uint16_t*>(where) + 4;
-
-        ASSERT((loadOp[0] & 0xfff0) == OP_LDR_reg_T2);
-        ASSERT((loadOp[1] & 0x0ff0) == 0);
-        int rn = loadOp[0] & 0xf;
-        int rt = loadOp[1] >> 12;
-        int rm = loadOp[1] & 0xf;
-
-        loadOp[0] = OP_ADD_reg_T3 | rn;
-        loadOp[1] = rt << 8 | rm;
-        ExecutableAllocator::cacheFlush(loadOp, sizeof(uint32_t));
     }
 
 private:

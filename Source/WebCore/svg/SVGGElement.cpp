@@ -66,12 +66,6 @@ void SVGGElement::svgAttributeChanged(const QualifiedName& attrName)
     if (!renderer)
         return;
 
-    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
-        renderer->setNeedsTransformUpdate();
-        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
-        return;
-    }
-
     if (SVGLangSpace::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName))
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
@@ -91,6 +85,17 @@ void SVGGElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
     else if (SVGTests::isKnownAttribute(attrName))
         SVGTests::synchronizeProperties(this, attrName);
+}
+
+AttributeToPropertyTypeMap& SVGGElement::attributeToPropertyTypeMap()
+{
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGGElement::fillAttributeToPropertyTypeMap()
+{
+    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap());
 }
 
 RenderObject* SVGGElement::createRenderer(RenderArena* arena, RenderStyle* style)

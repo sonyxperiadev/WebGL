@@ -26,10 +26,8 @@
 #include "config.h"
 #include "WebEditorClient.h"
 
-#define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
-#include "NotImplemented.h"
-
 #include "SelectionState.h"
+#include "WebCoreArgumentCoders.h"
 #include "WebFrameLoaderClient.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
@@ -43,6 +41,7 @@
 #include <WebCore/HTMLNames.h>
 #include <WebCore/HTMLTextAreaElement.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/UserTypingGestureIndicator.h>
 
@@ -170,21 +169,21 @@ bool WebEditorClient::shouldMoveRangeAfterDelete(Range*, Range*)
 void WebEditorClient::didBeginEditing()
 {
     // FIXME: What good is a notification name, if it's always the same?
-    static const String WebViewDidBeginEditingNotification = "WebViewDidBeginEditingNotification";
+    DEFINE_STATIC_LOCAL(String, WebViewDidBeginEditingNotification, ("WebViewDidBeginEditingNotification"));
     m_page->injectedBundleEditorClient().didBeginEditing(m_page, WebViewDidBeginEditingNotification.impl());
     notImplemented();
 }
 
 void WebEditorClient::respondToChangedContents()
 {
-    static const String WebViewDidChangeNotification = "WebViewDidChangeNotification";
+    DEFINE_STATIC_LOCAL(String, WebViewDidChangeNotification, ("WebViewDidChangeNotification"));
     m_page->injectedBundleEditorClient().didChange(m_page, WebViewDidChangeNotification.impl());
     notImplemented();
 }
 
 void WebEditorClient::respondToChangedSelection()
 {
-    static const String WebViewDidChangeSelectionNotification = "WebViewDidChangeSelectionNotification";
+    DEFINE_STATIC_LOCAL(String, WebViewDidChangeSelectionNotification, ("WebViewDidChangeSelectionNotification"));
     m_page->injectedBundleEditorClient().didChangeSelection(m_page, WebViewDidChangeSelectionNotification.impl());
     Frame* frame = m_page->corePage()->focusController()->focusedFrame();
     if (!frame)
@@ -193,6 +192,7 @@ void WebEditorClient::respondToChangedSelection()
     SelectionState selectionState;
     selectionState.isNone = frame->selection()->isNone();
     selectionState.isContentEditable = frame->selection()->isContentEditable();
+    selectionState.isContentRichlyEditable = frame->selection()->isContentRichlyEditable();
     selectionState.isInPasswordField = frame->selection()->isInPasswordField();
     selectionState.hasComposition = frame->editor()->hasComposition();
 
@@ -213,7 +213,7 @@ void WebEditorClient::respondToChangedSelection()
     
 void WebEditorClient::didEndEditing()
 {
-    static const String WebViewDidEndEditingNotification = "WebViewDidEndEditingNotification";
+    DEFINE_STATIC_LOCAL(String, WebViewDidEndEditingNotification, ("WebViewDidEndEditingNotification"));
     m_page->injectedBundleEditorClient().didEndEditing(m_page, WebViewDidEndEditingNotification.impl());
     notImplemented();
 }
@@ -249,6 +249,16 @@ void WebEditorClient::registerCommandForRedo(PassRefPtr<EditCommand>)
 void WebEditorClient::clearUndoRedoOperations()
 {
     m_page->send(Messages::WebPageProxy::ClearAllEditCommands());
+}
+
+bool WebEditorClient::canCopyCut(bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool WebEditorClient::canPaste(bool defaultValue) const
+{
+    return defaultValue;
 }
 
 bool WebEditorClient::canUndo() const
@@ -395,9 +405,9 @@ void WebEditorClient::checkGrammarOfString(const UChar*, int, Vector<GrammarDeta
     notImplemented();
 }
 
-void WebEditorClient::updateSpellingUIWithGrammarString(const String&, const GrammarDetail&)
+void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
 {
-    notImplemented();
+    m_page->send(Messages::WebPageProxy::UpdateSpellingUIWithGrammarString(badGrammarPhrase, grammarDetail));
 }
 
 void WebEditorClient::updateSpellingUIWithMisspelledWord(const String& misspelledWord)

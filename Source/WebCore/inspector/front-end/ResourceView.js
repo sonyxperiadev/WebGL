@@ -50,9 +50,8 @@ WebInspector.ResourceView.createResourceView = function(resource)
     case WebInspector.resourceCategories.stylesheets:
     case WebInspector.resourceCategories.scripts:
     case WebInspector.resourceCategories.xhr:
-        var contentProvider = new WebInspector.SourceFrameContentProviderForResource(resource);
-        var isScript = resource.type === WebInspector.Resource.Type.Script;
-        var view = new WebInspector.SourceFrame(contentProvider, resource.url, isScript);
+        var delegate = new WebInspector.SourceFrameDelegateForResourcesPanel(resource);
+        var view = new WebInspector.SourceFrame(delegate, resource.url);
         view.resource = resource;
         return view;
     case WebInspector.resourceCategories.images:
@@ -120,35 +119,31 @@ WebInspector.ResourceView.existingResourceViewForResource = function(resource)
 }
 
 
-WebInspector.SourceFrameContentProviderForResource = function(resource)
+WebInspector.SourceFrameDelegateForResourcesPanel = function(resource)
 {
-    WebInspector.SourceFrameContentProvider.call(this);
+    WebInspector.SourceFrameDelegate.call(this);
     this._resource = resource;
 }
 
 //This is a map from resource.type to mime types
 //found in WebInspector.SourceTokenizer.Registry.
-WebInspector.SourceFrameContentProviderForResource.DefaultMIMETypeForResourceType = {
+WebInspector.SourceFrameDelegateForResourcesPanel.DefaultMIMETypeForResourceType = {
     0: "text/html",
     1: "text/css",
     4: "text/javascript"
 }
 
-WebInspector.SourceFrameContentProviderForResource.prototype = {
+WebInspector.SourceFrameDelegateForResourcesPanel.prototype = {
     requestContent: function(callback)
     {
-        function contentLoaded(content)
+        function contentLoaded(text)
         {
-            var mimeType = WebInspector.SourceFrameContentProviderForResource.DefaultMIMETypeForResourceType[this._resource.type] || this._resource.mimeType;
-            callback(mimeType, content);
+            var mimeType = WebInspector.SourceFrameDelegateForResourcesPanel.DefaultMIMETypeForResourceType[this._resource.type] || this._resource.mimeType;
+            var sourceMapping = new WebInspector.IdenticalSourceMapping();
+            callback(mimeType, new WebInspector.SourceFrameContent(text, sourceMapping, []));
         }
         this._resource.requestContent(contentLoaded.bind(this));
-    },
-
-    scripts: function()
-    {
-        return WebInspector.debuggerModel.scriptsForURL(this._resource.url);
     }
 }
 
-WebInspector.SourceFrameContentProviderForResource.prototype.__proto__ = WebInspector.SourceFrameContentProvider.prototype;
+WebInspector.SourceFrameDelegateForResourcesPanel.prototype.__proto__ = WebInspector.SourceFrameDelegate.prototype;

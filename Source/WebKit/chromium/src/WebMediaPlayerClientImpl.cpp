@@ -78,7 +78,10 @@ void WebMediaPlayerClientImpl::registerSelf(MediaEngineRegistrar registrar)
     if (m_isEnabled) {
         registrar(WebMediaPlayerClientImpl::create,
                   WebMediaPlayerClientImpl::getSupportedTypes,
-                  WebMediaPlayerClientImpl::supportsType);
+                  WebMediaPlayerClientImpl::supportsType,
+                  0,
+                  0,
+                  0);
     }
 }
 
@@ -448,6 +451,34 @@ MediaPlayer::MovieLoadType WebMediaPlayerClientImpl::movieLoadType() const
         return static_cast<MediaPlayer::MovieLoadType>(
             m_webMediaPlayer->movieLoadType());
     return MediaPlayer::Unknown;
+}
+
+unsigned WebMediaPlayerClientImpl::decodedFrameCount() const
+{
+    if (m_webMediaPlayer.get())
+        return m_webMediaPlayer->decodedFrameCount();
+    return 0;
+}
+
+unsigned WebMediaPlayerClientImpl::droppedFrameCount() const
+{
+    if (m_webMediaPlayer.get())
+        return m_webMediaPlayer->droppedFrameCount();
+    return 0;
+}
+
+unsigned WebMediaPlayerClientImpl::audioDecodedByteCount() const
+{
+    if (m_webMediaPlayer.get())
+        return m_webMediaPlayer->audioDecodedByteCount();
+    return 0;
+}
+
+unsigned WebMediaPlayerClientImpl::videoDecodedByteCount() const
+{
+    if (m_webMediaPlayer.get())
+        return m_webMediaPlayer->videoDecodedByteCount();
+    return 0;
 }
 
 #if USE(ACCELERATED_COMPOSITING)

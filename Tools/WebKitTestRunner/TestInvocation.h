@@ -26,6 +26,7 @@
 #ifndef TestInvocation_h
 #define TestInvocation_h
 
+#include <string>
 #include <WebKit2/WKRetainPtr.h>
 #include <wtf/Noncopyable.h>
 
@@ -34,22 +35,29 @@ namespace WTR {
 class TestInvocation {
     WTF_MAKE_NONCOPYABLE(TestInvocation);
 public:
-    TestInvocation(const char*);
+    TestInvocation(const std::string& pathOrURL);
     ~TestInvocation();
 
+    void setIsPixelTest(const std::string& expectedPixelHash);
+    
     void invoke();
     void didReceiveMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody);
     WKRetainPtr<WKTypeRef> didReceiveSynchronousMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody);
 
 private:
     void dump(const char*);
-
+    void dumpPixelsAndCompareWithExpected();
+    
     WKRetainPtr<WKURLRef> m_url;
-    char* m_pathOrURL;
+    std::string m_pathOrURL;
+    
+    bool m_dumpPixels;
+    std::string m_expectedPixelHash;
 
     // Invocation state
     bool m_gotInitialResponse;
     bool m_gotFinalMessage;
+    bool m_gotRepaint;
     bool m_error;
 };
 

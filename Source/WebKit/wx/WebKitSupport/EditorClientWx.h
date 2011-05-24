@@ -30,13 +30,14 @@
 
 #include "EditorClient.h"
 #include "Page.h"
+#include "TextCheckerClient.h"
 
 #include "WebView.h"
 #include "WebFrame.h"
 
 namespace WebCore {
 
-class EditorClientWx : public EditorClient {
+class EditorClientWx : public EditorClient, public TextCheckerClient {
 friend class ::wxWebView;
 friend class ::wxWebFrame;
 
@@ -56,7 +57,6 @@ public:
     virtual int spellCheckerDocumentTag();
 
     virtual bool selectWordBeforeMenuEvent();
-    virtual bool isEditable();
 
     virtual bool shouldBeginEditing(Range*);
     virtual bool shouldEndEditing(Range*);
@@ -81,6 +81,8 @@ public:
     virtual void registerCommandForRedo(PassRefPtr<EditCommand>);
     virtual void clearUndoRedoOperations();
 
+    virtual bool canCopyCut(bool defaultValue) const;
+    virtual bool canPaste(bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
 
@@ -113,6 +115,7 @@ public:
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
     virtual void requestCheckingOfString(WebCore::SpellChecker*, int, const WTF::String&) {}
+    virtual TextCheckerClient* textChecker() { return this; }
 
 private:
     Page* m_page;

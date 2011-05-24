@@ -89,13 +89,14 @@ void ResourceRequest::updateFromSoupMessage(SoupMessage* soupMessage)
 
     m_httpMethod = String::fromUTF8(soupMessage->method);
 
+    m_httpHeaderFields.clear();
     SoupMessageHeadersIter headersIter;
     const char* headerName;
     const char* headerValue;
-
     soup_message_headers_iter_init(&headersIter, soupMessage->request_headers);
-    while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue))
+    while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue)) {
         m_httpHeaderFields.set(String::fromUTF8(headerName), String::fromUTF8(headerValue));
+    }
 
     if (soupMessage->request_body->data)
         m_httpBody = FormData::create(soupMessage->request_body->data, soupMessage->request_body->length);

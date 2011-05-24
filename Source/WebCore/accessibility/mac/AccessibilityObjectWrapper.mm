@@ -42,7 +42,6 @@
 #import "AccessibilityTableRow.h"
 #import "AccessibilityTableColumn.h"
 #import "ColorMac.h"
-#import "EditorClient.h"
 #import "Frame.h"
 #import "FrameLoaderClient.h"
 #import "HTMLAnchorElement.h"
@@ -58,6 +57,7 @@
 #import "ScrollView.h"
 #import "SelectionController.h"
 #import "SimpleFontData.h"
+#import "TextCheckerClient.h"
 #import "TextIterator.h"
 #import "WebCoreFrameView.h"
 #import "WebCoreObjCExtras.h"
@@ -480,14 +480,14 @@ static void AXAttributeStringSetBlockquoteLevel(NSMutableAttributedString* attrS
 static void AXAttributeStringSetSpelling(NSMutableAttributedString* attrString, Node* node, const UChar* chars, int charLength, NSRange range)
 {
     // Check the spelling directly since document->markersForNode() does not store the misspelled marking when the cursor is in a word.
-    EditorClient* client = node->document()->page()->editorClient();
     int currentPosition = 0;
     while (charLength > 0) {
         const UChar* charData = chars + currentPosition;
+        TextCheckerClient* checker = node->document()->frame()->editor()->textChecker();
 
         int misspellingLocation = -1;
         int misspellingLength = 0;
-        client->checkSpellingOfString(charData, charLength, &misspellingLocation, &misspellingLength);
+        checker->checkSpellingOfString(charData, charLength, &misspellingLocation, &misspellingLength);
         if (misspellingLocation == -1 || !misspellingLength)
             break;
         
@@ -1543,9 +1543,15 @@ static NSString* roleValueToNSString(AccessibilityRole value)
         }
         
         AccessibilityObject* parent = m_object->parentObjectUnignored();
-        if (parent)
-            return parent->wrapper();
-        return nil;
+        if (!parent)
+            return nil;
+
+        // In WebKit1, the scroll view is provided by the system (the attachment view), so the parent
+        // should be reported directly as such.
+        if (m_object->isWebArea() && parent->isAttachment())
+            return [parent->wrapper() attachmentView];
+        
+        return parent->wrapper();
     }
 
     if ([attributeName isEqualToString: NSAccessibilityChildrenAttribute]) {

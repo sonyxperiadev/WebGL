@@ -55,6 +55,7 @@
 #include "Settings.h"
 #include "SpatialNavigation.h"
 #include "Widget.h"
+#include "htmlediting.h" // For firstPositionInOrBeforeNode
 
 namespace WebCore {
 
@@ -201,7 +202,7 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
     bool caretBrowsing = focusedOrMainFrame()->settings()->caretBrowsingEnabled();
 
     if (caretBrowsing && !currentNode)
-        currentNode = frame->selection()->start().node();
+        currentNode = frame->selection()->start().deprecatedNode();
 
     document->updateLayoutIgnorePendingStylesheets();
 
@@ -287,7 +288,8 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
         setFocusedFrame(newDocument->frame());
 
     if (caretBrowsing) {
-        VisibleSelection newSelection(Position(node, 0), Position(node, 0), DOWNSTREAM);
+        Position position = firstPositionInOrBeforeNode(node);
+        VisibleSelection newSelection(position, position, DOWNSTREAM);
         if (frame->selection()->shouldChangeSelection(newSelection))
             frame->selection()->setSelection(newSelection);
     }
@@ -325,7 +327,7 @@ static void clearSelectionIfNeeded(Frame* oldFocusedFrame, Frame* newFocusedFram
     if (caretBrowsing)
         return;
 
-    Node* selectionStartNode = s->selection().start().node();
+    Node* selectionStartNode = s->selection().start().deprecatedNode();
     if (selectionStartNode == newFocusedNode || selectionStartNode->isDescendantOf(newFocusedNode) || selectionStartNode->shadowAncestorNode() == newFocusedNode)
         return;
         
@@ -421,7 +423,7 @@ void FocusController::setActive(bool active)
         dispatchEventsOnWindowAndFocusedNode(m_focusedFrame->document(), active);
 }
 
-static void updateFocusCandidateIfNeeded(FocusDirection direction, const IntRect& startingRect, FocusCandidate& candidate, FocusCandidate& closest)
+static void updateFocusCandidateIfNeeded(FocusDirection direction, const FocusCandidate& current, FocusCandidate& candidate, FocusCandidate& closest)
 {
     ASSERT(candidate.visibleNode->isElementNode());
     ASSERT(candidate.visibleNode->renderer());
@@ -434,8 +436,6 @@ static void updateFocusCandidateIfNeeded(FocusDirection direction, const IntRect
     if (candidate.isOffscreen && !canBeScrolledIntoView(direction, candidate))
         return;
 
-    FocusCandidate current;
-    current.rect = startingRect;
     distanceDataForNode(direction, current, candidate);
     if (candidate.distance == maxDistance())
         return;
@@ -449,7 +449,7 @@ static void updateFocusCandidateIfNeeded(FocusDirection direction, const IntRect
     }
 
     IntRect intersectionRect = intersection(candidate.rect, closest.rect);
-    if (!intersectionRect.isEmpty()) {
+    if (!intersectionRect.isEmpty() && !areElementsOnSameLine(closest, candidate)) {
         // If 2 nodes are intersecting, do hit test to find which node in on top.
         int x = intersectionRect.x() + intersectionRect.width() / 2;
         int y = intersectionRect.y() + intersectionRect.height() / 2;
@@ -478,6 +478,11 @@ void FocusController::findFocusCandidateInContainer(Node* container, const IntRe
     Node* focusedNode = (focusedFrame() && focusedFrame()->document()) ? focusedFrame()->document()->focusedNode() : 0;
 
     Node* node = container->firstChild();
+    FocusCandidate current;
+    current.rect = startingRect;
+    current.focusableNode = focusedNode;
+    current.visibleNode = focusedNode;
+
     for (; node; node = (node->isFrameOwnerElement() || canScrollInDirection(node, direction)) ? node->traverseNextSibling(container) : node->traverseNextNode(container)) {
         if (node == focusedNode)
             continue;
@@ -493,7 +498,7 @@ void FocusController::findFocusCandidateInContainer(Node* container, const IntRe
             continue;
 
         candidate.enclosingScrollableBox = container;
-        updateFocusCandidateIfNeeded(direction, startingRect, candidate, closest);
+        updateFocusCandidateIfNeeded(direction, current, candidate, closest);
     }
 }
 

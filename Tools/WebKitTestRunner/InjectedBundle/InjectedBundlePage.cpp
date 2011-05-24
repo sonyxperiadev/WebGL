@@ -256,6 +256,8 @@ void InjectedBundlePage::reset()
     WKBundlePageSetTextZoomFactor(m_page, 1);
 
     m_previousTestBackForwardListItem = adoptWK(WKBundleBackForwardListCopyItemAtIndex(WKBundlePageGetBackForwardList(m_page), 0));
+
+    WKBundleFrameClearOpener(WKBundlePageGetMainFrame(m_page));
 }
 
 // Loader Client Callbacks
@@ -493,6 +495,15 @@ void InjectedBundlePage::dump()
 
     InjectedBundle::shared().layoutTestController()->invalidateWaitToDumpWatchdogTimer();
 
+    // Force a paint before dumping. This matches DumpRenderTree on Windows. (DumpRenderTree on Mac
+    // does this at a slightly different time.) See <http://webkit.org/b/55469> for details.
+    WKBundlePageForceRepaint(m_page);
+
+    WKBundleFrameRef frame = WKBundlePageGetMainFrame(m_page);
+    string url = toSTD(adoptWK(WKURLCopyString(adoptWK(WKBundleFrameCopyURL(frame)).get())));
+    if (strstr(url.c_str(), "dumpAsText/"))
+        InjectedBundle::shared().layoutTestController()->dumpAsText();
+
     switch (InjectedBundle::shared().layoutTestController()->whatToDump()) {
     case LayoutTestController::RenderTree: {
         WKRetainPtr<WKStringRef> text(AdoptWK, WKBundlePageCopyRenderTreeExternalRepresentation(m_page));
@@ -635,6 +646,7 @@ WKURLRequestRef InjectedBundlePage::willSendRequestForFrame(WKBundlePageRef, WKB
         return 0;
     }
 
+    WKRetain(request);
     return request;
 }
 

@@ -105,6 +105,11 @@ static bool shouldOpenWebInspector(const string& pathOrURL)
     return pathOrURL.find("inspector/") != string::npos;
 }
 
+static bool shouldDumpAsText(const string& pathOrURL)
+{
+    return pathOrURL.find("dumpAsText/") != string::npos;
+}
+
 static bool shouldEnableDeveloperExtras(const string& pathOrURL)
 {
     return true;
@@ -231,6 +236,13 @@ static void initializeFonts(const char* testURL = 0)
     GOwnPtr<gchar> ahemFontFilename(g_build_filename(FONTS_CONF_DIR, "AHEM____.TTF", NULL));
     if (!FcConfigAppFontAddFile(config, reinterpret_cast<FcChar8*>(ahemFontFilename.get())))
         g_error("Could not load font at %s!", ahemFontFilename.get()); 
+
+    for (int i = 1; i <= 9; i++) {
+        GOwnPtr<gchar> fontFilename(g_strdup_printf("WebKitWeightWatcher%i00.ttf", i));
+        GOwnPtr<gchar> fontPath(g_build_filename(FONTS_CONF_DIR, "..", "..", "fonts", fontFilename.get(), NULL));
+        if (!FcConfigAppFontAddFile(config, reinterpret_cast<FcChar8*>(fontPath.get())))
+            g_error("Could not load font at %s!", fontPath.get()); 
+    }
 
     // A font with no valid Fontconfig encoding to test https://bugs.webkit.org/show_bug.cgi?id=47452
     GOwnPtr<gchar> fontWithNoValidEncodingFilename(g_build_filename(FONTS_CONF_DIR, "FontWithNoValidEncoding.fon", NULL));
@@ -428,6 +440,7 @@ static void resetDefaultsToConsistentValues()
     g_object_set(G_OBJECT(inspector), "javascript-profiling-enabled", FALSE, NULL);
 
     webkit_web_view_set_zoom_level(webView, 1.0);
+    DumpRenderTreeSupportGtk::setMinimumTimerInterval(webView, DumpRenderTreeSupportGtk::defaultMinimumTimerInterval());
 
     DumpRenderTreeSupportGtk::resetOriginAccessWhiteLists();
 
@@ -446,9 +459,12 @@ static void resetDefaultsToConsistentValues()
 
     DumpRenderTreeSupportGtk::setLinksIncludedInFocusChain(true);
     DumpRenderTreeSupportGtk::setIconDatabaseEnabled(false);
+    DumpRenderTreeSupportGtk::setSelectTrailingWhitespaceEnabled(false);
 
     if (axController)
         axController->resetToConsistentState();
+
+    DumpRenderTreeSupportGtk::clearOpener(mainFrame);
 }
 
 static bool useLongRunningServerMode(int argc, char *argv[])
@@ -504,7 +520,7 @@ void dump()
         gchar* responseMimeType = webkit_web_frame_get_response_mime_type(mainFrame);
 
         if (g_str_equal(responseMimeType, "text/plain")) {
-            gLayoutTestController->setDumpAsText(true);        
+            gLayoutTestController->setDumpAsText(true);
             gLayoutTestController->setGeneratePixelResults(false);
         }
         g_free(responseMimeType);
@@ -630,6 +646,10 @@ static void runTest(const string& testPathOrURL)
         gLayoutTestController->setDeveloperExtrasEnabled(true);
         if (shouldOpenWebInspector(testURL))
             gLayoutTestController->showWebInspector();
+        if (shouldDumpAsText(testURL)) {
+            gLayoutTestController->setDumpAsText(true);
+            gLayoutTestController->setGeneratePixelResults(false);
+        }
     }
 
     WorkQueue::shared()->clear();
@@ -1004,6 +1024,17 @@ static void frameCreatedCallback(WebKitWebView* webView, WebKitWebFrame* webFram
     g_signal_connect(webFrame, "notify::load-status", G_CALLBACK(webFrameLoadStatusNotified), NULL);
 }
 
+static void willSendRequestCallback(WebKitWebView* webView, WebKitWebFrame*, WebKitWebResource*, WebKitNetworkRequest* request, WebKitNetworkResponse*)
+{
+    SoupMessage* soupMessage = webkit_network_request_get_message(request);
+
+    if (soupMessage) {
+        const set<string>& clearHeaders = gLayoutTestController->willSendRequestClearHeaders();
+        for (set<string>::const_iterator header = clearHeaders.begin(); header != clearHeaders.end(); ++header)
+            soup_message_headers_remove(soupMessage->request_headers, header->c_str());
+    }
+}
+
 static WebKitWebView* createWebView()
 {
     WebKitWebView* view = WEBKIT_WEB_VIEW(webkit_web_view_new());
@@ -1032,6 +1063,7 @@ static WebKitWebView* createWebView()
                      "signal::drag-end", dragEndCallback, 0,
                      "signal::drag-failed", dragFailedCallback, 0,
                      "signal::frame-created", frameCreatedCallback, 0,
+                     "signal::resource-request-starting", willSendRequestCallback, 0,
 
                      NULL);
     connectEditingCallbacks(view);

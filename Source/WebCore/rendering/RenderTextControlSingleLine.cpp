@@ -51,6 +51,23 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+VisiblePosition RenderTextControlInnerBlock::positionForPoint(const IntPoint& point)
+{
+    IntPoint contentsPoint(point);
+
+    // Multiline text controls have the scroll on shadowAncestorNode, so we need to take that
+    // into account here.
+    if (m_multiLine) {
+        RenderTextControl* renderer = toRenderTextControl(node()->shadowAncestorNode()->renderer());
+        if (renderer->hasOverflowClip())
+            contentsPoint += renderer->layer()->scrolledContentOffset();
+    }
+
+    return RenderBlock::positionForPoint(contentsPoint);
+}
+
+// ----------------------------
+
 RenderTextControlSingleLine::RenderTextControlSingleLine(Node* node, bool placeholderVisible)
     : RenderTextControl(node, placeholderVisible)
     , m_searchPopupIsVisible(false)
@@ -164,8 +181,12 @@ void RenderTextControlSingleLine::hidePopup()
 
 void RenderTextControlSingleLine::subtreeHasChanged()
 {
-    bool wasChanged = wasChangedSinceLastChangeEvent();
     RenderTextControl::subtreeHasChanged();
+
+    ASSERT(node()->isElementNode());
+    Element* element = static_cast<Element*>(node());
+    bool wasChanged = element->wasChangedSinceLastFormControlChangeEvent();
+    element->setChangedSinceLastFormControlChangeEvent(true);
 
     InputElement* input = inputElement();
     // We don't need to call sanitizeUserInputValue() function here because
@@ -174,7 +195,7 @@ void RenderTextControlSingleLine::subtreeHasChanged()
     // sanitizeValue() is needed because IME input doesn't dispatch BeforeTextInsertedEvent.
     String value = text();
     if (input->isAcceptableValue(value))
-        input->setValueFromRenderer(input->sanitizeValue(value));
+        input->setValueFromRenderer(input->sanitizeValue(input->convertFromVisibleValue(value)));
     if (node()->isHTMLElement()) {
         // Recalc for :invalid and hasUnacceptableValue() change.
         static_cast<HTMLInputElement*>(input)->setNeedsStyleRecalc();
@@ -432,6 +453,9 @@ void RenderTextControlSingleLine::styleDidChange(StyleDifference diff, const Ren
     if (RenderObject* spinRenderer = m_outerSpinButton ? m_outerSpinButton->renderer() : 0)
         spinRenderer->setStyle(createOuterSpinButtonStyle());
 
+    if (RenderObject* spinRenderer = m_innerSpinButton ? m_innerSpinButton->renderer() : 0)
+        spinRenderer->setStyle(createInnerSpinButtonStyle());
+
 #if ENABLE(INPUT_SPEECH)
     if (RenderObject* speechRenderer = m_speechButton ? m_speechButton->renderer() : 0)
         speechRenderer->setStyle(createSpeechButtonStyle());
@@ -609,9 +633,13 @@ void RenderTextControlSingleLine::adjustControlHeightBasedOnLineHeight(int lineH
 
 void RenderTextControlSingleLine::createSubtreeIfNeeded()
 {
-    bool createSubtree = inputElement()->isSearchField();
-    if (!createSubtree) {
-        RenderTextControl::createSubtreeIfNeeded(m_innerBlock.get());
+    if (inputElement()->isSearchField()) {
+        if (!m_innerBlock) {
+            // Create the inner block element
+            m_innerBlock = TextControlInnerElement::create(toHTMLElement(node()));
+            m_innerBlock->attachInnerElement(node(), createInnerBlockStyle(style()), renderArena());
+        }
+
 #if ENABLE(INPUT_SPEECH)
         if (inputElement()->isSpeechEnabled() && !m_speechButton) {
             // Create the speech button element.
@@ -619,7 +647,34 @@ void RenderTextControlSingleLine::createSubtreeIfNeeded()
             m_speechButton->attachInnerElement(node(), createSpeechButtonStyle(), renderArena());
         }
 #endif
+
+        if (!m_resultsButton) {
+            // Create the search results button element.
+            m_resultsButton = SearchFieldResultsButtonElement::create(document());
+            m_resultsButton->attachInnerElement(m_innerBlock.get(), createResultsButtonStyle(m_innerBlock->renderer()->style()), renderArena());
+        }
+
+        // Create innerText element before adding the other buttons.
+        RenderTextControl::createSubtreeIfNeeded(m_innerBlock.get());
+
+        if (!m_cancelButton) {
+            // Create the cancel button element.
+            m_cancelButton = SearchFieldCancelButtonElement::create(document());
+            m_cancelButton->attachInnerElement(m_innerBlock.get(), createCancelButtonStyle(m_innerBlock->renderer()->style()), renderArena());
+        }
+    } else {
+        RenderTextControl::createSubtreeIfNeeded(0);
+
+#if ENABLE(INPUT_SPEECH)
+        if (inputElement()->isSpeechEnabled() && !m_speechButton) {
+            // Create the speech button element.
+            m_speechButton = InputFieldSpeechButtonElement::create(toHTMLElement(node()));
+            m_speechButton->attachInnerElement(node(), createSpeechButtonStyle(), renderArena());
+        }
+#endif
+
         bool hasSpinButton = inputElement()->hasSpinButton();
+
         if (hasSpinButton && !m_innerSpinButton) {
             m_innerSpinButton = SpinButtonElement::create(toHTMLElement(node()));
             m_innerSpinButton->attachInnerElement(node(), createInnerSpinButtonStyle(), renderArena());
@@ -627,43 +682,6 @@ void RenderTextControlSingleLine::createSubtreeIfNeeded()
         if (hasSpinButton && !m_outerSpinButton) {
             m_outerSpinButton = SpinButtonElement::create(toHTMLElement(node()));
             m_outerSpinButton->attachInnerElement(node(), createOuterSpinButtonStyle(), renderArena());
-        }
-        return;
-    }
-
-    if (!m_innerBlock) {
-        // Create the inner block element
-        m_innerBlock = TextControlInnerElement::create(toHTMLElement(node()));
-        m_innerBlock->attachInnerElement(node(), createInnerBlockStyle(style()), renderArena());
-    }
-#if ENABLE(INPUT_SPEECH)
-    if (inputElement()->isSpeechEnabled() && !m_speechButton) {
-        // Create the speech button element.
-        m_speechButton = InputFieldSpeechButtonElement::create(toHTMLElement(node()));
-        m_speechButton->attachInnerElement(node(), createSpeechButtonStyle(), renderArena());
-    }
-#endif
-    if (inputElement()->hasSpinButton() && !m_outerSpinButton) {
-        m_outerSpinButton = SpinButtonElement::create(toHTMLElement(node()));
-        m_outerSpinButton->attachInnerElement(node(), createOuterSpinButtonStyle(), renderArena());
-    }
-
-    if (inputElement()->isSearchField()) {
-        if (!m_resultsButton) {
-            // Create the search results button element.
-            m_resultsButton = SearchFieldResultsButtonElement::create(document());
-            m_resultsButton->attachInnerElement(m_innerBlock.get(), createResultsButtonStyle(m_innerBlock->renderer()->style()), renderArena());
-        }
-    }
-
-    // Create innerText element before adding the other buttons.
-    RenderTextControl::createSubtreeIfNeeded(m_innerBlock.get());
-
-    if (inputElement()->isSearchField()) {
-        if (!m_cancelButton) {
-            // Create the cancel button element.
-            m_cancelButton = SearchFieldCancelButtonElement::create(document());
-            m_cancelButton->attachInnerElement(m_innerBlock.get(), createCancelButtonStyle(m_innerBlock->renderer()->style()), renderArena());
         }
     }
 }
@@ -733,7 +751,7 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerBlockStyle(const
     RefPtr<RenderStyle> innerBlockStyle = RenderStyle::create();
     innerBlockStyle->inheritFrom(startStyle);
 
-    innerBlockStyle->setDisplay(inputElement()->hasSpinButton() ? INLINE_BLOCK : BLOCK);
+    innerBlockStyle->setDisplay(BLOCK);
     innerBlockStyle->setDirection(LTR);
 
     // We don't want the shadow dom to be editable, so we set this block to read-only in case the input itself is editable.
@@ -951,7 +969,7 @@ int RenderTextControlSingleLine::clientPaddingLeft() const
     int padding = paddingLeft();
 
     if (RenderBox* resultsRenderer = m_resultsButton ? m_resultsButton->renderBox() : 0)
-        padding += resultsRenderer->width();
+        padding += resultsRenderer->width() + resultsRenderer->marginLeft() + resultsRenderer->paddingLeft() + resultsRenderer->marginRight() + resultsRenderer->paddingRight();
 
     return padding;
 }
@@ -961,7 +979,7 @@ int RenderTextControlSingleLine::clientPaddingRight() const
     int padding = paddingRight();
 
     if (RenderBox* cancelRenderer = m_cancelButton ? m_cancelButton->renderBox() : 0)
-        padding += cancelRenderer->width();
+        padding += cancelRenderer->width() + cancelRenderer->marginLeft() + cancelRenderer->paddingLeft() + cancelRenderer->marginRight() + cancelRenderer->paddingRight();
 
     return padding;
 }

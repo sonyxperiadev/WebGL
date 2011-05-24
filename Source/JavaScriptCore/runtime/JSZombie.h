@@ -37,9 +37,10 @@ public:
         : JSCell(structure)
         , m_oldInfo(oldInfo)
     {
+        ASSERT(inherits(&s_info));
     }
+
     virtual bool isZombie() const { return true; }
-    virtual const ClassInfo* classInfo() const { return &s_info; }
     static Structure* leakedZombieStructure();
 
     virtual bool isGetterSetter() const { ASSERT_NOT_REACHED(); return false; }
@@ -65,7 +66,13 @@ public:
     virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&) { ASSERT_NOT_REACHED(); return false; }
     virtual bool getOwnPropertySlot(ExecState*, unsigned, PropertySlot&) { ASSERT_NOT_REACHED(); return false; }
     
+    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    {
+        return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+    }
+
     static const ClassInfo s_info;
+
 private:
     const ClassInfo* m_oldInfo;
 };

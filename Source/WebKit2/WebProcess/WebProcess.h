@@ -88,6 +88,8 @@ public:
     void addVisitedLink(WebCore::LinkHash);
     bool isLinkVisited(WebCore::LinkHash) const;
 
+    bool fullKeyboardAccessEnabled();
+
     WebFrame* webFrame(uint64_t) const;
     void addWebFrame(uint64_t, WebFrame*);
     void removeWebFrame(uint64_t);
@@ -103,8 +105,8 @@ public:
     QNetworkAccessManager* networkAccessManager() { return m_networkAccessManager; }
 #endif
 
-    // Will shut down the web process if there are no live pages or downloads.
-    void shutdownIfPossible();
+    // Will terminate the web process if there are no live pages or downloads.
+    void terminateIfPossible();
 
     bool shouldUseCustomRepresentationForMIMEType(const String& mimeType) const { return m_mimeTypesWithCustomRepresentations.contains(mimeType); }
 
@@ -114,16 +116,19 @@ public:
     // Geolocation
     WebGeolocationManager& geolocationManager() { return m_geolocationManager; }
 
+    void clearResourceCaches();
+
 private:
     WebProcess();
 
     void initializeWebProcess(const WebProcessCreationParameters&, CoreIPC::ArgumentDecoder*);
     void platformInitializeWebProcess(const WebProcessCreationParameters&, CoreIPC::ArgumentDecoder*);
-    void platformShutdown();
+    void platformTerminate();
     void setShouldTrackVisitedLinks(bool);
     void registerURLSchemeAsEmptyDocument(const String&);
     void registerURLSchemeAsSecure(const String&) const;
     void setDomainRelaxationForbiddenForURLScheme(const String&) const;
+    void setDefaultRequestTimeoutInterval(double);
     void setAlwaysUsesComplexTextCodePath(bool);
     void languageChanged(const String&) const;
 #if PLATFORM(WIN)
@@ -139,10 +144,14 @@ private:
     static void calculateCacheSizes(CacheModel cacheModel, uint64_t memorySize, uint64_t diskFreeSize,
         unsigned& cacheTotalCapacity, unsigned& cacheMinDeadCapacity, unsigned& cacheMaxDeadCapacity, double& deadDecodedDataDeletionInterval,
         unsigned& pageCacheCapacity, unsigned long& urlCacheMemoryCapacity, unsigned long& urlCacheDiskCapacity);
-    void clearResourceCaches();
     void platformClearResourceCaches();
     void clearApplicationCache();
 
+#if !ENABLE(PLUGIN_PROCESS)
+    void getSitesWithPluginData(const Vector<String>& pluginPaths, uint64_t callbackID);
+    void clearPluginSiteData(const Vector<String>& pluginPaths, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID);
+#endif
+    
     void startMemorySampler(const SandboxExtension::Handle&, const String&, const double);
     void stopMemorySampler();
 

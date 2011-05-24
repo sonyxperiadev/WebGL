@@ -45,37 +45,44 @@ InspectorRuntimeAgent::InspectorRuntimeAgent(InjectedScriptHost* injectedScriptH
 
 InspectorRuntimeAgent::~InspectorRuntimeAgent() { }
 
-void InspectorRuntimeAgent::evaluate(const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result)
+void InspectorRuntimeAgent::evaluate(ErrorString*, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result)
 {
     InjectedScript injectedScript = m_injectedScriptHost->injectedScriptForMainFrame();
     if (!injectedScript.hasNoValue())
         injectedScript.evaluate(expression, objectGroup, includeCommandLineAPI, result);
 }
 
-void InspectorRuntimeAgent::getCompletions(const String& expression, bool includeCommandLineAPI, RefPtr<InspectorValue>* result)
+void InspectorRuntimeAgent::evaluateOn(ErrorString*, PassRefPtr<InspectorObject> objectId, const String& expression, RefPtr<InspectorValue>* result)
 {
-    InjectedScript injectedScript = m_injectedScriptHost->injectedScriptForMainFrame();
+    InjectedScript injectedScript = m_injectedScriptHost->injectedScriptForObjectId(objectId.get());
     if (!injectedScript.hasNoValue())
-        injectedScript.getCompletions(expression, includeCommandLineAPI, result);
+        injectedScript.evaluateOn(objectId, expression, result);
 }
 
-void InspectorRuntimeAgent::getProperties(PassRefPtr<InspectorObject> objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorValue>* result)
+void InspectorRuntimeAgent::getProperties(ErrorString*, PassRefPtr<InspectorObject> objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorValue>* result)
 {
     InjectedScript injectedScript = m_injectedScriptHost->injectedScriptForObjectId(objectId.get());
     if (!injectedScript.hasNoValue())
         injectedScript.getProperties(objectId, ignoreHasOwnProperty, abbreviate, result);
 }
 
-void InspectorRuntimeAgent::setPropertyValue(PassRefPtr<InspectorObject> objectId, const String& propertyName, const String& expression, RefPtr<InspectorValue>* result)
+void InspectorRuntimeAgent::setPropertyValue(ErrorString*, PassRefPtr<InspectorObject> objectId, const String& propertyName, const String& expression, RefPtr<InspectorValue>* result)
 {
     InjectedScript injectedScript = m_injectedScriptHost->injectedScriptForObjectId(objectId.get());
     if (!injectedScript.hasNoValue())
         injectedScript.setPropertyValue(objectId, propertyName, expression, result);
 }
 
-void InspectorRuntimeAgent::releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup)
+void InspectorRuntimeAgent::releaseObject(ErrorString*, PassRefPtr<InspectorObject> objectId)
 {
-    m_injectedScriptHost->releaseWrapperObjectGroup(injectedScriptId, objectGroup);
+    InjectedScript injectedScript = m_injectedScriptHost->injectedScriptForObjectId(objectId.get());
+    if (!injectedScript.hasNoValue())
+        injectedScript.releaseObject(objectId);
+}
+
+void InspectorRuntimeAgent::releaseObjectGroup(ErrorString*, long injectedScriptId, const String& objectGroup)
+{
+    m_injectedScriptHost->releaseObjectGroup(injectedScriptId, objectGroup);
 }
 
 } // namespace WebCore

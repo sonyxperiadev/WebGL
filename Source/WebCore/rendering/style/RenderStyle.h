@@ -372,10 +372,18 @@ public:
     Length top() const { return surround->offset.top(); }
     Length bottom() const { return surround->offset.bottom(); }
 
+    // Accessors for positioned object edges that take into account writing mode.
+    Length logicalLeft() const { return isHorizontalWritingMode() ? left() : top(); }
+    Length logicalRight() const { return isHorizontalWritingMode() ? right() : bottom(); }
+    Length logicalTop() const { return isHorizontalWritingMode() ? (isFlippedBlocksWritingMode() ? bottom() : top()) : (isFlippedBlocksWritingMode() ? right() : left()); }
+    Length logicalBottom() const { return isHorizontalWritingMode() ? (isFlippedBlocksWritingMode() ? top() : bottom()) : (isFlippedBlocksWritingMode() ? left() : right()); }
+
     // Whether or not a positioned element requires normal flow x/y to be computed
     // to determine its position.
-    bool hasStaticX() const { return (left().isAuto() && right().isAuto()) || left().isStatic() || right().isStatic(); }
-    bool hasStaticY() const { return (top().isAuto() && bottom().isAuto()) || top().isStatic(); }
+    bool hasAutoLeftAndRight() const { return left().isAuto() && right().isAuto(); }
+    bool hasAutoTopAndBottom() const { return top().isAuto() && bottom().isAuto(); }
+    bool hasStaticInlinePosition(bool horizontal) const { return horizontal ? hasAutoLeftAndRight() : hasAutoTopAndBottom(); }
+    bool hasStaticBlockPosition(bool horizontal) const { return horizontal ? hasAutoTopAndBottom() : hasAutoLeftAndRight(); }
 
     EPosition position() const { return static_cast<EPosition>(noninherited_flags._position); }
     EFloat floating() const { return static_cast<EFloat>(noninherited_flags._floating); }
@@ -686,8 +694,10 @@ public:
     EMatchNearestMailBlockquoteColor matchNearestMailBlockquoteColor() const { return static_cast<EMatchNearestMailBlockquoteColor>(rareNonInheritedData->matchNearestMailBlockquoteColor); }
     const AtomicString& highlight() const { return rareInheritedData->highlight; }
     Hyphens hyphens() const { return static_cast<Hyphens>(rareInheritedData->hyphens); }
+    short hyphenationLimitBefore() const { return rareInheritedData->hyphenationLimitBefore; }
+    short hyphenationLimitAfter() const { return rareInheritedData->hyphenationLimitAfter; }
     const AtomicString& hyphenationString() const { return rareInheritedData->hyphenationString; }
-    const AtomicString& hyphenationLocale() const { return rareInheritedData->hyphenationLocale; }
+    const AtomicString& locale() const { return rareInheritedData->locale; }
     EBorderFit borderFit() const { return static_cast<EBorderFit>(rareNonInheritedData->m_borderFit); }
     EResize resize() const { return static_cast<EResize>(rareInheritedData->resize); }
     float columnWidth() const { return rareNonInheritedData->m_multiCol->m_width; }
@@ -1055,8 +1065,10 @@ public:
     void setMatchNearestMailBlockquoteColor(EMatchNearestMailBlockquoteColor c) { SET_VAR(rareNonInheritedData, matchNearestMailBlockquoteColor, c); }
     void setHighlight(const AtomicString& h) { SET_VAR(rareInheritedData, highlight, h); }
     void setHyphens(Hyphens h) { SET_VAR(rareInheritedData, hyphens, h); }
+    void setHyphenationLimitBefore(short limit) { SET_VAR(rareInheritedData, hyphenationLimitBefore, limit); }
+    void setHyphenationLimitAfter(short limit) { SET_VAR(rareInheritedData, hyphenationLimitAfter, limit); }
     void setHyphenationString(const AtomicString& h) { SET_VAR(rareInheritedData, hyphenationString, h); }
-    void setHyphenationLocale(const AtomicString& h) { SET_VAR(rareInheritedData, hyphenationLocale, h); }
+    void setLocale(const AtomicString& locale) { SET_VAR(rareInheritedData, locale, locale); }
     void setBorderFit(EBorderFit b) { SET_VAR(rareNonInheritedData, m_borderFit, b); }
     void setResize(EResize r) { SET_VAR(rareInheritedData, resize, r); }
     void setColumnWidth(float f) { SET_VAR(rareNonInheritedData.access()->m_multiCol, m_autoWidth, false); SET_VAR(rareNonInheritedData.access()->m_multiCol, m_width, f); }
@@ -1161,9 +1173,13 @@ public:
     void setContent(PassRefPtr<StringImpl>, bool add = false);
     void setContent(PassRefPtr<StyleImage>, bool add = false);
     void setContent(PassOwnPtr<CounterContent>, bool add = false);
+    void setContent(QuoteType, bool add = false);
 
     const CounterDirectiveMap* counterDirectives() const;
     CounterDirectiveMap& accessCounterDirectives();
+
+    QuotesData* quotes() const { return rareInheritedData->quotes.get(); }
+    void setQuotes(PassRefPtr<QuotesData>);
 
     const AtomicString& hyphenString() const;
 
@@ -1296,8 +1312,10 @@ public:
     static const AtomicString& initialHighlight() { return nullAtom; }
     static ESpeak initialSpeak() { return SpeakNormal; }
     static Hyphens initialHyphens() { return HyphensManual; }
+    static short initialHyphenationLimitBefore() { return -1; }
+    static short initialHyphenationLimitAfter() { return -1; }
     static const AtomicString& initialHyphenationString() { return nullAtom; }
-    static const AtomicString& initialHyphenationLocale() { return nullAtom; }
+    static const AtomicString& initialLocale() { return nullAtom; }
     static EBorderFit initialBorderFit() { return BorderFitBorder; }
     static EResize initialResize() { return RESIZE_NONE; }
     static ControlPart initialAppearance() { return NoControlPart; }

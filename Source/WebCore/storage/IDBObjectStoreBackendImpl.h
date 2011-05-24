@@ -34,22 +34,21 @@
 
 namespace WebCore {
 
+class IDBBackingStore;
 class IDBDatabaseBackendImpl;
 class IDBIndexBackendImpl;
-class IDBSQLiteDatabase;
 class IDBTransactionBackendInterface;
-class SQLiteDatabase;
 class ScriptExecutionContext;
 
 class IDBObjectStoreBackendImpl : public IDBObjectStoreBackendInterface {
 public:
-    static PassRefPtr<IDBObjectStoreBackendImpl> create(IDBSQLiteDatabase* database, int64_t id, const String& name, const String& keyPath, bool autoIncrement)
+    static PassRefPtr<IDBObjectStoreBackendImpl> create(IDBBackingStore* backingStore, int64_t id, const String& name, const String& keyPath, bool autoIncrement)
     {
-        return adoptRef(new IDBObjectStoreBackendImpl(database, id, name, keyPath, autoIncrement));
+        return adoptRef(new IDBObjectStoreBackendImpl(backingStore, id, name, keyPath, autoIncrement));
     }
-    static PassRefPtr<IDBObjectStoreBackendImpl> create(IDBSQLiteDatabase* database, const String& name, const String& keyPath, bool autoIncrement)
+    static PassRefPtr<IDBObjectStoreBackendImpl> create(IDBBackingStore* backingStore, const String& name, const String& keyPath, bool autoIncrement)
     {
-        return adoptRef(new IDBObjectStoreBackendImpl(database, name, keyPath, autoIncrement));
+        return adoptRef(new IDBObjectStoreBackendImpl(backingStore, name, keyPath, autoIncrement));
     }
     virtual ~IDBObjectStoreBackendImpl();
 
@@ -78,14 +77,13 @@ public:
     virtual void openCursor(PassRefPtr<IDBKeyRange> range, unsigned short direction, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
 
 private:
-    IDBObjectStoreBackendImpl(IDBSQLiteDatabase*, int64_t id, const String& name, const String& keyPath, bool autoIncrement);
-    IDBObjectStoreBackendImpl(IDBSQLiteDatabase*, const String& name, const String& keyPath, bool autoIncrement);
+    IDBObjectStoreBackendImpl(IDBBackingStore*, int64_t id, const String& name, const String& keyPath, bool autoIncrement);
+    IDBObjectStoreBackendImpl(IDBBackingStore*, const String& name, const String& keyPath, bool autoIncrement);
 
     void loadIndexes();
-    SQLiteDatabase& sqliteDatabase() const;
     PassRefPtr<IDBKey> genAutoIncrementKey();
     void resetAutoIncrementKeyCache() { m_autoIncrementNumber = -1; }
-    static PassRefPtr<IDBKey> selectKeyForPut(IDBObjectStoreBackendImpl*, SerializedScriptValue*, IDBKey*, PutMode, IDBCallbacks*);
+    static PassRefPtr<IDBKey> selectKeyForPut(IDBObjectStoreBackendImpl*, IDBKey*, PutMode, IDBCallbacks*, RefPtr<SerializedScriptValue>&);
 
     static void getInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<IDBKey> key, PassRefPtr<IDBCallbacks>);
     static void putInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<SerializedScriptValue>, PassRefPtr<IDBKey>, PutMode, PassRefPtr<IDBCallbacks>, PassRefPtr<IDBTransactionBackendInterface>);
@@ -99,7 +97,7 @@ private:
     static void removeIndexFromMap(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<IDBIndexBackendImpl>);
     static void addIndexToMap(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl>, PassRefPtr<IDBIndexBackendImpl>);
 
-    RefPtr<IDBSQLiteDatabase> m_database;
+    RefPtr<IDBBackingStore> m_backingStore;
 
     int64_t m_id;
     String m_name;

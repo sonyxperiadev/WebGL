@@ -27,6 +27,7 @@
 #include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
 #include "FontSelector.h"
+#include "QuotesData.h"
 #include "RenderArena.h"
 #include "RenderObject.h"
 #include "ScaleTransformOperation.h"
@@ -404,8 +405,10 @@ StyleDifference RenderStyle::diff(const RenderStyle* other, unsigned& changedCon
             rareInheritedData->khtmlLineBreak != other->rareInheritedData->khtmlLineBreak ||
             rareInheritedData->textSecurity != other->rareInheritedData->textSecurity ||
             rareInheritedData->hyphens != other->rareInheritedData->hyphens ||
+            rareInheritedData->hyphenationLimitBefore != other->rareInheritedData->hyphenationLimitBefore ||
+            rareInheritedData->hyphenationLimitAfter != other->rareInheritedData->hyphenationLimitAfter ||
             rareInheritedData->hyphenationString != other->rareInheritedData->hyphenationString ||
-            rareInheritedData->hyphenationLocale != other->rareInheritedData->hyphenationLocale ||
+            rareInheritedData->locale != other->rareInheritedData->locale ||
             rareInheritedData->textEmphasisMark != other->rareInheritedData->textEmphasisMark ||
             rareInheritedData->textEmphasisPosition != other->rareInheritedData->textEmphasisPosition ||
             rareInheritedData->textEmphasisCustomMark != other->rareInheritedData->textEmphasisCustomMark)
@@ -605,6 +608,13 @@ void RenderStyle::setCursorList(PassRefPtr<CursorList> other)
     rareInheritedData.access()->cursorData = other;
 }
 
+void RenderStyle::setQuotes(PassRefPtr<QuotesData> q)
+{
+    if (*rareInheritedData->quotes.get() == *q.get())
+        return;
+    rareInheritedData.access()->quotes = q;
+}
+
 void RenderStyle::clearCursorList()
 {
     if (rareInheritedData->cursorData)
@@ -670,6 +680,11 @@ void RenderStyle::setContent(PassOwnPtr<CounterContent> counter, bool add)
     if (!counter)
         return;
     prepareToSetContent(0, add)->setCounter(counter);
+}
+
+void RenderStyle::setContent(QuoteType quote, bool add)
+{
+    prepareToSetContent(0, add)->setQuote(quote);
 }
 
 void RenderStyle::applyTransform(TransformationMatrix& transform, const IntSize& borderBoxSize, ApplyTransformOrigin applyOrigin) const

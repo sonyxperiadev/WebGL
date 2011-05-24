@@ -37,6 +37,7 @@
 #import "MediaControlElements.h"
 #import "PaintInfo.h"
 #import "RenderMedia.h"
+#import "RenderMediaControls.h"
 #import "RenderSlider.h"
 #import "RenderView.h"
 #import "SharedBuffer.h"
@@ -1986,17 +1987,9 @@ bool RenderThemeMac::usesMediaControlStatusDisplay()
     return mediaControllerTheme() == MediaControllerThemeQuickTime;
 }
 
-IntPoint RenderThemeMac::volumeSliderOffsetFromMuteButton(Node* muteButton, const IntSize& size) const
+IntPoint RenderThemeMac::volumeSliderOffsetFromMuteButton(RenderBox* muteButtonBox, const IntSize& size) const
 {
-    static const int xOffset = -4;
-    static const int yOffset = 5;
-
-    float zoomLevel = muteButton->renderer()->style()->effectiveZoom();
-    int y = yOffset * zoomLevel + muteButton->renderBox()->offsetHeight() - size.height();
-    FloatPoint absPoint = muteButton->renderer()->localToAbsolute(FloatPoint(muteButton->renderBox()->offsetLeft(), y), true, true);
-    if (absPoint.y() < 0)
-        y = muteButton->renderBox()->height();
-    return IntPoint(xOffset * zoomLevel, y);
+    return RenderMediaControls::volumeSliderOffsetFromMuteButton(muteButtonBox, size);
 }
 
 bool RenderThemeMac::shouldShowPlaceholderWhenFocused() const

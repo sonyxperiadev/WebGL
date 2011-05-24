@@ -27,6 +27,7 @@
 #import "PageClientImpl.h"
 
 #import "DataReference.h"
+#import "DictionaryPopupInfo.h"
 #import "FindIndicator.h"
 #import "NativeWebKeyboardEvent.h"
 #import "WKAPICast.h"
@@ -40,6 +41,7 @@
 #import <WebCore/FoundationExtras.h>
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/KeyboardEvent.h>
+#import <WebCore/NotImplemented.h>
 #import <wtf/PassOwnPtr.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
@@ -279,11 +281,6 @@ void PageClientImpl::clearAllEditCommands()
     [[m_wkView undoManager] removeAllActionsWithTarget:m_undoTarget.get()];
 }
 
-void PageClientImpl::setEditCommandState(const String& commandName, bool isEnabled, int newState)
-{
-    [m_wkView _setUserInterfaceItemState:nsStringFromWebCoreString(commandName) enabled:isEnabled state:newState];
-}
-
 void PageClientImpl::interceptKeyEvent(const NativeWebKeyboardEvent& event, Vector<WebCore::KeypressCommand>& commandsList, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines)
 {
     commandsList = [m_wkView _interceptKeyEvent:event.nativeEvent()];
@@ -294,7 +291,6 @@ void PageClientImpl::setDragImage(const IntPoint& clientPosition, const IntSize&
 {
     OwnPtr<GraphicsContext> graphicsContext = dragImage->createGraphicsContext();
     RetainPtr<NSImage> dragNSImage(AdoptNS, [[NSImage alloc] initWithCGImage:CGBitmapContextCreateImage(graphicsContext->platformContext()) size:imageSize]);
-    [dragNSImage.get() setFlipped:YES];
     [m_wkView _setDragImage:dragNSImage.get() at:clientPosition linkDrag:isLinkDrag];
 }
     
@@ -352,16 +348,6 @@ void PageClientImpl::exitAcceleratedCompositingMode()
 {
     [m_wkView _exitAcceleratedCompositingMode];
 }
-
-void PageClientImpl::pageDidEnterAcceleratedCompositing()
-{
-    [m_wkView _pageDidEnterAcceleratedCompositing];
-}
-
-void PageClientImpl::pageDidLeaveAcceleratedCompositing()
-{
-    [m_wkView _pageDidLeaveAcceleratedCompositing];
-}
 #endif // USE(ACCELERATED_COMPOSITING)
 
 void PageClientImpl::setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled)
@@ -375,11 +361,21 @@ void PageClientImpl::setAutodisplay(bool newState)
         [m_wkView displayIfNeeded];
     
     [[m_wkView window] setAutodisplay:newState];
+
+    // For some reason, painting doesn't happen for a long time without this call, <rdar://problem/8975229>.
+    if (newState)
+        [m_wkView displayIfNeeded];
 }
 
 CGContextRef PageClientImpl::containingWindowGraphicsContext()
 {
-    return static_cast<CGContextRef>([[[m_wkView window] graphicsContext] graphicsPort]);
+    NSWindow *window = [m_wkView window];
+
+    // Don't try to get the graphics context if the NSWindow doesn't have a window device.
+    if ([window windowNumber] <= 0)
+        return 0;
+
+    return static_cast<CGContextRef>([[window graphicsContext] graphicsPort]);
 }
 
 void PageClientImpl::didChangeScrollbarsForMainFrame() const
@@ -392,9 +388,9 @@ void PageClientImpl::didCommitLoadForMainFrame(bool useCustomRepresentation)
     [m_wkView _setPageHasCustomRepresentation:useCustomRepresentation];
 }
 
-void PageClientImpl::didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference& dataReference)
+void PageClientImpl::didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference& dataReference)
 {
-    [m_wkView _didFinishLoadingDataForCustomRepresentation:dataReference];
+    [m_wkView _didFinishLoadingDataForCustomRepresentationWithSuggestedFilename:suggestedFilename dataReference:dataReference];
 }
 
 double PageClientImpl::customRepresentationZoomFactor()
@@ -405,6 +401,27 @@ double PageClientImpl::customRepresentationZoomFactor()
 void PageClientImpl::setCustomRepresentationZoomFactor(double zoomFactor)
 {
     [m_wkView _setCustomRepresentationZoomFactor:zoomFactor];
+}
+
+void PageClientImpl::flashBackingStoreUpdates(const Vector<IntRect>&)
+{
+    notImplemented();
+}
+
+void PageClientImpl::didPerformDictionaryLookup(const String& text, double scaleFactor, const DictionaryPopupInfo& dictionaryPopupInfo)
+{
+    NSFontDescriptor *fontDescriptor = [NSFontDescriptor fontDescriptorWithFontAttributes:(NSDictionary *)dictionaryPopupInfo.fontInfo.fontAttributeDictionary.get()];
+    NSFont *font = [NSFont fontWithDescriptor:fontDescriptor size:((scaleFactor != 1) ? [fontDescriptor pointSize] * scaleFactor : 0)];
+
+    RetainPtr<NSMutableAttributedString> attributedString(AdoptNS, [[NSMutableAttributedString alloc] initWithString:nsStringFromWebCoreString(text)]);
+    [attributedString.get() addAttribute:NSFontAttributeName value:font range:NSMakeRange(0, [attributedString.get() length])];
+
+    NSPoint textBaselineOrigin = dictionaryPopupInfo.origin;
+    textBaselineOrigin.y += [font ascender];
+    
+    // If the dictionary lookup is being triggered by a hot key, force the overlay style.
+    NSDictionary *options = (dictionaryPopupInfo.type == DictionaryPopupInfo::HotKey) ? [NSDictionary dictionaryWithObject:NSDefinitionPresentationTypeOverlay forKey:NSDefinitionPresentationTypeKey] : 0;
+    [m_wkView showDefinitionForAttributedString:attributedString.get() range:NSMakeRange(0, [attributedString.get() length]) options:options baselineOriginProvider:^(NSRange adjustedRange) { return (NSPoint)textBaselineOrigin; }];
 }
 
 } // namespace WebKit

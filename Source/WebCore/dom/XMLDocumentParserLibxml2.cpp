@@ -63,13 +63,14 @@
 #include <wtf/Vector.h>
 
 #if ENABLE(XSLT)
+#include "XMLTreeViewer.h"
 #include <libxslt/xslt.h>
 #endif
 
 #if ENABLE(XHTMLMP)
-#include "HTMLNames.h"
 #include "HTMLScriptElement.h"
 #endif
+
 
 using namespace std;
 
@@ -548,6 +549,7 @@ XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
     , m_pendingCallbacks(new PendingCallbacks)
     , m_currentNode(document)
     , m_sawError(false)
+    , m_sawCSS(false)
     , m_sawXSLTransform(false)
     , m_sawFirstElement(false)
     , m_isXHTMLDocument(false)
@@ -574,6 +576,7 @@ XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment, Element* parent
     , m_pendingCallbacks(new PendingCallbacks)
     , m_currentNode(fragment)
     , m_sawError(false)
+    , m_sawCSS(false)
     , m_sawXSLTransform(false)
     , m_sawFirstElement(false)
     , m_isXHTMLDocument(false)
@@ -880,35 +883,32 @@ void XMLDocumentParser::endElementNs()
     ASSERT(!m_pendingScript);
     m_requestingScript = true;
 
+    bool successfullyPrepared = scriptElement->prepareScript(m_scriptStartPosition, ScriptElement::AllowLegacyTypeInTypeAttribute);
+    if (!successfullyPrepared) {
 #if ENABLE(XHTMLMP)
-    if (!scriptElement->shouldExecuteAsJavaScript())
-        document()->setShouldProcessNoscriptElement(true);
-    else
+        if (!scriptElement->isScriptTypeSupported(ScriptElement::AllowLegacyTypeInTypeAttribute))
+            document()->setShouldProcessNoscriptElement(true);
 #endif
-    {
-        // FIXME: Script execution should be shared should be shared between
+    } else {
+        // FIXME: Script execution should be shared between
         // the libxml2 and Qt XMLDocumentParser implementations.
 
         // JavaScript can detach the parser.  Make sure this is not released
         // before the end of this method.
         RefPtr<XMLDocumentParser> protect(this);
 
-        String scriptHref = scriptElement->sourceAttributeValue();
-        if (!scriptHref.isEmpty()) {
-            // we have a src attribute
-            String scriptCharset = scriptElement->scriptCharset();
-            if (element->dispatchBeforeLoadEvent(scriptHref) &&
-                (m_pendingScript = document()->cachedResourceLoader()->requestScript(scriptHref, scriptCharset))) {
-                m_scriptElement = element;
-                m_pendingScript->addClient(this);
-
-                // m_pendingScript will be 0 if script was already loaded and ref() executed it
-                if (m_pendingScript)
-                    pauseParsing();
-            } else
-                m_scriptElement = 0;
-        } else
+        if (scriptElement->readyToBeParserExecuted())
             scriptElement->executeScript(ScriptSourceCode(scriptElement->scriptContent(), document()->url(), m_scriptStartPosition));
+        else if (scriptElement->willBeParserExecuted()) {
+            m_pendingScript = scriptElement->cachedScript();
+            m_scriptElement = element;
+            m_pendingScript->addClient(this);
+
+            // m_pendingScript will be 0 if script was already loaded and addClient() executed it.
+            if (m_pendingScript)
+                pauseParsing();
+        } else
+            m_scriptElement = 0;
 
         // JavaScript may have detached the parser
         if (isDetached())
@@ -970,10 +970,10 @@ void XMLDocumentParser::processingInstruction(const xmlChar* target, const xmlCh
     exitText();
 
     // ### handle exceptions
-    int exception = 0;
+    ExceptionCode ec = 0;
     RefPtr<ProcessingInstruction> pi = document()->createProcessingInstruction(
-        toString(target), toString(data), exception);
-    if (exception)
+        toString(target), toString(data), ec);
+    if (ec)
         return;
 
     pi->setCreatedByParser(true);
@@ -984,6 +984,8 @@ void XMLDocumentParser::processingInstruction(const xmlChar* target, const xmlCh
 
     pi->finishParsingChildren();
 
+    if (pi->isCSS())
+        m_sawCSS = true;
 #if ENABLE(XSLT)
     m_sawXSLTransform = !m_sawFirstElement && pi->isXSL();
     if (m_sawXSLTransform && !document()->transformSourceDocument())
@@ -1310,6 +1312,7 @@ void XMLDocumentParser::initializeParserContext(const char* chunk)
     sax.initialized = XML_SAX2_MAGIC;
     DocumentParser::startParsing();
     m_sawError = false;
+    m_sawCSS = false;
     m_sawXSLTransform = false;
     m_sawFirstElement = false;
 
@@ -1324,30 +1327,39 @@ void XMLDocumentParser::initializeParserContext(const char* chunk)
 
 void XMLDocumentParser::doEnd()
 {
+    if (!isStopped()) {
+        if (m_context) {
+            // Tell libxml we're done.
+            {
+                XMLDocumentParserScope scope(document()->cachedResourceLoader());
+                xmlParseChunk(context(), 0, 0, 1);
+            }
+
+            m_context = 0;
+        }
+    }
+
 #if ENABLE(XSLT)
-    if (m_sawXSLTransform) {
+    XMLTreeViewer xmlTreeViewer(document());
+
+    bool xmlViewerMode = !m_sawError && !m_sawCSS && !m_sawXSLTransform && xmlTreeViewer.hasNoStyleInformation();
+
+    if (xmlViewerMode || m_sawXSLTransform) {
         void* doc = xmlDocPtrForString(document()->cachedResourceLoader(), m_originalSourceForTransform, document()->url().string());
         document()->setTransformSource(new TransformSource(doc));
 
-        document()->setParsing(false); // Make the doc think it's done, so it will apply xsl sheets.
-        document()->styleSelectorChanged(RecalcStyleImmediately);
-        document()->setParsing(true);
+        if (xmlViewerMode)
+            xmlTreeViewer.transformDocumentToTreeView();
+        else {
+            document()->setParsing(false); // Make the document think it's done, so it will apply XSL stylesheets.
+            document()->styleSelectorChanged(RecalcStyleImmediately);
+            document()->setParsing(true);
+        }
+
         DocumentParser::stopParsing();
     }
 #endif
 
-    if (isStopped())
-        return;
-
-    if (m_context) {
-        // Tell libxml we're done.
-        {
-            XMLDocumentParserScope scope(document()->cachedResourceLoader());
-            xmlParseChunk(context(), 0, 0, 1);
-        }
-
-        m_context = 0;
-    }
 }
 
 #if ENABLE(XSLT)

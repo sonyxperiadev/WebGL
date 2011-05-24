@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -136,10 +136,16 @@ public:
     // it is OK to calculate movie time before refreshing the cached time.
     virtual double maximumDurationToCacheMediaTime() const { return 0; }
 
-    virtual unsigned long decodedFrames() const { return 0; }
-    virtual unsigned long droppedFrames() const { return 0; }
-    virtual unsigned long audioBytesDecoded() const { return 0; }
-    virtual unsigned long videoBytesDecoded() const { return 0; }
+    virtual unsigned decodedFrameCount() const { return 0; }
+    virtual unsigned droppedFrameCount() const { return 0; }
+    virtual unsigned audioDecodedByteCount() const { return 0; }
+    virtual unsigned videoDecodedByteCount() const { return 0; }
+
+    void getSitesInMediaCache(Vector<String>&) { }
+    void clearMediaCache() { }
+    void clearMediaCacheForSite(const String&) { }
+
+    virtual void setPrivateBrowsingMode(bool) { }
 };
 
 }

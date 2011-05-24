@@ -130,7 +130,7 @@ ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaO
 }
 #endif // !OS(ANDROID)
 
-#if !PLATFORM(SKIA)
+#if !USE(SKIA)
 
 ImageFrame::ImageFrame()
     : m_hasAlpha(false)

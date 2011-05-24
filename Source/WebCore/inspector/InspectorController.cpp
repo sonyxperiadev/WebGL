@@ -38,11 +38,13 @@
 #include "InjectedScriptHost.h"
 #include "InspectorAgent.h"
 #include "InspectorBackendDispatcher.h"
+#include "InspectorBrowserDebuggerAgent.h"
 #include "InspectorDebuggerAgent.h"
 #include "InspectorClient.h"
 #include "InspectorFrontend.h"
 #include "InspectorFrontendClient.h"
 #include "InspectorInstrumentation.h"
+#include "InspectorTimelineAgent.h"
 #include "Page.h"
 #include "ScriptObject.h"
 #include "Settings.h"
@@ -84,12 +86,14 @@ void InspectorController::didClearWindowObjectInWorld(Frame* frame, DOMWrapperWo
 
 void InspectorController::startTimelineProfiler()
 {
-    m_inspectorAgent->startTimelineProfiler();
+    ErrorString error;
+    m_inspectorAgent->timelineAgent()->start(&error);
 }
 
 void InspectorController::stopTimelineProfiler()
 {
-    m_inspectorAgent->stopTimelineProfiler();
+    ErrorString error;
+    m_inspectorAgent->timelineAgent()->stop(&error);
 }
 
 void InspectorController::connectFrontend()
@@ -127,7 +131,7 @@ void InspectorController::show()
         return;
 
     if (m_inspectorFrontend)
-        m_inspectorFrontend->bringToFront();
+        m_inspectorFrontend->inspector()->bringToFront();
     else {
         m_openingFrontend = true;
         m_inspectorClient->openInspectorFrontend(this);
@@ -138,7 +142,7 @@ void InspectorController::close()
 {
     if (!m_inspectorFrontend)
         return;
-    m_inspectorFrontend->disconnectFromBackend();
+    m_inspectorFrontend->inspector()->disconnectFromBackend();
     disconnectFrontend();
 }
 
@@ -189,18 +193,36 @@ Page* InspectorController::inspectedPage() const
 
 bool InspectorController::timelineProfilerEnabled()
 {
-    return m_inspectorAgent->timelineAgent();
+    return m_inspectorAgent->timelineAgent()->started();
+}
+
+void InspectorController::setInspectorExtensionAPI(const String& source)
+{
+    m_inspectorAgent->setInspectorExtensionAPI(source);
+}
+
+void InspectorController::dispatchMessageFromFrontend(const String& message)
+{
+    m_inspectorBackendDispatcher->dispatch(message);
+}
+
+void InspectorController::hideHighlight()
+{
+    ErrorString error;
+    m_inspectorAgent->hideHighlight(&error);
 }
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 void InspectorController::enableProfiler()
 {
-    m_inspectorAgent->enableProfiler();
+    ErrorString error;
+    m_inspectorAgent->enableProfiler(&error);
 }
 
 void InspectorController::disableProfiler()
 {
-    m_inspectorAgent->disableProfiler();
+    ErrorString error;
+    m_inspectorAgent->disableProfiler(&error);
 }
 
 bool InspectorController::profilerEnabled()
@@ -210,17 +232,21 @@ bool InspectorController::profilerEnabled()
 
 bool InspectorController::debuggerEnabled()
 {
-    return m_inspectorAgent->debuggerEnabled();
+    return m_inspectorAgent->debuggerAgent()->enabled();
 }
 
 void InspectorController::showAndEnableDebugger()
 {
-    m_inspectorAgent->showAndEnableDebugger();
+    if (!enabled())
+        return;
+    show();
+    m_inspectorAgent->showScriptsPanel();
+    m_inspectorAgent->debuggerAgent()->startUserInitiatedDebugging();
 }
 
 void InspectorController::disableDebugger()
 {
-    m_inspectorAgent->disableDebugger();
+    m_inspectorAgent->debuggerAgent()->disable();
 }
 
 void InspectorController::startUserInitiatedProfiling()
@@ -230,6 +256,9 @@ void InspectorController::startUserInitiatedProfiling()
 
 void InspectorController::stopUserInitiatedProfiling()
 {
+    if (!enabled())
+        return;
+    show();
     m_inspectorAgent->stopUserInitiatedProfiling();
 }
 
@@ -238,25 +267,12 @@ bool InspectorController::isRecordingUserInitiatedProfile() const
     return m_inspectorAgent->isRecordingUserInitiatedProfile();
 }
 
-void InspectorController::setInspectorExtensionAPI(const String& source)
-{
-    m_inspectorAgent->setInspectorExtensionAPI(source);
-}
-
 void InspectorController::resume()
 {
-    if (InspectorDebuggerAgent* debuggerAgent = m_inspectorAgent->debuggerAgent())
-        debuggerAgent->resume();
-}
-
-void InspectorController::hideHighlight()
-{
-    m_inspectorAgent->hideHighlight();
-}
-
-void InspectorController::dispatchMessageFromFrontend(const String& message)
-{
-    m_inspectorBackendDispatcher->dispatch(message);
+    if (InspectorDebuggerAgent* debuggerAgent = m_inspectorAgent->debuggerAgent()) {
+        ErrorString error;
+        debuggerAgent->resume(&error);
+    }
 }
 
 #endif

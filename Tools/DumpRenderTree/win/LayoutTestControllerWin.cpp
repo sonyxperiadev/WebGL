@@ -711,14 +711,6 @@ static bool resolveCygwinPath(const wstring& cygwinPath, wstring& windowsPath)
     return true;
 }
 
-static wstring cfStringRefToWString(CFStringRef cfStr)
-{
-    Vector<wchar_t> v(CFStringGetLength(cfStr));
-    CFStringGetCharacters(cfStr, CFRangeMake(0, CFStringGetLength(cfStr)), (UniChar *)v.data());
-
-    return wstring(v.data(), v.size());
-}
-
 void LayoutTestController::setUserStyleSheetLocation(JSStringRef jsURL)
 {
     COMPtr<IWebView> webView;
@@ -761,6 +753,11 @@ void LayoutTestController::setUserStyleSheetLocation(JSStringRef jsURL)
     BSTR resultPathBSTR = SysAllocStringLen(resultPath.data(), resultPath.size());
     preferences->setUserStyleSheetLocation(resultPathBSTR);
     SysFreeString(resultPathBSTR);
+}
+
+void LayoutTestController::setValueForUser(JSContextRef context, JSValueRef element, JSStringRef value)
+{
+    // FIXME: implement
 }
 
 void LayoutTestController::setViewModeMediaFeature(JSStringRef mode)
@@ -1421,7 +1418,7 @@ bool LayoutTestController::hasSpellingMarker(int from, int length)
     return ret;
 }
 
-void LayoutTestController::dumpConfigurationForViewport(int /*availableWidth*/, int /*availableHeight*/)
+void LayoutTestController::dumpConfigurationForViewport(int /*deviceDPI*/, int /*deviceWidth*/, int /*deviceHeight*/, int /*availableWidth*/, int /*availableHeight*/)
 {
     // FIXME: Implement this.
 }
@@ -1429,4 +1426,17 @@ void LayoutTestController::dumpConfigurationForViewport(int /*availableWidth*/, 
 void LayoutTestController::setSerializeHTTPLoads(bool)
 {
     // FIXME: Implement.
+}
+
+void LayoutTestController::setMinimumTimerInterval(double minimumTimerInterval)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebViewPrivate> viewPrivate(Query, webView);
+    if (!viewPrivate)
+        return;
+
+    viewPrivate->setMinimumTimerInterval(minimumTimerInterval);
 }

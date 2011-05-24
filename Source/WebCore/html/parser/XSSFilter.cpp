@@ -245,10 +245,14 @@ bool XSSFilter::filterTokenInitial(HTMLToken& token)
         didBlockScript |= filterEmbedToken(token);
     else if (hasName(token, appletTag))
         didBlockScript |= filterAppletToken(token);
+    else if (hasName(token, iframeTag))
+        didBlockScript |= filterIframeToken(token);
     else if (hasName(token, metaTag))
         didBlockScript |= filterMetaToken(token);
     else if (hasName(token, baseTag))
         didBlockScript |= filterBaseToken(token);
+    else if (hasName(token, formTag))
+        didBlockScript |= filterFormToken(token);
 
     return didBlockScript;
 }
@@ -351,6 +355,15 @@ bool XSSFilter::filterAppletToken(HTMLToken& token)
     return didBlockScript;
 }
 
+bool XSSFilter::filterIframeToken(HTMLToken& token)
+{
+    ASSERT(m_state == Initial);
+    ASSERT(token.type() == HTMLToken::StartTag);
+    ASSERT(hasName(token, iframeTag));
+
+    return eraseAttributeIfInjected(token, srcAttr);
+}
+
 bool XSSFilter::filterMetaToken(HTMLToken& token)
 {
     ASSERT(m_state == Initial);
@@ -367,6 +380,15 @@ bool XSSFilter::filterBaseToken(HTMLToken& token)
     ASSERT(hasName(token, baseTag));
 
     return eraseAttributeIfInjected(token, hrefAttr);
+}
+
+bool XSSFilter::filterFormToken(HTMLToken& token)
+{
+    ASSERT(m_state == Initial);
+    ASSERT(token.type() == HTMLToken::StartTag);
+    ASSERT(hasName(token, formTag));
+
+    return eraseAttributeIfInjected(token, actionAttr);
 }
 
 bool XSSFilter::eraseDangerousAttributesIfInjected(HTMLToken& token)

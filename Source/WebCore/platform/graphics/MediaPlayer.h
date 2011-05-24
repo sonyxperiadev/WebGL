@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -159,11 +159,14 @@ public:
     }
     virtual ~MediaPlayer();
 
-    // media engine support
+    // Media engine support.
     enum SupportsType { IsNotSupported, IsSupported, MayBeSupported };
     static MediaPlayer::SupportsType supportsType(const ContentType&);
     static void getSupportedTypes(HashSet<String>&);
     static bool isAvailable();
+    static void getSitesInMediaCache(Vector<String>&);
+    static void clearMediaCache();
+    static void clearMediaCacheForSite(const String&);
 
     bool supportsFullscreen() const;
     bool supportsSave() const;
@@ -287,10 +290,12 @@ public:
 
     double maximumDurationToCacheMediaTime() const;
 
-    unsigned long decodedFrames() const;
-    unsigned long droppedFrames() const;
-    unsigned long audioBytesDecoded() const;
-    unsigned long videoBytesDecoded() const;
+    unsigned decodedFrameCount() const;
+    unsigned droppedFrameCount() const;
+    unsigned audioDecodedByteCount() const;
+    unsigned videoDecodedByteCount() const;
+
+    void setPrivateBrowsingMode(bool);
 
 private:
     MediaPlayer(MediaPlayerClient*);
@@ -314,6 +319,7 @@ private:
     float m_volume;
     bool m_muted;
     bool m_preservesPitch;
+    bool m_privateBrowsing;
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     WebMediaPlayerProxy* m_playerProxy;    // not owned or used, passed to m_private
 #endif
@@ -325,8 +331,12 @@ private:
 typedef MediaPlayerPrivateInterface* (*CreateMediaEnginePlayer)(MediaPlayer*);
 typedef void (*MediaEngineSupportedTypes)(HashSet<String>& types);
 typedef MediaPlayer::SupportsType (*MediaEngineSupportsType)(const String& type, const String& codecs);
+typedef void (*MediaEngineGetSitesInMediaCache)(Vector<String>&);
+typedef void (*MediaEngineClearMediaCache)();
+typedef void (*MediaEngineClearMediaCacheForSite)(const String&);
 
-typedef void (*MediaEngineRegistrar)(CreateMediaEnginePlayer, MediaEngineSupportedTypes, MediaEngineSupportsType); 
+typedef void (*MediaEngineRegistrar)(CreateMediaEnginePlayer, MediaEngineSupportedTypes, MediaEngineSupportsType, 
+    MediaEngineGetSitesInMediaCache, MediaEngineClearMediaCache, MediaEngineClearMediaCacheForSite); 
 
 
 }

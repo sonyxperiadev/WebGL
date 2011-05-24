@@ -40,6 +40,8 @@ class CachedCSSStyleSheet;
 class CachedResource;
 class CachedResourceLoader;
 class KURL;
+class SecurityOrigin;
+struct SecurityOriginHash;
 
 // This cache holds subresources used by Web pages: images, scripts, stylesheets, etc.
 
@@ -125,6 +127,8 @@ public:
     // still live on if they are referenced by some Web page though.
     void setDisabled(bool);
     bool disabled() const { return m_disabled; }
+
+    void evictResources();
     
     void setPruneEnabled(bool enabled) { m_pruneEnabled = enabled; }
     void prune()
@@ -163,10 +167,16 @@ public:
     
     void resourceAccessed(CachedResource*);
 
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     unsigned getLiveSize() { return m_liveSize; }
     unsigned getDeadSize() { return m_deadSize; }
 #endif
+=======
+    typedef HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash> SecurityOriginSet;
+    void removeResourcesWithOrigin(SecurityOrigin*);
+    void getOriginsWithCache(SecurityOriginSet& origins);
+>>>>>>> WebKit at r80534
 
 private:
     MemoryCache();

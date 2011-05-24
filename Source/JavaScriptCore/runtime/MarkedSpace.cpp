@@ -24,6 +24,7 @@
 #include "JSCell.h"
 #include "JSGlobalData.h"
 #include "JSLock.h"
+#include "ScopeChain.h"
 
 namespace JSC {
 
@@ -34,105 +35,125 @@ MarkedSpace::MarkedSpace(JSGlobalData* globalData)
     , m_highWaterMark(0)
     , m_globalData(globalData)
 {
-    allocateBlock();
+    for (size_t cellSize = preciseStep; cellSize <= preciseCutoff; cellSize += preciseStep)
+        sizeClassFor(cellSize).cellSize = cellSize;
 }
 
 void MarkedSpace::destroy()
 {
-    clearMarks(); // Make sure weak pointers appear dead during destruction.
-
-    while (m_heap.blocks.size())
-        freeBlock(0);
-    m_heap.blocks.clear();
+    clearMarks();
+    shrink();
+    ASSERT(!size());
 }
 
-NEVER_INLINE MarkedBlock* MarkedSpace::allocateBlock()
+MarkedBlock* MarkedSpace::allocateBlock(SizeClass& sizeClass)
 {
-    MarkedBlock* block = MarkedBlock::create(globalData());
-    m_heap.blocks.append(block);
+    MarkedBlock* block = MarkedBlock::create(globalData(), sizeClass.cellSize);
+    sizeClass.blockList.append(block);
+    sizeClass.nextBlock = block;
+    m_blocks.add(block);
+
     return block;
 }
 
-NEVER_INLINE void MarkedSpace::freeBlock(size_t block)
+void MarkedSpace::freeBlocks(DoublyLinkedList<MarkedBlock>& blocks)
 {
-    MarkedBlock::destroy(m_heap.blocks[block]);
+    MarkedBlock* next;
+    for (MarkedBlock* block = blocks.head(); block; block = next) {
+        next = block->next();
 
-    // swap with the last block so we compact as we go
-    m_heap.blocks[block] = m_heap.blocks.last();
-    m_heap.blocks.removeLast();
+        blocks.remove(block);
+        m_blocks.remove(block);
+        MarkedBlock::destroy(block);
+    }
 }
 
-void* MarkedSpace::allocate(size_t)
+void* MarkedSpace::allocateFromSizeClass(SizeClass& sizeClass)
 {
-    do {
-        ASSERT(m_heap.nextBlock < m_heap.blocks.size());
-        MarkedBlock* block = m_heap.collectorBlock(m_heap.nextBlock);
-        if (void* result = block->allocate(m_heap.nextCell))
+    for (MarkedBlock*& block = sizeClass.nextBlock ; block; block = block->next()) {
+        if (void* result = block->allocate())
             return result;
 
         m_waterMark += block->capacity();
-    } while (++m_heap.nextBlock != m_heap.blocks.size());
+    }
 
     if (m_waterMark < m_highWaterMark)
-        return allocateBlock()->allocate(m_heap.nextCell);
+        return allocateBlock(sizeClass)->allocate();
 
     return 0;
 }
 
 void MarkedSpace::shrink()
 {
-    for (size_t i = 0; i != m_heap.blocks.size() && m_heap.blocks.size() > 1; ) { // We assume at least one block exists at all times.
-        if (m_heap.collectorBlock(i)->isEmpty()) {
-            freeBlock(i);
-        } else
-            ++i;
+    // We record a temporary list of empties to avoid modifying m_blocks while iterating it.
+    DoublyLinkedList<MarkedBlock> empties;
+
+    BlockIterator end = m_blocks.end();
+    for (BlockIterator it = m_blocks.begin(); it != end; ++it) {
+        MarkedBlock* block = *it;
+        if (block->isEmpty()) {
+            SizeClass& sizeClass = sizeClassFor(block->cellSize());
+            sizeClass.blockList.remove(block);
+            sizeClass.nextBlock = sizeClass.blockList.head();
+            empties.append(block);
+        }
     }
+    
+    freeBlocks(empties);
+    ASSERT(empties.isEmpty());
 }
 
 void MarkedSpace::clearMarks()
 {
-    for (size_t i = 0; i < m_heap.blocks.size(); ++i)
-        m_heap.collectorBlock(i)->clearMarks();
+    BlockIterator end = m_blocks.end();
+    for (BlockIterator it = m_blocks.begin(); it != end; ++it)
+        (*it)->clearMarks();
 }
 
 void MarkedSpace::sweep()
 {
-    for (size_t i = 0; i < m_heap.blocks.size(); ++i)
-        m_heap.collectorBlock(i)->sweep();
+    BlockIterator end = m_blocks.end();
+    for (BlockIterator it = m_blocks.begin(); it != end; ++it)
+        (*it)->sweep();
 }
 
 size_t MarkedSpace::objectCount() const
 {
     size_t result = 0;
-    for (size_t i = 0; i < m_heap.blocks.size(); ++i)
-        result += m_heap.collectorBlock(i)->markCount();
+    BlockIterator end = m_blocks.end();
+    for (BlockIterator it = m_blocks.begin(); it != end; ++it)
+        result += (*it)->markCount();
     return result;
 }
 
 size_t MarkedSpace::size() const
 {
     size_t result = 0;
-    for (size_t i = 0; i < m_heap.blocks.size(); ++i)
-        result += m_heap.collectorBlock(i)->size();
+    BlockIterator end = m_blocks.end();
+    for (BlockIterator it = m_blocks.begin(); it != end; ++it)
+        result += (*it)->size();
     return result;
 }
 
 size_t MarkedSpace::capacity() const
 {
     size_t result = 0;
-    for (size_t i = 0; i < m_heap.blocks.size(); ++i)
-        result += m_heap.collectorBlock(i)->capacity();
+    BlockIterator end = m_blocks.end();
+    for (BlockIterator it = m_blocks.begin(); it != end; ++it)
+        result += (*it)->capacity();
     return result;
 }
 
 void MarkedSpace::reset()
 {
-    m_heap.nextCell = 0;
-    m_heap.nextBlock = 0;
     m_waterMark = 0;
-#if ENABLE(JSC_ZOMBIES)
-    sweep();
-#endif
+
+    for (size_t cellSize = preciseStep; cellSize <= preciseCutoff; cellSize += preciseStep)
+        sizeClassFor(cellSize).reset();
+
+    BlockIterator end = m_blocks.end();
+    for (BlockIterator it = m_blocks.begin(); it != end; ++it)
+        (*it)->reset();
 }
 
 } // namespace JSC

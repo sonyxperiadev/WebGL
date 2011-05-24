@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010, 2011 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
 #include "ApplicationCacheResource.h"
 #include "FileSystem.h"
 #include "KURL.h"
+#include "NotImplemented.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
 #include "SecurityOrigin.h"
@@ -266,6 +267,8 @@ ApplicationCacheGroup* ApplicationCacheStorage::fallbackCacheGroupForURL(const K
 
         if (ApplicationCache* cache = group->newestCache()) {
             KURL fallbackURL;
+            if (cache->isURLInOnlineWhitelist(url))
+                continue;
             if (!cache->urlMatchesFallbackNamespace(url, &fallbackURL))
                 continue;
             if (cache->resourceForURL(fallbackURL)->type() & ApplicationCacheResource::Foreign)
@@ -299,6 +302,8 @@ ApplicationCacheGroup* ApplicationCacheStorage::fallbackCacheGroupForURL(const K
         RefPtr<ApplicationCache> cache = loadCache(newestCacheID);
 
         KURL fallbackURL;
+        if (cache->isURLInOnlineWhitelist(url))
+            continue;
         if (!cache->urlMatchesFallbackNamespace(url, &fallbackURL))
             continue;
         if (cache->resourceForURL(fallbackURL)->type() & ApplicationCacheResource::Foreign)
@@ -1285,6 +1290,47 @@ void ApplicationCacheStorage::checkForMaxSizeReached()
 {
     if (m_database.lastError() == SQLResultFull)
         m_isMaximumSizeReached = true;
+}
+
+void ApplicationCacheStorage::getOriginsWithCache(HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash>& origins)
+{
+    Vector<KURL> urls;
+    if (!manifestURLs(&urls)) {
+        LOG_ERROR("Failed to retrieve ApplicationCache manifest URLs");
+        return;
+    }
+
+    // Multiple manifest URLs might share the same SecurityOrigin, so we might be creating extra, wasted origins here.
+    // The current schema doesn't allow for a more efficient way of building this list.
+    size_t count = urls.size();
+    for (size_t i = 0; i < count; ++i) {
+        RefPtr<SecurityOrigin> origin = SecurityOrigin::create(urls[i]);
+        origins.add(origin);
+    }
+}
+
+void ApplicationCacheStorage::deleteEntriesForOrigin(SecurityOrigin* origin)
+{
+    Vector<KURL> urls;
+    if (!manifestURLs(&urls)) {
+        LOG_ERROR("Failed to retrieve ApplicationCache manifest URLs");
+        return;
+    }
+
+    // Multiple manifest URLs might share the same SecurityOrigin, so we might be creating extra, wasted origins here.
+    // The current schema doesn't allow for a more efficient way of deleting by origin.
+    size_t count = urls.size();
+    for (size_t i = 0; i < count; ++i) {
+        RefPtr<SecurityOrigin> manifestOrigin = SecurityOrigin::create(urls[i]);
+        if (manifestOrigin->isSameSchemeHostPort(origin))
+            deleteCacheGroup(urls[i]);
+    }
+}
+
+void ApplicationCacheStorage::deleteAllEntries()
+{
+    empty();
+    vacuumDatabaseFile();
 }
 
 ApplicationCacheStorage::ApplicationCacheStorage() 

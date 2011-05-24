@@ -52,6 +52,9 @@ public:
     virtual bool formControlValueMatchesRenderer() const { return m_valueMatchesRenderer; }
     virtual void setFormControlValueMatchesRenderer(bool b) { m_valueMatchesRenderer = b; }
 
+    virtual bool wasChangedSinceLastFormControlChangeEvent() const;
+    virtual void setChangedSinceLastFormControlChangeEvent(bool);
+
     virtual void dispatchFormControlChangeEvent();
     virtual void dispatchFormControlInputEvent();
 
@@ -161,6 +164,8 @@ private:
     // Cache of validity()->valid().
     // But "candidate for constraint validation" doesn't affect m_isValid.
     bool m_isValid : 1;
+
+    bool m_wasChangedSinceLastFormControlChangeEvent : 1;
 };
 
 // FIXME: Give this class its own header file.
@@ -223,6 +228,8 @@ private:
 
     // Returns true if user-editable value is empty. Used to check placeholder visibility.
     virtual bool isEmptyValue() const = 0;
+    // Returns true if suggested value is empty. Used to check placeholder visibility.
+    virtual bool isEmptySuggestedValue() const { return true; }
     // Called in dispatchFocusEvent(), after placeholder process, before calling parent's dispatchFocusEvent().
     virtual void handleFocusEvent() { }
     // Called in dispatchBlurEvent(), after placeholder process, before calling parent's dispatchBlurEvent().

@@ -1,3 +1,546 @@
+2011-03-04  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add skeletal WebCore.gyp
+        https://bugs.webkit.org/show_bug.cgi?id=55802
+
+        * Source/gyp/configure: Added WebCore.
+
+2011-03-04  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add a basic configure script for the GYP build
+        https://bugs.webkit.org/show_bug.cgi?id=55791
+
+        This script just calls GYP on the various gyp projects.  As we add more
+        build systems, this script should be able to select which of them you'd
+        like to generate the project for.
+
+        * Source/gyp/configure: Added.
+
+2011-03-04  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Use target_defaults to reduce boilerplate in GYP build system
+        https://bugs.webkit.org/show_bug.cgi?id=55790
+
+        This file contains GYP declarations that are shared by all the modules.
+        Currently, we use this to set up the configurations, albeit primitively.
+
+        * Source/gyp/common.gypi: Added.
+
+2011-03-03  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix. Ensure the ICU include dir comes before JavaScriptCore/wtf on Win
+        to make sure the proper unicode/utf8.h header is included.
+
+        * wscript:
+
+2011-03-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, don't use LocalizedNumberICU.cpp yet, headers that it needs are not
+        included in the ICU headers used by WebKit.
+
+        * wscript:
+
+2011-03-02  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add feature define for data transfer items
+        https://bugs.webkit.org/show_bug.cgi?id=55510
+
+        * Source/cmake/OptionsEfl.cmake:
+        * Source/cmake/OptionsWinCE.cmake:
+        * Source/cmakeconfig.h.cmake:
+        * configure.ac:
+
+2011-03-02  Andras Becsi  <abecsi@webkit.org>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt][WK2] generate-forwarding-headers.pl should generate paths with framework names
+        https://bugs.webkit.org/show_bug.cgi?id=55478
+
+        On case insensitive systems the generated forwarding headers cause build problems.
+
+        * Source/WebKit.pri: Adjust INCLUDEPATH for the project.
+
+2011-03-01  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r80079.
+        http://trac.webkit.org/changeset/80079
+        https://bugs.webkit.org/show_bug.cgi?id=55547
+
+        "Broke the Win debug build?" (Requested by dcheng on #webkit).
+
+        * Source/cmake/OptionsEfl.cmake:
+        * Source/cmake/OptionsWinCE.cmake:
+        * Source/cmakeconfig.h.cmake:
+
+2011-03-01  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add feature define for data transfer items
+        https://bugs.webkit.org/show_bug.cgi?id=55510
+
+        * Source/cmake/OptionsEfl.cmake:
+        * Source/cmake/OptionsWinCE.cmake:
+        * Source/cmakeconfig.h.cmake:
+
+2011-03-01  Andras Becsi  <abecsi@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        [Qt] Clean up the project files and move common options to WebKit.pri.
+
+        Mac related changes suggested by Prasanth Ullattil <prasanth.ullattil@nokia.com>
+
+        * Source/WebKit.pri: Common options should be here.
+        Also move Mac options to this file to fix the Mac build.
+
+2011-03-01  Andras Becsi  <abecsi@webkit.org>
+
+        Unreviewed build fix.
+
+        [Qt] Fix minimal build.
+
+        * Source/WebKit.pri: Move the XP_UNIX define back to WebCore.pri.
+
+2011-02-28  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Teach JavaScriptGlue gyp build about DEPTH
+        https://bugs.webkit.org/show_bug.cgi?id=55421
+
+        Moves the previously JavaScriptGlue-specific GYP helper shell scripts
+        to the gyp directory in Source, where they can be shared by multiple
+        frameworks.
+
+        * Source/gyp: Added.
+        * Source/gyp/remove-headers-if-needed.sh: Copied from Source/JavaScriptGlue/gyp/remove-headers-if-needed.sh.
+        * Source/gyp/run-if-exists.sh: Copied from Source/JavaScriptGlue/gyp/run-if-exists.sh.
+        * Source/gyp/update-info-plist.sh: Copied from Source/JavaScriptGlue/gyp/update-info-plist.sh.
+
+2011-02-28  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt][WK2] Add a way to test the WebKit 2 APIs
+        https://bugs.webkit.org/show_bug.cgi?id=55408
+
+        Add the build file for test to the build system.
+
+        * Source/WebKit.pri: Add the include path for WebKit 2 APIs.
+        * Source/WebKit.pro: Add the dependency to build the new test project.
+
+2011-02-28  Balazs Kelemen  <kbalazs@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        [Qt][WK2] Plugin initialization
+        https://bugs.webkit.org/show_bug.cgi?id=48127
+
+        * Source/WebKit.pri: Lift the definition of the XP_UNIX macro
+        from WebCore.pri to WebKit.pri to apply it to WebKit2 as well.
+
+2011-02-28  Kristian Amlie  <kristian.amlie@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        Added full webkit module profile and a syncqt profile.
+
+        This is for modularized Qt.
+
+        [Qt] WebKit patches required to work with a modularized version of Qt
+        https://bugs.webkit.org/show_bug.cgi?id=53916
+
+        * Source/sync.profile: Added.
+
+2011-02-26  Dihan Wickremasuriya  <dihan.wickremasuriya@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] [Symbian] Disable dependency to a specific version of a Qt package for
+        non-production builds.
+        https://bugs.webkit.org/show_bug.cgi?id=55313
+
+        * Source/WebKit.pri:
+
+2011-02-24  Alejandro G. Castro  <alex@igalia.com>
+
+        Rubber-stamped by Martin Robinson.
+
+        Fixed compilation after r79537, added a bug to solve webkit2
+        translations:
+        https://bugs.webkit.org/show_bug.cgi?id=55153
+
+        * GNUmakefile.am:
+
+2011-02-24  Christian Dywan  <christian@lanedo.com>
+
+        Rubber-stamped by Eric Seidel.
+
+        [GTK] webkitgtk 1.3.7 build without translations
+        https://bugs.webkit.org/show_bug.cgi?id=50612
+
+        * GNUmakefile.am: Require stamp-po target for all-local so
+            that po files are built before they install.
+
+2011-02-22  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] 1.3.12 release preparation
+        https://bugs.webkit.org/show_bug.cgi?id=54967
+
+        Version bump for 1.3.12 and updated NEWS file with release notes.
+        Also bumped libsoup requirement to 2.33.6 as agreed with Sergio
+        and Martin.
+
+        * Source/WebKit/gtk/NEWS:
+        * configure.ac:
+
+2011-02-22  Andras Becsi  <abecsi@webkit.org>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Redesign the build system
+        https://bugs.webkit.org/show_bug.cgi?id=51339
+
+        Part 2.
+
+        Build WebCore as a static library, compile the WebKit API and WebKit2 API
+        in a final step and link to WebKit2, WebCore and JSC libraries to fix
+        linking issues resulting from stripped away symbols.
+
+        * Source/WebKit.pri: Add common include paths
+        * Source/WebKit.pro: Add new project file to SUBDIRS
+
+2011-02-20  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Bump GTK+3 dependency to 3.0
+        https://bugs.webkit.org/show_bug.cgi?id=54394
+
+        * configure.ac:
+
+2011-02-19  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Remove mandatory Enchant dependency
+        https://bugs.webkit.org/show_bug.cgi?id=51587
+
+        Add enable-spellcheck option which decides whether to use enchant.
+        If disabled, WebKitGTK+ will not use enchant library.
+
+        * configure.ac:
+
+2011-02-18  Zan Dobersek  <zandobersek@gmail.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] Re-enable meter tag support
+        https://bugs.webkit.org/show_bug.cgi?id=54762
+
+        Enable meter tag support in the configure.ac. This feature was
+        previously enabled by default in the makefile, but should be
+        enabled here after changes in r78981.
+
+        * configure.ac:
+
+2011-02-18  Kristian Amlie  <kristian.amlie@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Avoided UiTools dependency if the module is not present.
+
+        [Qt] WebKit patches required to work with a modularized version of Qt
+        https://bugs.webkit.org/show_bug.cgi?id=53916
+
+        * Source/WebKit.pri:
+
+2011-02-18  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Remove GDK dependency.
+        https://bugs.webkit.org/show_bug.cgi?id=53978
+
+        Remove checking GDK library.
+
+        * Source/cmake/OptionsEfl.cmake:
+
+2011-02-18  Philippe Normand  <pnormand@igalia.com>
+
+        Unreviewed, build fix after r78981
+
+        * configure.ac: datagrid is datagrid, it is not database. Also
+        meter is not progress. Fixed copy/paste mistakes.
+
+2011-02-18  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] minimal build unrecognized options
+        https://bugs.webkit.org/show_bug.cgi?id=50890
+
+        * configure.ac: added new configure options to enable/disable the
+        meter element, progress element, datagrid and client-based
+        geolocation support.
+
+2011-02-17  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after introduction of JavaScriptCore/collector.
+        
+        * wscript:
+
+2011-02-17  Kristian Amlie  <kristian.amlie@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        Updated include paths for phonon.
+
+        [Qt] WebKit patches required to work with a modularized version of Qt
+        https://bugs.webkit.org/show_bug.cgi?id=53916
+
+        * Source/WebKit.pri:
+
+2011-02-13  Hayato Ito  <hayato@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Update .gitignore to ignore files which Ninja build system generates.
+
+        https://bugs.webkit.org/show_bug.cgi?id=54378
+
+        * .gitignore:
+
+2011-02-10  Peter Varga  <pvarga@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        Remove PCRE source from trunk
+        https://bugs.webkit.org/show_bug.cgi?id=54188
+
+        * Source/cmake/WebKitFS.cmake:
+
+2011-02-09  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Steve Block.
+
+        Move Android.mk into Source
+        https://bugs.webkit.org/show_bug.cgi?id=53751
+
+        A somewhat blind attempt to move Android.mk into the Source directory.
+        I'm sure I've goofed this up in some way.  The Android folks have
+        kindly volunteered to fix this up once they merge past this revision.
+
+        * Android.mk: Removed.
+        * Source/Android.mk: Copied from Android.mk.
+
+2011-02-08  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        WebKit2 GTK Fails to Build #include nested too deeply
+        https://bugs.webkit.org/show_bug.cgi?id=52219
+
+        Removed the __STDC_FORMAT_MACROS definition, it is already defined
+        in the file where PRIxx64 is used before the inclusion so we are
+        safe.
+
+        * configure.ac:
+
+2011-02-08  Kristian Amlie  <kristian.amlie@nokia.com>
+
+        Reviewed by Eric Seidel.
+
+        Added include paths for QtScript.
+
+        WebKit patches required to work with a modularized version of Qt
+        https://bugs.webkit.org/show_bug.cgi?id=53916
+
+        * Source/WebKit.pri:
+
+2011-02-03  Martin Robinson  <mrobinson@igalia.com>
+
+        Fix GTK+ WebGL build after r76600.
+
+        * configure.ac: Make sure to respect configure.ac conventions 
+        consistently when it comes to capitalization. Remove an old
+        reference to enable_3d_canvas.
+
+2011-02-02  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Bump the WebKitGTK+ versions in preparation for development release.
+
+        * configure.ac: Bump the library, libtool and user agent version.
+
+2011-02-02  Steve Lacey  <sjl@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Implement basic media statistics on media elements.
+        https://bugs.webkit.org/show_bug.cgi?id=53322
+
+        * configure.ac:
+
+2011-02-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fixes for wxWebKit.
+
+        * wscript:
+
+2010-01-28  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed.  Test commit for commit-queue@webkit.org.
+
+2010-01-28  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed.  Test commit for commit-queue@webkit.org.
+
+2010-01-28  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed.  Test commit for commit-queue@webkit.org.
+
+2011-01-31  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] REGRESSION:  http/tests/media/video-{cookie,referer}.html failing
+        https://bugs.webkit.org/show_bug.cgi?id=53379
+
+        Remove left over mentions of HAVE_SOUP_2_29_90, and apply the
+        dependency on newer soup to efl as well.
+
+        * Source/cmake/OptionsEfl.cmake:
+
+2011-01-29  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Remove reference to ${CMAKE_SOURCE_DIR}/Source in CMake files
+        https://bugs.webkit.org/show_bug.cgi?id=53382
+
+        Our file system hierarchy ensures that CMAKE_SOURCE_DIR is defined to be /Source.
+        So, ${CMAKE_SOURCE_DIR}/Source evaluates to the non-existent directory /Source/Source.
+        Therefore, we should remove such references.
+
+        * Source/cmake/OptionsCommon.cmake:
+
+2011-01-29  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Eric Seidel.
+
+        Move wince/mt19937ar.c to ThirdParty and make it a policy choice
+        https://bugs.webkit.org/show_bug.cgi?id=53253
+
+        Move implementation of Mersenne Twister pseudorandom number generator to
+        ThirdParty since it is a third party library.
+
+        * Source/ThirdParty/mt19937ar.c: Copied from Source/JavaScriptCore/wtf/wince/mt19937ar.c.
+
+2011-01-29  Dan Winship  <danw@gnome.org>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Require the latest glib and libsoup, and remove conditional
+        support for older versions
+        https://bugs.webkit.org/show_bug.cgi?id=50675
+
+        * autotools/webkit.m4: use AM_PATH_GLIB_2_0 rather than doing
+        basically the same work by hand
+        * configure.ac:
+
+2011-01-28  Martin Robinson  <mrobinson@igalia.com>
+
+        [GTK] Build failure with --enable-indexed-database
+        https://bugs.webkit.org/show_bug.cgi?id=50954
+
+        Build fix for IndexedDB support.
+
+        * configure.ac: Change the autogen.sh option --enable-indexeddb to
+        --enable-indexed-database to match the build-webkit option.
+
+2010-01-28  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed.  Test commit for commit-queue@webkit.org.
+
+2010-01-28  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed.  Test commit for commit-queue@webkit.org.
+
+2011-01-26  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt][Symbian] Fix --minimal build
+        https://bugs.webkit.org/show_bug.cgi?id=52839
+
+        Move definition of USE_SYSTEM_MALLOC out of pri file.
+        Put it in platform.h instead.
+
+        * Source/WebKit.pri:
+
+2011-01-26  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Fix qt_minimal build
+        https://bugs.webkit.org/show_bug.cgi?id=53172
+
+        * Source/WebKit.pri:
+
+2011-01-25  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Move main CMakeLists.txt into Source directory
+        https://bugs.webkit.org/show_bug.cgi?id=52888
+
+        * CMakeLists.txt: Removed.
+        * Source/CMakeLists.txt: Copied from CMakeLists.txt.
+        * Source/cmakeconfig.h.cmake: Copied from cmakeconfig.h.cmake.
+        * cmakeconfig.h.cmake: Removed.
+
+2011-01-24  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Change ENABLE_3D_CANVAS to ENABLE_WEBGL
+        https://bugs.webkit.org/show_bug.cgi?id=53041
+
+        * configure.ac:
+        
+2011-01-24  Peter Gal  <galpeter@inf.u-szeged.hu>
+
+        Rubber-stamped by Csaba Osztrogonác.
+
+        * runtime: Removed. It was accidentally created by r76457.
+
+2011-01-24  Andras Becsi  <abecsi@webkit.org>
+
+        Reviewed by Csaba Osztrogonác.
+
+        [Qt] Move project files into Source
+        https://bugs.webkit.org/show_bug.cgi?id=52891
+
+        * Source/DerivedSources.pro: Copied from DerivedSources.pro.
+        * Source/WebKit.pri: Renamed from WebKit.pri.
+        * Source/WebKit.pro: Added.
+        * Source/common.pri: Renamed from common.pri.
+        * WebKit.pro: Removed.
+
 2011-01-20  Siddharth Mathur  <siddharth.mathur@nokia.com>
 
         Reviewed by Laszlo Gombos.

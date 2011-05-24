@@ -144,7 +144,7 @@
 			CharacterSet="1"
 			WholeProgramOptimization="2"
 			>
-      <Tool
+			<Tool
 				Name="VCPreBuildEventTool"
 			/>
 			<Tool
@@ -451,7 +451,7 @@
 			CharacterSet="1"
 			WholeProgramOptimization="4"
 			>
-      <Tool
+			<Tool
 				Name="VCPreBuildEventTool"
 			/>
 			<Tool
@@ -586,30 +586,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\Heap.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\Heap.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\MarkedBlock.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\MarkedBlock.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\MarkedSpace.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\MarkedSpace.h"
-				>
-			</File>
-			<File
 				RelativePath="..\..\runtime\CommonIdentifiers.cpp"
 				>
 			</File>
@@ -623,6 +599,14 @@
 			</File>
 			<File
 				RelativePath="..\..\runtime\Completion.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\ConservativeSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\ConservativeSet.h"
 				>
 			</File>
 			<File
@@ -750,14 +734,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\GCHandle.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\GCHandle.h"
-				>
-			</File>
-			<File
 				RelativePath="..\..\runtime\GetterSetter.cpp"
 				>
 			</File>
@@ -766,11 +742,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\GlobalEvalFunction.cpp"
+				RelativePath="..\..\runtime\Heap.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\GlobalEvalFunction.h"
+				RelativePath="..\..\runtime\Heap.h"
 				>
 			</File>
 			<File
@@ -1006,11 +982,19 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\ConservativeSet.cpp"
+				RelativePath="..\..\runtime\MarkedBlock.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\..\runtime\ConservativeSet.h"
+				RelativePath="..\..\runtime\MarkedBlock.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MarkedSpace.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\MarkedSpace.h"
 				>
 			</File>
 			<File
@@ -1047,10 +1031,6 @@
 			</File>
 			<File
 				RelativePath="..\..\runtime\NativeErrorPrototype.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\NativeFunctionWrapper.h"
 				>
 			</File>
 			<File
@@ -1135,14 +1115,6 @@
 			</File>
 			<File
 				RelativePath="..\..\runtime\Protect.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\PrototypeFunction.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\runtime\PrototypeFunction.h"
 				>
 			</File>
 			<File
@@ -1779,14 +1751,6 @@
 			</File>
 		</Filter>
 		<Filter
-			Name="Resources"
-			>
-			<File
-				RelativePath=".\JavaScriptCore.rc"
-				>
-			</File>
-		</Filter>
-		<Filter
 			Name="interpreter"
 			>
 			<File
@@ -1973,6 +1937,30 @@
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\StringPrototype.lut.h"
 				>
 			</File>
+		</Filter>
+		<Filter
+			Name="collector"
+			>
+			<Filter
+				Name="handles"
+				>
+				<File
+					RelativePath="..\..\collector\handles\Global.h"
+					>
+				</File>
+				<File
+					RelativePath="..\..\collector\handles\Handle.h"
+					>
+				</File>
+				<File
+					RelativePath="..\..\collector\handles\HandleHeap.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\collector\handles\HandleHeap.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<File
 			RelativePath="..\..\config.h"

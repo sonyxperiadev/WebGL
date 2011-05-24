@@ -47,12 +47,14 @@ private:
     // LayerTreeHost.
     virtual const LayerTreeContext& layerTreeContext();
     virtual void scheduleLayerFlush();
+    virtual void setShouldNotifyAfterNextScheduledLayerFlush(bool);
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*);
     virtual void invalidate();
 
     virtual void setNonCompositedContentsNeedDisplay(const WebCore::IntRect&);
     virtual void scrollNonCompositedContents(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
     virtual void sizeDidChange(const WebCore::IntSize& newSize);
+    virtual void forceRepaint();
 
     virtual void didInstallPageOverlay();
     virtual void didUninstallPageOverlay();
@@ -78,6 +80,10 @@ private:
     // Whether the layer tree host is valid or not.
     bool m_isValid;    
 
+    // Whether we should let the drawing area know the next time we've flushed
+    // layer tree changes.
+    bool m_notifyAfterScheduledLayerFlush;
+    
     // The root layer.
     OwnPtr<WebCore::GraphicsLayer> m_rootLayer;
 

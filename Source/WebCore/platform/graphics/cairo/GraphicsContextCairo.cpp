@@ -4,7 +4,7 @@
  * Copyright (C) 2008, 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) 2008 Nuanti Ltd.
  * Copyright (C) 2009 Brent Fulgham <bfulgham@webkit.org>
- * Copyright (C) 2010 Igalia S.L.
+ * Copyright (C) 2010, 2011 Igalia S.L.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,7 @@
 #include "CairoPath.h"
 #include "CairoUtilities.h"
 #include "ContextShadow.h"
+#include "FloatConversion.h"
 #include "FloatRect.h"
 #include "Font.h"
 #include "GraphicsContextPlatformPrivateCairo.h"
@@ -229,12 +230,19 @@ void GraphicsContext::savePlatformState()
     cairo_save(m_data->cr);
     m_data->save();
     m_data->shadowStack.append(m_data->shadow);
+    m_data->maskImageStack.append(ImageMaskInformation());
 }
 
 void GraphicsContext::restorePlatformState()
 {
-    cairo_restore(m_data->cr);
-    m_data->restore();
+    cairo_t* cr = m_data->cr;
+    const ImageMaskInformation& maskInformation = m_data->maskImageStack.last();
+    if (maskInformation.isValid()) {
+        const FloatRect& maskRect = maskInformation.maskRect();
+        cairo_pop_group_to_source(cr);
+        cairo_mask_surface(cr, maskInformation.maskSurface(), maskRect.x(), maskRect.y());
+    }
+    m_data->maskImageStack.removeLast();
 
     if (m_data->shadowStack.isEmpty())
         m_data->shadow = ContextShadow();
@@ -242,6 +250,9 @@ void GraphicsContext::restorePlatformState()
         m_data->shadow = m_data->shadowStack.last();
         m_data->shadowStack.removeLast();
     }
+
+    cairo_restore(m_data->cr);
+    m_data->restore();
 }
 
 // Draws a filled rectangle with a stroked border.
@@ -701,20 +712,22 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
     cairo_restore(cr);
 }
 
-void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool printing)
+void GraphicsContext::drawLineForText(const FloatPoint& origin, float width, bool printing)
 {
     if (paintingDisabled())
         return;
 
-    IntPoint endPoint = origin + IntSize(width, 0);
-    drawLine(origin, endPoint);
+    FloatPoint endPoint = origin + FloatSize(width, 0);
+    
+    // FIXME: Loss of precision here. Might consider rounding.
+    drawLine(IntPoint(origin.x(), origin.y()), IntPoint(endPoint.x(), endPoint.y()));
 }
 
 #if !PLATFORM(GTK)
 #include "DrawErrorUnderline.h"
 #endif
 
-void GraphicsContext::drawLineForTextChecking(const IntPoint& origin, int width, TextCheckingLineStyle style)
+void GraphicsContext::drawLineForTextChecking(const FloatPoint& origin, float width, TextCheckingLineStyle style)
 {
     if (paintingDisabled())
         return;
@@ -754,16 +767,30 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect)
     x = round(x);
     y = round(y);
     cairo_device_to_user(cr, &x, &y);
-    result.setX(static_cast<float>(x));
-    result.setY(static_cast<float>(y));
-    x = frect.width();
-    y = frect.height();
-    cairo_user_to_device_distance(cr, &x, &y);
-    x = round(x);
-    y = round(y);
-    cairo_device_to_user_distance(cr, &x, &y);
-    result.setWidth(static_cast<float>(x));
-    result.setHeight(static_cast<float>(y));
+    result.setX(narrowPrecisionToFloat(x));
+    result.setY(narrowPrecisionToFloat(y));
+
+    // We must ensure width and height are at least 1 (or -1) when
+    // we're given float values in the range between 0 and 1 (or -1 and 0).
+    double width = frect.width();
+    double height = frect.height();
+    cairo_user_to_device_distance(cr, &width, &height);
+    if (width > -1 && width < 0)
+        width = -1;
+    else if (width > 0 && width < 1)
+        width = 1;
+    else
+        width = round(width);
+    if (height > -1 && width < 0)
+        height = -1;
+    else if (height > 0 && height < 1)
+        height = 1;
+    else
+        height = round(height);
+    cairo_device_to_user_distance(cr, &width, &height);
+    result.setWidth(narrowPrecisionToFloat(width));
+    result.setHeight(narrowPrecisionToFloat(height));
+
     return result;
 }
 
@@ -836,6 +863,17 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     const cairo_matrix_t matrix = cairo_matrix_t(transform);
     cairo_transform(cr, &matrix);
     m_data->concatCTM(transform);
+}
+
+void GraphicsContext::setCTM(const AffineTransform& transform)
+{
+    if (paintingDisabled())
+        return;
+
+    cairo_t* cr = m_data->cr;
+    const cairo_matrix_t matrix = cairo_matrix_t(transform);
+    cairo_set_matrix(cr, &matrix);
+    m_data->setCTM(transform);
 }
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
@@ -1142,6 +1180,33 @@ void GraphicsContext::setImageInterpolationQuality(InterpolationQuality)
 InterpolationQuality GraphicsContext::imageInterpolationQuality() const
 {
     return InterpolationDefault;
+}
+
+void GraphicsContext::pushImageMask(cairo_surface_t* surface, const FloatRect& rect)
+{
+    // We must call savePlatformState at least once before we can use image masking,
+    // since we actually apply the mask in restorePlatformState.
+    ASSERT(!m_data->maskImageStack.isEmpty());
+    m_data->maskImageStack.last().update(surface, rect);
+
+    // Cairo doesn't support the notion of an image clip, so we push a group here
+    // and then paint it to the surface with an image mask (which is an immediate
+    // operation) during restorePlatformState.
+
+    // We want to allow the clipped elements to composite with the surface as it
+    // is now, but they are isolated in another group. To make this work, we're
+    // going to blit the current surface contents onto the new group once we push it.
+    cairo_t* cr = m_data->cr;
+    cairo_surface_t* currentTarget = cairo_get_target(cr);
+    cairo_surface_flush(currentTarget);
+
+    // Pushing a new group ensures that only things painted after this point are clipped.
+    cairo_push_group(cr);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+
+    cairo_set_source_surface(cr, currentTarget, 0, 0);
+    cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
+    cairo_fill(cr);
 }
 
 } // namespace WebCore

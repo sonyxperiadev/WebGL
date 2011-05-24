@@ -51,6 +51,8 @@ class HTMLPreloadScanner;
 class ScriptController;
 class ScriptSourceCode;
 
+class PumpSession;
+
 class HTMLDocumentParser :  public ScriptableDocumentParser, HTMLScriptRunnerHost, CachedResourceClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -116,6 +118,7 @@ private:
         AllowYield,
         ForceSynchronous,
     };
+    bool canTakeNextToken(SynchronousMode, PumpSession&);
     void pumpTokenizer(SynchronousMode);
     void pumpTokenizerIfPossible(SynchronousMode);
 
@@ -128,10 +131,11 @@ private:
     void attemptToRunDeferredScriptsAndEnd();
     void end();
 
+    bool isParsingFragment() const;
     bool isScheduledForResume() const;
     bool inScriptExecution() const;
-    bool inWrite() const { return m_writeNestingLevel > 0; }
-    bool shouldDelayEnd() const { return inWrite() || isWaitingForScripts() || inScriptExecution() || isScheduledForResume(); }
+    bool inPumpSession() const { return m_pumpSessionNestingLevel > 0; }
+    bool shouldDelayEnd() const { return inPumpSession() || isWaitingForScripts() || inScriptExecution() || isScheduledForResume(); }
 
     ScriptController* script() const;
 
@@ -149,7 +153,7 @@ private:
     XSSFilter m_xssFilter;
 
     bool m_endWasDelayed;
-    unsigned m_writeNestingLevel;
+    unsigned m_pumpSessionNestingLevel;
 };
 
 }

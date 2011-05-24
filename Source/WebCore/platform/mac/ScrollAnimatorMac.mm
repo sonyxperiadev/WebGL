@@ -357,7 +357,7 @@ static NSSize abs(NSSize size)
 {
     if (!_animator)
         return nil;
-    if (!_animator->scrollableArea()->scrollbarWillRenderIntoCompositingLayer())
+    if (!_animator->isDrawingIntoLayer())
         return nil;
 
     // FIXME: This should attempt to return an actual layer.
@@ -459,6 +459,7 @@ ScrollAnimatorMac::ScrollAnimatorMac(ScrollableArea* scrollableArea)
     , m_startTime(0)
     , m_snapRubberBandTimer(this, &ScrollAnimatorMac::snapRubberBandTimerFired)
 #endif
+    , m_drawingIntoLayer(false)
 {
     m_scrollAnimationHelperDelegate.adoptNS([[ScrollAnimationHelperDelegate alloc] initWithScrollAnimator:this]);
     m_scrollAnimationHelper.adoptNS([[NSClassFromString(@"NSScrollAnimationHelper") alloc] initWithDelegate:m_scrollAnimationHelperDelegate.get()]);
@@ -726,9 +727,9 @@ void ScrollAnimatorMac::handleWheelEvent(PlatformWheelEvent& wheelEvent)
 
     wheelEvent.accept();
 
-    bool isMometumScrollEvent = (wheelEvent.phase() != PlatformWheelEventPhaseNone);
+    bool isMometumScrollEvent = (wheelEvent.momentumPhase() != PlatformWheelEventPhaseNone);
     if (m_ignoreMomentumScrolls && (isMometumScrollEvent || m_snapRubberBandTimer.isActive())) {
-        if (wheelEvent.phase() == PlatformWheelEventPhaseEnded)
+        if (wheelEvent.momentumPhase() == PlatformWheelEventPhaseEnded)
             m_ignoreMomentumScrolls = false;
         return;
     }
@@ -819,7 +820,7 @@ void ScrollAnimatorMac::smoothScrollWithEvent(PlatformWheelEvent& wheelEvent)
     isHorizontallyStretched = stretchAmount.width();
     isVerticallyStretched = stretchAmount.height();
 
-    PlatformWheelEventPhase phase = wheelEvent.phase();
+    PlatformWheelEventPhase phase = wheelEvent.momentumPhase();
 
     // If we are starting momentum scrolling then do some setup.
     if (!m_momentumScrollInProgress && (phase == PlatformWheelEventPhaseBegan || phase == PlatformWheelEventPhaseChanged))

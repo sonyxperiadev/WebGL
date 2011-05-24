@@ -90,8 +90,8 @@ class ChromiumPortTest(unittest.TestCase):
     class TestMacPort(chromium_mac.ChromiumMacPort):
         def __init__(self, options):
             chromium_mac.ChromiumMacPort.__init__(self,
-                                                  port_name='test-port',
-                                                  options=options)
+                                                  options=options,
+                                                  filesystem=filesystem_mock.MockFileSystem())
 
         def default_configuration(self):
             self.default_configuration_called = True
@@ -100,9 +100,18 @@ class ChromiumPortTest(unittest.TestCase):
     class TestLinuxPort(chromium_linux.ChromiumLinuxPort):
         def __init__(self, options):
             chromium_linux.ChromiumLinuxPort.__init__(self,
-                                                      port_name='test-port',
                                                       options=options,
                                                       filesystem=filesystem_mock.MockFileSystem())
+
+        def default_configuration(self):
+            self.default_configuration_called = True
+            return 'default'
+
+    class TestWinPort(chromium_win.ChromiumWinPort):
+        def __init__(self, options):
+            chromium_win.ChromiumWinPort.__init__(self,
+                                                  options=options,
+                                                  filesystem=filesystem_mock.MockFileSystem())
 
         def default_configuration(self):
             self.default_configuration_called = True
@@ -112,12 +121,13 @@ class ChromiumPortTest(unittest.TestCase):
         mock_options = mocktool.MockOptions()
         port = ChromiumPortTest.TestLinuxPort(options=mock_options)
         self.assertTrue(port._path_to_image_diff().endswith(
-            '/out/default/ImageDiff'), msg=port._path_to_image_diff())
+            '/out/default/ImageDiff'))
         port = ChromiumPortTest.TestMacPort(options=mock_options)
         self.assertTrue(port._path_to_image_diff().endswith(
             '/xcodebuild/default/ImageDiff'))
-        # FIXME: Figure out how this is going to work on Windows.
-        #port = chromium_win.ChromiumWinPort('test-port', options=MockOptions())
+        port = ChromiumPortTest.TestWinPort(options=mock_options)
+        self.assertTrue(port._path_to_image_diff().endswith(
+            '/default/ImageDiff.exe'))
 
     def test_skipped_layout_tests(self):
         mock_options = mocktool.MockOptions()

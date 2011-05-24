@@ -32,17 +32,17 @@
 #include <wtf/FastAllocBase.h>
 
 #if PLATFORM(CA)
-#include <QuartzCore/CATransform3D.h>
+typedef struct CATransform3D CATransform3D;
 #endif
 #if PLATFORM(CG)
-#include <CoreGraphics/CGAffineTransform.h>
+typedef struct CGAffineTransform CGAffineTransform;
 #elif PLATFORM(CAIRO)
 #include <cairo.h>
 #elif PLATFORM(OPENVG)
 #include "VGUtils.h"
 #elif PLATFORM(QT)
 #include <QTransform>
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
 #include <SkMatrix.h>
 #elif PLATFORM(WX) && USE(WXGC)
 #include <wx/graphics.h>
@@ -321,7 +321,7 @@ public:
     operator VGMatrix() const;
 #elif PLATFORM(QT)
     operator QTransform() const;
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
     operator SkMatrix() const;
 #elif PLATFORM(WX) && USE(WXGC)
     operator wxGraphicsMatrix() const;

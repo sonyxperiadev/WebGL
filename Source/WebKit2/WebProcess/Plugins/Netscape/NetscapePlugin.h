@@ -70,6 +70,8 @@ public:
     HWND containingWindow() const;
 #endif
 
+    PluginQuirks quirks() const { return m_pluginModule->pluginQuirks(); }
+
     void invalidate(const NPRect*);
     static const char* userAgent(NPP);
     void loadURL(const String& method, const String& urlString, const String& target, const WebCore::HTTPHeaderMap& headerFields,
@@ -126,7 +128,7 @@ private:
     void platformDestroy();
     bool platformInvalidate(const WebCore::IntRect&);
     void platformGeometryDidChange();
-    void platformPaint(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRect);
+    void platformPaint(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRect, bool isSnapshot = false);
 
     bool platformHandleMouseEvent(const WebMouseEvent&);
     bool platformHandleWheelEvent(const WebWheelEvent&);
@@ -139,6 +141,7 @@ private:
     virtual bool initialize(PluginController*, const Parameters&);
     virtual void destroy();
     virtual void paint(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRect);
+    virtual PassRefPtr<ShareableBitmap> snapshot();
 #if PLATFORM(MAC)
     virtual PlatformLayer* pluginLayer();
 #endif
@@ -175,6 +178,8 @@ private:
 #endif
 
     virtual void privateBrowsingStateChanged(bool);
+
+    bool supportsSnapshotting() const;
 
     virtual PluginController* controller();
 

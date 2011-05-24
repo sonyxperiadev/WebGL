@@ -132,14 +132,6 @@ static WebWidgetClient* toWebWidgetClient(Widget* widget)
     return chromeClientImpl->webView()->client();
 }
 
-static WebClipboard* getClipboard(const Frame* frame)
-{
-    WebFrameImpl* frameImpl = WebFrameImpl::fromFrame(frame);
-    if (!frameImpl || !frameImpl->client())
-        return 0;
-    return frameImpl->client()->clipboard();
-}
-
 static WebCookieJar* getCookieJar(const Document* document)
 {
     WebFrameImpl* frameImpl = WebFrameImpl::fromFrame(document->frame());
@@ -225,15 +217,9 @@ void PlatformBridge::clipboardWriteData(const String& type,
 }
 
 HashSet<String> PlatformBridge::clipboardReadAvailableTypes(
-    const Frame* frame,
-    PasteboardPrivate::ClipboardBuffer buffer,
-    bool* containsFilenames)
+    PasteboardPrivate::ClipboardBuffer buffer, bool* containsFilenames)
 {
-    WebClipboard* clipboard = getClipboard(frame);
-    if (!clipboard)
-        return HashSet<String>();
-
-    WebVector<WebString> result = clipboard->readAvailableTypes(
+    WebVector<WebString> result = webKitClient()->clipboard()->readAvailableTypes(
         static_cast<WebClipboard::Buffer>(buffer), containsFilenames);
     HashSet<String> types;
     for (size_t i = 0; i < result.size(); ++i)
@@ -241,19 +227,12 @@ HashSet<String> PlatformBridge::clipboardReadAvailableTypes(
     return types;
 }
 
-bool PlatformBridge::clipboardReadData(const Frame* frame,
-                                       PasteboardPrivate::ClipboardBuffer buffer,
-                                       const String& type,
-                                       String& data,
-                                       String& metadata)
+bool PlatformBridge::clipboardReadData(PasteboardPrivate::ClipboardBuffer buffer,
+                                       const String& type, String& data, String& metadata)
 {
-    WebClipboard* clipboard = getClipboard(frame);
-    if (!clipboard)
-        return false;
-
     WebString resultData;
     WebString resultMetadata;
-    bool succeeded = clipboard->readData(
+    bool succeeded = webKitClient()->clipboard()->readData(
         static_cast<WebClipboard::Buffer>(buffer), type, &resultData, &resultMetadata);
     if (succeeded) {
         data = resultData;
@@ -262,14 +241,9 @@ bool PlatformBridge::clipboardReadData(const Frame* frame,
     return succeeded;
 }
 
-Vector<String> PlatformBridge::clipboardReadFilenames(const Frame* frame,
-                                                      PasteboardPrivate::ClipboardBuffer buffer)
+Vector<String> PlatformBridge::clipboardReadFilenames(PasteboardPrivate::ClipboardBuffer buffer)
 {
-    WebClipboard* clipboard = getClipboard(frame);
-    if (!clipboard)
-        return Vector<String>();
-
-    WebVector<WebString> result = clipboard->readFilenames(
+    WebVector<WebString> result = webKitClient()->clipboard()->readFilenames(
         static_cast<WebClipboard::Buffer>(buffer));
     Vector<String> convertedResult;
     for (size_t i = 0; i < result.size(); ++i)
@@ -463,12 +437,12 @@ bool PlatformBridge::ensureFontLoaded(HFONT font)
 #endif
 
 #if OS(LINUX) || OS(FREEBSD)
-String PlatformBridge::getFontFamilyForCharacters(const UChar* characters, size_t numCharacters)
+String PlatformBridge::getFontFamilyForCharacters(const UChar* characters, size_t numCharacters, const char* preferredLocale)
 {
     if (webKitClient()->sandboxSupport())
-        return webKitClient()->sandboxSupport()->getFontFamilyForCharacters(characters, numCharacters);
+        return webKitClient()->sandboxSupport()->getFontFamilyForCharacters(characters, numCharacters, preferredLocale);
 
-    WebCString family = WebFontInfo::familyForChars(characters, numCharacters);
+    WebCString family = WebFontInfo::familyForChars(characters, numCharacters, preferredLocale);
     if (family.data())
         return WebString::fromUTF8(family.data());
 
@@ -539,12 +513,17 @@ void PlatformBridge::createIDBKeysFromSerializedValuesAndKeyPath(const Vector<Re
 {
     WebVector<WebSerializedScriptValue> webValues = values;
     WebVector<WebIDBKey> webKeys;
-    webKitClient()->createIDBKeysFromSerializedValuesAndKeyPath(webValues, WebString(keyPath), webKeys);
+    webKitClient()->createIDBKeysFromSerializedValuesAndKeyPath(webValues, keyPath, webKeys);
 
     size_t webKeysSize = webKeys.size();
     keys.reserveCapacity(webKeysSize);
     for (size_t i = 0; i < webKeysSize; ++i)
         keys.append(PassRefPtr<IDBKey>(webKeys[i]));
+}
+
+PassRefPtr<SerializedScriptValue> PlatformBridge::injectIDBKeyIntoSerializedValue(PassRefPtr<IDBKey> key, PassRefPtr<SerializedScriptValue> value, const String& keyPath)
+{
+    return webKitClient()->injectIDBKeyIntoSerializedValue(key, value, keyPath);
 }
 
 // Keygen ---------------------------------------------------------------------
@@ -856,6 +835,7 @@ static void GetWebThemeExtraParams(PlatformBridge::ThemePart part, PlatformBridg
         break;
     case PlatformBridge::PartButton:
         webThemeExtraParams->button.isDefault = extraParams->button.isDefault;
+        webThemeExtraParams->button.hasBorder = extraParams->button.hasBorder;
         webThemeExtraParams->button.backgroundColor = extraParams->button.backgroundColor;
         break;
     case PlatformBridge::PartTextField:
@@ -864,6 +844,8 @@ static void GetWebThemeExtraParams(PlatformBridge::ThemePart part, PlatformBridg
         webThemeExtraParams->textField.backgroundColor = extraParams->textField.backgroundColor;
         break;
     case PlatformBridge::PartMenuList:
+        webThemeExtraParams->menuList.hasBorder = extraParams->menuList.hasBorder;
+        webThemeExtraParams->menuList.hasBorderRadius = extraParams->menuList.hasBorderRadius;
         webThemeExtraParams->menuList.arrowX = extraParams->menuList.arrowX;
         webThemeExtraParams->menuList.arrowY = extraParams->menuList.arrowY;
         webThemeExtraParams->menuList.backgroundColor = extraParams->menuList.backgroundColor;

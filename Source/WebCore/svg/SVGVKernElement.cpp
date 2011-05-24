@@ -50,6 +50,7 @@ void SVGVKernElement::insertedIntoDocument()
         if (SVGFontElement* element = static_cast<SVGFontElement*>(fontNode))
             element->invalidateGlyphCache();
     }
+    SVGElement::insertedIntoDocument();
 }
 
 void SVGVKernElement::removedFromDocument()
@@ -59,6 +60,7 @@ void SVGVKernElement::removedFromDocument()
         if (SVGFontElement* element = static_cast<SVGFontElement*>(fontNode))
             element->invalidateGlyphCache();
     }
+    SVGElement::removedFromDocument();
 }
 
 void SVGVKernElement::buildVerticalKerningPair(KerningPairVector& kerningPairs)

@@ -24,29 +24,37 @@
  */
 
 #include "config.h"
+
+#if ENABLE(VIDEO)
+
 #include "RenderMediaControls.h"
 
 #include "GraphicsContext.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "RenderTheme.h"
+
+// FIXME: Unify more of the code for Mac and Win.
+#if PLATFORM(WIN)
+
 #include <CoreGraphics/CoreGraphics.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 
-#if PLATFORM(WIN)
 // The Windows version of WKSI defines these functions as capitalized, while the Mac version defines them as lower case.
+// FIXME: Is this necessary anymore?
 #define wkMediaControllerThemeAvailable(themeStyle) WKMediaControllerThemeAvailable(themeStyle)
 #define wkHitTestMediaUIPart(part, themeStyle, bounds, point) WKHitTestMediaUIPart(part, themeStyle, bounds, point)
 #define wkMeasureMediaUIPart(part, themeStyle, bounds, naturalSize) WKMeasureMediaUIPart(part, themeStyle, bounds, naturalSize)
 #define wkDrawMediaUIPart(part, themeStyle, context, rect, state) WKDrawMediaUIPart(part, themeStyle, context, rect, state)
 #define wkDrawMediaSliderTrack(themeStyle, context, rect, timeLoaded, currentTime, duration, state) WKDrawMediaSliderTrack(themeStyle, context, rect, timeLoaded, currentTime, duration, state)
+
 #endif
  
 using namespace std;
  
 namespace WebCore {
 
-#if ENABLE(VIDEO)
+#if PLATFORM(WIN)
 
 static WKMediaControllerThemeState determineState(RenderObject* o)
 {
@@ -169,19 +177,21 @@ bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, R
     return false;
 }
 
-IntPoint RenderMediaControls::volumeSliderOffsetFromMuteButton(Node* muteButton, const IntSize& size)
+#endif
+
+IntPoint RenderMediaControls::volumeSliderOffsetFromMuteButton(RenderBox* muteButtonBox, const IntSize& size)
 {
     static const int xOffset = -4;
     static const int yOffset = 5;
 
-    float zoomLevel = muteButton->renderer()->style()->effectiveZoom();
-    int y = yOffset * zoomLevel + muteButton->renderBox()->offsetHeight() - size.height();
-    FloatPoint absPoint = muteButton->renderer()->localToAbsolute(FloatPoint(muteButton->renderBox()->offsetLeft(), y), true, true);
+    float zoomLevel = muteButtonBox->style()->effectiveZoom();
+    int y = yOffset * zoomLevel + muteButtonBox->offsetHeight() - size.height();
+    FloatPoint absPoint = muteButtonBox->localToAbsolute(FloatPoint(muteButtonBox->offsetLeft(), y), true, true);
     if (absPoint.y() < 0)
-        y = muteButton->renderBox()->height();
+        y = muteButtonBox->height();
     return IntPoint(xOffset * zoomLevel, y);
+}
 
 }
-#endif  // #if ENABLE(VIDEO)
 
-} // namespace WebCore
+#endif

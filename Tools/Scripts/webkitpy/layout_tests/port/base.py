@@ -38,6 +38,12 @@ import shlex
 import sys
 import time
 
+# Handle Python < 2.6 where multiprocessing isn't available.
+try:
+    import multiprocessing
+except ImportError:
+    multiprocessing = None
+
 import apache_http_server
 import config as port_config
 import http_lock
@@ -83,6 +89,7 @@ class Port(object):
                  config=None,
                  **kwargs):
         self._name = port_name
+        self._architecture = 'x86'
         self._options = options
         if self._options is None:
             # FIXME: Ideally we'd have a package-wide way to get a
@@ -124,6 +131,7 @@ class Port(object):
         if not hasattr(self._options, 'configuration') or self._options.configuration is None:
             self._options.configuration = self.default_configuration()
         self._test_configuration = None
+        self._multiprocessing_is_available = (multiprocessing is not None)
 
     def default_child_processes(self):
         """Return the number of DumpRenderTree instances to use for this
@@ -356,9 +364,8 @@ class Port(object):
         # Make http/tests/local run as local files. This is to mimic the
         # logic in run-webkit-tests.
         #
-        # TODO(dpranke): remove the media reference and the SSL reference?
-        if (port and not relative_path.startswith("local/") and
-            not relative_path.startswith("media/")):
+        # TODO(dpranke): remove the SSL reference?
+        if (port and not relative_path.startswith("local/")):
             if relative_path.startswith("ssl/"):
                 port += 443
                 protocol = "https"
@@ -641,9 +648,12 @@ class Port(object):
         "chromium-mac" on the Chromium ports."""
         raise NotImplementedError('Port.test_platform_name_to_name')
 
+    def architecture(self):
+        return self._architecture
+
     def version(self):
         """Returns a string indicating the version of a given platform, e.g.
-        '-leopard' or '-xp'.
+        'leopard' or 'xp'.
 
         This is used to help identify the exact port when parsing test
         expectations, determining search paths, and logging information."""
@@ -891,6 +901,7 @@ class Driver:
           driver_input: a DriverInput object
 
         Returns a DriverOutput object.
+          Note that DriverOutput.image will be '' (empty string) if a test crashes.
         """
         raise NotImplementedError('Driver.run_test')
 
@@ -928,13 +939,12 @@ class TestConfiguration(object):
         # FIXME: We can get the O/S and version from test_platform_name()
         # and version() for now, but those should go away and be cleaned up
         # with more generic methods like operation_system() and os_version()
-        # or something. Note that we need to strip the leading '-' off the
-        # version string if it is present.
+        # or something.
         if port:
             port_version = port.version()
-        self.os = os or port.test_platform_name().replace(port_version, '')
-        self.version = version or port_version[1:]
-        self.architecture = architecture or 'x86'
+        self.os = os or port.test_platform_name().replace('-' + port_version, '')
+        self.version = version or port_version
+        self.architecture = architecture or port.architecture()
         self.build_type = build_type or port._options.configuration.lower()
         self.graphics_type = graphics_type or port.graphics_type()
 
@@ -945,7 +955,7 @@ class TestConfiguration(object):
         return self.__dict__.keys()
 
     def __str__(self):
-        return ("<%(os)s, %(version)s, %(build_type)s, %(graphics_type)s>" %
+        return ("<%(os)s, %(version)s, %(architecture)s, %(build_type)s, %(graphics_type)s>" %
                 self.__dict__)
 
     def __repr__(self):
@@ -977,7 +987,8 @@ class TestConfiguration(object):
                 ('win', 'xp', 'x86'),
                 ('win', 'vista', 'x86'),
                 ('win', 'win7', 'x86'),
-                ('linux', 'hardy', 'x86'))
+                ('linux', 'hardy', 'x86'),
+                ('linux', 'hardy', 'x86_64'))
 
     def all_build_types(self):
         return ('debug', 'release')

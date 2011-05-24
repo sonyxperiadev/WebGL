@@ -113,12 +113,6 @@ int EditorClientHaiku::spellCheckerDocumentTag()
     return 0;
 }
 
-bool EditorClientHaiku::isEditable()
-{
-    // FIXME: should be controllable
-    return false;
-}
-
 bool EditorClientHaiku::shouldBeginEditing(WebCore::Range*)
 {
     notImplemented();
@@ -210,6 +204,16 @@ void EditorClientHaiku::clearUndoRedoOperations()
     notImplemented();
 }
 
+bool EditorClientHaiku::canCopyCut(bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientHaiku::canPaste(bool defaultValue) const
+{
+    return defaultValue;
+}
+
 bool EditorClientHaiku::canUndo() const
 {
     notImplemented();
@@ -246,7 +250,7 @@ void EditorClientHaiku::handleKeyboardEvent(KeyboardEvent* event)
     if (!kevent || kevent->type() == PlatformKeyboardEvent::KeyUp)
         return;
 
-    Node* start = frame->selection()->start().node();
+    Node* start = frame->selection()->start().containerNode();
     if (!start)
         return;
 

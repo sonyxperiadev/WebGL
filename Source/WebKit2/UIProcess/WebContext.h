@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,10 +45,14 @@
 namespace WebKit {
 
 class DownloadProxy;
+class WebApplicationCacheManagerProxy;
+class WebCookieManagerProxy;
 class WebDatabaseManagerProxy;
 class WebGeolocationManagerProxy;
+class WebKeyValueStorageManagerProxy;
 class WebPageGroup;
 class WebPageProxy;
+class WebResourceCacheManagerProxy;
 struct WebProcessCreationParameters;
 
 class WebContext : public APIObject {
@@ -61,6 +65,8 @@ public:
     static PassRefPtr<WebContext> create(const String& injectedBundlePath);
     virtual ~WebContext();
 
+    static const Vector<WebContext*>& allContexts();
+
     void initializeInjectedBundleClient(const WKContextInjectedBundleClient*);
     void initializeHistoryClient(const WKContextHistoryClient*);
     void initializeDownloadClient(const WKContextDownloadClient*);
@@ -70,7 +76,9 @@ public:
     bool hasValidProcess() const { return m_process && m_process->isValid(); }
 
     void processDidFinishLaunching(WebProcessProxy*);
-    void processDidClose(WebProcessProxy*);
+
+    // Disconnect the process from the context.
+    void disconnectProcess(WebProcessProxy*);
 
     WebPageProxy* createWebPage(PageClient*, WebPageGroup*);
 
@@ -112,7 +120,9 @@ public:
     CacheModel cacheModel() const { return m_cacheModel; }
     void clearResourceCaches();
     void clearApplicationCache();
-    
+
+    void setDefaultRequestTimeoutInterval(double);
+
     void startMemorySampler(const double interval);
     void stopMemorySampler();
 
@@ -127,8 +137,13 @@ public:
 
     static HashSet<String, CaseFoldingHash> pdfAndPostScriptMIMETypes();
 
+    WebApplicationCacheManagerProxy* applicationCacheManagerProxy() const { return m_applicationCacheManagerProxy.get(); }
+    WebCookieManagerProxy* cookieManagerProxy() const { return m_cookieManagerProxy.get(); }
     WebDatabaseManagerProxy* databaseManagerProxy() const { return m_databaseManagerProxy.get(); }
     WebGeolocationManagerProxy* geolocationManagerProxy() const { return m_geolocationManagerProxy.get(); }
+    WebKeyValueStorageManagerProxy* keyValueStorageManagerProxy() const { return m_keyValueStorageManagerProxy.get(); }
+    WebPluginSiteDataManager* pluginSiteDataManager() const { return m_pluginSiteDataManager.get(); }
+    WebResourceCacheManagerProxy* resourceCacheManagerProxy() const { return m_resourceCacheManagerProxy.get(); }
 
     struct Statistics {
         unsigned wkViewCount;
@@ -139,12 +154,15 @@ public:
 
     void setDatabaseDirectory(const String& dir) { m_overrideDatabaseDirectory = dir; }
 
+    void ensureWebProcess();
+
+    bool shouldTerminate(WebProcessProxy*);
+
 private:
     WebContext(ProcessModel, const String& injectedBundlePath);
 
     virtual Type type() const { return APIType; }
 
-    void ensureWebProcess();
     void platformInitializeWebProcess(WebProcessCreationParameters&);
 
     // History client
@@ -156,7 +174,11 @@ private:
     // Plugins
     void getPlugins(bool refresh, Vector<WebCore::PluginInfo>& plugins);
     void getPluginPath(const String& mimeType, const String& urlString, String& pluginPath);
-
+#if !ENABLE(PLUGIN_PROCESS)
+    void didGetSitesWithPluginData(const Vector<String>& sites, uint64_t callbackID);
+    void didClearPluginSiteData(uint64_t callbackID);
+#endif
+        
     // Implemented in generated WebContextMessageReceiver.cpp
     void didReceiveWebContextMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
     CoreIPC::SyncReplyMode didReceiveSyncWebContextMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
@@ -202,8 +224,13 @@ private:
     bool m_memorySamplerEnabled;
     double m_memorySamplerInterval;
 
+    RefPtr<WebApplicationCacheManagerProxy> m_applicationCacheManagerProxy;
+    RefPtr<WebCookieManagerProxy> m_cookieManagerProxy;
     RefPtr<WebDatabaseManagerProxy> m_databaseManagerProxy;
     RefPtr<WebGeolocationManagerProxy> m_geolocationManagerProxy;
+    RefPtr<WebKeyValueStorageManagerProxy> m_keyValueStorageManagerProxy;
+    RefPtr<WebPluginSiteDataManager> m_pluginSiteDataManager;
+    RefPtr<WebResourceCacheManagerProxy> m_resourceCacheManagerProxy;
 
 #if PLATFORM(WIN)
     bool m_shouldPaintNativeControls;

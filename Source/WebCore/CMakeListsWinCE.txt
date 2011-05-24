@@ -37,6 +37,18 @@ LIST(APPEND WebCore_SOURCES
     platform/PlatformStrategies.cpp
     platform/ScrollAnimatorWin.cpp
 
+    platform/graphics/ImageSource.cpp
+
+    platform/image-decoders/ImageDecoder.cpp
+    platform/image-decoders/bmp/BMPImageDecoder.cpp
+    platform/image-decoders/bmp/BMPImageReader.cpp
+    platform/image-decoders/gif/GIFImageDecoder.cpp
+    platform/image-decoders/gif/GIFImageReader.cpp
+    platform/image-decoders/ico/ICOImageDecoder.cpp
+    platform/image-decoders/jpeg/JPEGImageDecoder.cpp
+    platform/image-decoders/png/PNGImageDecoder.cpp
+    platform/image-decoders/webp/WEBPImageDecoder.cpp
+
     platform/win/BitmapInfo.cpp
     platform/win/ClipboardUtilitiesWin.cpp
     platform/win/ClipboardWin.cpp
@@ -45,12 +57,14 @@ LIST(APPEND WebCore_SOURCES
     platform/win/CursorWin.cpp
     platform/win/EditorWin.cpp
     platform/win/EventLoopWin.cpp
+    platform/win/FileChooserWin.cpp
     platform/win/KeyEventWin.cpp
     platform/win/LanguageWin.cpp
     platform/win/PasteboardWin.cpp
     platform/win/PopupMenuWin.cpp
     platform/win/PlatformMouseEventWin.cpp
     platform/win/PlatformScreenWin.cpp
+    platform/win/SSLKeyGeneratorWin.cpp
     platform/win/ScrollbarThemeWin.cpp
     platform/win/SearchPopupMenuWin.cpp
     platform/win/SharedBufferWin.cpp
@@ -64,15 +78,13 @@ LIST(APPEND WebCore_SOURCES
 
     platform/wince/DragDataWince.cpp
     platform/wince/DragImageWince.cpp
-    platform/wince/FileChooserWince.cpp
     platform/wince/FileSystemWince.cpp
-    platform/wince/KeygenWince.cpp
     platform/wince/KURLWince.cpp
     platform/wince/MIMETypeRegistryWince.cpp
     platform/wince/SharedTimerWince.cpp
-    platform/wince/TemporaryLinkStubs.cpp
 
     platform/network/win/CookieJarWin.cpp
+    platform/network/win/CookieStorageWin.cpp
     platform/network/win/NetworkStateNotifierWin.cpp
     platform/network/win/ProxyServerWin.cpp
     platform/network/win/ResourceHandleWin.cpp
@@ -87,7 +99,6 @@ LIST(APPEND WebCore_SOURCES
     platform/graphics/win/IntRectWin.cpp
     platform/graphics/win/IntSizeWin.cpp
 
-    platform/graphics/wince/ColorWince.cpp
     platform/graphics/wince/FontCacheWince.cpp
     platform/graphics/wince/FontCustomPlatformData.cpp
     platform/graphics/wince/FontPlatformData.cpp

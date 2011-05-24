@@ -42,8 +42,12 @@
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSObject);
+ASSERT_CLASS_FITS_IN_CELL(JSNonFinalObject);
+ASSERT_CLASS_FILLS_CELL(JSFinalObject);
 
 const char* StrictModeReadonlyPropertyWriteError = "Attempted to assign to readonly property.";
+
+const ClassInfo JSObject::s_info = { "Object", 0, 0, 0 };
 
 static inline void getClassPropertyNames(ExecState* exec, const ClassInfo* classInfo, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
@@ -81,9 +85,8 @@ void JSObject::markChildren(MarkStack& markStack)
 UString JSObject::className() const
 {
     const ClassInfo* info = classInfo();
-    if (info)
-        return info->className;
-    return "Object";
+    ASSERT(info);
+    return info->className;
 }
 
 bool JSObject::getOwnPropertySlot(ExecState* exec, unsigned propertyName, PropertySlot& slot)
@@ -506,6 +509,22 @@ JSObject* JSObject::unwrappedObject()
     return this;
 }
 
+void JSObject::seal()
+{
+    setStructure(Structure::sealTransition(m_structure));
+}
+
+void JSObject::freeze()
+{
+    setStructure(Structure::freezeTransition(m_structure));
+}
+
+void JSObject::preventExtensions()
+{
+    if (isExtensible())
+        setStructure(Structure::preventExtensionsTransition(m_structure));
+}
+
 void JSObject::removeDirect(const Identifier& propertyName)
 {
     size_t offset;
@@ -555,13 +574,28 @@ NEVER_INLINE void JSObject::fillGetterPropertySlot(PropertySlot& slot, WriteBarr
 
 Structure* JSObject::createInheritorID()
 {
-    m_inheritorID = JSObject::createStructure(this);
+    m_inheritorID = createEmptyObjectStructure(this);
     return m_inheritorID.get();
 }
 
 void JSObject::allocatePropertyStorage(size_t oldSize, size_t newSize)
 {
-    allocatePropertyStorageInline(oldSize, newSize);
+    ASSERT(newSize > oldSize);
+
+    // It's important that this function not rely on m_structure, since
+    // we might be in the middle of a transition.
+    bool wasInline = (oldSize < JSObject::baseExternalStorageCapacity);
+
+    PropertyStorage oldPropertyStorage = m_propertyStorage;
+    PropertyStorage newPropertyStorage = new WriteBarrierBase<Unknown>[newSize];
+
+    for (unsigned i = 0; i < oldSize; ++i)
+       newPropertyStorage[i] = oldPropertyStorage[i];
+
+    if (!wasInline)
+        delete [] oldPropertyStorage;
+
+    m_propertyStorage = newPropertyStorage;
 }
 
 bool JSObject::getOwnPropertyDescriptor(ExecState*, const Identifier& propertyName, PropertyDescriptor& descriptor)
@@ -627,6 +661,12 @@ bool JSObject::defineOwnProperty(ExecState* exec, const Identifier& propertyName
     // If we have a new property we can just put it on normally
     PropertyDescriptor current;
     if (!getOwnPropertyDescriptor(exec, propertyName, current)) {
+        // unless extensions are prevented!
+        if (!isExtensible()) {
+            if (throwException)
+                throwError(exec, createTypeError(exec, "Attempting to define property on object that is not extensible."));
+            return false;
+        }
         PropertyDescriptor oldDescriptor;
         oldDescriptor.setValue(jsUndefined());
         return putDescriptor(exec, this, propertyName, descriptor, descriptor.attributes(), oldDescriptor);

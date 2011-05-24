@@ -70,7 +70,10 @@ public:
     void immediateScrollToPoint(const FloatPoint& newPosition);
     void immediateScrollByDeltaX(float deltaX);
     void immediateScrollByDeltaY(float deltaY);
-    
+
+    void setIsDrawingIntoLayer(bool b) { m_drawingIntoLayer = b; }
+    bool isDrawingIntoLayer() const { return m_drawingIntoLayer; }
+
 private:
     RetainPtr<id> m_scrollAnimationHelper;
     RetainPtr<ScrollAnimationHelperDelegate> m_scrollAnimationHelperDelegate;
@@ -114,6 +117,7 @@ private:
     bool m_inScrollGesture;
     bool m_momentumScrollInProgress;
     bool m_ignoreMomentumScrolls;
+    
     CFTimeInterval m_lastMomemtumScrollTimestamp;
     FloatSize m_overflowScrollDelta;
     FloatSize m_stretchScrollForce;
@@ -126,6 +130,7 @@ private:
     FloatSize m_origVelocity;
     Timer<ScrollAnimatorMac> m_snapRubberBandTimer;
 #endif
+    bool m_drawingIntoLayer;
 };
 
 } // namespace WebCore

@@ -1,3 +1,747 @@
+2011-03-07  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        selectionHasStyle and selectionStartHasStyle should use EditingStyle
+        https://bugs.webkit.org/show_bug.cgi?id=55902
+
+        selectionHasStyle now takes a property id and a value instead of a CSSMutableStyleDeclaration.
+
+        * WebView/WebHTMLView.mm: Removed unused selectionHasStyle.
+        (-[WebHTMLView validateUserInterfaceItemWithoutDelegate:]): Calls Editor::selectionHasStyle.
+
+2011-03-07  Dan Bernstein  <mitz@apple.com>
+
+        LLVM Compiler build fix.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::checkGrammarOfString):
+
+2011-03-07  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        AX: WK1 needs to use ScrollView attachment for AXScrollArea, WK2 does not
+        https://bugs.webkit.org/show_bug.cgi?id=55706
+
+        Make sure WebDynamicScrollBarsView appear in the AX tree in WK1 (since this object
+        returns the scroll bar objects).
+        Make the accessibilityRoot object be the web area in WK1 because WebDynamicScrollBarsView
+        will expect that as its child, instead of the WebCore ScrollView object.
+
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView accessibilityIsIgnored]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame accessibilityRoot]):
+
+2011-03-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Replace WebKit2's decidePolicyForMIMEType with decidePolicyForResponse
+        https://bugs.webkit.org/show_bug.cgi?id=55827
+
+        Renamed FrameLoaderClient::dispatchDecidePolicyForMIMEType to dispatchDecidePolicyForResponse
+        and pass the entire response, instead of just the MIMEType.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+
+2011-03-06  Dan Bernstein  <mitz@apple.com>
+
+        LLVM Compiler build fix.
+
+        * DOM/WebDOMOperations.mm:
+        (-[DOMHTMLInputElement _setValueForUser:]):
+
+2011-03-06  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKit2: Use CFNetwork Sessions API.
+        https://bugs.webkit.org/show_bug.cgi?id=55435.
+
+        When Private Browsing is enabled, use cookies from a in-memory cookie storage based on the
+        Private Browsing Storage Session.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        Add support for using the new WKSI functions in WebCore.
+
+2011-03-05  Ilya Sherman  <isherman@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        HTMLInputElement::setValue() should schedule change event when the element is focused
+        In service of https://code.google.com/p/chromium/issues/detail?id=42716
+        https://bugs.webkit.org/show_bug.cgi?id=53160
+
+        * DOM/WebDOMOperations.mm:
+        (-[DOMHTMLInputElement _setValueForUser:]): Expose HTMLInputElement::setValueForUser() to tests
+        * DOM/WebDOMOperationsPrivate.h:
+        * WebView/WebViewInternal.h:
+
+2011-03-04  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        On Mac, the bounding box sent to EditorClient::showCorrectionPanel() is incorrect when the correction occurs in an iframe.
+        https://bugs.webkit.org/show_bug.cgi?id=55717
+        <rdar://problem/9018127>
+
+        With the change in WebCore, the bounding box passed into EditorClient::showCorrectionPanel()
+        is already in window coordinate. We don't need to do further conversion anymore.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::showCorrectionPanel):
+
+2011-03-04  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        WebKit2: Use CFNetwork Sessions API.
+        https://bugs.webkit.org/show_bug.cgi?id=55435.
+
+        When Private Browsing is enabled, get the cached url response from the cache associated with
+        the Private Browsing Storage Session.
+
+        * WebView/WebView.mm:
+        (-[WebView _cachedResponseForURL:]):
+
+2011-03-03  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Get rid of Page::globalHistoryItem
+        https://bugs.webkit.org/show_bug.cgi?id=55738
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::updateGlobalHistoryItemForPage):
+        Get the current history item and update it using -[WebView _setGlobalHistoryItem:].
+    
+        * WebView/WebView.mm:
+        (-[WebView _globalHistoryItem]):
+        (-[WebView _setGlobalHistoryItem:]):
+        Set _globalHistoryItem ivar.
+
+        * WebView/WebViewData.h:
+        * WebView/WebViewData.mm:
+        Add _globalHistoryItem ivar.
+
+2011-03-03  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=55721
+        Global IconDatabase should be returned by reference, not as a pointer
+
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics iconPageURLMappingCount]):
+        (+[WebCoreStatistics iconRetainedPageURLCount]):
+        (+[WebCoreStatistics iconRecordCount]):
+        (+[WebCoreStatistics iconsWithDataCount]):
+        * Misc/WebIconDatabase.mm:
+        (-[WebIconDatabase init]):
+        (-[WebIconDatabase iconForURL:withSize:cache:]):
+        (-[WebIconDatabase iconURLForURL:]):
+        (-[WebIconDatabase defaultIconWithSize:]):
+        (-[WebIconDatabase retainIconForURL:]):
+        (-[WebIconDatabase releaseIconForURL:]):
+        (-[WebIconDatabase isEnabled]):
+        (-[WebIconDatabase setEnabled:]):
+        (-[WebIconDatabase removeAllIcons]):
+        (+[WebIconDatabase _checkIntegrityBeforeOpening]):
+        (-[WebIconDatabase _startUpIconDatabase]):
+        (-[WebIconDatabase _applicationWillTerminate:]):
+        (-[WebIconDatabase _resetCachedWebPreferences:]):
+        (importToWebCoreFormat):
+        * WebView/WebView.mm:
+        (-[WebView _dispatchDidReceiveIconFromWebFrame:]):
+
+2011-03-03  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKit2: Use CFNetwork Sessions API.
+        https://bugs.webkit.org/show_bug.cgi?id=55435.
+
+        Set the Private Browsing Storage Session on requests when Private Browsing is enabled.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        Support using WKCopyRequestWithStorageSession in WebCore.
+
+2011-03-02  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (WebKit2): Tab keys no longer observe Full Keyboard Access
+        https://bugs.webkit.org/show_bug.cgi?id=55633
+        <rdar://problem/8963023>
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        Removed tabsToLinks(). Mac WebKit already implements keyboardUIMode().
+
+        * WebView/WebView.mm: (-[WebView _retrieveKeyboardUIModeFromPreferences:]):
+        Removed an incorrect comment. We actually get a value of 2 on Snow Leopard, and we don't
+        require both bits to be set. The rest of the comment might be wrong too, but I'm not sure,
+        so I've preserved it.
+
+2011-03-02  Jessie Berlin  <jberlin@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        Fix crashes in private browsing tests in WK1 on Snow Leopard.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        Put the INIT call for wkCreatePrivateStorageSession outside of the
+        #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+        guards.
+
+2011-03-02  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKit2: Use CFNetwork Sessions API.
+        https://bugs.webkit.org/show_bug.cgi?id=55435.
+
+        Add the ability to create a Private Browsing Storage Session.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        Support calling wkCreatePrivateStorageSession from WebCore.
+
+2011-03-02  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add feature define for data transfer items
+        https://bugs.webkit.org/show_bug.cgi?id=55510
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-03-02  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix remaining localization issues by piping all localized strings through WebCore's
+        localization bottleneck.
+        <rdar://problem/8728860>
+
+        * DefaultDelegates/WebDefaultContextMenuDelegate.mm:
+        (-[WebDefaultUIDelegate menuItemWithTag:target:representedObject:]):
+        * Misc/WebKitErrors.m:
+        * Misc/WebLocalizableStringsInternal.h: Added.
+        * Misc/WebLocalizableStringsInternal.mm: Added.
+        (WebLocalizedStringInternal):
+        * Panels/WebAuthenticationPanel.m:
+        (-[WebAuthenticationPanel setUpForChallenge:]):
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        * WebCoreSupport/WebEditorClient.mm:
+        (undoNameForEditAction):
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorFrontendClient::updateWindowTitle):
+        (-[WebInspectorWindowController validateUserInterfaceItem:]):
+        * WebCoreSupport/WebKeyGenerator.m:
+        (-[WebKeyGenerator strengthMenuItemTitles]):
+        (-[WebKeyGenerator signedPublicKeyAndChallengeStringWithStrengthIndex:challenge:pageURL:]):
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView validateUserInterfaceItemWithoutDelegate:]):
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView menuForEvent:]):
+
+2011-03-01  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Part of WebKit2: Need a way to send notifications to client when cookies change
+        https://bugs.webkit.org/show_bug.cgi?id=55427
+        <rdar://problem/9056027>
+        
+        Add stubs for CookiesStrategy on Mac WebKit1.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::createCookiesStrategy):
+        (WebPlatformStrategies::notifyCookiesChanged):
+
+2011-03-01  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Eric Carlson.
+
+        [GStreamer] support in mac video fullscreen controller
+        https://bugs.webkit.org/show_bug.cgi?id=52280
+
+        Factored the code to configure the video overlay in a new private
+        method of the controller and added GStreamer support to it.
+
+        * WebView/WebVideoFullscreenController.h:
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController setupVideoOverlay:]):
+        (-[WebVideoFullscreenController windowDidLoad]):
+        (-[WebVideoFullscreenController setMediaElement:WebCore::]):
+        (-[WebVideoFullscreenController windowDidExitFullscreen]):
+
+2011-02-23  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Timothy Hatcher.
+
+        All Console Messages should be passed to ChromeClients.
+        https://bugs.webkit.org/show_bug.cgi?id=54926
+
+        Add a new private UIDelegate method, -webView:addMessageToConsole:withSource:,
+        which supersedes -webView:addMessageToConsole if it exists. The new delegate
+        does not filter to only JavaScript originated console messages. The old
+        delegate is left around for clients that expect filtered messages, like
+        DashCode and older versions of Safari.
+
+        The dictionary message passed to the delegate now includes more information
+        about the message source, type, and level.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (stringForMessageSource):
+        (stringForMessageType):
+        (stringForMessageLevel):
+        (WebChromeClient::addMessageToConsole):
+        * WebView/WebUIDelegatePrivate.h:
+
+2011-03-01  Levi Weintraub  <leviw@chromium.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Stop instantiating legacy editing Positions in VisiblePosition
+        https://bugs.webkit.org/show_bug.cgi?id=52919
+
+        Changing usage of legacy VisiblePosition constructor. Since we were dealing
+        with positions from DOM Ranges, we're guaranteed a parent-anchored position.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _caretRectAtPosition:affinity:]):
+        * WebView/WebFrameInternal.h:
+        * WebView/WebTextCompletionController.mm:
+        (-[WebTextCompletionController doCompletion]):
+
+2011-03-01  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Timothy Hatcher.
+
+        WebKit2 needs to be made localizable
+        https://bugs.webkit.org/show_bug.cgi?id=55483
+
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        Use WebCore's localizedString function instead of WebLocalizableStrings
+        since WebCore is now responsible for localization.
+
+2011-02-25 Steve Block <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Bridge.h should not include BridgeJSC.h
+        https://bugs.webkit.org/show_bug.cgi?id=55212
+
+        Include BridgeJSC.h directly instead.
+
+        * Plugins/Hosted/ProxyInstance.h:
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+
+2011-02-28  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Remove the support of Frame::isContentEditable and its dependencies.
+        https://bugs.webkit.org/show_bug.cgi?id=54292
+
+        Remove the WebKit side implementation. Make WebKit support depend on Document::inDesignMode.
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        * WebView/WebView.mm:
+        (-[WebView setEditable:]):
+        (-[WebView isEditable]):
+        * WebView/WebViewData.h:
+
+2011-02-28  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Make ScopeChainNode GC allocated
+        https://bugs.webkit.org/show_bug.cgi?id=55283
+
+        More updates for the absence of the ScopeChain class
+
+        * WebView/WebScriptDebugDelegate.mm:
+        (-[WebScriptCallFrame scopeChain]):
+
+2011-02-26  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        DumpRenderTree should reset frame opener between tests.
+        https://bugs.webkit.org/show_bug.cgi?id=54874
+
+        Added clearOpener method to WebFramePrivate.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _clearOpener]):
+        * WebView/WebFramePrivate.h:
+
+2011-02-26  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r79764.
+        http://trac.webkit.org/changeset/79764
+        https://bugs.webkit.org/show_bug.cgi?id=55295
+
+        "broke Chromium builds" (Requested by rniwa on #webkit).
+
+        * WebView/WebFrame.mm:
+        * WebView/WebFramePrivate.h:
+
+2011-02-26  Yongjun Zhang  <yongjun_zhang@apple.com>
+
+        Reviewed by David Kilzer.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48781
+
+        Add a resource load delegate method to query if WebCore should paint the default broken image for failed images.
+
+        Add a new resource load client method (shouldPaintBrokenImage).  WebKit client can decide if WebCore
+        should paint the default broken image when an image fails to load or decode.  The method also passes the
+        URL of the failed image.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::shouldPaintBrokenImage):
+        * WebView/WebDelegateImplementationCaching.h:
+        * WebView/WebDelegateImplementationCaching.mm: Added case for passing one object.
+        (CallResourceLoadDelegateReturningBoolean):
+        * WebView/WebResourceLoadDelegatePrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _cacheResourceLoadDelegateImplementations]):
+
+2011-02-26  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        DumpRenderTree should reset frame opener between tests.
+        https://bugs.webkit.org/show_bug.cgi?id=54874
+
+        Added clearOpener method to WebFramePrivate.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _clearOpener]):
+        * WebView/WebFramePrivate.h:
+
+2011-02-25  Mark Rowe  <mrowe@apple.com>
+
+        <rdar://problem/8902546> Build fix.
+
+        * Misc/QuickDrawCompatibility.h:
+
+2011-02-24  Anders Carlsson  <andersca@apple.com>
+
+        Fix clang build.
+
+        * WebCoreSupport/WebKeyGenerator.m:
+        (toWebCertificateParseResult):
+        (-[WebKeyGenerator addCertificatesToKeychainFromData:]):
+        * WebView/WebTextCompletionController.mm:
+
+2011-02-24  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Eric Seidel.
+
+        Drop the "U; " encryption level from the User Agent string.
+        https://bugs.webkit.org/show_bug.cgi?id=54566
+
+        * WebView/WebView.mm:
+        (+[WebView _standardUserAgentWithApplicationName:]):
+
+2011-02-24  Andrew Wilson  <atwilson@chromium.org>
+
+        Unreviewed, rolling out r79570.
+        http://trac.webkit.org/changeset/79570
+        https://bugs.webkit.org/show_bug.cgi?id=54874
+
+        Breaks chromium build because glue/mocks/mock_web_frame.h/cc
+        was not updated
+
+        * WebView/WebFrame.mm:
+        * WebView/WebFramePrivate.h:
+
+2011-02-24  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        DumpRenderTree should reset frame opener between tests.
+        https://bugs.webkit.org/show_bug.cgi?id=54874
+
+        Added clearOpener method to WebFramePrivate.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _clearOpener]):
+        * WebView/WebFramePrivate.h:
+
+2011-02-22  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Drop the language tag part from the User Agent string
+        https://bugs.webkit.org/show_bug.cgi?id=54560
+
+        * WebView/WebView.mm:
+        (+[WebView _standardUserAgentWithApplicationName:]): Drop the
+        language tag part.
+
+2011-02-22  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Part of <rdar://problem/8762042> and https://bugs.webkit.org/show_bug.cgi?id=54514
+        API to view and delete Application Cache data by origin.
+
+        * WebCoreSupport/WebApplicationCache.mm:
+        (+[WebApplicationCache deleteAllApplicationCaches]): Move this implementation into WebCore itself.
+
+2011-02-17  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Kent Tamura.
+
+        Rename Position::node() to Position::deprecatedNode()
+        https://bugs.webkit.org/show_bug.cgi?id=54622
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _smartDeleteRangeForProposedRange:]):
+
+2011-02-17  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Kent Tamura.
+
+        Rename Position::node() to Position::deprecatedNode()
+        https://bugs.webkit.org/show_bug.cgi?id=54622
+        
+        Done the rename.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _smartDeleteRangeForProposedRange:]): Since newStart and newEnd are parent-anchored,
+        use containerNode() and offsetInContainerNode() instead of deprecated member functions.
+
+2011-02-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 54786 - Devirtualize JSCell::classInfo()
+
+        Instead of making a virtual function call, add a pointer to the ClassInfo
+        onto Structure.
+
+        This removes a virtual function call, and paves the way towards removing all
+        the createStructure methods, and StructureFlags/AnonymousSlotCount properties
+        (these should be able to move onto ClassInfo).
+
+        Calls to Structure::create must now pass a pointer to the ClassInfo for the
+        structure. All objects now have a ClassInfo pointer, non-object cell types
+        still do not.
+
+        Changes are most mechanical, involving three steps:
+            * Remove virtual classInfo() methods.
+            * Add &s_info parameter to calls to Structure::create.
+            * Rename ClassInfo static members on classes from 'info' to 's_info',
+              for consistency.
+
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyRuntimeMethod::ProxyRuntimeMethod):
+        (WebKit::ProxyRuntimeMethod::createStructure):
+        * Plugins/Hosted/ProxyRuntimeObject.h:
+        (WebKit::ProxyRuntimeObject::createStructure):
+        * Plugins/Hosted/ProxyRuntimeObject.mm:
+        (WebKit::ProxyRuntimeObject::ProxyRuntimeObject):
+        * WebView/WebView.mm:
+        (aeDescFromJSValue):
+
+2011-02-19  Brian Ryner  <bryner@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add missing #include of DocumentLoader.h, needed since the transitive
+        include through Document.h is removed.
+        https://bugs.webkit.org/show_bug.cgi?id=50489
+
+        * WebView/WebFrame.mm:
+
+2011-02-19  Charlie Reis  <creis@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        Ensure loading has stopped in HistoryController::goToItem
+        https://bugs.webkit.org/show_bug.cgi?id=54517
+
+        Add a FrameLoaderClient callback for whether to stop loading before goToItem.
+
+        Test: http/tests/navigation/forward-to-fragment-fires-onload.html
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::shouldStopLoadingForHistoryItem): Added.
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2011-02-16  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        https://bugs.webkit.org/show_bug.cgi?id=54244
+        
+        Convert the line box tree to floating point and eliminate font rounding hacks.  This patch removes all of the rounding
+        hacks from the Font code and makes sure all Font APIs involving width measurement and width offsets use floats.
+        
+        The line box tree's x, y and logicalWidth members have all been converted to floats and all of the line box APIs have
+        been changed as well.
+        
+        In terms of pixel adjustments, overflow is using an enclosing model (so it will be enclosingIntRect of a line box's x/y/width/height).
+        
+        Background and border painting is using a rounding model, so borders and backgrounds will round to the nearest pixel when painting.
+        
+        Replaced elements still snap to integer positions on lines, and they use a rounding model as well, although their underlying line boxes
+        still have a precise floating point position.
+
+        Justification will now allow subpixel positioning to occur as well.  Platforms that don't support subpixel positioning should already
+        be rounding justification spacing in their font code.
+
+        Many layout test results change on Mac, since rounding hacks were used there and are now gone.
+
+        * Misc/WebKitNSStringExtras.mm:
+        (-[NSString _web_drawAtPoint:font:textColor:allowingFontSmoothing:]):
+        (-[NSString _web_widthWithFont:]):
+
+2011-02-10  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Adam Roben.
+
+        HTML5 <details> and <summary>: localized text
+        https://bugs.webkit.org/show_bug.cgi?id=54260
+
+        The method defaultDetailsSummaryText was added to LocalizationStrategy class. It is used to
+        provide the default label to be used by a <details> tag that has no <summary> child.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::defaultDetailsSummaryText):
+
+2011-02-16  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Allow acceleratesDrawing for WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=54511
+
+        Plumb through preference for accelerated drawing.
+        
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences acceleratedDrawingEnabled]):
+        (-[WebPreferences setAcceleratedDrawingEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+
+2011-02-15  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/54505> Move -[WebDynamicScrollBarsView inProgrammaticScroll] to WebDynamicScrollBarsViewInternal.h
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebDynamicScrollBarsView.h:
+        (-[WebDynamicScrollBarsView inProgrammaticScroll]): Removed
+        declaration.
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView inProgrammaticScroll]): Moved
+        implementation into correct category.
+        * WebView/WebDynamicScrollBarsViewInternal.h:
+        (-[WebDynamicScrollBarsView inProgrammaticScroll]): Added
+        declaration.
+        * WebView/WebHTMLView.mm: Included
+        WebDynamicScrollBarsViewInternal.h instead of
+        WebDynamicScrollBarsView.h.
+
+2011-02-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough and Geoff Garen.
+
+        Refactor handles and weak pointers to become nicer and more automatic
+        https://bugs.webkit.org/show_bug.cgi?id=54415
+
+        Update to use Global<> instead of ProtectedPtr, and refactored slightly
+        to get global data to places it's needed for when we're assigning to
+        Global<>s
+
+        * ForwardingHeaders/collector/handles/Global.h: Added.
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::LocalObjectMap::get):
+        (WebKit::NetscapePluginInstanceProxy::LocalObjectMap::idForObject):
+        (WebKit::NetscapePluginInstanceProxy::LocalObjectMap::forget):
+        (WebKit::NetscapePluginInstanceProxy::getWindowNPObject):
+        (WebKit::NetscapePluginInstanceProxy::getPluginElementNPObject):
+        (WebKit::NetscapePluginInstanceProxy::evaluate):
+        (WebKit::NetscapePluginInstanceProxy::invoke):
+        (WebKit::NetscapePluginInstanceProxy::invokeDefault):
+        (WebKit::NetscapePluginInstanceProxy::construct):
+        (WebKit::NetscapePluginInstanceProxy::addValueToArray):
+        * WebView/WebScriptDebugger.h:
+        * WebView/WebScriptDebugger.mm:
+        (WebScriptDebugger::WebScriptDebugger):
+
+2011-02-15  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Autocorrection should respect undo.
+        https://bugs.webkit.org/show_bug.cgi?id=52221
+        <rdar://problem/8663399>
+
+        Please see WebCore/ChangeLog for detailed description.
+
+        * WebCoreSupport/WebEditorClient.h: Updated for the new function declared in EditorClient.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::recordAutocorrectionResponse): Ditto.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _replaceSelectionWithFragment:selectReplacement:smartReplace:matchStyle:]):
+             Adopted new signature of ReplaceSelectionCommand::create().
+
+2011-02-15  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/54485> Fix spelling of -inProgramaticScroll
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebDynamicScrollBarsView.h:
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView inProgrammaticScroll]): Renamed from
+        -inProgramaticScroll.
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _frameOrBoundsChanged]): Corrected method name.
+
+2011-02-15  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Allow controlling minimum DOMTimer interval on a per-page basis
+        https://bugs.webkit.org/show_bug.cgi?id=54312
+
+        Added needed methods to implement LayoutTestController's new
+        setMinimumTimerInterval method.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+        (+[WebView _defaultMinimumTimerInterval]):
+        (-[WebView _setMinimumTimerInterval:]):
+        * WebView/WebViewPrivate.h:
+
 2011-02-11  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Oliver Hunt.

@@ -55,8 +55,8 @@ public:
     virtual void beginElementAt(float offset);
     virtual void endElement();
     virtual void endElementAt(float offset);
-    
-    static bool attributeIsCSS(const String& attributeName);
+
+    static bool isTargetAttributeCSSProperty(SVGElement*, const QualifiedName&);
 
 protected:
     SVGAnimationElement(const QualifiedName&, Document*);
@@ -75,12 +75,9 @@ protected:
     
     enum AnimationMode { NoAnimation, ToAnimation, ByAnimation, ValuesAnimation, FromToAnimation, FromByAnimation, PathAnimation };
     AnimationMode animationMode() const;
-
-    virtual bool hasValidTarget() const;
     
     String targetAttributeBaseValue() const;
     void setTargetAttributeAnimatedValue(const String&);
-    bool targetAttributeIsCSS() const;
     
     bool isAdditive() const;
     bool isAccumulated() const;

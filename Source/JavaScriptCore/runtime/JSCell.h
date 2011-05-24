@@ -27,6 +27,7 @@
 #include "ConstructData.h"
 #include "Heap.h"
 #include "JSImmediate.h"
+#include "JSLock.h"
 #include "JSValue.h"
 #include "MarkStack.h"
 #include "Structure.h"
@@ -65,6 +66,7 @@ namespace JSC {
         friend class JSGlobalData;
         friend class MarkedSpace;
         friend class MarkedBlock;
+        friend class ScopeChainNode;
 
     private:
         explicit JSCell(Structure*);
@@ -73,7 +75,7 @@ namespace JSC {
     public:
         static PassRefPtr<Structure> createDummyStructure()
         {
-            return Structure::create(jsNull(), TypeInfo(UnspecifiedType), AnonymousSlotCount);
+            return Structure::create(jsNull(), TypeInfo(UnspecifiedType), AnonymousSlotCount, 0);
         }
 
         // Querying the type.
@@ -118,7 +120,7 @@ namespace JSC {
 #endif
 
         // Object operations, with the toObject operation included.
-        virtual const ClassInfo* classInfo() const;
+        const ClassInfo* classInfo() const { return m_structure->classInfo(); }
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual void put(ExecState*, unsigned propertyName, JSValue);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
@@ -172,16 +174,6 @@ namespace JSC {
 
     inline void JSCell::markChildren(MarkStack&)
     {
-    }
-
-    inline void* JSCell::operator new(size_t size, JSGlobalData* globalData)
-    {
-        return globalData->heap.allocate(size);
-    }
-
-    inline void* JSCell::operator new(size_t size, ExecState* exec)
-    {
-        return exec->heap()->allocate(size);
     }
 
     // --- JSValue inlines ----------------------------
@@ -402,20 +394,58 @@ namespace JSC {
     }
 #endif
 
-    inline void* MarkedBlock::allocate(size_t& nextCell)
+    inline void* MarkedBlock::allocate()
     {
-        do {
-            ASSERT(nextCell < CELLS_PER_BLOCK);
-            if (!marked.testAndSet(nextCell)) { // Always false for the last cell in the block
-                JSCell* cell = reinterpret_cast<JSCell*>(&cells[nextCell++]);
+        while (m_nextAtom < m_endAtom) {
+            if (!m_marks.testAndSet(m_nextAtom)) {
+                JSCell* cell = reinterpret_cast<JSCell*>(&atoms()[m_nextAtom]);
+                m_nextAtom += m_atomsPerCell;
                 cell->~JSCell();
                 return cell;
             }
-            nextCell = marked.nextPossiblyUnset(nextCell);
-        } while (nextCell != CELLS_PER_BLOCK);
-        
-        nextCell = 0;
+            m_nextAtom += m_atomsPerCell;
+        }
+
         return 0;
+    }
+    
+    inline MarkedSpace::SizeClass& MarkedSpace::sizeClassFor(size_t bytes)
+    {
+        ASSERT(bytes && bytes <= preciseCutoff);
+        return m_preciseSizeClasses[(bytes - 1) / preciseStep];
+    }
+
+    inline void* MarkedSpace::allocate(size_t bytes)
+    {
+        SizeClass& sizeClass = sizeClassFor(bytes);
+        return allocateFromSizeClass(sizeClass);
+    }
+    
+    inline void* Heap::allocate(size_t bytes)
+    {
+        ASSERT(globalData()->identifierTable == wtfThreadData().currentIdentifierTable());
+        ASSERT(JSLock::lockCount() > 0);
+        ASSERT(JSLock::currentThreadIsHoldingLock());
+        ASSERT(bytes <= MarkedSpace::maxCellSize);
+        ASSERT(m_operationInProgress == NoOperation);
+
+        m_operationInProgress = Allocation;
+        void* result = m_markedSpace.allocate(bytes);
+        m_operationInProgress = NoOperation;
+        if (result)
+            return result;
+
+        return allocateSlowCase(bytes);
+    }
+
+    inline void* JSCell::operator new(size_t size, JSGlobalData* globalData)
+    {
+        return globalData->heap.allocate(size);
+    }
+
+    inline void* JSCell::operator new(size_t size, ExecState* exec)
+    {
+        return exec->heap()->allocate(size);
     }
 
 } // namespace JSC

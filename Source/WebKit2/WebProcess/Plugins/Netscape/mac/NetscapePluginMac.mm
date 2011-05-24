@@ -373,7 +373,7 @@ static EventModifiers modifiersForEvent(const WebEvent& event)
 
 #endif
 
-void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirtyRect)
+void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirtyRect, bool isSnapshot)
 {
     CGContextRef platformContext = context->platformContext();
 
@@ -383,7 +383,7 @@ void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirt
     switch (m_eventModel) {
         case NPEventModelCocoa: {
             // Don't send draw events when we're using the Core Animation drawing model.
-            if (m_drawingModel == NPDrawingModelCoreAnimation)
+            if (!isSnapshot && m_drawingModel == NPDrawingModelCoreAnimation)
                 return;
 
             NPCocoaEvent event = initializeEvent(NPCocoaEventDrawRect);
@@ -830,9 +830,8 @@ void NetscapePlugin::windowVisibilityChanged(bool)
 
 uint64_t NetscapePlugin::pluginComplexTextInputIdentifier() const
 {
-    // This is never called for NetscapePlugin.
-    ASSERT_NOT_REACHED();
-    return 0;
+    // Just return a dummy value; this is only called for in-process plug-ins, which we don't support on Mac.
+    return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(this));
 }
 
 

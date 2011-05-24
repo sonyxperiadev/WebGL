@@ -349,7 +349,9 @@
 
 #endif /* ARM */
 
-
+#if CPU(ARM) || CPU(MIPS)
+#define WTF_CPU_NEEDS_ALIGNED_ACCESS 1
+#endif
 
 /* ==== OS() - underlying operating system; only to be used for mandated low-level services like 
    virtual memory, not to choose a GUI toolkit ==== */
@@ -399,7 +401,7 @@
 #endif
 
 /* OS(FREEBSD) - FreeBSD */
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 #define WTF_OS_FREEBSD 1
 #endif
 
@@ -532,29 +534,25 @@
 #if PLATFORM(MAC) || PLATFORM(IOS)
 #define WTF_PLATFORM_CG 1
 #endif
-#if PLATFORM(MAC) && !PLATFORM(IOS)
-#define WTF_PLATFORM_CI 1
-#endif
 #if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WIN) && PLATFORM(CG))
 #define WTF_PLATFORM_CA 1
 #endif
 
-/* PLATFORM(SKIA) for Win/Linux, CG/CI for Mac */
+/* USE(SKIA) for Win/Linux, CG for Mac */
 #if PLATFORM(CHROMIUM)
 #if OS(DARWIN)
 #define WTF_PLATFORM_CG 1
-#define WTF_PLATFORM_CI 1
 #define WTF_USE_ATSUI 1
 #define WTF_USE_CORE_TEXT 1
 #define WTF_USE_ICCJPEG 1
 #else
-#define WTF_PLATFORM_SKIA 1
+#define WTF_USE_SKIA 1
 #define WTF_USE_CHROMIUM_NET 1
 #endif
 #endif
 
 #if PLATFORM(BREWMP)
-#define WTF_PLATFORM_SKIA 1
+#define WTF_USE_SKIA 1
 #endif
 
 #if PLATFORM(GTK)
@@ -567,7 +565,7 @@
 #define WTF_USE_MERSENNE_TWISTER_19937 1
 #endif
 
-#if (PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && OS(DARWIN) && !ENABLE(SINGLE_THREADED))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
+#if (PLATFORM(GTK) || PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && OS(DARWIN) && !ENABLE(SINGLE_THREADED))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
 #define ENABLE_JSC_MULTIPLE_THREADS 1
 #endif
 
@@ -600,6 +598,10 @@
 #define WTF_USE_ICU_UNICODE 1
 #endif
 
+#if !PLATFORM(CHROMIUM) /* Chromium controls this macro with a gyp define */
+#define WTF_USE_BUILTIN_UTF8_CODEC 1
+#endif
+
 #if PLATFORM(MAC) && !PLATFORM(IOS)
 #if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_TIGER) && CPU(X86_64)
 #define WTF_USE_PLUGIN_HOST_PROCESS 1
@@ -615,7 +617,7 @@
 #if !defined(ENABLE_DASHBOARD_SUPPORT)
 #define ENABLE_DASHBOARD_SUPPORT 1
 #endif
-#define WTF_PLATFORM_CF 1
+#define WTF_USE_CF 1
 #define WTF_USE_PTHREADS 1
 #define HAVE_PTHREAD_RWLOCK 1
 #define HAVE_READLINE 1
@@ -634,7 +636,7 @@
 #endif
 
 #if PLATFORM(CHROMIUM) && OS(DARWIN)
-#define WTF_PLATFORM_CF 1
+#define WTF_USE_CF 1
 #define WTF_USE_PTHREADS 1
 #define HAVE_PTHREAD_RWLOCK 1
 #define WTF_USE_CARBON_SECURE_INPUT_MODE 1
@@ -645,7 +647,7 @@
 #endif
 
 #if PLATFORM(QT) && OS(DARWIN)
-#define WTF_PLATFORM_CF 1
+#define WTF_USE_CF 1
 #endif
 
 #if OS(DARWIN) && !defined(BUILDING_ON_TIGER) && !PLATFORM(GTK) && !PLATFORM(QT)
@@ -655,6 +657,7 @@
 #if PLATFORM(IOS)
 #define ENABLE_CONTEXT_MENUS 0
 #define ENABLE_DRAG_SUPPORT 0
+#define ENABLE_DATA_TRANSFER_ITEMS 0
 #define ENABLE_FTPDIR 1
 #define ENABLE_GEOLOCATION 1
 #define ENABLE_ICONDATABASE 0
@@ -664,7 +667,7 @@
 #define ENABLE_ORIENTATION_EVENTS 1
 #define ENABLE_REPAINT_THROTTLING 1
 #define HAVE_READLINE 1
-#define WTF_PLATFORM_CF 1
+#define WTF_USE_CF 1
 #define WTF_USE_PTHREADS 1
 #define HAVE_PTHREAD_RWLOCK 1
 #define ENABLE_WEB_ARCHIVE 1
@@ -688,8 +691,17 @@
 #endif
 
 #if PLATFORM(WIN) && !OS(WINCE)
-#define WTF_PLATFORM_CF 1
+#define WTF_USE_CF 1
 #define WTF_USE_PTHREADS 0
+#endif
+
+#if PLATFORM(WIN) && !OS(WINCE) && !PLATFORM(CHROMIUM) && !defined(WIN_CAIRO)
+#define WTF_USE_CFNETWORK 1
+#endif
+
+#if USE(CFNETWORK) || PLATFORM(MAC)
+#define WTF_USE_CFURLCACHE 1
+#define WTF_USE_CFURLSTORAGESESSIONS 1
 #endif
 
 #if PLATFORM(WIN) && !OS(WINCE) && !PLATFORM(CHROMIUM) && !PLATFORM(QT)
@@ -700,7 +712,7 @@
 #define ENABLE_ASSEMBLER 1
 #define ENABLE_GLOBAL_FASTMALLOC_NEW 0
 #if OS(DARWIN)
-#define WTF_PLATFORM_CF 1
+#define WTF_USE_CF 1
 #ifndef BUILDING_ON_TIGER
 #define WTF_USE_CORE_TEXT 1
 #define ENABLE_WEB_ARCHIVE 1
@@ -889,6 +901,10 @@
 
 #if !defined(ENABLE_DRAG_SUPPORT)
 #define ENABLE_DRAG_SUPPORT 1
+#endif
+
+#if !defined(ENABLE_DATA_TRANSFER_ITEMS)
+#define ENABLE_DATA_TRANSFER_ITEMS 0
 #endif
 
 #if !defined(ENABLE_DASHBOARD_SUPPORT)

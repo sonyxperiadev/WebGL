@@ -65,9 +65,15 @@ WebInspector.AuditRules.getDomainToResourcesMap = function(resources, types, nee
 
 WebInspector.AuditRules.evaluateInTargetWindow = function(func, args, callback)
 {
-    InspectorBackend.evaluateOnSelf(func.toString(), args, callback);
+    function mycallback(result)
+    {
+        if (result)
+            callback(JSON.parse(result.description));
+        else
+            callback(null);
+    }
+    RuntimeAgent.evaluate("JSON.stringify((" + func + ")(" + JSON.stringify(args) + "))", "", false, mycallback);
 }
-
 
 WebInspector.AuditRules.GzipRule = function()
 {
@@ -83,6 +89,8 @@ WebInspector.AuditRules.GzipRule.prototype = {
         var summary = result.addChild("", true);
         for (var i = 0, length = resources.length; i < length; ++i) {
             var resource = resources[i];
+            if (resource.statusCode === 304)
+                continue; // Do not test 304 Not Modified resources as their contents are always empty.
             if (this._shouldCompress(resource)) {
                 var size = resource.resourceSize;
                 candidateSize += size;
@@ -104,8 +112,11 @@ WebInspector.AuditRules.GzipRule.prototype = {
 
     _isCompressed: function(resource)
     {
-        var encoding = resource.responseHeaders["Content-Encoding"];
-        return encoding === "gzip" || encoding === "deflate";
+        var encodingHeader = resource.responseHeaders["Content-Encoding"];
+        if (!encodingHeader)
+            return false;
+
+        return /\b(?:gzip|deflate)\b/.test(encodingHeader);
     },
 
     _shouldCompress: function(resource)
@@ -383,7 +394,7 @@ WebInspector.AuditRules.UnusedCssRule.prototype = {
                 WebInspector.CSSStyleSheet.createForId(styleSheetIds[i], styleSheetCallback.bind(null, styleSheets, i == styleSheetIds.length - 1 ? evalCallback : null));
         }
 
-        InspectorBackend.getAllStyles(allStylesCallback);
+        CSSAgent.getAllStyles(allStylesCallback);
     }
 }
 
@@ -639,24 +650,23 @@ WebInspector.AuditRules.ImageDimensionsRule = function()
 WebInspector.AuditRules.ImageDimensionsRule.prototype = {
     doRun: function(resources, result, callback)
     {
-        function doneCallback(context)
+        var urlToNoDimensionCount = {};
+
+        function doneCallback()
         {
-            var map = context.urlToNoDimensionCount;
-            for (var url in map) {
+            for (var url in urlToNoDimensionCount) {
                 var entry = entry || result.addChild("A width and height should be specified for all images in order to speed up page display. The following image(s) are missing a width and/or height:", true);
                 var value = WebInspector.AuditRuleResult.linkifyDisplayName(url);
-                if (map[url] > 1)
-                    value += String.sprintf(" (%d uses)", map[url]);
+                if (urlToNoDimensionCount[url] > 1)
+                    value += String.sprintf(" (%d uses)", urlToNoDimensionCount[url]);
                 entry.addChild(value);
                 result.violationCount++;
             }
             callback(entry ? result : null);
         }
 
-        function imageStylesReady(imageId, context, styles)
+        function imageStylesReady(imageId, lastCall, styles)
         {
-            --context.imagesLeft;
-
             const node = WebInspector.domAgent.nodeForId(imageId);
             var src = node.getAttribute("src");
             if (!src.asParsedURL()) {
@@ -672,13 +682,21 @@ WebInspector.AuditRules.ImageDimensionsRule.prototype = {
 
             const computedStyle = styles.computedStyle;
             if (computedStyle.getPropertyValue("position") === "absolute") {
-                if (!context.imagesLeft)
-                    doneCallback(context);
+                if (lastCall)
+                    doneCallback();
                 return;
             }
 
             var widthFound = "width" in styles.styleAttributes;
             var heightFound = "height" in styles.styleAttributes;
+
+            var inlineStyle = styles.inlineStyle;
+            if (inlineStyle) {
+                if (inlineStyle.getPropertyValue("width") !== "")
+                    widthFound = true;
+                if (inlineStyle.getPropertyValue("height") !== "")
+                    heightFound = true;
+            }
 
             for (var i = styles.matchedCSSRules.length - 1; i >= 0 && !(widthFound && heightFound); --i) {
                 var style = styles.matchedCSSRules[i].style;
@@ -687,41 +705,25 @@ WebInspector.AuditRules.ImageDimensionsRule.prototype = {
                 if (style.getPropertyValue("height") !== "")
                     heightFound = true;
             }
-            
+
             if (!widthFound || !heightFound) {
-                if (src in context.urlToNoDimensionCount)
-                    ++context.urlToNoDimensionCount[src];
+                if (src in urlToNoDimensionCount)
+                    ++urlToNoDimensionCount[src];
                 else
-                    context.urlToNoDimensionCount[src] = 1;
+                    urlToNoDimensionCount[src] = 1;
             }
 
-            if (!context.imagesLeft)
-                doneCallback(context);
+            if (lastCall)
+                doneCallback();
         }
 
-        function receivedImages(imageIds)
+        function getStyles(nodeIds)
         {
-            if (!imageIds || !imageIds.length)
-                return callback(null);
-            var context = {imagesLeft: imageIds.length, urlToNoDimensionCount: {}};
-            for (var i = imageIds.length - 1; i >= 0; --i)
-                WebInspector.cssModel.getStylesAsync(imageIds[i], imageStylesReady.bind(this, imageIds[i], context));
+            for (var i = 0; i < nodeIds.length; ++i)
+                WebInspector.cssModel.getStylesAsync(nodeIds[i], imageStylesReady.bind(this, nodeIds[i], i === nodeIds.length - 1));
         }
 
-        function pushImageNodes()
-        {
-            const nodeIds = [];
-            var nodes = document.getElementsByTagName("img");
-            for (var i = 0; i < nodes.length; ++i) {
-                if (!nodes[i].src)
-                    continue;
-                var nodeId = this.getNodeId(nodes[i]);
-                nodeIds.push(nodeId);
-            }
-            return nodeIds;
-        }
-
-        WebInspector.AuditRules.evaluateInTargetWindow(pushImageNodes, [], receivedImages);
+        DOMAgent.querySelectorAll(0, "img[src]", true, getStyles);
     }
 }
 

@@ -32,6 +32,7 @@
 #define EditorClientImpl_h
 
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 #include "Timer.h"
 #include <wtf/Deque.h>
 
@@ -43,7 +44,7 @@ class SpellChecker;
 namespace WebKit {
 class WebViewImpl;
 
-class EditorClientImpl : public WebCore::EditorClient {
+class EditorClientImpl : public WebCore::EditorClient, public WebCore::TextCheckerClient {
 public:
     EditorClientImpl(WebViewImpl* webView);
 
@@ -58,7 +59,6 @@ public:
     virtual bool isGrammarCheckingEnabled();
     virtual void toggleGrammarChecking();
     virtual int spellCheckerDocumentTag();
-    virtual bool isEditable();
     virtual bool shouldBeginEditing(WebCore::Range*);
     virtual bool shouldEndEditing(WebCore::Range*);
     virtual bool shouldInsertNode(WebCore::Node*, WebCore::Range*, WebCore::EditorInsertAction);
@@ -79,6 +79,8 @@ public:
     virtual void registerCommandForUndo(PassRefPtr<WebCore::EditCommand>);
     virtual void registerCommandForRedo(PassRefPtr<WebCore::EditCommand>);
     virtual void clearUndoRedoOperations();
+    virtual bool canCopyCut(bool defaultValue) const;
+    virtual bool canPaste(bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
     virtual void undo();
@@ -113,6 +115,8 @@ public:
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
     virtual void requestCheckingOfString(WebCore::SpellChecker*, int, const WTF::String&);
+
+    virtual WebCore::TextCheckerClient* textChecker() { return this; }
 
     // Shows the form autofill popup for |node| if it is an HTMLInputElement and
     // it is empty.  This is called when you press the up or down arrow in a

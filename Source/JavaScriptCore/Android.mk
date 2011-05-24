@@ -100,7 +100,6 @@ LOCAL_SRC_FILES := \
 	runtime/GCActivityCallback.cpp \
 	runtime/GCHandle.cpp \
 	runtime/GetterSetter.cpp \
-	runtime/GlobalEvalFunction.cpp \
 	runtime/Identifier.cpp \
 	runtime/InitializeThreading.cpp \
 	runtime/InternalFunction.cpp \
@@ -144,7 +143,6 @@ LOCAL_SRC_FILES := \
 	runtime/PropertyDescriptor.cpp \
 	runtime/PropertyNameArray.cpp \
 	runtime/PropertySlot.cpp \
-	runtime/PrototypeFunction.cpp \
 	runtime/RegExp.cpp \
 	runtime/RegExpCache.cpp \
 	runtime/RegExpConstructor.cpp \
@@ -218,6 +216,7 @@ JSC_OBJECTS := $(addprefix $(intermediates)/runtime/, \
 				JSONObject.lut.h \
 				MathObject.lut.h \
 				NumberConstructor.lut.h \
+				ObjectConstructor.lut.h \
 				RegExpConstructor.lut.h \
 				RegExpObject.lut.h \
 				StringPrototype.lut.h \

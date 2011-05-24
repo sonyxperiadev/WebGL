@@ -216,6 +216,7 @@ onseeked
 onseeking
 onselect
 onselectstart
+onselectionchange
 onwebkitspeechchange
 onstalled
 onstorage
@@ -240,6 +241,7 @@ open
 optimum
 pattern
 placeholder
+pluginspage
 pluginurl
 ping
 poster

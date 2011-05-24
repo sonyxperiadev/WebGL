@@ -41,7 +41,7 @@
 #import "WebDefaultUIDelegate.h"
 #import "WebDelegateImplementationCaching.h"
 #import "WebDocumentInternal.h"
-#import "WebDynamicScrollBarsView.h"
+#import "WebDynamicScrollBarsViewInternal.h"
 #import "WebEditingDelegate.h"
 #import "WebElementDictionary.h"
 #import "WebFrameInternal.h"
@@ -52,7 +52,7 @@
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
 #import "WebKitVersionChecks.h"
-#import "WebLocalizableStrings.h"
+#import "WebLocalizableStringsInternal.h"
 #import "WebNSAttributedStringExtras.h"
 #import "WebNSEventExtras.h"
 #import "WebNSFileManagerExtras.h"
@@ -1239,7 +1239,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     WebDynamicScrollBarsView *scrollView = [[[webView mainFrame] frameView] _scrollView];
 
     NSPoint origin = [[self superview] bounds].origin;
-    if (!NSEqualPoints(_private->lastScrollPosition, origin) && ![scrollView inProgramaticScroll]) {
+    if (!NSEqualPoints(_private->lastScrollPosition, origin) && ![scrollView inProgrammaticScroll]) {
         if (Frame* coreFrame = core([self _frame])) {
             if (FrameView* coreView = coreFrame->view()) {
 #ifndef BUILDING_ON_TIGER
@@ -2643,14 +2643,6 @@ WEBCORE_COMMAND(yankAndSelect)
         coreFrame->selection()->revealSelection(ScrollAlignment::alignCenterAlways);
 }
 
-- (NSCellStateValue)selectionHasStyle:(CSSStyleDeclaration*)style
-{
-    Frame* coreFrame = core([self _frame]);
-    if (!coreFrame)
-        return NSOffState;
-    return kit(coreFrame->editor()->selectionHasStyle(style));
-}
-
 - (BOOL)validateUserInterfaceItemWithoutDelegate:(id <NSValidatedUserInterfaceItem>)item
 {
     SEL action = [item action];
@@ -2683,8 +2675,8 @@ WEBCORE_COMMAND(yankAndSelect)
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
             BOOL panelShowing = [[[NSSpellChecker sharedSpellChecker] spellingPanel] isVisible];
             [menuItem setTitle:panelShowing
-                ? UI_STRING("Hide Spelling and Grammar", "menu item title")
-                : UI_STRING("Show Spelling and Grammar", "menu item title")];
+                ? UI_STRING_INTERNAL("Hide Spelling and Grammar", "menu item title")
+                : UI_STRING_INTERNAL("Show Spelling and Grammar", "menu item title")];
         }
 #endif
         return [self _canEdit];
@@ -2706,10 +2698,8 @@ WEBCORE_COMMAND(yankAndSelect)
 
         NSMenuItem *menuItem = (NSMenuItem *)item;
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
-            RefPtr<CSSStyleDeclaration> style = CSSMutableStyleDeclaration::create();
-            ExceptionCode ec;
-            style->setProperty("direction", writingDirection == NSWritingDirectionLeftToRight ? "LTR" : "RTL", ec);
-            [menuItem setState:frame->editor()->selectionHasStyle(style.get())];
+            String direction = writingDirection == NSWritingDirectionLeftToRight ? "ltr" : "rtl";
+            [menuItem setState:frame->editor()->selectionHasStyle(CSSPropertyDirection, direction)];
         }
         return [self _canEdit];
     }
@@ -2724,14 +2714,11 @@ WEBCORE_COMMAND(yankAndSelect)
     if (action == @selector(toggleBaseWritingDirection:)) {
         NSMenuItem *menuItem = (NSMenuItem *)item;
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
-            RefPtr<CSSStyleDeclaration> style = CSSMutableStyleDeclaration::create();
-            ExceptionCode ec;
-            style->setProperty("direction", "RTL", ec);
             // Take control of the title of the menu item instead of just checking/unchecking it because
             // a check would be ambiguous.
-            [menuItem setTitle:frame->editor()->selectionHasStyle(style.get())
-                ? UI_STRING("Left to Right", "Left to Right context menu item")
-                : UI_STRING("Right to Left", "Right to Left context menu item")];
+            [menuItem setTitle:frame->editor()->selectionHasStyle(CSSPropertyDirection, "rtl")
+                ? UI_STRING_INTERNAL("Left to Right", "Left to Right context menu item")
+                : UI_STRING_INTERNAL("Right to Left", "Right to Left context menu item")];
         }
         return [self _canEdit];
     } 
@@ -2793,8 +2780,8 @@ WEBCORE_COMMAND(yankAndSelect)
         if ([menuItem isKindOfClass:[NSMenuItem class]]) {
             BOOL panelShowing = [[[NSSpellChecker sharedSpellChecker] substitutionsPanel] isVisible];
             [menuItem setTitle:panelShowing
-                ? UI_STRING("Hide Substitutions", "menu item title")
-                : UI_STRING("Show Substitutions", "menu item title")];
+                ? UI_STRING_INTERNAL("Hide Substitutions", "menu item title")
+                : UI_STRING_INTERNAL("Show Substitutions", "menu item title")];
         }
         return [self _canEdit];
     }

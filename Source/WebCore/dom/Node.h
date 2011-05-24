@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
@@ -134,6 +134,7 @@ public:
     // DOM methods & attributes for Node
 
     bool hasTagName(const QualifiedName&) const;
+    bool hasLocalName(const AtomicString&) const;
     virtual String nodeName() const = 0;
     virtual String nodeValue() const;
     virtual void setNodeValue(const String&, ExceptionCode&);
@@ -216,6 +217,9 @@ public:
 
     Element* shadowHost() const;
     void setShadowHost(Element*);
+
+    bool selfOrAncestorHasDirAutoAttribute() const { return getFlag(SelfOrAncestorHasDirAutoFlag); }
+    void setSelfOrAncestorHasDirAutoAttribute(bool flag) { setFlag(flag, SelfOrAncestorHasDirAutoFlag); }
 
     // Returns the enclosing event parent node (or self) that, when clicked, would trigger a navigation.
     Node* enclosingLinkEventParentOrSelf();
@@ -353,6 +357,9 @@ public:
     // Do not use this method to change the document of a node until after the node has been
     // removed from its previous document.
     void setDocument(Document*);
+
+    // Used by the basic DOM methods (e.g., appendChild()).
+    void setDocumentRecursively(Document*);
 
     // Returns true if this node is associated with a document and is in its associated document's
     // node tree, false otherwise.
@@ -615,6 +622,8 @@ private:
 
         StyleChangeMask = 1 << nodeStyleChangeShift | 1 << (nodeStyleChangeShift + 1),
 
+        SelfOrAncestorHasDirAutoFlag = 1 << 27,
+
 #if ENABLE(SVG)
         DefaultNodeFlags = IsParsingChildrenFinishedFlag | IsStyleAttributeValidFlag | AreSVGAttributesValidFlag
 #else
@@ -647,6 +656,7 @@ protected:
     
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const { }
     void setTabIndexExplicitly(short);
+    void clearTabIndexExplicitly();
     
     bool hasRareData() const { return getFlag(HasRareDataFlag); }
 
@@ -658,11 +668,12 @@ private:
     void markCachedNodeListsSlow(JSC::MarkStack&, JSC::JSGlobalData&);
 #endif
 
-    void setDocumentRecursively(Document*);
     void setStyleChange(StyleChangeType);
 
     // Used to share code between lazyAttach and setNeedsStyleRecalc.
     void markAncestorsWithChildNeedsStyleRecalc();
+
+    RenderObject* createRendererAndStyle();
 
     virtual void refEventTarget();
     virtual void derefEventTarget();

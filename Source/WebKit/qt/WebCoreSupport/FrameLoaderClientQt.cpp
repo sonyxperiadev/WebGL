@@ -59,7 +59,6 @@
 #include "HTMLFormElement.h"
 #include "HTMLPlugInElement.h"
 #include "HTTPParsers.h"
-#include "QtNAMThreadSafeProxy.h"
 #include "NotImplemented.h"
 #include "QNetworkReplyHandler.h"
 #include "ResourceHandleInternal.h"
@@ -827,6 +826,11 @@ bool FrameLoaderClientQt::shouldGoToHistoryItem(WebCore::HistoryItem *) const
     return true;
 }
 
+bool FrameLoaderClientQt::shouldStopLoadingForHistoryItem(WebCore::HistoryItem *) const
+{
+    return true;
+}
+
 void FrameLoaderClientQt::dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const
 {
 }
@@ -986,13 +990,13 @@ void FrameLoaderClientQt::download(WebCore::ResourceHandle* handle, const WebCor
         return;
 
     QNetworkReplyHandler* handler = handle->getInternal()->m_job;
-    QtNetworkReplyThreadSafeProxy* replyProxy = handler->release();
-    if (replyProxy) {
+    QNetworkReply* reply = handler->release();
+    if (reply) {
         QWebPage *page = m_webFrame->page();
         if (page->forwardUnsupportedContent())
-            emit page->unsupportedContent(replyProxy->reply());
+            emit page->unsupportedContent(reply);
         else
-            replyProxy->abort();
+            reply->abort();
     }
 }
 
@@ -1153,13 +1157,12 @@ WebCore::Frame* FrameLoaderClientQt::dispatchCreatePage(const WebCore::Navigatio
     return newPage->mainFrame()->d->frame;
 }
 
-void FrameLoaderClientQt::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const WTF::String& MIMEType, const WebCore::ResourceRequest&)
+void FrameLoaderClientQt::dispatchDecidePolicyForResponse(FramePolicyFunction function, const WebCore::ResourceResponse& response, const WebCore::ResourceRequest&)
 {
     // we need to call directly here
-    const ResourceResponse& response = m_frame->loader()->activeDocumentLoader()->response();
     if (WebCore::contentDispositionType(response.httpHeaderField("Content-Disposition")) == WebCore::ContentDispositionAttachment)
         callPolicyFunction(function, PolicyDownload);
-    else if (canShowMIMEType(MIMEType))
+    else if (canShowMIMEType(response.mimeType()))
         callPolicyFunction(function, PolicyUse);
     else
         callPolicyFunction(function, PolicyDownload);

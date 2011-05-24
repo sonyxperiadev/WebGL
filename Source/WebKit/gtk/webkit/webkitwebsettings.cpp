@@ -28,13 +28,11 @@
 
 #include "EditingBehavior.h"
 #include "FileSystem.h"
-#include "Language.h"
 #include "PluginDatabase.h"
 #include "webkitenumtypes.h"
 #include "webkitglobalsprivate.h"
 #include "webkitversion.h"
 #include "webkitwebsettingsprivate.h"
-#include <enchant.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenate.h>
 #include <glib/gi18n-lib.h>
@@ -90,7 +88,6 @@ struct _WebKitWebSettingsPrivate {
     gboolean enable_private_browsing;
     gboolean enable_spell_checking;
     gchar* spell_checking_languages;
-    GSList* enchant_dicts;
     gboolean enable_caret_browsing;
     gboolean enable_html5_database;
     gboolean enable_html5_local_storage;
@@ -174,15 +171,15 @@ enum {
 static String webkitPlatform()
 {
 #if PLATFORM(X11)
-    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("X11")));
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("X11; ")));
 #elif OS(WINDOWS)
-    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("Windows")));
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("")));
 #elif PLATFORM(MAC)
-    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("Macintosh")));
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("Macintosh; ")));
 #elif defined(GDK_WINDOWING_DIRECTFB)
-    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("DirectFB")));
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("DirectFB; ")));
 #else
-    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("Unknown")));
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("Unknown; ")));
 #endif
 
     return uaPlatform;
@@ -225,7 +222,7 @@ String webkitUserAgent()
     // We re-use the WebKit version, though it doesn't seem to matter much in practice
 
     DEFINE_STATIC_LOCAL(const String, uaVersion, (makeString(String::number(WEBKIT_USER_AGENT_MAJOR_VERSION), '.', String::number(WEBKIT_USER_AGENT_MINOR_VERSION), '+')));
-    DEFINE_STATIC_LOCAL(const String, staticUA, (makeString("Mozilla/5.0 (", webkitPlatform(), "; U; ", webkitOSVersion(), "; ", defaultLanguage(), ") AppleWebKit/", uaVersion) +
+    DEFINE_STATIC_LOCAL(const String, staticUA, (makeString("Mozilla/5.0 (", webkitPlatform(), webkitOSVersion(), ") AppleWebKit/", uaVersion) +
                                                  makeString(" (KHTML, like Gecko) Version/5.0 Safari/", uaVersion)));
 
     return staticUA;
@@ -536,7 +533,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ENABLE_CARET_BROWSING,
                                     g_param_spec_boolean("enable-caret-browsing",
                                                          _("Enable Caret Browsing"),
-                                                         _("Whether to enable accesibility enhanced keyboard navigation"),
+                                                         _("Whether to enable accessibility enhanced keyboard navigation"),
                                                          FALSE,
                                                          flags));
     /**
@@ -691,9 +688,6 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                          TRUE,
                                                          flags));
 
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_MAC) == static_cast<int>(WebCore::EditingMacBehavior), editing_behavior_type_mac_match);
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_WINDOWS) == static_cast<int>(WebCore::EditingWindowsBehavior), editing_behavior_type_windows_match);
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_UNIX) == static_cast<int>(WebCore::EditingUnixBehavior), editing_behavior_type_unix_match);
 
     /**
     * WebKitWebSettings:editing-behavior
@@ -923,23 +917,6 @@ static void webkit_web_settings_init(WebKitWebSettings* web_settings)
     web_settings->priv = G_TYPE_INSTANCE_GET_PRIVATE(web_settings, WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate);
 }
 
-static EnchantBroker* get_enchant_broker()
-{
-    static EnchantBroker* broker = 0;
-    if (!broker)
-        broker = enchant_broker_init();
-
-    return broker;
-}
-
-static void free_spell_checking_language(gpointer data, gpointer user_data)
-{
-    EnchantDict* dict = static_cast<EnchantDict*>(data);
-    EnchantBroker* broker = get_enchant_broker();
-
-    enchant_broker_free_dict(broker, dict);
-}
-
 static void webkit_web_settings_finalize(GObject* object)
 {
     WebKitWebSettings* web_settings = WEBKIT_WEB_SETTINGS(object);
@@ -955,28 +932,15 @@ static void webkit_web_settings_finalize(GObject* object)
     g_free(priv->user_stylesheet_uri);
     g_free(priv->spell_checking_languages);
 
-    g_slist_foreach(priv->enchant_dicts, free_spell_checking_language, 0);
-    g_slist_free(priv->enchant_dicts);
-
     g_free(priv->user_agent);
 
     G_OBJECT_CLASS(webkit_web_settings_parent_class)->finalize(object);
-}
-
-static void getAvailableDictionariesCallback(const char* const languageTag, const char* const, const char* const, const char* const, void* data)
-{
-    Vector<CString>* dicts = static_cast<Vector<CString>*>(data);
-
-    dicts->append(languageTag);
 }
 
 static void webkit_web_settings_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec)
 {
     WebKitWebSettings* web_settings = WEBKIT_WEB_SETTINGS(object);
     WebKitWebSettingsPrivate* priv = web_settings->priv;
-    EnchantBroker* broker;
-    EnchantDict* dict;
-    GSList* spellDictionaries = 0;
 
     switch(prop_id) {
     case PROP_DEFAULT_ENCODING:
@@ -1068,35 +1032,6 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
     case PROP_SPELL_CHECKING_LANGUAGES:
         g_free(priv->spell_checking_languages);
         priv->spell_checking_languages = g_strdup(g_value_get_string(value));
-
-        broker = get_enchant_broker();
-        if (priv->spell_checking_languages) {
-            char** langs = g_strsplit(priv->spell_checking_languages, ",", -1);
-            for (int i = 0; langs[i]; i++) {
-                if (enchant_broker_dict_exists(broker, langs[i])) {
-                    dict = enchant_broker_request_dict(broker, langs[i]);
-                    spellDictionaries = g_slist_append(spellDictionaries, dict);
-                }
-            }
-            g_strfreev(langs);
-        } else {
-            const char* language = pango_language_to_string(gtk_get_default_language());
-            if (enchant_broker_dict_exists(broker, language)) {
-                dict = enchant_broker_request_dict(broker, language);
-                spellDictionaries = g_slist_append(spellDictionaries, dict);
-            } else {
-                // No dictionaries selected, we get one from the list
-                Vector<CString> allDictionaries;
-                enchant_broker_list_dicts(broker, getAvailableDictionariesCallback, &allDictionaries);
-                if (!allDictionaries.isEmpty()) {
-                    dict = enchant_broker_request_dict(broker, allDictionaries[0].data());
-                    spellDictionaries = g_slist_append(spellDictionaries, dict);
-                }
-            }
-        }
-        g_slist_foreach(priv->enchant_dicts, free_spell_checking_language, 0);
-        g_slist_free(priv->enchant_dicts);
-        priv->enchant_dicts = spellDictionaries;
         break;
     case PROP_ENABLE_XSS_AUDITOR:
         priv->enable_xss_auditor = g_value_get_boolean(value);
@@ -1422,15 +1357,6 @@ G_CONST_RETURN gchar* webkit_web_settings_get_user_agent(WebKitWebSettings* webS
     WebKitWebSettingsPrivate* priv = webSettings->priv;
 
     return priv->user_agent;
-}
-
-GSList* webkitWebViewGetEnchantDicts(WebKitWebView* webView)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-
-    WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
-
-    return settings->priv->enchant_dicts;
 }
 
 namespace WebKit {

@@ -144,12 +144,6 @@ void EditorClientWinCE::didSetSelectionTypesForPasteboard()
     notImplemented();
 }
 
-bool EditorClientWinCE::isEditable()
-{
-    notImplemented();
-    return false;
-}
-
 void EditorClientWinCE::registerCommandForUndo(WTF::PassRefPtr<WebCore::EditCommand> command)
 {
     notImplemented();
@@ -163,6 +157,16 @@ void EditorClientWinCE::registerCommandForRedo(WTF::PassRefPtr<WebCore::EditComm
 void EditorClientWinCE::clearUndoRedoOperations()
 {
     notImplemented();
+}
+
+bool EditorClientWinCE::canCopyCut(bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientWinCE::canPaste(bool defaultValue) const
+{
+    return defaultValue;
 }
 
 bool EditorClientWinCE::canUndo() const

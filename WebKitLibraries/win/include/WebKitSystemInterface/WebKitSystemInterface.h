@@ -64,6 +64,8 @@ typedef CVImageBufferRef CVPixelBufferRef;
 typedef struct _CAImageQueue *CAImageQueueRef;
 typedef unsigned long CFTypeID;
 typedef struct _CFURLCredential* WKCFURLCredentialRef;
+typedef const struct __CFURLStorageSession* CFURLStorageSessionRef;
+typedef const struct _CFURLCache* CFURLCacheRef;
 
 void wkSetFontSmoothingLevel(int type);
 int wkGetFontSmoothingLevel();
@@ -87,13 +89,20 @@ CFDictionaryRef wkGetSSLCertificateInfo(CFURLResponseRef);
 void* wkGetSSLPeerCertificateData(CFDictionaryRef);
 void* wkGetSSLCertificateChainContext(CFDictionaryRef);
 CFHTTPCookieStorageRef wkGetDefaultHTTPCookieStorage();
-CFHTTPCookieStorageRef wkCreatePrivateHTTPCookieStorage();
+CFHTTPCookieStorageRef wkCreatePrivateInMemoryHTTPCookieStorage(CFURLStorageSessionRef);
 void wkSetCFURLRequestShouldContentSniff(CFMutableURLRequestRef, bool);
 CFStringRef wkCopyFoundationCacheDirectory();
 void wkSetClientCertificateInSSLProperties(CFMutableDictionaryRef, CFDataRef);
 
 CFArrayRef wkCFURLRequestCopyHTTPRequestBodyParts(CFURLRequestRef);
 void wkCFURLRequestSetHTTPRequestBodyParts(CFMutableURLRequestRef, CFArrayRef bodyParts);
+
+CFURLStorageSessionRef wkCreatePrivateStorageSession(CFStringRef identifier);
+void wkSetRequestStorageSession(CFURLStorageSessionRef, CFMutableURLRequestRef);
+CFURLCacheRef wkCopyURLCache(CFURLStorageSessionRef);
+
+CFArrayRef wkCFURLCacheCopyAllHostNamesInPersistentStore();
+void wkCFURLCacheDeleteHostNamesInPersistentStore(CFArrayRef hostNames);
 
 unsigned wkInitializeMaximumHTTPConnectionCountPerHost(unsigned preferredConnectionCount);
 

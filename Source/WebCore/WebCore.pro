@@ -2,302 +2,22 @@
 CONFIG += building-libs
 CONFIG += depend_includepath
 
-V8_DIR = "$$[QT_INSTALL_PREFIX]/src/3rdparty/v8"
-
-v8:exists($${V8_DIR}/include/v8.h) {
-    message(Using V8 with QtScript)
-    QT += script
-    INCLUDEPATH += $${V8_DIR}/include
-
-    DEFINES *= V8_BINDING=1
-    DEFINES += WTF_CHANGES=1
-    DEFINES *= WTF_USE_V8=1
-    DEFINES += USING_V8_SHARED
-
-    linux-*:LIBS += -lv8
-}
-
-symbian: {
-    TARGET.EPOCALLOWDLLDATA=1
-    # DRM and Allfiles capabilites need to be audited to be signed on Symbian
-    # For regular users that is not possible, so use the CONFIG(production) flag is added
-    # To use all capabilies add CONFIG+=production
-    # If building from QT source tree, also add CONFIG-=QTDIR_build as qbase.pri defaults capabilities to All -Tcb.    
-    CONFIG(production) {
-        TARGET.CAPABILITY = All -Tcb
-    } else {
-        TARGET.CAPABILITY = All -Tcb -DRM -AllFiles
-    }
-    isEmpty(QT_LIBINFIX) {
-        TARGET.UID3 = 0x200267C2
-    } else {
-        TARGET.UID3 = 0xE00267C2
-    }
-    webkitlibs.sources = QtWebKit$${QT_LIBINFIX}.dll
-    v8 {
-        webkitlibs.sources += v8.dll
-        QMAKE_CXXFLAGS.ARMCC += -OTime -O3
-        QMAKE_CXXFLAGS.ARMCC += --fpu softvfp+vfpv2 --fpmode fast
-        LIBS += -llibpthread
-    }
-
-    CONFIG(QTDIR_build): webkitlibs.sources = $$QMAKE_LIBDIR_QT/$$webkitlibs.sources
-    webkitlibs.path = /sys/bin
-    vendorinfo = \
-        "; Localised Vendor name" \
-        "%{\"Nokia, Qt\"}" \
-        " " \
-        "; Unique Vendor name" \
-        ":\"Nokia, Qt\"" \
-        " "
-    webkitlibs.pkg_prerules = vendorinfo
-
-    webkitbackup.sources = ../WebKit/qt/symbian/backup_registration.xml
-    webkitbackup.path = /private/10202D56/import/packages/$$replace(TARGET.UID3, 0x,)
-
-    contains(QT_CONFIG, declarative) {
-         declarativeImport.sources = $$QT_BUILD_TREE/imports/QtWebKit/qmlwebkitplugin$${QT_LIBINFIX}.dll
-         declarativeImport.sources += ../WebKit/qt/declarative/qmldir
-         declarativeImport.path = c:$$QT_IMPORTS_BASE_DIR/QtWebKit
-         DEPLOYMENT += declarativeImport
-    }
-
-    DEPLOYMENT += webkitlibs webkitbackup
-
-    symbian-abld|symbian-sbsv2 {
-        # RO text (code) section in qtwebkit.dll exceeds allocated space for gcce udeb target.
-        # Move RW-section base address to start from 0xE00000 instead of the toolchain default 0x400000.
-        QMAKE_LFLAGS.ARMCC += --rw-base 0xE00000
-        MMP_RULES += ALWAYS_BUILD_AS_ARM
-    }  else {
-        QMAKE_CFLAGS -= --thumb
-        QMAKE_CXXFLAGS -= --thumb
-    }
-    CONFIG(release, debug|release): QMAKE_CXXFLAGS.ARMCC += -OTime -O3
-
-    !CONFIG(production):CONFIG-=def_files
-}
-
 isEmpty(OUTPUT_DIR): OUTPUT_DIR = ..
 include($$PWD/../WebKit.pri)
+include($$PWD/WebCore.pri)
+include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
 
 TEMPLATE = lib
-TARGET = QtWebKit
+TARGET = $$WEBCORE_TARGET
+CONFIG += staticlib
 
-contains(QT_CONFIG, qpa):CONFIG += embedded
-
-CONFIG(standalone_package) {
-    isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = $$PWD/generated
-    isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = $$PWD/../JavaScriptCore/generated
-
-    PRECOMPILED_HEADER = $$PWD/../WebKit/qt/WebKit_pch.h
-} else {
-    isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = generated
-    isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = ../JavaScriptCore/generated
-
-    !CONFIG(release, debug|release) {
-        OBJECTS_DIR = obj/debug
-    } else { # Release
-        OBJECTS_DIR = obj/release
-    }
-
-}
-
-CONFIG(QTDIR_build) {
-    include($$QT_SOURCE_TREE/src/qbase.pri)
-} else {
-    DESTDIR = $$OUTPUT_DIR/lib
-    !static: DEFINES += QT_MAKEDLL
-    symbian: TARGET =$$TARGET$${QT_LIBINFIX}
-}
-moduleFile=$$PWD/../WebKit/qt/qt_webkit_version.pri
-isEmpty(QT_BUILD_TREE):include($$moduleFile)
-VERSION = $${QT_WEBKIT_MAJOR_VERSION}.$${QT_WEBKIT_MINOR_VERSION}.$${QT_WEBKIT_PATCH_VERSION}
-
-unix|win32-g++*:QMAKE_PKGCONFIG_REQUIRES = QtCore QtGui QtNetwork
-
-unix:!mac:*-g++*:QMAKE_CXXFLAGS += -ffunction-sections -fdata-sections 
-unix:!mac:*-g++*:QMAKE_LFLAGS += -Wl,--gc-sections
-linux*-g++*:QMAKE_LFLAGS += $$QMAKE_LFLAGS_NOUNDEF
-
-CONFIG(release):!CONFIG(standalone_package) {
-    contains(QT_CONFIG, reduce_exports):CONFIG += hide_symbols
-    unix:contains(QT_CONFIG, reduce_relocations):CONFIG += bsymbolic_functions
-}
-
-DEFINES += BUILDING_WEBKIT
-
-# Remove whole program optimizations due to miscompilations
-win32-msvc2005|win32-msvc2008|wince*:{
-    QMAKE_CFLAGS_RELEASE -= -GL
-    QMAKE_CXXFLAGS_RELEASE -= -GL
-
-    # Disable incremental linking for windows 32bit OS debug build as WebKit is so big
-    # that linker failes to link incrementally in debug mode.
-    ARCH = $$(PROCESSOR_ARCHITECTURE)
-    WOW64ARCH = $$(PROCESSOR_ARCHITEW6432)
-    equals(ARCH, x86):{
-        isEmpty(WOW64ARCH): QMAKE_LFLAGS_DEBUG += /INCREMENTAL:NO
-    }
-}
-
-# Pick up 3rdparty libraries from INCLUDE/LIB just like with MSVC
-win32-g++* {
-    TMPPATH            = $$quote($$(INCLUDE))
-    QMAKE_INCDIR_POST += $$split(TMPPATH,";")
-    TMPPATH            = $$quote($$(LIB))
-    QMAKE_LIBDIR_POST += $$split(TMPPATH,";")
-}
-
-symbian {
-    !CONFIG(QTDIR_build) {
-        # Test if symbian OS comes with sqlite
-        exists($${EPOCROOT}epoc32/release/armv5/lib/sqlite3.dso):CONFIG *= system-sqlite
-    } else:!symbian-abld:!symbian-sbsv2 {
-        # When bundled with Qt, all Symbian build systems extract their own sqlite files if
-        # necessary, but on non-mmp based ones we need to specify this ourselves.
-        include($$QT_SOURCE_TREE/src/plugins/sqldrivers/sqlite_symbian/sqlite_symbian.pri)
-    }
-}
-
-
-
-RESOURCES += \
-    $$PWD/../WebCore/WebCore.qrc
-
-include_webinspector: RESOURCES += $$PWD/../WebCore/inspector/front-end/WebKit.qrc $$WC_GENERATED_SOURCES_DIR/InspectorBackendStub.qrc
-
-enable_fast_mobile_scrolling: DEFINES += ENABLE_FAST_MOBILE_SCROLLING=1
-
-use_qt_mobile_theme: DEFINES += WTF_USE_QT_MOBILE_THEME=1
+DESTDIR = $$WEBCORE_DESTDIR
 
 contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
     DEFINES += ENABLE_NO_LISTBOX_RENDERING=1
 }
 
-include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
-!v8: addJavaScriptCoreLib(../JavaScriptCore)
-
-webkit2 {
-    include($$PWD/../WebKit2/WebKit2.pri)
-    addWebKit2LibWholeArchive(../WebKit2)
-}
-
-# Extract sources to build from the generator definitions
-defineTest(addExtraCompiler) {
-    isEqual($${1}.wkAddOutputToSources, false): return(true)
-
-    outputRule = $$eval($${1}.output)
-    input = $$eval($${1}.input)
-    input = $$eval($$input)
-
-    for(file,input) {
-        base = $$basename(file)
-        base ~= s/\\..+//
-        newfile=$$replace(outputRule,\\$\\{QMAKE_FILE_BASE\\},$$base)
-        SOURCES += $$newfile
-    }
-    SOURCES += $$eval($${1}.wkExtraSources)
-    export(SOURCES)
-
-    return(true)
-}
-include(WebCore.pri)
-
-v8 {
-    WEBCORE_INCLUDEPATH = \
-        $$PWD/bindings/v8 \
-        $$PWD/bindings/v8/custom \
-        $$PWD/bindings/v8/specialization \
-        $$PWD/bridge/qt/v8
-
-} else {
-    WEBCORE_INCLUDEPATH = \
-        $$PWD/bridge/jsc \
-        $$PWD/bindings/js \
-        $$PWD/bindings/js/specialization \
-        $$PWD/bridge/c
-}
-
-
-WEBCORE_INCLUDEPATH = \
-    $$PWD \
-    $$PWD/accessibility \
-    $$PWD/bindings \
-    $$PWD/bindings/generic \
-    $$PWD/bridge \
-    $$PWD/css \
-    $$PWD/dom \
-    $$PWD/dom/default \
-    $$PWD/editing \
-    $$PWD/fileapi \
-    $$PWD/history \
-    $$PWD/html \
-    $$PWD/html/canvas \
-    $$PWD/html/parser \
-    $$PWD/html/shadow \
-    $$PWD/inspector \
-    $$PWD/loader \
-    $$PWD/loader/appcache \
-    $$PWD/loader/archive \
-    $$PWD/loader/cache \
-    $$PWD/loader/icon \
-    $$PWD/mathml \
-    $$PWD/notifications \
-    $$PWD/page \
-    $$PWD/page/animation \
-    $$PWD/platform \
-    $$PWD/platform/animation \
-    $$PWD/platform/audio \
-    $$PWD/platform/graphics \
-    $$PWD/platform/graphics/filters \
-    $$PWD/platform/graphics/transforms \
-    $$PWD/platform/image-decoders \
-    $$PWD/platform/mock \
-    $$PWD/platform/network \
-    $$PWD/platform/sql \
-    $$PWD/platform/text \
-    $$PWD/platform/text/transcoder \
-    $$PWD/plugins \
-    $$PWD/rendering \
-    $$PWD/rendering/mathml \
-    $$PWD/rendering/style \
-    $$PWD/rendering/svg \
-    $$PWD/storage \
-    $$PWD/svg \
-    $$PWD/svg/animation \
-    $$PWD/svg/graphics \
-    $$PWD/svg/graphics/filters \
-    $$PWD/svg/properties \
-    $$PWD/webaudio \
-    $$PWD/websockets \
-    $$PWD/wml \
-    $$PWD/workers \
-    $$PWD/xml \
-    $$WC_GENERATED_SOURCES_DIR \
-    $$WEBCORE_INCLUDEPATH
-
-WEBCORE_INCLUDEPATH = \
-    $$PWD/bridge/qt \
-    $$PWD/page/qt \
-    $$PWD/platform/graphics/qt \
-    $$PWD/platform/network/qt \
-    $$PWD/platform/qt \
-    $$PWD/../WebKit/qt/Api \
-    $$PWD/../WebKit/qt/WebCoreSupport \
-    $$WEBCORE_INCLUDEPATH
-
-symbian {
-    PREPEND_INCLUDEPATH = $$WEBCORE_INCLUDEPATH $$PREPEND_INCLUDEPATH
-} else {
-    INCLUDEPATH = $$WEBCORE_INCLUDEPATH $$INCLUDEPATH
-}
-
-QT += network
-
-
 DASHBOARDSUPPORTCSSPROPERTIES = $$PWD/css/DashboardSupportCSSPropertyNames.in
-
 
 contains(DEFINES, ENABLE_SVG=1) {
     EXTRACSSPROPERTIES += $$PWD/css/SVGCSSPropertyNames.in
@@ -341,6 +61,7 @@ v8 {
     include($$PWD/../JavaScriptCore/wtf/wtf.pri)
 
     SOURCES += \
+        platform/qt/PlatformBridgeQt.cpp \
         bindings/generic/BindingSecurityBase.cpp \
         \
         bindings/v8/WorldContextHandle.cpp \
@@ -348,7 +69,6 @@ v8 {
         bindings/v8/custom/V8HistoryCustom.cpp \
         bindings/v8/custom/V8PopStateEventCustom.cpp \
         bindings/v8/ScriptGCEvent.cpp
-
 
     SOURCES += \
         bindings/v8/custom/V8ArrayBufferCustom.cpp \
@@ -376,6 +96,7 @@ v8 {
         bindings/v8/ScriptCallStackFactory.cpp \
         bindings/ScriptControllerBase.cpp \
         bindings/v8/ScriptController.cpp \
+        bindings/v8/ScriptControllerQt.cpp \
         bindings/v8/ScriptEventListener.cpp \
         bindings/v8/ScriptFunctionCall.cpp \
         bindings/v8/ScriptInstance.cpp \
@@ -531,6 +252,7 @@ v8 {
         bindings/js/JSDOMBinding.cpp \
         bindings/js/JSDOMFormDataCustom.cpp \
         bindings/js/JSDOMGlobalObject.cpp \
+        bindings/js/JSDOMImplementationCustom.cpp \
         bindings/js/JSDOMMimeTypeArrayCustom.cpp \
         bindings/js/JSDOMPluginArrayCustom.cpp \
         bindings/js/JSDOMPluginCustom.cpp \
@@ -542,7 +264,6 @@ v8 {
         bindings/js/JSDataGridColumnListCustom.cpp \
         bindings/js/JSDataGridDataSource.cpp \
         bindings/js/JSDataViewCustom.cpp \
-        bindings/js/JSDebugWrapperSet.cpp \
         bindings/js/JSDesktopNotificationsCustom.cpp \
         bindings/js/JSDeviceMotionEventCustom.cpp \
         bindings/js/JSDeviceOrientationEventCustom.cpp \
@@ -621,6 +342,7 @@ v8 {
         bindings/js/ScriptCachedFrameData.cpp \
         bindings/js/ScriptCallStackFactory.cpp \
         bindings/js/ScriptController.cpp \
+        bindings/js/ScriptControllerQt.cpp \
         bindings/js/ScriptDebugServer.cpp \
         bindings/js/ScriptEventListener.cpp \
         bindings/js/ScriptFunctionCall.cpp \
@@ -639,6 +361,10 @@ v8 {
         bridge/c/c_utility.cpp \
         bridge/jsc/BridgeJSC.cpp \
         bridge/npruntime.cpp \
+        bridge/qt/qt_class.cpp \
+        bridge/qt/qt_instance.cpp \
+        bridge/qt/qt_pixmapruntime.cpp \
+        bridge/qt/qt_runtime.cpp \
         bridge/runtime_array.cpp \
         bridge/runtime_method.cpp \
         bridge/runtime_object.cpp \
@@ -670,6 +396,7 @@ SOURCES += \
     css/CSSParser.cpp \
     css/CSSParserValues.cpp \
     css/CSSPrimitiveValue.cpp \
+    css/CSSPrimitiveValueCache.cpp \
     css/CSSProperty.cpp \
     css/CSSPropertyLonghand.cpp \
     css/CSSPropertySourceData.cpp \
@@ -984,6 +711,7 @@ SOURCES += \
     html/HTMLScriptElement.cpp \
     html/HTMLSelectElement.cpp \
     html/HTMLStyleElement.cpp \
+    html/HTMLSummaryElement.cpp \
     html/HTMLTableCaptionElement.cpp \
     html/HTMLTableCellElement.cpp \
     html/HTMLTableColElement.cpp \
@@ -1061,6 +789,7 @@ SOURCES += \
     html/parser/XSSFilter.cpp \
     html/shadow/MediaControls.cpp \
     html/shadow/SliderThumbElement.cpp \
+    html/shadow/TextControlInnerElements.cpp \
     inspector/ConsoleMessage.cpp \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
@@ -1155,6 +884,7 @@ SOURCES += \
     page/EventSource.cpp \
     page/FocusController.cpp \
     page/Frame.cpp \
+    page/FrameActionScheduler.cpp \
     page/FrameTree.cpp \
     page/FrameView.cpp \
     page/Geolocation.cpp \
@@ -1198,7 +928,6 @@ SOURCES += \
     platform/text/LocalizedNumberNone.cpp \
     platform/ContentType.cpp \
     platform/CrossThreadCopier.cpp \
-    platform/DeprecatedPtrListImpl.cpp \
     platform/DragData.cpp \
     platform/DragImage.cpp \
     platform/FileChooser.cpp \
@@ -1361,6 +1090,7 @@ SOURCES += \
     rendering/RenderObjectChildList.cpp \
     rendering/RenderPart.cpp \
     rendering/RenderProgress.cpp \
+    rendering/RenderQuote.cpp \
     rendering/RenderReplaced.cpp \
     rendering/RenderReplica.cpp \
     rendering/RenderRuby.cpp \
@@ -1390,13 +1120,13 @@ SOURCES += \
     rendering/RootInlineBox.cpp \
     rendering/ScrollBehavior.cpp \
     rendering/ShadowElement.cpp \
-    rendering/TextControlInnerElements.cpp \
     rendering/TransformState.cpp \
     rendering/style/ContentData.cpp \
     rendering/style/CounterDirectives.cpp \
     rendering/style/FillLayer.cpp \
     rendering/style/KeyframeList.cpp \
     rendering/style/NinePieceImage.cpp \
+    rendering/style/QuotesData.cpp \
     rendering/style/RenderStyle.cpp \
     rendering/style/ShadowData.cpp \
     rendering/style/StyleBackgroundData.cpp \
@@ -1416,7 +1146,7 @@ SOURCES += \
     xml/XMLHttpRequest.cpp \
     xml/XMLHttpRequestProgressEventThrottle.cpp \
     xml/XMLHttpRequestUpload.cpp \
-    xml/XMLSerializer.cpp 
+    xml/XMLSerializer.cpp
 
 HEADERS += \
     accessibility/AccessibilityARIAGridCell.h \
@@ -1532,7 +1262,6 @@ v8 {
         bindings/js/JSDOMWindowShell.h \
         bindings/js/JSDOMWrapper.h \
         bindings/js/JSDataGridDataSource.h \
-        bindings/js/JSDebugWrapperSet.h \
         bindings/js/JSErrorHandler.h \
         bindings/js/JSEventListener.h \
         bindings/js/JSEventTarget.h \
@@ -1618,6 +1347,7 @@ HEADERS += \
     css/CSSParser.h \
     css/CSSParserValues.h \
     css/CSSPrimitiveValue.h \
+    css/CSSPrimitiveValueCache.h \
     css/CSSProperty.h \
     css/CSSPropertyLonghand.h \
     css/CSSReflectValue.h \
@@ -1934,6 +1664,7 @@ HEADERS += \
     html/HTMLSelectElement.h \
     html/HTMLSourceElement.h \
     html/HTMLStyleElement.h \
+    html/HTMLSummaryElement.h \
     html/HTMLTableCaptionElement.h \
     html/HTMLTableCellElement.h \
     html/HTMLTableColElement.h \
@@ -2000,6 +1731,7 @@ HEADERS += \
     inspector/InspectorState.h \
     inspector/InspectorStyleSheet.h \
     inspector/InspectorTimelineAgent.h \
+    inspector/InstrumentingAgents.h \
     inspector/ScriptGCEventListener.h \
     inspector/TimelineRecordFactory.h \
     loader/appcache/ApplicationCacheGroup.h \
@@ -2070,6 +1802,7 @@ HEADERS += \
     page/DragController.h \
     page/EventHandler.h \
     page/EventSource.h \
+    page/EditorClient.h \
     page/FocusController.h \
     page/Frame.h \
     page/FrameTree.h \
@@ -2109,7 +1842,6 @@ HEADERS += \
     platform/ContentType.h \
     platform/ContextMenu.h \
     platform/CrossThreadCopier.h \
-    platform/DeprecatedPtrListImpl.h \
     platform/DragData.h \
     platform/DragImage.h \
     platform/FileChooser.h \
@@ -2161,6 +1893,7 @@ HEADERS += \
     platform/graphics/GraphicsLayer.h \
     platform/graphics/GraphicsLayerClient.h \
     platform/graphics/GraphicsTypes.h \
+    platform/graphics/GraphicsTypes3D.h \
     platform/graphics/Image.h \
     platform/graphics/ImageSource.h \
     platform/graphics/IntPoint.h \
@@ -2193,6 +1926,7 @@ HEADERS += \
     platform/KURL.h \
     platform/Length.h \
     platform/text/LineEnding.h \
+    platform/text/TextCheckerClient.h \
     platform/LinkHash.h \
     platform/Logging.h \
     platform/Language.h \
@@ -2214,7 +1948,6 @@ HEADERS += \
     platform/network/NetworkStateNotifier.h \
     platform/network/ProtectionSpace.h \
     platform/network/ProxyServer.h \
-    platform/network/qt/QtNAMThreadSafeProxy.h \
     platform/network/qt/QNetworkReplyHandler.h \
     platform/network/ResourceErrorBase.h \
     platform/network/ResourceHandle.h \
@@ -2223,6 +1956,7 @@ HEADERS += \
     platform/network/ResourceLoadTiming.h \
     platform/network/ResourceRequestBase.h \
     platform/network/ResourceResponseBase.h \
+    platform/network/qt/DnsPrefetchHelper.h \
     platform/PlatformTouchEvent.h \
     platform/PlatformTouchPoint.h \
     platform/PopupMenu.h \
@@ -2251,6 +1985,7 @@ HEADERS += \
     platform/text/SegmentedString.h \
     platform/text/TextBoundaries.h \
     platform/text/TextCodec.h \
+    platform/text/TextCodecASCIIFastPath.h \
     platform/text/TextCodecLatin1.h \
     platform/text/TextCodecUserDefined.h \
     platform/text/TextCodecUTF16.h \
@@ -2345,6 +2080,7 @@ HEADERS += \
     rendering/RenderObject.h \
     rendering/RenderPart.h \
     rendering/RenderProgress.h \
+    rendering/RenderQuote.h \
     rendering/RenderReplaced.h \
     rendering/RenderReplica.h \
     rendering/RenderRuby.h \
@@ -2382,6 +2118,7 @@ HEADERS += \
     rendering/style/FillLayer.h \
     rendering/style/KeyframeList.h \
     rendering/style/NinePieceImage.h \
+    rendering/style/QuotesData.h \
     rendering/style/RenderStyle.h \
     rendering/style/ShadowData.h \
     rendering/style/StyleBackgroundData.h \
@@ -2451,7 +2188,6 @@ HEADERS += \
     rendering/svg/SVGTextLayoutEngineSpacing.h \
     rendering/svg/SVGTextMetrics.h \
     rendering/svg/SVGTextQuery.h \
-    rendering/TextControlInnerElements.h \
     rendering/TransformState.h \
     svg/animation/SMILTimeContainer.h \
     svg/animation/SMILTime.h \
@@ -2699,34 +2435,7 @@ HEADERS += \
     xml/XSLStyleSheet.h \
     xml/XSLTExtensions.h \
     xml/XSLTProcessor.h \
-    xml/XSLTUnicodeSort.h \
-    $$PWD/../WebKit/qt/Api/qwebplugindatabase_p.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/InspectorServerQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/ChromeClientQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/PageClientQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/PopupMenuQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/SearchPopupMenuQt.h \
-    $$PWD/../WebKit/qt/WebCoreSupport/WebPlatformStrategies.h \
-    $$PWD/platform/network/qt/DnsPrefetchHelper.h
-
-v8 {
-    SOURCES += \
-       bindings/v8/ScriptControllerQt.cpp \
-       platform/qt/PlatformBridgeQt.cpp
-} else {
-    SOURCES += \
-       bindings/js/ScriptControllerQt.cpp \
-       bridge/qt/qt_class.cpp \
-       bridge/qt/qt_instance.cpp \
-       bridge/qt/qt_pixmapruntime.cpp \
-       bridge/qt/qt_runtime.cpp
-}
+    xml/XSLTUnicodeSort.h
 
 SOURCES += \
     accessibility/qt/AccessibilityObjectQt.cpp \
@@ -2756,7 +2465,6 @@ SOURCES += \
     platform/network/qt/ResourceHandleQt.cpp \
     platform/network/qt/ResourceRequestQt.cpp \
     platform/network/qt/DnsPrefetchHelper.cpp \
-    platform/network/qt/QtNAMThreadSafeProxy.cpp \
     platform/network/qt/ProxyServerQt.cpp \
     platform/network/qt/QNetworkReplyHandler.cpp \
     editing/qt/EditorQt.cpp \
@@ -2799,49 +2507,12 @@ SOURCES += \
     platform/text/qt/TextBreakIteratorQt.cpp \
     platform/text/qt/TextCodecQt.cpp \
     platform/qt/WheelEventQt.cpp \
-    platform/qt/WidgetQt.cpp \
-    ../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.cpp \
-    ../WebKit/qt/WebCoreSupport/ChromeClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/ContextMenuClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/DragClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.cpp \
-    ../WebKit/qt/WebCoreSupport/EditorClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/EditCommandQt.cpp \
-    ../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.cpp \
-    ../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/InspectorServerQt.cpp \
-    ../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
-    ../WebKit/qt/WebCoreSupport/PopupMenuQt.cpp \
-    ../WebKit/qt/WebCoreSupport/QtPlatformPlugin.cpp \
-    ../WebKit/qt/WebCoreSupport/SearchPopupMenuQt.cpp \
-    ../WebKit/qt/WebCoreSupport/WebPlatformStrategies.cpp \
-    ../WebKit/qt/Api/qwebframe.cpp \
-    ../WebKit/qt/Api/qgraphicswebview.cpp \
-    ../WebKit/qt/Api/qwebpage.cpp \
-    ../WebKit/qt/Api/qwebview.cpp \
-    ../WebKit/qt/Api/qwebelement.cpp \
-    ../WebKit/qt/Api/qwebhistory.cpp \
-    ../WebKit/qt/Api/qwebsettings.cpp \
-    ../WebKit/qt/Api/qwebhistoryinterface.cpp \
-    ../WebKit/qt/Api/qwebplugindatabase.cpp \
-    ../WebKit/qt/Api/qwebpluginfactory.cpp \
-    ../WebKit/qt/Api/qwebsecurityorigin.cpp \
-    ../WebKit/qt/Api/qwebscriptworld.cpp \
-    ../WebKit/qt/Api/qwebdatabase.cpp \
-    ../WebKit/qt/Api/qwebinspector.cpp \
-    ../WebKit/qt/Api/qwebkitversion.cpp
+    platform/qt/WidgetQt.cpp
+
 
 contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
     HEADERS += platform/qt/QtMobileWebStyle.h
     SOURCES += platform/qt/QtMobileWebStyle.cpp
-}
-
-maemo5 {
-    HEADERS += ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.h
-    SOURCES += ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.cpp
 }
 
 contains(DEFINES, ENABLE_SMOOTH_SCROLLING=1) {
@@ -2861,101 +2532,51 @@ mac {
     SOURCES += \
         platform/text/cf/StringCF.cpp \
         platform/text/cf/StringImplCF.cpp
-    LIBS_PRIVATE += -framework Carbon -framework AppKit
-}
-
-win32-* {
-    LIBS += -lgdi32
-    LIBS += -lole32
-    LIBS += -luser32
-}
-
-wince* {
-    LIBS += -lmmtimer
-    LIBS += -lole32
 }
 
 contains (CONFIG, text_breaking_with_icu) {
     SOURCES += platform/text/TextBreakIteratorICU.cpp
-    LIBS += -licuuc
 }
 
 symbian {
     SOURCES += \
         plugins/symbian/PluginDatabaseSymbian.cpp \
         plugins/symbian/PluginPackageSymbian.cpp
-
-    LIBS += -lefsrv
 }
 
 contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
 
     SOURCES += plugins/npapi.cpp
 
-    symbian {
-        SOURCES += \
-        plugins/symbian/PluginViewSymbian.cpp \
-        plugins/symbian/PluginContainerSymbian.cpp
-
-        HEADERS += \
-        plugins/symbian/PluginContainerSymbian.h \
-        plugins/symbian/npinterface.h
-
-    } else {
-
-        unix {
-    
-            mac {
-                SOURCES += \
-                    plugins/mac/PluginPackageMac.cpp
-                OBJECTIVE_SOURCES += \
-                    platform/text/mac/StringImplMac.mm \
-                    platform/mac/WebCoreNSStringExtras.mm \
-                    plugins/mac/PluginViewMac.mm
-                INCLUDEPATH += platform/mac
-                # Note: XP_MACOSX is defined in npapi.h
-            } else {
-                !embedded {
-                    CONFIG += x11
-                    LIBS += -lXrender
-                }
-                maemo5 {
-                    DEFINES += MOZ_PLATFORM_MAEMO=5
-                }
-                contains(DEFINES, Q_WS_MAEMO_6) {
-                    DEFINES += MOZ_PLATFORM_MAEMO=6
-                }
-                SOURCES += \
-                    plugins/qt/PluginContainerQt.cpp \
-                    plugins/qt/PluginPackageQt.cpp \
-                    plugins/qt/PluginViewQt.cpp
-                HEADERS += \
-                    plugins/qt/PluginContainerQt.h
-                DEFINES += XP_UNIX
-                DEFINES += ENABLE_NETSCAPE_PLUGIN_METADATA_CACHE=1
-            }
+    unix:!symbian {
+        mac {
+            SOURCES += \
+                plugins/mac/PluginPackageMac.cpp
+            OBJECTIVE_SOURCES += \
+                platform/text/mac/StringImplMac.mm \
+                platform/mac/WebCoreNSStringExtras.mm \
+                plugins/mac/PluginViewMac.mm
+        } else {
+            SOURCES += \
+                plugins/qt/PluginContainerQt.cpp \
+                plugins/qt/PluginPackageQt.cpp \
+                plugins/qt/PluginViewQt.cpp
+            HEADERS += \
+                plugins/qt/PluginContainerQt.h
         }
-    
-        win32-* {
-            INCLUDEPATH += $$PWD/plugins/win \
-                           $$PWD/platform/win \
-                           $$PWD/platform/graphics/win
-    
-            SOURCES += plugins/win/PluginDatabaseWin.cpp \
-                       plugins/win/PluginPackageWin.cpp \
-                       plugins/win/PluginMessageThrottlerWin.cpp \
-                       plugins/win/PluginViewWin.cpp \
-                       platform/win/BitmapInfo.cpp \
-                       platform/win/WebCoreInstanceHandle.cpp
-    
-            LIBS += \
-                -ladvapi32 \
-                -lgdi32 \
-                -lshell32 \
-                -lshlwapi \
-                -luser32 \
-                -lversion
-        }
+    }
+
+    win32-* {
+        INCLUDEPATH += $$PWD/plugins/win \
+                       $$PWD/platform/win \
+                       $$PWD/platform/graphics/win
+
+        SOURCES += plugins/win/PluginDatabaseWin.cpp \
+                   plugins/win/PluginPackageWin.cpp \
+                   plugins/win/PluginMessageThrottlerWin.cpp \
+                   plugins/win/PluginViewWin.cpp \
+                   platform/win/BitmapInfo.cpp \
+                   platform/win/WebCoreInstanceHandle.cpp
     }
 
 } else {
@@ -2968,23 +2589,8 @@ contains(DEFINES, ENABLE_SQLITE=1) {
     !system-sqlite:exists( $${SQLITE3SRCDIR}/sqlite3.c ) {
             # Build sqlite3 into WebCore from source
             # somewhat copied from $$QT_SOURCE_TREE/src/plugins/sqldrivers/sqlite/sqlite.pro
-            INCLUDEPATH += $${SQLITE3SRCDIR}
             SOURCES += $${SQLITE3SRCDIR}/sqlite3.c
-            DEFINES += SQLITE_CORE SQLITE_OMIT_LOAD_EXTENSION SQLITE_OMIT_COMPLETE
-            CONFIG(release, debug|release): DEFINES *= NDEBUG
-            contains(DEFINES, ENABLE_SINGLE_THREADED=1): DEFINES += SQLITE_THREADSAFE=0
-    } else {
-        # Use sqlite3 from the underlying OS
-        CONFIG(QTDIR_build) {
-            QMAKE_CXXFLAGS *= $$QT_CFLAGS_SQLITE
-            LIBS *= $$QT_LFLAGS_SQLITE
-        } else {
-            INCLUDEPATH += $${SQLITE3SRCDIR}
-            LIBS += -lsqlite3
-        }
     }
-
-    wince*:DEFINES += HAVE_LOCALTIME_S=0
 
     SOURCES += \
         platform/sql/SQLiteAuthorizer.cpp \
@@ -3043,8 +2649,7 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBDatabaseBackendInterface.h \
         storage/IDBDatabaseError.h \
         storage/IDBDatabaseException.h \
-        storage/IDBErrorEvent.h \
-        storage/IDBEvent.h \
+        storage/IDBEventDispatcher.h \
         storage/IDBFactory.h \
         storage/IDBFactoryBackendInterface.h \
         storage/IDBFactoryBackendImpl.h \
@@ -3057,7 +2662,6 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBObjectStoreBackendImpl.h \
         storage/IDBObjectStoreBackendInterface.h \
         storage/IDBRequest.h \
-        storage/IDBSuccessEvent.h \
         storage/IDBTransaction.h \
         storage/IDBTransactionBackendInterface.h
 
@@ -3074,8 +2678,7 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBCursorBackendImpl.cpp \
         storage/IDBDatabase.cpp \
         storage/IDBDatabaseBackendImpl.cpp \
-        storage/IDBErrorEvent.cpp \
-        storage/IDBEvent.cpp \
+        storage/IDBEventDispatcher.cpp \
         storage/IDBFactory.cpp \
         storage/IDBFactoryBackendInterface.cpp \
         storage/IDBFactoryBackendImpl.cpp \
@@ -3086,7 +2689,6 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBObjectStore.cpp \
         storage/IDBObjectStoreBackendImpl.cpp \
         storage/IDBRequest.cpp \
-        storage/IDBSuccessEvent.cpp \
         storage/IDBTransaction.cpp
 }
 
@@ -3284,6 +2886,7 @@ contains(DEFINES, ENABLE_VIDEO=1) {
     contains(DEFINES, USE_GSTREAMER=1) {
         HEADERS += \
             platform/graphics/gstreamer/GOwnPtrGStreamer.h \
+            platform/graphics/gstreamer/GRefPtrGStreamer.h \
             platform/graphics/gstreamer/GStreamerGWorld.h \
             platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.h \
             platform/graphics/gstreamer/VideoSinkGStreamer.h \
@@ -3293,6 +2896,7 @@ contains(DEFINES, ENABLE_VIDEO=1) {
             platform/graphics/gstreamer/ImageGStreamer.h
         SOURCES += \
             platform/graphics/gstreamer/GOwnPtrGStreamer.cpp \
+            platform/graphics/gstreamer/GRefPtrGStreamer.cpp \
             platform/graphics/gstreamer/GStreamerGWorld.cpp \
             platform/graphics/gstreamer/MediaPlayerPrivateGStreamer.cpp \
             platform/graphics/gstreamer/VideoSinkGStreamer.cpp \
@@ -3300,43 +2904,18 @@ contains(DEFINES, ENABLE_VIDEO=1) {
             platform/graphics/gstreamer/PlatformVideoWindowQt.cpp \
             platform/graphics/gstreamer/ImageGStreamerQt.cpp
 
-        DEFINES += WTF_USE_GSTREAMER=1
-        DEFINES += ENABLE_GLIB_SUPPORT=1
-
-        INCLUDEPATH += $$PWD/platform/graphics/gstreamer
-
-        PKGCONFIG += glib-2.0 gio-2.0 gstreamer-0.10 gstreamer-app-0.10 gstreamer-base-0.10 gstreamer-interfaces-0.10 gstreamer-pbutils-0.10 gstreamer-plugins-base-0.10 gstreamer-video-0.10
-     } else:contains(MOBILITY_CONFIG, multimedia) {
+    } else:contains(MOBILITY_CONFIG, multimedia) {
         HEADERS += \ 
-            platform/graphics/qt/MediaPlayerPrivateQt.h \
-            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoQt.h \
-            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoWidget.h
+            platform/graphics/qt/MediaPlayerPrivateQt.h
 
         SOURCES += \
-            platform/graphics/qt/MediaPlayerPrivateQt.cpp \
-            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoQt.cpp \
-            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoWidget.cpp
-
-        CONFIG *= mobility
-        MOBILITY += multimedia
-        DEFINES += WTF_USE_QT_MULTIMEDIA
-     } else:contains(QT_CONFIG, phonon) {
+            platform/graphics/qt/MediaPlayerPrivateQt.cpp
+    } else:contains(QT_CONFIG, phonon) {
         HEADERS += \
             platform/graphics/qt/MediaPlayerPrivatePhonon.h
 
         SOURCES += \
             platform/graphics/qt/MediaPlayerPrivatePhonon.cpp
-
-        # Add phonon manually to prevent it from coming first in
-        # the include paths, as Phonon's path.h conflicts with
-        # WebCore's Path.h on case-insensitive filesystems.
-        qtAddLibrary(phonon)
-        INCLUDEPATH -= $$QMAKE_INCDIR_QT/phonon
-        INCLUDEPATH += $$QMAKE_INCDIR_QT/phonon
-        mac {
-            INCLUDEPATH -= $$QMAKE_LIBDIR_QT/phonon.framework/Headers
-            INCLUDEPATH += $$QMAKE_LIBDIR_QT/phonon.framework/Headers
-        }
     }
 }
 
@@ -3360,11 +2939,7 @@ contains(DEFINES, ENABLE_XPATH=1) {
         xml/XPathVariableReference.cpp
 }
 
-unix:!mac:!symbian:CONFIG += link_pkgconfig
-
 contains(DEFINES, ENABLE_XSLT=1) {
-    tobe|!tobe: QT += xmlpatterns
-
     v8 {
         SOURCES += \
             bindings/v8/custom/V8XSLTProcessorCustom.cpp
@@ -3475,50 +3050,15 @@ contains(DEFINES, ENABLE_QT_BEARER=1) {
 
     SOURCES += \
         platform/network/qt/NetworkStateNotifierQt.cpp
-
-    # Bearer management is part of Qt 4.7, so don't accidentially
-    # pull in Qt Mobility when building against >= 4.7
-    !greaterThan(QT_MINOR_VERSION, 6) {
-        CONFIG += mobility
-        MOBILITY += bearer
-    }
 }
 
 contains(DEFINES, ENABLE_GEOLOCATION=1) {
-    DEFINES += WTF_USE_PREEMPT_GEOLOCATION_PERMISSION
-    HEADERS += \
-        platform/qt/GeolocationServiceQt.h
-    SOURCES += \
-        platform/qt/GeolocationServiceQt.cpp
-
-    CONFIG += mobility
-    MOBILITY += location
-
     v8 {
         SOURCES += \
             bindings/v8/custom/V8CustomPositionCallback.cpp \
             bindings/v8/custom/V8CustomPositionErrorCallback.cpp \
             bindings/v8/custom/V8GeolocationCustom.cpp
     }
-}
-
-contains(DEFINES, ENABLE_DEVICE_ORIENTATION=1) {
-    HEADERS += \
-        ../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.h \
-        ../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.h \
-        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.h \
-        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.h \
-        ../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.h
-
-    SOURCES += \
-        ../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.cpp \
-        ../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.cpp \
-        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.cpp \
-        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientMockQt.cpp \
-        ../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.cpp
-
-    CONFIG += mobility
-    MOBILITY += sensors
 }
 
 contains(DEFINES, ENABLE_SVG=1) {
@@ -3536,188 +3076,8 @@ contains(DEFINES, ENABLE_SVG=1) {
         css/SVGCSSStyleSelector.cpp \
         rendering/style/SVGRenderStyle.cpp \
         rendering/style/SVGRenderStyleDefs.cpp \
-        rendering/svg/RenderSVGBlock.cpp \
-        rendering/svg/RenderSVGContainer.cpp \
-        rendering/svg/RenderSVGForeignObject.cpp \
-        rendering/svg/RenderSVGGradientStop.cpp \
-        rendering/svg/RenderSVGHiddenContainer.cpp \
-        rendering/svg/RenderSVGImage.cpp \
-        rendering/svg/RenderSVGInline.cpp \
-        rendering/svg/RenderSVGInlineText.cpp \
-        rendering/svg/RenderSVGModelObject.cpp \
-        rendering/svg/RenderSVGPath.cpp \
-        rendering/svg/RenderSVGResource.cpp \
-        rendering/svg/RenderSVGResourceClipper.cpp \
-        rendering/svg/RenderSVGResourceContainer.cpp \
-        rendering/svg/RenderSVGResourceFilter.cpp \
-        rendering/svg/RenderSVGResourceFilterPrimitive.cpp \
-        rendering/svg/RenderSVGResourceGradient.cpp \
-        rendering/svg/RenderSVGResourceLinearGradient.cpp \
-        rendering/svg/RenderSVGResourceMarker.cpp \
-        rendering/svg/RenderSVGResourceMasker.cpp \
-        rendering/svg/RenderSVGResourcePattern.cpp \
-        rendering/svg/RenderSVGResourceRadialGradient.cpp \
-        rendering/svg/RenderSVGResourceSolidColor.cpp \
-        rendering/svg/RenderSVGRoot.cpp \
-        rendering/svg/RenderSVGShadowTreeRootContainer.cpp \
-        rendering/svg/RenderSVGTSpan.cpp \
-        rendering/svg/RenderSVGText.cpp \
-        rendering/svg/RenderSVGTextPath.cpp \
-        rendering/svg/RenderSVGTransformableContainer.cpp \
-        rendering/svg/RenderSVGViewportContainer.cpp \
-        rendering/svg/SVGImageBufferTools.cpp \
-        rendering/svg/SVGInlineFlowBox.cpp \
-        rendering/svg/SVGInlineTextBox.cpp \
-        rendering/svg/SVGMarkerLayoutInfo.cpp \
-        rendering/svg/SVGRenderSupport.cpp \
-        rendering/svg/SVGRenderTreeAsText.cpp \
-        rendering/svg/SVGResources.cpp \
-        rendering/svg/SVGResourcesCache.cpp \
-        rendering/svg/SVGResourcesCycleSolver.cpp \
-        rendering/svg/SVGRootInlineBox.cpp \
-        rendering/svg/SVGShadowTreeElements.cpp \
-        rendering/svg/SVGTextChunk.cpp \
-        rendering/svg/SVGTextChunkBuilder.cpp \
-        rendering/svg/SVGTextLayoutAttributes.cpp \
-        rendering/svg/SVGTextLayoutAttributesBuilder.cpp \
-        rendering/svg/SVGTextLayoutEngine.cpp \
-        rendering/svg/SVGTextLayoutEngineBaseline.cpp \
-        rendering/svg/SVGTextLayoutEngineSpacing.cpp \
-        rendering/svg/SVGTextMetrics.cpp \
-        rendering/svg/SVGTextQuery.cpp \
         rendering/PointerEventsHitRules.cpp \
-        svg/SVGDocumentExtensions.cpp \
-        svg/SVGImageLoader.cpp \
-        svg/ColorDistance.cpp \
-        svg/SVGAElement.cpp \
-        svg/SVGAltGlyphElement.cpp \
-        svg/SVGAngle.cpp \
-        svg/SVGAnimateColorElement.cpp \
-        svg/SVGAnimateElement.cpp \
-        svg/SVGAnimateMotionElement.cpp \
-        svg/SVGAnimateTransformElement.cpp \
-        svg/SVGAnimationElement.cpp \
-        svg/SVGCircleElement.cpp \
-        svg/SVGClipPathElement.cpp \
-        svg/SVGColor.cpp \
-        svg/SVGComponentTransferFunctionElement.cpp \
-        svg/SVGCursorElement.cpp \
-        svg/SVGDefsElement.cpp \
-        svg/SVGDescElement.cpp \
-        svg/SVGDocument.cpp \
-        svg/SVGElement.cpp \
-        svg/SVGElementInstance.cpp \
-        svg/SVGElementInstanceList.cpp \
-        svg/SVGEllipseElement.cpp \
-        svg/SVGExternalResourcesRequired.cpp \
-        svg/SVGFEBlendElement.cpp \
-        svg/SVGFEColorMatrixElement.cpp \
-        svg/SVGFEComponentTransferElement.cpp \
-        svg/SVGFECompositeElement.cpp \
-        svg/SVGFEConvolveMatrixElement.cpp \
-        svg/SVGFEDiffuseLightingElement.cpp \
-        svg/SVGFEDisplacementMapElement.cpp \
-        svg/SVGFEDistantLightElement.cpp \
-        svg/SVGFEFloodElement.cpp \
-        svg/SVGFEFuncAElement.cpp \
-        svg/SVGFEFuncBElement.cpp \
-        svg/SVGFEFuncGElement.cpp \
-        svg/SVGFEFuncRElement.cpp \
-        svg/SVGFEGaussianBlurElement.cpp \
-        svg/SVGFEImageElement.cpp \
-        svg/SVGFELightElement.cpp \
-        svg/SVGFEMergeElement.cpp \
-        svg/SVGFEMergeNodeElement.cpp \
-        svg/SVGFEMorphologyElement.cpp \
-        svg/SVGFEOffsetElement.cpp \
-        svg/SVGFEPointLightElement.cpp \
-        svg/SVGFESpecularLightingElement.cpp \
-        svg/SVGFESpotLightElement.cpp \
-        svg/SVGFETileElement.cpp \
-        svg/SVGFETurbulenceElement.cpp \
-        svg/SVGFilterElement.cpp \
-        svg/SVGFilterPrimitiveStandardAttributes.cpp \
-        svg/SVGFitToViewBox.cpp \
-        svg/SVGFont.cpp \
-        svg/SVGFontData.cpp \
-        svg/SVGFontElement.cpp \
-        svg/SVGFontFaceElement.cpp \
-        svg/SVGFontFaceFormatElement.cpp \
-        svg/SVGFontFaceNameElement.cpp \
-        svg/SVGFontFaceSrcElement.cpp \
-        svg/SVGFontFaceUriElement.cpp \
-        svg/SVGForeignObjectElement.cpp \
-        svg/SVGGElement.cpp \
-        svg/SVGGlyphElement.cpp \
-        svg/SVGGradientElement.cpp \
-        svg/SVGHKernElement.cpp \
-        svg/SVGImageElement.cpp \
-        svg/SVGLangSpace.cpp \
-        svg/SVGLength.cpp \
-        svg/SVGLengthList.cpp \
-        svg/SVGLinearGradientElement.cpp \
-        svg/SVGLineElement.cpp \
-        svg/SVGLocatable.cpp \
-        svg/SVGMarkerElement.cpp \
-        svg/SVGMaskElement.cpp \
-        svg/SVGMetadataElement.cpp \
-        svg/SVGMissingGlyphElement.cpp \
-        svg/SVGMPathElement.cpp \
-        svg/SVGNumberList.cpp \
-        svg/SVGPaint.cpp \
-        svg/SVGParserUtilities.cpp \
-        svg/SVGPathBlender.cpp \
-        svg/SVGPathBuilder.cpp \
-        svg/SVGPathByteStreamBuilder.cpp \
-        svg/SVGPathByteStreamSource.cpp \
-        svg/SVGPathElement.cpp \
-        svg/SVGPathParser.cpp \
-        svg/SVGPathParserFactory.cpp \
-        svg/SVGPathSegList.cpp \
-        svg/SVGPathSegListBuilder.cpp \
-        svg/SVGPathSegListSource.cpp \
-        svg/SVGPathStringBuilder.cpp \
-        svg/SVGPathStringSource.cpp \
-        svg/SVGPathTraversalStateBuilder.cpp \
-        svg/SVGPatternElement.cpp \
-        svg/SVGPointList.cpp \
-        svg/SVGPolyElement.cpp \
-        svg/SVGPolygonElement.cpp \
-        svg/SVGPolylineElement.cpp \
-        svg/SVGPreserveAspectRatio.cpp \
-        svg/SVGRadialGradientElement.cpp \
-        svg/SVGRectElement.cpp \
-        svg/SVGScriptElement.cpp \
-        svg/SVGSetElement.cpp \
-        svg/SVGStopElement.cpp \
-        svg/SVGStringList.cpp \
-        svg/SVGStylable.cpp \
-        svg/SVGStyledElement.cpp \
-        svg/SVGStyledLocatableElement.cpp \
-        svg/SVGStyledTransformableElement.cpp \
-        svg/SVGStyleElement.cpp \
-        svg/SVGSVGElement.cpp \
-        svg/SVGSwitchElement.cpp \
-        svg/SVGSymbolElement.cpp \
-        svg/SVGTests.cpp \
-        svg/SVGTextContentElement.cpp \
-        svg/SVGTextElement.cpp \
-        svg/SVGTextPathElement.cpp \
-        svg/SVGTextPositioningElement.cpp \
-        svg/SVGTitleElement.cpp \
-        svg/SVGTransformable.cpp \
-        svg/SVGTransform.cpp \
-        svg/SVGTransformDistance.cpp \
-        svg/SVGTransformList.cpp \
-        svg/SVGTRefElement.cpp \
-        svg/SVGTSpanElement.cpp \
-        svg/SVGURIReference.cpp \
-        svg/SVGUseElement.cpp \
-        svg/SVGViewElement.cpp \
-        svg/SVGViewSpec.cpp \
-        svg/SVGVKernElement.cpp \
-        svg/SVGZoomAndPan.cpp \
-        svg/SVGZoomEvent.cpp \
+        rendering/svg/RenderSVGPath.cpp \
         svg/animation/SMILTime.cpp \
         svg/animation/SMILTimeContainer.cpp \
         svg/animation/SVGSMILElement.cpp \
@@ -3726,6 +3086,196 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/graphics/filters/SVGFilterBuilder.cpp \
         svg/graphics/SVGImage.cpp \
         svg/properties/SVGPathSegListPropertyTearOff.cpp
+
+    linux-g++*:CONFIG(debug, debug|release):isEqual(QT_ARCH,i386) {
+         # Using all in one files to avoid memory exhaustion
+         # during the linking phase.
+         SOURCES += \
+              rendering/svg/RenderSVGAllInOne.cpp \
+              svg/SVGAllInOne.cpp
+    } else {
+         SOURCES += \
+              rendering/svg/RenderSVGBlock.cpp \
+              rendering/svg/RenderSVGContainer.cpp \
+              rendering/svg/RenderSVGForeignObject.cpp \
+              rendering/svg/RenderSVGGradientStop.cpp \
+              rendering/svg/RenderSVGHiddenContainer.cpp \
+              rendering/svg/RenderSVGImage.cpp \
+              rendering/svg/RenderSVGInline.cpp \
+              rendering/svg/RenderSVGInlineText.cpp \
+              rendering/svg/RenderSVGModelObject.cpp \
+              rendering/svg/RenderSVGResource.cpp \
+              rendering/svg/RenderSVGResourceClipper.cpp \
+              rendering/svg/RenderSVGResourceContainer.cpp \
+              rendering/svg/RenderSVGResourceFilter.cpp \
+              rendering/svg/RenderSVGResourceFilterPrimitive.cpp \
+              rendering/svg/RenderSVGResourceGradient.cpp \
+              rendering/svg/RenderSVGResourceLinearGradient.cpp \
+              rendering/svg/RenderSVGResourceMarker.cpp \
+              rendering/svg/RenderSVGResourceMasker.cpp \
+              rendering/svg/RenderSVGResourcePattern.cpp \
+              rendering/svg/RenderSVGResourceRadialGradient.cpp \
+              rendering/svg/RenderSVGResourceSolidColor.cpp \
+              rendering/svg/RenderSVGRoot.cpp \
+              rendering/svg/RenderSVGShadowTreeRootContainer.cpp \
+              rendering/svg/RenderSVGTSpan.cpp \
+              rendering/svg/RenderSVGText.cpp \
+              rendering/svg/RenderSVGTextPath.cpp \
+              rendering/svg/RenderSVGTransformableContainer.cpp \
+              rendering/svg/RenderSVGViewportContainer.cpp \
+              rendering/svg/SVGImageBufferTools.cpp \
+              rendering/svg/SVGInlineFlowBox.cpp \
+              rendering/svg/SVGInlineTextBox.cpp \
+              rendering/svg/SVGMarkerLayoutInfo.cpp \
+              rendering/svg/SVGRenderSupport.cpp \
+              rendering/svg/SVGRenderTreeAsText.cpp \
+              rendering/svg/SVGResources.cpp \
+              rendering/svg/SVGResourcesCache.cpp \
+              rendering/svg/SVGResourcesCycleSolver.cpp \
+              rendering/svg/SVGRootInlineBox.cpp \
+              rendering/svg/SVGShadowTreeElements.cpp \
+              rendering/svg/SVGTextChunk.cpp \
+              rendering/svg/SVGTextChunkBuilder.cpp \
+              rendering/svg/SVGTextLayoutAttributes.cpp \
+              rendering/svg/SVGTextLayoutAttributesBuilder.cpp \
+              rendering/svg/SVGTextLayoutEngine.cpp \
+              rendering/svg/SVGTextLayoutEngineBaseline.cpp \
+              rendering/svg/SVGTextLayoutEngineSpacing.cpp \
+              rendering/svg/SVGTextMetrics.cpp \
+              rendering/svg/SVGTextQuery.cpp \
+              svg/SVGDocumentExtensions.cpp \
+              svg/SVGImageLoader.cpp \
+              svg/ColorDistance.cpp \
+              svg/SVGAElement.cpp \
+              svg/SVGAltGlyphElement.cpp \
+              svg/SVGAngle.cpp \
+              svg/SVGAnimateColorElement.cpp \
+              svg/SVGAnimateElement.cpp \
+              svg/SVGAnimateMotionElement.cpp \
+              svg/SVGAnimateTransformElement.cpp \
+              svg/SVGAnimationElement.cpp \
+              svg/SVGCircleElement.cpp \
+              svg/SVGClipPathElement.cpp \
+              svg/SVGColor.cpp \
+              svg/SVGComponentTransferFunctionElement.cpp \
+              svg/SVGCursorElement.cpp \
+              svg/SVGDefsElement.cpp \
+              svg/SVGDescElement.cpp \
+              svg/SVGDocument.cpp \
+              svg/SVGElement.cpp \
+              svg/SVGElementInstance.cpp \
+              svg/SVGElementInstanceList.cpp \
+              svg/SVGEllipseElement.cpp \
+              svg/SVGExternalResourcesRequired.cpp \
+              svg/SVGFEBlendElement.cpp \
+              svg/SVGFEColorMatrixElement.cpp \
+              svg/SVGFEComponentTransferElement.cpp \
+              svg/SVGFECompositeElement.cpp \
+              svg/SVGFEConvolveMatrixElement.cpp \
+              svg/SVGFEDiffuseLightingElement.cpp \
+              svg/SVGFEDisplacementMapElement.cpp \
+              svg/SVGFEDistantLightElement.cpp \
+              svg/SVGFEFloodElement.cpp \
+              svg/SVGFEFuncAElement.cpp \
+              svg/SVGFEFuncBElement.cpp \
+              svg/SVGFEFuncGElement.cpp \
+              svg/SVGFEFuncRElement.cpp \
+              svg/SVGFEGaussianBlurElement.cpp \
+              svg/SVGFEImageElement.cpp \
+              svg/SVGFELightElement.cpp \
+              svg/SVGFEMergeElement.cpp \
+              svg/SVGFEMergeNodeElement.cpp \
+              svg/SVGFEMorphologyElement.cpp \
+              svg/SVGFEOffsetElement.cpp \
+              svg/SVGFEPointLightElement.cpp \
+              svg/SVGFESpecularLightingElement.cpp \
+              svg/SVGFESpotLightElement.cpp \
+              svg/SVGFETileElement.cpp \
+              svg/SVGFETurbulenceElement.cpp \
+              svg/SVGFilterElement.cpp \
+              svg/SVGFilterPrimitiveStandardAttributes.cpp \
+              svg/SVGFitToViewBox.cpp \
+              svg/SVGFont.cpp \
+              svg/SVGFontData.cpp \
+              svg/SVGFontElement.cpp \
+              svg/SVGFontFaceElement.cpp \
+              svg/SVGFontFaceFormatElement.cpp \
+              svg/SVGFontFaceNameElement.cpp \
+              svg/SVGFontFaceSrcElement.cpp \
+              svg/SVGFontFaceUriElement.cpp \
+              svg/SVGForeignObjectElement.cpp \
+              svg/SVGGElement.cpp \
+              svg/SVGGlyphElement.cpp \
+              svg/SVGGradientElement.cpp \
+              svg/SVGHKernElement.cpp \
+              svg/SVGImageElement.cpp \
+              svg/SVGLangSpace.cpp \
+              svg/SVGLength.cpp \
+              svg/SVGLengthList.cpp \
+              svg/SVGLinearGradientElement.cpp \
+              svg/SVGLineElement.cpp \
+              svg/SVGLocatable.cpp \
+              svg/SVGMarkerElement.cpp \
+              svg/SVGMaskElement.cpp \
+              svg/SVGMetadataElement.cpp \
+              svg/SVGMissingGlyphElement.cpp \
+              svg/SVGMPathElement.cpp \
+              svg/SVGNumberList.cpp \
+              svg/SVGPaint.cpp \
+              svg/SVGParserUtilities.cpp \
+              svg/SVGPathBlender.cpp \
+              svg/SVGPathBuilder.cpp \
+              svg/SVGPathByteStreamBuilder.cpp \
+              svg/SVGPathByteStreamSource.cpp \
+              svg/SVGPathElement.cpp \
+              svg/SVGPathParser.cpp \
+              svg/SVGPathParserFactory.cpp \
+              svg/SVGPathSegList.cpp \
+              svg/SVGPathSegListBuilder.cpp \
+              svg/SVGPathSegListSource.cpp \
+              svg/SVGPathStringBuilder.cpp \
+              svg/SVGPathStringSource.cpp \
+              svg/SVGPathTraversalStateBuilder.cpp \
+              svg/SVGPatternElement.cpp \
+              svg/SVGPointList.cpp \
+              svg/SVGPolyElement.cpp \
+              svg/SVGPolygonElement.cpp \
+              svg/SVGPolylineElement.cpp \
+              svg/SVGPreserveAspectRatio.cpp \
+              svg/SVGRadialGradientElement.cpp \
+              svg/SVGRectElement.cpp \
+              svg/SVGScriptElement.cpp \
+              svg/SVGSetElement.cpp \
+              svg/SVGStopElement.cpp \
+              svg/SVGStringList.cpp \
+              svg/SVGStylable.cpp \
+              svg/SVGStyledElement.cpp \
+              svg/SVGStyledLocatableElement.cpp \
+              svg/SVGStyledTransformableElement.cpp \
+              svg/SVGStyleElement.cpp \
+              svg/SVGSVGElement.cpp \
+              svg/SVGSwitchElement.cpp \
+              svg/SVGSymbolElement.cpp \
+              svg/SVGTests.cpp \
+              svg/SVGTextContentElement.cpp \
+              svg/SVGTextElement.cpp \
+              svg/SVGTextPathElement.cpp \
+              svg/SVGTextPositioningElement.cpp \
+              svg/SVGTitleElement.cpp \
+              svg/SVGTransformable.cpp \
+              svg/SVGTransform.cpp \
+              svg/SVGTransformDistance.cpp \
+              svg/SVGTransformList.cpp \
+              svg/SVGTRefElement.cpp \
+              svg/SVGTSpanElement.cpp \
+              svg/SVGURIReference.cpp \
+              svg/SVGUseElement.cpp \
+              svg/SVGViewElement.cpp \
+              svg/SVGViewSpec.cpp \
+              svg/SVGVKernElement.cpp \
+              svg/SVGZoomAndPan.cpp \
+              svg/SVGZoomEvent.cpp
+   }
 }
 
 contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=1) {
@@ -3802,14 +3352,13 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1) {
 }
 
 contains(DEFINES, ENABLE_WEBGL=1) {
-    tobe|!tobe: QT += opengl
-
     HEADERS += \
         html/canvas/CanvasContextAttributes.h \
         html/canvas/WebGLObject.h \
         html/canvas/WebGLActiveInfo.h \
         html/canvas/WebGLBuffer.h \
         html/canvas/WebGLContextAttributes.h \
+        html/canvas/WebGLContextEvent.h \
         html/canvas/WebGLExtension.h \
         html/canvas/WebGLFramebuffer.h \
         html/canvas/WebGLGetInfo.h \
@@ -3819,11 +3368,14 @@ contains(DEFINES, ENABLE_WEBGL=1) {
         html/canvas/WebGLShader.h \
         html/canvas/OESStandardDerivatives.h \
         html/canvas/OESTextureFloat.h \
+        html/canvas/OESVertexArrayObject.h \
+        html/canvas/OESVertexArray.h \
         html/canvas/WebGLTexture.h \
         html/canvas/WebGLUniformLocation.h \
         html/canvas/WebKitLoseContext.h \
         platform/graphics/Extensions3D.h \
         platform/graphics/GraphicsContext3D.h \
+        platform/graphics/gpu/DrawingBuffer.h \
         platform/graphics/qt/Extensions3DQt.h
 
     !v8 {
@@ -3835,6 +3387,7 @@ contains(DEFINES, ENABLE_WEBGL=1) {
         html/canvas/WebGLObject.cpp \
         html/canvas/WebGLBuffer.cpp \
         html/canvas/WebGLContextAttributes.cpp \
+        html/canvas/WebGLContextEvent.cpp \
         html/canvas/WebGLExtension.cpp \
         html/canvas/WebGLFramebuffer.cpp \
         html/canvas/WebGLGetInfo.cpp \
@@ -3844,119 +3397,18 @@ contains(DEFINES, ENABLE_WEBGL=1) {
         html/canvas/WebGLShader.cpp \
         html/canvas/OESStandardDerivatives.cpp \
         html/canvas/OESTextureFloat.cpp \
+        html/canvas/OESVertexArrayObject.cpp \
+        html/canvas/OESVertexArray.cpp \
         html/canvas/WebGLTexture.cpp \
         html/canvas/WebGLUniformLocation.cpp \
         html/canvas/WebKitLoseContext.cpp \
         platform/graphics/GraphicsContext3D.cpp \
+        platform/graphics/gpu/DrawingBuffer.cpp \
+        platform/graphics/gpu/qt/DrawingBufferQt.cpp \
         platform/graphics/qt/Extensions3DQt.cpp \
         platform/graphics/qt/GraphicsContext3DQt.cpp
-}
 
-contains(DEFINES, ENABLE_SYMBIAN_DIALOG_PROVIDERS) {
-    # this feature requires the S60 platform private BrowserDialogsProvider.h header file
-    # and is therefore not enabled by default but only meant for platform builds.
-    symbian {
-        LIBS += -lbrowserdialogsprovider
-    }
-}
-
-!symbian-abld:!symbian-sbsv2 {
-    modfile.files = $$moduleFile
-    modfile.path = $$[QMAKE_MKSPECS]/modules
-
-    INSTALLS += modfile
-} else {
-    # INSTALLS is not implemented in qmake's mmp generators, copy headers manually
-
-    inst_modfile.commands = $$QMAKE_COPY ${QMAKE_FILE_NAME} ${QMAKE_FILE_OUT}
-    inst_modfile.input = moduleFile
-    inst_modfile.output = $$[QMAKE_MKSPECS]/modules
-    inst_modfile.CONFIG = no_clean
-
-    QMAKE_EXTRA_COMPILERS += inst_modfile
-
-    install.depends += compiler_inst_modfile_make_all
-    QMAKE_EXTRA_TARGETS += install
-}
-
-include($$PWD/../WebKit/qt/Api/headers.pri)
-
-HEADERS += $$WEBKIT_API_HEADERS
-
-!CONFIG(QTDIR_build) {
-    exists($$OUTPUT_DIR/include/QtWebKit/classheaders.pri): include($$OUTPUT_DIR/include/QtWebKit/classheaders.pri)
-    WEBKIT_INSTALL_HEADERS = $$WEBKIT_API_HEADERS $$WEBKIT_CLASS_HEADERS
-
-    !symbian-abld:!symbian-sbsv2 {
-        headers.files = $$WEBKIT_INSTALL_HEADERS
-
-        !isEmpty(INSTALL_HEADERS): headers.path = $$INSTALL_HEADERS/QtWebKit
-        else: headers.path = $$[QT_INSTALL_HEADERS]/QtWebKit
-
-        !isEmpty(INSTALL_LIBS): target.path = $$INSTALL_LIBS
-        else: target.path = $$[QT_INSTALL_LIBS]
-
-        INSTALLS += target headers
-    } else {
-        # INSTALLS is not implemented in qmake's mmp generators, copy headers manually
-        inst_headers.commands = $$QMAKE_COPY ${QMAKE_FILE_NAME} ${QMAKE_FILE_OUT}
-        inst_headers.input = WEBKIT_INSTALL_HEADERS
-        inst_headers.CONFIG = no_clean
-
-        !isEmpty(INSTALL_HEADERS): inst_headers.output = $$INSTALL_HEADERS/QtWebKit/${QMAKE_FILE_BASE}${QMAKE_FILE_EXT}
-        else: inst_headers.output = $$[QT_INSTALL_HEADERS]/QtWebKit/${QMAKE_FILE_BASE}${QMAKE_FILE_EXT}
-
-        QMAKE_EXTRA_COMPILERS += inst_headers
-
-        install.depends += compiler_inst_headers_make_all
-    }
-
-    win32-*|wince* {
-        DLLDESTDIR = $$OUTPUT_DIR/bin
-        build_pass: TARGET = $$qtLibraryTarget($$TARGET)
-
-        dlltarget.commands = $(COPY_FILE) $(DESTDIR_TARGET) $$[QT_INSTALL_BINS]
-        dlltarget.CONFIG = no_path
-        INSTALLS += dlltarget
-    }
-
-    unix {
-        CONFIG += create_pc create_prl
-        QMAKE_PKGCONFIG_LIBDIR = $$target.path
-        QMAKE_PKGCONFIG_INCDIR = $$headers.path
-        QMAKE_PKGCONFIG_DESTDIR = pkgconfig
-        lib_replace.match = $$re_escape($$DESTDIR)
-        lib_replace.replace = $$[QT_INSTALL_LIBS]
-        QMAKE_PKGCONFIG_INSTALL_REPLACE += lib_replace
-    }
-
-    mac {
-        !static:contains(QT_CONFIG, qt_framework):!CONFIG(webkit_no_framework) {
-            !build_pass {
-                message("Building QtWebKit as a framework, as that's how Qt was built. You can")
-                message("override this by passing CONFIG+=webkit_no_framework to build-webkit.")
-
-                CONFIG += build_all
-            } else {
-                debug_and_release:TARGET = $$qtLibraryTarget($$TARGET)
-            }
-
-            CONFIG += lib_bundle qt_no_framework_direct_includes qt_framework
-            FRAMEWORK_HEADERS.version = Versions
-            FRAMEWORK_HEADERS.files = $${headers.files}
-            FRAMEWORK_HEADERS.path = Headers
-            QMAKE_BUNDLE_DATA += FRAMEWORK_HEADERS
-        }
-
-        QMAKE_LFLAGS_SONAME = "$${QMAKE_LFLAGS_SONAME}$${DESTDIR}$${QMAKE_DIR_SEP}"
-        LIBS += -framework Carbon -framework AppKit
-    }
-}
-
-!CONFIG(webkit-debug):CONFIG(QTDIR_build) {
-    # Remove the following 2 lines if you want debug information in WebCore
-    CONFIG -= separate_debug_info
-    CONFIG += no_debug_info
+        INCLUDEPATH += $$PWD/platform/graphics/gpu
 }
 
 win32:!win32-g++*:contains(QMAKE_HOST.arch, x86_64):{
@@ -3974,11 +3426,8 @@ win32:!win32-g++*:contains(QMAKE_HOST.arch, x86_64):{
    if(win32-msvc2005|win32-msvc2008):equals(TEMPLATE_PREFIX, "vc") {
         SOURCES += \
             plugins/win/PaintHooks.asm
-    }
+   }
 }
-
-# Uncomment this to enable Texture Mapper.
-# CONFIG += texmap
 
 contains(CONFIG, texmap) {
     DEFINES += WTF_USE_TEXTURE_MAPPER=1
@@ -3995,7 +3444,6 @@ contains(CONFIG, texmap) {
         platform/graphics/texmap/GraphicsLayerTextureMapper.cpp
 
     contains(QT_CONFIG, opengl) {
-        QT += opengl
         HEADERS += platform/graphics/opengl/TextureMapperGL.h
         SOURCES += platform/graphics/opengl/TextureMapperGL.cpp
     }
@@ -4003,18 +3451,3 @@ contains(CONFIG, texmap) {
     HEADERS += platform/graphics/qt/GraphicsLayerQt.h
     SOURCES += platform/graphics/qt/GraphicsLayerQt.cpp
 }
-
-symbian {
-    shared {
-        contains(CONFIG, def_files) {
-            DEF_FILE=../WebKit/qt/symbian
-            # defFilePath is for Qt4.6 compatibility
-            defFilePath=../WebKit/qt/symbian
-        } else {
-            MMP_RULES += EXPORTUNFROZEN
-        }
-    }
-}
-
-# Disable C++0x mode in WebCore for those who enabled it in their Qt's mkspec
-*-g++*:QMAKE_CXXFLAGS -= -std=c++0x -std=gnu++0x

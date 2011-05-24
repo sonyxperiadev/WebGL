@@ -1,3 +1,61 @@
+2011-03-02  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix remaining localization issues by piping all localized strings through WebCore's
+        localization bottleneck.
+        <rdar://problem/8728860>
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2011-03-01  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Timothy Hatcher.
+
+        WebKit2 needs to be made localizable
+        https://bugs.webkit.org/show_bug.cgi?id=55483
+
+        * StringsNotToBeLocalized.txt: Removed.
+        * WebKit.xcodeproj/project.pbxproj:
+        Copied Localizable.strings to WebCore, it can't be removed entirely
+        yet since Windows is still using it.
+
+2011-02-24  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Eric Seidel.
+
+        Drop the "U; " encryption level from the User Agent string.
+        https://bugs.webkit.org/show_bug.cgi?id=54566
+
+        * StringsNotToBeLocalized.txt:
+
+2011-02-22  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Drop the language tag part from the User Agent string
+        https://bugs.webkit.org/show_bug.cgi?id=54560
+
+        * StringsNotToBeLocalized.txt: Change the User Agent string
+        template.
+
+2011-02-18  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed build fix after r78634 and r78786.
+
+        * CMakeLists.txt:
+
+2011-02-16  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Adam Roben.
+
+        HTML5 <details> and <summary>: localized text
+        https://bugs.webkit.org/show_bug.cgi?id=54260
+
+        Default details summary text must be localizable.
+
+        * English.lproj/Localizable.strings:
+
 2011-02-06  Patrick Gansterer  <paroga@webkit.org>
 
         Reviewed by Andreas Kling.

@@ -56,6 +56,32 @@ int Extensions3DQt::getGraphicsResetStatusARB()
     return GraphicsContext3D::NO_ERROR;
 }
 
+void Extensions3DQt::blitFramebuffer(long srcX0, long srcY0, long srcX1, long srcY1, long dstX0, long dstY0, long dstX1, long dstY1, unsigned long mask, unsigned long filter)
+{
+}
+
+void Extensions3DQt::renderbufferStorageMultisample(unsigned long target, unsigned long samples, unsigned long internalformat, unsigned long width, unsigned long height)
+{
+}
+
+Platform3DObject Extensions3DQt::createVertexArrayOES()
+{
+    return 0;
+}
+
+void Extensions3DQt::deleteVertexArrayOES(Platform3DObject)
+{
+}
+
+GC3Dboolean Extensions3DQt::isVertexArrayOES(Platform3DObject)
+{
+    return GL_FALSE;
+}
+
+void Extensions3DQt::bindVertexArrayOES(Platform3DObject)
+{
+}
+
 } // namespace WebCore
 
 #endif // ENABLE(WEBGL)

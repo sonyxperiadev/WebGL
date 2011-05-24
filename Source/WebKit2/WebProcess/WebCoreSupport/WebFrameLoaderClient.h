@@ -97,7 +97,7 @@ private:
     virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
     
-    virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction, const String& MIMEType, const WebCore::ResourceRequest&);
+    virtual void dispatchDecidePolicyForResponse(WebCore::FramePolicyFunction, const WebCore::ResourceResponse&, const WebCore::ResourceRequest&);
     virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>);
     virtual void cancelPolicyCheck();
@@ -132,6 +132,7 @@ private:
     virtual void updateGlobalHistoryRedirectLinks();
     
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
+    virtual bool shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidChangeBackForwardIndex() const;
@@ -213,7 +214,9 @@ private:
 #endif
     
     virtual bool shouldUsePluginDocument(const String& /*mimeType*/) const;
-    
+
+    virtual void didChangeScrollOffset();
+
     virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
 
     WebFrame* m_frame;

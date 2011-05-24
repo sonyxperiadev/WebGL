@@ -25,7 +25,7 @@
 #include <QDir>
 #include <QGraphicsWidget>
 #include <QLineEdit>
-#include <QLocale>
+#include <QMainWindow>
 #include <QMenu>
 #include <QPushButton>
 #include <QStyle>
@@ -84,6 +84,7 @@ private slots:
     void loadFinished();
     void acceptNavigationRequestWithNewWindow();
     void userStyleSheet();
+    void loadHtml5Video();
     void modified();
     void contextMenuCrash();
     void updatePositionDependentActionsCrash();
@@ -117,7 +118,6 @@ private slots:
     void errorPageExtensionInIFrames();
     void errorPageExtensionInFrameset();
     void userAgentApplicationName();
-    void userAgentLocaleChange();
 
     void viewModes();
 
@@ -133,9 +133,8 @@ private slots:
     void findText();
     void supportedContentType();
     void infiniteLoopJS();
-    void networkAccessManagerOnDifferentThread();
     void navigatorCookieEnabled();
-    void navigatorCookieEnabledForNetworkAccessManagerOnDifferentThread();
+    void deleteQWebViewTwice();
 
 #ifdef Q_OS_MAC
     void macCopyUnicodeToClipboard();
@@ -425,6 +424,19 @@ void tst_QWebPage::userStyleSheet()
 
     QVERIFY(networkManager->requestedUrls.count() >= 1);
     QCOMPARE(networkManager->requestedUrls.at(0), QUrl("http://does.not/exist.png"));
+}
+
+void tst_QWebPage::loadHtml5Video()
+{
+#if defined(ENABLE_QT_MULTIMEDIA) && ENABLE_QT_MULTIMEDIA
+    QByteArray url("http://does.not/exist?a=1%2Cb=2");
+    m_view->setHtml("<p><video id ='video' src='" + url + "' autoplay/></p>");
+    QTest::qWait(2000);
+    QUrl mUrl = DumpRenderTreeSupportQt::mediaContentUrlByElementId(m_page->mainFrame(), "video");
+    QCOMPARE(mUrl.toEncoded(), url);
+#else
+    QSKIP("This test requires Qt Multimedia", SkipAll);
+#endif
 }
 
 void tst_QWebPage::viewModes()
@@ -1427,7 +1439,7 @@ void tst_QWebPage::backActionUpdate()
     QAction *action = page->action(QWebPage::Back);
     QVERIFY(!action->isEnabled());
     QSignalSpy loadSpy(page, SIGNAL(loadFinished(bool)));
-    QUrl url = QUrl("qrc:///resources/index.html");
+    QUrl url = QUrl("qrc:///resources/framedindex.html");
     page->mainFrame()->load(url);
     QTRY_COMPARE(loadSpy.count(), 1);
     QVERIFY(!action->isEnabled());
@@ -2390,20 +2402,6 @@ void tst_QWebPage::userAgentApplicationName()
     QCoreApplication::setApplicationName(oldApplicationName);
 }
 
-void tst_QWebPage::userAgentLocaleChange()
-{
-    FriendlyWebPage page;
-    m_view->setPage(&page);
-
-    const QString markerString = QString::fromLatin1(" nn-NO)");
-
-    if (page.userAgentForUrl(QUrl()).contains(markerString))
-        QSKIP("marker string already present", SkipSingle);
-
-    m_view->setLocale(QLocale(QString::fromLatin1("nn_NO")));
-    QVERIFY(page.userAgentForUrl(QUrl()).contains(markerString));
-}
-
 void tst_QWebPage::crashTests_LazyInitializationOfMainFrame()
 {
     {
@@ -2703,54 +2701,6 @@ void tst_QWebPage::supportedContentType()
       QVERIFY2(m_page->supportsContentType(mimeType), QString("Cannot handle content types '%1'!").arg(mimeType).toLatin1());
 }
 
-class QtNAMThread : public QThread {
-public:
-    QtNAMThread()
-        : m_qnam(0)
-    {
-    }
-    ~QtNAMThread()
-    {
-        quit();
-        wait();
-    }
-
-    QNetworkAccessManager* networkAccessManager()
-    {
-        QMutexLocker lock(&m_mutex);
-        while (!m_qnam)
-            m_waitCondition.wait(&m_mutex);
-        return m_qnam;
-    }
-protected:
-    void run()
-    {
-        Q_ASSERT(!m_qnam);
-        {
-            QMutexLocker lock(&m_mutex);
-            m_qnam = new QNetworkAccessManager;
-            m_waitCondition.wakeAll();
-        }
-        exec();
-        delete m_qnam;
-    }
-private:
-    QNetworkAccessManager* m_qnam;
-    QMutex m_mutex;
-    QWaitCondition m_waitCondition;
-};
-
-void tst_QWebPage::networkAccessManagerOnDifferentThread()
-{
-    QtNAMThread qnamThread;
-    qnamThread.start();
-    m_page->setNetworkAccessManager(qnamThread.networkAccessManager());
-    QSignalSpy loadSpy(m_page, SIGNAL(loadFinished(bool)));
-    QUrl url = QUrl("qrc:///resources/index.html");
-    m_page->mainFrame()->load(url);
-    QTRY_COMPARE(loadSpy.count(), 1);
-    QCOMPARE(m_page->mainFrame()->childFrames()[0]->url(), QUrl("qrc:///resources/frame_a.html"));
-}
 
 void tst_QWebPage::navigatorCookieEnabled()
 {
@@ -2761,19 +2711,6 @@ void tst_QWebPage::navigatorCookieEnabled()
     m_page->networkAccessManager()->setCookieJar(new QNetworkCookieJar());
     QVERIFY(m_page->networkAccessManager()->cookieJar());
     QVERIFY(m_page->mainFrame()->evaluateJavaScript("navigator.cookieEnabled").toBool());
-}
-
-void tst_QWebPage::navigatorCookieEnabledForNetworkAccessManagerOnDifferentThread()
-{
-    QtNAMThread qnamThread;
-    qnamThread.start();
-    m_page->setNetworkAccessManager(qnamThread.networkAccessManager());
-
-    // This call access the cookie jar, the cookie jar must be in the same thread as
-    // the network access manager.
-    QVERIFY(m_page->mainFrame()->evaluateJavaScript("navigator.cookieEnabled").toBool());
-
-    QCOMPARE(qnamThread.networkAccessManager()->cookieJar()->thread(), &qnamThread);
 }
 
 #ifdef Q_OS_MAC
@@ -2815,5 +2752,19 @@ void tst_QWebPage::contextMenuCopy()
     int index = list.indexOf(view.page()->action(QWebPage::Copy));
     QVERIFY(index != -1);
 }
+
+void tst_QWebPage::deleteQWebViewTwice()
+{
+    for (int i = 0; i < 2; ++i) {
+        QMainWindow mainWindow;
+        QWebView* webView = new QWebView(&mainWindow);
+        mainWindow.setCentralWidget(webView);
+        webView->load(QUrl("qrc:///resources/frame_a.html"));
+        mainWindow.show();
+        connect(webView, SIGNAL(loadFinished(bool)), &mainWindow, SLOT(close()));
+        QApplication::instance()->exec();
+    }
+}
+
 QTEST_MAIN(tst_QWebPage)
 #include "tst_qwebpage.moc"

@@ -75,7 +75,6 @@ namespace WebCore {
     class SharedGraphicsContext3D;
     class SpeechInput;
     class SpeechInputClient;
-
 #if ENABLE(DOM_STORAGE)
     class StorageNamespace;
 #endif
@@ -92,6 +91,7 @@ namespace WebCore {
 
     class Page {
         WTF_MAKE_NONCOPYABLE(Page);
+        friend class Settings;
     public:
         static void scheduleForcedStyleRecalcForAllPages();
 
@@ -146,9 +146,6 @@ namespace WebCore {
         int getHistoryLength();
 
         void goToItem(HistoryItem*, FrameLoadType);
-
-        HistoryItem* globalHistoryItem() const { return m_globalHistoryItem.get(); }
-        void setGlobalHistoryItem(HistoryItem*);
 
         void setGroupName(const String&);
         const String& groupName() const;
@@ -298,6 +295,9 @@ namespace WebCore {
 
         MediaCanStartListener* takeAnyMediaCanStartListener();
 
+        void setMinimumTimerInterval(double);
+        double minimumTimerInterval() const;
+
         OwnPtr<Chrome> m_chrome;
         OwnPtr<SelectionController> m_dragCaretController;
 
@@ -331,8 +331,6 @@ namespace WebCore {
         
         OwnPtr<BackForwardController> m_backForwardController;
         RefPtr<Frame> m_mainFrame;
-
-        RefPtr<HistoryItem> m_globalHistoryItem;
 
         mutable RefPtr<PluginData> m_pluginData;
 
@@ -386,6 +384,8 @@ namespace WebCore {
         ViewMode m_viewMode;
 
         ViewportArguments m_viewportArguments;
+
+        double m_minimumTimerInterval;
     };
 
 } // namespace WebCore

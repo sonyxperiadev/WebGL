@@ -29,6 +29,8 @@
 #include "config.h"
 #include "RegisterFile.h"
 
+#include "Interpreter.h"
+#include "JSGlobalData.h"
 #include "JSGlobalObject.h"
 
 namespace JSC {
@@ -59,12 +61,24 @@ void RegisterFile::releaseExcessCapacity()
 
 void RegisterFile::setGlobalObject(JSGlobalObject* globalObject)
 {
-    m_globalObject = globalObject;
+    m_globalObject.set(globalObject->globalData(), globalObject, RegisterFile::globalObjectCollectedNotifier());
 }
 
-bool RegisterFile::clearGlobalObject(JSGlobalObject* globalObject)
+class GlobalObjectNotifier : public Finalizer {
+public:
+    void finalize(Handle<Unknown> value, void*)
+    {
+        JSGlobalObject* globalObject = asGlobalObject(value.get());
+        globalObject->globalData().interpreter->registerFile().setNumGlobals(0);
+    }
+};
+
+Finalizer* RegisterFile::globalObjectCollectedNotifier()
 {
-    return m_globalObject.clear(globalObject);
+    // This will leak alas, but we only create one of them, and it doesn't
+    // take up any significant amount of space.
+    static GlobalObjectNotifier* notifier = new GlobalObjectNotifier;
+    return notifier;
 }
 
 JSGlobalObject* RegisterFile::globalObject()

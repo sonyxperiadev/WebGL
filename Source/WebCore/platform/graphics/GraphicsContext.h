@@ -74,6 +74,7 @@ class wxWindowDC;
 #else
     typedef wxWindowDC PlatformGraphicsContext;
 #endif
+<<<<<<< HEAD
 #elif PLATFORM(SKIA)
 #if PLATFORM(ANDROID)
 namespace WebCore {
@@ -82,6 +83,9 @@ class PlatformGraphicsContext;
 class SkPaint;
 struct SkPoint;
 #else
+=======
+#elif USE(SKIA)
+>>>>>>> WebKit at r80534
 namespace WebCore {
 class PlatformContextSkia;
 }
@@ -276,6 +280,9 @@ namespace WebCore {
         
         // Allow font smoothing (LCD antialiasing). Not part of the graphics state.
         void setAllowsFontSmoothing(bool);
+        
+        void setIsCALayerContext(bool);
+        bool isCALayerContext() const;
 #endif
 
 #if PLATFORM(ANDROID)
@@ -356,6 +363,7 @@ namespace WebCore {
         void setImageInterpolationQuality(InterpolationQuality);
         InterpolationQuality imageInterpolationQuality() const;
 
+        void clip(const IntRect&);
         void clip(const FloatRect&);
         void addRoundedRectClip(const RoundedIntRect&);
         void addInnerRoundedRectClip(const IntRect&, int thickness);
@@ -370,20 +378,20 @@ namespace WebCore {
         TextDrawingModeFlags textDrawingMode() const;
         void setTextDrawingMode(TextDrawingModeFlags);
 
-        void drawText(const Font&, const TextRun&, const IntPoint&, int from = 0, int to = -1);
-        void drawEmphasisMarks(const Font&, const TextRun& , const AtomicString& mark, const IntPoint&, int from = 0, int to = -1);
+        void drawText(const Font&, const TextRun&, const FloatPoint&, int from = 0, int to = -1);
+        void drawEmphasisMarks(const Font&, const TextRun& , const AtomicString& mark, const FloatPoint&, int from = 0, int to = -1);
         void drawBidiText(const Font&, const TextRun&, const FloatPoint&);
-        void drawHighlightForText(const Font&, const TextRun&, const IntPoint&, int h, const Color& backgroundColor, ColorSpace, int from = 0, int to = -1);
+        void drawHighlightForText(const Font&, const TextRun&, const FloatPoint&, int h, const Color& backgroundColor, ColorSpace, int from = 0, int to = -1);
 
         FloatRect roundToDevicePixels(const FloatRect&);
 
-        void drawLineForText(const IntPoint&, int width, bool printing);
+        void drawLineForText(const FloatPoint&, float width, bool printing);
         enum TextCheckingLineStyle {
             TextCheckingSpellingLineStyle,
             TextCheckingGrammarLineStyle,
             TextCheckingReplacementLineStyle
         };
-        void drawLineForTextChecking(const IntPoint&, int width, TextCheckingLineStyle);
+        void drawLineForTextChecking(const FloatPoint&, float width, TextCheckingLineStyle);
 
         bool paintingDisabled() const;
         void setPaintingDisabled(bool);
@@ -435,6 +443,7 @@ namespace WebCore {
         void setURLForRect(const KURL&, const IntRect&);
 
         void concatCTM(const AffineTransform&);
+        void setCTM(const AffineTransform&);
         AffineTransform getCTM() const;
 
 #if OS(WINCE) && !PLATFORM(QT)
@@ -514,6 +523,10 @@ namespace WebCore {
 
 #if PLATFORM(QT) || PLATFORM(CAIRO)
         ContextShadow* contextShadow();
+#endif
+
+#if PLATFORM(CAIRO)
+        void pushImageMask(cairo_surface_t*, const FloatRect&);
 #endif
 
 #if PLATFORM(GTK)

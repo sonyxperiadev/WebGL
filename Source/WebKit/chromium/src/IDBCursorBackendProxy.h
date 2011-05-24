@@ -44,7 +44,8 @@ public:
 
     virtual unsigned short direction() const;
     virtual PassRefPtr<IDBKey> key() const;
-    virtual PassRefPtr<IDBAny> value() const;
+    virtual PassRefPtr<IDBKey> primaryKey() const;
+    virtual PassRefPtr<SerializedScriptValue> value() const;
     virtual void update(PassRefPtr<SerializedScriptValue>, PassRefPtr<IDBCallbacks>, ExceptionCode&);
     virtual void continueFunction(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>, ExceptionCode&);
     virtual void deleteFunction(PassRefPtr<IDBCallbacks>, ExceptionCode&);

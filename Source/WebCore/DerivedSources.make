@@ -277,15 +277,12 @@ DOM_CLASSES = \
     IDBDatabaseError \
     IDBDatabaseException \
     IDBDatabase \
-    IDBErrorEvent \
-    IDBEvent \
     IDBFactory \
     IDBIndex \
     IDBKey \
     IDBKeyRange \
     IDBObjectStore \
     IDBRequest \
-    IDBSuccessEvent \
     IDBTransaction \
     ImageData \
     InjectedScriptHost \
@@ -315,6 +312,8 @@ DOM_CLASSES = \
     NotificationCenter \
     OESStandardDerivatives \
     OESTextureFloat \
+     OESVertexArrayObject \
+     WebGLVertexArrayObjectOES \
     OverflowEvent \
     PageTransitionEvent \
     Performance \
@@ -649,6 +648,15 @@ DocTypeStrings.cpp : html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
 
 # --------
 
+# XMLViewer XSLT
+
+all : XMLViewerXSL.h
+
+XMLViewerXSL.h : xml/XMLViewer.xsl
+	perl $(WebCore)/inspector/xxd.pl XMLViewer_xsl $(WebCore)/xml/XMLViewer.xsl XMLViewerXSL.h
+
+# --------
+
 # HTML entity names
 
 HTMLEntityTable.cpp : html/parser/HTMLEntityNames.in $(WebCore)/html/parser/create-html-entity-table
@@ -854,7 +862,16 @@ generator_script = perl $(addprefix -I $(WebCore)/, $(sort $(dir $(1)))) $(WebCo
 
 # JS bindings generator
 
-IDL_INCLUDES = dom fileapi html css page notifications xml svg
+IDL_INCLUDES = \
+    $(WebCore)/dom \
+    $(WebCore)/fileapi \
+    $(WebCore)/html \
+    $(WebCore)/css \
+    $(WebCore)/page \
+    $(WebCore)/notifications \
+    $(WebCore)/xml \
+    $(WebCore)/svg
+
 IDL_COMMON_ARGS = $(IDL_INCLUDES:%=--include %) --write-dependencies --outputDir .
 
 JS_BINDINGS_SCRIPTS = $(GENERATE_SCRIPTS) bindings/scripts/CodeGeneratorJS.pm

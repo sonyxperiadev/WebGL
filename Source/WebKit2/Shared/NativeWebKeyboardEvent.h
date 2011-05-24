@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Copyright (C) 2011 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +35,9 @@
 OBJC_CLASS NSView;
 #elif PLATFORM(QT)
 #include <QKeyEvent>
+#elif PLATFORM(GTK)
+#include <GOwnPtrGtk.h>
+typedef union _GdkEvent GdkEvent;
 #endif
 
 namespace WebKit {
@@ -45,6 +50,9 @@ public:
     NativeWebKeyboardEvent(HWND, UINT message, WPARAM, LPARAM);
 #elif PLATFORM(QT)
     explicit NativeWebKeyboardEvent(QKeyEvent*);
+#elif PLATFORM(GTK)
+    NativeWebKeyboardEvent(const NativeWebKeyboardEvent&);
+    NativeWebKeyboardEvent(GdkEvent*);
 #endif
 
 #if PLATFORM(MAC)
@@ -53,6 +61,8 @@ public:
     const MSG* nativeEvent() const { return &m_nativeEvent; }
 #elif PLATFORM(QT)
     const QKeyEvent* nativeEvent() const { return &m_nativeEvent; }
+#elif PLATFORM(GTK)
+    const GdkEvent* nativeEvent() const { return m_nativeEvent.get(); }
 #endif
 
 private:
@@ -62,6 +72,8 @@ private:
     MSG m_nativeEvent;
 #elif PLATFORM(QT)
     QKeyEvent m_nativeEvent;
+#elif PLATFORM(GTK)
+    GOwnPtr<GdkEvent> m_nativeEvent;
 #endif
 };
 

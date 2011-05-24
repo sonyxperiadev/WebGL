@@ -83,14 +83,21 @@ SimpleFontData::SimpleFontData(PassOwnPtr<SVGFontData> svgFontData, int size, bo
     float ascent = svgFontFaceElement->ascent() * scale;
     float descent = svgFontFaceElement->descent() * scale;
     float lineGap = 0.1f * size;
+
+    SVGFontElement* associatedFontElement = svgFontFaceElement->associatedFontElement();
+    if (!xHeight) {    
+        // Fallback if x_heightAttr is not specified for the font element.
+        Vector<SVGGlyphIdentifier> letterXGlyphs;
+        associatedFontElement->getGlyphIdentifiersForString(String("x", 1), letterXGlyphs);
+        xHeight = letterXGlyphs.isEmpty() ? 2 * ascent / 3 : letterXGlyphs.first().horizontalAdvanceX * scale;
+    }
+
     m_fontMetrics.setUnitsPerEm(unitsPerEm);
     m_fontMetrics.setAscent(ascent);
     m_fontMetrics.setDescent(descent);
     m_fontMetrics.setLineGap(lineGap);
     m_fontMetrics.setLineSpacing(roundf(ascent) + roundf(descent) + roundf(lineGap));
     m_fontMetrics.setXHeight(xHeight);
-
-    SVGFontElement* associatedFontElement = svgFontFaceElement->associatedFontElement();
 
     Vector<SVGGlyphIdentifier> spaceGlyphs;
     associatedFontElement->getGlyphIdentifiersForString(String(" ", 1), spaceGlyphs);
@@ -108,7 +115,6 @@ SimpleFontData::SimpleFontData(PassOwnPtr<SVGFontData> svgFontData, int size, bo
     m_spaceGlyph = 0;
     m_zeroWidthSpaceGlyph = 0;
     determinePitch();
-    m_adjustedSpaceWidth = roundf(m_spaceWidth);
     m_missingGlyphData.fontData = this;
     m_missingGlyphData.glyph = 0;
 }
@@ -143,7 +149,6 @@ void SimpleFontData::platformGlyphInit()
         LOG_ERROR("Failed to get glyph page zero.");
         m_spaceGlyph = 0;
         m_spaceWidth = 0;
-        m_adjustedSpaceWidth = 0;
         determinePitch();
         m_zeroWidthSpaceGlyph = 0;
         m_missingGlyphData.fontData = this;
@@ -160,7 +165,6 @@ void SimpleFontData::platformGlyphInit()
     float width = widthForGlyph(m_spaceGlyph);
     m_spaceWidth = width;
     determinePitch();
-    m_adjustedSpaceWidth = m_treatAsFixedPitch ? ceilf(width) : roundf(width);
 
     // Force the glyph for ZERO WIDTH SPACE to have zero width, unless it is shared with SPACE.
     // Helvetica is an example of a non-zero width ZERO WIDTH SPACE glyph.

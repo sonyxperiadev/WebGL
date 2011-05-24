@@ -66,6 +66,7 @@ public:
         , m_altKey(false)
         , m_shiftKey(false)
         , m_metaKey(false)
+        , m_timestamp(0)
     {}
 #if PLATFORM(QT)
     PlatformTouchEvent(QTouchEvent*);
@@ -86,6 +87,9 @@ public:
     bool shiftKey() const { return m_shiftKey; }
     bool metaKey() const { return m_metaKey; }
 
+    // Time in seconds.
+    double timestamp() const { return m_timestamp; }
+
 protected:
     TouchEventType m_type;
     Vector<PlatformTouchPoint> m_touchPoints;
@@ -93,6 +97,7 @@ protected:
     bool m_altKey;
     bool m_shiftKey;
     bool m_metaKey;
+    double m_timestamp;
 };
 
 }

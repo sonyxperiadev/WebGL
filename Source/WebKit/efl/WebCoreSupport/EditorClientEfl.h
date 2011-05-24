@@ -34,6 +34,7 @@
 #define EditorClientEfl_h
 
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 
 #include <wtf/Forward.h>
 
@@ -42,7 +43,7 @@ typedef struct _Evas_Object Evas_Object;
 namespace WebCore {
 class Page;
 
-class EditorClientEfl : public EditorClient {
+class EditorClientEfl : public EditorClient, public TextCheckerClient {
 public:
     EditorClientEfl(Evas_Object *view);
     ~EditorClientEfl();
@@ -59,8 +60,6 @@ public:
     virtual bool isGrammarCheckingEnabled();
     virtual void toggleGrammarChecking();
     virtual int spellCheckerDocumentTag();
-
-    virtual bool isEditable();
 
     virtual bool shouldBeginEditing(Range*);
     virtual bool shouldEndEditing(Range*);
@@ -83,6 +82,8 @@ public:
     virtual void registerCommandForRedo(WTF::PassRefPtr<EditCommand>);
     virtual void clearUndoRedoOperations();
 
+    virtual bool canCopyCut(bool defaultValue) const;
+    virtual bool canPaste(bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
 
@@ -114,6 +115,7 @@ public:
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
     virtual void requestCheckingOfString(WebCore::SpellChecker*, int, const WTF::String&) {}
+    virtual TextCheckerClient* textChecker() { return this; }
 
 private:
     Evas_Object *m_view;

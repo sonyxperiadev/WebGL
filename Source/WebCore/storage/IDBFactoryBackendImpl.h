@@ -38,8 +38,8 @@ namespace WebCore {
 
 class DOMStringList;
 
+class IDBBackingStore;
 class IDBDatabaseBackendImpl;
-class IDBSQLiteDatabase;
 class IDBTransactionCoordinator;
 
 class IDBFactoryBackendImpl : public IDBFactoryBackendInterface {
@@ -52,7 +52,8 @@ public:
 
     // Notifications from weak pointers.
     void removeIDBDatabaseBackend(const String& uniqueIdentifier);
-    void removeSQLiteDatabase(const String& uniqueIdentifier);
+    void addIDBBackingStore(const String& uniqueIdentifier, IDBBackingStore*);
+    void removeIDBBackingStore(const String& uniqueIdentifier);
 
     virtual void open(const String& name, PassRefPtr<IDBCallbacks>, PassRefPtr<SecurityOrigin>, Frame*, const String& dataDir, int64_t maximumSize);
 
@@ -62,8 +63,8 @@ private:
     typedef HashMap<String, IDBDatabaseBackendImpl*> IDBDatabaseBackendMap;
     IDBDatabaseBackendMap m_databaseBackendMap;
 
-    typedef HashMap<String, IDBSQLiteDatabase*> SQLiteDatabaseMap;
-    SQLiteDatabaseMap m_sqliteDatabaseMap;
+    typedef HashMap<String, IDBBackingStore*> IDBBackingStoreMap;
+    IDBBackingStoreMap m_backingStoreMap;
 
     RefPtr<IDBTransactionCoordinator> m_transactionCoordinator;
 
@@ -76,4 +77,3 @@ private:
 #endif
 
 #endif // IDBFactoryBackendImpl_h
-

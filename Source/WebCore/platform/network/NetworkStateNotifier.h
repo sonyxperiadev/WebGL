@@ -41,10 +41,6 @@
 typedef const struct __CFArray * CFArrayRef;
 typedef const struct __SCDynamicStore * SCDynamicStoreRef;
 
-#elif PLATFORM(CHROMIUM)
-
-#include "NetworkStateNotifierPrivate.h"
-
 #elif PLATFORM(WIN)
 
 #include <windows.h>
@@ -71,19 +67,29 @@ class NetworkStateNotifier {
 public:
     NetworkStateNotifier();
     void setNetworkStateChangedFunction(void (*)());
-    
+
     bool onLine() const { return m_isOnLine; }
 
 #if (PLATFORM(QT) && ENABLE(QT_BEARER))
     void setNetworkAccessAllowed(bool);
+#elif PLATFORM(ANDROID) || PLATFORM(CHROMIUM)
+    void setOnLine(bool);
 #endif
 
+#if PLATFORM(ANDROID)
+    void networkStateChange(bool online) { setOnLine(online); }
+#endif
+
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // TODO: Upstream to webkit.org
     Connection::ConnectionType type() const { return m_type; }
 #endif
 
 private:    
+=======
+private:
+>>>>>>> WebKit at r80534
     bool m_isOnLine;
 #if PLATFORM(ANDROID)
     // TODO: Upstream to webkit.org
@@ -105,11 +111,12 @@ private:
     static void CALLBACK addrChangeCallback(void*, BOOLEAN timedOut);
     static void callAddressChanged(void*);
     void addressChanged();
-    
+
     void registerForAddressChange();
     HANDLE m_waitHandle;
     OVERLAPPED m_overlapped;
 
+<<<<<<< HEAD
 #elif PLATFORM(CHROMIUM)
     NetworkStateNotifierPrivate p;
 
@@ -119,13 +126,15 @@ public:
     // TODO: Upstream to webkit.org
     void networkTypeChange(Connection::ConnectionType type);
 
+=======
+>>>>>>> WebKit at r80534
 #elif PLATFORM(QT) && ENABLE(QT_BEARER)
     friend class NetworkStateNotifierPrivate;
     NetworkStateNotifierPrivate* p;
 #endif
 };
 
-#if !PLATFORM(MAC) && !PLATFORM(WIN) && !PLATFORM(CHROMIUM) && !(PLATFORM(QT) && ENABLE(QT_BEARER))
+#if !PLATFORM(MAC) && !PLATFORM(WIN) && !(PLATFORM(QT) && ENABLE(QT_BEARER))
 
 inline NetworkStateNotifier::NetworkStateNotifier()
     : m_isOnLine(true)
@@ -134,7 +143,7 @@ inline NetworkStateNotifier::NetworkStateNotifier()
     , m_type(Connection::UNKNOWN)
 #endif
     , m_networkStateChangedFunction(0)
-{    
+{
 }
 
 inline void NetworkStateNotifier::updateState() { }
@@ -142,7 +151,7 @@ inline void NetworkStateNotifier::updateState() { }
 #endif
 
 NetworkStateNotifier& networkStateNotifier();
-    
+
 };
 
 #endif // NetworkStateNotifier_h

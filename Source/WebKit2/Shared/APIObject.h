@@ -61,9 +61,12 @@ public:
         TypeUInt64,
         
         // UIProcess types
+        TypeApplicationCacheManager,
         TypeBackForwardList,
         TypeBackForwardListItem,
+        TypeCacheManager,
         TypeContext,
+        TypeCookieManager,
         TypeDatabaseManager,
         TypeDownload,
         TypeFormSubmissionListener,
@@ -73,11 +76,13 @@ public:
         TypeGeolocationPermissionRequest,
         TypeGeolocationPosition,
         TypeInspector,
+        TypeKeyValueStorageManager,
         TypeNavigationData,
         TypeOpenPanelParameters,
         TypeOpenPanelResultListener,
         TypePage,
         TypePageGroup,
+        TypePluginSiteDataManager,
         TypePreferences,
 
         // Bundle types

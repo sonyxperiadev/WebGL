@@ -85,16 +85,6 @@ PassRefPtr<ClipboardChromium> ClipboardChromium::create(ClipboardType clipboardT
     return adoptRef(new ClipboardChromium(clipboardType, dataObject, policy, frame));
 }
 
-PassRefPtr<ClipboardChromium> ClipboardChromium::create(ClipboardType clipboardType,
-    ClipboardAccessPolicy policy, Frame* frame)
-{
-    RefPtr<ChromiumDataObject> dataObject =
-        policy == ClipboardWritable ?
-        ChromiumDataObject::createWritable(clipboardType) :
-        ChromiumDataObject::createReadable(frame, clipboardType);
-    return adoptRef(new ClipboardChromium(clipboardType, dataObject, policy, frame));
-}
-
 void ClipboardChromium::clearData(const String& type)
 {
     if (policy() != ClipboardWritable || !m_dataObject)
@@ -141,6 +131,9 @@ HashSet<String> ClipboardChromium::types() const
         return results;
 
     results = m_dataObject->types();
+
+    if (m_dataObject->containsFilenames())
+        results.add(mimeTypeFiles);
 
     return results;
 }

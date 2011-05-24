@@ -26,6 +26,7 @@
 #define InspectorConsoleAgent_h
 
 #include "Console.h"
+#include "InspectorFrontend.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
@@ -38,24 +39,30 @@ namespace WebCore {
 
 class ConsoleMessage;
 class InspectorAgent;
+class InspectorDOMAgent;
 class InspectorFrontend;
 class InspectorState;
+class InjectedScriptHost;
+class InstrumentingAgents;
 class ResourceError;
 class ResourceResponse;
 class ScriptArguments;
 class ScriptCallStack;
 class ScriptProfile;
 
+typedef String ErrorString;
+
 class InspectorConsoleAgent {
     WTF_MAKE_NONCOPYABLE(InspectorConsoleAgent);
 public:
-    InspectorConsoleAgent(InspectorAgent*);
+    InspectorConsoleAgent(InstrumentingAgents*, InspectorAgent*, InspectorState*, InjectedScriptHost*, InspectorDOMAgent*);
     ~InspectorConsoleAgent();
 
-    void setConsoleMessagesEnabled(bool enabled, bool* newState);
-    void clearConsoleMessages();
+    void setConsoleMessagesEnabled(ErrorString* error, bool enabled, bool* newState);
+    void clearConsoleMessages(ErrorString* error);
     void reset();
     void setFrontend(InspectorFrontend*);
+    void clearFrontend();
 
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
@@ -71,14 +78,18 @@ public:
     void addProfileFinishedMessageToConsole(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
     void addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL);
 #endif
-    void setMonitoringXHREnabled(bool enabled);
+    void setMonitoringXHREnabled(ErrorString* error, bool enabled);
 
 private:
     void setConsoleMessagesEnabled(bool);
     void addConsoleMessage(PassOwnPtr<ConsoleMessage>);
 
+    InstrumentingAgents* m_instrumentingAgents;
     InspectorAgent* m_inspectorAgent;
-    InspectorFrontend* m_frontend;
+    InspectorState* m_inspectorState;
+    InjectedScriptHost* m_injectedScriptHost;
+    InspectorDOMAgent* m_inspectorDOMAgent;
+    InspectorFrontend::Console* m_frontend;
     ConsoleMessage* m_previousMessage;
     Vector<OwnPtr<ConsoleMessage> > m_consoleMessages;
     unsigned m_expiredConsoleMessageCount;

@@ -37,26 +37,26 @@ namespace WebCore {
     public:
         ResourceResponse()
             : m_appCacheID(0)
-            , m_isContentFiltered(false)
             , m_isMultipartPayload(false)
             , m_wasFetchedViaSPDY(false)
             , m_wasNpnNegotiated(false)
             , m_wasAlternateProtocolAvailable(false)
             , m_wasFetchedViaProxy(false)
             , m_responseTime(0)
+            , m_remotePort(0)
         {
         }
 
         ResourceResponse(const KURL& url, const String& mimeType, long long expectedLength, const String& textEncodingName, const String& filename)
             : ResourceResponseBase(url, mimeType, expectedLength, textEncodingName, filename)
             , m_appCacheID(0)
-            , m_isContentFiltered(false)
             , m_isMultipartPayload(false)
             , m_wasFetchedViaSPDY(false)
             , m_wasNpnNegotiated(false)
             , m_wasAlternateProtocolAvailable(false)
             , m_wasFetchedViaProxy(false)
             , m_responseTime(0)
+            , m_remotePort(0)
         {
         }
 
@@ -68,9 +68,6 @@ namespace WebCore {
 
         const KURL& appCacheManifestURL() const { return m_appCacheManifestURL; }
         void setAppCacheManifestURL(const KURL& url) { m_appCacheManifestURL = url; }
-
-        bool isContentFiltered() const { return m_isContentFiltered; }
-        void setIsContentFiltered(bool value) { m_isContentFiltered = value; }
 
         bool wasFetchedViaSPDY() const { return m_wasFetchedViaSPDY; }
         void setWasFetchedViaSPDY(bool value) { m_wasFetchedViaSPDY = value; }
@@ -96,8 +93,11 @@ namespace WebCore {
         double responseTime() const { return m_responseTime; }
         void setResponseTime(double responseTime) { m_responseTime = responseTime; }
 
-        const String& socketAddress() const { return m_socketAddress; }
-        void setSocketAddress(const String& value) { m_socketAddress = value; }
+        const String& remoteIPAddress() const { return m_remoteIPAddress; }
+        void setRemoteIPAddress(const String& value) { m_remoteIPAddress = value; }
+
+        unsigned short remotePort() const { return m_remotePort; }
+        void setRemotePort(unsigned short value) { m_remotePort = value; }
 
         const String& downloadFilePath() const { return m_downloadFilePath; }
         void setDownloadFilePath(const String& downloadFilePath) { m_downloadFilePath = downloadFilePath; }
@@ -126,10 +126,6 @@ namespace WebCore {
         // Note: only valid for main resource responses.
         KURL m_appCacheManifestURL;
 
-        // Whether the contents for this response has been altered/blocked (usually
-        // for security reasons.
-        bool m_isContentFiltered;
-
         // Set to true if this is part of a multipart response.
         bool m_isMultipartPayload;
 
@@ -150,9 +146,11 @@ namespace WebCore {
         // responses, this time could be "far" in the past.
         double m_responseTime;
 
-        // Remote address of the socket which fetched this resource, for presenting
-        // to inquisitive users.  Can be "ipv4:port", "[ipv6]:port", or empty.
-        String m_socketAddress;
+        // Remote IP address of the socket which fetched this resource.
+        String m_remoteIPAddress;
+
+        // Remote port number of the socket which fetched this resource.
+        unsigned short m_remotePort;
 
         // The path to the downloaded file.
         String m_downloadFilePath;
@@ -161,14 +159,14 @@ namespace WebCore {
     struct CrossThreadResourceResponseData : public CrossThreadResourceResponseDataBase {
         long long m_appCacheID;
         KURL m_appCacheManifestURL;
-        bool m_isContentFiltered;
         bool m_isMultipartPayload;
         bool m_wasFetchedViaSPDY;
         bool m_wasNpnNegotiated;
         bool m_wasAlternateProtocolAvailable;
         bool m_wasFetchedViaProxy;
         double m_responseTime;
-        String m_socketAddress;
+        String m_remoteIPAddress;
+        unsigned short m_remotePort;
         String m_downloadFilePath;
     };
 

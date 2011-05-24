@@ -34,7 +34,6 @@
 #include "ContainerNode.h"
 #include "ContentSecurityPolicy.h"
 #include "DOMTimeStamp.h"
-#include "DocumentLoader.h"
 #include "DocumentOrderedMap.h"
 #include "DocumentTiming.h"
 #include "QualifiedName.h"
@@ -61,6 +60,7 @@ class CachedResourceLoader;
 class CachedScript;
 class CanvasRenderingContext;
 class CharacterData;
+class CSSPrimitiveValueCache;
 class CSSStyleDeclaration;
 class CSSStyleSelector;
 class CSSStyleSheet;
@@ -71,6 +71,7 @@ class DOMWindow;
 class Database;
 class DatabaseThread;
 class DocumentFragment;
+class DocumentLoader;
 class DocumentMarkerController;
 class DocumentType;
 class DocumentWeakReference;
@@ -152,6 +153,7 @@ class TouchList;
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
 class RequestAnimationFrameCallback;
+class ScriptedAnimationController;
 #endif
 
 typedef int ExceptionCode;
@@ -290,6 +292,7 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(reset);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(search);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(selectstart);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(selectionchange);
 #if ENABLE(TOUCH_EVENTS)
     DEFINE_ATTRIBUTE_EVENT_LISTENER(touchstart);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(touchmove);
@@ -304,7 +307,7 @@ public:
 
     DocumentType* doctype() const { return m_docType.get(); }
 
-    DOMImplementation* implementation() const;
+    DOMImplementation* implementation();
     
     Element* documentElement() const
     {
@@ -432,7 +435,15 @@ public:
 #endif
     virtual bool isFrameSet() const { return false; }
     
+    PassRefPtr<CSSPrimitiveValueCache> cssPrimitiveValueCache() const;
+    
     CSSStyleSelector* styleSelectorIfExists() const { return m_styleSelector.get(); }
+
+    bool usesViewSourceStyles() const { return m_usesViewSourceStyles; }
+    void setUsesViewSourceStyles(bool usesViewSourceStyles) { m_usesViewSourceStyles = usesViewSourceStyles; }
+
+    bool sawElementsInKnownNamespaces() const { return m_sawElementsInKnownNamespaces; }
+
     CSSStyleSelector* styleSelector()
     { 
         if (!m_styleSelector)
@@ -480,16 +491,13 @@ public:
     void styleSelectorChanged(StyleSelectorUpdateFlag);
     void recalcStyleSelector();
 
-    bool usesDescendantRules() const { return m_usesDescendantRules; }
-    void setUsesDescendantRules(bool b) { m_usesDescendantRules = b; }
-    bool usesSiblingRules() const { return m_usesSiblingRules; }
-    void setUsesSiblingRules(bool b) { m_usesSiblingRules = b; }
+    bool usesSiblingRules() const { return m_usesSiblingRules || m_usesSiblingRulesOverride; }
+    void setUsesSiblingRules(bool b) { m_usesSiblingRulesOverride = b; }
     bool usesFirstLineRules() const { return m_usesFirstLineRules; }
-    void setUsesFirstLineRules(bool b) { m_usesFirstLineRules = b; }
     bool usesFirstLetterRules() const { return m_usesFirstLetterRules; }
     void setUsesFirstLetterRules(bool b) { m_usesFirstLetterRules = b; }
-    bool usesBeforeAfterRules() const { return m_usesBeforeAfterRules; }
-    void setUsesBeforeAfterRules(bool b) { m_usesBeforeAfterRules = b; }
+    bool usesBeforeAfterRules() const { return m_usesBeforeAfterRules || m_usesBeforeAfterRulesOverride; }
+    void setUsesBeforeAfterRules(bool b) { m_usesBeforeAfterRulesOverride = b; }
     bool usesRemUnits() const { return m_usesRemUnits; }
     void setUsesRemUnits(bool b) { m_usesRemUnits = b; }
     bool usesLinkRules() const { return linkColor() != visitedLinkColor() || m_usesLinkRules; }
@@ -644,6 +652,7 @@ public:
     void setExtraLayoutDelay(int delay) { m_extraLayoutDelay = delay; }
 
     bool shouldScheduleLayout();
+    bool isLayoutTimerActive();
     int elapsedTime() const;
     
     void setTextColor(const Color& color) { m_textColor = color; }
@@ -966,6 +975,9 @@ public:
     virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
     virtual void postTask(PassOwnPtr<Task>); // Executes the task on context's thread asynchronously.
 
+    virtual void suspendScriptedAnimationControllerCallbacks();
+    virtual void resumeScriptedAnimationControllerCallbacks();
+
 #if USE(JSC)
     typedef JSC::WeakGCMap<WebCore::Node*, JSNode> JSWrapperCache;
     typedef HashMap<DOMWrapperWorld*, JSWrapperCache*> JSWrapperCacheMap;
@@ -991,6 +1003,10 @@ public:
     void registerForMediaVolumeCallbacks(Element*);
     void unregisterForMediaVolumeCallbacks(Element*);
     void mediaVolumeDidChange();
+
+    void registerForPrivateBrowsingStateChangedCallbacks(Element*);
+    void unregisterForPrivateBrowsingStateChangedCallbacks(Element*);
+    void privateBrowsingStateDidChange();
 
     void setShouldCreateRenderers(bool);
     bool shouldCreateRenderers();
@@ -1059,6 +1075,7 @@ public:
     void setContainsValidityStyleRules() { m_containsValidityStyleRules = true; }
 
     void enqueueWindowEvent(PassRefPtr<Event>);
+    void enqueueDocumentEvent(PassRefPtr<Event>);
     void enqueuePageshowEvent(PageshowEventPersistence);
     void enqueueHashchangeEvent(const String& oldURL, const String& newURL);
     void enqueuePopstateEvent(PassRefPtr<SerializedScriptValue> stateObject);
@@ -1116,7 +1133,10 @@ public:
 
     void initDNSPrefetch();
 
-    ContentSecurityPolicy* contentSecurityPolicy() { return &m_contentSecurityPolicy; }
+    ContentSecurityPolicy* contentSecurityPolicy() { return m_contentSecurityPolicy.get(); }
+
+    void suspendScheduledTasks();
+    void resumeScheduledTasks();
 
 protected:
     Document(Frame*, const KURL&, bool isXHTML, bool isHTML);
@@ -1149,6 +1169,8 @@ private:
     virtual const KURL& virtualURL() const; // Same as url(), but needed for ScriptExecutionContext to implement it without a performance loss for direct calls.
     virtual KURL virtualCompleteURL(const String&) const; // Same as completeURL() for the same reason as above.
 
+    virtual double minimumTimerInterval() const;
+
     String encoding() const;
 
     void updateTitle();
@@ -1163,8 +1185,15 @@ private:
 
     void loadEventDelayTimerFired(Timer<Document>*);
 
+    void pendingTasksTimerFired(Timer<Document>*);
+
+    static void didReceiveTask(void*);
+
     OwnPtr<CSSStyleSelector> m_styleSelector;
     bool m_didCalculateStyleSelector;
+    bool m_hasDirtyStyleSelector;
+    
+    mutable RefPtr<CSSPrimitiveValueCache> m_cssPrimitiveValueCache;
 
     Frame* m_frame;
     DocumentLoader* m_documentLoader;
@@ -1269,11 +1298,12 @@ private:
     bool m_inStyleRecalc;
     bool m_closeAfterStyleRecalc;
 
-    bool m_usesDescendantRules;
     bool m_usesSiblingRules;
+    bool m_usesSiblingRulesOverride;
     bool m_usesFirstLineRules;
     bool m_usesFirstLetterRules;
     bool m_usesBeforeAfterRules;
+    bool m_usesBeforeAfterRulesOverride;
     bool m_usesRemUnits;
     bool m_usesLinkRules;
     bool m_gotoAnchorNeededAfterStylesheetsLoad;
@@ -1373,11 +1403,15 @@ private:
     
     HashSet<Element*> m_documentActivationCallbackElements;
     HashSet<Element*> m_mediaVolumeCallbackElements;
+    HashSet<Element*> m_privateBrowsingStateChangedElements;
 
     bool m_useSecureKeyboardEntryWhenActive;
 
     bool m_isXHTML;
     bool m_isHTML;
+
+    bool m_usesViewSourceStyles;
+    bool m_sawElementsInKnownNamespaces;
 
     unsigned m_numNodeListCaches;
 
@@ -1388,7 +1422,7 @@ private:
 
     bool m_usingGeolocation;
     
-    OwnPtr<EventQueue> m_eventQueue;
+    RefPtr<EventQueue> m_eventQueue;
 
 #if ENABLE(WML)
     bool m_containsWMLContent;
@@ -1422,12 +1456,13 @@ private:
     unsigned m_writeRecursionDepth;
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-    typedef Vector<RefPtr<RequestAnimationFrameCallback> > RequestAnimationFrameCallbackList;
-    OwnPtr<RequestAnimationFrameCallbackList> m_requestAnimationFrameCallbacks;
-    int m_nextRequestAnimationFrameCallbackId;
+    OwnPtr<ScriptedAnimationController> m_scriptedAnimationController;
 #endif
 
-    ContentSecurityPolicy m_contentSecurityPolicy;
+    RefPtr<ContentSecurityPolicy> m_contentSecurityPolicy;
+
+    Timer<Document> m_pendingTasksTimer;
+    Vector<OwnPtr<Task> > m_pendingTasks;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

@@ -63,6 +63,8 @@ TestController::TestController(int argc, const char* argv[])
     , m_doneResetting(false)
     , m_longTimeout(defaultLongTimeout)
     , m_shortTimeout(defaultShortTimeout)
+    , m_didPrintWebProcessCrashedMessage(false)
+    , m_shouldExitWhenWebProcessCrashes(true)
 {
     initialize(argc, argv);
     controller = this;
@@ -327,7 +329,8 @@ void TestController::initialize(int argc, const char* argv[])
         0, // didBecomeUnresponsive
         0, // didBecomeResponsive
         processDidCrash, // processDidCrash
-        0 // didChangeBackForwardList
+        0, // didChangeBackForwardList
+        0 // shouldGoToBackForwardListItem
     };
     WKPageSetPageLoaderClient(m_mainWebView->page(), &pageLoaderClient);
 }
@@ -383,8 +386,20 @@ bool TestController::runTest(const char* test)
         return false;
     }
 
+    std::string pathOrURL(test);
+    std::string expectedPixelHash;
+    size_t separatorPos = pathOrURL.find("'");
+    if (separatorPos != std::string::npos) {
+        pathOrURL = std::string(std::string(test), 0, separatorPos);
+        expectedPixelHash = std::string(std::string(test), separatorPos + 1);
+    }
+
     m_state = RunningTest;
-    m_currentInvocation.set(new TestInvocation(test));
+
+    m_currentInvocation.set(new TestInvocation(pathOrURL));
+    if (m_dumpPixels)
+        m_currentInvocation->setIsPixelTest(expectedPixelHash);    
+
     m_currentInvocation->invoke();
     m_currentInvocation.clear();
 
@@ -395,7 +410,7 @@ void TestController::runTestingServerLoop()
 {
     char filenameBuffer[2048];
     while (fgets(filenameBuffer, sizeof(filenameBuffer), stdin)) {
-        char *newLineCharacter = strchr(filenameBuffer, '\n');
+        char* newLineCharacter = strchr(filenameBuffer, '\n');
         if (newLineCharacter)
             *newLineCharacter = '\0';
 
@@ -417,7 +432,6 @@ void TestController::run()
                 break;
         }
     }
-
 }
 
 void TestController::runUntil(bool& done, TimeoutDuration timeoutDuration)
@@ -458,7 +472,7 @@ void TestController::didFinishLoadForFrame(WKPageRef page, WKFrameRef frame, WKT
 
 void TestController::processDidCrash(WKPageRef page, const void* clientInfo)
 {
-    static_cast<TestController*>(const_cast<void*>(clientInfo))->processDidCrash(page);
+    static_cast<TestController*>(const_cast<void*>(clientInfo))->processDidCrash();
 }
 
 void TestController::didFinishLoadForFrame(WKPageRef page, WKFrameRef frame)
@@ -477,10 +491,18 @@ void TestController::didFinishLoadForFrame(WKPageRef page, WKFrameRef frame)
     shared().notifyDone();
 }
 
-void TestController::processDidCrash(WKPageRef page)
+void TestController::processDidCrash()
 {
-    fputs("#CRASHED - WebProcess\n", stderr);
-    fflush(stderr);
+    // This function can be called multiple times when crash logs are being saved on Windows, so
+    // ensure we only print the crashed message once.
+    if (!m_didPrintWebProcessCrashedMessage) {
+        fputs("#CRASHED - WebProcess\n", stderr);
+        fflush(stderr);
+        m_didPrintWebProcessCrashedMessage = true;
+    }
+
+    if (m_shouldExitWhenWebProcessCrashes)
+        exit(1);
 }
 
 } // namespace WTR

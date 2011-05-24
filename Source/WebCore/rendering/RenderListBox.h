@@ -77,6 +77,8 @@ private:
 
     virtual void layout();
 
+    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
+
     virtual bool canBeProgramaticallyScrolled(bool) const { return true; }
     virtual void autoscroll();
     virtual void stopAutoscroll();
@@ -110,7 +112,6 @@ private:
     virtual int visibleHeight() const;
     virtual int visibleWidth() const;
     virtual IntPoint currentMousePosition() const;
-    virtual bool scrollbarWillRenderIntoCompositingLayer() const;
 
     // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
     void scrollTo(int newOffset);

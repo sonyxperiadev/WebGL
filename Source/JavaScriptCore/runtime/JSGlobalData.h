@@ -39,7 +39,6 @@
 #include "SmallStrings.h"
 #include "Terminator.h"
 #include "TimeoutChecker.h"
-#include "WeakGCMap.h"
 #include "WeakRandom.h"
 #include <wtf/BumpPointerAllocator.h>
 #include <wtf/Forward.h>
@@ -63,6 +62,7 @@ namespace JSC {
     class JSGlobalObject;
     class JSObject;
     class Lexer;
+    class NativeExecutable;
     class Parser;
     class RegExpCache;
     class Stringifier;
@@ -74,8 +74,6 @@ namespace JSC {
 
     struct HashTable;
     struct Instruction;
-
-    typedef WeakGCMap<JSGlobalObject*, JSGlobalObject> GlobalObjectMap; // FIXME: Would be nice to use a WeakGCSet here.
 
     struct DSTOffsetCache {
         DSTOffsetCache()
@@ -141,6 +139,7 @@ namespace JSC {
         const HashTable* jsonTable;
         const HashTable* mathTable;
         const HashTable* numberTable;
+        const HashTable* objectConstructorTable;
         const HashTable* regExpTable;
         const HashTable* regExpConstructorTable;
         const HashTable* stringTable;
@@ -155,6 +154,7 @@ namespace JSC {
         RefPtr<Structure> propertyNameIteratorStructure;
         RefPtr<Structure> getterSetterStructure;
         RefPtr<Structure> apiWrapperStructure;
+        RefPtr<Structure> scopeChainNodeStructure;
         RefPtr<Structure> dummyMarkableCellStructure;
 
         static void storeVPtrs();
@@ -199,9 +199,10 @@ namespace JSC {
         {
             return jitStubs->ctiStub(this, generator);
         }
-        PassRefPtr<NativeExecutable> getHostFunction(NativeFunction function);
-        PassRefPtr<NativeExecutable> getHostFunction(NativeFunction function, ThunkGenerator generator);
+        PassRefPtr<NativeExecutable> getHostFunction(NativeFunction, ThunkGenerator);
 #endif
+        PassRefPtr<NativeExecutable> getHostFunction(NativeFunction);
+
         TimeoutChecker timeoutChecker;
         Terminator terminator;
         Heap heap;
@@ -213,7 +214,7 @@ namespace JSC {
 
         HashMap<OpaqueJSClass*, OpaqueJSClassContextData*> opaqueJSClassData;
 
-        GlobalObjectMap globalObjects;
+        unsigned globalObjectCount;
         JSGlobalObject* dynamicGlobalObject;
 
         HashSet<JSObject*> stringRecursionCheckVisitedObjects;
@@ -253,6 +254,8 @@ namespace JSC {
         void addRegExpToTrace(PassRefPtr<RegExp> regExp);
 #endif
         void dumpRegExpTrace();
+        HandleSlot allocateGlobalHandle() { return heap.allocateGlobalHandle(); }
+
     private:
         JSGlobalData(GlobalDataType, ThreadStackType);
         static JSGlobalData*& sharedInstanceInternal();

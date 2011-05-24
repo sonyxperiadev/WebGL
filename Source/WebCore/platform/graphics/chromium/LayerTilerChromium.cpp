@@ -35,27 +35,23 @@
 #include "LayerRendererChromium.h"
 #include "LayerTexture.h"
 
-#if PLATFORM(SKIA)
-#include "NativeImageSkia.h"
-#include "PlatformContextSkia.h"
-#elif PLATFORM(CG)
-#include <CoreGraphics/CGBitmapContext.h>
-#endif
-
 #include <wtf/PassOwnArrayPtr.h>
+
+using namespace std;
 
 namespace WebCore {
 
-PassOwnPtr<LayerTilerChromium> LayerTilerChromium::create(LayerRendererChromium* layerRenderer, const IntSize& tileSize)
+PassOwnPtr<LayerTilerChromium> LayerTilerChromium::create(LayerRendererChromium* layerRenderer, const IntSize& tileSize, BorderTexelOption border)
 {
     if (!layerRenderer || tileSize.isEmpty())
         return 0;
 
-    return adoptPtr(new LayerTilerChromium(layerRenderer, tileSize));
+    return adoptPtr(new LayerTilerChromium(layerRenderer, tileSize, border));
 }
 
-LayerTilerChromium::LayerTilerChromium(LayerRendererChromium* layerRenderer, const IntSize& tileSize)
+LayerTilerChromium::LayerTilerChromium(LayerRendererChromium* layerRenderer, const IntSize& tileSize, BorderTexelOption border)
     : m_skipsDraw(false)
+    , m_tilingData(max(tileSize.width(), tileSize.height()), 0, 0, border == HasBorderTexels)
     , m_layerRenderer(layerRenderer)
 {
     setTileSize(tileSize);
@@ -81,6 +77,7 @@ void LayerTilerChromium::setTileSize(const IntSize& size)
 
     m_tileSize = size;
     m_tilePixels = adoptArrayPtr(new uint8_t[m_tileSize.width() * m_tileSize.height() * 4]);
+    m_tilingData.setMaxTextureSize(max(size.width(), size.height()));
 }
 
 void LayerTilerChromium::reset()
@@ -88,8 +85,7 @@ void LayerTilerChromium::reset()
     m_tiles.clear();
     m_unusedTiles.clear();
 
-    m_layerSize = IntSize();
-    m_layerTileSize = IntSize();
+    m_tilingData.setTotalSize(0, 0);
     m_lastUpdateLayerRect = IntRect();
 }
 
@@ -143,10 +139,10 @@ void LayerTilerChromium::contentRectToTileIndices(const IntRect& contentRect, in
 {
     const IntRect layerRect = contentRectToLayerRect(contentRect);
 
-    left = layerRect.x() / m_tileSize.width();
-    top = layerRect.y() / m_tileSize.height();
-    right = (layerRect.maxX() - 1) / m_tileSize.width();
-    bottom = (layerRect.maxY() - 1) / m_tileSize.height();
+    left = m_tilingData.tileXIndexFromSrcCoord(layerRect.x());
+    top = m_tilingData.tileYIndexFromSrcCoord(layerRect.y());
+    right = m_tilingData.tileXIndexFromSrcCoord(layerRect.maxX() - 1);
+    bottom = m_tilingData.tileYIndexFromSrcCoord(layerRect.maxY() - 1);
 }
 
 IntRect LayerTilerChromium::contentRectToLayerRect(const IntRect& contentRect) const
@@ -169,22 +165,32 @@ IntRect LayerTilerChromium::layerRectToContentRect(const IntRect& layerRect) con
 
 int LayerTilerChromium::tileIndex(int i, int j) const
 {
-    ASSERT(i >= 0 && j >= 0 && i < m_layerTileSize.width() && j < m_layerTileSize.height());
-    return i + j * m_layerTileSize.width();
+    return m_tilingData.tileIndex(i, j);
 }
 
 IntRect LayerTilerChromium::tileContentRect(int i, int j) const
 {
-    IntPoint anchor(m_layerPosition.x() + i * m_tileSize.width(), m_layerPosition.y() + j * m_tileSize.height());
-    IntRect tile(anchor, m_tileSize);
-    return tile;
+    IntRect contentRect = tileLayerRect(i, j);
+    contentRect.move(m_layerPosition.x(), m_layerPosition.y());
+    return contentRect;
 }
 
 IntRect LayerTilerChromium::tileLayerRect(int i, int j) const
 {
-    IntPoint anchor(i * m_tileSize.width(), j * m_tileSize.height());
-    IntRect tile(anchor, m_tileSize);
-    return tile;
+    const int index = m_tilingData.tileIndex(i, j);
+    IntRect layerRect = m_tilingData.tileBoundsWithBorder(index);
+    layerRect.setSize(m_tileSize);
+    return layerRect;
+}
+
+IntSize LayerTilerChromium::layerSize() const
+{
+    return IntSize(m_tilingData.totalSizeX(), m_tilingData.totalSizeY());
+}
+
+IntSize LayerTilerChromium::layerTileSize() const
+{
+    return IntSize(m_tilingData.numTilesX(), m_tilingData.numTilesY());
 }
 
 void LayerTilerChromium::invalidateRect(const IntRect& contentRect)
@@ -220,8 +226,7 @@ void LayerTilerChromium::invalidateEntireLayer()
     }
     m_tiles.clear();
 
-    m_layerSize = IntSize();
-    m_layerTileSize = IntSize();
+    m_tilingData.setTotalSize(0, 0);
     m_lastUpdateLayerRect = IntRect();
 }
 
@@ -258,55 +263,26 @@ void LayerTilerChromium::update(TilePaintInterface& painter, const IntRect& cont
         return;
 
     const IntRect paintRect = layerRectToContentRect(dirtyLayerRect);
-    GraphicsContext3D* context = layerRendererContext();
-#if PLATFORM(SKIA)
-    OwnPtr<skia::PlatformCanvas> canvas(new skia::PlatformCanvas(paintRect.width(), paintRect.height(), false));
-    OwnPtr<PlatformContextSkia> skiaContext(new PlatformContextSkia(canvas.get()));
-    OwnPtr<GraphicsContext> graphicsContext(new GraphicsContext(reinterpret_cast<PlatformGraphicsContext*>(skiaContext.get())));
 
-    // Bring the canvas into the coordinate system of the paint rect.
-    canvas->translate(static_cast<SkScalar>(-paintRect.x()), static_cast<SkScalar>(-paintRect.y()));
+    m_canvas.resize(paintRect.size());
+    PlatformCanvas::Painter canvasPainter(&m_canvas);
+    canvasPainter.context()->translate(-paintRect.x(), -paintRect.y());
+    painter.paint(*canvasPainter.context(), paintRect);
 
-    painter.paint(*graphicsContext, paintRect);
+    PlatformCanvas::AutoLocker locker(&m_canvas);
+    updateFromPixels(paintRect, locker.pixels());
+}
 
-    // Get the contents of the updated rect.
-    const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
-    ASSERT(bitmap.width() == paintRect.width() && bitmap.height() == paintRect.height());
-    if (bitmap.width() != paintRect.width() || bitmap.height() != paintRect.height())
-        CRASH();
-    uint8_t* paintPixels = static_cast<uint8_t*>(bitmap.getPixels());
-    if (!paintPixels)
-        CRASH();
-#elif PLATFORM(CG)
-    Vector<uint8_t> canvasPixels;
-    int rowBytes = 4 * paintRect.width();
-    canvasPixels.resize(rowBytes * paintRect.height());
-    memset(canvasPixels.data(), 0, canvasPixels.size());
-    RetainPtr<CGColorSpaceRef> colorSpace(AdoptCF, CGColorSpaceCreateDeviceRGB());
-    RetainPtr<CGContextRef> m_cgContext;
-    m_cgContext.adoptCF(CGBitmapContextCreate(canvasPixels.data(),
-                                                       paintRect.width(), paintRect.height(), 8, rowBytes,
-                                                       colorSpace.get(),
-                                                       kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host));
-    CGContextTranslateCTM(m_cgContext.get(), 0, paintRect.height());
-    CGContextScaleCTM(m_cgContext.get(), 1, -1);
-    OwnPtr<GraphicsContext> m_graphicsContext(new GraphicsContext(m_cgContext.get()));
-
-    // Bring the CoreGraphics context into the coordinate system of the paint rect.
-    CGContextTranslateCTM(m_cgContext.get(), -paintRect.x(), -paintRect.y());
-    painter.paint(*m_graphicsContext, paintRect);
-
-    // Get the contents of the updated rect.
-    ASSERT(static_cast<int>(CGBitmapContextGetWidth(m_cgContext.get())) == paintRect.width() && static_cast<int>(CGBitmapContextGetHeight(m_cgContext.get())) == paintRect.height());
-    uint8_t* paintPixels = static_cast<uint8_t*>(canvasPixels.data());
-#else
-#error "Need to implement for your platform."
-#endif
-
+void LayerTilerChromium::updateFromPixels(const IntRect& paintRect, const uint8_t* paintPixels)
+{
     // Painting could cause compositing to get turned off, which may cause the tiler to become invalidated mid-update.
     if (!m_tiles.size())
         return;
 
+    GraphicsContext3D* context = layerRendererContext();
+
+    int left, top, right, bottom;
+    contentRectToTileIndices(paintRect, left, top, right, bottom);
     for (int j = top; j <= bottom; ++j) {
         for (int i = left; i <= right; ++i) {
             Tile* tile = m_tiles[tileIndex(i, j)].get();
@@ -346,7 +322,7 @@ void LayerTilerChromium::update(TilePaintInterface& painter, const IntRect& cont
             if (paintOffset.y() + destRect.height() > paintRect.height())
                 CRASH();
 
-            uint8_t* pixelSource;
+            const uint8_t* pixelSource;
             if (paintRect.width() == sourceRect.width() && !paintOffset.x())
                 pixelSource = &paintPixels[4 * paintOffset.y() * paintRect.width()];
             else {
@@ -361,6 +337,9 @@ void LayerTilerChromium::update(TilePaintInterface& painter, const IntRect& cont
             }
 
             tile->texture()->bindTexture();
+            GLC(context, context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::NEAREST));
+            GLC(context, context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::NEAREST));
+
             GLC(context, context->texSubImage2D(GraphicsContext3D::TEXTURE_2D, 0, destRect.x(), destRect.y(), destRect.width(), destRect.height(), GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, pixelSource));
 
             tile->clearDirty();
@@ -378,26 +357,38 @@ void LayerTilerChromium::draw(const IntRect& contentRect)
     if (m_skipsDraw || !m_tiles.size())
         return;
 
-    // We reuse the shader program used by ContentLayerChromium.
     GraphicsContext3D* context = layerRendererContext();
-    const ContentLayerChromium::SharedValues* contentLayerValues = layerRenderer()->contentLayerSharedValues();
-    layerRenderer()->useShader(contentLayerValues->contentShaderProgram());
-    GLC(context, context->uniform1i(contentLayerValues->shaderSamplerLocation(), 0));
+    const LayerTilerChromium::Program* program = layerRenderer()->tilerProgram();
+    layerRenderer()->useShader(program->program());
+    GLC(context, context->uniform1i(program->fragmentShader().samplerLocation(), 0));
 
     int left, top, right, bottom;
     contentRectToTileIndices(contentRect, left, top, right, bottom);
     for (int j = top; j <= bottom; ++j) {
         for (int i = left; i <= right; ++i) {
-            Tile* tile = m_tiles[tileIndex(i, j)].get();
+            const int index = tileIndex(i, j);
+            Tile* tile = m_tiles[index].get();
             ASSERT(tile);
 
             tile->texture()->bindTexture();
 
             TransformationMatrix tileMatrix;
-            IntRect tileRect = tileContentRect(i, j);
+
+            // Don't use tileContentRect here, as that contains the full
+            // rect with border texels which shouldn't be drawn.
+            IntRect tileRect = m_tilingData.tileBounds(index);
+            tileRect.move(m_layerPosition.x(), m_layerPosition.y());
             tileMatrix.translate3d(tileRect.x() - contentRect.x() + tileRect.width() / 2.0, tileRect.y() - contentRect.y() + tileRect.height() / 2.0, 0);
 
-            LayerChromium::drawTexturedQuad(context, layerRenderer()->projectionMatrix(), tileMatrix, m_tileSize.width(), m_tileSize.height(), 1, contentLayerValues->shaderMatrixLocation(), contentLayerValues->shaderAlphaLocation());
+            IntPoint texOffset = m_tilingData.textureOffset(i, j);
+            float tileWidth = static_cast<float>(m_tileSize.width());
+            float tileHeight = static_cast<float>(m_tileSize.height());
+            float texTranslateX = texOffset.x() / tileWidth;
+            float texTranslateY = texOffset.y() / tileHeight;
+            float texScaleX = tileRect.width() / tileWidth;
+            float texScaleY = tileRect.height() / tileHeight;
+
+            drawTexturedQuad(context, layerRenderer()->projectionMatrix(), tileMatrix, tileRect.width(), tileRect.height(), 1, texTranslateX, texTranslateY, texScaleX, texScaleY, program);
 
             tile->texture()->unreserve();
         }
@@ -406,34 +397,61 @@ void LayerTilerChromium::draw(const IntRect& contentRect)
 
 void LayerTilerChromium::resizeLayer(const IntSize& size)
 {
-    if (m_layerSize == size)
+    if (layerSize() == size)
         return;
 
-    int width = (size.width() + m_tileSize.width() - 1) / m_tileSize.width();
-    int height = (size.height() + m_tileSize.height() - 1) / m_tileSize.height();
+    const IntSize oldTileSize = layerTileSize();
+    m_tilingData.setTotalSize(size.width(), size.height());
+    const IntSize newTileSize = layerTileSize();
 
-    if (height && (width > INT_MAX / height))
+    if (oldTileSize == newTileSize)
+        return;
+
+    if (newTileSize.height() && (newTileSize.width() > INT_MAX / newTileSize.height()))
         CRASH();
 
     Vector<OwnPtr<Tile> > newTiles;
-    newTiles.resize(width * height);
-    for (int j = 0; j < m_layerTileSize.height(); ++j)
-        for (int i = 0; i < m_layerTileSize.width(); ++i)
-            newTiles[i + j * width].swap(m_tiles[i + j * m_layerTileSize.width()]);
-
+    newTiles.resize(newTileSize.width() * newTileSize.height());
+    for (int j = 0; j < oldTileSize.height(); ++j)
+        for (int i = 0; i < oldTileSize.width(); ++i)
+            newTiles[i + j * newTileSize.width()].swap(m_tiles[i + j * oldTileSize.width()]);
     m_tiles.swap(newTiles);
-    m_layerSize = size;
-    m_layerTileSize = IntSize(width, height);
 }
 
 void LayerTilerChromium::growLayerToContain(const IntRect& contentRect)
 {
     // Grow the tile array to contain this content rect.
     IntRect layerRect = contentRectToLayerRect(contentRect);
-    IntSize layerSize = IntSize(layerRect.maxX(), layerRect.maxY());
+    IntSize rectSize = IntSize(layerRect.maxX(), layerRect.maxY());
 
-    IntSize newSize = layerSize.expandedTo(m_layerSize);
+    IntSize newSize = rectSize.expandedTo(layerSize());
     resizeLayer(newSize);
+}
+
+void LayerTilerChromium::drawTexturedQuad(GraphicsContext3D* context, const TransformationMatrix& projectionMatrix, const TransformationMatrix& drawMatrix,
+                                     float width, float height, float opacity,
+                                     float texTranslateX, float texTranslateY,
+                                     float texScaleX, float texScaleY,
+                                     const LayerTilerChromium::Program* program)
+{
+    static float glMatrix[16];
+
+    TransformationMatrix renderMatrix = drawMatrix;
+
+    // Apply a scaling factor to size the quad from 1x1 to its intended size.
+    renderMatrix.scale3d(width, height, 1);
+
+    // Apply the projection matrix before sending the transform over to the shader.
+    LayerChromium::toGLMatrix(&glMatrix[0], projectionMatrix * renderMatrix);
+
+    GLC(context, context->uniformMatrix4fv(program->vertexShader().matrixLocation(), false, &glMatrix[0], 1));
+
+    GLC(context, context->uniform1f(program->fragmentShader().alphaLocation(), opacity));
+
+    GLC(context, context->uniform4f(program->vertexShader().texTransformLocation(),
+        texTranslateX, texTranslateY, texScaleX, texScaleY));
+
+    GLC(context, context->drawElements(GraphicsContext3D::TRIANGLES, 6, GraphicsContext3D::UNSIGNED_SHORT, 0));
 }
 
 } // namespace WebCore

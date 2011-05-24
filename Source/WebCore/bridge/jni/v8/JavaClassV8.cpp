@@ -26,6 +26,11 @@
 #include "config.h"
 #include "JavaClassV8.h"
 
+#if ENABLE(JAVA_BRIDGE)
+
+#include "JavaFieldV8.h"
+#include "JavaMethod.h"
+
 using namespace JSC::Bindings;
 
 JavaClass::JavaClass(jobject anInstance)
@@ -101,3 +106,5 @@ JavaField* JavaClass::fieldNamed(const char* name) const
 {
     return m_fields.get(name);
 }
+
+#endif // ENABLE(JAVA_BRIDGE)

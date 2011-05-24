@@ -80,8 +80,6 @@ namespace JSC {
         friend void setUpStaticFunctionSlot(ExecState* exec, const HashEntry* entry, JSObject* thisObj, const Identifier& propertyName, PropertySlot& slot);
 
     public:
-        explicit JSObject(NonNullPassRefPtr<Structure>);
-
         virtual void markChildren(MarkStack&);
         ALWAYS_INLINE void markChildrenDirect(MarkStack& markStack);
 
@@ -212,19 +210,19 @@ namespace JSC {
         virtual bool isStrictModeFunction() const { return false; }
         virtual bool isErrorInstance() const { return false; }
 
+        void seal();
+        void freeze();
+        void preventExtensions();
+        bool isSealed() { return m_structure->isSealed(); }
+        bool isFrozen() { return m_structure->isFrozen(); }
+        bool isExtensible() { return m_structure->isExtensible(); }
+
         virtual ComplType exceptionType() const { return Throw; }
 
         void allocatePropertyStorage(size_t oldSize, size_t newSize);
-        void allocatePropertyStorageInline(size_t oldSize, size_t newSize);
         bool isUsingInlineStorage() const { return m_structure->isUsingInlineStorage(); }
 
-        static const unsigned inlineStorageCapacity = sizeof(EncodedJSValue) == 2 * sizeof(void*) ? 4 : 3;
-        static const unsigned nonInlineBaseStorageCapacity = 16;
-
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
-        {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
-        }
+        static const unsigned baseExternalStorageCapacity = 16;
 
         void flattenDictionaryObject(JSGlobalData& globalData)
         {
@@ -246,15 +244,28 @@ namespace JSC {
             ASSERT(index < m_structure->anonymousSlotCount());
             return locationForOffset(index)->get();
         }
+
+        static size_t offsetOfInlineStorage();
         
+        static JS_EXPORTDATA const ClassInfo s_info;
+
     protected:
+        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        {
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
         static const unsigned StructureFlags = 0;
-        
+
         void putThisToAnonymousValue(unsigned index)
         {
             locationForOffset(index)->setWithoutWriteBarrier(this);
         }
-        
+
+        // To instantiate objects you likely want JSFinalObject, below.
+        // To create derived types you likely want JSNonFinalObject, below.
+        JSObject(NonNullPassRefPtr<Structure>, PropertyStorage inlineStorage);
+
     private:
         // Nobody should ever ask any of these questions on something already known to be a JSObject.
         using JSCell::isAPIValueWrapper;
@@ -265,8 +276,8 @@ namespace JSC {
         void isObject();
         void isString();
         
-        ConstPropertyStorage propertyStorage() const { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
-        PropertyStorage propertyStorage() { return (isUsingInlineStorage() ? m_inlineStorage : m_externalStorage); }
+        ConstPropertyStorage propertyStorage() const { return m_propertyStorage; }
+        PropertyStorage propertyStorage() { return m_propertyStorage; }
 
         const WriteBarrierBase<Unknown>* locationForOffset(size_t offset) const
         {
@@ -287,14 +298,90 @@ namespace JSC {
         const HashEntry* findPropertyHashEntry(ExecState*, const Identifier& propertyName) const;
         Structure* createInheritorID();
 
-        union {
-            PropertyStorage m_externalStorage;
-            WriteBarrierBase<Unknown> m_inlineStorage[inlineStorageCapacity];
-        };
-
+        PropertyStorage m_propertyStorage;
         RefPtr<Structure> m_inheritorID;
     };
-    
+
+
+#if USE(JSVALUE32_64)
+#define JSNonFinalObject_inlineStorageCapacity 4
+#define JSFinalObject_inlineStorageCapacity 6
+#else
+#define JSNonFinalObject_inlineStorageCapacity 2
+#define JSFinalObject_inlineStorageCapacity 4
+#endif
+
+COMPILE_ASSERT((JSFinalObject_inlineStorageCapacity >= JSNonFinalObject_inlineStorageCapacity), final_storage_is_at_least_as_large_as_non_final);
+
+    // JSNonFinalObject is a type of JSObject that has some internal storage,
+    // but also preserves some space in the collector cell for additional
+    // data members in derived types.
+    class JSNonFinalObject : public JSObject {
+        friend class JSObject;
+
+    public:
+        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        {
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
+    protected:
+        explicit JSNonFinalObject(NonNullPassRefPtr<Structure> structure)
+            : JSObject(structure, m_inlineStorage)
+        {
+            ASSERT(!(OBJECT_OFFSETOF(JSNonFinalObject, m_inlineStorage) % sizeof(double)));
+            ASSERT(this->structure()->propertyStorageCapacity() == JSNonFinalObject_inlineStorageCapacity);
+        }
+
+    private:
+        WriteBarrierBase<Unknown> m_inlineStorage[JSNonFinalObject_inlineStorageCapacity];
+    };
+
+    // JSFinalObject is a type of JSObject that contains sufficent internal
+    // storage to fully make use of the colloctor cell containing it.
+    class JSFinalObject : public JSObject {
+        friend class JSObject;
+
+    public:
+        static JSFinalObject* create(ExecState* exec, NonNullPassRefPtr<Structure> structure)
+        {
+            return new (exec) JSFinalObject(structure);
+        }
+
+        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        {
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
+    private:
+        explicit JSFinalObject(NonNullPassRefPtr<Structure> structure)
+            : JSObject(structure, m_inlineStorage)
+        {
+            ASSERT(OBJECT_OFFSETOF(JSFinalObject, m_inlineStorage) % sizeof(double) == 0);
+            ASSERT(this->structure()->propertyStorageCapacity() == JSFinalObject_inlineStorageCapacity);
+        }
+
+        static const unsigned StructureFlags = JSObject::StructureFlags | IsJSFinalObject;
+
+        WriteBarrierBase<Unknown> m_inlineStorage[JSFinalObject_inlineStorageCapacity];
+    };
+
+inline size_t JSObject::offsetOfInlineStorage()
+{
+    ASSERT(OBJECT_OFFSETOF(JSFinalObject, m_inlineStorage) == OBJECT_OFFSETOF(JSNonFinalObject, m_inlineStorage));
+    return OBJECT_OFFSETOF(JSFinalObject, m_inlineStorage);
+}
+
+inline JSObject* constructEmptyObject(ExecState* exec, NonNullPassRefPtr<Structure> structure)
+{
+    return JSFinalObject::create(exec, structure);
+}
+
+inline PassRefPtr<Structure> createEmptyObjectStructure(JSValue prototype)
+{
+    return JSFinalObject::createStructure(prototype);
+}
+
 inline JSObject* asObject(JSCell* cell)
 {
     ASSERT(cell->isObject());
@@ -306,20 +393,21 @@ inline JSObject* asObject(JSValue value)
     return asObject(value.asCell());
 }
 
-inline JSObject::JSObject(NonNullPassRefPtr<Structure> structure)
+inline JSObject::JSObject(NonNullPassRefPtr<Structure> structure, PropertyStorage inlineStorage)
     : JSCell(structure.releaseRef()) // ~JSObject balances this ref()
+    , m_propertyStorage(inlineStorage)
 {
-    ASSERT(m_structure->propertyStorageCapacity() == inlineStorageCapacity);
+    ASSERT(inherits(&s_info));
+    ASSERT(m_structure->propertyStorageCapacity() < baseExternalStorageCapacity);
     ASSERT(m_structure->isEmpty());
     ASSERT(prototype().isNull() || Heap::heap(this) == Heap::heap(prototype()));
-    ASSERT(OBJECT_OFFSETOF(JSObject, m_inlineStorage) % sizeof(double) == 0);
 }
 
 inline JSObject::~JSObject()
 {
     ASSERT(m_structure);
     if (!isUsingInlineStorage())
-        delete [] m_externalStorage;
+        delete [] m_propertyStorage;
     m_structure->deref();
 }
 
@@ -363,7 +451,7 @@ inline Structure* JSObject::inheritorID()
 
 inline bool Structure::isUsingInlineStorage() const
 {
-    return (propertyStorageCapacity() == JSObject::inlineStorageCapacity);
+    return propertyStorageCapacity() < JSObject::baseExternalStorageCapacity;
 }
 
 inline bool JSCell::inherits(const ClassInfo* info) const
@@ -490,6 +578,9 @@ inline bool JSObject::putDirectInternal(JSGlobalData& globalData, const Identifi
             return true;
         }
 
+        if (!isExtensible())
+            return false;
+
         size_t currentCapacity = m_structure->propertyStorageCapacity();
         offset = m_structure->addPropertyWithoutTransition(propertyName, attributes, specificFunction);
         if (currentCapacity != m_structure->propertyStorageCapacity())
@@ -551,15 +642,8 @@ inline bool JSObject::putDirectInternal(JSGlobalData& globalData, const Identifi
         return true;
     }
 
-    // If we have a specific function, we may have got to this point if there is
-    // already a transition with the correct property name and attributes, but
-    // specialized to a different function.  In this case we just want to give up
-    // and despecialize the transition.
-    // In this case we clear the value of specificFunction which will result
-    // in us adding a non-specific transition, and any subsequent lookup in
-    // Structure::addPropertyTransitionToExistingStructure will just use that.
-    if (specificFunction && m_structure->hasTransition(propertyName, attributes))
-        specificFunction = 0;
+    if (!isExtensible())
+        return false;
 
     RefPtr<Structure> structure = Structure::addPropertyTransition(m_structure, propertyName, attributes, specificFunction, offset);
 
@@ -725,26 +809,6 @@ inline void JSValue::put(ExecState* exec, unsigned propertyName, JSValue value)
         return;
     }
     asCell()->put(exec, propertyName, value);
-}
-
-ALWAYS_INLINE void JSObject::allocatePropertyStorageInline(size_t oldSize, size_t newSize)
-{
-    ASSERT(newSize > oldSize);
-
-    // It's important that this function not rely on m_structure, since
-    // we might be in the middle of a transition.
-    bool wasInline = (oldSize == JSObject::inlineStorageCapacity);
-
-    PropertyStorage oldPropertyStorage = (wasInline ? m_inlineStorage : m_externalStorage);
-    PropertyStorage newPropertyStorage = new WriteBarrierBase<Unknown>[newSize];
-
-    for (unsigned i = 0; i < oldSize; ++i)
-       newPropertyStorage[i] = oldPropertyStorage[i];
-
-    if (!wasInline)
-        delete [] oldPropertyStorage;
-
-    m_externalStorage = newPropertyStorage;
 }
 
 ALWAYS_INLINE void JSObject::markChildrenDirect(MarkStack& markStack)

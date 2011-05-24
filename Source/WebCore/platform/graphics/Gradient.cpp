@@ -221,7 +221,11 @@ void Gradient::setGradientSpaceTransform(const AffineTransform& gradientSpaceTra
     setPlatformGradientSpaceTransform(gradientSpaceTransformation);
 }
 
+<<<<<<< HEAD
 #if !(PLATFORM(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(CAIRO)
+=======
+#if !USE(SKIA) && !PLATFORM(CAIRO)
+>>>>>>> WebKit at r80534
 void Gradient::setPlatformGradientSpaceTransform(const AffineTransform&)
 {
 }

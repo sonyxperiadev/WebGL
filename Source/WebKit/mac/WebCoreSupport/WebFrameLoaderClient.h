@@ -114,8 +114,8 @@ private:
     virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
 
-    virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction,
-        const WTF::String& MIMEType, const WebCore::ResourceRequest&);
+    virtual void dispatchDecidePolicyForResponse(WebCore::FramePolicyFunction, 
+        const WebCore::ResourceResponse&, const WebCore::ResourceRequest&);
     virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction,
         const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WTF::String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction,
@@ -151,9 +151,11 @@ private:
     virtual void updateGlobalHistoryRedirectLinks();
 
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
+    virtual bool shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidChangeBackForwardIndex() const;
+    virtual void updateGlobalHistoryItemForPage();
 
     virtual void didDisplayInsecureContent();
     virtual void didRunInsecureContent(WebCore::SecurityOrigin*, const WebCore::KURL&);
@@ -238,8 +240,10 @@ private:
     NSDictionary *actionDictionary(const WebCore::NavigationAction&, PassRefPtr<WebCore::FormState>) const;
     
     virtual bool canCachePage() const;
-    
+
     virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
+
+    virtual bool shouldPaintBrokenImage(const WebCore::KURL&) const;
 
     RetainPtr<WebFrame> m_webFrame;
 

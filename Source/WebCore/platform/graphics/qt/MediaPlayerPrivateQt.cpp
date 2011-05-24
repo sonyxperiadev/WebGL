@@ -24,7 +24,6 @@
 #include "GraphicsContext.h"
 #include "HTMLMediaElement.h"
 #include "HTMLVideoElement.h"
-#include "QtNAMThreadSafeProxy.h"
 #include "NetworkingContext.h"
 #include "NotImplemented.h"
 #include "RenderVideo.h"
@@ -66,7 +65,7 @@ MediaPlayerPrivateInterface* MediaPlayerPrivateQt::create(MediaPlayer* player)
 
 void MediaPlayerPrivateQt::registerMediaEngine(MediaEngineRegistrar registrar)
 {
-    registrar(create, getSupportedTypes, supportsType);
+    registrar(create, getSupportedTypes, supportsType, 0, 0, 0);
 }
 
 void MediaPlayerPrivateQt::getSupportedTypes(HashSet<String> &supported)
@@ -106,6 +105,7 @@ MediaPlayerPrivateQt::MediaPlayerPrivateQt(MediaPlayer* player)
     , m_composited(false)
     , m_queuedSeek(-1)
     , m_preload(MediaPlayer::Auto)
+    , m_suppressNextPlaybackChanged(false)
 {
     m_mediaPlayer->setVideoOutput(m_videoItem);
     m_videoScene->addItem(m_videoItem);
@@ -187,7 +187,8 @@ void MediaPlayerPrivateQt::commitLoad(const String& url)
         m_webCorePlayer->readyStateChanged();
     }
 
-    const QUrl rUrl = QUrl(QString(url));
+    KURL kUrl(ParsedURLString, url);
+    const QUrl rUrl = kUrl;
     const QString scheme = rUrl.scheme().toLower();
 
     // Grab the client media element
@@ -209,8 +210,8 @@ void MediaPlayerPrivateQt::commitLoad(const String& url)
 
         if (manager) {
             // Set the cookies
-            QtNAMThreadSafeProxy managerProxy(manager);
-            QList<QNetworkCookie> cookies = managerProxy.cookiesForUrl(rUrl);
+            QNetworkCookieJar* jar = manager->cookieJar();
+            QList<QNetworkCookie> cookies = jar->cookiesForUrl(rUrl);
 
             // Don't set the header if there are no cookies.
             // This prevents a warning from being emitted.
@@ -238,6 +239,9 @@ void MediaPlayerPrivateQt::commitLoad(const String& url)
     // engine which does.
     m_mediaPlayer->setMuted(element->muted());
     m_mediaPlayer->setVolume(static_cast<int>(element->volume() * 100.0));
+
+    // Don't send PlaybackChanged notification for pre-roll.
+    m_suppressNextPlaybackChanged = true;
 
     // Setting a media source will start loading the media, but we need
     // to pre-roll as well to get video size-hints and buffer-status
@@ -445,6 +449,11 @@ void MediaPlayerPrivateQt::stateChanged(QMediaPlayer::State state)
         m_mediaPlayer->setPosition(m_queuedSeek);
         m_queuedSeek = -1;
     }
+
+    if (!m_suppressNextPlaybackChanged)
+        m_webCorePlayer->playbackStateChanged();
+    else
+        m_suppressNextPlaybackChanged = false;
 }
 
 void MediaPlayerPrivateQt::nativeSizeChanged(const QSizeF& size)

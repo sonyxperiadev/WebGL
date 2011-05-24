@@ -90,7 +90,10 @@ public:
         
         // These are from CSS3 Values and Units, but that isn't a finished standard yet
         CSS_TURN = 107,
-        CSS_REMS = 108
+        CSS_REMS = 108,
+
+        // This is used internally for counter names (as opposed to counter values)
+        CSS_COUNTER_NAME = 109
     };
     
     // This enum follows the CSSParser::Units enum augmented with UNIT_FREQUENCY for frequencies.
@@ -107,10 +110,10 @@ public:
     static bool isUnitTypeLength(int type) { return (type > CSSPrimitiveValue::CSS_PERCENTAGE && type < CSSPrimitiveValue::CSS_DEG) ||
                                                     type == CSSPrimitiveValue::CSS_REMS; }
 
-    static PassRefPtr<CSSPrimitiveValue> createIdentifier(int ident);
-    static PassRefPtr<CSSPrimitiveValue> createColor(unsigned rgbValue);
-    static PassRefPtr<CSSPrimitiveValue> create(double value, UnitTypes type);
-    static PassRefPtr<CSSPrimitiveValue> create(const String& value, UnitTypes type);
+    static PassRefPtr<CSSPrimitiveValue> createIdentifier(int identifier) { return adoptRef(new CSSPrimitiveValue(identifier)); }
+    static PassRefPtr<CSSPrimitiveValue> createColor(unsigned rgbValue) { return adoptRef(new CSSPrimitiveValue(rgbValue)); }
+    static PassRefPtr<CSSPrimitiveValue> create(double value, UnitTypes type) { return adoptRef(new CSSPrimitiveValue(value, type)); }
+    static PassRefPtr<CSSPrimitiveValue> create(const String& value, UnitTypes type) { return adoptRef(new CSSPrimitiveValue(value, type)); }
     
     template<typename T> static PassRefPtr<CSSPrimitiveValue> create(T value)
     {

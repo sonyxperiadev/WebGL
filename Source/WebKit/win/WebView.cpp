@@ -59,6 +59,7 @@
 #include "WebPreferences.h"
 #include "WebScriptWorld.h"
 #include "WindowsTouch.h"
+#include "resource.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/InitializeThreading.h>
 #include <JavaScriptCore/JSLock.h>
@@ -98,7 +99,6 @@
 #include <WebCore/IntRect.h>
 #include <WebCore/JSElement.h>
 #include <WebCore/KeyboardEvent.h>
-#include <WebCore/Language.h>
 #include <WebCore/Logging.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/Page.h>
@@ -141,7 +141,7 @@
 #include <CoreGraphics/CGContext.h>
 #endif
 
-#if PLATFORM(CF)
+#if USE(CF)
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
@@ -1245,8 +1245,8 @@ bool WebView::canHandleRequest(const WebCore::ResourceRequest& request)
 String WebView::standardUserAgentWithApplicationName(const String& applicationName)
 {
     if (applicationName.isEmpty())
-        return makeString("Mozilla/5.0 (Windows; U; ", osVersion(), "; ", defaultLanguage(), ") AppleWebKit/", webKitVersion(), " (KHTML, like Gecko)");
-    return makeString("Mozilla/5.0 (Windows; U; ", osVersion(), "; ", defaultLanguage(), ") AppleWebKit/", webKitVersion(), " (KHTML, like Gecko) ", applicationName);
+        return makeString("Mozilla/5.0 (", osVersion(), ") AppleWebKit/", webKitVersion(), " (KHTML, like Gecko)");
+    return makeString("Mozilla/5.0 (", osVersion(), ") AppleWebKit/", webKitVersion(), " (KHTML, like Gecko) ", applicationName);
 }
 
 Page* WebView::page()
@@ -2362,40 +2362,11 @@ static String osVersion()
 
 static String webKitVersion()
 {
-    String versionStr = "420+";
-    void* data = 0;
+    LPWSTR buildNumberStringPtr;
+    if (!::LoadStringW(gInstance, BUILD_NUMBER, reinterpret_cast<LPWSTR>(&buildNumberStringPtr), 0) || !buildNumberStringPtr)
+        return "534+";
 
-    struct LANGANDCODEPAGE {
-        WORD wLanguage;
-        WORD wCodePage;
-    } *lpTranslate;
-
-    TCHAR path[MAX_PATH];
-    GetModuleFileName(gInstance, path, WTF_ARRAY_LENGTH(path));
-    DWORD handle;
-    DWORD versionSize = GetFileVersionInfoSize(path, &handle);
-    if (!versionSize)
-        goto exit;
-    data = malloc(versionSize);
-    if (!data)
-        goto exit;
-    if (!GetFileVersionInfo(path, 0, versionSize, data))
-        goto exit;
-    UINT cbTranslate;
-    if (!VerQueryValue(data, TEXT("\\VarFileInfo\\Translation"), (LPVOID*)&lpTranslate, &cbTranslate))
-        goto exit;
-    TCHAR key[256];
-    _stprintf_s(key, WTF_ARRAY_LENGTH(key), TEXT("\\StringFileInfo\\%04x%04x\\ProductVersion"), lpTranslate[0].wLanguage, lpTranslate[0].wCodePage);
-    LPCTSTR productVersion;
-    UINT productVersionLength;
-    if (!VerQueryValue(data, (LPTSTR)(LPCTSTR)key, (void**)&productVersion, &productVersionLength))
-        goto exit;
-    versionStr = String(productVersion, productVersionLength - 1);
-
-exit:
-    if (data)
-        free(data);
-    return versionStr;
+    return buildNumberStringPtr;
 }
 
 const String& WebView::userAgentForKURL(const KURL&)
@@ -2611,7 +2582,7 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
 #endif
         WebKitSetApplicationCachePathIfNecessary();
         WebPlatformStrategies::initialize();
-        Settings::setMinDOMTimerInterval(0.004);
+        Settings::setDefaultMinDOMTimerInterval(0.004);
 
         didOneTimeInitialization = true;
      }
@@ -5893,12 +5864,12 @@ HRESULT STDMETHODCALLTYPE WebView::globalHistoryItem(IWebHistoryItem** item)
     if (!m_page)
         return E_FAIL;
 
-    if (!m_page->globalHistoryItem()) {
+    if (!m_globalHistoryItem) {
         *item = 0;
         return S_OK;
     }
 
-    *item = WebHistoryItem::createInstance(m_page->globalHistoryItem());
+    *item = WebHistoryItem::createInstance(m_globalHistoryItem);
     return S_OK;
 }
 
@@ -6619,4 +6590,23 @@ Page* core(IWebView* iWebView)
         page = webView->page();
 
     return page;
+}
+
+HRESULT WebView::defaultMinimumTimerInterval(double* interval)
+{
+    if (!interval)
+        return E_POINTER;
+    *interval = Settings::defaultMinDOMTimerInterval();
+    return S_OK;
+}
+
+HRESULT WebView::setMinimumTimerInterval(double interval)
+{
+    page()->settings()->setMinDOMTimerInterval(interval);
+    return S_OK;
+}
+
+void WebView::setGlobalHistoryItem(HistoryItem* historyItem)
+{
+    m_globalHistoryItem = historyItem;
 }

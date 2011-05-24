@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "PlatformTouchEvent.h"
+#include <wtf/CurrentTime.h>
 
 #if ENABLE(TOUCH_EVENTS)
 
@@ -41,6 +42,7 @@ enum AndroidMetaKeyState {
 PlatformTouchEvent::PlatformTouchEvent(const Vector<int>& ids, const Vector<IntPoint>& windowPoints, TouchEventType type, const Vector<PlatformTouchPoint::State>& states, int metaState)
     : m_type(type)
     , m_metaKey(false)
+    , m_timestamp(WTF::currentTime())
 {
     m_touchPoints.reserveCapacity(windowPoints.size());
     for (unsigned c = 0; c < windowPoints.size(); c++)

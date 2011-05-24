@@ -37,6 +37,7 @@ namespace WebCore {
 
 class Color;
 class Event;
+class FrameActionScheduler;
 class FrameViewPrivate;
 class IntRect;
 class Node;
@@ -45,8 +46,6 @@ class RenderLayer;
 class RenderObject;
 class RenderEmbeddedObject;
 class RenderScrollbarPart;
-
-struct ScheduledEvent;
 
 template <typename T> class Timer;
 
@@ -147,7 +146,7 @@ public:
     void setTransparent(bool isTransparent);
 
     Color baseBackgroundColor() const;
-    void setBaseBackgroundColor(Color);
+    void setBaseBackgroundColor(const Color&);
     void updateBackgroundRecursively(const Color&, bool);
 
     bool shouldUpdateWhileOffscreen() const;
@@ -180,6 +179,12 @@ public:
 
     void addFixedObject();
     void removeFixedObject();
+
+    // Functions for querying the current scrolled position, negating the effects of overhang
+    // and adjusting for page scale.
+    int scrollXForFixedPosition() const;
+    int scrollYForFixedPosition() const;
+    IntSize scrollOffsetForFixedPosition() const;
 
     void beginDeferredRepaints();
     void endDeferredRepaints();
@@ -269,6 +274,9 @@ public:
     // FIXME: Remove this method once plugin loading is decoupled from layout.
     void flushAnyPendingPostLayoutTasks();
 
+    void setIsRestoringFromBackForward(bool isRestoring) { m_isRestoringFromBackForward = isRestoring; }
+    bool isRestoringFromBackForward() const { return m_isRestoringFromBackForward; }
+
 protected:
     virtual bool scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
     virtual void scrollContentsSlowPath(const IntRect& updateRect);
@@ -295,7 +303,6 @@ private:
 
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
 
-    void dispatchScheduledEvents();
     void performPostLayoutTasks();
 
     virtual void repaintContentRectangle(const IntRect&, bool immediate);
@@ -315,7 +322,6 @@ private:
     virtual void getTickmarks(Vector<IntRect>&) const;
     virtual void scrollTo(const IntSize&);
     virtual void didCompleteRubberBand(const IntSize&) const;
-    virtual bool scrollbarWillRenderIntoCompositingLayer() const { return hasCompositedContent() || isEnclosedInCompositingLayer(); }
 
     void deferredRepaintTimerFired(Timer<FrameView>*);
     void doDeferredRepaints();
@@ -331,6 +337,8 @@ private:
 
     virtual void updateScrollCorner();
     virtual void paintScrollCorner(GraphicsContext*, const IntRect& cornerRect);
+
+    FrameView* parentFrameView() const;
 
     virtual AXObjectCache* axObjectCache() const;
     void notifyWidgetsInAllFrames(WidgetNotification);
@@ -378,9 +386,8 @@ private:
     String m_mediaType;
     String m_mediaTypeWhenNotPrinting;
 
-    unsigned m_enqueueEvents;
-    Vector<ScheduledEvent*> m_scheduledEvents;
-    
+    OwnPtr<FrameActionScheduler> m_actionScheduler;
+
     bool m_overflowStatusDirty;
     bool m_horizontalOverflow;
     bool m_verticalOverflow;    
@@ -407,6 +414,8 @@ private:
 
     bool m_isVisuallyNonEmpty;
     bool m_firstVisuallyNonEmptyLayoutCallbackPending;
+
+    bool m_isRestoringFromBackForward;
 
     RefPtr<Node> m_maintainScrollPositionAnchor;
 

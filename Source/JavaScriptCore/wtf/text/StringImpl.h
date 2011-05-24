@@ -34,7 +34,7 @@
 #include <wtf/text/StringImplBase.h>
 #include <wtf/unicode/Unicode.h>
 
-#if PLATFORM(CF)
+#if USE(CF)
 typedef const struct __CFString * CFStringRef;
 #endif
 
@@ -281,8 +281,8 @@ public:
     uint64_t toUInt64(bool* ok = 0); // ignores trailing garbage
     intptr_t toIntPtr(bool* ok = 0); // ignores trailing garbage
 
-    double toDouble(bool* ok = 0);
-    float toFloat(bool* ok = 0);
+    double toDouble(bool* ok = 0, bool* didReadNumber = 0);
+    float toFloat(bool* ok = 0, bool* didReadNumber = 0);
 
     PassRefPtr<StringImpl> lower();
     PassRefPtr<StringImpl> upper();
@@ -316,9 +316,9 @@ public:
     PassRefPtr<StringImpl> replace(StringImpl*, StringImpl*);
     PassRefPtr<StringImpl> replace(unsigned index, unsigned len, StringImpl*);
 
-    WTF::Unicode::Direction defaultWritingDirection();
+    WTF::Unicode::Direction defaultWritingDirection(bool* hasStrongDirectionality = 0);
 
-#if PLATFORM(CF)
+#if USE(CF)
     CFStringRef createCFString();
 #endif
 #ifdef __OBJC__

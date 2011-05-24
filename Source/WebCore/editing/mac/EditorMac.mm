@@ -158,7 +158,7 @@ NSWritingDirection Editor::baseWritingDirectionForSelectionStart() const
     NSWritingDirection result = NSWritingDirectionLeftToRight;
 
     Position pos = m_frame->selection()->selection().visibleStart().deepEquivalent();
-    Node* node = pos.node();
+    Node* node = pos.deprecatedNode();
     if (!node)
         return result;
 
@@ -208,4 +208,12 @@ void Editor::takeFindStringFromSelection()
     [findPasteboard setString:nsSelectedText forType:NSStringPboardType];
 }
 
+void Editor::writeSelectionToPasteboard(const String& pasteboardName, const Vector<String>& pasteboardTypes)
+{
+    RetainPtr<NSMutableArray> types(AdoptNS, [[NSMutableArray alloc] init]);    
+    for (size_t i = 0; i < pasteboardTypes.size(); ++i)
+        [types.get() addObject:pasteboardTypes[i]];
+    Pasteboard::writeSelection([NSPasteboard pasteboardWithName:pasteboardName], types.get(), selectedRange().get(), true, m_frame);
+}
+    
 } // namespace WebCore

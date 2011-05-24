@@ -77,7 +77,7 @@ use POSIX;
 
 sub buildPlatformResultHierarchy();
 sub buildPlatformTestHierarchy(@);
-sub captureSavedCrashLog($);
+sub captureSavedCrashLog($$);
 sub checkPythonVersion();
 sub closeCygpaths();
 sub closeDumpTool();
@@ -403,8 +403,6 @@ $testMedia = 0 if $shouldCheckLeaks && isTiger();
 # Generating remote links causes a lot of unnecessary spew on GTK build bot
 $useRemoteLinksToTests = 0 if isGtk();
 
-setUpWindowsCrashLogSaving() if isCygwin();
-
 setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
 my $productDir = productDir();
 $productDir .= "/bin" if isQt();
@@ -464,17 +462,20 @@ if (isAppleMacWebKit()) {
     if (system("/usr/bin/make", "-C", "$javaTestsDirectory")) {
         exit 1;
     }
+} elsif (isCygwin()) {
+    setUpWindowsCrashLogSaving();
 }
-
 
 print "Running tests from $testDirectory\n";
 if ($pixelTests) {
     print "Enabling pixel tests with a tolerance of $tolerance%\n";
     if (isDarwin()) {
-        print "WARNING: Temporarily changing the main display color profile:\n";
-        print "\tThe colors on your screen will change for the duration of the testing.\n";
-        print "\tThis allows the pixel tests to have consistent color values across all machines.\n";
-        
+        if (!$useWebKitTestRunner) {
+            print "WARNING: Temporarily changing the main display color profile:\n";
+            print "\tThe colors on your screen will change for the duration of the testing.\n";
+            print "\tThis allows the pixel tests to have consistent color values across all machines.\n";
+        }
+
         if (isPerianInstalled()) {
             print "WARNING: Perian's QuickTime component is installed and this may affect pixel test results!\n";
             print "\tYou should avoid generating new pixel results in this environment.\n";
@@ -766,7 +767,7 @@ for my $test (@tests) {
                     print OUT "$errorMessagePath\n";
                 }
             }
-        } elsif ($test !~ /^http\/tests\/local\// && $test !~ /^http\/tests\/ssl\// && $test !~ /^http\/tests\/wml\// && $test !~ /^http\/tests\/media\//) {
+        } elsif ($test !~ /^http\/tests\/local\// && $test !~ /^http\/tests\/ssl\// && $test !~ /^http\/tests\/wml\//) {
             my $path = canonpath($test);
             $path =~ s/^http\/tests\///;
             print OUT "http://127.0.0.1:$httpdPort/$path$suffixExpectedHash\n";
@@ -1165,6 +1166,7 @@ if (isGtk()) {
     $testResults = "/" . toWindowsPath($testResults);
     $testResults =~ s/\\/\//g;
   }
+  push(@configurationArgs, '-2') if $useWebKitTestRunner;
   system "Tools/Scripts/run-launcher", @configurationArgs, "file://".$testResults if $launchSafari;
 } elsif (isCygwin()) {
   system "cygstart", $testResults if $launchSafari;
@@ -1459,6 +1461,7 @@ sub openDumpTool()
         }
 
         $CLEAN_ENV{HOME} = $ENV{'HOME'};
+        $CLEAN_ENV{LANG} = $ENV{'LANG'};
 
         if (defined $ENV{'LD_LIBRARY_PATH'}) {
             $CLEAN_ENV{LD_LIBRARY_PATH} = $ENV{'LD_LIBRARY_PATH'};
@@ -1733,11 +1736,13 @@ sub testCrashedOrTimedOut($$$$$$)
 
     recordActualResultsAndDiff($base, $actual);
 
-    kill 9, $dumpToolPID unless $didCrash;
+    # There's no point in killing the dump tool when it's crashed. And it will kill itself when the
+    # web process crashes.
+    kill 9, $dumpToolPID unless $didCrash || $webProcessCrashed;
 
     closeDumpTool();
 
-    captureSavedCrashLog($base) if $didCrash;
+    captureSavedCrashLog($base, $webProcessCrashed) if $didCrash || $webProcessCrashed;
 
     return unless isCygwin() && !$didCrash && $base =~ /^http/;
     # On Cygwin, http tests timing out can be a symptom of a non-responsive httpd.
@@ -1746,9 +1751,9 @@ sub testCrashedOrTimedOut($$$$$$)
     configureAndOpenHTTPDIfNeeded();
 }
 
-sub captureSavedCrashLog($)
+sub captureSavedCrashLog($$)
 {
-    my ($base) = @_;
+    my ($base, $webProcessCrashed) = @_;
 
     my $crashLog;
 
@@ -1756,7 +1761,14 @@ sub captureSavedCrashLog($)
     if (isCygwin()) {
         $glob = File::Spec->catfile($testResultsDirectory, $windowsCrashLogFilePrefix . "*.txt");
     } elsif (isAppleMacWebKit()) {
-        $glob = File::Spec->catfile("~", "Library", "Logs", "CrashReporter", $dumpToolName . "_*.crash");
+        my $crashLogDirectoryName;
+        if (isTiger() || isLeopard()) {
+            $crashLogDirectoryName = "CrashReporter";
+        } else {
+            $crashLogDirectoryName = "DiagnosticReports";
+        }
+
+        $glob = File::Spec->catfile("~", "Library", "Logs", $crashLogDirectoryName, ($webProcessCrashed ? "WebProcess" : $dumpToolName) . "_*.crash");
 
         # Even though the dump tool has exited, CrashReporter might still be running. We need to
         # wait for it to exit to ensure it has saved its crash log to disk. For simplicitly, we'll
@@ -1767,6 +1779,8 @@ sub captureSavedCrashLog($)
             usleep(250000) while kill(0, $reportCrashPID) > 0;
         }
     }
+
+    return unless $glob;
 
     # We assume that the newest crash log in matching the glob is the one that corresponds to the crash that just occurred.
     if (my $newestCrashLog = findNewestFileMatchingGlob($glob)) {
@@ -1784,7 +1798,7 @@ sub findNewestFileMatchingGlob($)
     my ($glob) = @_;
 
     my @paths = glob $glob;
-    return unless @paths;
+    return unless scalar(@paths);
 
     my @pathsAndTimes = map { [$_, -M $_] } @paths;
     @pathsAndTimes = sort { $b->[1] <=> $a->[1] } @pathsAndTimes;
@@ -2558,9 +2572,10 @@ sub stopRunningTestsEarlyIfNeeded()
     }
 
     my $crashCount = $counts{crash} || 0;
+    my $webProcessCrashCount = $counts{webProcessCrash} || 0;
     my $timeoutCount = $counts{timedout} || 0;
-    if ($exitAfterNCrashesOrTimeouts && $crashCount + $timeoutCount >= $exitAfterNCrashesOrTimeouts) {
-        print "\nExiting early after $crashCount crashes and $timeoutCount timeouts. $count tests run.";
+    if ($exitAfterNCrashesOrTimeouts && $crashCount + $webProcessCrashCount + $timeoutCount >= $exitAfterNCrashesOrTimeouts) {
+        print "\nExiting early after $crashCount crashes, $webProcessCrashCount web process crashes, and $timeoutCount timeouts. $count tests run.";
         closeDumpTool();
         return 1;
     }
@@ -2597,6 +2612,25 @@ sub createDebuggerCommandFile()
     }
 
     return $commandFile;
+}
+
+sub readRegistryString($)
+{
+    my ($valueName) = @_;
+    chomp(my $string = `regtool --wow32 get "$valueName"`);
+    return $string;
+}
+
+sub writeRegistryString($$)
+{
+    my ($valueName, $string) = @_;
+
+    my $error = system "regtool", "--wow32", "set", "-s", $valueName, $string;
+
+    # On Windows Vista/7 with UAC enabled, regtool will fail to modify the registry, but will still
+    # return a successful exit code. So we double-check here that the value we tried to write to the
+    # registry was really written.
+    return !$error && readRegistryString($valueName) eq $string;
 }
 
 sub setUpWindowsCrashLogSaving()
@@ -2638,9 +2672,8 @@ sub setUpWindowsCrashLogSaving()
     );
 
     foreach my $value (keys %values) {
-        chomp($previousWindowsPostMortemDebuggerValues{$value} = `regtool get "$windowsPostMortemDebuggerKey/$value"`);
-        my $result = system "regtool", "set", "-s", "$windowsPostMortemDebuggerKey/$value", $values{$value};
-        next unless $result;
+        $previousWindowsPostMortemDebuggerValues{$value} = readRegistryString("$windowsPostMortemDebuggerKey/$value");
+        next if writeRegistryString("$windowsPostMortemDebuggerKey/$value", $values{$value});
 
         print "Failed to set \"$windowsPostMortemDebuggerKey/$value\". Crash logs will not be saved.\nSee <http://trac.webkit.org/wiki/BuildingOnWindows#GettingCrashLogs>.\n";
         return;
@@ -2653,7 +2686,7 @@ END {
     return unless isCygwin();
 
     foreach my $value (keys %previousWindowsPostMortemDebuggerValues) {
-        my $result = system "regtool", "set", "-s", "$windowsPostMortemDebuggerKey/$value", $previousWindowsPostMortemDebuggerValues{$value};
-        !$result or print "Failed to restore \"$windowsPostMortemDebuggerKey/$value\" to its previous value \"$previousWindowsPostMortemDebuggerValues{$value}\"\n.";
+        next if writeRegistryString("$windowsPostMortemDebuggerKey/$value", $previousWindowsPostMortemDebuggerValues{$value});
+        print "Failed to restore \"$windowsPostMortemDebuggerKey/$value\" to its previous value \"$previousWindowsPostMortemDebuggerValues{$value}\"\n.";
     }
 }

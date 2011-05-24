@@ -2,14 +2,14 @@ AC_PREREQ(2.59)
 
 m4_define([webkit_major_version], [1])
 m4_define([webkit_minor_version], [3])
-m4_define([webkit_micro_version], [10])
+m4_define([webkit_micro_version], [12])
 
 # This is the version we'll be using as part of our User-Agent string
 # e.g., AppleWebKit/$(webkit_user_agent_version) ...
 #
 # Sourced from Source/WebCore/Configurations/Version.xcconfig
 m4_define([webkit_user_agent_major_version], [534])
-m4_define([webkit_user_agent_minor_version], [16])
+m4_define([webkit_user_agent_minor_version], [21])
 
 AC_INIT([WebKit],[webkit_major_version.webkit_minor_version.webkit_micro_version],[http://bugs.webkit.org/])
 
@@ -35,7 +35,7 @@ AC_CONFIG_SRCDIR([Source/WebCore/config.h])
 
 dnl # Libtool library version, not to confuse with API version
 dnl # see http://www.gnu.org/software/libtool/manual/html_node/Libtool-versioning.html
-LIBWEBKITGTK_VERSION=5:2:5
+LIBWEBKITGTK_VERSION=5:4:5
 AC_SUBST([LIBWEBKITGTK_VERSION])
 
 AM_INIT_AUTOMAKE([foreign subdir-objects tar-ustar])
@@ -199,14 +199,14 @@ case "$with_gtk" in
           GAIL_PC_NAME=gail
           GAIL_REQUIRED_VERSION=1.8
           ;;
-     3.0) GTK_REQUIRED_VERSION=2.91.7
+     3.0) GTK_REQUIRED_VERSION=3.0
           GTK_API_VERSION=3.0
           WEBKITGTK_API_MAJOR_VERSION=3
           WEBKITGTK_API_MINOR_VERSION=0
           WEBKITGTK_API_VERSION=3.0
           WEBKITGTK_PC_NAME=webkitgtk
           GAIL_PC_NAME=gail-3.0
-          GAIL_REQUIRED_VERSION=2.90.4
+          GAIL_REQUIRED_VERSION=3.0
           ;;
 esac
 
@@ -247,7 +247,7 @@ if test "$with_hildon" = "yes"; then
 fi
 
 # minimum base dependencies
-LIBSOUP_REQUIRED_VERSION=2.28.2
+LIBSOUP_REQUIRED_VERSION=2.33.6
 CAIRO_REQUIRED_VERSION=1.6
 FONTCONFIG_REQUIRED_VERSION=2.4
 FREETYPE2_REQUIRED_VERSION=9.0
@@ -296,9 +296,17 @@ PKG_CHECK_MODULES(PANGO,
 AC_SUBST(PANGO_CFLAGS)
 AC_SUBST(PANGO_LIBS)
 
-PKG_CHECK_MODULES(ENCHANT, enchant >= $ENCHANT_REQUIRED_VERSION)
+AC_MSG_CHECKING([whether to enable spellcheck support])
+AC_ARG_ENABLE([spellcheck],
+  [AS_HELP_STRING([--enable-spellcheck],[enable support for spellcheck])],
+  [],[enable_spellcheck="yes"])
+AC_MSG_RESULT([$enable_spellcheck])
+
+if test "$enable_spellcheck" = "yes"; then
+PKG_CHECK_MODULES(ENCHANT, enchant >= $ENCHANT_REQUIRED_VERSION, [], [enable_spellcheck="no"])
 AC_SUBST(ENCHANT_CFLAGS)
 AC_SUBST(ENCHANT_LIBS)
+fi
 
 PKG_CHECK_MODULES(GAIL, $GAIL_PC_NAME >= $GAIL_REQUIRED_VERSION)
 AC_SUBST(GAIL_CFLAGS)
@@ -359,11 +367,11 @@ AC_MSG_RESULT([$enable_optimizations])
 
 # check whether to enable 3D transforms support
 AC_MSG_CHECKING([whether to enable support for 3D Transforms])
-AC_ARG_ENABLE(3D_transforms,
-              AC_HELP_STRING([--enable-3D-transforms],
+AC_ARG_ENABLE(3d_transforms,
+              AC_HELP_STRING([--enable-3d-transforms],
                              [enable support for 3D transforms [default=no]]),
-              [],[enable_3D_transforms="no"])
-AC_MSG_RESULT([$enable_3D_transforms])
+              [],[enable_3d_transforms="no"])
+AC_MSG_RESULT([$enable_3d_transforms])
 
 # check whether to enable 3D canvas (WebGL) support
 AC_MSG_CHECKING([whether to enable 3D canvas (WebGL) support])
@@ -381,6 +389,30 @@ AC_ARG_ENABLE(channel_messaging,
               [],[enable_channel_messaging="yes"])
 AC_MSG_RESULT([$enable_channel_messaging])
 
+# check whether to enable notifications
+AC_MSG_CHECKING([whether to enable notifications])
+AC_ARG_ENABLE(notifications,
+              AC_HELP_STRING([--enable-notifications],
+                             [enable notifications [default=no]]),
+              [],[enable_notifications="no"])
+AC_MSG_RESULT([$enable_notifications])
+
+# check whether to enable the meter tag
+AC_MSG_CHECKING([whether to enable HTML5 meter tag])
+AC_ARG_ENABLE(meter_tag,
+              AC_HELP_STRING([--enable-meter-tag],
+                             [enable HTML5 meter [default=yes]]),
+              [],[enable_meter_tag="yes"])
+AC_MSG_RESULT([$enable_meter_tag])
+
+# check whether to enable the progress tag
+AC_MSG_CHECKING([whether to enable HTML5 progress tag])
+AC_ARG_ENABLE(progress_tag,
+              AC_HELP_STRING([--enable-progress-tag],
+                             [enable HTML5 progress [default=yes]]),
+              [],[enable_progress_tag="yes"])
+AC_MSG_RESULT([$enable_progress_tag])
+
 # check whether to enable JavaScript debugger/profiler support
 AC_MSG_CHECKING([whether to enable JavaScript debugger/profiler support])
 AC_ARG_ENABLE(javascript_debugger,
@@ -388,6 +420,22 @@ AC_ARG_ENABLE(javascript_debugger,
                              [enable JavaScript debugger/profiler support [default=yes]]),
               [],[enable_javascript_debugger="yes"])
 AC_MSG_RESULT([$enable_javascript_debugger])
+
+# check whether to build with datagrid support
+AC_MSG_CHECKING([whether to enable HTML5 datagrid support])
+AC_ARG_ENABLE(datagrid,
+              AC_HELP_STRING([--enable-datagrid],
+                             [enable HTML5 datagrid support [default=no]]),
+              [],[enable_datagrid="no"])
+AC_MSG_RESULT([$enable_datagrid])
+
+# check whether to build with data transfer items support
+AC_MSG_CHECKING([whether to enable HTML5 data transfer items support])
+AC_ARG_ENABLE(data_transfer_items,
+              AC_HELP_STRING([--enable-data-transfer-items],
+                             [enable HTML5 data transfer items support [default=no]]),
+              [],[enable_data_transfer_items="no"])
+AC_MSG_RESULT([$enable_data_transfer_items])
 
 # check whether to enable HTML5 Offline Web Applications support
 AC_MSG_CHECKING([whether to enable HTML5 offline web applications support])
@@ -517,6 +565,14 @@ AC_ARG_ENABLE(geolocation,
               [],[enable_geolocation="no"])
 AC_MSG_RESULT([$enable_geolocation])
 
+# check whether to enable client-based geolocation support
+AC_MSG_CHECKING([whether to enable client-based geolocation support])
+AC_ARG_ENABLE(client_based_geolocation,
+              AC_HELP_STRING([--enable-client-based-geolocation],
+                             [enable support for client-based geolocation [default=no]]),
+              [],[enable_client_based_geolocation="no"])
+AC_MSG_RESULT([$enable_client_based_geolocation])
+
 # check whether to enable MathML support
 AC_MSG_CHECKING([whether to enable MathML support])
 AC_ARG_ENABLE(mathml,
@@ -540,6 +596,14 @@ AC_ARG_ENABLE(wml,
                              [enable support for WML [default=no]]),
               [],[enable_wml="no"])
 AC_MSG_RESULT([$enable_wml])
+
+# check whether to enable WCSS support
+AC_MSG_CHECKING([whether to enable WCSS support])
+AC_ARG_ENABLE(wcss,
+              AC_HELP_STRING([--enable-wcss],
+                             [enable support for WCSS [default=no]]),
+              [],[enable_wcss="no"])
+AC_MSG_RESULT([$enable_wcss])
 
 # check whether to enable SharedWorkers support
 AC_MSG_CHECKING([whether to enable SharedWorkers support])
@@ -962,13 +1026,17 @@ AM_CONDITIONAL([USE_GSTREAMER], [test "$have_gstreamer" = "yes"])
 
 # WebKit feature conditionals
 AM_CONDITIONAL([ENABLE_DEBUG],[test "$enable_debug" = "yes"])
-AM_CONDITIONAL([ENABLE_3D_TRANSFORMS],[test "$enable_3D_transforms" = "yes"])
-AM_CONDITIONAL([ENABLE_3D_CANVAS],[test "$enable_3D_canvas" = "yes"])
+AM_CONDITIONAL([ENABLE_3D_TRANSFORMS],[test "$enable_3d_transforms" = "yes"])
+AM_CONDITIONAL([ENABLE_WEBGL],[test "$enable_webgl" = "yes"])
 AM_CONDITIONAL([ENABLE_BLOB],[test "$enable_blob" = "yes"])
+AM_CONDITIONAL([ENABLE_METER_TAG],[test "$enable_meter_tag" = "yes"])
+AM_CONDITIONAL([ENABLE_PROGRESS_TAG],[test "$enable_progress_tag" = "yes"])
 AM_CONDITIONAL([ENABLE_CHANNEL_MESSAGING],[test "$enable_channel_messaging" = "yes"])
 AM_CONDITIONAL([ENABLE_JAVASCRIPT_DEBUGGER],[test "$enable_javascript_debugger" = "yes"])
 AM_CONDITIONAL([ENABLE_OFFLINE_WEB_APPLICATIONS],[test "$enable_offline_web_applications" = "yes"])
 AM_CONDITIONAL([ENABLE_DIRECTORY_UPLOAD],[test "$enable_directory_upload" = "yes"])
+AM_CONDITIONAL([ENABLE_DATAGRID],[test "$enable_datagrid" = "yes"])
+AM_CONDITIONAL([ENABLE_DATA_TRANSFER_ITEMS],[test "$enable_data_transfer_items" = "yes"])
 AM_CONDITIONAL([ENABLE_DOM_STORAGE],[test "$enable_dom_storage" = "yes"])
 AM_CONDITIONAL([ENABLE_DATABASE],[test "$enable_database" = "yes"])
 AM_CONDITIONAL([ENABLE_DATALIST],[test "$enable_datalist" = "yes"])
@@ -984,6 +1052,7 @@ AM_CONDITIONAL([ENABLE_XPATH],[test "$enable_xpath" = "yes"])
 AM_CONDITIONAL([ENABLE_XSLT],[test "$enable_xslt" = "yes"])
 AM_CONDITIONAL([ENABLE_FILTERS],[test "$enable_filters" = "yes"])
 AM_CONDITIONAL([ENABLE_GEOLOCATION], [test "$enable_geolocation" = "yes"])
+AM_CONDITIONAL([ENABLE_CLIENT_BASED_GEOLOCATION], [test "$enable_client_based_geolocation" = "yes"])
 AM_CONDITIONAL([ENABLE_MATHML], [test "$enable_mathml" = "yes"])
 AM_CONDITIONAL([ENABLE_VIDEO],[test "$enable_video" = "yes"])
 AM_CONDITIONAL([ENABLE_FULLSCREEN_API],[test "$enable_fullscreen_api" = "yes"])
@@ -998,6 +1067,7 @@ AM_CONDITIONAL([ENABLE_SVG_USE],[test "$enable_svg_use" = "yes"])
 AM_CONDITIONAL([ENABLE_COVERAGE],[test "$enable_coverage" = "yes"])
 AM_CONDITIONAL([ENABLE_FAST_MALLOC],[test "$enable_fast_malloc" = "yes"])
 AM_CONDITIONAL([ENABLE_WML],[test "$enable_wml" = "yes"])
+AM_CONDITIONAL([ENABLE_WCSS],[test "$enable_wcss" = "yes"])
 AM_CONDITIONAL([ENABLE_WORKERS],[test "$enable_workers" = "yes"])
 AM_CONDITIONAL([ENABLE_SHARED_WORKERS],[test "$enable_shared_workers" = "yes"])
 AM_CONDITIONAL([SVG_FLAGS],[test "$svg_flags" = "yes"])
@@ -1007,6 +1077,7 @@ AM_CONDITIONAL([ENABLE_WEB_AUDIO],[test "$enable_web_audio" = "yes"])
 AM_CONDITIONAL([ENABLE_WEB_TIMING],[test "$enable_web_timing" = "yes"])
 AM_CONDITIONAL([ENABLE_OPCODE_STATS],[test "$enable_opcode_stats" = "yes"])
 AM_CONDITIONAL([ENABLE_WEBKIT2],[test "$enable_webkit2" = "yes"])
+AM_CONDITIONAL([ENABLE_SPELLCHECK],[test "$enable_spellcheck" = "yes"])
 
 # Gtk conditionals
 AM_CONDITIONAL([ENABLE_INTROSPECTION],[test "$enable_introspection" = "yes"])
@@ -1051,20 +1122,25 @@ Build configuration:
  Font backend                                             : $with_font_backend
  Optimized memory allocator                               : $enable_fast_malloc
 Features:
- 3D Transforms                                            : $enable_3D_transforms
- 3D Canvas (WebGL)                                        : $enable_3D_canvas
+ 3D Transforms                                            : $enable_3d_transforms
+ WebGL                                                    : $enable_webgl
  Blob support                                             : $enable_blob
  Directory upload                                         : $enable_directory_upload
  Fast Mobile Scrolling                                    : $enable_fast_mobile_scrolling
  JIT compilation                                          : $enable_jit
  Filters support                                          : $enable_filters
  Geolocation support                                      : $enable_geolocation
+ Client-based geolocation support                         : $enable_client_based_geolocation
  JavaScript debugger/profiler support                     : $enable_javascript_debugger
  MathML support                                           : $enable_mathml
  HTML5 offline web applications support                   : $enable_offline_web_applications
  HTML5 channel messaging support                          : $enable_channel_messaging
+ HTML5 meter element support                              : $enable_meter_tag
+ HTML5 progress element support                           : $enable_progress_tag
  HTML5 client-side session and persistent storage support : $enable_dom_storage
  HTML5 client-side database storage support               : $enable_database
+ HTML5 datagrid support                                   : $enable_datagrid
+ HTML5 data transfer items support                        : $enable_data_transfer_items
  HTML5 FileSystem API support                             : $enable_file_system
  HTML5 sandboxed iframe support                           : $enable_sandbox
  HTML5 server-sent events support                         : $enable_eventsource
@@ -1083,6 +1159,7 @@ Features:
  SVG as image support                                     : $enable_svg_as_image
  SVG use element support                                  : $enable_svg_use
  WML support                                              : $enable_wml
+ WCSS support                                             : $enable_wcss
  Web Audio support                                        : $enable_web_audio
  Web Sockets support                                      : $enable_web_sockets
  Web Timing support                                       : $enable_web_timing
@@ -1090,6 +1167,7 @@ Features:
  XHTML-MP support                                         : $enable_xhtmlmp
  XPATH support                                            : $enable_xpath
  XSLT support                                             : $enable_xslt
+ Spellcheck support                                       : $enable_spellcheck
 
 GTK+ configuration:
  GTK+ version                                             : $with_gtk

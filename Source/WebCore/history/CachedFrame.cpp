@@ -82,7 +82,9 @@ CachedFrameBase::~CachedFrameBase()
 void CachedFrameBase::restore()
 {
     ASSERT(m_document->view() == m_view);
-    
+
+    m_view->setIsRestoringFromBackForward(true);
+
     Frame* frame = m_view->frame();
     m_cachedFrameScriptData->restore(frame);
 
@@ -94,6 +96,7 @@ void CachedFrameBase::restore()
     frame->animation()->resumeAnimationsForDocument(m_document.get());
     frame->eventHandler()->setMousePressNode(m_mousePressNode.get());
     m_document->resumeActiveDOMObjects();
+    m_document->resumeScriptedAnimationControllerCallbacks();
 
     // It is necessary to update any platform script objects after restoring the
     // cached page.
@@ -152,6 +155,7 @@ CachedFrame::CachedFrame(Frame* frame)
     // Suspending must also happen after we've recursed over child frames, in case
     // those create more objects.
     // FIXME: It's still possible to have objects created after suspending in some cases, see http://webkit.org/b/53733 for more details.
+    m_document->suspendScriptedAnimationControllerCallbacks();
     m_document->suspendActiveDOMObjects(ActiveDOMObject::DocumentWillBecomeInactive);
     m_cachedFrameScriptData = adoptPtr(new ScriptCachedFrameData(frame));
 

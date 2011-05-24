@@ -29,10 +29,13 @@
 #if ENABLE(JAVA_BRIDGE)
 
 #include "JavaRuntimeObject.h"
-#include "JNIBridgeJSC.h"
 #include "JNIUtility.h"
 #include "JNIUtilityPrivate.h"
+#include "JSDOMBinding.h"
+#include "JavaArrayJSC.h"
 #include "JavaClassJSC.h"
+#include "JavaMethod.h"
+#include "JavaString.h"
 #include "Logging.h"
 #include "jni_jsobject.h"
 #include "runtime_method.h"
@@ -40,6 +43,7 @@
 #include "runtime_root.h"
 #include <runtime/ArgList.h>
 #include <runtime/Error.h>
+#include <runtime/FunctionPrototype.h>
 #include <runtime/JSLock.h>
 
 using namespace JSC::Bindings;
@@ -49,7 +53,7 @@ using namespace WebCore;
 JavaInstance::JavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
     : Instance(rootObject)
 {
-    m_instance = new JObjectWrapper(instance);
+    m_instance = new JobjectWrapper(instance);
     m_class = 0;
 }
 
@@ -114,11 +118,17 @@ JSValue JavaInstance::booleanValue() const
 class JavaRuntimeMethod : public RuntimeMethod {
 public:
     JavaRuntimeMethod(ExecState* exec, JSGlobalObject* globalObject, const Identifier& name, Bindings::MethodList& list)
-        : RuntimeMethod(exec, globalObject, name, list)
+        // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
+        // We need to pass in the right global object for "i".
+        : RuntimeMethod(exec, globalObject, WebCore::deprecatedGetDOMStructure<JavaRuntimeMethod>(exec), name, list)
     {
+        ASSERT(inherits(&s_info));
     }
 
-    virtual const ClassInfo* classInfo() const { return &s_info; }
+    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    {
+        return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+    }
 
     static const ClassInfo s_info;
 };
@@ -162,13 +172,13 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
     }
 
     const JavaMethod* jMethod = static_cast<const JavaMethod*>(method);
-    LOG(LiveConnect, "JavaInstance::invokeMethod call %s %s on %p", UString(jMethod->name()).utf8().data(), jMethod->signature(), m_instance->m_instance);
+    LOG(LiveConnect, "JavaInstance::invokeMethod call %s %s on %p", UString(jMethod->name().impl()).utf8().data(), jMethod->signature(), m_instance->m_instance);
 
     Vector<jvalue> jArgs(count);
 
     for (i = 0; i < count; i++) {
-        JavaParameter* aParameter = jMethod->parameterAt(i);
-        jArgs[i] = convertValueToJValue(exec, m_rootObject.get(), exec->argument(i), aParameter->getJNIType(), aParameter->type());
+        CString javaClassName = jMethod->parameterAt(i).utf8();
+        jArgs[i] = convertValueToJValue(exec, m_rootObject.get(), exec->argument(i), JNITypeFromClassName(javaClassName.data()), javaClassName.data());
         LOG(LiveConnect, "JavaInstance::invokeMethod arg[%d] = %s", i, exec->argument(i).toString(exec).ascii().data());
     }
 
@@ -356,29 +366,6 @@ JSValue JavaInstance::defaultValue(ExecState* exec, PreferredPrimitiveType hint)
 JSValue JavaInstance::valueOf(ExecState* exec) const
 {
     return stringValue(exec);
-}
-
-JObjectWrapper::JObjectWrapper(jobject instance)
-    : m_refCount(0)
-{
-    ASSERT(instance);
-
-    // Cache the JNIEnv used to get the global ref for this java instance.
-    // It'll be used to delete the reference.
-    m_env = getJNIEnv();
-
-    m_instance = m_env->NewGlobalRef(instance);
-
-    LOG(LiveConnect, "JObjectWrapper ctor new global ref %p for %p", m_instance, instance);
-
-    if (!m_instance)
-        LOG_ERROR("Could not get GlobalRef for %p", instance);
-}
-
-JObjectWrapper::~JObjectWrapper()
-{
-    LOG(LiveConnect, "JObjectWrapper dtor deleting global ref %p", m_instance);
-    m_env->DeleteGlobalRef(m_instance);
 }
 
 #endif // ENABLE(JAVA_BRIDGE)

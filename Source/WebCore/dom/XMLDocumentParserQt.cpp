@@ -91,6 +91,7 @@ XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
     , m_wroteText(false)
     , m_currentNode(document)
     , m_sawError(false)
+    , m_sawCSS(false)
     , m_sawXSLTransform(false)
     , m_sawFirstElement(false)
     , m_isXHTMLDocument(false)
@@ -117,6 +118,7 @@ XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment, Element* parent
     , m_wroteText(false)
     , m_currentNode(fragment)
     , m_sawError(false)
+    , m_sawCSS(false)
     , m_sawXSLTransform(false)
     , m_sawFirstElement(false)
     , m_isXHTMLDocument(false)
@@ -205,6 +207,7 @@ void XMLDocumentParser::initializeParserContext(const char*)
 {
     DocumentParser::startParsing();
     m_sawError = false;
+    m_sawCSS = false;
     m_sawXSLTransform = false;
     m_sawFirstElement = false;
 }
@@ -588,28 +591,25 @@ void XMLDocumentParser::parseEndElement()
     ASSERT(!m_pendingScript);
     m_requestingScript = true;
 
+    bool successfullyPrepared = scriptElement->prepareScript(m_scriptStartPosition, ScriptElement::AllowLegacyTypeInTypeAttribute);
+    if (!successfullyPrepared) {
 #if ENABLE(XHTMLMP)
-    if (!scriptElement->shouldExecuteAsJavaScript())
-        document()->setShouldProcessNoscriptElement(true);
-    else
+        if (!scriptElement->isScriptTypeSupported(ScriptElement::AllowLegacyTypeInTypeAttribute))
+            document()->setShouldProcessNoscriptElement(true);
 #endif
-    {
-        String scriptHref = scriptElement->sourceAttributeValue();
-        if (!scriptHref.isEmpty()) {
-            // we have a src attribute
-            String scriptCharset = scriptElement->scriptCharset();
-            if (element->dispatchBeforeLoadEvent(scriptHref) &&
-                (m_pendingScript = document()->cachedResourceLoader()->requestScript(scriptHref, scriptCharset))) {
-                m_scriptElement = element;
-                m_pendingScript->addClient(this);
-
-                // m_pendingScript will be 0 if script was already loaded and ref() executed it
-                if (m_pendingScript)
-                    pauseParsing();
-            } else
-                m_scriptElement = 0;
-        } else
+    } else {
+        if (scriptElement->readyToBeParserExecuted())
             scriptElement->executeScript(ScriptSourceCode(scriptElement->scriptContent(), document()->url(), m_scriptStartPosition));
+        else if (scriptElement->willBeParserExecuted()) {
+            m_pendingScript = scriptElement->cachedScript();
+            m_scriptElement = element;
+            m_pendingScript->addClient(this);
+
+            // m_pendingScript will be 0 if script was already loaded and addClient() executed it.
+            if (m_pendingScript)
+                pauseParsing();
+        } else
+            m_scriptElement = 0;
     }
     m_requestingScript = false;
     popCurrentNode();
@@ -643,6 +643,8 @@ void XMLDocumentParser::parseProcessingInstruction()
 
     pi->finishParsingChildren();
 
+    if (pi->isCSS())
+        m_sawCSS = true;
 #if ENABLE(XSLT)
     m_sawXSLTransform = !m_sawFirstElement && pi->isXSL();
     if (m_sawXSLTransform && !document()->transformSourceDocument())

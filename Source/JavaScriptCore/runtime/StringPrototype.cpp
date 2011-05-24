@@ -85,7 +85,7 @@ static EncodedJSValue JSC_HOST_CALL stringProtoFuncTrimRight(ExecState*);
 
 namespace JSC {
 
-const ClassInfo StringPrototype::info = { "String", &StringObject::info, 0, ExecState::stringTable };
+const ClassInfo StringPrototype::s_info = { "String", &StringObject::s_info, 0, ExecState::stringTable };
 
 /* Source for StringPrototype.lut.h
 @begin stringTable 26
@@ -134,6 +134,8 @@ const ClassInfo StringPrototype::info = { "String", &StringObject::info, 0, Exec
 StringPrototype::StringPrototype(ExecState* exec, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure)
     : StringObject(exec, structure)
 {
+    ASSERT(inherits(&s_info));
+
     putAnonymousValue(exec->globalData(), 0, globalObject);
     // The constructor will be added later, after StringConstructor has been built
     putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(0), DontDelete | ReadOnly | DontEnum);
@@ -305,7 +307,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec)
     if (callType == CallTypeNone)
         replacementString = replacement.toString(exec);
 
-    if (pattern.inherits(&RegExpObject::info)) {
+    if (pattern.inherits(&RegExpObject::s_info)) {
         const UString& source = sourceVal->value(exec);
         unsigned sourceLen = source.length();
         if (exec->hadException())
@@ -473,7 +475,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncToString(ExecState* exec)
     if (thisValue.isString())
         return JSValue::encode(thisValue);
 
-    if (thisValue.inherits(&StringObject::info))
+    if (thisValue.inherits(&StringObject::s_info))
         return JSValue::encode(asStringObject(thisValue)->internalValue());
 
     return throwVMTypeError(exec);
@@ -605,7 +607,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncMatch(ExecState* exec)
     UString u = s;
     RefPtr<RegExp> reg;
     RegExpObject* imp = 0;
-    if (a0.inherits(&RegExpObject::info))
+    if (a0.inherits(&RegExpObject::s_info))
         reg = asRegExpObject(a0)->regExp();
     else {
         /*
@@ -658,7 +660,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSearch(ExecState* exec)
 
     UString u = s;
     RefPtr<RegExp> reg;
-    if (a0.inherits(&RegExpObject::info))
+    if (a0.inherits(&RegExpObject::s_info))
         reg = asRegExpObject(a0)->regExp();
     else { 
         /*
@@ -716,7 +718,7 @@ EncodedJSValue JSC_HOST_CALL stringProtoFuncSplit(ExecState* exec)
     unsigned i = 0;
     unsigned p0 = 0;
     unsigned limit = a1.isUndefined() ? 0xFFFFFFFFU : a1.toUInt32(exec);
-    if (a0.inherits(&RegExpObject::info)) {
+    if (a0.inherits(&RegExpObject::s_info)) {
         RegExp* reg = asRegExpObject(a0)->regExp();
         if (s.isEmpty() && reg->match(s, 0) >= 0) {
             // empty string matched by regexp -> empty array

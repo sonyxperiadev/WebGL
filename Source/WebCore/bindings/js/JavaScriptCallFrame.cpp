@@ -42,7 +42,7 @@ using namespace JSC;
 
 namespace WebCore {
     
-JavaScriptCallFrame::JavaScriptCallFrame(const DebuggerCallFrame& debuggerCallFrame, PassRefPtr<JavaScriptCallFrame> caller, intptr_t sourceID, const TextPosition1& textPosition)
+JavaScriptCallFrame::JavaScriptCallFrame(const DebuggerCallFrame& debuggerCallFrame, PassRefPtr<JavaScriptCallFrame> caller, intptr_t sourceID, const TextPosition0& textPosition)
     : m_debuggerCallFrame(debuggerCallFrame)
     , m_caller(caller)
     , m_sourceID(sourceID)
@@ -56,7 +56,7 @@ JavaScriptCallFrame* JavaScriptCallFrame::caller()
     return m_caller.get();
 }
 
-const JSC::ScopeChainNode* JavaScriptCallFrame::scopeChain() const
+JSC::ScopeChainNode* JavaScriptCallFrame::scopeChain() const
 {
     ASSERT(m_isValid);
     if (!m_isValid)

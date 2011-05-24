@@ -35,6 +35,7 @@
 #import <wtf/RetainPtr.h>
 
 namespace WebCore {
+    class HistoryItem;
     class Page;
 }
 
@@ -105,7 +106,6 @@ extern int pluginDatabaseClientCount;
     BOOL shouldCloseWithWindow;
     BOOL mainFrameDocumentReady;
     BOOL drawsBackground;
-    BOOL editable;
     BOOL tabKeyCyclesThroughElementsChanged;
     BOOL becomingFirstResponder;
     BOOL becomingFirstResponderFromOutside;
@@ -184,5 +184,7 @@ extern int pluginDatabaseClientCount;
 #endif
     id<WebGeolocationProvider> _geolocationProvider;
     id<WebDeviceOrientationProvider> m_deviceOrientationProvider;
+
+    RefPtr<WebCore::HistoryItem> _globalHistoryItem;
 }
 @end

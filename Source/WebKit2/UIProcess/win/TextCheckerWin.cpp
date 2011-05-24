@@ -26,9 +26,8 @@
 #include "config.h"
 #include "TextChecker.h"
 
-#define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
-#include "NotImplemented.h"
 #include "TextCheckerState.h"
+#include <WebCore/NotImplemented.h>
 
 using namespace WebCore;
 
@@ -78,6 +77,11 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocume
 }
 
 void TextChecker::updateSpellingUIWithMisspelledWord(const String& misspelledWord)
+{
+    notImplemented();
+}
+
+void TextChecker::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
 {
     notImplemented();
 }

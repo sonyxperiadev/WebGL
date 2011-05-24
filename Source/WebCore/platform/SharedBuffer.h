@@ -32,7 +32,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(CF)
+#if USE(CF)
 #include <wtf/RetainPtr.h>
 #endif
 
@@ -72,7 +72,7 @@ public:
     NSData *createNSData();
     static PassRefPtr<SharedBuffer> wrapNSData(NSData *data);
 #endif
-#if PLATFORM(CF)
+#if USE(CF)
     CFDataRef createCFData();
     static PassRefPtr<SharedBuffer> wrapCFData(CFDataRef);
 #endif
@@ -89,10 +89,6 @@ public:
 #endif
     unsigned size() const;
 
-    // Calling this function will force internal segmented buffers
-    // to be merged into a flat buffer. Use getSomeData() whenever possible
-    // for better performance.
-    const Vector<char>& buffer() const;
 
     bool isEmpty() const { return !size(); }
 
@@ -127,6 +123,13 @@ private:
     SharedBuffer(const char*, int);
     SharedBuffer(const unsigned char*, int);
     
+    // Calling this function will force internal segmented buffers
+    // to be merged into a flat buffer. Use getSomeData() whenever possible
+    // for better performance.
+    // As well, be aware that this method does *not* return any purgeable
+    // memory, which can be a source of bugs.
+    const Vector<char>& buffer() const;
+
     void clearPlatformData();
     void maybeTransferPlatformData();
     bool hasPlatformData() const;
@@ -135,7 +138,7 @@ private:
     mutable Vector<char> m_buffer;
     mutable Vector<char*> m_segments;
     OwnPtr<PurgeableBuffer> m_purgeableBuffer;
-#if PLATFORM(CF)
+#if USE(CF)
     SharedBuffer(CFDataRef);
     RetainPtr<CFDataRef> m_cfData;
 #endif

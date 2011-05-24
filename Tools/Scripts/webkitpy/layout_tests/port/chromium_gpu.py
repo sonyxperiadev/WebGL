@@ -48,11 +48,11 @@ def get(platform=None, port_name='chromium-gpu', **kwargs):
         else:
             raise NotImplementedError('unsupported platform: %s' % platform)
 
-    if port_name == 'chromium-gpu-linux':
+    if port_name.startswith('chromium-gpu-linux'):
         return ChromiumGpuLinuxPort(port_name=port_name, **kwargs)
-    if port_name == 'chromium-gpu-mac':
+    if port_name.startswith('chromium-gpu-mac'):
         return ChromiumGpuMacPort(port_name=port_name, **kwargs)
-    if port_name == 'chromium-gpu-win':
+    if port_name.startswith('chromium-gpu-win'):
         return ChromiumGpuWinPort(port_name=port_name, **kwargs)
     raise NotImplementedError('unsupported port: %s' % port_name)
 
@@ -73,7 +73,7 @@ def _set_gpu_options(port):
 
 def _tests(port, paths):
     if not paths:
-        paths = ['compositing', 'platform/chromium/compositing']
+        paths = ['compositing', 'platform/chromium/compositing', 'media']
         if not port.name().startswith('chromium-gpu-mac'):
             # Canvas is not yet accelerated on the Mac, so there's no point
             # in running the tests there.
@@ -84,10 +84,25 @@ def _tests(port, paths):
     return test_files.find(port, paths)
 
 
+def _test_platform_names(self):
+    return ('mac', 'win', 'linux')
+
+
+def _test_platform_name_to_name(self, test_platform_name):
+    if test_platform_name in self.test_platform_names():
+        return 'chromium-gpu-' + test_platform_name
+    raise ValueError('Unsupported test_platform_name: %s' %
+                     test_platform_name)
+
+
 class ChromiumGpuLinuxPort(chromium_linux.ChromiumLinuxPort):
     def __init__(self, port_name='chromium-gpu-linux', **kwargs):
         chromium_linux.ChromiumLinuxPort.__init__(self, port_name=port_name, **kwargs)
         _set_gpu_options(self)
+
+    def baseline_path(self):
+        # GPU baselines aren't yet versioned.
+        return self._webkit_baseline_path('chromium-gpu-linux')
 
     def baseline_search_path(self):
         # Mimic the Linux -> Win expectations fallback in the ordinary Chromium port.
@@ -103,12 +118,24 @@ class ChromiumGpuLinuxPort(chromium_linux.ChromiumLinuxPort):
     def tests(self, paths):
         return _tests(self, paths)
 
+    def test_platform_name(self):
+        return 'linux'
+
+    def test_platform_names(self):
+        return _test_platform_names(self)
+
+    def test_platform_name_to_name(self, name):
+        return _test_platform_name_to_name(self, name)
 
 
 class ChromiumGpuMacPort(chromium_mac.ChromiumMacPort):
     def __init__(self, port_name='chromium-gpu-mac', **kwargs):
         chromium_mac.ChromiumMacPort.__init__(self, port_name=port_name, **kwargs)
         _set_gpu_options(self)
+
+    def baseline_path(self):
+        # GPU baselines aren't yet versioned.
+        return self._webkit_baseline_path('chromium-gpu-mac')
 
     def baseline_search_path(self):
         return (map(self._webkit_baseline_path, ['chromium-gpu-mac', 'chromium-gpu']) +
@@ -123,12 +150,24 @@ class ChromiumGpuMacPort(chromium_mac.ChromiumMacPort):
     def tests(self, paths):
         return _tests(self, paths)
 
+    def test_platform_name(self):
+        return 'mac'
+
+    def test_platform_names(self):
+        return _test_platform_names(self)
+
+    def test_platform_name_to_name(self, name):
+        return _test_platform_name_to_name(self, name)
 
 
 class ChromiumGpuWinPort(chromium_win.ChromiumWinPort):
     def __init__(self, port_name='chromium-gpu-win', **kwargs):
         chromium_win.ChromiumWinPort.__init__(self, port_name=port_name, **kwargs)
         _set_gpu_options(self)
+
+    def baseline_path(self):
+        # GPU baselines aren't yet versioned.
+        return self._webkit_baseline_path('chromium-gpu-win')
 
     def baseline_search_path(self):
         return (map(self._webkit_baseline_path, ['chromium-gpu-win', 'chromium-gpu']) +
@@ -142,3 +181,12 @@ class ChromiumGpuWinPort(chromium_win.ChromiumWinPort):
 
     def tests(self, paths):
         return _tests(self, paths)
+
+    def test_platform_name(self):
+        return 'win'
+
+    def test_platform_names(self):
+        return _test_platform_names(self)
+
+    def test_platform_name_to_name(self, name):
+        return _test_platform_name_to_name(self, name)

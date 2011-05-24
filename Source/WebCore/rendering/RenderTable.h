@@ -243,6 +243,7 @@ private:
     void subtractCaptionRect(IntRect&) const;
 
     void recalcSections() const;
+    void adjustLogicalHeightForCaption();
 
     mutable Vector<int> m_columnPos;
     mutable Vector<ColumnStruct> m_columns;

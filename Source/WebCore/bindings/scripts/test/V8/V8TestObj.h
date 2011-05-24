@@ -24,7 +24,7 @@
 #include "TestObj.h"
 #include "V8DOMWrapper.h"
 #include "WrapperTypeInfo.h"
-#include "wtf/text/StringHash.h"
+#include <wtf/text/StringHash.h>
 #include <v8.h>
 #include <wtf/HashMap.h>
 

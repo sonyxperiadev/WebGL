@@ -50,7 +50,6 @@
 #include <wtf/gobject/GOwnPtr.h>
 
 extern "C" {
-void webkit_application_cache_set_maximum_size(unsigned long long size);
 void webkit_web_inspector_execute_script(WebKitWebInspector* inspector, long callId, const gchar* script);
 }
 
@@ -333,6 +332,11 @@ void LayoutTestController::setUserStyleSheetLocation(JSStringRef path)
         setUserStyleSheetEnabled(true);
 }
 
+void LayoutTestController::setValueForUser(JSContextRef context, JSValueRef element, JSStringRef value)
+{
+    // FIXME: implement
+}
+
 void LayoutTestController::setViewModeMediaFeature(JSStringRef mode)
 {
     WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
@@ -508,7 +512,7 @@ void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
 
 void LayoutTestController::setSelectTrailingWhitespaceEnabled(bool flag)
 {
-    // FIXME: implement
+    DumpRenderTreeSupportGtk::setSelectTrailingWhitespaceEnabled(flag);
 }
 
 void LayoutTestController::setPopupBlockingEnabled(bool flag)
@@ -869,14 +873,20 @@ bool LayoutTestController::hasSpellingMarker(int from, int length)
     return DumpRenderTreeSupportGtk::webkitWebFrameSelectionHasSpellingMarker(mainFrame, from, length);
 }
 
-void LayoutTestController::dumpConfigurationForViewport(int availableWidth, int availableHeight)
+void LayoutTestController::dumpConfigurationForViewport(int deviceDPI, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight)
 {
     WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
     ASSERT(webView);
-    DumpRenderTreeSupportGtk::dumpConfigurationForViewport(webView, availableWidth, availableHeight);
+    DumpRenderTreeSupportGtk::dumpConfigurationForViewport(webView, deviceDPI, deviceWidth, deviceHeight, availableWidth, availableHeight);
 }
 
 void LayoutTestController::setSerializeHTTPLoads(bool)
 {
     // FIXME: Implement if needed for https://bugs.webkit.org/show_bug.cgi?id=50758.
+}
+
+void LayoutTestController::setMinimumTimerInterval(double minimumTimerInterval)
+{
+    WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
+    DumpRenderTreeSupportGtk::setMinimumTimerInterval(webView, minimumTimerInterval);
 }

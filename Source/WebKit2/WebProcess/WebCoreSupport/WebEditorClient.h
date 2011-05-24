@@ -27,12 +27,13 @@
 #define WebEditorClient_h
 
 #include <WebCore/EditorClient.h>
+#include <WebCore/TextCheckerClient.h>
 
 namespace WebKit {
 
 class WebPage;
 
-class WebEditorClient : public WebCore::EditorClient {
+class WebEditorClient : public WebCore::EditorClient, public WebCore::TextCheckerClient {
 public:
     WebEditorClient(WebPage* page)
         : m_page(page)
@@ -74,6 +75,8 @@ private:
     virtual void registerCommandForRedo(PassRefPtr<WebCore::EditCommand>);
     virtual void clearUndoRedoOperations();
 
+    virtual bool canCopyCut(bool defaultValue) const;
+    virtual bool canPaste(bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
     
@@ -120,6 +123,8 @@ private:
     virtual void toggleAutomaticSpellingCorrection();
 #endif
 
+    TextCheckerClient* textChecker() { return this; }
+
     virtual void ignoreWordInSpellDocument(const String&);
     virtual void learnWord(const String&);
     virtual void checkSpellingOfString(const UChar*, int length, int* misspellingLocation, int* misspellingLength);
@@ -140,6 +145,7 @@ private:
     virtual void showCorrectionPanel(WebCore::CorrectionPanelInfo::PanelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings, WebCore::Editor*);
     virtual void dismissCorrectionPanel(WebCore::ReasonForDismissingCorrectionPanel);
     virtual bool isShowingCorrectionPanel();
+    virtual void recordAutocorrectionResponse(AutocorrectionResponseType, const WTF::String& replacedString, const WTF::String& replacementString);
 #endif
     WebPage* m_page;
 };

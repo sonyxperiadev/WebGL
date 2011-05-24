@@ -159,13 +159,16 @@ void ScriptDebugServer::removeBreakpoint(const String& breakpointId)
         it->second.remove(lineNumber + 1);
 }
 
-bool ScriptDebugServer::hasBreakpoint(intptr_t sourceID, unsigned lineNumber) const
+bool ScriptDebugServer::hasBreakpoint(intptr_t sourceID, const TextPosition0& position) const
 {
     if (!m_breakpointsActivated)
         return false;
 
     SourceIdToBreakpointsMap::const_iterator it = m_sourceIdToBreakpoints.find(sourceID);
     if (it == m_sourceIdToBreakpoints.end())
+        return false;
+    int lineNumber = position.m_line.convertAsOneBasedInt();
+    if (lineNumber <= 0)
         return false;
     LineToBreakpointMap::const_iterator breakIt = it->second.find(lineNumber);
     if (breakIt == it->second.end() || !breakIt->second.enabled)
@@ -405,10 +408,13 @@ void ScriptDebugServer::setJavaScriptPaused(Frame* frame, bool paused)
     frame->script()->setPaused(paused);
 
     Document* document = frame->document();
-    if (paused)
+    if (paused) {
+        document->suspendScriptedAnimationControllerCallbacks();
         document->suspendActiveDOMObjects(ActiveDOMObject::JavaScriptDebuggerPaused);
-    else
+    } else {
         document->resumeActiveDOMObjects();
+        document->resumeScriptedAnimationControllerCallbacks();
+    }
 
     setJavaScriptPaused(frame->view(), paused);
 }
@@ -432,7 +438,7 @@ void ScriptDebugServer::setJavaScriptPaused(FrameView* view, bool paused)
 
 void ScriptDebugServer::createCallFrameAndPauseIfNeeded(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
 {
-    TextPosition1 textPosition(WTF::OneBasedNumber::fromOneBasedInt(lineNumber), WTF::OneBasedNumber::base());
+    TextPosition0 textPosition(WTF::OneBasedNumber::fromOneBasedInt(lineNumber).convertToZeroBased(), WTF::ZeroBasedNumber::base());
     m_currentCallFrame = JavaScriptCallFrame::create(debuggerCallFrame, m_currentCallFrame, sourceID, textPosition);
     pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
 }
@@ -443,7 +449,7 @@ void ScriptDebugServer::updateCallFrameAndPauseIfNeeded(const DebuggerCallFrame&
     if (!m_currentCallFrame)
         return;
 
-    TextPosition1 textPosition(WTF::OneBasedNumber::fromOneBasedInt(lineNumber), WTF::OneBasedNumber::base());
+    TextPosition0 textPosition(WTF::OneBasedNumber::fromOneBasedInt(lineNumber).convertToZeroBased(), WTF::ZeroBasedNumber::base());
     m_currentCallFrame->update(debuggerCallFrame, sourceID, textPosition);
     pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
 }
@@ -458,7 +464,7 @@ void ScriptDebugServer::pauseIfNeeded(Page* page)
 
     bool pauseNow = m_pauseOnNextStatement;
     pauseNow |= (m_pauseOnCallFrame == m_currentCallFrame);
-    pauseNow |= (m_currentCallFrame->line() > 0 && hasBreakpoint(m_currentCallFrame->sourceID(), m_currentCallFrame->line()));
+    pauseNow |= hasBreakpoint(m_currentCallFrame->sourceID(), m_currentCallFrame->position());
     if (!pauseNow)
         return;
 

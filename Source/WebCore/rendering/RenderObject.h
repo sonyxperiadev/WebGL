@@ -252,6 +252,7 @@ public:
     virtual bool isBlockFlow() const { return false; }
     virtual bool isBoxModelObject() const { return false; }
     virtual bool isCounter() const { return false; }
+    virtual bool isQuote() const { return false; }
     virtual bool isDetails() const { return false; }
     virtual bool isDetailsMarker() const { return false; }
     virtual bool isEmbeddedObject() const { return false; }
@@ -981,7 +982,7 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
         if (!container && !o->isRenderView())
             return;
         if (!last->isText() && (last->style()->position() == FixedPosition || last->style()->position() == AbsolutePosition)) {
-            if ((last->style()->top().isAuto() && last->style()->bottom().isAuto()) || last->style()->top().isStatic()) {
+            if (last->style()->top().isAuto() && last->style()->bottom().isAuto()) {
                 RenderObject* parent = last->parent();
                 if (!parent->normalChildNeedsLayout()) {
                     parent->setChildNeedsLayout(true, false);

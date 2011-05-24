@@ -254,7 +254,7 @@ void MediaControls::createPanel()
 void MediaControls::createMuteButton()
 {
     ASSERT(!m_muteButton);
-    m_muteButton = MediaControlMuteButtonElement::create(m_mediaElement);
+    m_muteButton = MediaControlPanelMuteButtonElement::create(m_mediaElement);
     m_muteButton->attachToParent(m_panel.get());
 }
 
@@ -482,7 +482,7 @@ void MediaControls::updateVolumeSliderContainer(bool visible)
         RefPtr<RenderStyle> s = m_volumeSliderContainer->styleForElement();
         int height = s->height().isPercent() ? 0 : s->height().value();
         int width = s->width().isPercent() ? 0 : s->width().value();
-        IntPoint offset = m_mediaElement->document()->page()->theme()->volumeSliderOffsetFromMuteButton(m_muteButton->renderer()->node(), IntSize(width, height));
+        IntPoint offset = m_mediaElement->document()->page()->theme()->volumeSliderOffsetFromMuteButton(m_muteButton->renderBox(), IntSize(width, height));
         int x = offset.x() + m_muteButton->renderBox()->offsetLeft();
         int y = offset.y() + m_muteButton->renderBox()->offsetTop();
 

@@ -142,8 +142,10 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <script type="text/javascript" src="ProfileView.js"></script>
     <script type="text/javascript" src="HeapSnapshot.js"></script>
     <script type="text/javascript" src="HeapSnapshotView.js"></script>
+    <script type="text/javascript" src="DetailedHeapshotGridNodes.js"></script>
     <script type="text/javascript" src="DetailedHeapshotView.js"></script>
     <script type="text/javascript" src="DebuggerModel.js"></script>
+    <script type="text/javascript" src="DebuggerPresentationModel.js"></script>
     <script type="text/javascript" src="DOMAgent.js"></script>
     <script type="text/javascript" src="TimelineAgent.js"></script>
     <script type="text/javascript" src="TimelinePanel.js"></script>
@@ -154,14 +156,18 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <script type="text/javascript" src="ShortcutsHelp.js"></script>
     <script type="text/javascript" src="HAREntry.js"></script>
     <script type="text/javascript" src="CookieParser.js"></script>
+    <script type="text/javascript" src="Toolbar.js"></script>
+    <script type="text/javascript" src="SearchController.js"></script>
 </head>
 <body class="detached">
     <div id="toolbar">
         <div class="toolbar-item close-left"><button id="close-button-left"></button></div>
-        <div class="toolbar-item flexable-space"></div>
-        <div class="toolbar-item hidden" id="search-results-matches"></div>
-        <div class="toolbar-item"><input id="search" type="search" incremental results="0"><div id="search-toolbar-label" class="toolbar-label"></div></div>
-        <div class="toolbar-item close-right"><button id="close-button-right"></button></div>
+        <div id="toolbar-controls">
+            <div class="toolbar-item"><button id="toolbar-dropdown-arrow" class="toolbar-label">&raquo;</button></div>
+            <div class="toolbar-item hidden" id="search-results-matches"></div>
+            <div class="toolbar-item toolbar-search-item"><input id="search" type="search" incremental results="0"><div id="search-toolbar-label" class="toolbar-label"></div></div>
+            <div class="toolbar-item close-right"><button id="close-button-right"></button></div>
+        </div>
     </div>
     <div id="main">
         <div id="main-panels" spellcheck="false"></div>

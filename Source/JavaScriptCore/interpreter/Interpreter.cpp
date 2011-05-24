@@ -42,7 +42,6 @@
 #include "EvalCodeCache.h"
 #include "ExceptionHelpers.h"
 #include "GetterSetter.h"
-#include "GlobalEvalFunction.h"
 #include "JSActivation.h"
 #include "JSArray.h"
 #include "JSByteArray.h"
@@ -77,11 +76,11 @@ using namespace std;
 namespace JSC {
 
 // Returns the depth of the scope chain within a given call frame.
-static int depth(CodeBlock* codeBlock, ScopeChain& sc)
+static int depth(CodeBlock* codeBlock, ScopeChainNode* sc)
 {
     if (!codeBlock->needsFullScopeChain())
         return 0;
-    return sc.localDepth();
+    return sc->localDepth();
 }
 
 #if ENABLE(INTERPRETER) 
@@ -419,9 +418,10 @@ NEVER_INLINE JSValue Interpreter::callEval(CallFrame* callFrame, RegisterFile* r
     return callFrame->globalData().interpreter->execute(eval.get(), callFrame, callFrame->uncheckedR(codeBlock->thisRegister()).jsValue().toThisObject(callFrame), callFrame->registers() - registerFile->start() + registerOffset, scopeChain);
 }
 
-Interpreter::Interpreter()
+Interpreter::Interpreter(JSGlobalData& globalData)
     : m_sampleEntryDepth(0)
     , m_reentryDepth(0)
+    , m_registerFile(globalData)
 {
 #if ENABLE(COMPUTED_GOTO_INTERPRETER)
     privateExecute(InitializeAndReturn, 0, 0);
@@ -564,23 +564,20 @@ NEVER_INLINE bool Interpreter::unwindCallFrame(CallFrame*& callFrame, JSValue ex
             oldCodeBlock->createActivation(callFrame);
             scopeChain = callFrame->scopeChain();
         }
-        while (!scopeChain->object->inherits(&JSActivation::info))
+        while (!scopeChain->object->inherits(&JSActivation::s_info))
             scopeChain = scopeChain->pop();
 
         callFrame->setScopeChain(scopeChain);
         JSActivation* activation = asActivation(scopeChain->object.get());
-        activation->copyRegisters();
+        activation->copyRegisters(*scopeChain->globalData);
         if (JSValue arguments = callFrame->uncheckedR(unmodifiedArgumentsRegister(oldCodeBlock->argumentsRegister())).jsValue()) {
             if (!oldCodeBlock->isStrictMode())
                 asArguments(arguments)->setActivation(callFrame->globalData(), activation);
         }
     } else if (oldCodeBlock->usesArguments() && !oldCodeBlock->isStrictMode()) {
         if (JSValue arguments = callFrame->uncheckedR(unmodifiedArgumentsRegister(oldCodeBlock->argumentsRegister())).jsValue())
-            asArguments(arguments)->copyRegisters();
+            asArguments(arguments)->copyRegisters(callFrame->globalData());
     }
-
-    if (oldCodeBlock->needsFullScopeChain())
-        scopeChain->deref();
 
     CallFrame* callerFrame = callFrame->callerFrame();
     if (callerFrame->hasHostCallFrameFlag())
@@ -645,7 +642,7 @@ static void appendSourceToError(CallFrame* callFrame, ErrorInstance* exception, 
             start++;
         while (stop < dataLength && (stop - expressionStart < 20) && data[stop] != '\n')
             stop++;
-        while (stop > expressionStart && isStrWhiteSpace(data[stop]))
+        while (stop > expressionStart && isStrWhiteSpace(data[stop - 1]))
             stop--;
         message = makeUString(message, " (near '...", codeBlock->source()->getRange(start, stop), "...')");
     }
@@ -710,11 +707,10 @@ NEVER_INLINE HandlerInfo* Interpreter::throwException(CallFrame*& callFrame, JSV
 
     // Unwind the scope chain within the exception handler's call frame.
     ScopeChainNode* scopeChain = callFrame->scopeChain();
-    ScopeChain sc(scopeChain);
     int scopeDelta = 0;
     if (!codeBlock->needsFullScopeChain() || codeBlock->codeType() != FunctionCode 
         || callFrame->uncheckedR(codeBlock->activationRegister()).jsValue())
-        scopeDelta = depth(codeBlock, sc) - handler->scopeDepth;
+        scopeDelta = depth(codeBlock, scopeChain) - handler->scopeDepth;
     ASSERT(scopeDelta >= 0);
     while (scopeDelta--)
         scopeChain = scopeChain->pop();
@@ -761,10 +757,7 @@ JSValue Interpreter::execute(ProgramExecutable* program, CallFrame* callFrame, S
     newCallFrame->init(codeBlock, 0, scopeChain, CallFrame::noCaller(), codeBlock->m_numParameters, 0);
     newCallFrame->uncheckedR(newCallFrame->hostThisRegister()) = JSValue(thisObj);
 
-    if (codeBlock->needsFullScopeChain())
-        scopeChain->ref();
-
-    DynamicGlobalObjectScope globalObjectScope(callFrame, scopeChain->globalObject);
+    DynamicGlobalObjectScope globalObjectScope(callFrame, scopeChain->globalObject.get());
 
     Profiler** profiler = Profiler::enabledProfilerReference();
     if (*profiler)
@@ -835,7 +828,7 @@ JSValue Interpreter::executeCall(CallFrame* callFrame, JSObject* function, CallT
 
         newCallFrame->init(newCodeBlock, 0, callDataScopeChain, callFrame->addHostCallFrameFlag(), argCount, function);
 
-        DynamicGlobalObjectScope globalObjectScope(newCallFrame, callDataScopeChain->globalObject);
+        DynamicGlobalObjectScope globalObjectScope(newCallFrame, callDataScopeChain->globalObject.get());
 
         Profiler** profiler = Profiler::enabledProfilerReference();
         if (*profiler)
@@ -867,7 +860,7 @@ JSValue Interpreter::executeCall(CallFrame* callFrame, JSObject* function, CallT
     newCallFrame = CallFrame::create(newCallFrame->registers() + registerOffset);
     newCallFrame->init(0, 0, scopeChain, callFrame->addHostCallFrameFlag(), argCount, function);
 
-    DynamicGlobalObjectScope globalObjectScope(newCallFrame, scopeChain->globalObject);
+    DynamicGlobalObjectScope globalObjectScope(newCallFrame, scopeChain->globalObject.get());
 
     Profiler** profiler = Profiler::enabledProfilerReference();
     if (*profiler)
@@ -924,7 +917,7 @@ JSObject* Interpreter::executeConstruct(CallFrame* callFrame, JSObject* construc
 
         newCallFrame->init(newCodeBlock, 0, constructDataScopeChain, callFrame->addHostCallFrameFlag(), argCount, constructor);
 
-        DynamicGlobalObjectScope globalObjectScope(newCallFrame, constructDataScopeChain->globalObject);
+        DynamicGlobalObjectScope globalObjectScope(newCallFrame, constructDataScopeChain->globalObject.get());
 
         Profiler** profiler = Profiler::enabledProfilerReference();
         if (*profiler)
@@ -959,7 +952,7 @@ JSObject* Interpreter::executeConstruct(CallFrame* callFrame, JSObject* construc
     newCallFrame = CallFrame::create(newCallFrame->registers() + registerOffset);
     newCallFrame->init(0, 0, scopeChain, callFrame->addHostCallFrameFlag(), argCount, constructor);
 
-    DynamicGlobalObjectScope globalObjectScope(newCallFrame, scopeChain->globalObject);
+    DynamicGlobalObjectScope globalObjectScope(newCallFrame, scopeChain->globalObject.get());
 
     Profiler** profiler = Profiler::enabledProfilerReference();
     if (*profiler)
@@ -1076,7 +1069,7 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSObjec
     if (m_reentryDepth >= MaxSmallThreadReentryDepth && m_reentryDepth >= callFrame->globalData().maxReentryDepth)
         return checkedReturn(throwStackOverflowError(callFrame));
 
-    DynamicGlobalObjectScope globalObjectScope(callFrame, scopeChain->globalObject);
+    DynamicGlobalObjectScope globalObjectScope(callFrame, scopeChain->globalObject.get());
 
     JSObject* compileError = eval->compile(callFrame, scopeChain);
     if (UNLIKELY(!!compileError))
@@ -1084,7 +1077,7 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSObjec
     EvalCodeBlock* codeBlock = &eval->generatedBytecode();
 
     JSObject* variableObject;
-    for (ScopeChainNode* node = scopeChain; ; node = node->next) {
+    for (ScopeChainNode* node = scopeChain; ; node = node->next.get()) {
         ASSERT(node);
         if (node->object->isVariableObject()) {
             variableObject = static_cast<JSVariableObject*>(node->object.get());
@@ -1132,9 +1125,6 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSObjec
     ASSERT(codeBlock->m_numParameters == 1); // 1 parameter for 'this'.
     newCallFrame->init(codeBlock, 0, scopeChain, callFrame->addHostCallFrameFlag(), codeBlock->m_numParameters, 0);
     newCallFrame->uncheckedR(newCallFrame->hostThisRegister()) = JSValue(thisObj);
-
-    if (codeBlock->needsFullScopeChain())
-        scopeChain->ref();
 
     Profiler** profiler = Profiler::enabledProfilerReference();
     if (*profiler)
@@ -2366,7 +2356,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         ASSERT(scope->isGlobalObject());
         int index = vPC[2].u.operand;
 
-        callFrame->uncheckedR(dst) = scope->registerAt(index);
+        callFrame->uncheckedR(dst) = scope->registerAt(index).get();
         vPC += OPCODE_LENGTH(op_get_global_var);
         NEXT_INSTRUCTION();
     }
@@ -2380,7 +2370,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         int index = vPC[1].u.operand;
         int value = vPC[2].u.operand;
         
-        scope->registerAt(index) = JSValue(callFrame->r(value).jsValue());
+        scope->registerAt(index).set(*globalData, scope, callFrame->r(value).jsValue());
         vPC += OPCODE_LENGTH(op_put_global_var);
         NEXT_INSTRUCTION();
     }
@@ -2411,7 +2401,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         }
         ASSERT((*iter)->isVariableObject());
         JSVariableObject* scope = static_cast<JSVariableObject*>(iter->get());
-        callFrame->uncheckedR(dst) = scope->registerAt(index);
+        callFrame->uncheckedR(dst) = scope->registerAt(index).get();
         ASSERT(callFrame->r(dst).jsValue());
         vPC += OPCODE_LENGTH(op_get_scoped_var);
         NEXT_INSTRUCTION();
@@ -2443,19 +2433,21 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         ASSERT((*iter)->isVariableObject());
         JSVariableObject* scope = static_cast<JSVariableObject*>(iter->get());
         ASSERT(callFrame->r(value).jsValue());
-        scope->registerAt(index) = JSValue(callFrame->r(value).jsValue());
+        scope->registerAt(index).set(*globalData, scope, callFrame->r(value).jsValue());
         vPC += OPCODE_LENGTH(op_put_scoped_var);
         NEXT_INSTRUCTION();
     }
     DEFINE_OPCODE(op_resolve_base) {
-        /* resolve_base dst(r) property(id)
+        /* resolve_base dst(r) property(id) isStrict(bool)
 
            Searches the scope chain for an object containing
            identifier property, and if one is found, writes it to
-           register dst. If none is found, the outermost scope (which
-           will be the global object) is stored in register dst.
+           register dst. If none is found and isStrict is false, the
+           outermost scope (which will be the global object) is
+           stored in register dst.
         */
         resolveBase(callFrame, vPC);
+        CHECK_FOR_EXCEPTION();
 
         vPC += OPCODE_LENGTH(op_resolve_base);
         NEXT_INSTRUCTION();
@@ -2476,6 +2468,8 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
             exceptionValue = createErrorForInvalidGlobalAssignment(callFrame, ident.ustring());
             goto vm_throw;
         }
+
+        vPC += OPCODE_LENGTH(op_ensure_property_exists);
         NEXT_INSTRUCTION();
     }
     DEFINE_OPCODE(op_resolve_with_base) {
@@ -3803,7 +3797,7 @@ skip_id_custom_self:
          */
         if (!function->name().isNull()) {
             JSStaticScopeObject* functionScopeObject = new (callFrame) JSStaticScopeObject(callFrame, function->name(), func, ReadOnly | DontDelete);
-            func->scope().push(functionScopeObject);
+            func->setScope(*globalData, func->scope()->push(functionScopeObject));
         }
 
         callFrame->uncheckedR(dst) = JSValue(func);
@@ -3833,7 +3827,7 @@ skip_id_custom_self:
         Register* newCallFrame = callFrame->registers() + registerOffset;
         Register* argv = newCallFrame - RegisterFile::CallFrameHeaderSize - argCount;
         JSValue thisValue = argv[0].jsValue();
-        JSGlobalObject* globalObject = callFrame->scopeChain()->globalObject;
+        JSGlobalObject* globalObject = callFrame->scopeChain()->globalObject.get();
 
         if (thisValue == globalObject && funcVal == globalObject->evalFunction()) {
             JSValue result = callEval(callFrame, registerFile, argv, argCount, registerOffset);
@@ -3959,7 +3953,7 @@ skip_id_custom_self:
                 exceptionValue = createInvalidParamError(callFrame, "Function.prototype.apply", arguments);
                 goto vm_throw;
             }
-            if (asObject(arguments)->classInfo() == &Arguments::info) {
+            if (asObject(arguments)->classInfo() == &Arguments::s_info) {
                 Arguments* args = asArguments(arguments);
                 argCount = args->numProvidedArguments(callFrame);
                 argCount = min<uint32_t>(argCount, Arguments::MaxArguments);
@@ -3981,7 +3975,7 @@ skip_id_custom_self:
                     goto vm_throw;
                 }
                 array->copyToRegisters(callFrame, callFrame->registers() + argsOffset, argCount);
-            } else if (asObject(arguments)->inherits(&JSArray::info)) {
+            } else if (asObject(arguments)->inherits(&JSArray::s_info)) {
                 JSObject* argObject = asObject(arguments);
                 argCount = argObject->get(callFrame, callFrame->propertyNames().length).toUInt32(callFrame);
                 argCount = min<uint32_t>(argCount, Arguments::MaxArguments);
@@ -4101,7 +4095,7 @@ skip_id_custom_self:
         ASSERT(codeBlock->needsFullScopeChain());
         JSValue activationValue = callFrame->r(activation).jsValue();
         if (activationValue) {
-            asActivation(activationValue)->copyRegisters();
+            asActivation(activationValue)->copyRegisters(*globalData);
 
             if (JSValue argumentsValue = callFrame->r(unmodifiedArgumentsRegister(arguments)).jsValue()) {
                 if (!codeBlock->isStrictMode())
@@ -4109,7 +4103,7 @@ skip_id_custom_self:
             }
         } else if (JSValue argumentsValue = callFrame->r(unmodifiedArgumentsRegister(arguments)).jsValue()) {
             if (!codeBlock->isStrictMode())
-                asArguments(argumentsValue)->copyRegisters();
+                asArguments(argumentsValue)->copyRegisters(*globalData);
         }
 
         vPC += OPCODE_LENGTH(op_tear_off_activation);
@@ -4131,7 +4125,7 @@ skip_id_custom_self:
         ASSERT(!codeBlock->needsFullScopeChain() && codeBlock->ownerExecutable()->usesArguments());
 
         if (JSValue arguments = callFrame->r(unmodifiedArgumentsRegister(src1)).jsValue())
-            asArguments(arguments)->copyRegisters();
+            asArguments(arguments)->copyRegisters(*globalData);
 
         vPC += OPCODE_LENGTH(op_tear_off_arguments);
         NEXT_INSTRUCTION();
@@ -4147,9 +4141,6 @@ skip_id_custom_self:
         */
 
         int result = vPC[1].u.operand;
-
-        if (callFrame->codeBlock()->needsFullScopeChain() && callFrame->r(codeBlock->activationRegister()).jsValue())
-            callFrame->scopeChain()->deref();
 
         JSValue returnValue = callFrame->r(result).jsValue();
 
@@ -4188,9 +4179,6 @@ skip_id_custom_self:
         */
 
         int result = vPC[1].u.operand;
-
-        if (codeBlock->needsFullScopeChain() && callFrame->r(codeBlock->activationRegister()).jsValue())
-            callFrame->scopeChain()->deref();
 
         JSValue returnValue = callFrame->r(result).jsValue();
 
@@ -4236,7 +4224,7 @@ skip_id_custom_self:
         if (!callFrame->r(activationReg).jsValue()) {
             JSActivation* activation = new (globalData) JSActivation(callFrame, static_cast<FunctionExecutable*>(codeBlock->ownerExecutable()));
             callFrame->r(activationReg) = JSValue(activation);
-            callFrame->setScopeChain(callFrame->scopeChain()->copy()->push(activation));
+            callFrame->setScopeChain(callFrame->scopeChain()->push(activation));
         }
         vPC += OPCODE_LENGTH(op_create_activation);
         NEXT_INSTRUCTION();
@@ -4275,8 +4263,8 @@ skip_id_custom_self:
         if (proto.isObject())
             structure = asObject(proto)->inheritorID();
         else
-            structure = constructor->scope().node()->globalObject->emptyObjectStructure();
-        callFrame->uncheckedR(thisRegister) = JSValue(new (&callFrame->globalData()) JSObject(structure));
+            structure = constructor->scope()->globalObject->emptyObjectStructure();
+        callFrame->uncheckedR(thisRegister) = constructEmptyObject(callFrame, structure);
 
         vPC += OPCODE_LENGTH(op_create_this);
         NEXT_INSTRUCTION();
@@ -4641,11 +4629,6 @@ skip_id_custom_self:
            program. Return control to the calling native code.
         */
 
-        if (codeBlock->needsFullScopeChain()) {
-            ScopeChainNode* scopeChain = callFrame->scopeChain();
-            ASSERT(scopeChain->refCount > 1);
-            scopeChain->deref();
-        }
         int result = vPC[1].u.operand;
         return callFrame->r(result).jsValue();
     }
@@ -4775,9 +4758,13 @@ skip_id_custom_self:
             // cannot fathom if we don't assign to the exceptionValue before branching)
             exceptionValue = createInterruptedExecutionException(globalData);
         }
+        JSGlobalObject* globalObject = callFrame->lexicalGlobalObject();
         handler = throwException(callFrame, exceptionValue, vPC - codeBlock->instructions().begin());
-        if (!handler)
-            return throwError(callFrame, exceptionValue);
+        if (!handler) {
+            // Can't use the callframe at this point as the scopechain, etc have
+            // been released.
+            return throwError(globalObject->globalExec(), exceptionValue);
+        }
 
         codeBlock = callFrame->codeBlock();
         vPC = codeBlock->instructions().begin() + handler->target;
@@ -4814,7 +4801,7 @@ JSValue Interpreter::retrieveArguments(CallFrame* callFrame, JSFunction* functio
     }
 
     Arguments* arguments = new (functionCallFrame) Arguments(functionCallFrame);
-    arguments->copyRegisters();
+    arguments->copyRegisters(functionCallFrame->globalData());
     return arguments;
 }
 

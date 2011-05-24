@@ -92,8 +92,9 @@ public:
     // New code should not use this function.
     int deprecatedEditingOffset() const
     {
-        // This should probably ASSERT(m_isLegacyEditingPosition);
-        return m_offset;
+        if (m_isLegacyEditingPosition || m_anchorType != PositionIsAfterAnchor)
+            return m_offset;
+        return offsetForPositionAfterAnchor();
     }
 
     // These are convenience methods which are smart about whether the position is neighbor anchored or parent anchored
@@ -105,7 +106,9 @@ public:
     // FIXME: Callers should be moved off of node(), node() is not always the container for this position.
     // For nodes which editingIgnoresContent(node()) returns true, positions like [ignoredNode, 0]
     // will be treated as before ignoredNode (thus node() is really after the position, not containing it).
-    Node* node() const { return m_anchorNode.get(); }
+    Node* deprecatedNode() const { return m_anchorNode.get(); }
+
+    Document* document() const { return m_anchorNode ? m_anchorNode->document() : 0; }
 
     // These should only be used for PositionIsOffsetInAnchor positions, unless
     // the position is a legacy editing position.
@@ -166,10 +169,13 @@ public:
 
 #ifndef NDEBUG
     void formatForDebugger(char* buffer, unsigned length) const;
+    void showAnchorTypeAndOffset() const;
     void showTreeForThis() const;
 #endif
     
 private:
+    int offsetForPositionAfterAnchor() const;
+
     int renderedOffset() const;
 
     Position previousCharacterPosition(EAffinity) const;

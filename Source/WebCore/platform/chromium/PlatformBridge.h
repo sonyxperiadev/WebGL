@@ -109,9 +109,9 @@ public:
     static void clipboardWriteData(const String& type, const String& data, const String& metadata);
 
     // Interface for handling copy and paste, drag and drop, and selection copy.
-    static HashSet<String> clipboardReadAvailableTypes(const Frame*, PasteboardPrivate::ClipboardBuffer, bool* containsFilenames);
-    static bool clipboardReadData(const Frame*, PasteboardPrivate::ClipboardBuffer, const String& type, String& data, String& metadata);
-    static Vector<String> clipboardReadFilenames(const Frame*, PasteboardPrivate::ClipboardBuffer);
+    static HashSet<String> clipboardReadAvailableTypes(PasteboardPrivate::ClipboardBuffer, bool* containsFilenames);
+    static bool clipboardReadData(PasteboardPrivate::ClipboardBuffer, const String& type, String& data, String& metadata);
+    static Vector<String> clipboardReadFilenames(PasteboardPrivate::ClipboardBuffer);
 
     // Cookies ------------------------------------------------------------
     static void setCookies(const Document*, const KURL&, const String& value);
@@ -150,7 +150,7 @@ public:
 #endif
 #if OS(LINUX) || OS(FREEBSD)
     static void getRenderStyleForStrike(const char* family, int sizeAndStyle, FontRenderStyle* result);
-    static String getFontFamilyForCharacters(const UChar*, size_t numCharacters);
+    static String getFontFamilyForCharacters(const UChar*, size_t numCharacters, const char* preferredLocale);
 #endif
 #if OS(DARWIN)
     static bool loadFont(NSFont* srcFont, ATSFontContainerRef* out);
@@ -173,6 +173,8 @@ public:
     static PassRefPtr<IDBFactoryBackendInterface> idbFactory();
     // Extracts keyPath from values and returns the corresponding keys.
     static void createIDBKeysFromSerializedValuesAndKeyPath(const Vector<RefPtr<SerializedScriptValue> >& values, const String& keyPath, Vector<RefPtr<IDBKey> >& keys);
+    // Injects key via keyPath into value. Returns true on success.
+    static PassRefPtr<SerializedScriptValue> injectIDBKeyIntoSerializedValue(PassRefPtr<IDBKey>, PassRefPtr<SerializedScriptValue>, const String& keyPath);
 
     // JavaScript ---------------------------------------------------------
     static void notifyJSOutOfMemory(Frame*);
@@ -308,6 +310,7 @@ public:
         bool checked;
         bool indeterminate; // Whether the button state is indeterminate.
         bool isDefault; // Whether the button is default button.
+        bool hasBorder;
         unsigned backgroundColor;
     };
 
@@ -318,6 +321,8 @@ public:
     };
 
     struct MenuListExtraParams {
+        bool hasBorder;
+        bool hasBorderRadius;
         int arrowX;
         int arrowY;
         unsigned backgroundColor;

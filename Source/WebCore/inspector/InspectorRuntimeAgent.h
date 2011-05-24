@@ -46,6 +46,8 @@ class InjectedScriptHost;
 class InspectorObject;
 class InspectorValue;
 
+typedef String ErrorString;
+
 class InspectorRuntimeAgent {
     WTF_MAKE_NONCOPYABLE(InspectorRuntimeAgent);
 public:
@@ -57,11 +59,12 @@ public:
     ~InspectorRuntimeAgent();
 
     // Part of the protocol.
-    void evaluate(const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
-    void getCompletions(const String& expression, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
-    void getProperties(PassRefPtr<InspectorObject> objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorValue>* result);
-    void setPropertyValue(PassRefPtr<InspectorObject> objectId, const String& propertyName, const String& expression, RefPtr<InspectorValue>* result);
-    void releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup);
+    void evaluate(ErrorString*, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
+    void evaluateOn(ErrorString*, PassRefPtr<InspectorObject> objectId, const String& expression, RefPtr<InspectorValue>* result);
+    void releaseObject(ErrorString*, PassRefPtr<InspectorObject> objectId);
+    void getProperties(ErrorString*, PassRefPtr<InspectorObject> objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorValue>* result);
+    void setPropertyValue(ErrorString*, PassRefPtr<InspectorObject> objectId, const String& propertyName, const String& expression, RefPtr<InspectorValue>* result);
+    void releaseObjectGroup(ErrorString*, long injectedScriptId, const String& objectGroup);
 
 private:
     InspectorRuntimeAgent(InjectedScriptHost*);

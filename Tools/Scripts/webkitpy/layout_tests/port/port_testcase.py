@@ -28,7 +28,14 @@
 
 """Unit testing base class for Port implementations."""
 
+import sys
 import unittest
+
+# Handle Python < 2.6 where multiprocessing isn't available.
+try:
+    import multiprocessing
+except ImportError:
+    multiprocessing = None
 
 from webkitpy.tool import mocktool
 mock_options = mocktool.MockOptions(results_directory='layout-test-results',
@@ -40,9 +47,33 @@ mock_options = mocktool.MockOptions(results_directory='layout-test-results',
 
 class PortTestCase(unittest.TestCase):
     """Tests the WebKit port implementation."""
-    def make_port(self, options=mock_options):
-        """Override in subclass."""
+    def port_maker(self, platform):
+        """Override to return the class object of the port to be tested,
+        or None if a valid port object cannot be constructed on the specified
+        platform."""
         raise NotImplementedError()
+
+    def make_port(self, options=mock_options):
+        """This routine should be used for tests that should only be run
+        when we can create a full, valid port object."""
+        maker = self.port_maker(sys.platform)
+        if not maker:
+            return None
+
+        port = maker(options=options)
+        if hasattr(options, "results_directory"):
+            port._options.results_directory = port.results_directory()
+        return port
+
+    def test_default_worker_model(self):
+        port = self.make_port()
+        if not port:
+            return
+
+        if multiprocessing:
+            self.assertEqual(port.default_worker_model(), 'processes')
+        else:
+            self.assertEqual(port.default_worker_model(), 'old-threads')
 
     def test_driver_cmd_line(self):
         port = self.make_port()
@@ -100,3 +131,9 @@ class PortTestCase(unittest.TestCase):
         if not port:
             return
         self.assertTrue(len(port.all_test_configurations()) > 0)
+
+    def test_baseline_search_path(self):
+        port = self.make_port()
+        if not port:
+            return
+        self.assertTrue(port.baseline_path() in port.baseline_search_path())

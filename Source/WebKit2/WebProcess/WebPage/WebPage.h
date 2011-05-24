@@ -46,6 +46,7 @@
 #include <WebCore/Editor.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/WebCoreKeyboardUIMode.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
@@ -57,6 +58,7 @@
 #endif
 
 #if PLATFORM(MAC)
+#include "DictionaryPopupInfo.h"
 #include <wtf/RetainPtr.h>
 OBJC_CLASS AccessibilityWebPageObject;
 #endif
@@ -72,6 +74,7 @@ namespace WebCore {
     class KeyboardEvent;
     class Page;
     class PrintContext;
+    class Range;
     class ResourceRequest;
     class SharedBuffer;
 }
@@ -151,7 +154,7 @@ public:
     void show();
     String userAgent() const { return m_userAgent; }
     WebCore::IntRect windowResizerRect() const;
-    bool tabsToLinks() const { return m_tabToLinks; }
+    WebCore::KeyboardUIMode keyboardUIMode();
 
     WebEditCommand* webEditCommand(uint64_t);
     void addWebEditCommand(uint64_t, WebEditCommand*);
@@ -215,7 +218,6 @@ public:
     void setDefersLoading(bool deferLoading);
 
 #if USE(ACCELERATED_COMPOSITING)
-    void changeAcceleratedCompositingMode(WebCore::GraphicsLayer*);
     void enterAcceleratedCompositingMode(WebCore::GraphicsLayer*);
     void exitAcceleratedCompositingMode();
 #endif
@@ -294,6 +296,7 @@ public:
     void getMarkedRange(uint64_t& location, uint64_t& length);
     void characterIndexForPoint(const WebCore::IntPoint point, uint64_t& result);
     void firstRectForCharacterRange(uint64_t location, uint64_t length, WebCore::IntRect& resultRect);
+    void writeSelectionToPasteboard(const WTF::String& pasteboardName, const WTF::Vector<WTF::String>& pasteboardTypes, bool& result);
 #elif PLATFORM(WIN)
     void confirmComposition(const String& compositionString);
     void setComposition(const WTF::String& compositionString, const WTF::Vector<WebCore::CompositionUnderline>& underlines, uint64_t cursorPosition);
@@ -306,6 +309,8 @@ public:
     void dummy(bool&);
 
 #if PLATFORM(MAC)
+    void performDictionaryLookupForRange(DictionaryPopupInfo::Type, WebCore::Frame*, WebCore::Range*);
+
     bool isSpeaking();
     void speak(const String&);
     void stopSpeaking();
@@ -324,15 +329,26 @@ public:
     void beginPrinting(uint64_t frameID, const PrintInfo&);
     void endPrinting();
     void computePagesForPrinting(uint64_t frameID, const PrintInfo&, uint64_t callbackID);
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(WIN)
     void drawRectToPDF(uint64_t frameID, const WebCore::IntRect&, uint64_t callbackID);
     void drawPagesToPDF(uint64_t frameID, uint32_t first, uint32_t count, uint64_t callbackID);
 #endif
 
     bool mainFrameHasCustomRepresentation() const;
 
+    void didChangeScrollOffsetForMainFrame();
+
+    bool canRunBeforeUnloadConfirmPanel() const { return m_canRunBeforeUnloadConfirmPanel; }
+    void setCanRunBeforeUnloadConfirmPanel(bool canRunBeforeUnloadConfirmPanel) { m_canRunBeforeUnloadConfirmPanel = canRunBeforeUnloadConfirmPanel; }
+
     bool canRunModal() const { return m_canRunModal; }
+    void setCanRunModal(bool canRunModal) { m_canRunModal = canRunModal; }
+
     void runModal();
+
+    void setMemoryCacheMessagesEnabled(bool);
+
+    void forceRepaintWithoutCallback();
 
 private:
     WebPage(uint64_t pageID, const WebPageCreationParameters&);
@@ -369,7 +385,7 @@ private:
     void setInitialFocus(bool);
     void setWindowResizerSize(const WebCore::IntSize&);
     void setIsInWindow(bool);
-    void validateMenuItem(const String&);
+    void validateCommand(const String&, uint64_t);
     void executeEditCommand(const String&);
 
     void mouseEvent(const WebMouseEvent&);
@@ -412,6 +428,8 @@ private:
     void setCustomTextEncodingName(const String&);
 
 #if PLATFORM(MAC)
+    void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
+
     void setWindowIsVisible(bool windowIsVisible);
     void windowAndViewFramesChanged(const WebCore::IntRect& windowFrameInScreenCoordinates, const WebCore::IntRect& viewFrameInWindowCoordinates, const WebCore::IntPoint& accessibilityViewCoordinates);
 #endif
@@ -464,7 +482,7 @@ private:
     String m_userAgent;
 
     WebCore::IntSize m_viewSize;
-    RefPtr<DrawingArea> m_drawingArea;
+    OwnPtr<DrawingArea> m_drawingArea;
 
     bool m_drawsBackground;
     bool m_drawsTransparentBackground;
@@ -531,8 +549,13 @@ private:
     SandboxExtensionTracker m_sandboxExtensionTracker;
     uint64_t m_pageID;
 
+    bool m_canRunBeforeUnloadConfirmPanel;
+
     bool m_canRunModal;
     bool m_isRunningModal;
+
+    bool m_cachedMainFrameIsPinnedToLeftSide;
+    bool m_cachedMainFrameIsPinnedToRightSide;
 };
 
 } // namespace WebKit

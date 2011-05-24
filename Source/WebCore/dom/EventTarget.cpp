@@ -193,6 +193,10 @@ IDBTransaction* EventTarget::toIDBTransaction()
 {
     return 0;
 }
+IDBVersionChangeRequest* EventTarget::toIDBVersionChangeRequest()
+{
+    return 0;
+}
 #endif
 
 bool EventTarget::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)
@@ -299,6 +303,10 @@ bool EventTarget::dispatchEvent(PassRefPtr<Event> event)
     event->setCurrentTarget(this);
     event->setEventPhase(Event::AT_TARGET);
     return fireEventListeners(event.get());
+}
+
+void EventTarget::uncaughtExceptionInEventHandler()
+{
 }
 
 bool EventTarget::fireEventListeners(Event* event)

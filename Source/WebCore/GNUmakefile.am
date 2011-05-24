@@ -486,6 +486,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSOESStandardDerivatives.h \
 	DerivedSources/WebCore/JSOESTextureFloat.cpp \
 	DerivedSources/WebCore/JSOESTextureFloat.h \
+	DerivedSources/WebCore/JSOESVertexArrayObject.cpp \
+	DerivedSources/WebCore/JSOESVertexArrayObject.h \
 	DerivedSources/WebCore/JSOverflowEvent.cpp \
 	DerivedSources/WebCore/JSOverflowEvent.h \
 	DerivedSources/WebCore/JSPageTransitionEvent.cpp \
@@ -592,6 +594,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSWebGLTexture.h \
 	DerivedSources/WebCore/JSWebGLUniformLocation.cpp \
 	DerivedSources/WebCore/JSWebGLUniformLocation.h \
+	DerivedSources/WebCore/JSWebGLVertexArrayObjectOES.cpp \
+	DerivedSources/WebCore/JSWebGLVertexArrayObjectOES.h \
 	DerivedSources/WebCore/JSWebKitAnimationEvent.cpp \
 	DerivedSources/WebCore/JSWebKitAnimationEvent.h \
 	DerivedSources/WebCore/JSWebKitCSSKeyframeRule.cpp \
@@ -642,7 +646,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/XMLNames.cpp \
 	DerivedSources/WebCore/XMLNames.h \
 	DerivedSources/WebCore/XMLNSNames.cpp \
-	DerivedSources/WebCore/XMLNSNames.h
+	DerivedSources/WebCore/XMLNSNames.h \
+	DerivedSources/WebCore/XMLViewerXSL.h 
 
 webcore_sources += \
 	Source/WebCore/accessibility/AccessibilityARIAGridCell.cpp \
@@ -745,6 +750,7 @@ webcore_sources += \
 	Source/WebCore/bindings/js/JSDOMFormDataCustom.cpp \
 	Source/WebCore/bindings/js/JSDOMGlobalObject.cpp \
 	Source/WebCore/bindings/js/JSDOMGlobalObject.h \
+	Source/WebCore/bindings/js/JSDOMImplementationCustom.cpp \
 	Source/WebCore/bindings/js/JSDOMMimeTypeArrayCustom.cpp \
 	Source/WebCore/bindings/js/JSDOMPluginArrayCustom.cpp \
 	Source/WebCore/bindings/js/JSDOMPluginCustom.cpp \
@@ -762,8 +768,6 @@ webcore_sources += \
 	Source/WebCore/bindings/js/JSDataGridDataSource.cpp \
 	Source/WebCore/bindings/js/JSDataGridDataSource.h \
 	Source/WebCore/bindings/js/JSDataViewCustom.cpp \
-	Source/WebCore/bindings/js/JSDebugWrapperSet.cpp \
-	Source/WebCore/bindings/js/JSDebugWrapperSet.h \
 	Source/WebCore/bindings/js/JSDedicatedWorkerContextCustom.cpp \
 	Source/WebCore/bindings/js/JSDeviceMotionEventCustom.cpp \
 	Source/WebCore/bindings/js/JSDeviceOrientationEventCustom.cpp \
@@ -933,12 +937,14 @@ webcore_sources += \
 	Source/WebCore/bridge/c/c_utility.h \
 	Source/WebCore/bridge/IdentifierRep.cpp \
 	Source/WebCore/bridge/IdentifierRep.h \
-	Source/WebCore/bridge/jni/JNIBridge.h \
-	Source/WebCore/bridge/jni/jni_jsobject.h \
 	Source/WebCore/bridge/jni/JNIUtility.h \
+	Source/WebCore/bridge/jni/JavaMethod.h \
+	Source/WebCore/bridge/jni/JavaString.h \
+	Source/WebCore/bridge/jni/jni_jsobject.h \
+	Source/WebCore/bridge/jni/jsc/JavaArrayJSC.h \
 	Source/WebCore/bridge/jni/jsc/JavaClassJSC.h \
+	Source/WebCore/bridge/jni/jsc/JavaFieldJSC.h \
 	Source/WebCore/bridge/jni/jsc/JavaInstanceJSC.h \
-	Source/WebCore/bridge/jni/jsc/JNIBridgeJSC.h \
 	Source/WebCore/bridge/jsc/BridgeJSC.cpp \
 	Source/WebCore/bridge/jsc/BridgeJSC.h \
 	Source/WebCore/bridge/npapi.h \
@@ -999,6 +1005,7 @@ webcore_sources += \
 	Source/WebCore/css/CSSMediaRule.h \
 	Source/WebCore/css/CSSMutableStyleDeclaration.cpp \
 	Source/WebCore/css/CSSMutableStyleDeclaration.h \
+	Source/WebCore/css/CSSMutableValue.h \
 	Source/WebCore/css/CSSNamespace.h \
 	Source/WebCore/css/CSSOMUtils.cpp \
 	Source/WebCore/css/CSSOMUtils.h \
@@ -1010,6 +1017,8 @@ webcore_sources += \
 	Source/WebCore/css/CSSParserValues.h \
 	Source/WebCore/css/CSSPrimitiveValue.cpp \
 	Source/WebCore/css/CSSPrimitiveValue.h \
+	Source/WebCore/css/CSSPrimitiveValueCache.cpp \
+	Source/WebCore/css/CSSPrimitiveValueCache.h \
 	Source/WebCore/css/CSSPrimitiveValueMappings.h \
 	Source/WebCore/css/CSSProperty.cpp \
 	Source/WebCore/css/CSSProperty.h \
@@ -1429,6 +1438,7 @@ webcore_sources += \
 	Source/WebCore/editing/SmartReplaceICU.cpp \
 	Source/WebCore/editing/SpellChecker.cpp \
 	Source/WebCore/editing/SpellChecker.h \
+	Source/WebCore/editing/SpellingCorrectionCommand.h \
 	Source/WebCore/editing/SplitElementCommand.cpp \
 	Source/WebCore/editing/SplitElementCommand.h \
 	Source/WebCore/editing/SplitTextNodeCommand.cpp \
@@ -1587,13 +1597,7 @@ webcore_sources += \
 	Source/WebCore/html/canvas/Int8Array.cpp \
 	Source/WebCore/html/canvas/Int8Array.h \
 	Source/WebCore/html/canvas/IntegralTypedArrayBase.h \
-	Source/WebCore/html/canvas/OESStandardDerivatives.cpp \
-	Source/WebCore/html/canvas/OESStandardDerivatives.h \
-	Source/WebCore/html/canvas/OESTextureFloat.cpp \
-	Source/WebCore/html/canvas/OESTextureFloat.h \
 	Source/WebCore/html/canvas/TypedArrayBase.h \
-	Source/WebCore/html/canvas/WebKitLoseContext.cpp \
-	Source/WebCore/html/canvas/WebKitLoseContext.h \
 	Source/WebCore/html/canvas/Uint16Array.cpp \
 	Source/WebCore/html/canvas/Uint16Array.h \
 	Source/WebCore/html/canvas/Uint32Array.cpp \
@@ -1793,6 +1797,8 @@ webcore_sources += \
 	Source/WebCore/html/HTMLSourceElement.h \
 	Source/WebCore/html/HTMLStyleElement.cpp \
 	Source/WebCore/html/HTMLStyleElement.h \
+	Source/WebCore/html/HTMLSummaryElement.cpp \
+	Source/WebCore/html/HTMLSummaryElement.h \
 	Source/WebCore/html/HTMLTableCaptionElement.cpp \
 	Source/WebCore/html/HTMLTableCaptionElement.h \
 	Source/WebCore/html/HTMLTableCellElement.cpp \
@@ -1887,9 +1893,11 @@ webcore_sources += \
 	Source/WebCore/html/parser/XSSFilter.h \
 	Source/WebCore/html/shadow/MediaControls.cpp \
 	Source/WebCore/html/shadow/MediaControls.h \
+	Source/WebCore/html/shadow/ProgressBarValueElement.h \
 	Source/WebCore/html/shadow/SliderThumbElement.cpp \
 	Source/WebCore/html/shadow/SliderThumbElement.h \
-	Source/WebCore/html/shadow/ProgressBarValueElement.h \
+	Source/WebCore/html/shadow/TextControlInnerElements.cpp \
+	Source/WebCore/html/shadow/TextControlInnerElements.h \
 	Source/WebCore/html/PasswordInputType.cpp \
 	Source/WebCore/html/PasswordInputType.h \
 	Source/WebCore/html/PluginDocument.cpp \
@@ -2011,6 +2019,7 @@ webcore_sources += \
 	Source/WebCore/inspector/InspectorValues.cpp \
 	Source/WebCore/inspector/InspectorValues.h \
 	Source/WebCore/inspector/InspectorWorkerResource.h \
+	Source/WebCore/inspector/InstrumentingAgents.h \
 	Source/WebCore/inspector/ScriptArguments.cpp \
 	Source/WebCore/inspector/ScriptArguments.h \
 	Source/WebCore/inspector/ScriptBreakpoint.h \
@@ -2077,6 +2086,7 @@ webcore_sources += \
 	Source/WebCore/loader/DocumentLoadTiming.h \
 	Source/WebCore/loader/DocumentThreadableLoader.cpp \
 	Source/WebCore/loader/DocumentThreadableLoader.h \
+	Source/WebCore/loader/DocumentThreadableLoaderClient.h \
 	Source/WebCore/loader/DocumentWriter.cpp \
 	Source/WebCore/loader/DocumentWriter.h \
 	Source/WebCore/loader/EmptyClients.h \
@@ -2209,6 +2219,8 @@ webcore_sources += \
 	Source/WebCore/page/FocusDirection.h \
 	Source/WebCore/page/Frame.cpp \
 	Source/WebCore/page/Frame.h \
+	Source/WebCore/page/FrameActionScheduler.cpp \
+	Source/WebCore/page/FrameActionScheduler.h \
 	Source/WebCore/page/FrameLoadRequest.h \
 	Source/WebCore/page/FrameTree.cpp \
 	Source/WebCore/page/FrameTree.h \
@@ -2317,9 +2329,6 @@ webcore_sources += \
 	Source/WebCore/platform/CrossThreadCopier.h \
 	Source/WebCore/platform/Cursor.cpp \
 	Source/WebCore/platform/Cursor.h \
-	Source/WebCore/platform/DeprecatedPtrList.h \
-	Source/WebCore/platform/DeprecatedPtrListImpl.cpp \
-	Source/WebCore/platform/DeprecatedPtrListImpl.h \
 	Source/WebCore/platform/DragData.cpp \
 	Source/WebCore/platform/DragData.h \
 	Source/WebCore/platform/DragImage.cpp \
@@ -2437,6 +2446,7 @@ webcore_sources += \
 	Source/WebCore/platform/graphics/GraphicsLayer.h \
 	Source/WebCore/platform/graphics/GraphicsTypes.cpp \
 	Source/WebCore/platform/graphics/GraphicsTypes.h \
+	Source/WebCore/platform/graphics/GraphicsTypes3D.h \
 	Source/WebCore/platform/graphics/Icon.h \
 	Source/WebCore/platform/graphics/ImageBuffer.cpp \
 	Source/WebCore/platform/graphics/ImageBuffer.h \
@@ -2642,8 +2652,10 @@ webcore_sources += \
 	Source/WebCore/platform/text/TextBoundaries.cpp \
 	Source/WebCore/platform/text/TextBoundaries.h \
 	Source/WebCore/platform/text/TextBreakIterator.h \
+	Source/WebCore/platform/text/TextCheckerClient.h \
 	Source/WebCore/platform/text/TextCodec.cpp \
 	Source/WebCore/platform/text/TextCodec.h \
+	Source/WebCore/platform/text/TextCodecASCIIFastPath.h \
 	Source/WebCore/platform/text/TextCodecLatin1.cpp \
 	Source/WebCore/platform/text/TextCodecLatin1.h \
 	Source/WebCore/platform/text/TextCodecUserDefined.cpp \
@@ -2822,6 +2834,8 @@ webcore_sources += \
 	Source/WebCore/rendering/RenderPart.h \
 	Source/WebCore/rendering/RenderProgress.cpp \
 	Source/WebCore/rendering/RenderProgress.h \
+	Source/WebCore/rendering/RenderQuote.cpp \
+	Source/WebCore/rendering/RenderQuote.h \
 	Source/WebCore/rendering/RenderReplaced.cpp \
 	Source/WebCore/rendering/RenderReplaced.h \
 	Source/WebCore/rendering/RenderReplica.cpp \
@@ -2924,6 +2938,8 @@ webcore_sources += \
 	Source/WebCore/rendering/style/NinePieceImage.cpp \
 	Source/WebCore/rendering/style/NinePieceImage.h \
 	Source/WebCore/rendering/style/OutlineValue.h \
+	Source/WebCore/rendering/style/QuotesData.cpp \
+	Source/WebCore/rendering/style/QuotesData.h \
 	Source/WebCore/rendering/style/RenderStyleConstants.h \
 	Source/WebCore/rendering/style/RenderStyle.cpp \
 	Source/WebCore/rendering/style/RenderStyle.h \
@@ -3064,8 +3080,6 @@ webcore_sources += \
 	Source/WebCore/rendering/svg/SVGTextQuery.cpp \
 	Source/WebCore/rendering/svg/SVGTextQuery.h \
 	Source/WebCore/rendering/TableLayout.h \
-	Source/WebCore/rendering/TextControlInnerElements.cpp \
-	Source/WebCore/rendering/TextControlInnerElements.h \
 	Source/WebCore/rendering/TrailingFloatsRootInlineBox.h \
 	Source/WebCore/rendering/TransformState.cpp \
 	Source/WebCore/rendering/TransformState.h \
@@ -3090,6 +3104,8 @@ webcore_sources += \
 	Source/WebCore/storage/DatabaseTracker.h \
 	Source/WebCore/storage/IDBAny.cpp \
 	Source/WebCore/storage/IDBAny.h \
+	Source/WebCore/storage/IDBBackingStore.cpp \
+	Source/WebCore/storage/IDBBackingStore.h \
 	Source/WebCore/storage/IDBCallbacks.h \
 	Source/WebCore/storage/IDBCursorBackendImpl.cpp \
 	Source/WebCore/storage/IDBCursorBackendImpl.h \
@@ -3103,10 +3119,8 @@ webcore_sources += \
 	Source/WebCore/storage/IDBDatabaseError.h \
 	Source/WebCore/storage/IDBDatabaseException.h \
 	Source/WebCore/storage/IDBDatabase.h \
-	Source/WebCore/storage/IDBErrorEvent.cpp \
-	Source/WebCore/storage/IDBErrorEvent.h \
-	Source/WebCore/storage/IDBEvent.cpp \
-	Source/WebCore/storage/IDBEvent.h \
+	Source/WebCore/storage/IDBEventDispatcher.cpp \
+	Source/WebCore/storage/IDBEventDispatcher.h \
 	Source/WebCore/storage/IDBFactoryBackendImpl.cpp \
 	Source/WebCore/storage/IDBFactoryBackendImpl.h \
 	Source/WebCore/storage/IDBFactoryBackendInterface.cpp \
@@ -3132,14 +3146,11 @@ webcore_sources += \
 	Source/WebCore/storage/IDBObjectStore.h \
 	Source/WebCore/storage/IDBRequest.cpp \
 	Source/WebCore/storage/IDBRequest.h \
-	Source/WebCore/storage/IDBSQLiteDatabase.cpp \
-	Source/WebCore/storage/IDBSQLiteDatabase.h \
-	Source/WebCore/storage/IDBSuccessEvent.cpp \
-	Source/WebCore/storage/IDBSuccessEvent.h \
 	Source/WebCore/storage/IDBTransactionBackendInterface.h \
 	Source/WebCore/storage/IDBTransactionCoordinator.h \
 	Source/WebCore/storage/IDBTransaction.cpp \
 	Source/WebCore/storage/IDBTransaction.h \
+	Source/WebCore/storage/IDBVersionChangeRequest.h \
 	Source/WebCore/storage/LocalStorageTask.cpp \
 	Source/WebCore/storage/LocalStorageTask.h \
 	Source/WebCore/storage/LocalStorageThread.cpp \
@@ -3625,6 +3636,8 @@ webcore_sources += \
 	Source/WebCore/xml/XMLHttpRequestProgressEventThrottle.h \
 	Source/WebCore/xml/XMLHttpRequestUpload.cpp \
 	Source/WebCore/xml/XMLHttpRequestUpload.h \
+	Source/WebCore/xml/XMLTreeViewer.cpp \
+	Source/WebCore/xml/XMLTreeViewer.h \
 	Source/WebCore/xml/XMLSerializer.cpp \
 	Source/WebCore/xml/XMLSerializer.h \
 	Source/WebCore/xml/XPathEvaluator.cpp \
@@ -3703,6 +3716,8 @@ webcoregtk_sources += \
 	Source/WebCore/platform/graphics/cairo/TransformationMatrixCairo.cpp \
 	Source/WebCore/platform/graphics/gstreamer/GOwnPtrGStreamer.cpp \
 	Source/WebCore/platform/graphics/gstreamer/GOwnPtrGStreamer.h \
+	Source/WebCore/platform/graphics/gstreamer/GRefPtrGStreamer.cpp \
+	Source/WebCore/platform/graphics/gstreamer/GRefPtrGStreamer.h \
 	Source/WebCore/platform/graphics/gstreamer/GStreamerGWorld.cpp \
 	Source/WebCore/platform/graphics/gstreamer/GStreamerGWorld.h \
 	Source/WebCore/platform/graphics/gstreamer/ImageGStreamerCairo.cpp \
@@ -3913,22 +3928,28 @@ webcoregtk_sources += \
 endif # END USE_PANGO
 
 # ----
-# HTML Data Grid - disable for now.
+# HTML Data Grid
 # ----
-FEATURE_DEFINES += ENABLE_DATAGRID=0
-webcore_cppflags += -DENABLE_DATAGRID=0
+if ENABLE_DATAGRID
+FEATURE_DEFINES += ENABLE_DATAGRID=1
+webcore_cppflags += -DENABLE_DATAGRID=1
+endif
 
 # ----
 # HTML Meter Element
 # ----
+if ENABLE_METER_TAG
 FEATURE_DEFINES += ENABLE_METER_TAG=1
 webcore_cppflags += -DENABLE_METER_TAG=1
+endif # END ENABLE_METER_TAG
 
 # ----
 # HTML Progress Element
 # ----
+if ENABLE_PROGRESS_TAG
 FEATURE_DEFINES += ENABLE_PROGRESS_TAG=1
 webcore_cppflags += -DENABLE_PROGRESS_TAG=1
+endif # END ENABLE_PROGRESS_TAG
 
 # ----
 # JavaScript Debugger/Profiler
@@ -3994,6 +4015,14 @@ webcore_cppflags += -DENABLE_DATALIST=1
 endif # END ENABLE_DATALIST
 
 # ----
+# HTML5 data transfer items support
+#-----
+if ENABLE_DATA_TRANSFER_ITEMS
+FEATURE_DEFINES += ENABLE_DATA_TRANSFER_ITEMS=1
+webcore_cppflags += -DENABLE_DATA_TRANSFER_ITEMS=1
+endif # END ENABLE_DATA_TRANSFER_ITEMS
+
+# ----
 # HTML5 server-sent events
 # ----
 if !ENABLE_EVENTSOURCE
@@ -4018,10 +4047,6 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSIDBDatabaseException.h \
 	DerivedSources/WebCore/JSIDBDatabase.cpp \
 	DerivedSources/WebCore/JSIDBDatabase.h \
-	DerivedSources/WebCore/JSIDBErrorEvent.cpp \
-	DerivedSources/WebCore/JSIDBErrorEvent.h \
-	DerivedSources/WebCore/JSIDBEvent.cpp \
-	DerivedSources/WebCore/JSIDBEvent.h \
 	DerivedSources/WebCore/JSIDBFactory.cpp \
 	DerivedSources/WebCore/JSIDBFactory.h \
 	DerivedSources/WebCore/JSIDBIndex.cpp \
@@ -4032,8 +4057,6 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSIDBObjectStore.h \
 	DerivedSources/WebCore/JSIDBRequest.cpp \
 	DerivedSources/WebCore/JSIDBRequest.h \
-	DerivedSources/WebCore/JSIDBSuccessEvent.cpp \
-	DerivedSources/WebCore/JSIDBSuccessEvent.h \
 	DerivedSources/WebCore/JSIDBTransaction.cpp \
 	DerivedSources/WebCore/JSIDBTransaction.h
 endif # END ENABLE_INDEXED_DATABASE
@@ -4271,6 +4294,14 @@ DerivedSources/WebCore/WMLNames.cpp: DerivedSources/WebCore/WMLElementFactory.cp
 DerivedSources/WebCore/WMLElementFactory.cpp: $(WebCore)/dom/make_names.pl $(WebCore)/wml/WMLTagNames.in $(WebCore)/wml/WMLAttributeNames.in
 	$(AM_V_GEN)$(PERL) -I$(WebCore)/bindings/scripts $< --tags $(WebCore)/wml/WMLTagNames.in --attrs $(WebCore)/wml/WMLAttributeNames.in --factory --wrapperFactory --outputDir "$(GENSOURCES_WEBCORE)"
 endif # END ENABLE_WML
+
+# ----
+# WCSS Support
+# ----
+if ENABLE_WCSS
+FEATURE_DEFINES += ENABLE_WCSS=1
+webcore_cppflags += -DENABLE_WCSS=1
+endif # END ENABLE_WCSS
 
 # ----
 # Filters
@@ -4815,7 +4846,17 @@ webcore_sources += \
 	Source/WebCore/html/canvas/WebGLTexture.cpp \
 	Source/WebCore/html/canvas/WebGLTexture.h \
 	Source/WebCore/html/canvas/WebGLUniformLocation.cpp \
-	Source/WebCore/html/canvas/WebGLUniformLocation.h
+	Source/WebCore/html/canvas/WebGLUniformLocation.h \
+	Source/WebCore/html/canvas/WebGLVertexArrayObjectOES.cpp \
+	Source/WebCore/html/canvas/WebGLVertexArrayObjectOES.h \
+	Source/WebCore/html/canvas/OESStandardDerivatives.cpp \
+	Source/WebCore/html/canvas/OESStandardDerivatives.h \
+	Source/WebCore/html/canvas/OESTextureFloat.cpp \
+	Source/WebCore/html/canvas/OESTextureFloat.h \
+	Source/WebCore/html/canvas/OESVertexArrayObject.cpp \
+	Source/WebCore/html/canvas/OESVertexArrayObject.h \
+	Source/WebCore/html/canvas/WebKitLoseContext.cpp \
+	Source/WebCore/html/canvas/WebKitLoseContext.h
 endif  # END ENABLE_WEBGL
 
 DerivedSources/WebCore/CSSPropertyNames.cpp: DerivedSources/WebCore/CSSPropertyNames.h
@@ -4837,6 +4878,10 @@ DerivedSources/WebCore/CSSValueKeywords.h: $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCo
 DerivedSources/WebCore/HashTools.h: DerivedSources/WebCore/DocTypeStrings.cpp
 DerivedSources/WebCore/DocTypeStrings.cpp: $(WebCore)/html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
 	$(PERL) $(WebCore)/make-hash-tools.pl $(GENSOURCES_WEBCORE) $(WebCore)/html/DocTypeStrings.gperf
+
+# XML Viewer XSL
+DerivedSources/WebCore/XMLViewerXSL.h: $(WebCore)/xml/XMLViewer.xsl
+	$(PERL) $(WebCore)/inspector/xxd.pl XMLViewer_xsl $(WebCore)/xml/XMLViewer.xsl $(GENSOURCES_WEBCORE)/XMLViewerXSL.h
 
 # HTML entity names
 DerivedSources/WebCore/HTMLEntityTable.cpp: $(WebCore)/html/parser/HTMLEntityNames.in $(WebCore)/html/parser/create-html-entity-table

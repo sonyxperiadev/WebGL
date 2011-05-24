@@ -76,6 +76,9 @@
 #include "ASCIICType.h"
 #include "CurrentTime.h"
 #include "MathExtras.h"
+#if USE(JSC)
+#include "ScopeChain.h"
+#endif
 #include "StdLibExtras.h"
 #include "StringExtras.h"
 
@@ -919,6 +922,14 @@ static double parseDateFromNullTerminatedCharacters(const char* dateString, bool
                 skipSpacesAndComments(dateString);
             }
         }
+    }
+    
+    // The year may be after the time but before the time zone.
+    if (year <= 0) {
+       if (!parseLong(dateString, &newPosStr, 10, &year))
+          year = 0;
+       dateString = newPosStr;
+       skipSpacesAndComments(dateString);
     }
 
     // Don't fail if the time zone is missing. 

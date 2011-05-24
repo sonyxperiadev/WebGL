@@ -69,7 +69,6 @@ private:
 
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo);
     virtual void clearAllEditCommands();
-    virtual void setEditCommandState(const String& commandName, bool isEnabled, int state);
     virtual void interceptKeyEvent(const NativeWebKeyboardEvent& event, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines);
     virtual void setDragImage(const WebCore::IntPoint& clientPosition, const WebCore::IntSize& imageSize, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag);
 
@@ -86,11 +85,6 @@ private:
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
     virtual void exitAcceleratedCompositingMode();
 
-#if USE(ACCELERATED_COMPOSITING)
-    virtual void pageDidEnterAcceleratedCompositing();
-    virtual void pageDidLeaveAcceleratedCompositing();
-#endif
-
     virtual void accessibilityWebProcessTokenReceived(const CoreIPC::DataReference&);    
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled);
     virtual void setAutodisplay(bool);
@@ -100,10 +94,14 @@ private:
     virtual void didChangeScrollbarsForMainFrame() const;
 
     virtual void didCommitLoadForMainFrame(bool useCustomRepresentation);
-    virtual void didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&);
+    virtual void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&);
 
     virtual double customRepresentationZoomFactor();
     virtual void setCustomRepresentationZoomFactor(double);
+
+    virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
+
+    virtual void didPerformDictionaryLookup(const String&, double scaleFactor, const DictionaryPopupInfo&);
 
     WKView* m_wkView;
     RetainPtr<WebEditorUndoTargetObjC> m_undoTarget;

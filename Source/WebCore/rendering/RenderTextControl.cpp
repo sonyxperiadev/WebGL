@@ -74,7 +74,6 @@ static Color disabledTextColor(const Color& textColor, const Color& backgroundCo
 RenderTextControl::RenderTextControl(Node* node, bool placeholderVisible)
     : RenderBlock(node)
     , m_placeholderVisible(placeholderVisible)
-    , m_wasChangedSinceLastChangeEvent(false)
     , m_lastChangeWasUserEdit(false)
 {
 }
@@ -249,7 +248,7 @@ void setSelectionRange(Node* node, int start, int end)
     // startPosition and endPosition can be null position for example when
     // "-webkit-user-select: none" style attribute is specified.
     if (startPosition.isNotNull() && endPosition.isNotNull()) {
-        ASSERT(startPosition.deepEquivalent().node()->shadowAncestorNode() == node && endPosition.deepEquivalent().node()->shadowAncestorNode() == node);
+        ASSERT(startPosition.deepEquivalent().deprecatedNode()->shadowAncestorNode() == node && endPosition.deepEquivalent().deprecatedNode()->shadowAncestorNode() == node);
     }
     VisibleSelection newSelection = VisibleSelection(startPosition, endPosition);
 
@@ -321,7 +320,7 @@ PassRefPtr<Range> RenderTextControl::selection(int start, int end) const
 VisiblePosition RenderTextControl::visiblePositionForIndex(int index) const
 {
     if (index <= 0)
-        return VisiblePosition(m_innerText.get(), 0, DOWNSTREAM);
+        return VisiblePosition(Position(m_innerText.get(), 0, Position::PositionIsOffsetInAnchor), DOWNSTREAM);
     ExceptionCode ec = 0;
     RefPtr<Range> range = Range::create(document());
     range->selectNodeContents(m_innerText.get(), ec);
@@ -332,26 +331,25 @@ VisiblePosition RenderTextControl::visiblePositionForIndex(int index) const
     ASSERT(!ec);
     int endOffset = it.range()->endOffset(ec);
     ASSERT(!ec);
-    return VisiblePosition(endContainer, endOffset, UPSTREAM);
+    return VisiblePosition(Position(endContainer, endOffset, Position::PositionIsOffsetInAnchor), UPSTREAM);
 }
 
 int RenderTextControl::indexForVisiblePosition(const VisiblePosition& pos) const
 {
     Position indexPosition = pos.deepEquivalent();
-    if (!isSelectableElement(indexPosition.node()))
+    if (!isSelectableElement(indexPosition.deprecatedNode()))
         return 0;
     ExceptionCode ec = 0;
     RefPtr<Range> range = Range::create(document());
     range->setStart(m_innerText.get(), 0, ec);
     ASSERT(!ec);
-    range->setEnd(indexPosition.node(), indexPosition.deprecatedEditingOffset(), ec);
+    range->setEnd(indexPosition.deprecatedNode(), indexPosition.deprecatedEditingOffset(), ec);
     ASSERT(!ec);
     return TextIterator::rangeLength(range.get());
 }
 
 void RenderTextControl::subtreeHasChanged()
 {
-    m_wasChangedSinceLastChangeEvent = true;
     m_lastChangeWasUserEdit = true;
 }
 
@@ -544,7 +542,7 @@ float RenderTextControl::getAvgCharWidth(AtomicString family)
         return roundf(style()->font().primaryFont()->avgCharWidth());
 
     const UChar ch = '0'; 
-    return style()->font().floatWidth(TextRun(&ch, 1, false, 0, 0, TextRun::AllowTrailingExpansion, false, false, false));
+    return style()->font().width(TextRun(&ch, 1, false, 0, 0, TextRun::AllowTrailingExpansion, false));
 }
 
 float RenderTextControl::scaleEmToUnits(int x) const
@@ -639,7 +637,7 @@ void RenderTextControl::paintPlaceholder(PaintInfo& paintInfo, int tx, int ty)
     paintInfo.context->setFillColor(placeholderStyle->visitedDependentColor(CSSPropertyColor), placeholderStyle->colorSpace());
     
     String placeholderText = static_cast<HTMLTextFormControlElement*>(node())->strippedPlaceholder();
-    TextRun textRun(placeholderText.characters(), placeholderText.length(), false, 0, 0, TextRun::AllowTrailingExpansion, !placeholderStyle->isLeftToRightDirection(), placeholderStyle->unicodeBidi() == Override, false, false);
+    TextRun textRun(placeholderText.characters(), placeholderText.length(), false, 0, 0, TextRun::AllowTrailingExpansion, !placeholderStyle->isLeftToRightDirection(), placeholderStyle->unicodeBidi() == Override);
     
     RenderBox* textRenderer = innerTextElement() ? innerTextElement()->renderBox() : 0;
     if (textRenderer) {

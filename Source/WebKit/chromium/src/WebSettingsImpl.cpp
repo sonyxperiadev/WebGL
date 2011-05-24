@@ -35,6 +35,7 @@
 #include "Settings.h"
 #include "WebString.h"
 #include "WebURL.h"
+#include <wtf/UnusedParam.h>
 
 #if defined(OS_WIN)
 #include "RenderThemeChromiumWin.h"
@@ -46,6 +47,9 @@ namespace WebKit {
 
 WebSettingsImpl::WebSettingsImpl(Settings* settings)
     : m_settings(settings)
+    , m_compositeToTextureEnabled(false)
+    , m_showFPSCounter(false)
+    , m_showPlatformLayerTree(false)
 {
     ASSERT(settings);
 }
@@ -284,6 +288,16 @@ void WebSettingsImpl::setShowDebugBorders(bool show)
     m_settings->setShowDebugBorders(show);
 }
 
+void WebSettingsImpl::setShowFPSCounter(bool show)
+{
+    m_showFPSCounter = show;
+}
+
+void WebSettingsImpl::setShowPlatformLayerTree(bool show)
+{
+    m_showPlatformLayerTree = show;
+}
+
 void WebSettingsImpl::setEditingBehavior(EditingBehavior behavior)
 {
     m_settings->setEditingBehaviorType(static_cast<WebCore::EditingBehaviorType>(behavior));
@@ -292,6 +306,11 @@ void WebSettingsImpl::setEditingBehavior(EditingBehavior behavior)
 void WebSettingsImpl::setAcceleratedCompositingEnabled(bool enabled)
 {
     m_settings->setAcceleratedCompositingEnabled(enabled);
+}
+
+void WebSettingsImpl::setCompositeToTextureEnabled(bool enabled)
+{
+    m_compositeToTextureEnabled = enabled;
 }
 
 void WebSettingsImpl::setAcceleratedCompositingFor3DTransformsEnabled(bool enabled)
@@ -347,6 +366,20 @@ void WebSettingsImpl::setCaretBrowsingEnabled(bool enabled)
 void WebSettingsImpl::setInteractiveFormValidationEnabled(bool enabled)
 {
     m_settings->setInteractiveFormValidationEnabled(enabled);
+}
+
+void WebSettingsImpl::setMinimumTimerInterval(double interval)
+{
+    m_settings->setMinDOMTimerInterval(interval);
+}
+
+void WebSettingsImpl::setFullScreenEnabled(bool enabled)
+{
+#if ENABLE(FULLSCREEN_API)
+    m_settings->setFullScreenEnabled(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
 }
 
 } // namespace WebKit

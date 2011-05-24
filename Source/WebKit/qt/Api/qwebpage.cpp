@@ -62,6 +62,10 @@
 #include "FrameLoaderClientQt.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+#include "GeolocationClientMock.h"
+#include "GeolocationClientQt.h"
+#endif // CLIENT_BASED_GEOLOCATION
 #include "GeolocationPermissionClientQt.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
@@ -119,7 +123,6 @@
 #include <QFileDialog>
 #include <QHttpRequestHeader>
 #include <QInputDialog>
-#include <QLocale>
 #include <QMessageBox>
 #include <QNetworkProxy>
 #include <QUndoStack>
@@ -137,7 +140,9 @@
 #if defined(Q_WS_X11)
 #include <QX11Info>
 #endif
-
+#if ENABLE(QT_USERAGENT_DEVICEMODEL)
+#include <qsysteminfo.h>
+#endif
 
 using namespace WebCore;
 
@@ -297,7 +302,6 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     , currentContextMenu(0)
 #endif
     , settings(0)
-    , editable(false)
     , useFixedLayout(false)
     , pluginFactory(0)
     , inspectorFrontend(0)
@@ -324,8 +328,19 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     pageClients.deviceOrientationClient = new DeviceOrientationClientQt(q);
     pageClients.deviceMotionClient = new DeviceMotionClientQt(q);
 #endif
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    if (QWebPagePrivate::drtRun)
+        pageClients.geolocationClient = new GeolocationClientMock();
+    else
+        pageClients.geolocationClient = new GeolocationClientQt(q);
+#endif
     page = new Page(pageClients);
 
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    // In case running in DumpRenderTree mode set the controller to mock provider.
+    if (QWebPagePrivate::drtRun)
+        static_cast<GeolocationClientMock*>(pageClients.geolocationClient)->setController(page->geolocationController());
+#endif
     settings = new QWebSettings(page->settings());
 
     history.d = new QWebHistoryPrivate(static_cast<WebCore::BackForwardListImpl*>(page->backForwardList()));
@@ -2431,7 +2446,7 @@ void QWebPage::setViewportSize(const QSize &size) const
     QWebFrame *frame = mainFrame();
     if (frame->d->frame && frame->d->frame->view()) {
         WebCore::FrameView* view = frame->d->frame->view();
-        view->setFrameRect(QRect(QPoint(0, 0), size));
+        view->resize(size);
         view->adjustViewSize();
     }
 }
@@ -3153,11 +3168,11 @@ bool QWebPage::focusNextPrevChild(bool next)
 */
 void QWebPage::setContentEditable(bool editable)
 {
-    if (d->editable != editable) {
-        d->editable = editable;
+    if (isContentEditable() != editable) {
         d->page->setTabKeyCyclesThroughElements(!editable);
         if (d->mainFrame) {
             WebCore::Frame* frame = d->mainFrame->d->frame;
+            frame->document()->setDesignMode(editable ? WebCore::Document::on : WebCore::Document::off);
             if (editable) {
                 frame->editor()->applyEditingStyleToBodyElement();
                 // FIXME: mac port calls this if there is no selectedDOMRange
@@ -3171,7 +3186,7 @@ void QWebPage::setContentEditable(bool editable)
 
 bool QWebPage::isContentEditable() const
 {
-    return d->editable;
+    return d->mainFrame && d->mainFrame->d->frame->document()->inDesignMode();
 }
 
 /*!
@@ -3676,16 +3691,15 @@ QWebPluginFactory *QWebPage::pluginFactory() const
 
     The default implementation returns the following value:
 
-    "Mozilla/5.0 (%Platform%; %Security%; %Subplatform%; %Locale%) AppleWebKit/%WebKitVersion% (KHTML, like Gecko) %AppVersion Safari/%WebKitVersion%"
+    "Mozilla/5.0 (%Platform%%Security%%Subplatform%) AppleWebKit/%WebKitVersion% (KHTML, like Gecko) %AppVersion Safari/%WebKitVersion%"
 
     On mobile platforms such as Symbian S60 and Maemo, "Mobile Safari" is used instead of "Safari".
 
     In this string the following values are replaced at run-time:
     \list
-    \o %Platform% and %Subplatform% are expanded to the windowing system and the operation system.
-    \o %Security% expands to U if SSL is enabled, otherwise N. SSL is enabled if QSslSocket::supportsSsl() returns true.
-    \o %Locale% is replaced with QLocale::name(). The locale is determined from the view of the QWebPage. If no view is set on the QWebPage,
-    then a default constructed QLocale is used instead.
+    \o %Platform% expands to the windowing system followed by "; " if it is not Windows (e.g. "X11; ").
+    \o %Security% expands to "N; " if SSL is disabled.
+    \o %Subplatform% expands to the operating system version (e.g. "Windows NT 6.1" or "Intel Mac OS X 10.5").
     \o %WebKitVersion% is the version of WebKit the application was compiled against.
     \o %AppVersion% expands to QCoreApplication::applicationName()/QCoreApplication::applicationVersion() if they're set; otherwise defaulting to Qt and the current Qt version.
     \endlist
@@ -3704,17 +3718,21 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
 
     // Platform
 #ifdef Q_WS_MAC
-        "Macintosh"
+        "Macintosh; "
 #elif defined Q_WS_QWS
-        "QtEmbedded"
+        "QtEmbedded; "
+#elif defined Q_WS_MAEMO_5
+        "Maemo"
+#elif defined Q_WS_MAEMO_6
+        "MeeGo"
 #elif defined Q_WS_WIN
-        "Windows"
+        // Nothing
 #elif defined Q_WS_X11
-        "X11"
+        "X11; "
 #elif defined Q_OS_SYMBIAN
         "Symbian"
 #else
-        "Unknown"
+        "Unknown; "
 #endif
     );
 
@@ -3722,38 +3740,31 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
         QSysInfo::SymbianVersion symbianVersion = QSysInfo::symbianVersion();
         switch (symbianVersion) {
         case QSysInfo::SV_9_2:
-            firstPartTemp += QString::fromLatin1("OS/9.2");
+            firstPartTemp += QString::fromLatin1("OS/9.2; ");
             break;
         case QSysInfo::SV_9_3:
-            firstPartTemp += QString::fromLatin1("OS/9.3");
+            firstPartTemp += QString::fromLatin1("OS/9.3; ");
             break;                
         case QSysInfo::SV_9_4:
-            firstPartTemp += QString::fromLatin1("OS/9.4");
+            firstPartTemp += QString::fromLatin1("OS/9.4; ");
             break;
         case QSysInfo::SV_SF_2:
-            firstPartTemp += QString::fromLatin1("/2");
+            firstPartTemp += QString::fromLatin1("/2; ");
             break;
         case QSysInfo::SV_SF_3:
-            firstPartTemp += QString::fromLatin1("/3");
+            firstPartTemp += QString::fromLatin1("/3; ");
             break;
         case QSysInfo::SV_SF_4:
-            firstPartTemp += QString::fromLatin1("/4");
+            firstPartTemp += QString::fromLatin1("/4; ");
+            break;
         default:
+            firstPartTemp += QString::fromLatin1("; ");
             break;
         }
 #endif
 
-        firstPartTemp += QString::fromLatin1("; ");
-
-        // SSL support
-#if !defined(QT_NO_OPENSSL)
-        // we could check QSslSocket::supportsSsl() here, but this makes
-        // OpenSSL, certificates etc being loaded in all cases were QWebPage
-        // is used. This loading is not needed for non-https.
-        firstPartTemp += QString::fromLatin1("U; ");
-        // this may lead to a false positive: We indicate SSL since it is
-        // compiled in even though supportsSsl() might return false
-#else
+#if defined(QT_NO_OPENSSL)
+        // No SSL support
         firstPartTemp += QString::fromLatin1("N; ");
 #endif
 
@@ -3833,6 +3844,7 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
 #elif defined Q_OS_IRIX
         firstPartTemp += QString::fromLatin1("SGI Irix");
 #elif defined Q_OS_LINUX
+#if !defined(Q_WS_MAEMO_5) && !defined(Q_WS_MAEMO_6)
 
 #if defined(__x86_64__)
         firstPartTemp += QString::fromLatin1("Linux x86_64");
@@ -3840,6 +3852,7 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
         firstPartTemp += QString::fromLatin1("Linux i686");
 #else
         firstPartTemp += QString::fromLatin1("Linux");
+#endif
 #endif
 
 #elif defined Q_OS_LYNX
@@ -3890,8 +3903,17 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
         firstPartTemp += QString::fromLatin1("Unknown");
 #endif
 
-        // language is the split
-        firstPartTemp += QString::fromLatin1("; ");
+#if ENABLE(QT_USERAGENT_DEVICEMODEL)
+        // adding Model Number
+        QtMobility::QSystemDeviceInfo systemDeviceInfo;
+
+        QString model = systemDeviceInfo.model();
+        if (!model.isEmpty()) {
+            if (!firstPartTemp.endsWith("; "))
+                firstPartTemp += QString::fromLatin1("; ");
+            firstPartTemp += systemDeviceInfo.model();
+        }
+#endif
         firstPartTemp.squeeze();
         firstPart = firstPartTemp;
 
@@ -3911,7 +3933,7 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
 
         QString thirdPartTemp;
         thirdPartTemp.reserve(150);
-#if defined(Q_OS_SYMBIAN) || defined(Q_WS_MAEMO_5)
+#if defined(Q_OS_SYMBIAN) || defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6)
         thirdPartTemp += QLatin1String(" Mobile Safari/");
 #else
         thirdPartTemp += QLatin1String(" Safari/");
@@ -3924,14 +3946,6 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
         Q_ASSERT(!thirdPart.isNull());
     }
 
-    // Language
-    QString languageName;
-    if (d->client && d->client->ownerWidget())
-        languageName = d->client->ownerWidget()->locale().name();
-    else
-        languageName = QLocale().name();
-    languageName.replace(QLatin1Char('_'), QLatin1Char('-'));
-
     // Application name/version
     QString appName = QCoreApplication::applicationName();
     if (!appName.isEmpty()) {
@@ -3943,7 +3957,7 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
         appName = QString::fromLatin1("Qt/") + QString::fromLatin1(qVersion());
     }
 
-    return firstPart + languageName + secondPart + appName + thirdPart;
+    return firstPart + secondPart + appName + thirdPart;
 }
 
 

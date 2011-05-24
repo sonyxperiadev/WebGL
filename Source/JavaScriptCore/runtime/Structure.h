@@ -40,17 +40,14 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
-#ifndef NDEBUG
-#define DUMP_PROPERTYMAP_STATS 0
-#else
-#define DUMP_PROPERTYMAP_STATS 0
-#endif
 
 namespace JSC {
 
     class MarkStack;
     class PropertyNameArray;
     class PropertyNameArrayData;
+
+    struct ClassInfo;
 
     enum EnumerationMode {
         ExcludeDontEnumProperties,
@@ -61,9 +58,9 @@ namespace JSC {
     public:
         friend class JIT;
         friend class StructureTransitionTable;
-        static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount)
+        static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount, const ClassInfo* classInfo)
         {
-            return adoptRef(new Structure(prototype, typeInfo, anonymousSlotCount));
+            return adoptRef(new Structure(prototype, typeInfo, anonymousSlotCount, classInfo));
         }
 
         static void startIgnoringLeaks();
@@ -79,6 +76,13 @@ namespace JSC {
         static PassRefPtr<Structure> getterSetterTransition(Structure*);
         static PassRefPtr<Structure> toCacheableDictionaryTransition(Structure*);
         static PassRefPtr<Structure> toUncacheableDictionaryTransition(Structure*);
+        static PassRefPtr<Structure> sealTransition(Structure*);
+        static PassRefPtr<Structure> freezeTransition(Structure*);
+        static PassRefPtr<Structure> preventExtensionsTransition(Structure*);
+
+        bool isSealed();
+        bool isFrozen();
+        bool isExtensible() const { return !m_preventExtensions; }
 
         PassRefPtr<Structure> flattenDictionaryStructure(JSGlobalData&, JSObject*);
 
@@ -103,24 +107,15 @@ namespace JSC {
 
         void growPropertyStorageCapacity();
         unsigned propertyStorageCapacity() const { return m_propertyStorageCapacity; }
-        unsigned propertyStorageSize() const { return m_anonymousSlotCount + (m_propertyTable ? m_propertyTable->keyCount + (m_propertyTable->deletedOffsets ? m_propertyTable->deletedOffsets->size() : 0) : static_cast<unsigned>(m_offset + 1)); }
+        unsigned propertyStorageSize() const { return m_anonymousSlotCount + (m_propertyTable ? m_propertyTable->propertyStorageSize() : static_cast<unsigned>(m_offset + 1)); }
         bool isUsingInlineStorage() const;
 
         size_t get(const Identifier& propertyName);
-        size_t get(const StringImpl* rep, unsigned& attributes, JSCell*& specificValue);
+        size_t get(StringImpl* propertyName, unsigned& attributes, JSCell*& specificValue);
         size_t get(const Identifier& propertyName, unsigned& attributes, JSCell*& specificValue)
         {
             ASSERT(!propertyName.isNull());
             return get(propertyName.impl(), attributes, specificValue);
-        }
-        bool transitionedFor(const JSCell* specificValue)
-        {
-            return m_specificValueInPrevious == specificValue;
-        }
-        bool hasTransition(StringImpl*, unsigned attributes);
-        bool hasTransition(const Identifier& propertyName, unsigned attributes)
-        {
-            return hasTransition(propertyName.impl(), attributes);
         }
 
         bool hasGetterSetterProperties() const { return m_hasGetterSetterProperties; }
@@ -131,19 +126,28 @@ namespace JSC {
         bool hasAnonymousSlots() const { return !!m_anonymousSlotCount; }
         unsigned anonymousSlotCount() const { return m_anonymousSlotCount; }
         
-        bool isEmpty() const { return m_propertyTable ? !m_propertyTable->keyCount : m_offset == noOffset; }
+        bool isEmpty() const { return m_propertyTable ? m_propertyTable->isEmpty() : m_offset == noOffset; }
 
         void despecifyDictionaryFunction(const Identifier& propertyName);
         void disableSpecificFunctionTracking() { m_specificFunctionThrashCount = maxSpecificFunctionThrashCount; }
 
-        void setEnumerationCache(JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
-        void clearEnumerationCache(JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
+        void setEnumerationCache(JSGlobalData&, JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
+        void clearEnumerationCache(); // Defined in JSPropertyNameIterator.h.
         JSPropertyNameIterator* enumerationCache(); // Defined in JSPropertyNameIterator.h.
         void getPropertyNames(PropertyNameArray&, EnumerationMode mode);
-        
-    private:
 
-        Structure(JSValue prototype, const TypeInfo&, unsigned anonymousSlotCount);
+        const ClassInfo* classInfo() const { return m_classInfo; }
+
+        static void initializeThreading();
+
+    private:
+        Structure(JSValue prototype, const TypeInfo&, unsigned anonymousSlotCount, const ClassInfo*);
+        Structure(const Structure*);
+
+        static PassRefPtr<Structure> create(const Structure* structure)
+        {
+            return adoptRef(new Structure(structure));
+        }
         
         typedef enum { 
             NoneDictionaryKind = 0,
@@ -155,24 +159,18 @@ namespace JSC {
         size_t put(const Identifier& propertyName, unsigned attributes, JSCell* specificValue);
         size_t remove(const Identifier& propertyName);
 
-        void expandPropertyMapHashTable();
-        void rehashPropertyMapHashTable();
-        void rehashPropertyMapHashTable(unsigned newTableSize);
-        void createPropertyMapHashTable();
-        void createPropertyMapHashTable(unsigned newTableSize);
-        void insertIntoPropertyMapHashTable(const PropertyMapEntry&);
+        void createPropertyMap(unsigned keyCount = 0);
         void checkConsistency();
 
         bool despecifyFunction(const Identifier&);
         void despecifyAllFunctions();
 
-        PropertyMapHashTable* copyPropertyTable();
+        PropertyTable* copyPropertyTable();
         void materializePropertyMap();
         void materializePropertyMapIfNecessary()
         {
-            if (m_propertyTable || !m_previous)             
-                return;
-            materializePropertyMap();
+            if (!m_propertyTable && m_previous)
+                materializePropertyMap();
         }
 
         signed char transitionCount() const
@@ -181,24 +179,8 @@ namespace JSC {
             return m_offset == noOffset ? 0 : m_offset + 1;
         }
 
-        typedef std::pair<Structure*, Structure*> Transition;
-        typedef HashMap<StructureTransitionTableHash::Key, Transition, StructureTransitionTableHash, StructureTransitionTableHashTraits> TransitionTable;
-
-        inline bool transitionTableContains(const StructureTransitionTableHash::Key& key, JSCell* specificValue);
-        inline void transitionTableRemove(const StructureTransitionTableHash::Key& key, JSCell* specificValue);
-        inline void transitionTableAdd(const StructureTransitionTableHash::Key& key, Structure* structure, JSCell* specificValue);
-        inline bool transitionTableHasTransition(const StructureTransitionTableHash::Key& key) const;
-        inline Structure* transitionTableGet(const StructureTransitionTableHash::Key& key, JSCell* specificValue) const;
-
-        TransitionTable* transitionTable() const { ASSERT(!m_isUsingSingleSlot); return m_transitions.m_table; }
-        inline void setTransitionTable(TransitionTable* table);
-        Structure* singleTransition() const { ASSERT(m_isUsingSingleSlot); return m_transitions.m_singleTransition; }
-        void setSingleTransition(Structure* structure) { ASSERT(m_isUsingSingleSlot); m_transitions.m_singleTransition = structure; }
-        
         bool isValid(ExecState*, StructureChain* cachedPrototypeChain) const;
 
-        static const unsigned emptyEntryIndex = 0;
-    
         static const signed char s_maxTransitionLength = 64;
 
         static const signed char noOffset = -1;
@@ -214,15 +196,13 @@ namespace JSC {
         RefPtr<StringImpl> m_nameInPrevious;
         JSCell* m_specificValueInPrevious;
 
-        // 'm_isUsingSingleSlot' indicates whether we are using the single transition optimisation.
-        union {
-            TransitionTable* m_table;
-            Structure* m_singleTransition;
-        } m_transitions;
+        const ClassInfo* m_classInfo;
+
+        StructureTransitionTable m_transitionTable;
 
         WeakGCPtr<JSPropertyNameIterator> m_enumerationCache;
 
-        PropertyMapHashTable* m_propertyTable;
+        OwnPtr<PropertyTable> m_propertyTable;
 
         uint32_t m_propertyStorageCapacity;
 
@@ -243,53 +223,19 @@ namespace JSC {
 #endif
         unsigned m_specificFunctionThrashCount : 2;
         unsigned m_anonymousSlotCount : 5;
-        unsigned m_isUsingSingleSlot : 1;
+        unsigned m_preventExtensions : 1;
         // 4 free bits
     };
 
     inline size_t Structure::get(const Identifier& propertyName)
     {
-        ASSERT(!propertyName.isNull());
-
         materializePropertyMapIfNecessary();
         if (!m_propertyTable)
-            return WTF::notFound;
+            return notFound;
 
-        StringImpl* rep = propertyName.impl();
-
-        unsigned i = rep->existingHash();
-
-#if DUMP_PROPERTYMAP_STATS
-        ++numProbes;
-#endif
-
-        unsigned entryIndex = m_propertyTable->entryIndices[i & m_propertyTable->sizeMask];
-        if (entryIndex == emptyEntryIndex)
-            return WTF::notFound;
-
-        if (rep == m_propertyTable->entries()[entryIndex - 1].key)
-            return m_propertyTable->entries()[entryIndex - 1].offset;
-
-#if DUMP_PROPERTYMAP_STATS
-        ++numCollisions;
-#endif
-
-        unsigned k = 1 | WTF::doubleHash(rep->existingHash());
-
-        while (1) {
-            i += k;
-
-#if DUMP_PROPERTYMAP_STATS
-            ++numRehashes;
-#endif
-
-            entryIndex = m_propertyTable->entryIndices[i & m_propertyTable->sizeMask];
-            if (entryIndex == emptyEntryIndex)
-                return WTF::notFound;
-
-            if (rep == m_propertyTable->entries()[entryIndex - 1].key)
-                return m_propertyTable->entries()[entryIndex - 1].offset;
-        }
+        PropertyMapEntry* entry = m_propertyTable->find(propertyName.impl()).first;
+        ASSERT(!entry || entry->offset >= m_anonymousSlotCount);
+        return entry ? entry->offset : notFound;
     }
 
 } // namespace JSC

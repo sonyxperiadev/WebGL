@@ -35,7 +35,6 @@
 #include "Frame.h"
 #include "FrameNetworkingContext.h"
 #include "FrameLoaderClientQt.h"
-#include "QtNAMThreadSafeProxy.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "QNetworkReplyHandler.h"
@@ -70,14 +69,18 @@ public:
     ResourceError resourceError() const { return m_error; }
     Vector<char> data() const { return m_data; }
 
+    void setReplyFinished(bool finished) { m_replyFinished = finished; }
+
 private:
     ResourceResponse m_response;
     ResourceError m_error;
     Vector<char> m_data;
     QEventLoop m_eventLoop;
+    bool m_replyFinished;
 };
 
 WebCoreSynchronousLoader::WebCoreSynchronousLoader()
+        : m_replyFinished(false)
 {
 }
 
@@ -93,13 +96,15 @@ void WebCoreSynchronousLoader::didReceiveData(ResourceHandle*, const char* data,
 
 void WebCoreSynchronousLoader::didFinishLoading(ResourceHandle*, double)
 {
-    m_eventLoop.exit();
+    if (!m_replyFinished)
+        m_eventLoop.exit();
 }
 
 void WebCoreSynchronousLoader::didFail(ResourceHandle*, const ResourceError& error)
 {
     m_error = error;
-    m_eventLoop.exit();
+    if (!m_replyFinished)
+        m_eventLoop.exit();
 }
 
 void WebCoreSynchronousLoader::waitForCompletion()
@@ -157,13 +162,20 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame* frame)
     if (!frame)
         return false;
 
+    QNetworkAccessManager* manager = 0;
+    QAbstractNetworkCache* cache = 0;
     if (frame->loader()->networkingContext()) {
-        QNetworkAccessManager* manager = frame->loader()->networkingContext()->networkAccessManager();
-        QtNAMThreadSafeProxy managerProxy(manager);
-        if (managerProxy.willLoadFromCache(request.url())) {
-            request.setCachePolicy(ReturnCacheDataDontLoad);
-            return true;
-        }
+        manager = frame->loader()->networkingContext()->networkAccessManager();
+        cache = manager->cache();
+    }
+
+    if (!cache)
+        return false;
+
+    QNetworkCacheMetaData data = cache->metaData(request.url());
+    if (data.isValid()) {
+        request.setCachePolicy(ReturnCacheDataDontLoad);
+        return true;
     }
 
     return false;
@@ -195,9 +207,17 @@ void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const
         d->m_firstRequest.setURL(urlWithCredentials);
     }
     d->m_context = context;
-    d->m_job = new QNetworkReplyHandler(handle.get(), QNetworkReplyHandler::LoadNormal);
+    d->m_job = new QNetworkReplyHandler(handle.get(), QNetworkReplyHandler::LoadSynchronously);
 
-    syncLoader.waitForCompletion();
+    QNetworkReply* reply = d->m_job->reply();
+    // When using synchronous calls, we are finished when reaching this point.
+    if (reply->isFinished()) {
+        syncLoader.setReplyFinished(true);
+        d->m_job->forwardData();
+        d->m_job->finish();
+    } else
+        syncLoader.waitForCompletion();
+
     error = syncLoader.resourceError();
     data = syncLoader.data();
     response = syncLoader.resourceResponse();

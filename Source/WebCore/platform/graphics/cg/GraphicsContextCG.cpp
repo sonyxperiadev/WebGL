@@ -65,6 +65,11 @@
 
 #endif
 
+// Undocumented CGContextSetCTM function, available at least since 10.4.
+extern "C" {
+    CG_EXTERN void CGContextSetCTM(CGContextRef, CGAffineTransform);
+};
+
 using namespace std;
 
 namespace WebCore {
@@ -603,12 +608,42 @@ void GraphicsContext::strokePath(const Path& path)
     CGContextAddPath(context, path.platformPath());
 
     if (m_state.strokeGradient) {
-        CGContextSaveGState(context);
-        CGContextReplacePathWithStrokedPath(context);
-        CGContextClip(context);
-        CGContextConcatCTM(context, m_state.strokeGradient->gradientSpaceTransform());
-        m_state.strokeGradient->paint(this);
-        CGContextRestoreGState(context);
+        if (hasShadow()) {
+            FloatRect rect = path.boundingRect();
+            float lineWidth = strokeThickness();
+            float doubleLineWidth = lineWidth * 2;
+            float layerWidth = ceilf(rect.width() + doubleLineWidth);
+            float layerHeight = ceilf(rect.height() + doubleLineWidth);
+
+            CGLayerRef layer = CGLayerCreateWithContext(context, CGSizeMake(layerWidth, layerHeight), 0);
+            CGContextRef layerContext = CGLayerGetContext(layer);
+            CGContextSetLineWidth(layerContext, lineWidth);
+
+            // Compensate for the line width, otherwise the layer's top-left corner would be
+            // aligned with the rect's top-left corner. This would result in leaving pixels out of
+            // the layer on the left and top sides.
+            float translationX = lineWidth - rect.x();
+            float translationY = lineWidth - rect.y();
+            CGContextTranslateCTM(layerContext, translationX, translationY);
+
+            CGContextAddPath(layerContext, path.platformPath());
+            CGContextReplacePathWithStrokedPath(layerContext);
+            CGContextClip(layerContext);
+            CGContextConcatCTM(layerContext, m_state.strokeGradient->gradientSpaceTransform());
+            m_state.strokeGradient->paint(layerContext);
+
+            float destinationX = roundf(rect.x() - lineWidth);
+            float destinationY = roundf(rect.y() - lineWidth);
+            CGContextDrawLayerAtPoint(context, CGPointMake(destinationX, destinationY), layer);
+            CGLayerRelease(layer);
+        } else {
+            CGContextSaveGState(context);
+            CGContextReplacePathWithStrokedPath(context);
+            CGContextClip(context);
+            CGContextConcatCTM(context, m_state.strokeGradient->gradientSpaceTransform());
+            m_state.strokeGradient->paint(this);
+            CGContextRestoreGState(context);
+        }
         return;
     }
 
@@ -952,7 +987,7 @@ void GraphicsContext::clearRect(const FloatRect& r)
     CGContextClearRect(platformContext(), r);
 }
 
-void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
+void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
 {
     if (paintingDisabled())
         return;
@@ -960,19 +995,49 @@ void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
     CGContextRef context = platformContext();
 
     if (m_state.strokeGradient) {
-        CGContextSaveGState(context);
-        setStrokeThickness(lineWidth);
-        CGContextAddRect(context, r);
-        CGContextReplacePathWithStrokedPath(context);
-        CGContextClip(context);
-        m_state.strokeGradient->paint(this);
-        CGContextRestoreGState(context);
+        if (hasShadow()) {
+            const float doubleLineWidth = lineWidth * 2;
+            const float layerWidth = ceilf(rect.width() + doubleLineWidth);
+            const float layerHeight = ceilf(rect.height() + doubleLineWidth);
+            CGLayerRef layer = CGLayerCreateWithContext(context, CGSizeMake(layerWidth, layerHeight), 0);
+
+            CGContextRef layerContext = CGLayerGetContext(layer);
+            m_state.strokeThickness = lineWidth;
+            CGContextSetLineWidth(layerContext, lineWidth);
+
+            // Compensate for the line width, otherwise the layer's top-left corner would be
+            // aligned with the rect's top-left corner. This would result in leaving pixels out of
+            // the layer on the left and top sides.
+            const float translationX = lineWidth - rect.x();
+            const float translationY = lineWidth - rect.y();
+            CGContextTranslateCTM(layerContext, translationX, translationY);
+
+            CGContextAddRect(layerContext, rect);
+            CGContextReplacePathWithStrokedPath(layerContext);
+            CGContextClip(layerContext);
+            CGContextConcatCTM(layerContext, m_state.strokeGradient->gradientSpaceTransform());
+            m_state.strokeGradient->paint(layerContext);
+
+            const float destinationX = roundf(rect.x() - lineWidth);
+            const float destinationY = roundf(rect.y() - lineWidth);
+            CGContextDrawLayerAtPoint(context, CGPointMake(destinationX, destinationY), layer);
+            CGLayerRelease(layer);
+        } else {
+            CGContextSaveGState(context);
+            setStrokeThickness(lineWidth);
+            CGContextAddRect(context, rect);
+            CGContextReplacePathWithStrokedPath(context);
+            CGContextClip(context);
+            CGContextConcatCTM(context, m_state.strokeGradient->gradientSpaceTransform());
+            m_state.strokeGradient->paint(this);
+            CGContextRestoreGState(context);
+        }
         return;
     }
 
     if (m_state.strokePattern)
         applyStrokePattern();
-    CGContextStrokeRectWithWidth(context, r, lineWidth);
+    CGContextStrokeRectWithWidth(context, rect, lineWidth);
 }
 
 void GraphicsContext::setLineCap(LineCap cap)
@@ -1085,6 +1150,15 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
+void GraphicsContext::setCTM(const AffineTransform& transform)
+{
+    if (paintingDisabled())
+        return;
+    CGContextSetCTM(platformContext(), transform);
+    m_data->setCTM(transform);
+    m_data->m_userToDeviceTransformKnownToBeIdentity = false;
+}
+
 AffineTransform GraphicsContext::getCTM() const
 {
     CGAffineTransform t = CGContextGetCTM(platformContext());
@@ -1130,7 +1204,7 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
     return FloatRect(roundedOrigin, roundedLowerRight - roundedOrigin);
 }
 
-void GraphicsContext::drawLineForText(const IntPoint& point, int width, bool printing)
+void GraphicsContext::drawLineForText(const FloatPoint& point, float width, bool printing)
 {
     if (paintingDisabled())
         return;
@@ -1267,6 +1341,16 @@ void GraphicsContext::setAllowsFontSmoothing(bool allowsFontSmoothing)
     CGContextRef context = platformContext();
     CGContextSetAllowsFontSmoothing(context, allowsFontSmoothing);
 #endif
+}
+
+void GraphicsContext::setIsCALayerContext(bool)
+{
+    m_data->m_isCALayerContext = true;
+}
+
+bool GraphicsContext::isCALayerContext() const
+{
+    return m_data->m_isCALayerContext;
 }
 
 void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)

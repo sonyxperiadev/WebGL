@@ -31,13 +31,10 @@
 #include "PopupMenuClient.h"
 #include "ScrollTypes.h"
 #include "SearchPopupMenu.h"
+#include "WebCoreKeyboardUIMode.h"
 #include <wtf/Forward.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
-
-#if PLATFORM(MAC)
-#include "WebCoreKeyboardUIMode.h"
-#endif
 
 #ifndef __OBJC__
 class NSMenu;
@@ -132,7 +129,7 @@ namespace WebCore {
         virtual bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result) = 0;
         virtual void setStatusbarText(const String&) = 0;
         virtual bool shouldInterruptJavaScript() = 0;
-        virtual bool tabsToLinks() const = 0;
+        virtual KeyboardUIMode keyboardUIMode() = 0;
 
 #if ENABLE(REGISTER_PROTOCOL_HANDLER)
         virtual void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title) = 0;
@@ -277,8 +274,6 @@ namespace WebCore {
 #endif
 
 #if PLATFORM(MAC)
-        virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }
-
         virtual NSResponder *firstResponder() { return 0; }
         virtual void makeFirstResponder(NSResponder *) { }
 

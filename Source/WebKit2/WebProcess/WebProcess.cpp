@@ -33,11 +33,14 @@
 #include "InjectedBundleUserMessageCoders.h"
 #include "RunLoop.h"
 #include "SandboxExtension.h"
+#include "WebApplicationCacheManager.h"
 #include "WebContextMessages.h"
+#include "WebCookieManager.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebDatabaseManager.h"
 #include "WebFrame.h"
 #include "WebGeolocationManagerMessages.h"
+#include "WebKeyValueStorageManager.h"
 #include "WebMemorySampler.h"
 #include "WebPage.h"
 #include "WebPageCreationParameters.h"
@@ -46,12 +49,16 @@
 #include "WebProcessCreationParameters.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxyMessages.h"
+#include "WebResourceCacheManager.h"
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/CrossOriginPreflightResultCache.h>
 #include <WebCore/Font.h>
 #include <WebCore/Language.h>
+#include <WebCore/Logging.h>
+#include <WebCore/MemoryCache.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
+#include <WebCore/ResourceHandle.h>
 #include <WebCore/SchemeRegistry.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/Settings.h>
@@ -65,6 +72,10 @@
 
 #if !OS(WINDOWS)
 #include <unistd.h>
+#endif
+
+#if !ENABLE(PLUGIN_PROCESS)
+#include "NetscapePluginModule.h"
 #endif
 
 using namespace WebCore;
@@ -120,6 +131,8 @@ WebProcess::WebProcess()
     // Initialize our platform strategies.
     WebPlatformStrategies::initialize();
 #endif // USE(PLATFORM_STRATEGIES)
+
+    WebCore::InitializeLoggingChannelsIfNecessary();
 }
 
 void WebProcess::initialize(CoreIPC::Connection::Identifier serverIdentifier, RunLoop* runLoop)
@@ -184,6 +197,8 @@ void WebProcess::initializeWebProcess(const WebProcessCreationParameters& parame
     for (size_t i = 0; i < parameters.urlSchemesForWhichDomainRelaxationIsForbidden.size(); ++i)
         setDomainRelaxationForbiddenForURLScheme(parameters.urlSchemesForWhichDomainRelaxationIsForbidden[i]);
 
+    setDefaultRequestTimeoutInterval(parameters.defaultRequestTimeoutInterval);
+
     for (size_t i = 0; i < parameters.mimeTypesWithCustomRepresentation.size(); ++i)
         m_mimeTypesWithCustomRepresentations.add(parameters.mimeTypesWithCustomRepresentation[i]);
 
@@ -198,6 +213,10 @@ void WebProcess::initializeWebProcess(const WebProcessCreationParameters& parame
 
     if (parameters.shouldAlwaysUseComplexTextCodePath)
         setAlwaysUsesComplexTextCodePath(true);
+
+#if USE(CFURLSTORAGESESSIONS)
+    WebCore::ResourceHandle::setPrivateBrowsingStorageSessionIdentifierBase(parameters.uiProcessBundleIdentifier);
+#endif
 }
 
 void WebProcess::setShouldTrackVisitedLinks(bool shouldTrackVisitedLinks)
@@ -220,9 +239,14 @@ void WebProcess::setDomainRelaxationForbiddenForURLScheme(const String& urlSchem
     SecurityOrigin::setDomainRelaxationForbiddenForURLScheme(true, urlScheme);
 }
 
+void WebProcess::setDefaultRequestTimeoutInterval(double timeoutInterval)
+{
+    ResourceRequest::setDefaultTimeoutInterval(timeoutInterval);
+}
+
 void WebProcess::setAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
 {
-    Font::setCodePath(alwaysUseComplexText ? Font::Complex : Font::Auto);
+    WebCore::Font::setCodePath(alwaysUseComplexText ? WebCore::Font::Complex : WebCore::Font::Auto);
 }
 
 void WebProcess::languageChanged(const String& language) const
@@ -266,6 +290,13 @@ void WebProcess::addVisitedLink(WebCore::LinkHash linkHash)
         return;
     m_connection->send(Messages::WebContext::AddVisitedLinkHash(linkHash), 0);
 }
+
+#if !PLATFORM(MAC)
+bool WebProcess::fullKeyboardAccessEnabled()
+{
+    return false;
+}
+#endif
 
 void WebProcess::setCacheModel(uint32_t cm)
 {
@@ -443,8 +474,7 @@ void WebProcess::createWebPage(uint64_t pageID, const WebPageCreationParameters&
 void WebProcess::removeWebPage(uint64_t pageID)
 {
     m_pageMap.remove(pageID);
-
-    shutdownIfPossible();
+    terminateIfPossible();
 }
 
 bool WebProcess::isSeparateProcess() const
@@ -453,7 +483,7 @@ bool WebProcess::isSeparateProcess() const
     return m_runLoop == RunLoop::main();
 }
  
-void WebProcess::shutdownIfPossible()
+void WebProcess::terminateIfPossible()
 {
     if (!m_pageMap.isEmpty())
         return;
@@ -468,7 +498,13 @@ void WebProcess::shutdownIfPossible()
     if (!isSeparateProcess())
         return;
 
-    // Actually shut down the process.
+    // FIXME: the ShouldTerminate message should also send termination parameters, such as any session cookies that need to be preserved.
+    bool shouldTerminate = false;
+    if (m_connection->sendSync(Messages::WebProcessProxy::ShouldTerminate(), Messages::WebProcessProxy::ShouldTerminate::Reply(shouldTerminate), 0)
+        && !shouldTerminate)
+        return;
+
+    // Actually terminate the process.
 
 #ifndef NDEBUG
     gcController().garbageCollectNow();
@@ -479,8 +515,7 @@ void WebProcess::shutdownIfPossible()
     m_connection->invalidate();
     m_connection = nullptr;
 
-    platformShutdown();
-
+    platformTerminate();
     m_runLoop->stop();
 }
 
@@ -510,6 +545,16 @@ void WebProcess::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::Mes
         return;
     }
 
+    if (messageID.is<CoreIPC::MessageClassWebApplicationCacheManager>()) {
+        WebApplicationCacheManager::shared().didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
+    if (messageID.is<CoreIPC::MessageClassWebCookieManager>()) {
+        WebCookieManager::shared().didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
     if (messageID.is<CoreIPC::MessageClassWebDatabaseManager>()) {
         WebDatabaseManager::shared().didReceiveMessage(connection, messageID, arguments);
         return;
@@ -517,6 +562,16 @@ void WebProcess::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::Mes
 
     if (messageID.is<CoreIPC::MessageClassWebGeolocationManager>()) {
         m_geolocationManager.didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
+    if (messageID.is<CoreIPC::MessageClassWebKeyValueStorageManager>()) {
+        WebKeyValueStorageManager::shared().didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
+    if (messageID.is<CoreIPC::MessageClassWebResourceCacheManager>()) {
+        WebResourceCacheManager::shared().didReceiveMessage(connection, messageID, arguments);
         return;
     }
 
@@ -623,6 +678,8 @@ void WebProcess::clearResourceCaches()
     setCacheModel(CacheModelDocumentViewer);
     setCacheModel(cacheModel);
 
+    memoryCache()->evictResources();
+
     // Empty the cross-origin preflight cache.
     CrossOriginPreflightResultCache::shared().empty();
 }
@@ -634,6 +691,50 @@ void WebProcess::clearApplicationCache()
     cacheStorage().empty();
 #endif
 }
+
+#if !ENABLE(PLUGIN_PROCESS)
+void WebProcess::getSitesWithPluginData(const Vector<String>& pluginPaths, uint64_t callbackID)
+{
+    HashSet<String> sitesSet;
+
+    for (size_t i = 0; i < pluginPaths.size(); ++i) {
+        RefPtr<NetscapePluginModule> netscapePluginModule = NetscapePluginModule::getOrCreate(pluginPaths[i]);
+        if (!netscapePluginModule)
+            continue;
+
+        Vector<String> sites = netscapePluginModule->sitesWithData();
+        for (size_t i = 0; i < sites.size(); ++i)
+            sitesSet.add(sites[i]);
+    }
+
+    Vector<String> sites;
+    copyToVector(sitesSet, sites);
+
+    m_connection->send(Messages::WebContext::DidGetSitesWithPluginData(sites, callbackID), 0);
+    terminateIfPossible();
+}
+
+void WebProcess::clearPluginSiteData(const Vector<String>& pluginPaths, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID)
+{
+    for (size_t i = 0; i < pluginPaths.size(); ++i) {
+        RefPtr<NetscapePluginModule> netscapePluginModule = NetscapePluginModule::getOrCreate(pluginPaths[i]);
+        if (!netscapePluginModule)
+            continue;
+
+        if (sites.isEmpty()) {
+            // Clear everything.
+            netscapePluginModule->clearSiteData(String(), flags, maxAgeInSeconds);
+            continue;
+        }
+
+        for (size_t i = 0; i < sites.size(); ++i)
+            netscapePluginModule->clearSiteData(sites[i], flags, maxAgeInSeconds);
+    }
+
+    m_connection->send(Messages::WebContext::DidClearPluginSiteData(callbackID), 0);
+    terminateIfPossible();
+}
+#endif
 
 void WebProcess::downloadRequest(uint64_t downloadID, uint64_t initiatingPageID, const ResourceRequest& request)
 {

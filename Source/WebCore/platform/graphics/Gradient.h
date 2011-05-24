@@ -57,11 +57,15 @@ typedef QGradient* PlatformGradient;
 #elif PLATFORM(CAIRO)
 typedef struct _cairo_pattern cairo_pattern_t;
 typedef cairo_pattern_t* PlatformGradient;
+<<<<<<< HEAD
 #elif PLATFORM(SKIA)
 #if PLATFORM(ANDROID)
 #include "SkShader.h"
 typedef class PlatformGradientRec* PlatformGradient;
 #else
+=======
+#elif USE(SKIA)
+>>>>>>> WebKit at r80534
 class SkShader;
 typedef class SkShader* PlatformGradient;
 typedef class SkShader* PlatformPattern;

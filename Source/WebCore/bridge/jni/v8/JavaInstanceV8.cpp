@@ -27,17 +27,19 @@
 #include "config.h"
 #include "JavaInstanceV8.h"
 
-#include "JNIBridge.h"
+#if ENABLE(JAVA_BRIDGE)
+
+#include "JavaMethod.h"
 #include "JNIUtilityPrivate.h"
 #include "JavaClassV8.h"
 
-#include <assert.h>
+#include <wtf/text/CString.h>
 
 using namespace JSC::Bindings;
 
 JavaInstance::JavaInstance(jobject instance)
 {
-    m_instance = new JObjectWrapper(instance);
+    m_instance = new JobjectWrapper(instance);
     m_class = 0;
 }
 
@@ -97,10 +99,8 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, i
     if (count > 0)
         jArgs = static_cast<jvalue*>(malloc(count * sizeof(jvalue)));
 
-    for (int i = 0; i < count; i++) {
-        JavaParameter* aParameter = jMethod->parameterAt(i);
-        jArgs[i] = convertNPVariantToJValue(args[i], aParameter->getJNIType(), aParameter->type());
-    }
+    for (int i = 0; i < count; i++)
+        jArgs[i] = convertNPVariantToJValue(args[i], jMethod->parameterAt(i));
 
     jvalue result;
 
@@ -152,22 +152,4 @@ bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, i
     return true;
 }
 
-JObjectWrapper::JObjectWrapper(jobject instance)
-    : m_refCount(0)
-{
-    assert(instance);
-
-    // Cache the JNIEnv used to get the global ref for this java instanace.
-    // It'll be used to delete the reference.
-    m_env = getJNIEnv();
-
-    m_instance = m_env->NewGlobalRef(instance);
-
-    if (!m_instance)
-        fprintf(stderr, "%s:  could not get GlobalRef for %p\n", __PRETTY_FUNCTION__, instance);
-}
-
-JObjectWrapper::~JObjectWrapper()
-{
-    m_env->DeleteGlobalRef(m_instance);
-}
+#endif // ENABLE(JAVA_BRIDGE)

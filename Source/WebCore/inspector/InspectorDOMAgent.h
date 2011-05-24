@@ -32,6 +32,7 @@
 
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
+#include "InspectorFrontend.h"
 #include "InspectorValues.h"
 #include "Timer.h"
 
@@ -39,6 +40,7 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
@@ -53,9 +55,15 @@ class Event;
 class InspectorDOMAgent;
 class InspectorFrontend;
 class MatchJob;
+class InspectorState;
+class InstrumentingAgents;
 class NameNodeMap;
 class Node;
 class Page;
+class RevalidateStyleAttributeTask;
+class ScriptValue;
+
+typedef String ErrorString;
 
 #if ENABLE(INSPECTOR)
 
@@ -83,34 +91,38 @@ public:
         virtual void didModifyDOMAttr(Element*) = 0;
     };
 
-    static PassOwnPtr<InspectorDOMAgent> create(InjectedScriptHost* injectedScriptHost, InspectorFrontend* frontend)
+    static PassOwnPtr<InspectorDOMAgent> create(InstrumentingAgents* instrumentingAgents, InspectorState* inspectorState, InjectedScriptHost* injectedScriptHost)
     {
-        return adoptPtr(new InspectorDOMAgent(injectedScriptHost, frontend));
+        return adoptPtr(new InspectorDOMAgent(instrumentingAgents, inspectorState, injectedScriptHost));
     }
 
-    InspectorDOMAgent(InjectedScriptHost*, InspectorFrontend*);
     ~InspectorDOMAgent();
+
+    void setFrontend(InspectorFrontend*);
+    void clearFrontend();
 
     Vector<Document*> documents();
     void reset();
 
     // Methods called from the frontend for DOM nodes inspection.
-    void getChildNodes(long nodeId);
-    void setAttribute(long elementId, const String& name, const String& value, bool* success);
-    void removeAttribute(long elementId, const String& name, bool* success);
-    void removeNode(long nodeId, long* outNodeId);
-    void changeTagName(long nodeId, const String& tagName, long* newId);
-    void getOuterHTML(long nodeId, WTF::String* outerHTML);
-    void setOuterHTML(long nodeId, const String& outerHTML, long* newId);
-    void setTextNodeValue(long nodeId, const String& value, bool* success);
-    void getEventListenersForNode(long nodeId, long* outNodeId, RefPtr<InspectorArray>* listenersArray);
-    void addInspectedNode(long nodeId);
-    void performSearch(const String& whitespaceTrimmedQuery, bool runSynchronously);
-    void searchCanceled();
-    void resolveNode(long nodeId, RefPtr<InspectorValue>* result);
-    void getNodeProperties(long nodeId, PassRefPtr<InspectorArray> propertiesArray, RefPtr<InspectorValue>* result);
-    void getNodePrototypes(long nodeId, RefPtr<InspectorValue>* result);
-    void pushNodeToFrontend(PassRefPtr<InspectorObject> objectId, RefPtr<InspectorValue>* result);
+    void querySelector(ErrorString*, long nodeId, const String& selectors, bool documentWide, long* elementId);
+    void querySelectorAll(ErrorString*, long nodeId, const String& selectors, bool documentWide, RefPtr<InspectorArray>* result);
+    void getDocument(ErrorString*, RefPtr<InspectorObject>* root);
+    void getChildNodes(ErrorString*, long nodeId);
+    void setAttribute(ErrorString*, long elementId, const String& name, const String& value, bool* success);
+    void removeAttribute(ErrorString*, long elementId, const String& name, bool* success);
+    void removeNode(ErrorString*, long nodeId, long* outNodeId);
+    void changeTagName(ErrorString*, long nodeId, const String& tagName, long* newId);
+    void getOuterHTML(ErrorString*, long nodeId, WTF::String* outerHTML);
+    void setOuterHTML(ErrorString*, long nodeId, const String& outerHTML, long* newId);
+    void setTextNodeValue(ErrorString*, long nodeId, const String& value, bool* success);
+    void getEventListenersForNode(ErrorString*, long nodeId, long* outNodeId, RefPtr<InspectorArray>* listenersArray);
+    void addInspectedNode(ErrorString*, long nodeId);
+    void performSearch(ErrorString*, const String& whitespaceTrimmedQuery, bool runSynchronously);
+    void searchCanceled(ErrorString*);
+    void resolveNode(ErrorString*, long nodeId, const String& objectGroup, RefPtr<InspectorValue>* result);
+    void pushNodeToFrontend(ErrorString*, PassRefPtr<InspectorObject> objectId, long* nodeId);
+    void pushNodeByPathToFrontend(ErrorString*, const String& path, long* nodeId);
 
     // Methods called from the InspectorInstrumentation.
     void setDocument(Document*);
@@ -123,16 +135,16 @@ public:
     void didRemoveDOMNode(Node*);
     void didModifyDOMAttr(Element*);
     void characterDataModified(CharacterData*);
+    void didInvalidateStyleAttr(Node*);
 
     Node* nodeForId(long nodeId);
-    long pushNodePathToFrontend(Node*);
-    void pushChildNodesToFrontend(long nodeId);
-    void pushNodeByPathToFrontend(const String& path, long* nodeId);
-    long inspectedNode(unsigned long num);
-    void copyNode(long nodeId);
+    long boundNodeId(Node*);
+    void copyNode(ErrorString*, long nodeId);
     void setDOMListener(DOMListener*);
 
     String documentURLString(Document*) const;
+
+    PassRefPtr<InspectorObject> resolveNode(Node*, const String& objectGroup);
 
     // We represent embedded doms as a part of the same hierarchy. Hence we treat children of frame owners differently.
     // We also skip whitespace text nodes conditionally. Following methods encapsulate these specifics.
@@ -144,12 +156,17 @@ public:
     static bool isWhitespace(Node*);
 
 private:
+    InspectorDOMAgent(InstrumentingAgents*, InspectorState*, InjectedScriptHost*);
+
     // Node-related methods.
     typedef HashMap<RefPtr<Node>, long> NodeToIdMap;
     long bind(Node*, NodeToIdMap*);
     void unbind(Node*, NodeToIdMap*);
 
-    bool pushDocumentToFrontend();
+    Node* nodeToSelectOn(long nodeId, bool documentWide);
+
+    long pushNodePathToFrontend(Node*);
+    void pushChildNodesToFrontend(long nodeId);
 
     bool hasBreakpoint(Node*, long type);
     void updateSubtreeBreakpoints(Node* root, uint32_t rootMask, bool value);
@@ -168,10 +185,10 @@ private:
 
     void discardBindings();
 
-    InjectedScript injectedScriptForNodeId(long nodeId);
-
+    InstrumentingAgents* m_instrumentingAgents;
+    InspectorState* m_inspectorState;
     InjectedScriptHost* m_injectedScriptHost;
-    InspectorFrontend* m_frontend;
+    InspectorFrontend::DOM* m_frontend;
     DOMListener* m_domListener;
     NodeToIdMap m_documentNodeToIdMap;
     // Owns node mappings for dangling nodes.
@@ -184,7 +201,7 @@ private:
     Deque<MatchJob*> m_pendingMatchJobs;
     Timer<InspectorDOMAgent> m_matchJobsTimer;
     HashSet<RefPtr<Node> > m_searchResults;
-    Vector<long> m_inspectedNodes;
+    OwnPtr<RevalidateStyleAttributeTask> m_revalidateStyleAttrTask;
 };
 
 #endif // ENABLE(INSPECTOR)

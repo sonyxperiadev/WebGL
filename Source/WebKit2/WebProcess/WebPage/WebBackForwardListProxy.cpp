@@ -51,13 +51,13 @@ typedef HashMap<RefPtr<HistoryItem>, uint64_t> HistoryItemToIDMap;
 
 static IDToHistoryItemMap& idToHistoryItemMap()
 {
-    static IDToHistoryItemMap map;
+    DEFINE_STATIC_LOCAL(IDToHistoryItemMap, map, ());
     return map;
 } 
 
 static HistoryItemToIDMap& historyItemToIDMap()
 {
-    static HistoryItemToIDMap map;
+    DEFINE_STATIC_LOCAL(HistoryItemToIDMap, map, ());
     return map;
 } 
 
@@ -116,6 +116,12 @@ static void WK2NotifyHistoryItemChanged(HistoryItem* item)
 HistoryItem* WebBackForwardListProxy::itemForID(uint64_t itemID)
 {
     return idToHistoryItemMap().get(itemID).get();
+}
+
+uint64_t WebBackForwardListProxy::idForItem(HistoryItem* item)
+{
+    ASSERT(item);
+    return historyItemToIDMap().get(item);
 }
 
 void WebBackForwardListProxy::removeItem(uint64_t itemID)

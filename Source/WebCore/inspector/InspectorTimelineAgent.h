@@ -33,6 +33,7 @@
 
 #if ENABLE(INSPECTOR)
 
+#include "InspectorFrontend.h"
 #include "InspectorValues.h"
 #include "ScriptGCEvent.h"
 #include "ScriptGCEventListener.h"
@@ -43,9 +44,12 @@ namespace WebCore {
 class Event;
 class InspectorFrontend;
 class InspectorState;
+class InstrumentingAgents;
 class IntRect;
 class ResourceRequest;
 class ResourceResponse;
+
+typedef String ErrorString;
 
 // Must be kept in sync with TimelineAgent.js
 enum TimelineRecordType {
@@ -75,19 +79,24 @@ enum TimelineRecordType {
 class InspectorTimelineAgent : ScriptGCEventListener {
     WTF_MAKE_NONCOPYABLE(InspectorTimelineAgent);
 public:
-    static PassOwnPtr<InspectorTimelineAgent> create(InspectorState* state, InspectorFrontend* frontend)
+    static PassOwnPtr<InspectorTimelineAgent> create(InstrumentingAgents* instrumentingAgents, InspectorState* state)
     {
-        return adoptPtr(new InspectorTimelineAgent(state, frontend));
+        return adoptPtr(new InspectorTimelineAgent(instrumentingAgents, state));
     }
 
-    static PassOwnPtr<InspectorTimelineAgent> restore(InspectorState*, InspectorFrontend*);
-
     ~InspectorTimelineAgent();
+
+    void setFrontend(InspectorFrontend*);
+    void clearFrontend();
+    void restore();
+
+    void start(ErrorString* error);
+    void stop(ErrorString* error);
+    bool started() const;
 
     int id() const { return m_id; }
 
     void didCommitLoad();
-    void setFrontend(InspectorFrontend*);
 
     // Methods called from WebCore.
     void willCallFunction(const String& scriptName, int scriptLine);
@@ -149,7 +158,7 @@ private:
         TimelineRecordType type;
     };
         
-    InspectorTimelineAgent(InspectorState*, InspectorFrontend*);
+    InspectorTimelineAgent(InstrumentingAgents*, InspectorState*);
 
     void pushCurrentRecord(PassRefPtr<InspectorObject>, TimelineRecordType);
     void setHeapSizeStatistic(InspectorObject* record);
@@ -159,14 +168,15 @@ private:
     void addRecordToTimeline(PassRefPtr<InspectorObject>, TimelineRecordType);
 
     void pushGCEventRecords();
+    void clearRecordStack();
 
+    InstrumentingAgents* m_instrumentingAgents;
     InspectorState* m_state;
-    InspectorFrontend* m_frontend;
+    InspectorFrontend::Timeline* m_frontend;
 
     Vector<TimelineRecordEntry> m_recordStack;
 
-    static int s_id;
-    const int m_id;
+    int m_id;
     struct GCEvent {
         GCEvent(double startTime, double endTime, size_t collectedBytes)
             : startTime(startTime), endTime(endTime), collectedBytes(collectedBytes)

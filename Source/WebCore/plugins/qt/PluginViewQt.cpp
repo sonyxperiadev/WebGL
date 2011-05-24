@@ -68,7 +68,9 @@
 #include "Settings.h"
 #include "npruntime_impl.h"
 #include "qwebpage_p.h"
+#if USE(JSC)
 #include "runtime_root.h"
+#endif
 
 #include <QApplication>
 #include <QDesktopWidget>
@@ -88,7 +90,9 @@
 #include <runtime/JSValue.h>
 
 using JSC::ExecState;
+#if USE(JSC)
 using JSC::Interpreter;
+#endif
 using JSC::JSLock;
 using JSC::JSObject;
 using JSC::UString;
@@ -137,6 +141,10 @@ void PluginView::updatePluginWidget()
     if (m_windowRect == oldWindowRect && m_clipRect == oldClipRect)
         return;
 
+    // The plugin had a zero width or height before but was resized, we need to show it again.
+    if (oldWindowRect.isEmpty())
+        show();
+
     if (!m_isWindowed && m_windowRect.size() != oldWindowRect.size()) {
 #if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
         // On Maemo5, Flash always renders to 16-bit buffer
@@ -171,7 +179,10 @@ void PluginView::updatePluginWidget()
     if (!m_platformLayer) {
         // Make sure we get repainted afterwards. This is necessary for downward
         // scrolling to move the plugin widget properly.
-        invalidate();
+        // Note that we don't invalidate the frameRect() here. This is because QWebFrame::renderRelativeCoords()
+        // imitates ScrollView and adds the scroll offset back on to the rect we damage here (making the co-ordinates absolute
+        // to the frame again) before passing it to FrameView.
+        frameView->invalidateRect(m_windowRect);
     }
 }
 
@@ -938,7 +949,9 @@ bool PluginView::platformStart()
 #endif
     }
 
-    show();
+    // If the width and the height are not zero we show the PluginView.
+    if (!frameRect().isEmpty())
+        show();
 
     NPSetWindowCallbackStruct* wsi = new NPSetWindowCallbackStruct();
     wsi->type = 0;

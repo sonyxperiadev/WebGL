@@ -61,6 +61,7 @@
 #import <WebCore/ColorMac.h>
 #import <WebCore/DOMImplementation.h>
 #import <WebCore/DocumentFragment.h>
+#import <WebCore/DocumentLoader.h>
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
@@ -660,9 +661,9 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return ustringToString(result.toString(_private->coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec()));
 }
 
-- (NSRect)_caretRectAtNode:(DOMNode *)node offset:(int)offset affinity:(NSSelectionAffinity)affinity
+- (NSRect)_caretRectAtPosition:(const Position&)pos affinity:(NSSelectionAffinity)affinity
 {
-    VisiblePosition visiblePosition(core(node), offset, static_cast<EAffinity>(affinity));
+    VisiblePosition visiblePosition(pos, static_cast<EAffinity>(affinity));
     return visiblePosition.absoluteCaretBounds();
 }
 
@@ -805,8 +806,8 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
     RefPtr<Range> range = _private->coreFrame->document()->createRange();
     int exception = 0;
-    range->setStart(newStart.node(), newStart.deprecatedEditingOffset(), exception);
-    range->setEnd(newStart.node(), newStart.deprecatedEditingOffset(), exception);
+    range->setStart(newStart.containerNode(), newStart.offsetInContainerNode(), exception);
+    range->setEnd(newStart.containerNode(), newStart.offsetInContainerNode(), exception);
     return kit(range.get());
 }
 
@@ -1136,8 +1137,14 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     if (_private->coreFrame->selection()->isNone() || !fragment)
         return;
-    
-    applyCommand(ReplaceSelectionCommand::create(_private->coreFrame->document(), core(fragment), selectReplacement, smartReplace, matchStyle));
+    ReplaceSelectionCommand::CommandOptions options = ReplaceSelectionCommand::PreventNesting;
+    if (selectReplacement)
+        options |= ReplaceSelectionCommand::SelectReplacement;
+    if (smartReplace)
+        options |= ReplaceSelectionCommand::SmartReplace;
+    if (matchStyle)
+        options |= ReplaceSelectionCommand::MatchStyle;
+    applyCommand(ReplaceSelectionCommand::create(_private->coreFrame->document(), core(fragment), options));
     _private->coreFrame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
@@ -1358,13 +1365,26 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!_private->coreFrame || !_private->coreFrame->document())
         return nil;
     
-    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->rootObject();
-    if (rootObject)
-        return rootObject->wrapper();
-    return nil;
+    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->rootObjectForFrame(_private->coreFrame);
+    if (!rootObject)
+        return nil;
+    
+    // The root object will be a WebCore scroll view object. In WK1, scroll views are handled
+    // by the system and the root object should be the web area (instead of the scroll view).
+    if (rootObject->isAttachment() && rootObject->firstChild())
+        return rootObject->firstChild()->wrapper();
+    
+    return rootObject->wrapper();
 #else
     return nil;
 #endif
+}
+
+- (void)_clearOpener
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (coreFrame)
+        coreFrame->loader()->setOpener(0);
 }
 
 @end

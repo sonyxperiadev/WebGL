@@ -152,7 +152,7 @@ namespace WebCore {
         virtual Frame* dispatchCreatePage(const NavigationAction&) = 0;
         virtual void dispatchShow() = 0;
 
-        virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction, const String& MIMEType, const ResourceRequest&) = 0;
+        virtual void dispatchDecidePolicyForResponse(FramePolicyFunction, const ResourceResponse&, const ResourceRequest&) = 0;
         virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName) = 0;
         virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>) = 0;
         virtual void cancelPolicyCheck() = 0;
@@ -187,9 +187,11 @@ namespace WebCore {
         virtual void updateGlobalHistoryRedirectLinks() = 0;
 
         virtual bool shouldGoToHistoryItem(HistoryItem*) const = 0;
+        virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const = 0;
         virtual void dispatchDidAddBackForwardItem(HistoryItem*) const = 0;
         virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const = 0;
         virtual void dispatchDidChangeBackForwardIndex() const = 0;
+        virtual void updateGlobalHistoryItemForPage() { }
 
         // This frame has displayed inactive content (such as an image) from an
         // insecure source.  Inactive content cannot spread to other frames.
@@ -307,6 +309,8 @@ namespace WebCore {
         virtual void didNotAllowPlugins() { }
 
         virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext() = 0;
+
+        virtual bool shouldPaintBrokenImage(const KURL&) const { return true; }
     };
 
 } // namespace WebCore

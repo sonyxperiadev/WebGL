@@ -1,3 +1,103 @@
+2011-03-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Replace WebKit2's decidePolicyForMIMEType with decidePolicyForResponse
+        https://bugs.webkit.org/show_bug.cgi?id=55827
+
+        Renamed FrameLoaderClient::dispatchDecidePolicyForMIMEType to dispatchDecidePolicyForResponse
+        and pass the entire response, instead of just the MIMEType.
+
+        * WebCoreSupport/FrameLoaderClientHaiku.cpp:
+        (WebCore::FrameLoaderClientHaiku::dispatchDecidePolicyForResponse):
+        * WebCoreSupport/FrameLoaderClientHaiku.h:
+
+2011-03-03  Alexey Proskuryakov  <ap@apple.com>
+
+        Removing an include of WebCoreKeyboardUIMode.h that Ive just added. It's already included
+        via ChromeClient.h
+
+        * WebCoreSupport/ChromeClientHaiku.h:
+
+2011-03-02  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (WebKit2): Tab keys no longer observe Full Keyboard Access
+        https://bugs.webkit.org/show_bug.cgi?id=55633
+        <rdar://problem/8963023>
+
+        * WebCoreSupport/ChromeClientHaiku.cpp: (WebCore::ChromeClientHaiku::keyboardUIMode):
+        * WebCoreSupport/ChromeClientHaiku.h:
+        Implement keyboardUIMode() instead of tabsToLinks(). No change in functionality, since
+        this platform doesn't observe or have full keyboard access state.
+
+2011-02-28  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Remove the support of Frame::isContentEditable and its dependencies.
+        https://bugs.webkit.org/show_bug.cgi?id=54292
+
+        Remove the WebKit side implementation.
+
+        * WebCoreSupport/EditorClientHaiku.cpp:
+        * WebCoreSupport/EditorClientHaiku.h:
+
+2011-02-17  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Kent Tamura.
+
+        Rename Position::node() to Position::deprecatedNode()
+        https://bugs.webkit.org/show_bug.cgi?id=54622
+
+        Replaced the call to node() by a call to containerNode() because the returned node is
+        used to determine whether or not the selected contents are editable and such a check
+        must be done against the container node.
+
+        * WebCoreSupport/EditorClientHaiku.cpp:
+        (WebCore::EditorClientHaiku::handleKeyboardEvent):
+
+2011-02-19  Charlie Reis  <creis@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        Ensure loading has stopped in HistoryController::goToItem
+        https://bugs.webkit.org/show_bug.cgi?id=54517
+
+        Add a FrameLoaderClient callback for whether to stop loading before goToItem.
+
+        Test: http/tests/navigation/forward-to-fragment-fires-onload.html
+
+        * WebCoreSupport/FrameLoaderClientHaiku.cpp:
+        (WebCore::FrameLoaderClientHaiku::shouldStopLoadingForHistoryItem): Added.
+        * WebCoreSupport/FrameLoaderClientHaiku.h:
+
+2011-01-26  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        Refactoring: Extract TextCheckerClient from EditorClient
+        https://bugs.webkit.org/show_bug.cgi?id=53213
+
+        * WebCoreSupport/EditorClientHaiku.h:
+        (WebCore::EditorClientHaiku::textChecker):
+
+2011-02-07  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add EditorClient callbacks to override isDOMPasteAllowed and javaScriptCanAccessClipboard
+        https://bugs.webkit.org/show_bug.cgi?id=52417
+
+        Added two callback functions, canCopyCut and canPaste to EditorClient. They are currently
+        not implemented.
+
+        * WebCoreSupport/EditorClientHaiku.cpp:
+        (WebCore::EditorClientHaiku::canCopyCut): Added.
+        (WebCore::EditorClientHaiku::canPaste): Added.
+        * WebCoreSupport/EditorClientHaiku.h:
+
 2011-02-08  Adam Barth  <abarth@webkit.org>
 
         Reviewed by Eric Seidel.

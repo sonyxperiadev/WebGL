@@ -69,6 +69,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/assembler"
     "${JAVASCRIPTCORE_DIR}/bytecode"
     "${JAVASCRIPTCORE_DIR}/bytecompiler"
+    "${JAVASCRIPTCORE_DIR}/collector/handles"
     "${JAVASCRIPTCORE_DIR}/debugger"
     "${JAVASCRIPTCORE_DIR}/interpreter"
     "${JAVASCRIPTCORE_DIR}/jit"
@@ -293,6 +294,7 @@ SET(WebCore_IDL_FILES
     html/canvas/Int8Array.idl
     html/canvas/OESStandardDerivatives.idl
     html/canvas/OESTextureFloat.idl
+    html/canvas/OESVertexArrayObject.idl
     html/canvas/Uint16Array.idl
     html/canvas/Uint32Array.idl
     html/canvas/Uint8Array.idl
@@ -306,6 +308,7 @@ SET(WebCore_IDL_FILES
     html/canvas/WebGLShader.idl
     html/canvas/WebGLTexture.idl
     html/canvas/WebGLUniformLocation.idl
+    html/canvas/WebGLVertexArrayObjectOES.idl
     html/canvas/WebKitLoseContext.idl
 
     inspector/InjectedScriptHost.idl
@@ -353,15 +356,12 @@ SET(WebCore_IDL_FILES
     storage/IDBDatabaseError.idl
     storage/IDBDatabaseException.idl
     storage/IDBDatabase.idl
-    storage/IDBErrorEvent.idl
-    storage/IDBEvent.idl
     storage/IDBFactory.idl
     storage/IDBIndex.idl
     storage/IDBKey.idl
     storage/IDBKeyRange.idl
     storage/IDBObjectStore.idl
     storage/IDBRequest.idl
-    storage/IDBSuccessEvent.idl
     storage/IDBTransaction.idl
     storage/SQLError.idl
     storage/SQLException.idl
@@ -485,6 +485,7 @@ SET(WebCore_SOURCES
     bindings/js/JSDOMBinding.cpp
     bindings/js/JSDOMFormDataCustom.cpp
     bindings/js/JSDOMGlobalObject.cpp
+    bindings/js/JSDOMImplementationCustom.cpp
     bindings/js/JSDOMMimeTypeArrayCustom.cpp
     bindings/js/JSDOMPluginArrayCustom.cpp
     bindings/js/JSDOMPluginCustom.cpp
@@ -495,7 +496,6 @@ SET(WebCore_SOURCES
     bindings/js/JSDOMWrapper.cpp
     bindings/js/JSDataGridColumnListCustom.cpp
     bindings/js/JSDataGridDataSource.cpp
-    bindings/js/JSDebugWrapperSet.cpp
     bindings/js/JSDedicatedWorkerContextCustom.cpp
     bindings/js/JSDeviceMotionEventCustom.cpp
     bindings/js/JSDeviceOrientationEventCustom.cpp
@@ -639,6 +639,7 @@ SET(WebCore_SOURCES
     css/CSSParser.cpp
     css/CSSParserValues.cpp
     css/CSSPrimitiveValue.cpp
+    css/CSSPrimitiveValueCache.cpp
     css/CSSProperty.cpp
     css/CSSPropertyLonghand.cpp
     css/CSSPropertySourceData.cpp
@@ -953,6 +954,7 @@ SET(WebCore_SOURCES
     html/HTMLScriptElement.cpp
     html/HTMLSelectElement.cpp
     html/HTMLStyleElement.cpp
+    html/HTMLSummaryElement.cpp
     html/HTMLTableCaptionElement.cpp
     html/HTMLTableCellElement.cpp
     html/HTMLTableColElement.cpp
@@ -1033,6 +1035,7 @@ SET(WebCore_SOURCES
 
     html/shadow/MediaControls.cpp
     html/shadow/SliderThumbElement.cpp
+    html/shadow/TextControlInnerElements.cpp
 
     inspector/ConsoleMessage.cpp
     inspector/InjectedScript.cpp
@@ -1139,6 +1142,7 @@ SET(WebCore_SOURCES
     page/EventSource.cpp
     page/FocusController.cpp
     page/Frame.cpp
+    page/FrameActionScheduler.cpp
     page/FrameTree.cpp
     page/FrameView.cpp
     page/Geolocation.cpp
@@ -1180,7 +1184,6 @@ SET(WebCore_SOURCES
     platform/ContextMenuItem.cpp
     platform/ContentType.cpp
     platform/CrossThreadCopier.cpp
-    platform/DeprecatedPtrListImpl.cpp
     platform/DragData.cpp
     platform/DragImage.cpp
     platform/FileChooser.cpp
@@ -1231,7 +1234,6 @@ SET(WebCore_SOURCES
     platform/graphics/GraphicsTypes.cpp
     platform/graphics/Image.cpp
     platform/graphics/ImageBuffer.cpp
-    platform/graphics/ImageSource.cpp
     platform/graphics/IntRect.cpp
     platform/graphics/Path.cpp
     platform/graphics/PathTraversalState.cpp
@@ -1276,16 +1278,6 @@ SET(WebCore_SOURCES
     platform/graphics/transforms/TransformOperations.cpp
     platform/graphics/transforms/TransformationMatrix.cpp
     platform/graphics/transforms/TranslateTransformOperation.cpp
-
-    platform/image-decoders/ImageDecoder.cpp
-    platform/image-decoders/bmp/BMPImageDecoder.cpp
-    platform/image-decoders/bmp/BMPImageReader.cpp
-    platform/image-decoders/gif/GIFImageDecoder.cpp
-    platform/image-decoders/gif/GIFImageReader.cpp
-    platform/image-decoders/ico/ICOImageDecoder.cpp
-    platform/image-decoders/jpeg/JPEGImageDecoder.cpp
-    platform/image-decoders/png/PNGImageDecoder.cpp
-    platform/image-decoders/webp/WEBPImageDecoder.cpp
 
     platform/mock/DeviceOrientationClientMock.cpp
     platform/mock/GeolocationClientMock.cpp
@@ -1387,6 +1379,7 @@ SET(WebCore_SOURCES
     rendering/RenderObjectChildList.cpp
     rendering/RenderPart.cpp
     rendering/RenderProgress.cpp
+    rendering/RenderQuote.cpp
     rendering/RenderReplaced.cpp
     rendering/RenderReplica.cpp
     rendering/RenderRuby.cpp
@@ -1416,7 +1409,6 @@ SET(WebCore_SOURCES
     rendering/RootInlineBox.cpp
     rendering/ScrollBehavior.cpp
     rendering/ShadowElement.cpp
-    rendering/TextControlInnerElements.cpp
     rendering/TransformState.cpp
     rendering/break_lines.cpp
 
@@ -1425,6 +1417,7 @@ SET(WebCore_SOURCES
     rendering/style/FillLayer.cpp
     rendering/style/KeyframeList.cpp
     rendering/style/NinePieceImage.cpp
+    rendering/style/QuotesData.cpp
     rendering/style/RenderStyle.cpp
     rendering/style/ShadowData.cpp
     rendering/style/StyleBackgroundData.cpp
@@ -1454,8 +1447,7 @@ SET(WebCore_SOURCES
     storage/IDBDatabaseBackendImpl.cpp
     storage/IDBCursor.cpp
     storage/IDBCursorBackendImpl.cpp
-    storage/IDBErrorEvent.cpp
-    storage/IDBEvent.cpp
+    storage/IDBEventDispatcher.cpp
     storage/IDBIndex.cpp
     storage/IDBIndexBackendImpl.cpp
     storage/IDBKey.cpp
@@ -1463,7 +1455,6 @@ SET(WebCore_SOURCES
     storage/IDBRequest.cpp
     storage/IDBObjectStore.cpp
     storage/IDBObjectStoreBackendImpl.cpp
-    storage/IDBSuccessEvent.cpp
     storage/IDBFactory.cpp
     storage/IDBFactoryBackendInterface.cpp
     storage/IDBFactoryBackendImpl.cpp
@@ -1517,6 +1508,7 @@ SET(WebCore_SOURCES
     xml/XMLHttpRequest.cpp
     xml/XMLHttpRequestProgressEventThrottle.cpp
     xml/XMLHttpRequestUpload.cpp
+    xml/XMLTreeViewer.cpp
     xml/XMLSerializer.cpp
     xml/XPathEvaluator.cpp
     xml/XPathExpression.cpp
@@ -2150,6 +2142,15 @@ LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/ColorData.cpp)
 
 MAKE_HASH_TOOLS(${WEBCORE_DIR}/html/DocTypeStrings)
 LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/DocTypeStrings.cpp)
+
+
+# Generate XMLViewerXSL.h
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${DERIVED_SOURCES_DIR}/XMLViewerXSL.h
+    MAIN_DEPENDENCY xml/XMLViewer.xsl
+    COMMAND ${PERL_EXECUTABLE} ${WEBCORE_DIR}/inspector/xxd.pl XMLViewer_xsl ${WEBCORE_DIR}/xml/XMLViewer.xsl ${DERIVED_SOURCES_DIR}/XMLViewerXSL.h
+    VERBATIM)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/XMLViewerXSL.h)
 
 
 # Generate HTML entity table

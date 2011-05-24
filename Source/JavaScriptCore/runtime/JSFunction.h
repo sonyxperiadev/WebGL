@@ -45,9 +45,7 @@ namespace JSC {
 
     public:
         JSFunction(ExecState*, JSGlobalObject*, NonNullPassRefPtr<Structure>, int length, const Identifier&, NativeFunction);
-#if ENABLE(JIT)
         JSFunction(ExecState*, JSGlobalObject*, NonNullPassRefPtr<Structure>, int length, const Identifier&, PassRefPtr<NativeExecutable>);
-#endif
         JSFunction(ExecState*, NonNullPassRefPtr<FunctionExecutable>, ScopeChainNode*);
         virtual ~JSFunction();
 
@@ -55,15 +53,15 @@ namespace JSC {
         const UString displayName(ExecState*);
         const UString calculatedDisplayName(ExecState*);
 
-        ScopeChain& scope()
+        ScopeChainNode* scope()
         {
             ASSERT(!isHostFunctionNonInline());
-            return m_scopeChain;
+            return m_scopeChain.get();
         }
-        void setScope(const ScopeChain& scopeChain)
+        void setScope(JSGlobalData& globalData, ScopeChainNode* scopeChain)
         {
             ASSERT(!isHostFunctionNonInline());
-            m_scopeChain = scopeChain;
+            m_scopeChain.set(globalData, this, scopeChain);
         }
 
         ExecutableBase* executable() const { return m_executable.get(); }
@@ -72,11 +70,11 @@ namespace JSC {
         inline bool isHostFunction() const;
         FunctionExecutable* jsExecutable() const;
 
-        static JS_EXPORTDATA const ClassInfo info;
+        static JS_EXPORTDATA const ClassInfo s_info;
 
         static PassRefPtr<Structure> createStructure(JSValue prototype) 
         { 
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); 
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); 
         }
 
         NativeFunction nativeFunction();
@@ -100,21 +98,19 @@ namespace JSC {
 
         virtual void markChildren(MarkStack&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-
         static JSValue argumentsGetter(ExecState*, JSValue, const Identifier&);
         static JSValue callerGetter(ExecState*, JSValue, const Identifier&);
         static JSValue lengthGetter(ExecState*, JSValue, const Identifier&);
 
         RefPtr<ExecutableBase> m_executable;
-        ScopeChain m_scopeChain;
+        WriteBarrier<ScopeChainNode> m_scopeChain;
     };
 
     JSFunction* asFunction(JSValue);
 
     inline JSFunction* asFunction(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&JSFunction::info));
+        ASSERT(asObject(value)->inherits(&JSFunction::s_info));
         return static_cast<JSFunction*>(asObject(value));
     }
 

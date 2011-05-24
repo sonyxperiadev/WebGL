@@ -47,11 +47,13 @@ public:
 
     virtual const LayerTreeContext& layerTreeContext() = 0;
     virtual void scheduleLayerFlush() = 0;
+    virtual void setShouldNotifyAfterNextScheduledLayerFlush(bool) = 0;
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
     virtual void invalidate() = 0;
 
     virtual void setNonCompositedContentsNeedDisplay(const WebCore::IntRect&) = 0;
     virtual void scrollNonCompositedContents(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset) = 0;
+    virtual void forceRepaint() = 0;
     virtual void sizeDidChange(const WebCore::IntSize& newSize) = 0;
 
     virtual void didInstallPageOverlay() = 0;

@@ -38,10 +38,12 @@
 #include "GraphicsContext3D.h"
 #include "internal_glu.h"
 #include "IntRect.h"
+#include "LoopBlinnPathProcessor.h"
+#include "LoopBlinnSolidFillShader.h"
 #include "Path.h"
 #include "PlatformString.h"
 #include "SharedGraphicsContext3D.h"
-#if PLATFORM(SKIA)
+#if USE(SKIA)
 #include "SkPath.h"
 #endif
 #include "Texture.h"
@@ -170,6 +172,7 @@ GLES2Canvas::GLES2Canvas(SharedGraphicsContext3D* context, DrawingBuffer* drawin
     , m_context(context)
     , m_drawingBuffer(drawingBuffer)
     , m_state(0)
+    , m_pathVertexBuffer(0)
 {
     m_flipMatrix.translate(-1.0f, 1.0f);
     m_flipMatrix.scale(2.0f / size.width(), -2.0f / size.height());
@@ -191,7 +194,7 @@ void GLES2Canvas::clearRect(const FloatRect& rect)
 {
     bindFramebuffer();
     if (m_state->m_ctm.isIdentity() && !m_state->m_clippingEnabled) {
-        m_context->scissor(rect);
+        m_context->scissor(rect.x(), m_size.height() - rect.height() - rect.y(), rect.width(), rect.height());
         m_context->enable(GraphicsContext3D::SCISSOR_TEST);
         m_context->clearColor(Color(RGBA32(0)));
         m_context->clear(GraphicsContext3D::COLOR_BUFFER_BIT);
@@ -261,6 +264,11 @@ void GLES2Canvas::scale(const FloatSize& size)
 void GLES2Canvas::concatCTM(const AffineTransform& affine)
 {
     m_state->m_ctm *= affine;
+}
+
+void GLES2Canvas::setCTM(const AffineTransform& affine)
+{
+    m_state->m_ctm = affine;
 }
 
 void GLES2Canvas::clipPath(const Path& path)
@@ -396,9 +404,9 @@ Texture* GLES2Canvas::getTexture(NativeImagePtr ptr)
     return m_context->getTexture(ptr);
 }
 
-#if PLATFORM(SKIA)
+#if USE(SKIA)
 // This is actually cross-platform code, but since its only caller is inside a
-// PLATFORM(SKIA), it will cause a warning-as-error on Chrome/Mac.
+// USE(SKIA), it will cause a warning-as-error on Chrome/Mac.
 static void interpolateQuadratic(DoubleVector* vertices, const FloatPoint& p0, const FloatPoint& p1, const FloatPoint& p2)
 {
     float tIncrement = 1.0f / pathTesselation, t = tIncrement;
@@ -473,7 +481,7 @@ void GLES2Canvas::createVertexBufferFromPath(const Path& path, int* count, unsig
     checkGLError("createVertexBufferFromPath, createBuffer");
     DoubleVector inVertices;
     WTF::Vector<size_t> contours;
-#if PLATFORM(SKIA)
+#if USE(SKIA)
     const SkPath* skPath = path.platformPath();
     SkPoint pts[4];
     SkPath::Iter iter(*skPath, true);
@@ -548,28 +556,61 @@ void GLES2Canvas::createVertexBufferFromPath(const Path& path, int* count, unsig
 
 void GLES2Canvas::fillPath(const Path& path, const Color& color)
 {
-    int count;
-    unsigned vertexBuffer, indexBuffer;
-    createVertexBufferFromPath(path, &count, &vertexBuffer, &indexBuffer);
-    m_context->graphicsContext3D()->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, vertexBuffer);
-    checkGLError("bindBuffer");
-    m_context->graphicsContext3D()->bindBuffer(GraphicsContext3D::ELEMENT_ARRAY_BUFFER, indexBuffer);
-    checkGLError("bindBuffer");
+    if (SharedGraphicsContext3D::useLoopBlinnForPathRendering()) {
+        bindFramebuffer();
+        m_context->applyCompositeOperator(m_state->m_compositeOp);
 
-    AffineTransform matrix(m_flipMatrix);
-    matrix *= m_state->m_ctm;
+        m_pathCache.clear();
+        LoopBlinnPathProcessor processor;
+        processor.process(path, m_pathCache);
+        if (!m_pathVertexBuffer)
+            m_pathVertexBuffer = m_context->createBuffer();
+        m_context->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, m_pathVertexBuffer);
+        int byteSizeOfVertices = 2 * m_pathCache.numberOfVertices() * sizeof(float);
+        int byteSizeOfTexCoords = 3 * m_pathCache.numberOfVertices() * sizeof(float);
+        int byteSizeOfInteriorVertices = 2 * m_pathCache.numberOfInteriorVertices() * sizeof(float);
+        m_context->bufferData(GraphicsContext3D::ARRAY_BUFFER,
+                              byteSizeOfVertices + byteSizeOfTexCoords + byteSizeOfInteriorVertices,
+                              GraphicsContext3D::STATIC_DRAW);
+        m_context->bufferSubData(GraphicsContext3D::ARRAY_BUFFER, 0, byteSizeOfVertices, m_pathCache.vertices());
+        m_context->bufferSubData(GraphicsContext3D::ARRAY_BUFFER, byteSizeOfVertices, byteSizeOfTexCoords, m_pathCache.texcoords());
+        m_context->bufferSubData(GraphicsContext3D::ARRAY_BUFFER, byteSizeOfVertices + byteSizeOfTexCoords, byteSizeOfInteriorVertices, m_pathCache.interiorVertices());
 
-    m_context->useFillSolidProgram(matrix, color);
-    checkGLError("useFillSolidProgram");
+        AffineTransform matrix(m_flipMatrix);
+        matrix *= m_state->m_ctm;
 
-    m_context->graphicsContext3D()->drawElements(GraphicsContext3D::TRIANGLES, count, GraphicsContext3D::UNSIGNED_SHORT, 0);
-    checkGLError("drawArrays");
+        // Draw the exterior
+        m_context->useLoopBlinnExteriorProgram(0, byteSizeOfVertices, matrix, color);
+        m_context->drawArrays(GraphicsContext3D::TRIANGLES, 0, m_pathCache.numberOfVertices());
 
-    m_context->graphicsContext3D()->deleteBuffer(vertexBuffer);
-    checkGLError("deleteBuffer");
+        // Draw the interior
+        m_context->useLoopBlinnInteriorProgram(byteSizeOfVertices + byteSizeOfTexCoords, matrix, color);
+        m_context->drawArrays(GraphicsContext3D::TRIANGLES, 0, m_pathCache.numberOfInteriorVertices());
+    } else {
+        int count;
+        unsigned vertexBuffer, indexBuffer;
+        createVertexBufferFromPath(path, &count, &vertexBuffer, &indexBuffer);
+        m_context->graphicsContext3D()->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, vertexBuffer);
+        checkGLError("bindBuffer");
+        m_context->graphicsContext3D()->bindBuffer(GraphicsContext3D::ELEMENT_ARRAY_BUFFER, indexBuffer);
+        checkGLError("bindBuffer");
 
-    m_context->graphicsContext3D()->deleteBuffer(indexBuffer);
-    checkGLError("deleteBuffer");
+        AffineTransform matrix(m_flipMatrix);
+        matrix *= m_state->m_ctm;
+
+        m_context->useFillSolidProgram(matrix, color);
+        checkGLError("useFillSolidProgram");
+
+        bindFramebuffer();
+        m_context->graphicsContext3D()->drawElements(GraphicsContext3D::TRIANGLES, count, GraphicsContext3D::UNSIGNED_SHORT, 0);
+        checkGLError("drawArrays");
+
+        m_context->graphicsContext3D()->deleteBuffer(vertexBuffer);
+        checkGLError("deleteBuffer");
+
+        m_context->graphicsContext3D()->deleteBuffer(indexBuffer);
+        checkGLError("deleteBuffer");
+    }
 }
 
 void GLES2Canvas::beginStencilDraw()

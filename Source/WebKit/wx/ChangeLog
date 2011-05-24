@@ -1,3 +1,132 @@
+2011-03-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Replace WebKit2's decidePolicyForMIMEType with decidePolicyForResponse
+        https://bugs.webkit.org/show_bug.cgi?id=55827
+
+        Renamed FrameLoaderClient::dispatchDecidePolicyForMIMEType to dispatchDecidePolicyForResponse
+        and pass the entire response, instead of just the MIMEType.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForResponse):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2011-03-03  Alexey Proskuryakov  <ap@apple.com>
+
+        Removing an include of WebCoreKeyboardUIMode.h that Ive just added. It's already included
+        via ChromeClient.h
+
+        * WebKitSupport/ChromeClientWx.h:
+
+2011-03-02  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (WebKit2): Tab keys no longer observe Full Keyboard Access
+        https://bugs.webkit.org/show_bug.cgi?id=55633
+        <rdar://problem/8963023>
+
+        * WebKitSupport/ChromeClientWx.cpp: (WebCore::ChromeClientWx::keyboardUIMode):
+        * WebKitSupport/ChromeClientWx.h:
+        Implement keyboardUIMode() instead of tabsToLinks(). No change in functionality, since
+        this platform doesn't observe or have full keyboard access state.
+
+2011-03-01  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after removal of Frame::isContentEditable.
+
+        * WebFrame.cpp:
+        (wxWebFrame::IsEditable):
+
+2011-02-28  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Remove the support of Frame::isContentEditable and its dependencies.
+        https://bugs.webkit.org/show_bug.cgi?id=54292
+
+        Remove the WebKit side implementation. Make WebKit support depend on Document::inDesignMode.
+
+        * WebFrame.cpp:
+        (wxWebFrame::wxWebFrame):
+        (wxWebFrame::MakeEditable):
+        (wxWebFrame::IsEditable):
+        * WebFrame.h:
+        * WebKitSupport/EditorClientWx.cpp:
+        * WebKitSupport/EditorClientWx.h:
+        * WebView.cpp:
+        (wxWebView::wxWebView):
+        * WebView.h:
+
+2011-02-24  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Eric Seidel.
+
+        Drop the "U; " encryption level from the User Agent string.
+        https://bugs.webkit.org/show_bug.cgi?id=54566
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::userAgent):
+
+2011-02-22  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Drop the language tag part from the User Agent string
+        https://bugs.webkit.org/show_bug.cgi?id=54560
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::userAgent):
+
+2011-02-19  Charlie Reis  <creis@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        Ensure loading has stopped in HistoryController::goToItem
+        https://bugs.webkit.org/show_bug.cgi?id=54517
+
+        Add a FrameLoaderClient callback for whether to stop loading before goToItem.
+
+        Test: http/tests/navigation/forward-to-fragment-fires-onload.html
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::shouldStopLoadingForHistoryItem): Added.
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2011-02-17  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after move of DocumentWriter to DocumentLoader.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::setMainDocumentError):
+        (WebCore::FrameLoaderClientWx::dispatchDidFailLoading):
+
+2011-01-26  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        Refactoring: Extract TextCheckerClient from EditorClient
+        https://bugs.webkit.org/show_bug.cgi?id=53213
+
+        * WebKitSupport/EditorClientWx.h:
+        (WebCore::EditorClientWx::textChecker):
+
+2011-02-07  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add EditorClient callbacks to override isDOMPasteAllowed and javaScriptCanAccessClipboard
+        https://bugs.webkit.org/show_bug.cgi?id=52417
+
+        Added two callback functions, canCopyCut and canPaste to EditorClient. They are currently
+        not implemented.
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::canCopyCut): Added.
+        (WebCore::EditorClientWx::canPaste): Added.
+        * WebKitSupport/EditorClientWx.h:
+
 2011-02-10  Nate Chapin  <japhet@chromium.org>
 
         Reviewed by Adam Barth.

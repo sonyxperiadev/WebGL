@@ -152,7 +152,7 @@ public:
     bool shouldTurnVerticalTicksIntoHorizontal(const HitTestResult&) const;
 
     bool tabsToLinks(KeyboardEvent*) const;
-    bool tabsToAllControls(KeyboardEvent*) const;
+    bool tabsToAllFormControls(KeyboardEvent*) const;
 
     bool mouseDownMayStartSelect() const { return m_mouseDownMayStartSelect; }
 
@@ -228,6 +228,8 @@ public:
     void setCapturingTouchEventsNode(PassRefPtr<Node>);
 #endif
 #endif
+
+    static bool isKeyboardOptionTab(KeyboardEvent*);
 
 private:
 #if ENABLE(DRAG_SUPPORT)
@@ -350,8 +352,6 @@ private:
 #if ENABLE(DRAG_SUPPORT)
     bool eventLoopHandleMouseDragged(const MouseEventWithHitTestResults&);
 #endif
-
-    bool invertSenseOfTabsToLinks(KeyboardEvent*) const;
 
 #if ENABLE(DRAG_SUPPORT)
     void updateSelectionForMouseDrag(Node* targetNode, const IntPoint& localPoint);

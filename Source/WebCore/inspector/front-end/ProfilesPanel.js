@@ -185,8 +185,19 @@ WebInspector.ProfilesPanel.prototype = {
 
     _reset: function()
     {
-        for (var i = 0; i < this._profiles.length; ++i)
+        WebInspector.Panel.prototype.reset.call(this);
+
+        for (var i = 0; i < this._profiles.length; ++i) {
+            var view = this._profiles[i]._profileView;
+            if (view && ("dispose" in view))
+                view.dispose();
             delete this._profiles[i]._profileView;
+            var profile = this._profiles[i];
+            if (profile.nodes) {
+                delete profile.nodes;
+                delete profile.strings;
+            }
+        }
         delete this.visibleView;
 
         delete this.currentQuery;
@@ -215,7 +226,7 @@ WebInspector.ProfilesPanel.prototype = {
 
     _clearProfiles: function()
     {
-        InspectorBackend.clearProfiles();
+        ProfilerAgent.clearProfiles();
         this._reset();
     },
 
@@ -351,7 +362,7 @@ WebInspector.ProfilesPanel.prototype = {
         sidebarParent.removeChild(profile._profilesTreeElement);
 
         if (!profile.isTemporary)
-            InspectorBackend.removeProfile(profile.typeId, profile.uid);
+            ProfilerAgent.removeProfile(profile.typeId, profile.uid);
 
         // No other item will be selected if there aren't any other profiles, so
         // make sure that view gets cleared when the last profile is removed.
@@ -409,6 +420,11 @@ WebInspector.ProfilesPanel.prototype = {
         return !!this._profilesIdMap[this._makeKey(profile.uid, profile.typeId)];
     },
 
+    getProfile: function(typeId, uid)
+    {
+        return this._profilesIdMap[this._makeKey(uid, typeId)];
+    },
+
     loadHeapSnapshot: function(uid, callback)
     {
         var profile = this._profilesIdMap[this._makeKey(uid, WebInspector.HeapSnapshotProfileType.TypeId)];
@@ -424,7 +440,7 @@ WebInspector.ProfilesPanel.prototype = {
             profile._callbacks = [callback];
             profile._json = "";
             profile.sideBarElement.subtitle = WebInspector.UIString("Loading…");
-            InspectorBackend.getProfile(profile.typeId, profile.uid);
+            ProfilerAgent.getProfile(profile.typeId, profile.uid);
         }
     },
 
@@ -455,6 +471,12 @@ WebInspector.ProfilesPanel.prototype = {
             delete profile._is_loading;
             profile._loaded = true;
             profile.sideBarElement.subtitle = "";
+
+            if (!Preferences.detailedHeapProfiles && WebInspector.DetailedHeapshotView.prototype.isDetailedSnapshot(loadedSnapshot)) {
+                WebInspector.panels.profiles._enableDetailedHeapProfiles(false);
+                return;
+            }
+
             if (!Preferences.detailedHeapProfiles)
                 WebInspector.HeapSnapshotView.prototype.processLoadedSnapshot(profile, loadedSnapshot);
             else
@@ -592,10 +614,10 @@ WebInspector.ProfilesPanel.prototype = {
     {
         if (this._profilerEnabled) {
             WebInspector.settings.profilerEnabled = false;
-            InspectorBackend.disableProfiler(true);
+            InspectorAgent.disableProfiler(true);
         } else {
             WebInspector.settings.profilerEnabled = !!optionalAlways;
-            InspectorBackend.enableProfiler();
+            InspectorAgent.enableProfiler();
         }
     },
 
@@ -612,7 +634,7 @@ WebInspector.ProfilesPanel.prototype = {
                    this._addProfileHeader(profileHeaders[i]);
         }
 
-        InspectorBackend.getProfileHeaders(populateCallback.bind(this));
+        ProfilerAgent.getProfileHeaders(populateCallback.bind(this));
 
         this._profilesWereRequested = true;
     },
@@ -658,7 +680,7 @@ WebInspector.ProfilesPanel.prototype = {
             }
             this._addProfileHeader(this._temporaryTakingSnapshot);
         }
-        InspectorBackend.takeHeapSnapshot(detailed);
+        ProfilerAgent.takeHeapSnapshot(detailed);
     },
 
     _reportHeapSnapshotProgress: function(done, total)
@@ -668,6 +690,63 @@ WebInspector.ProfilesPanel.prototype = {
             if (done >= total)
                 this._removeProfileHeader(this._temporaryTakingSnapshot);
         }
+    },
+
+    handleShortcut: function(event)
+    {
+        if (!Preferences.heapProfilerPresent || Preferences.detailedHeapProfiles)
+            return;
+        var combo = ["U+004C", "U+0045", "U+0041", "U+004B", "U+005A"];  // "LEAKZ"
+        if (this._recognizeKeyboardCombo(combo, event)) {
+            this._displayDetailedHeapProfilesEnabledHint();          
+            this._enableDetailedHeapProfiles(true);
+        }
+    },
+
+    _recognizeKeyboardCombo: function(combo, event)
+    {
+        var isRecognized = false;
+        if (!this._comboPosition) {
+            if (event.keyIdentifier === combo[0])
+                this._comboPosition = 1;
+        } else if (event.keyIdentifier === combo[this._comboPosition]) {
+            if (++this._comboPosition === combo.length)
+                isRecognized = true;
+        } else
+            delete this._comboPosition;
+        if (this._comboPosition)
+            event.handled = true;
+        return isRecognized;
+    },
+    
+    _displayDetailedHeapProfilesEnabledHint: function()
+    {
+        var message = new WebInspector.HelpScreen("Congratulations!");
+        message.contentElement.addStyleClass("help-table");
+        message.contentElement.textContent = "Detailed Heap snapshots are now enabled.";
+        message.show();
+
+        function hideHint()
+        {
+            message._hide();
+        }
+
+        setTimeout(hideHint, 2000);
+    },
+
+    _enableDetailedHeapProfiles: function(resetAgent)
+    {
+        if (resetAgent)
+            this._clearProfiles();
+        else
+            this._reset();
+        var oldProfileType = this._profileTypesByIdMap[WebInspector.HeapSnapshotProfileType.TypeId];
+        var profileType = new WebInspector.DetailedHeapshotProfileType();
+        profileType.treeElement = oldProfileType.treeElement;
+        this._profileTypesByIdMap[profileType.id] = profileType;
+        Preferences.detailedHeapProfiles = true;
+        this.hide();
+        this.show();
     }
 }
 

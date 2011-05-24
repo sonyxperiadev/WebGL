@@ -185,12 +185,6 @@ void SVGUseElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
     }
 
-    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
-        object->setNeedsTransformUpdate();
-        RenderSVGResource::markForLayoutAndParentResourceInvalidation(object);
-        return;
-    }
-
     if (SVGLangSpace::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName))
         invalidateShadowTree();
@@ -242,7 +236,7 @@ void SVGUseElement::fillAttributeToPropertyTypeMap()
     attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedLength);
     attributeToPropertyTypeMap.set(SVGNames::widthAttr, AnimatedLength);
     attributeToPropertyTypeMap.set(SVGNames::heightAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
 }
 
 static void updateContainerSize(SVGUseElement* useElement, SVGElementInstance* targetInstance)

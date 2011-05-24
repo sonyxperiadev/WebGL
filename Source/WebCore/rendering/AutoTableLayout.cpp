@@ -519,7 +519,6 @@ void AutoTableLayout::layout()
             // fall through
             break;
         case Auto:
-        case Static:
             if (m_layoutStruct[i].emptyCellsOnly)
                 numAutoEmptyCellsOnly++;
             else {

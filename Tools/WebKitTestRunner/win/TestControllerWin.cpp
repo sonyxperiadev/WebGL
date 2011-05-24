@@ -38,6 +38,13 @@ using namespace std;
 
 namespace WTR {
 
+static HANDLE webProcessCrashingEvent;
+static const char webProcessCrashingEventName[] = "WebKitTestRunner.WebProcessCrashing";
+// This is the longest we'll wait (in seconds) for the web process to finish crashing and a crash
+// log to be saved. This interval should be just a tiny bit longer than it will ever reasonably
+// take to save a crash log.
+static const double maximumWaitForWebProcessToCrash = 60;
+
 #ifdef DEBUG_ALL
 const LPWSTR testPluginDirectoryName = L"TestNetscapePlugin_Debug";
 const char* injectedBundleDLL = "\\InjectedBundle_debug.dll";
@@ -96,6 +103,11 @@ void TestController::notifyDone()
 
 void TestController::platformInitialize()
 {
+    // Cygwin calls ::SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
+    // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
+    // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
+    ::SetErrorMode(0);
+
     ::SetUnhandledExceptionFilter(exceptionFilter);
 
     _setmode(1, _O_BINARY);
@@ -104,6 +116,8 @@ void TestController::platformInitialize()
     // Add the QuickTime dll directory to PATH or QT 7.6 will fail to initialize on systems
     // linked with older versions of qtmlclientlib.dll.
     addQTDirToPATH();
+
+    webProcessCrashingEvent = ::CreateEventA(0, FALSE, FALSE, webProcessCrashingEventName);
 }
 
 void TestController::initializeInjectedBundlePath()
@@ -124,19 +138,26 @@ void TestController::initializeTestPluginDirectory()
     m_testPluginDirectory.adopt(WKStringCreateWithCFString(testPluginDirectoryPath.get()));
 }
 
-void TestController::platformRunUntil(bool& done, double timeout)
+enum RunLoopResult { TimedOut, ObjectSignaled, ConditionSatisfied };
+
+static RunLoopResult runRunLoopUntil(bool& condition, HANDLE object, double timeout)
 {
     DWORD end = ::GetTickCount() + timeout * 1000;
-    while (!done) {
+    while (!condition) {
         DWORD now = ::GetTickCount();
         if (now > end)
-            return;
+            return TimedOut;
 
-        DWORD result = ::MsgWaitForMultipleObjectsEx(0, 0, end - now, QS_ALLINPUT, 0);
+        DWORD objectCount = object ? 1 : 0;
+        const HANDLE* objects = object ? &object : 0;
+        DWORD result = ::MsgWaitForMultipleObjectsEx(objectCount, objects, end - now, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
         if (result == WAIT_TIMEOUT)
-            return;
+            return TimedOut;
 
-        ASSERT(result == WAIT_OBJECT_0);
+        if (objectCount && result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + objectCount)
+            return ObjectSignaled;
+
+        ASSERT(result == WAIT_OBJECT_0 + objectCount);
         // There are messages in the queue. Process them.
         MSG msg;
         while (::PeekMessageW(&msg, 0, 0, 0, PM_REMOVE)) {
@@ -144,12 +165,45 @@ void TestController::platformRunUntil(bool& done, double timeout)
             ::DispatchMessageW(&msg);
         }
     }
+
+    return ConditionSatisfied;
+}
+
+void TestController::platformRunUntil(bool& done, double timeout)
+{
+    RunLoopResult result = runRunLoopUntil(done, webProcessCrashingEvent, timeout);
+    if (result == TimedOut || result == ConditionSatisfied)
+        return;
+    ASSERT(result == ObjectSignaled);
+
+    // The web process is crashing. A crash log might be being saved, which can take a long
+    // time, and we don't want to time out while that happens.
+
+    // First, let the test harness know this happened so it won't think we've hung. But
+    // make sure we don't exit just yet!
+    m_shouldExitWhenWebProcessCrashes = false;
+    processDidCrash();
+    m_shouldExitWhenWebProcessCrashes = true;
+
+    // Then spin a run loop until it finishes crashing to give time for a crash log to be saved. If
+    // it takes too long for a crash log to be saved, we'll just give up.
+    bool neverSetCondition = false;
+    result = runRunLoopUntil(neverSetCondition, 0, maximumWaitForWebProcessToCrash);
+    ASSERT_UNUSED(result, result == TimedOut);
+    exit(1);
+}
+
+static WKRetainPtr<WKStringRef> toWK(const char* string)
+{
+    return WKRetainPtr<WKStringRef>(AdoptWK, WKStringCreateWithUTF8CString(string));
 }
 
 void TestController::platformInitializeContext()
 {
     // FIXME: Make DRT pass with Windows native controls. <http://webkit.org/b/25592>
     WKContextSetShouldPaintNativeControls(m_context.get(), false);
+
+    WKContextSetInitializationUserDataForInjectedBundle(m_context.get(), toWK(webProcessCrashingEventName).get());
 }
 
 void TestController::runModal(PlatformWebView*)

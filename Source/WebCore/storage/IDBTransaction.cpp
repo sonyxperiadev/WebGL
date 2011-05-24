@@ -31,10 +31,9 @@
 #include "Document.h"
 #include "EventException.h"
 #include "EventQueue.h"
-#include "IDBAbortEvent.h"
-#include "IDBCompleteEvent.h"
 #include "IDBDatabase.h"
 #include "IDBDatabaseException.h"
+#include "IDBEventDispatcher.h"
 #include "IDBIndex.h"
 #include "IDBObjectStore.h"
 #include "IDBObjectStoreBackendInterface.h"
@@ -104,14 +103,31 @@ void IDBTransaction::abort()
         m_backend->abort();
 }
 
+void IDBTransaction::registerRequest(IDBRequest* request)
+{
+    m_childRequests.add(request);
+}
+
+void IDBTransaction::unregisterRequest(IDBRequest* request)
+{
+    // If we aborted the request, it will already have been removed.
+    m_childRequests.remove(request);
+}
+
 void IDBTransaction::onAbort()
 {
-    enqueueEvent(IDBAbortEvent::create(IDBAny::create(this)));
+    while (!m_childRequests.isEmpty()) {
+        IDBRequest* request = *m_childRequests.begin();
+        m_childRequests.remove(request);
+        request->abort();
+    }
+
+    enqueueEvent(Event::create(eventNames().abortEvent, true, false));
 }
 
 void IDBTransaction::onComplete()
 {
-    enqueueEvent(IDBCompleteEvent::create(IDBAny::create(this)));
+    enqueueEvent(Event::create(eventNames().completeEvent, false, false));
 }
 
 bool IDBTransaction::hasPendingActivity() const
@@ -139,8 +155,9 @@ bool IDBTransaction::dispatchEvent(PassRefPtr<Event> event)
     targets.append(this);
     targets.append(db());
 
-    ASSERT(event->isIDBAbortEvent() || event->isIDBCompleteEvent());
-    return static_cast<IDBEvent*>(event.get())->dispatch(targets);
+    // FIXME: When we allow custom event dispatching, this will probably need to change.
+    ASSERT(event->type() == eventNames().completeEvent || event->type() == eventNames().abortEvent);
+    return IDBEventDispatcher::dispatch(event.get(), targets);
 }
 
 bool IDBTransaction::canSuspend() const

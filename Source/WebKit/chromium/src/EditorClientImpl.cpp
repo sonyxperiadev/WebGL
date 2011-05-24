@@ -187,11 +187,6 @@ int EditorClientImpl::spellCheckerDocumentTag()
     return 0;
 }
 
-bool EditorClientImpl::isEditable()
-{
-    return false;
-}
-
 bool EditorClientImpl::shouldBeginEditing(Range* range)
 {
     if (m_webView->client())
@@ -322,6 +317,16 @@ void EditorClientImpl::clearUndoRedoOperations()
 {
     m_undoStack.clear();
     m_redoStack.clear();
+}
+
+bool EditorClientImpl::canCopyCut(bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientImpl::canPaste(bool defaultValue) const
+{
+    return defaultValue;
 }
 
 bool EditorClientImpl::canUndo() const

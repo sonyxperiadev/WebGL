@@ -32,11 +32,11 @@ namespace JSC {
 
 class JSGlobalObject;
 
-class JSObjectWithGlobalObject : public JSObject {
+class JSObjectWithGlobalObject : public JSNonFinalObject {
 public:
     static PassRefPtr<Structure> createStructure(JSValue proto)
     {
-        return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+        return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
 
     JSGlobalObject* globalObject() const;
@@ -45,7 +45,7 @@ protected:
     JSObjectWithGlobalObject(JSGlobalObject*, NonNullPassRefPtr<Structure>);
 
     JSObjectWithGlobalObject(NonNullPassRefPtr<Structure> structure)
-        : JSObject(structure)
+        : JSNonFinalObject(structure)
     {
         // Should only be used by JSFunction when we aquire the JSFunction vptr.
     }

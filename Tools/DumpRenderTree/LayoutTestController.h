@@ -111,6 +111,7 @@ public:
     void setUseDashboardCompatibilityMode(bool flag);
     void setUserStyleSheetEnabled(bool flag);
     void setUserStyleSheetLocation(JSStringRef path);
+    void setValueForUser(JSContextRef, JSValueRef nodeObject, JSStringRef value);
     void setViewModeMediaFeature(JSStringRef mode);
     void setXSSAuditorEnabled(bool flag);
     void setFrameFlatteningEnabled(bool enable);
@@ -291,8 +292,8 @@ public:
 
     bool hasSpellingMarker(int from, int length);
 
-    void dumpConfigurationForViewport(int availableWidth, int availableHeight);
-    
+    void dumpConfigurationForViewport(int deviceDPI, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight);
+
     static void setSerializeHTTPLoads(bool serialize);
 
     // The following API test functions should probably be moved to platform-specific 
@@ -307,8 +308,13 @@ public:
 
     JSRetainPtr<JSStringRef> markerTextForListItem(JSContextRef context, JSValueRef nodeObject) const;
 
+    void setShouldPaintBrokenImage(bool);
+    bool shouldPaintBrokenImage() const { return m_shouldPaintBrokenImage; }
+
     static const unsigned maxViewWidth;
     static const unsigned maxViewHeight;
+
+    void setMinimumTimerInterval(double);
 
 private:
     LayoutTestController(const std::string& testPathOrURL, const std::string& expectedPixelHash);
@@ -356,6 +362,7 @@ private:
     bool m_handlesAuthenticationChallenges;
     bool m_isPrinting;
     bool m_deferMainResourceDataLoad;
+    bool m_shouldPaintBrokenImage;
 
     std::string m_authenticationUsername;
     std::string m_authenticationPassword; 

@@ -45,6 +45,7 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "htmlediting.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLInputElement.h"
@@ -78,7 +79,6 @@
 #include "UserGestureIndicator.h"
 #include "UserTypingGestureIndicator.h"
 #include "WheelEvent.h"
-#include "htmlediting.h" // for comparePositions()
 #include <wtf/CurrentTime.h>
 #include <wtf/StdLibExtras.h>
 
@@ -204,7 +204,7 @@ EventHandler::EventHandler(Frame* frame)
 #if PLATFORM(MAC)
     , m_mouseDownView(nil)
     , m_sendingEventToSubview(false)
-    , m_activationEventNumber(0)
+    , m_activationEventNumber(-1)
 #endif
 #if ENABLE(TOUCH_EVENTS)
     , m_touchPressed(false)
@@ -296,7 +296,7 @@ void EventHandler::selectClosestWordOrLinkFromMouseEvent(const MouseEventWithHit
         VisibleSelection newSelection;
         Element* URLElement = result.hitTestResult().URLElement();
         VisiblePosition pos(innerNode->renderer()->positionForPoint(result.localPoint()));
-        if (pos.isNotNull() && pos.deepEquivalent().node()->isDescendantOf(URLElement))
+        if (pos.isNotNull() && pos.deepEquivalent().deprecatedNode()->isDescendantOf(URLElement))
             newSelection = VisibleSelection::selectionFromContentsOfNode(URLElement);
     
         TextGranularity granularity = CharacterGranularity;
@@ -358,7 +358,7 @@ bool EventHandler::handleMousePressEventTripleClick(const MouseEventWithHitTestR
 
 static int textDistance(const Position& start, const Position& end)
 {
-     RefPtr<Range> range = Range::create(start.node()->document(), start, end);
+     RefPtr<Range> range = Range::create(start.anchorNode()->document(), start, end);
      return TextIterator::rangeLength(range.get(), true);
 }
 
@@ -383,7 +383,7 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
 
     VisiblePosition visiblePos(innerNode->renderer()->positionForPoint(event.localPoint()));
     if (visiblePos.isNull())
-        visiblePos = VisiblePosition(innerNode, 0, DOWNSTREAM);
+        visiblePos = VisiblePosition(firstPositionInOrBeforeNode(innerNode), DOWNSTREAM);
     Position pos = visiblePos.deepEquivalent();
     
     VisibleSelection newSelection = m_frame->selection()->selection();
@@ -637,7 +637,7 @@ void EventHandler::updateSelectionForMouseDrag(Node* targetNode, const IntPoint&
 #if ENABLE(SVG)
     // Special case to limit selection to the containing block for SVG text.
     // FIXME: Isn't there a better non-SVG-specific way to do this?
-    if (Node* selectionBaseNode = newSelection.base().node())
+    if (Node* selectionBaseNode = newSelection.base().deprecatedNode())
         if (RenderObject* selectionBaseRenderer = selectionBaseNode->renderer())
             if (selectionBaseRenderer->isSVGText())
                 if (targetNode->renderer()->containingBlock() != selectionBaseRenderer->containingBlock())
@@ -1049,7 +1049,7 @@ bool EventHandler::scrollRecursively(ScrollDirection direction, ScrollGranularit
     frame = frame->tree()->parent();
     if (!frame)
         return false;
-    return frame->eventHandler()->scrollRecursively(direction, granularity, m_frame->document()->ownerElement());
+    return frame->eventHandler()->scrollRecursively(direction, granularity, m_frame->ownerElement());
 }
 
 bool EventHandler::logicalScrollRecursively(ScrollLogicalDirection direction, ScrollGranularity granularity, Node* startingNode)
@@ -1078,7 +1078,7 @@ bool EventHandler::logicalScrollRecursively(ScrollLogicalDirection direction, Sc
     if (!frame)
         return false;
 
-    return frame->eventHandler()->logicalScrollRecursively(direction, granularity, m_frame->document()->ownerElement());
+    return frame->eventHandler()->logicalScrollRecursively(direction, granularity, m_frame->ownerElement());
 }
 
 IntPoint EventHandler::currentMousePosition() const
@@ -2159,7 +2159,7 @@ bool EventHandler::sendContextMenuEventForKey()
     SelectionController* selectionController = m_frame->selection();
     Position start = selectionController->selection().start();
 
-    if (start.node() && (selectionController->rootEditableElement() || selectionController->isRange())) {
+    if (start.deprecatedNode() && (selectionController->rootEditableElement() || selectionController->isRange())) {
         RefPtr<Range> selection = selectionController->toNormalizedRange();
         IntRect firstRect = m_frame->editor()->firstRectForRange(selection.get());
 
@@ -2167,6 +2167,8 @@ bool EventHandler::sendContextMenuEventForKey()
         location = IntPoint(x, firstRect.maxY());
     } else if (focusedNode) {
         RenderBoxModelObject* box = focusedNode->renderBoxModelObject();
+        if (!box)
+            return false;
         IntRect clippedRect = box->absoluteClippedOverflowRect();
         location = IntPoint(clippedRect.x(), clippedRect.maxY() - 1);
     } else {
@@ -2763,23 +2765,33 @@ bool EventHandler::handleTextInputEvent(const String& text, Event* underlyingEve
     return event->defaultHandled();
 }
     
-#if !PLATFORM(MAC) && !PLATFORM(QT) && !PLATFORM(HAIKU) && !PLATFORM(EFL)
-bool EventHandler::invertSenseOfTabsToLinks(KeyboardEvent*) const
+bool EventHandler::isKeyboardOptionTab(KeyboardEvent* event)
 {
-    return false;
+    return event
+        && (event->type() == eventNames().keydownEvent || event->type() == eventNames().keypressEvent)
+        && event->altKey()
+        && event->keyIdentifier() == "U+0009";    
 }
+
+static bool eventInvertsTabsToLinksClientCallResult(KeyboardEvent* event)
+{
+#if PLATFORM(MAC) || PLATFORM(QT) || PLATFORM(HAIKU) || PLATFORM(EFL)
+    return EventHandler::isKeyboardOptionTab(event);
+#else
+    return false;
 #endif
+}
 
 bool EventHandler::tabsToLinks(KeyboardEvent* event) const
 {
+    // FIXME: This function needs a better name. It can be called for keypresses other than Tab when spatial navigation is enabled.
+
     Page* page = m_frame->page();
     if (!page)
         return false;
 
-    if (page->chrome()->client()->tabsToLinks())
-        return !invertSenseOfTabsToLinks(event);
-
-    return invertSenseOfTabsToLinks(event);
+    bool tabsToLinksClientCallResult = page->chrome()->client()->keyboardUIMode() & KeyboardAccessTabsToLinks;
+    return eventInvertsTabsToLinksClientCallResult(event) ? !tabsToLinksClientCallResult : tabsToLinksClientCallResult;
 }
 
 void EventHandler::defaultTextInputEventHandler(TextEvent* event)
@@ -2874,7 +2886,7 @@ void EventHandler::capsLockStateMayHaveChanged()
 
 void EventHandler::sendResizeEvent()
 {
-    m_frame->document()->dispatchWindowEvent(Event::create(eventNames().resizeEvent, false, false));
+    m_frame->document()->enqueueWindowEvent(Event::create(eventNames().resizeEvent, false, false));
 }
 
 void EventHandler::sendScrollEvent()

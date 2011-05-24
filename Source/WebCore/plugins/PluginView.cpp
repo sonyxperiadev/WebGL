@@ -493,15 +493,15 @@ void PluginView::performRequest(PluginRequest* request)
     // and this has been made sure in ::load.
     ASSERT(targetFrameName.isEmpty() || m_parentFrame->tree()->find(targetFrameName) == m_parentFrame);
     
-    // Executing a script can cause the plugin view to be destroyed, so we keep a reference to the parent frame.
-    RefPtr<Frame> parentFrame = m_parentFrame;
+    // Executing a script can cause the plugin view to be destroyed, so we keep a reference to it.
+    RefPtr<PluginView> protector(this);
     ScriptValue result = m_parentFrame->script()->executeScript(jsString, request->shouldAllowPopups());
 
     if (targetFrameName.isNull()) {
         String resultString;
 
 #if USE(JSC)
-        ScriptState* scriptState = parentFrame->script()->globalObject(pluginWorld())->globalExec();
+        ScriptState* scriptState = m_parentFrame->script()->globalObject(pluginWorld())->globalExec();
 #elif USE(V8)
         ScriptState* scriptState = 0; // Not used with V8
 #endif
@@ -1030,9 +1030,9 @@ void PluginView::didFail(const ResourceError& error)
         return;
 
     ASSERT(m_loadManually);
-    ASSERT(m_manualStream);
-
-    m_manualStream->didFail(0, error);
+    
+    if (m_manualStream)
+        m_manualStream->didFail(0, error);
 }
 
 void PluginView::setCallingPlugin(bool b) const

@@ -31,9 +31,9 @@
 #include "BytecodeGenerator.h"
 
 #include "BatchedTransitionOptimizer.h"
-#include "PrototypeFunction.h"
 #include "JSFunction.h"
 #include "Interpreter.h"
+#include "ScopeChain.h"
 #include "UString.h"
 
 using namespace std;
@@ -147,7 +147,7 @@ JSObject* BytecodeGenerator::generate()
     m_codeBlock->setInstructionCount(m_codeBlock->instructions().size());
 
     if (s_dumpsGeneratedCode)
-        m_codeBlock->dump(m_scopeChain->globalObject()->globalExec());
+        m_codeBlock->dump(m_scopeChain->globalObject->globalExec());
 #endif
 
     if ((m_codeType == FunctionCode && !m_codeBlock->needsFullScopeChain() && !m_codeBlock->usesArguments()) || m_codeType == EvalCode)
@@ -156,7 +156,7 @@ JSObject* BytecodeGenerator::generate()
     m_codeBlock->shrinkToFit();
 
     if (m_expressionTooDeep)
-        return createOutOfMemoryError(m_scopeChain->globalObject());
+        return createOutOfMemoryError(m_scopeChain->globalObject.get());
     return 0;
 }
 
@@ -198,11 +198,11 @@ void BytecodeGenerator::preserveLastVar()
         m_lastVar = &m_calleeRegisters.last();
 }
 
-BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, const ScopeChain& scopeChain, SymbolTable* symbolTable, ProgramCodeBlock* codeBlock)
-    : m_shouldEmitDebugHooks(scopeChain.globalObject()->debugger())
-    , m_shouldEmitProfileHooks(scopeChain.globalObject()->supportsProfiling())
-    , m_shouldEmitRichSourceInfo(scopeChain.globalObject()->supportsRichSourceInfo())
-    , m_scopeChain(&scopeChain)
+BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, ScopeChainNode* scopeChain, SymbolTable* symbolTable, ProgramCodeBlock* codeBlock)
+    : m_shouldEmitDebugHooks(scopeChain->globalObject->debugger())
+    , m_shouldEmitProfileHooks(scopeChain->globalObject->supportsProfiling())
+    , m_shouldEmitRichSourceInfo(scopeChain->globalObject->supportsRichSourceInfo())
+    , m_scopeChain(*scopeChain->globalData, scopeChain)
     , m_symbolTable(symbolTable)
     , m_scopeNode(programNode)
     , m_codeBlock(codeBlock)
@@ -217,7 +217,7 @@ BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, const ScopeChain&
     , m_hasCreatedActivation(true)
     , m_firstLazyFunction(0)
     , m_lastLazyFunction(0)
-    , m_globalData(&scopeChain.globalObject()->globalData())
+    , m_globalData(scopeChain->globalData)
     , m_lastOpcodeID(op_end)
 #ifndef NDEBUG
     , m_lastOpcodePosition(0)
@@ -238,7 +238,7 @@ BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, const ScopeChain&
     
     m_codeBlock->m_numParameters = 1; // Allocate space for "this"
 
-    JSGlobalObject* globalObject = scopeChain.globalObject();
+    JSGlobalObject* globalObject = scopeChain->globalObject.get();
     ExecState* exec = globalObject->globalExec();
     RegisterFile* registerFile = &exec->globalData().interpreter->registerFile();
     
@@ -260,6 +260,8 @@ BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, const ScopeChain&
         // Shift new symbols so they get stored prior to existing symbols.
         m_nextGlobalIndex -= symbolTable->size();
 
+        size_t oldSymbolTableSize = symbolTable->size();
+
         for (size_t i = 0; i < functionStack.size(); ++i) {
             FunctionBodyNode* function = functionStack[i];
             globalObject->removeDirect(function->ident()); // Make sure our new function is not shadowed by an old property.
@@ -267,9 +269,13 @@ BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, const ScopeChain&
         }
 
         Vector<RegisterID*, 32> newVars;
-        for (size_t i = 0; i < varStack.size(); ++i)
-            if (!globalObject->hasProperty(exec, *varStack[i].first))
-                newVars.append(addGlobalVar(*varStack[i].first, varStack[i].second & DeclarationStacks::IsConstant));
+        for (size_t i = 0; i < varStack.size(); ++i) {
+            if (globalObject->symbolTableHasProperty(*varStack[i].first) || globalObject->hasProperty(exec, *varStack[i].first))
+                continue;
+            newVars.append(addGlobalVar(*varStack[i].first, varStack[i].second & DeclarationStacks::IsConstant));
+        }
+
+        globalObject->resizeRegisters(oldSymbolTableSize, symbolTable->size());
 
         preserveLastVar();
 
@@ -278,10 +284,10 @@ BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, const ScopeChain&
     } else {
         for (size_t i = 0; i < functionStack.size(); ++i) {
             FunctionBodyNode* function = functionStack[i];
-            globalObject->putWithAttributes(exec, function->ident(), new (exec) JSFunction(exec, makeFunction(exec, function), scopeChain.node()), DontDelete);
+            globalObject->putWithAttributes(exec, function->ident(), new (exec) JSFunction(exec, makeFunction(exec, function), scopeChain), DontDelete);
         }
         for (size_t i = 0; i < varStack.size(); ++i) {
-            if (globalObject->hasProperty(exec, *varStack[i].first))
+            if (globalObject->symbolTableHasProperty(*varStack[i].first) || globalObject->hasProperty(exec, *varStack[i].first))
                 continue;
             int attributes = DontDelete;
             if (varStack[i].second & DeclarationStacks::IsConstant)
@@ -294,11 +300,11 @@ BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, const ScopeChain&
     codeBlock->m_numCapturedVars = codeBlock->m_numVars;
 }
 
-BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const ScopeChain& scopeChain, SymbolTable* symbolTable, CodeBlock* codeBlock)
-    : m_shouldEmitDebugHooks(scopeChain.globalObject()->debugger())
-    , m_shouldEmitProfileHooks(scopeChain.globalObject()->supportsProfiling())
-    , m_shouldEmitRichSourceInfo(scopeChain.globalObject()->supportsRichSourceInfo())
-    , m_scopeChain(&scopeChain)
+BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, ScopeChainNode* scopeChain, SymbolTable* symbolTable, CodeBlock* codeBlock)
+    : m_shouldEmitDebugHooks(scopeChain->globalObject->debugger())
+    , m_shouldEmitProfileHooks(scopeChain->globalObject->supportsProfiling())
+    , m_shouldEmitRichSourceInfo(scopeChain->globalObject->supportsRichSourceInfo())
+    , m_scopeChain(*scopeChain->globalData, scopeChain)
     , m_symbolTable(symbolTable)
     , m_scopeNode(functionBody)
     , m_codeBlock(codeBlock)
@@ -312,7 +318,7 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Scope
     , m_hasCreatedActivation(false)
     , m_firstLazyFunction(0)
     , m_lastLazyFunction(0)
-    , m_globalData(&scopeChain.globalObject()->globalData())
+    , m_globalData(scopeChain->globalData)
     , m_lastOpcodeID(op_end)
 #ifndef NDEBUG
     , m_lastOpcodePosition(0)
@@ -460,11 +466,11 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Scope
     }
 }
 
-BytecodeGenerator::BytecodeGenerator(EvalNode* evalNode, const ScopeChain& scopeChain, SymbolTable* symbolTable, EvalCodeBlock* codeBlock)
-    : m_shouldEmitDebugHooks(scopeChain.globalObject()->debugger())
-    , m_shouldEmitProfileHooks(scopeChain.globalObject()->supportsProfiling())
-    , m_shouldEmitRichSourceInfo(scopeChain.globalObject()->supportsRichSourceInfo())
-    , m_scopeChain(&scopeChain)
+BytecodeGenerator::BytecodeGenerator(EvalNode* evalNode, ScopeChainNode* scopeChain, SymbolTable* symbolTable, EvalCodeBlock* codeBlock)
+    : m_shouldEmitDebugHooks(scopeChain->globalObject->debugger())
+    , m_shouldEmitProfileHooks(scopeChain->globalObject->supportsProfiling())
+    , m_shouldEmitRichSourceInfo(scopeChain->globalObject->supportsRichSourceInfo())
+    , m_scopeChain(*scopeChain->globalData, scopeChain)
     , m_symbolTable(symbolTable)
     , m_scopeNode(evalNode)
     , m_codeBlock(codeBlock)
@@ -478,7 +484,7 @@ BytecodeGenerator::BytecodeGenerator(EvalNode* evalNode, const ScopeChain& scope
     , m_hasCreatedActivation(true)
     , m_firstLazyFunction(0)
     , m_lastLazyFunction(0)
-    , m_globalData(&scopeChain.globalObject()->globalData())
+    , m_globalData(scopeChain->globalData)
     , m_lastOpcodeID(op_end)
 #ifndef NDEBUG
     , m_lastOpcodePosition(0)
@@ -903,7 +909,7 @@ PassRefPtr<Label> BytecodeGenerator::emitJumpIfNotFunctionCall(RegisterID* cond,
 
     emitOpcode(op_jneq_ptr);
     instructions().append(cond->index());
-    instructions().append(m_scopeChain->globalObject()->d()->callFunction.get());
+    instructions().append(m_scopeChain->globalObject->d()->callFunction.get());
     instructions().append(target->bind(begin, instructions().size()));
     return target;
 }
@@ -914,7 +920,7 @@ PassRefPtr<Label> BytecodeGenerator::emitJumpIfNotFunctionApply(RegisterID* cond
 
     emitOpcode(op_jneq_ptr);
     instructions().append(cond->index());
-    instructions().append(m_scopeChain->globalObject()->d()->applyFunction.get());
+    instructions().append(m_scopeChain->globalObject->d()->applyFunction.get());
     instructions().append(target->bind(begin, instructions().size()));
     return target;
 }

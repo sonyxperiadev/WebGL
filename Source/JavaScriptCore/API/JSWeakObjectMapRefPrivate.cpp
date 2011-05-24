@@ -57,8 +57,8 @@ void JSWeakObjectMapSet(JSContextRef ctx, JSWeakObjectMapRef map, void* key, JSO
     JSObject* obj = toJS(object);
     if (!obj)
         return;
-    ASSERT(obj->inherits(&JSCallbackObject<JSGlobalObject>::info) || obj->inherits(&JSCallbackObject<JSObjectWithGlobalObject>::info));
-    map->map().set(key, obj);
+    ASSERT(obj->inherits(&JSCallbackObject<JSGlobalObject>::s_info) || obj->inherits(&JSCallbackObject<JSObjectWithGlobalObject>::s_info));
+    map->map().set(exec->globalData(), key, obj);
 }
 
 JSObjectRef JSWeakObjectMapGet(JSContextRef ctx, JSWeakObjectMapRef map, void* key)
@@ -73,7 +73,7 @@ bool JSWeakObjectMapClear(JSContextRef ctx, JSWeakObjectMapRef map, void* key, J
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
     JSObject* obj = toJS(object);
-    if (map->map().uncheckedRemove(key, obj))
+    if (map->map().deprecatedRemove(key, obj))
         return true;
     return false;
 }

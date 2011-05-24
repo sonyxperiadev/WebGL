@@ -70,9 +70,12 @@ messages -> WebPage {
     GetSourceForFrame(uint64_t frameID, uint64_t callbackID)
     GetWebArchiveOfFrame(uint64_t frameID, uint64_t callbackID)
     RunJavaScriptInMainFrame(WTF::String script, uint64_t callbackID)
-
-    # FIXME: This should be a drawing area message.
     ForceRepaint(uint64_t callbackID)
+
+#if PLATFORM(MAC)
+    # Dictionary support.
+    PerformDictionaryLookupAtLocation(WebCore::FloatPoint point)
+#endif
 
     PreferencesDidChange(WebKit::WebPreferencesStore store)
 
@@ -87,7 +90,7 @@ messages -> WebPage {
     Close()
     TryClose()
 
-    ValidateMenuItem(WTF::String name)
+    ValidateCommand(WTF::String name, uint64_t callbackID)
     ExecuteEditCommand(WTF::String name)
 
     DidRemoveEditCommand(uint64_t commandID)
@@ -153,14 +156,19 @@ messages -> WebPage {
     BeginPrinting(uint64_t frameID, WebKit::PrintInfo printInfo)
     EndPrinting();
     ComputePagesForPrinting(uint64_t frameID, WebKit::PrintInfo printInfo, uint64_t callbackID)
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(WIN)
     DrawRectToPDF(uint64_t frameID, WebCore::IntRect rect, uint64_t callbackID)
     DrawPagesToPDF(uint64_t frameID, uint32_t first, uint32_t count, uint64_t callbackID)
 #endif
 
+    SetMemoryCacheMessagesEnabled(bool memoryCacheMessagesEnabled)
+
     // FIXME: This a dummy message, to avoid breaking the build for platforms that don't require
     // any synchronous messages, and should be removed when <rdar://problem/8775115> is fixed.
     Dummy() -> (bool dummyReturn)
+
+    SetCanRunBeforeUnloadConfirmPanel(bool canRunBeforeUnloadConfirmPanel)
+    SetCanRunModal(bool canRunModal)
 
 #if PLATFORM(MAC)
     # Complex text input support for plug-ins.
@@ -172,6 +180,7 @@ messages -> WebPage {
     CharacterIndexForPoint(WebCore::IntPoint point) -> (uint64_t result)
     FirstRectForCharacterRange(uint64_t location, uint64_t length) -> (WebCore::IntRect resultRect)
     RegisterUIProcessAccessibilityTokens(CoreIPC::DataReference elemenToken, CoreIPC::DataReference windowToken)
+    WriteSelectionToPasteboard(WTF::String pasteboardName, WTF::Vector<WTF::String> pasteboardTypes) -> (bool result)
 #endif
 #if PLATFORM(WIN)
     ConfirmComposition(WTF::String compositionString)

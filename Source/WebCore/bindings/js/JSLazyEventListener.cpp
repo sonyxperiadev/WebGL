@@ -115,14 +115,12 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
             // Ensure that 'node' has a JavaScript wrapper to mark the event listener we're creating.
             JSLock lock(SilenceAssertionsOnly);
             // FIXME: Should pass the global object associated with the node
-            setWrapper(asObject(toJS(globalObject->globalExec(), globalObject, m_originalNode)));
+            setWrapper(exec->globalData(), asObject(toJS(exec, globalObject, m_originalNode)));
         }
 
         // Add the event's home element to the scope
         // (and the document, and the form - see JSHTMLElement::eventHandlerScope)
-        ScopeChain scope = listenerAsFunction->scope();
-        static_cast<JSNode*>(wrapper())->pushEventHandlerScope(exec, scope);
-        listenerAsFunction->setScope(scope);
+        listenerAsFunction->setScope(exec->globalData(), static_cast<JSNode*>(wrapper())->pushEventHandlerScope(exec, listenerAsFunction->scope()));
     }
 
     // Since we only parse once, there's no need to keep data used for parsing around anymore.

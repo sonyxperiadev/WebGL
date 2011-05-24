@@ -92,7 +92,7 @@ ASSERT_CLASS_FITS_IN_CELL(JSArray);
 // as long as it is 1/8 full. If more sparse than that, we use a map.
 static const unsigned minDensityMultiplier = 8;
 
-const ClassInfo JSArray::info = {"Array", 0, 0, 0};
+const ClassInfo JSArray::s_info = {"Array", &JSNonFinalObject::s_info, 0, 0};
 
 // We keep track of the size of the last array after it was grown.  We use this
 // as a simple heuristic for as the value to grow the next array from size 0.
@@ -127,8 +127,10 @@ inline void JSArray::checkConsistency(ConsistencyCheckType)
 #endif
 
 JSArray::JSArray(VPtrStealingHackType)
-    : JSObject(createStructure(jsNull()))
+    : JSNonFinalObject(createStructure(jsNull()))
 {
+    ASSERT(inherits(&s_info));
+
     unsigned initialCapacity = 0;
 
     m_storage = static_cast<ArrayStorage*>(fastZeroedMalloc(storageSize(initialCapacity)));
@@ -144,8 +146,10 @@ JSArray::JSArray(VPtrStealingHackType)
 }
 
 JSArray::JSArray(NonNullPassRefPtr<Structure> structure)
-    : JSObject(structure)
+    : JSNonFinalObject(structure)
 {
+    ASSERT(inherits(&s_info));
+
     unsigned initialCapacity = 0;
 
     m_storage = static_cast<ArrayStorage*>(fastZeroedMalloc(storageSize(initialCapacity)));
@@ -159,8 +163,10 @@ JSArray::JSArray(NonNullPassRefPtr<Structure> structure)
 }
 
 JSArray::JSArray(NonNullPassRefPtr<Structure> structure, unsigned initialLength, ArrayCreationMode creationMode)
-    : JSObject(structure)
+    : JSNonFinalObject(structure)
 {
+    ASSERT(inherits(&s_info));
+
     unsigned initialCapacity;
     if (creationMode == CreateCompact)
         initialCapacity = initialLength;
@@ -199,8 +205,10 @@ JSArray::JSArray(NonNullPassRefPtr<Structure> structure, unsigned initialLength,
 }
 
 JSArray::JSArray(JSGlobalData& globalData, NonNullPassRefPtr<Structure> structure, const ArgList& list)
-    : JSObject(structure)
+    : JSNonFinalObject(structure)
 {
+    ASSERT(inherits(&s_info));
+
     unsigned initialCapacity = list.size();
     unsigned initialStorage;
     

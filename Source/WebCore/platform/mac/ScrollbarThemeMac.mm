@@ -54,12 +54,11 @@ static ScrollbarPainterMap* scrollbarMap()
     static ScrollbarPainterMap* map = new ScrollbarPainterMap;
     return map;
 }
-    
+
 }
 
 @interface ScrollbarPrefsObserver : NSObject
 {
-
 }
 
 + (void)registerAsObserver;
@@ -167,7 +166,6 @@ void ScrollbarThemeMac::registerScrollbar(Scrollbar* scrollbar)
 
 void ScrollbarThemeMac::unregisterScrollbar(Scrollbar* scrollbar)
 {
-
     scrollbarMap()->remove(scrollbar);
 }
 
@@ -429,22 +427,24 @@ static int scrollbarPartToHIPressedState(ScrollbarPart part)
 bool ScrollbarThemeMac::paint(Scrollbar* scrollbar, GraphicsContext* context, const IntRect& damageRect)
 {
 #if USE(WK_SCROLLBAR_PAINTER)
-    float value = 0.0f;
-    float totalSize = 0.0f;
+    float value = 0;
+    float overhang = 0;
 
     if (scrollbar->currentPos() < 0) {
         // Scrolled past the top.
-        value = 0.0f;
-        totalSize = scrollbar->totalSize() - scrollbar->currentPos();
+        value = 0;
+        overhang = -scrollbar->currentPos();
     } else if (scrollbar->visibleSize() + scrollbar->currentPos() > scrollbar->totalSize()) {
         // Scrolled past the bottom.
-        value = 1.0f;
-        totalSize = scrollbar->visibleSize() + scrollbar->currentPos();
+        value = 1;
+        overhang = scrollbar->currentPos() + scrollbar->visibleSize() - scrollbar->totalSize();
     } else {
         // Within the bounds of the scrollable area.
         value = scrollbar->currentPos() / scrollbar->maximum();
-        totalSize = scrollbar->totalSize();
     }
+
+    ScrollAnimatorMac* scrollAnimator = static_cast<ScrollAnimatorMac*>(scrollbar->scrollableArea()->scrollAnimator());
+    scrollAnimator->setIsDrawingIntoLayer(context->isCALayerContext());
 
     context->save();
     context->clip(damageRect);
@@ -453,8 +453,11 @@ bool ScrollbarThemeMac::paint(Scrollbar* scrollbar, GraphicsContext* context, co
     wkScrollbarPainterPaint(scrollbarMap()->get(scrollbar).get(),
                             scrollbar->enabled(),
                             value,
-                            static_cast<CGFloat>(scrollbar->visibleSize()) / totalSize,
+                            (static_cast<CGFloat>(scrollbar->visibleSize()) - overhang) / scrollbar->totalSize(),
                             scrollbar->frameRect());
+
+    scrollAnimator->setIsDrawingIntoLayer(false);
+
     context->restore();
     return true;
 #endif
@@ -510,14 +513,14 @@ bool ScrollbarThemeMac::paint(Scrollbar* scrollbar, GraphicsContext* context, co
         
         IntRect bufferRect(scrollbar->frameRect());
         bufferRect.intersect(damageRect);
-        bufferRect.move(-scrollbar->frameRect().x(), -scrollbar->frameRect().y());
         
         OwnPtr<ImageBuffer> imageBuffer = ImageBuffer::create(bufferRect.size());
         if (!imageBuffer)
             return true;
-        
+
+        imageBuffer->context()->translate(scrollbar->frameRect().x() - bufferRect.x(), scrollbar->frameRect().y() - bufferRect.y());
         HIThemeDrawTrack(&trackInfo, 0, imageBuffer->context()->platformContext(), kHIThemeOrientationNormal);
-        context->drawImageBuffer(imageBuffer.get(), ColorSpaceDeviceRGB, scrollbar->frameRect().location());
+        context->drawImageBuffer(imageBuffer.get(), ColorSpaceDeviceRGB, bufferRect.location());
     }
 
     return true;

@@ -54,6 +54,7 @@
 #include "JSRange.h"
 #include "Node.h"
 #include "Page.h"
+#include "ScriptValue.h"
 #if ENABLE(DOM_STORAGE)
 #include "Storage.h"
 #include "JSStorage.h"
@@ -75,6 +76,18 @@
 using namespace JSC;
 
 namespace WebCore {
+
+Node* InjectedScriptHost::scriptValueAsNode(ScriptValue value)
+{
+    if (!value.isObject() || value.isNull())
+        return 0;
+    return toNode(value.jsValue());
+}
+
+ScriptValue InjectedScriptHost::nodeAsScriptValue(ScriptState* state, Node* node)
+{
+    return ScriptValue(state->globalData(), toJS(state, node));
+}
 
 ScriptObject InjectedScriptHost::createInjectedScript(const String& source, ScriptState* scriptState, long id)
 {
@@ -107,28 +120,28 @@ void InjectedScriptHost::discardInjectedScript(ScriptState* scriptState)
     globalObject->setInjectedScript(0);
 }
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
 JSValue JSInjectedScriptHost::currentCallFrame(ExecState* exec)
 {
+#if ENABLE(JAVASCRIPT_DEBUGGER)
     JavaScriptCallFrame* callFrame = ScriptDebugServer::shared().currentCallFrame();
     if (!callFrame || !callFrame->isValid())
         return jsUndefined();
 
     JSLock lock(SilenceAssertionsOnly);
     return toJS(exec, callFrame);
-}
+#else
+    UNUSED_PARAM(exec);
+    return jsUndefined();
 #endif
+}
 
-JSValue JSInjectedScriptHost::nodeForId(ExecState* exec)
+JSValue JSInjectedScriptHost::inspectedNode(ExecState* exec)
 {
     if (exec->argumentCount() < 1)
         return jsUndefined();
 
-    Node* node = impl()->nodeForId(exec->argument(0).toInt32(exec));
+    Node* node = impl()->inspectedNode(exec->argument(0).toInt32(exec));
     if (!node)
-        return jsUndefined();
-
-    if (!impl()->inspectorAgent())
         return jsUndefined();
 
     JSLock lock(SilenceAssertionsOnly);
@@ -144,47 +157,39 @@ JSValue JSInjectedScriptHost::internalConstructorName(ExecState* exec)
     return jsString(exec, result);
 }
 
-JSValue JSInjectedScriptHost::pushNodePathToFrontend(ExecState* exec)
+JSValue JSInjectedScriptHost::inspect(ExecState* exec)
 {
-    if (exec->argumentCount() < 3)
-        return jsUndefined();
-
-    Node* node = toNode(exec->argument(0));
-    if (!node)
-        return jsUndefined();
-
-    bool withChildren = exec->argument(1).toBoolean(exec);
-    bool selectInUI = exec->argument(2).toBoolean(exec);
-    return jsNumber(impl()->pushNodePathToFrontend(node, withChildren, selectInUI));
+    if (exec->argumentCount() >= 2) {
+        ScriptValue objectId(exec->globalData(), exec->argument(0));
+        ScriptValue hints(exec->globalData(), exec->argument(1));
+        impl()->inspectImpl(objectId.toInspectorValue(exec), hints.toInspectorValue(exec));
+    }
+    return jsUndefined();
 }
 
-#if ENABLE(DATABASE)
-JSValue JSInjectedScriptHost::selectDatabase(ExecState* exec)
+JSValue JSInjectedScriptHost::databaseId(ExecState* exec)
 {
     if (exec->argumentCount() < 1)
         return jsUndefined();
-
+#if ENABLE(DATABASE)
     Database* database = toDatabase(exec->argument(0));
     if (database)
-        impl()->selectDatabase(database);
+        return jsNumber(impl()->databaseIdImpl(database));
+#endif
     return jsUndefined();
 }
-#endif
 
-#if ENABLE(DOM_STORAGE)
-JSValue JSInjectedScriptHost::selectDOMStorage(ExecState* exec)
+JSValue JSInjectedScriptHost::storageId(ExecState* exec)
 {
     if (exec->argumentCount() < 1)
         return jsUndefined();
-    if (!impl()->inspectorAgent())
-        return jsUndefined();
-
+#if ENABLE(DOM_STORAGE)
     Storage* storage = toStorage(exec->argument(0));
     if (storage)
-        impl()->selectDOMStorage(storage);
+        return jsNumber(impl()->storageIdImpl(storage));
+#endif
     return jsUndefined();
 }
-#endif
 
 InjectedScript InjectedScriptHost::injectedScriptFor(ScriptState* scriptState)
 {

@@ -29,6 +29,7 @@
 #include "V8DOMWrapper.h"
 #include "V8IsolatedContext.h"
 #include "V8Proxy.h"
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
@@ -50,6 +51,7 @@ static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestInterfaceTemplate(v8:
     v8::Local<v8::Signature> defaultSignature = configureTemplate(desc, "TestInterface", v8::Persistent<v8::FunctionTemplate>(), V8TestInterface::internalFieldCount,
         0, 0,
         0, 0);
+    UNUSED_PARAM(defaultSignature); // In some cases, it will not be used.
         desc->SetCallHandler(V8TestInterface::constructorCallback);
     
 

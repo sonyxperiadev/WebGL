@@ -37,6 +37,7 @@
 #include "DragClient.h"
 #include "EditCommand.h"
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 #include "FloatRect.h"
 #include "FocusDirection.h"
 #include "FrameLoaderClient.h"
@@ -155,7 +156,7 @@ public:
 
     virtual void setStatusbarText(const String&) { }
 
-    virtual bool tabsToLinks() const { return false; }
+    virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }
 
     virtual IntRect windowResizerRect() const { return IntRect(); }
 
@@ -282,7 +283,7 @@ public:
     virtual Frame* dispatchCreatePage(const NavigationAction&) { return 0; }
     virtual void dispatchShow() { }
 
-    virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction, const String&, const ResourceRequest&) { }
+    virtual void dispatchDecidePolicyForResponse(FramePolicyFunction, const ResourceResponse&, const ResourceRequest&) { }
     virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String&) { }
     virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>) { }
     virtual void cancelPolicyCheck() { }
@@ -353,9 +354,11 @@ public:
     virtual void updateGlobalHistory() { }
     virtual void updateGlobalHistoryRedirectLinks() { }
     virtual bool shouldGoToHistoryItem(HistoryItem*) const { return false; }
+    virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const { return false; }
     virtual void dispatchDidAddBackForwardItem(HistoryItem*) const { }
-    virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const { };
+    virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const { }
     virtual void dispatchDidChangeBackForwardIndex() const { }
+    virtual void updateGlobalHistoryItemForPage() { }
     virtual void saveViewStateToItem(HistoryItem*) { }
     virtual bool canCachePage() const { return false; }
     virtual void didDisplayInsecureContent() { }
@@ -401,6 +404,22 @@ public:
 #endif
 
     virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext() { return PassRefPtr<FrameNetworkingContext>(); }
+};
+
+class EmptyTextCheckerClient : public TextCheckerClient {
+public:
+    virtual void ignoreWordInSpellDocument(const String&) { }
+    virtual void learnWord(const String&) { }
+    virtual void checkSpellingOfString(const UChar*, int, int*, int*) { }
+    virtual String getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
+    virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
+#endif
+
+    virtual void getGuessesForWord(const String&, const String&, Vector<String>&) { }
+    virtual void requestCheckingOfString(SpellChecker*, int, const String&) { }
 };
 
 class EmptyEditorClient : public EditorClient {
@@ -449,6 +468,8 @@ public:
     virtual void registerCommandForRedo(PassRefPtr<EditCommand>) { }
     virtual void clearUndoRedoOperations() { }
 
+    virtual bool canCopyCut(bool defaultValue) const { return defaultValue; }
+    virtual bool canPaste(bool defaultValue) const { return defaultValue; }
     virtual bool canUndo() const { return false; }
     virtual bool canRedo() const { return false; }
 
@@ -495,27 +516,24 @@ public:
     virtual bool isAutomaticSpellingCorrectionEnabled() { return false; }
     virtual void toggleAutomaticSpellingCorrection() { }
 #endif
-    virtual void ignoreWordInSpellDocument(const String&) { }
-    virtual void learnWord(const String&) { }
-    virtual void checkSpellingOfString(const UChar*, int, int*, int*) { }
-    virtual String getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
-    virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-    virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
-#endif
+    TextCheckerClient* textChecker() { return &m_textCheckerClient; }
+
 #if SUPPORT_AUTOCORRECTION_PANEL
     virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect&, const String&, const String&, const Vector<String>&, Editor*) { }
     virtual void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel) { }
     virtual bool isShowingCorrectionPanel() { return false; }
+    virtual void recordAutocorrectionResponse(AutocorrectionResponseType, const String&, const String&) { }
 #endif
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&) { }
     virtual void updateSpellingUIWithMisspelledWord(const String&) { }
     virtual void showSpellingUI(bool) { }
     virtual bool spellingUIIsShowing() { return false; }
-    virtual void getGuessesForWord(const String&, const String&, Vector<String>&) { }
+
     virtual void willSetInputMethodState() { }
     virtual void setInputMethodState(bool) { }
-    virtual void requestCheckingOfString(SpellChecker*, int, const String&) { }
+
+private:
+    EmptyTextCheckerClient m_textCheckerClient;
 };
 
 #if ENABLE(CONTEXT_MENUS)

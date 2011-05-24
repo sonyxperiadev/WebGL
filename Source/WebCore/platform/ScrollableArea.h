@@ -66,6 +66,8 @@ public:
     void didAddHorizontalScrollbar(Scrollbar*);
     void willRemoveHorizontalScrollbar(Scrollbar*);
 
+    bool hasOverlayScrollbars() const;
+
     ScrollAnimator* scrollAnimator() const { return m_scrollAnimator.get(); }
 
     virtual int scrollSize(ScrollbarOrientation) const = 0;
@@ -112,8 +114,6 @@ public:
     virtual IntSize overhangAmount() const { ASSERT_NOT_REACHED(); return IntSize(); }
     virtual IntPoint currentMousePosition() const { return IntPoint(); }
     virtual void didCompleteRubberBand(const IntSize&) const { ASSERT_NOT_REACHED(); }
-
-    virtual bool scrollbarWillRenderIntoCompositingLayer() const { return false; }
 
 private:
     // NOTE: Only called from the ScrollAnimator.

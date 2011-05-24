@@ -66,7 +66,7 @@ namespace WebCore {
 
         static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)
         {
-            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount);
+            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
@@ -85,7 +85,7 @@ namespace WebCore {
     public:
         static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)
         {
-            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount);
+            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
@@ -116,8 +116,6 @@ namespace WebCore {
     DOMObject* getCachedDOMObjectWrapper(JSC::ExecState*, void* objectHandle);
     bool hasCachedDOMObjectWrapper(JSC::JSGlobalData*, void* objectHandle);
     void cacheDOMObjectWrapper(JSC::ExecState*, void* objectHandle, DOMObject* wrapper);
-    void forgetDOMNode(JSNode* wrapper, Node* node, Document* document);
-    void forgetDOMObject(DOMObject* wrapper, void* objectHandle);
 
     JSNode* getCachedDOMNodeWrapper(JSC::ExecState*, Document*, Node*);
     void cacheDOMNodeWrapper(JSC::ExecState*, Document*, Node*, JSNode* wrapper);

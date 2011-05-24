@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -139,7 +139,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_proxyWidget(0)
 #endif
-    , m_restrictions(NoRestrictions)
+    , m_restrictions(RequireUserGestureForFullScreenRestriction)
     , m_preload(MediaPlayer::Auto)
     , m_displayMode(Unknown)
     , m_processingMediaPlayerCallback(0)
@@ -171,10 +171,14 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
     LOG(Media, "HTMLMediaElement::HTMLMediaElement");
     document->registerForDocumentActivationCallbacks(this);
     document->registerForMediaVolumeCallbacks(this);
+<<<<<<< HEAD
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
     // Enable the Media Element to listen to all the touch events
     document->addListenerTypeIfNeeded(eventNames().touchstartEvent);
 #endif
+=======
+    document->registerForPrivateBrowsingStateChangedCallbacks(this);
+>>>>>>> WebKit at r80534
 }
 
 HTMLMediaElement::~HTMLMediaElement()
@@ -185,6 +189,7 @@ HTMLMediaElement::~HTMLMediaElement()
     setShouldDelayLoadEvent(false);
     document()->unregisterForDocumentActivationCallbacks(this);
     document()->unregisterForMediaVolumeCallbacks(this);
+    document()->unregisterForPrivateBrowsingStateChangedCallbacks(this);
 }
 
 void HTMLMediaElement::willMoveToNewOwnerDocument()
@@ -699,6 +704,10 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
 
     if (m_sendProgressEvents) 
         startProgressEventTimer();
+
+    Settings* settings = document()->settings();
+    bool privateMode = !settings || settings->privateBrowsingEnabled();
+    m_player->setPrivateBrowsingMode(privateMode);
 
     if (!autoplay())
         m_player->setPreload(m_preload);
@@ -1480,6 +1489,10 @@ bool HTMLMediaElement::controls() const
     if (frame && !frame->script()->canExecuteScripts(NotAboutToExecuteScript))
         return true;
 
+    // always show controls for video when fullscreen playback is required.
+    if (isVideo() && document()->page() && document()->page()->chrome()->requiresFullscreenForVideoPlayback())
+        return true;
+
     return hasAttribute(controlsAttr);
 }
 
@@ -1527,8 +1540,7 @@ void HTMLMediaElement::setMuted(bool muted)
                 m_player->setMuted(m_muted);
                 if (renderer())
                     renderer()->updateFromElement();
-            } else
-                updateVolume();
+            }
         }
         scheduleEvent(eventNames().volumechangeEvent);
     }
@@ -1868,9 +1880,14 @@ void HTMLMediaElement::mediaPlayerVolumeChanged(MediaPlayer*)
     LOG(Media, "HTMLMediaElement::mediaPlayerVolumeChanged");
 
     beginProcessingMediaPlayerCallback();
-    if (m_player)
-        m_volume = m_player->volume();
-    updateVolume();
+    if (m_player) {
+        float vol = m_player->volume();
+        if (vol != m_volume) {
+            m_volume = vol;
+            updateVolume();
+            scheduleEvent(eventNames().volumechangeEvent);
+        }
+    }
     endProcessingMediaPlayerCallback();
 }
 
@@ -2496,18 +2513,18 @@ bool HTMLMediaElement::webkitHasClosedCaptions() const
 }
 
 #if ENABLE(MEDIA_STATISTICS)
-unsigned long HTMLMediaElement::webkitAudioBytesDecoded() const
+unsigned HTMLMediaElement::webkitAudioDecodedByteCount() const
 {
     if (!m_player)
         return 0;
-    return m_player->audioBytesDecoded();
+    return m_player->audioDecodedByteCount();
 }
 
-unsigned long HTMLMediaElement::webkitVideoBytesDecoded() const
+unsigned HTMLMediaElement::webkitVideoDecodedByteCount() const
 {
     if (!m_player)
         return 0;
-    return m_player->videoBytesDecoded();
+    return m_player->videoDecodedByteCount();
 }
 #endif
 
@@ -2539,6 +2556,33 @@ void HTMLMediaElement::setShouldDelayLoadEvent(bool shouldDelay)
         document()->decrementLoadEventDelayCount();
 }
     
+
+void HTMLMediaElement::getSitesInMediaCache(Vector<String>& sites)
+{
+    MediaPlayer::getSitesInMediaCache(sites);
+}
+
+void HTMLMediaElement::clearMediaCache()
+{
+    MediaPlayer::clearMediaCache();
+}
+
+void HTMLMediaElement::clearMediaCacheForSite(const String& site)
+{
+    MediaPlayer::clearMediaCacheForSite(site);
+}
+
+void HTMLMediaElement::privateBrowsingStateDidChange()
+{
+    if (!m_player)
+        return;
+
+    Settings* settings = document()->settings();
+    bool privateMode = !settings || settings->privateBrowsingEnabled();
+    LOG(Media, "HTMLMediaElement::privateBrowsingStateDidChange(%s)", boolString(privateMode));
+    m_player->setPrivateBrowsingMode(privateMode);
+}
+
 }
 
 #endif

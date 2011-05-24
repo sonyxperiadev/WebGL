@@ -1033,6 +1033,15 @@ HRESULT STDMETHODCALLTYPE WebFrame::hasSpellingMarker(
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE WebFrame::clearOpener()
+{
+    HRESULT hr = S_OK;
+    if (Frame* coreFrame = core(this))
+        coreFrame->loader()->setOpener(0);
+
+    return hr;
+}
+
 // IWebDocumentText -----------------------------------------------------------
 
 HRESULT STDMETHODCALLTYPE WebFrame::supportsTextEncoding( 
@@ -1755,7 +1764,7 @@ void WebFrame::receivedPolicyDecision(PolicyAction action)
     (coreFrame->loader()->policyChecker()->*function)(action);
 }
 
-void WebFrame::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& mimeType, const ResourceRequest& request)
+void WebFrame::dispatchDecidePolicyForResponse(FramePolicyFunction function, const ResourceResponse& response, const ResourceRequest& request)
 {
     Frame* coreFrame = core(this);
     ASSERT(coreFrame);
@@ -1766,7 +1775,7 @@ void WebFrame::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, con
 
     COMPtr<IWebURLRequest> urlRequest(AdoptCOM, WebMutableURLRequest::createInstance(request));
 
-    if (SUCCEEDED(policyDelegate->decidePolicyForMIMEType(d->webView, BString(mimeType), urlRequest.get(), this, setUpPolicyListener(function).get())))
+    if (SUCCEEDED(policyDelegate->decidePolicyForMIMEType(d->webView, BString(response.mimeType()), urlRequest.get(), this, setUpPolicyListener(function).get())))
         return;
 
     (coreFrame->loader()->policyChecker()->*function)(PolicyUse);
@@ -2167,8 +2176,8 @@ static float scaleFactor(HDC printDC, const IntRect& marginRect, const IntRect& 
     IntRect adjustedRect = IntRect(
         printRect.x() + marginRect.x(),
         printRect.y() + marginRect.y(),
-        printRect.width() - marginRect.x() - marginRect.right(),
-        printRect.height() - marginRect.y() - marginRect.bottom());
+        printRect.width() - marginRect.x() - marginRect.maxX(),
+        printRect.height() - marginRect.y() - marginRect.maxY());
 
     float scale = static_cast<float>(adjustedRect.width()) / static_cast<float>(pageRect.width());
     if (!scale)

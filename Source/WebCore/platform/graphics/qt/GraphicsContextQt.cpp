@@ -555,8 +555,17 @@ void GraphicsContext::strokePath(const Path& path)
             boundingRect.inflate(pen.miterLimit() + pen.widthF());
             QPainter* shadowPainter = shadow->beginShadowLayer(this, boundingRect);
             if (shadowPainter) {
-                shadowPainter->setOpacity(static_cast<qreal>(m_data->shadow.m_color.alpha()) / 255);
-                shadowPainter->strokePath(platformPath, pen);
+                if (m_state.strokeGradient) {
+                    QBrush brush(*m_state.strokeGradient->platformGradient());
+                    brush.setTransform(m_state.strokeGradient->gradientSpaceTransform());
+                    QPen shadowPen(pen);
+                    shadowPen.setBrush(brush);
+                    shadowPainter->setOpacity(static_cast<qreal>(shadow->m_color.alpha()) / 255);
+                    shadowPainter->strokePath(platformPath, shadowPen);
+                } else {
+                    shadowPainter->setOpacity(static_cast<qreal>(m_data->shadow.m_color.alpha()) / 255);
+                    shadowPainter->strokePath(platformPath, pen);
+                }
                 shadow->endShadowLayer(this);
             }
         } else {
@@ -769,6 +778,14 @@ ContextShadow* GraphicsContext::contextShadow()
     return &m_data->shadow;
 }
 
+void GraphicsContext::clip(const IntRect& rect)
+{
+    if (paintingDisabled())
+        return;
+
+    m_data->p()->setClipRect(rect, Qt::IntersectClip);
+}
+
 void GraphicsContext::clip(const FloatRect& rect)
 {
     if (paintingDisabled())
@@ -846,13 +863,13 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
     drawFocusRingForPath(m_data->p(), path, color, m_data->antiAliasingForRectsAndLines);
 }
 
-void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool)
+void GraphicsContext::drawLineForText(const FloatPoint& origin, float width, bool)
 {
     if (paintingDisabled())
         return;
 
-    IntPoint startPoint = origin;
-    IntPoint endPoint = origin + IntSize(width, 0);
+    FloatPoint startPoint = origin;
+    FloatPoint endPoint = origin + FloatSize(width, 0);
 
     // If paintengine type is X11 to avoid artifacts
     // like bug https://bugs.webkit.org/show_bug.cgi?id=42248
@@ -872,10 +889,11 @@ void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool)
     }
 #endif // defined(Q_WS_X11)
 
-    drawLine(startPoint, endPoint);
+    // FIXME: Loss of precision here. Might consider rounding.
+    drawLine(IntPoint(startPoint.x(), startPoint.y()), IntPoint(endPoint.x(), endPoint.y()));
 }
 
-void GraphicsContext::drawLineForTextChecking(const IntPoint&, int, TextCheckingLineStyle)
+void GraphicsContext::drawLineForTextChecking(const FloatPoint&, float, TextCheckingLineStyle)
 {
     if (paintingDisabled())
         return;
@@ -1202,6 +1220,14 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
         return;
 
     m_data->p()->setWorldTransform(transform, true);
+}
+
+void GraphicsContext::setCTM(const AffineTransform& transform)
+{
+    if (paintingDisabled())
+        return;
+
+    m_data->p()->setWorldTransform(transform);
 }
 
 void GraphicsContext::setURLForRect(const KURL&, const IntRect&)

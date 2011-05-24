@@ -39,10 +39,10 @@
 #include "SharedBuffer.h"
 #include <limits>
 #include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/APIShims.h>
 #include <runtime/DateInstance.h>
 #include <runtime/Error.h>
 #include <runtime/ExceptionHelpers.h>
-#include <runtime/JSLock.h>
 #include <runtime/PropertyNameArray.h>
 #include <runtime/RegExp.h>
 #include <runtime/RegExpObject.h>
@@ -53,7 +53,7 @@
 using namespace JSC;
 using namespace std;
 
-#if CPU(BIG_ENDIAN) || CPU(MIDDLE_ENDIAN)
+#if CPU(BIG_ENDIAN) || CPU(MIDDLE_ENDIAN) || CPU(NEEDS_ALIGNED_ACCESS)
 #define ASSUME_LITTLE_ENDIAN 0
 #else
 #define ASSUME_LITTLE_ENDIAN 1
@@ -242,7 +242,7 @@ private:
         if (!value.isObject())
             return false;
         JSObject* object = asObject(value);
-        return isJSArray(&m_exec->globalData(), object) || object->inherits(&JSArray::info);
+        return isJSArray(&m_exec->globalData(), object) || object->inherits(&JSArray::s_info);
     }
 
     bool startObjectInternal(JSObject* object)
@@ -367,7 +367,7 @@ private:
             return true;
         }
 
-        if (value.isObject() && asObject(value)->inherits(&DateInstance::info)) {
+        if (value.isObject() && asObject(value)->inherits(&DateInstance::s_info)) {
             write(DateTag);
             write(asDateInstance(value)->internalNumber());
             return true;
@@ -409,7 +409,7 @@ private:
                 write(data->data()->data()->data(), data->data()->length());
                 return true;
             }
-            if (obj->inherits(&RegExpObject::info)) {
+            if (obj->inherits(&RegExpObject::s_info)) {
                 RegExpObject* regExp = asRegExpObject(obj);
                 char flags[3];
                 int flagCount = 0;
@@ -1381,8 +1381,8 @@ PassRefPtr<SerializedScriptValue> SerializedScriptValue::create(String string)
 
 PassRefPtr<SerializedScriptValue> SerializedScriptValue::create(JSContextRef originContext, JSValueRef apiValue, JSValueRef* exception)
 {
-    JSLock lock(SilenceAssertionsOnly);
     ExecState* exec = toJS(originContext);
+    APIEntryShim entryShim(exec);
     JSValue value = toJS(exec, apiValue);
     PassRefPtr<SerializedScriptValue> serializedValue = SerializedScriptValue::create(exec, value);
     if (exec->hadException()) {
@@ -1407,8 +1407,8 @@ JSValue SerializedScriptValue::deserialize(ExecState* exec, JSGlobalObject* glob
 
 JSValueRef SerializedScriptValue::deserialize(JSContextRef destinationContext, JSValueRef* exception)
 {
-    JSLock lock(SilenceAssertionsOnly);
     ExecState* exec = toJS(destinationContext);
+    APIEntryShim entryShim(exec);
     JSValue value = deserialize(exec, exec->lexicalGlobalObject());
     if (exec->hadException()) {
         if (exception)

@@ -28,6 +28,7 @@
 
 #if ENABLE(INSPECTOR)
 
+#include "WebKitBundle.h"
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -35,7 +36,7 @@ namespace WebKit {
 
 String WebInspector::localizedStringsURL() const
 {
-    RetainPtr<CFURLRef> localizedStringsURLRef(AdoptCF, CFBundleCopyResourceURL(CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit")), CFSTR("localizedStrings"), CFSTR("js"), 0));
+    RetainPtr<CFURLRef> localizedStringsURLRef(AdoptCF, CFBundleCopyResourceURL(webKitBundle(), CFSTR("localizedStrings"), CFSTR("js"), 0));
     if (!localizedStringsURLRef)
         return String();
 

@@ -47,9 +47,4 @@ String formatLocalizedNumber(double)
     return String();
 }
 
-bool isLocalizedNumberCharacter(UChar32)
-{
-    return false;
-}
-
 } // namespace WebCore

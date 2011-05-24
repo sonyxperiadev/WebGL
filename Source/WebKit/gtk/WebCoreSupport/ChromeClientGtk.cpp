@@ -72,6 +72,7 @@ namespace WebKit {
 ChromeClient::ChromeClient(WebKitWebView* webView)
     : m_webView(webView)
     , m_closeSoonTimer(0)
+    , m_pendingScrollInvalidations(false)
 {
     ASSERT(m_webView);
 }
@@ -218,7 +219,8 @@ void ChromeClient::setScrollbarsVisible(bool visible)
     g_object_set(webWindowFeatures, "scrollbar-visible", visible, NULL);
 }
 
-bool ChromeClient::scrollbarsVisible() {
+bool ChromeClient::scrollbarsVisible()
+{
     WebKitWebWindowFeatures* webWindowFeatures = webkit_web_view_get_window_features(m_webView);
     gboolean visible;
 
@@ -353,12 +355,13 @@ bool ChromeClient::shouldInterruptJavaScript()
     return false;
 }
 
-bool ChromeClient::tabsToLinks() const
+KeyboardUIMode ChromeClient::keyboardUIMode()
 {
+    bool tabsToLinks = true;
     if (DumpRenderTreeSupportGtk::dumpRenderTreeModeEnabled())
-        return DumpRenderTreeSupportGtk::linksIncludedInFocusChain();
+        tabsToLinks = DumpRenderTreeSupportGtk::linksIncludedInFocusChain();
 
-    return true;
+    return tabsToLinks ? KeyboardAccessTabsToLinks : KeyboardAccessDefault;
 }
 
 IntRect ChromeClient::windowResizerRect() const
@@ -367,9 +370,16 @@ IntRect ChromeClient::windowResizerRect() const
     return IntRect();
 }
 
-void ChromeClient::invalidateWindow(const IntRect&, bool)
+void ChromeClient::invalidateWindow(const IntRect&, bool immediate)
 {
-    notImplemented();
+    // If we've invalidated regions for scrolling, force GDK to process those invalidations
+    // now. This will also cause child windows to move right away. This prevents redraw
+    // artifacts with child windows (e.g. Flash plugin instances).
+    if (immediate && m_pendingScrollInvalidations) {
+        m_pendingScrollInvalidations = false;
+        if (GdkWindow* window = gtk_widget_get_window(GTK_WIDGET(m_webView)))
+            gdk_window_process_updates(window, TRUE);
+    }
 }
 
 void ChromeClient::invalidateContentsAndWindow(const IntRect& updateRect, bool immediate)
@@ -395,6 +405,8 @@ void ChromeClient::scroll(const IntSize& delta, const IntRect& rectToScroll, con
     GdkWindow* window = gtk_widget_get_window(GTK_WIDGET(m_webView));
     if (!window)
         return;
+
+    m_pendingScrollInvalidations = true;
 
     // We cannot use gdk_window_scroll here because it is only able to
     // scroll the whole window at once, and we often need to scroll
@@ -433,8 +445,6 @@ void ChromeClient::scroll(const IntSize& delta, const IntRect& rectToScroll, con
     gdk_window_invalidate_region(window, invalidRegion, FALSE);
     cairo_region_destroy(invalidRegion);
 #endif
-
-    gdk_window_process_updates(window, TRUE);
 }
 
 // FIXME: this does not take into account the WM decorations
@@ -577,11 +587,9 @@ void ChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseNam
     DatabaseTracker::tracker().setQuota(frame->document()->securityOrigin(), defaultQuota);
 
     WebKitWebFrame* webFrame = kit(frame);
-    WebKitWebView* webView = getViewFromFrame(webFrame);
-
     WebKitSecurityOrigin* origin = webkit_web_frame_get_security_origin(webFrame);
     WebKitWebDatabase* webDatabase = webkit_security_origin_get_web_database(origin, databaseName.utf8().data());
-    g_signal_emit_by_name(webView, "database-quota-exceeded", webFrame, webDatabase);
+    g_signal_emit_by_name(m_webView, "database-quota-exceeded", webFrame, webDatabase);
 }
 #endif
 
@@ -603,7 +611,7 @@ void ChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
     RefPtr<FileChooser> chooser = prpFileChooser;
 
     GtkWidget* dialog = gtk_file_chooser_dialog_new(_("Upload File"),
-                                                    GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(platformPageClient()))),
+                                                    GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(m_webView))),
                                                     GTK_FILE_CHOOSER_ACTION_OPEN,
                                                     GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                                                     GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
@@ -644,29 +652,33 @@ void ChromeClient::dispatchViewportDataDidChange(const ViewportArguments& argume
     webkitViewportAttributesRecompute(webkit_web_view_get_viewport_attributes(m_webView));
 }
 
-void ChromeClient::setCursor(const Cursor&)
+void ChromeClient::setCursor(const Cursor& cursor)
 {
-    notImplemented();
+    // [GTK] Widget::setCursor() gets called frequently
+    // http://bugs.webkit.org/show_bug.cgi?id=16388
+    // Setting the cursor may be an expensive operation in some backends,
+    // so don't re-set the cursor if it's already set to the target value.
+    GdkWindow* window = gtk_widget_get_window(platformPageClient());
+    GdkCursor* currentCursor = gdk_window_get_cursor(window);
+    GdkCursor* newCursor = cursor.platformCursor().get();
+    if (currentCursor != newCursor)
+        gdk_window_set_cursor(window, newCursor);
 }
 
 void ChromeClient::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
     WebKitWebFrame* webFrame = kit(frame);
-    WebKitWebView* webView = getViewFromFrame(webFrame);
-
     GRefPtr<WebKitGeolocationPolicyDecision> policyDecision(adoptGRef(webkit_geolocation_policy_decision_new(webFrame, geolocation)));
 
     gboolean isHandled = FALSE;
-    g_signal_emit_by_name(webView, "geolocation-policy-decision-requested", webFrame, policyDecision.get(), &isHandled);
+    g_signal_emit_by_name(m_webView, "geolocation-policy-decision-requested", webFrame, policyDecision.get(), &isHandled);
     if (!isHandled)
         webkit_geolocation_policy_deny(policyDecision.get());
 }
 
 void ChromeClient::cancelGeolocationPermissionRequestForFrame(WebCore::Frame* frame, WebCore::Geolocation*)
 {
-    WebKitWebFrame* webFrame = kit(frame);
-    WebKitWebView* webView = getViewFromFrame(webFrame);
-    g_signal_emit_by_name(webView, "geolocation-policy-decision-cancelled", webFrame);
+    g_signal_emit_by_name(m_webView, "geolocation-policy-decision-cancelled", kit(frame));
 }
 
 bool ChromeClient::selectItemWritingDirectionIsNatural()
@@ -698,18 +710,12 @@ bool ChromeClient::supportsFullscreenForNode(const Node* node)
 
 void ChromeClient::enterFullscreenForNode(Node* node)
 {
-    WebCore::Frame* frame = node->document()->frame();
-    WebKitWebFrame* webFrame = kit(frame);
-    WebKitWebView* webView = getViewFromFrame(webFrame);
-    webViewEnterFullscreen(webView, node);
+    webViewEnterFullscreen(m_webView, node);
 }
 
 void ChromeClient::exitFullscreenForNode(Node* node)
 {
-    WebCore::Frame* frame = node->document()->frame();
-    WebKitWebFrame* webFrame = kit(frame);
-    WebKitWebView* webView = getViewFromFrame(webFrame);
-    webViewExitFullscreen(webView);
+    webViewExitFullscreen(m_webView);
 }
 #endif
 

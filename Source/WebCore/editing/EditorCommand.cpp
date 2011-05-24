@@ -132,12 +132,11 @@ static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditActi
 static bool executeToggleStyleInList(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, CSSValue* value)
 {
     ExceptionCode ec = 0;
-    bool shouldUseFixedFontDefaultSize;
-    RefPtr<CSSMutableStyleDeclaration> selectionStyle = frame->editor()->selectionComputedStyle(shouldUseFixedFontDefaultSize);
-    if (!selectionStyle)
+    RefPtr<EditingStyle> selectionStyle = frame->editor()->selectionStartStyle();
+    if (!selectionStyle || !selectionStyle->style())
         return false;
 
-    RefPtr<CSSValue> selectedCSSValue = selectionStyle->getPropertyCSSValue(propertyID);
+    RefPtr<CSSValue> selectedCSSValue = selectionStyle->style()->getPropertyCSSValue(propertyID);
     String newStyle = "none";
     if (selectedCSSValue->isValueList()) {
         RefPtr<CSSValueList> selectedCSSValueList = static_cast<CSSValueList*>(selectedCSSValue.get());
@@ -157,21 +156,18 @@ static bool executeToggleStyleInList(Frame* frame, EditorCommandSource source, E
 
 static bool executeToggleStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const char* offValue, const char* onValue)
 {
-    RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
-    style->setProperty(propertyID, onValue); // We need to add this style to pass it to selectionStartHasStyle / selectionHasStyle
-
     // Style is considered present when
     // Mac: present at the beginning of selection
     // other: present throughout the selection
 
     bool styleIsPresent;
     if (frame->editor()->behavior().shouldToggleStyleBasedOnStartOfSelection())
-        styleIsPresent = frame->editor()->selectionStartHasStyle(style.get());
+        styleIsPresent = frame->editor()->selectionStartHasStyle(propertyID, onValue);
     else
-        styleIsPresent = frame->editor()->selectionHasStyle(style.get()) == TrueTriState;
+        styleIsPresent = frame->editor()->selectionHasStyle(propertyID, onValue) == TrueTriState;
 
-    style->setProperty(propertyID, styleIsPresent ? offValue : onValue);
-    return applyCommandToFrame(frame, source, action, style.get());
+    RefPtr<EditingStyle> style = EditingStyle::create(propertyID, styleIsPresent ? offValue : onValue);
+    return applyCommandToFrame(frame, source, action, style->style());
 }
 
 static bool executeApplyParagraphStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const String& propertyValue)
@@ -194,8 +190,7 @@ static bool executeApplyParagraphStyle(Frame* frame, EditorCommandSource source,
 
 static bool executeInsertFragment(Frame* frame, PassRefPtr<DocumentFragment> fragment)
 {
-    applyCommand(ReplaceSelectionCommand::create(frame->document(), fragment,
-        false, false, false, true, false, EditActionUnspecified));
+    applyCommand(ReplaceSelectionCommand::create(frame->document(), fragment, ReplaceSelectionCommand::PreventNesting, EditActionUnspecified));
     return true;
 }
 
@@ -229,12 +224,9 @@ static bool expandSelectionToGranularity(Frame* frame, TextGranularity granulari
 
 static TriState stateStyle(Frame* frame, int propertyID, const char* desiredValue)
 {
-    RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
-    style->setProperty(propertyID, desiredValue);
-
     if (frame->editor()->behavior().shouldToggleStyleBasedOnStartOfSelection())
-        return frame->editor()->selectionStartHasStyle(style.get()) ? TrueTriState : FalseTriState;
-    return frame->editor()->selectionHasStyle(style.get());
+        return frame->editor()->selectionStartHasStyle(propertyID, desiredValue) ? TrueTriState : FalseTriState;
+    return frame->editor()->selectionHasStyle(propertyID, desiredValue);
 }
 
 static String valueStyle(Frame* frame, int propertyID)
@@ -511,7 +503,7 @@ static bool executeInsertLineBreak(Frame* frame, Event* event, EditorCommandSour
         // Doesn't scroll to make the selection visible, or modify the kill ring.
         // InsertLineBreak is not implemented in IE or Firefox, so this behavior is only needed for
         // backward compatibility with ourselves, and for consistency with other commands.
-        TypingCommand::insertLineBreak(frame->document());
+        TypingCommand::insertLineBreak(frame->document(), 0);
         return true;
     }
     ASSERT_NOT_REACHED();
@@ -538,7 +530,7 @@ static bool executeInsertOrderedList(Frame* frame, Event*, EditorCommandSource, 
 
 static bool executeInsertParagraph(Frame* frame, Event*, EditorCommandSource, const String&)
 {
-    TypingCommand::insertParagraphSeparator(frame->document());
+    TypingCommand::insertParagraphSeparator(frame->document(), 0);
     return true;
 }
 
@@ -549,7 +541,7 @@ static bool executeInsertTab(Frame* frame, Event* event, EditorCommandSource, co
 
 static bool executeInsertText(Frame* frame, Event*, EditorCommandSource, const String& value)
 {
-    TypingCommand::insertText(frame->document(), value);
+    TypingCommand::insertText(frame->document(), value, 0);
     return true;
 }
 
@@ -1121,14 +1113,26 @@ static bool supportedFromMenuOrKeyBinding(Frame*)
 
 static bool supportedCopyCut(Frame* frame)
 {
-    Settings* settings = frame ? frame->settings() : 0;
-    return settings && settings->javaScriptCanAccessClipboard();
+    if (!frame)
+        return false;
+
+    Settings* settings = frame->settings();
+    bool defaultValue = settings && settings->javaScriptCanAccessClipboard();
+
+    EditorClient* client = frame->editor()->client();
+    return client ? client->canCopyCut(defaultValue) : defaultValue;
 }
 
 static bool supportedPaste(Frame* frame)
 {
-    Settings* settings = frame ? frame->settings() : 0;
-    return settings && (settings->javaScriptCanAccessClipboard() ? settings->isDOMPasteAllowed() : 0);
+    if (!frame)
+        return false;
+
+    Settings* settings = frame->settings();
+    bool defaultValue = settings && settings->javaScriptCanAccessClipboard() && settings->isDOMPasteAllowed();
+
+    EditorClient* client = frame->editor()->client();
+    return client ? client->canPaste(defaultValue) : defaultValue;
 }
 
 // Enabled functions

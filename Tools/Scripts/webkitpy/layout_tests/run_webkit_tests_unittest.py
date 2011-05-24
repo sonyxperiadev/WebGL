@@ -42,6 +42,11 @@ import time
 import threading
 import unittest
 
+try:
+    import multiprocessing
+except ImportError:
+    multiprocessing = None
+
 from webkitpy.common import array_stream
 from webkitpy.common.system import outputcapture
 from webkitpy.common.system import filesystem_mock
@@ -231,6 +236,11 @@ class MainTest(unittest.TestCase):
         self.assertRaises(KeyboardInterrupt, logging_run,
             ['failures/expected/keyboard.html'], tests_included=True)
 
+    def test_keyboard_interrupt_inline_worker_model(self):
+        self.assertRaises(KeyboardInterrupt, logging_run,
+            ['failures/expected/keyboard.html', '--worker-model', 'inline'],
+            tests_included=True)
+
     def test_last_results(self):
         fs = port.unit_test_filesystem()
         # We do a logging run here instead of a passing run in order to
@@ -347,6 +357,18 @@ class MainTest(unittest.TestCase):
         self.assertFalse(err.empty())
         self.assertEqual(user.opened_urls, ['/tmp/layout-test-results/results.html'])
 
+    def test_exit_after_n_failures_upload(self):
+        fs = port.unit_test_filesystem()
+        (res, buildbot_output, regular_output, user) = logging_run([
+                'failures/unexpected/text-image-checksum.html',
+                'passes/text.html',
+                '--exit-after-n-failures', '1',
+            ],
+            tests_included=True,
+            record_results=True,
+            filesystem=fs)
+        self.assertTrue('/tmp/layout-test-results/incremental_results.json' in fs.files)
+
     def test_exit_after_n_failures(self):
         # Unexpected failures should result in tests stopping.
         tests_run = get_tests_run([
@@ -398,6 +420,17 @@ class MainTest(unittest.TestCase):
             tests_included=True,
             flatten_batches=True)
         self.assertEquals(['failures/expected/crash.html', 'passes/text.html'], tests_run)
+
+    def test_exit_after_n_crashes_inline_worker_model(self):
+        tests_run = get_tests_run([
+                'failures/unexpected/timeout.html',
+                'passes/text.html',
+                '--exit-after-n-crashes-or-timeouts', '1',
+                '--worker-model', 'inline',
+            ],
+            tests_included=True,
+            flatten_batches=True)
+        self.assertEquals(['failures/unexpected/timeout.html'], tests_run)
 
     def test_results_directory_absolute(self):
         # We run a configuration that should fail, to generate output, then
@@ -467,8 +500,14 @@ class MainTest(unittest.TestCase):
         self.assertTrue(passing_run(['--worker-model', 'old-threads']))
 
     def test_worker_model__processes(self):
-        if compare_version(sys, '2.6')[0] >= 0:
+        # FIXME: remove this when we fix test-webkitpy to work properly
+        # with the multiprocessing module (bug 54520).
+        if multiprocessing and sys.platform not in ('cygwin', 'win32'):
             self.assertTrue(passing_run(['--worker-model', 'processes']))
+
+    def test_worker_model__processes_and_dry_run(self):
+        if multiprocessing and sys.platform not in ('cygwin', 'win32'):
+            self.assertTrue(passing_run(['--worker-model', 'processes', '--dry-run']))
 
     def test_worker_model__threads(self):
         self.assertTrue(passing_run(['--worker-model', 'threads']))

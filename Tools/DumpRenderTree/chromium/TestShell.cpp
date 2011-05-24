@@ -173,16 +173,18 @@ void TestShell::runFileTest(const TestParams& params)
     m_params = params;
     string testUrl = m_params.testUrl.spec();
 
-    bool inspectorTestMode = testUrl.find("/inspector/") != string::npos
-        || testUrl.find("\\inspector\\") != string::npos;
-    m_prefs.developerExtrasEnabled = inspectorTestMode;
-    applyPreferences();
-
     if (testUrl.find("loading/") != string::npos
         || testUrl.find("loading\\") != string::npos)
         m_layoutTestController->setShouldDumpFrameLoadCallbacks(true);
 
-    if (inspectorTestMode)
+    if (testUrl.find("/dumpAsText/") != string::npos
+        || testUrl.find("\\dumpAsText\\") != string::npos) {
+        m_layoutTestController->setShouldDumpAsText(true);
+        m_layoutTestController->setShouldGeneratePixelResults(false);
+    }
+
+    if (testUrl.find("/inspector/") != string::npos
+        || testUrl.find("\\inspector\\") != string::npos)
         showDevTools();
 
     if (m_dumpWhenFinished)
@@ -222,6 +224,7 @@ void TestShell::resetTestController()
     m_drtDevToolsAgent->reset();
     if (m_drtDevToolsClient)
         m_drtDevToolsClient->reset();
+    webView()->mainFrame()->clearOpener();
 }
 
 void TestShell::loadURL(const WebURL& url)

@@ -47,20 +47,30 @@ class EntriesCallback;
 class EntryBase;
 class EntryCallback;
 class ErrorCallback;
+class KURL;
 class MetadataCallback;
+class ScriptExecutionContext;
+class SecurityOrigin;
 class VoidCallback;
 
 // A common base class for DOMFileSystem and DOMFileSystemSync.
 class DOMFileSystemBase : public RefCounted<DOMFileSystemBase> {
 public:
-    static PassRefPtr<DOMFileSystemBase> create(const String& name, PassOwnPtr<AsyncFileSystem> asyncFileSystem)
+    static PassRefPtr<DOMFileSystemBase> create(ScriptExecutionContext* context, const String& name, PassOwnPtr<AsyncFileSystem> asyncFileSystem)
     {
-        return adoptRef(new DOMFileSystemBase(name, asyncFileSystem));
+        return adoptRef(new DOMFileSystemBase(context, name, asyncFileSystem));
     }
     virtual ~DOMFileSystemBase();
 
+    static const char kPersistentPathPrefix[];
+    static const size_t kPersistentPathPrefixLength;
+    static const char kTemporaryPathPrefix[];
+    static const size_t kTemporaryPathPrefixLength;
+    static bool crackFileSystemURL(const KURL&, AsyncFileSystem::Type&, String& filePath);
+
     const String& name() const { return m_name; }
     AsyncFileSystem* asyncFileSystem() const { return m_asyncFileSystem.get(); }
+    SecurityOrigin* securityOrigin() const;
 
     // Actual FileSystem API implementations.  All the validity checks on virtual paths are done at this level.
     // They return false for immediate errors that don't involve lower AsyncFileSystem layer (e.g. for name validation errors).  Otherwise they return true (but later may call back with an runtime error).
@@ -75,9 +85,10 @@ public:
     bool readDirectory(PassRefPtr<DirectoryReaderBase>, const String& path, PassRefPtr<EntriesCallback>, PassRefPtr<ErrorCallback>);
 
 protected:
-    DOMFileSystemBase(const String& name, PassOwnPtr<AsyncFileSystem>);
+    DOMFileSystemBase(ScriptExecutionContext*, const String& name, PassOwnPtr<AsyncFileSystem>);
     friend class DOMFileSystemSync;
 
+    ScriptExecutionContext* m_context;
     String m_name;
     mutable OwnPtr<AsyncFileSystem> m_asyncFileSystem;
 };

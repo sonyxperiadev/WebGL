@@ -36,6 +36,8 @@ namespace Util {
 // Runs a platform runloop until the 'done' is true. 
 void run(bool* done);
 
+void sleep(double seconds);
+
 WKContextRef createContextForInjectedBundleTest(const std::string&, WKTypeRef userData = 0);
 
 WKStringRef createInjectedBundlePath();
@@ -46,7 +48,6 @@ bool isKeyDown(WKNativeEventPtr);
 
 std::string toSTD(WKStringRef string);
 WKRetainPtr<WKStringRef> toWK(const char* utf8String);
-
 
 template<typename T> static inline WKRetainPtr<T> adoptWK(T item)
 {

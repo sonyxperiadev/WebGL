@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2009 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006, 2009, 2011 Apple Inc.  All rights reserved.
  * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@ namespace WebCore {
     String submitButtonDefaultLabel();
     String fileButtonChooseFileLabel();
     String fileButtonNoFileSelectedLabel();
+    String defaultDetailsSummaryText();
 
 #if PLATFORM(MAC)
     String copyImageUnknownFileLabel();
@@ -51,7 +52,7 @@ namespace WebCore {
     String contextMenuItemTagOpenImageInNewWindow();
     String contextMenuItemTagDownloadImageToDisk();
     String contextMenuItemTagCopyImageToClipboard();
-#if PLATFORM(QT)
+#if PLATFORM(QT) || PLATFORM(GTK)
     String contextMenuItemTagCopyImageUrlToClipboard();
 #endif
     String contextMenuItemTagOpenFrameInNewWindow();
@@ -186,6 +187,10 @@ namespace WebCore {
     String validationMessageRangeOverflowText(const String& maximum);
     String validationMessageStepMismatchText(const String& base, const String& step);
 
-}
-
+#if PLATFORM(MAC)
+    String localizedString(const char* key);
 #endif
+
+} // namespace WebCore
+
+#endif // LocalizedStrings_h

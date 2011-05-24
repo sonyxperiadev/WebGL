@@ -26,12 +26,13 @@
 #define EditorClientWinCE_h
 
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 
 class WebView;
 
 namespace WebKit {
 
-class EditorClientWinCE : public WebCore::EditorClient {
+class EditorClientWinCE : public WebCore::EditorClient, public WebCore::TextCheckerClient {
 public:
     EditorClientWinCE(WebView*);
     ~EditorClientWinCE();
@@ -47,8 +48,6 @@ public:
     virtual bool isGrammarCheckingEnabled();
     virtual void toggleGrammarChecking();
     virtual int spellCheckerDocumentTag();
-
-    virtual bool isEditable();
 
     virtual bool shouldBeginEditing(WebCore::Range*);
     virtual bool shouldEndEditing(WebCore::Range*);
@@ -70,6 +69,8 @@ public:
     virtual void registerCommandForRedo(WTF::PassRefPtr<WebCore::EditCommand>);
     virtual void clearUndoRedoOperations();
 
+    virtual bool canCopyCut(bool defaultValue) const;
+    virtual bool canPaste(bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
 
@@ -101,6 +102,7 @@ public:
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool);
     virtual void requestCheckingOfString(WebCore::SpellChecker*, int, const WTF::String&) {}
+    virtual WebCore::TextCheckerClient* textChecker() { return this; }
 
 private:
     WebView* m_webView;

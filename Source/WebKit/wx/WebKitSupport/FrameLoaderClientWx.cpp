@@ -533,7 +533,7 @@ void FrameLoaderClientWx::setTitle(const String& title, const KURL&)
 String FrameLoaderClientWx::userAgent(const KURL&)
 {
     // FIXME: Use the new APIs introduced by the GTK port to fill in these values.
-    return String("Mozilla/5.0 (Macintosh; U; Intel Mac OS X; en) AppleWebKit/418.9.1 (KHTML, like Gecko) Safari/419.3");
+    return String("Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/418.9.1 (KHTML, like Gecko) Safari/419.3");
 }
 
 void FrameLoaderClientWx::dispatchDidReceiveIcon()
@@ -577,6 +577,11 @@ bool FrameLoaderClientWx::shouldGoToHistoryItem(WebCore::HistoryItem*) const
     return true;
 }
 
+bool FrameLoaderClientWx::shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const
+{
+    return true;
+}
+
 void FrameLoaderClientWx::dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const
 {
 }
@@ -612,7 +617,7 @@ bool FrameLoaderClientWx::canCachePage() const
 void FrameLoaderClientWx::setMainDocumentError(WebCore::DocumentLoader* loader, const WebCore::ResourceError&)
 {
     if (m_firstData) {
-        loader->frameLoader()->writer()->setEncoding(m_response.textEncodingName(), false);
+        loader->writer()->setEncoding(m_response.textEncodingName(), false);
         m_firstData = false;
     }
 }
@@ -737,8 +742,7 @@ void FrameLoaderClientWx::dispatchDidFinishLoading(DocumentLoader*, unsigned lon
 void FrameLoaderClientWx::dispatchDidFailLoading(DocumentLoader* loader, unsigned long, const ResourceError&)
 {
     if (m_firstData) {
-        FrameLoader* fl = loader->frameLoader();
-        fl->writer()->setEncoding(m_response.textEncodingName(), false);
+        loader->writer()->setEncoding(m_response.textEncodingName(), false);
         m_firstData = false;
     }
     if (m_webView) {
@@ -771,7 +775,7 @@ Frame* FrameLoaderClientWx::dispatchCreatePage(const NavigationAction&)
     return false;
 }
 
-void FrameLoaderClientWx::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& mimetype, const ResourceRequest& request)
+void FrameLoaderClientWx::dispatchDecidePolicyForResponse(FramePolicyFunction function, const ResourceResponse& response, const ResourceRequest& request)
 {
     if (!m_webFrame)
         return;

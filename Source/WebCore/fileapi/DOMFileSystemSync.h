@@ -46,9 +46,9 @@ typedef int ExceptionCode;
 
 class DOMFileSystemSync : public DOMFileSystemBase {
 public:
-    static PassRefPtr<DOMFileSystemSync> create(const String& name, PassOwnPtr<AsyncFileSystem> asyncFileSystem)
+    static PassRefPtr<DOMFileSystemSync> create(ScriptExecutionContext* context, const String& name, PassOwnPtr<AsyncFileSystem> asyncFileSystem)
     {
-        return adoptRef(new DOMFileSystemSync(name, asyncFileSystem));
+        return adoptRef(new DOMFileSystemSync(context, name, asyncFileSystem));
     }
 
     static PassRefPtr<DOMFileSystemSync> create(DOMFileSystemBase*);
@@ -61,7 +61,7 @@ public:
     PassRefPtr<FileWriterSync> createWriter(const FileEntrySync*, ExceptionCode&);
 
 private:
-    DOMFileSystemSync(const String& name, PassOwnPtr<AsyncFileSystem>);
+    DOMFileSystemSync(ScriptExecutionContext*, const String& name, PassOwnPtr<AsyncFileSystem>);
 };
 
 }

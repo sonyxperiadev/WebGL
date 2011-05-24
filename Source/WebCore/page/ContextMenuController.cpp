@@ -207,7 +207,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
         // For now, call into the client. This is temporary!
         frame->editor()->copyImage(m_hitTestResult);
         break;
-#if PLATFORM(QT)
+#if PLATFORM(QT) || PLATFORM(GTK)
     case ContextMenuItemTagCopyImageUrlToClipboard:
         frame->editor()->copyURL(m_hitTestResult.absoluteImageURL(), m_hitTestResult.textContent());
         break;
@@ -278,7 +278,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
         ASSERT(frame->editor()->selectedText().length());
         if (frame->editor()->shouldInsertText(item->title(), frame->selection()->toNormalizedRange().get(), EditorInsertActionPasted)) {
             Document* document = frame->document();
-            RefPtr<ReplaceSelectionCommand> command = ReplaceSelectionCommand::create(document, createFragmentFromMarkup(document, item->title(), ""), true, false, true);
+            RefPtr<ReplaceSelectionCommand> command = ReplaceSelectionCommand::create(document, createFragmentFromMarkup(document, item->title(), ""), ReplaceSelectionCommand::SelectReplacement | ReplaceSelectionCommand::MatchStyle | ReplaceSelectionCommand::PreventNesting);
             applyCommand(command);
             frame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
         }
@@ -647,7 +647,7 @@ void ContextMenuController::populate()
         contextMenuItemTagDownloadImageToDisk());
     ContextMenuItem CopyImageItem(ActionType, ContextMenuItemTagCopyImageToClipboard, 
         contextMenuItemTagCopyImageToClipboard());
-#if PLATFORM(QT)
+#if PLATFORM(QT) || PLATFORM(GTK)
     ContextMenuItem CopyImageUrlItem(ActionType, ContextMenuItemTagCopyImageUrlToClipboard, 
         contextMenuItemTagCopyImageUrlToClipboard());
 #endif
@@ -733,7 +733,7 @@ void ContextMenuController::populate()
             appendItem(DownloadImageItem, m_contextMenu.get());
             if (imageURL.isLocalFile() || m_hitTestResult.image())
                 appendItem(CopyImageItem, m_contextMenu.get());
-#if PLATFORM(QT)
+#if PLATFORM(QT) || PLATFORM(GTK)
             appendItem(CopyImageUrlItem, m_contextMenu.get());
 #endif
         }
@@ -780,6 +780,14 @@ void ContextMenuController::populate()
 #if ENABLE(INSPECTOR)
                 if (!(frame->page() && frame->page()->inspectorController()->hasInspectorFrontendClient())) {
 #endif
+
+                // In GTK+ unavailable items are not hidden but insensitive
+#if PLATFORM(GTK)
+                appendItem(BackItem, m_contextMenu.get());
+                appendItem(ForwardItem, m_contextMenu.get());
+                appendItem(StopItem, m_contextMenu.get());
+                appendItem(ReloadItem, m_contextMenu.get());
+#else
                 if (frame->page() && frame->page()->backForward()->canGoBackOrForward(-1))
                     appendItem(BackItem, m_contextMenu.get());
 
@@ -792,6 +800,7 @@ void ContextMenuController::populate()
                     appendItem(StopItem, m_contextMenu.get());
                 else
                     appendItem(ReloadItem, m_contextMenu.get());
+#endif
 #if ENABLE(INSPECTOR)
                 }
 #endif
@@ -1001,11 +1010,8 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
             break;
         case ContextMenuItemTagLeftToRight:
         case ContextMenuItemTagRightToLeft: {
-            ExceptionCode ec = 0;
-            RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
             String direction = item.action() == ContextMenuItemTagLeftToRight ? "ltr" : "rtl";
-            style->setProperty(CSSPropertyDirection, direction, false, ec);
-            shouldCheck = frame->editor()->selectionHasStyle(style.get()) != FalseTriState;
+            shouldCheck = frame->editor()->selectionHasStyle(CSSPropertyDirection, direction) != FalseTriState;
             shouldEnable = true;
             break;
         }
@@ -1051,10 +1057,7 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
             break;
 #endif
         case ContextMenuItemTagUnderline: {
-            ExceptionCode ec = 0;
-            RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
-            style->setProperty(CSSPropertyWebkitTextDecorationsInEffect, "underline", false, ec);
-            shouldCheck = frame->editor()->selectionHasStyle(style.get()) != FalseTriState;
+            shouldCheck = frame->editor()->selectionHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline") != FalseTriState;
             shouldEnable = frame->editor()->canEditRichly();
             break;
         }
@@ -1069,18 +1072,12 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
 #endif
             break;
         case ContextMenuItemTagItalic: {
-            ExceptionCode ec = 0;
-            RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
-            style->setProperty(CSSPropertyFontStyle, "italic", false, ec);
-            shouldCheck = frame->editor()->selectionHasStyle(style.get()) != FalseTriState;
+            shouldCheck = frame->editor()->selectionHasStyle(CSSPropertyFontStyle, "italic") != FalseTriState;
             shouldEnable = frame->editor()->canEditRichly();
             break;
         }
         case ContextMenuItemTagBold: {
-            ExceptionCode ec = 0;
-            RefPtr<CSSStyleDeclaration> style = frame->document()->createCSSStyleDeclaration();
-            style->setProperty(CSSPropertyFontWeight, "bold", false, ec);
-            shouldCheck = frame->editor()->selectionHasStyle(style.get()) != FalseTriState;
+            shouldCheck = frame->editor()->selectionHasStyle(CSSPropertyFontWeight, "bold") != FalseTriState;
             shouldEnable = frame->editor()->canEditRichly();
             break;
         }
@@ -1188,7 +1185,7 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
         case ContextMenuItemTagOpenImageInNewWindow:
         case ContextMenuItemTagDownloadImageToDisk:
         case ContextMenuItemTagCopyImageToClipboard:
-#if PLATFORM(QT)
+#if PLATFORM(QT) || PLATFORM(GTK)
         case ContextMenuItemTagCopyImageUrlToClipboard:
 #endif
             break;

@@ -31,7 +31,6 @@
 #include "JSFunction.h"
 #include "JSLock.h"
 #include "JSString.h"
-#include "PrototypeFunction.h"
 #include "SamplingTool.h"
 #include <math.h>
 #include <stdio.h>
@@ -151,19 +150,19 @@ ASSERT_CLASS_FITS_IN_CELL(GlobalObject);
 GlobalObject::GlobalObject(const Vector<UString>& arguments)
     : JSGlobalObject()
 {
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 1, Identifier(globalExec(), "debug"), functionDebug));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 1, Identifier(globalExec(), "print"), functionPrint));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 0, Identifier(globalExec(), "quit"), functionQuit));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 0, Identifier(globalExec(), "gc"), functionGC));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 1, Identifier(globalExec(), "version"), functionVersion));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 1, Identifier(globalExec(), "run"), functionRun));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 1, Identifier(globalExec(), "load"), functionLoad));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 1, Identifier(globalExec(), "checkSyntax"), functionCheckSyntax));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 0, Identifier(globalExec(), "readline"), functionReadline));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 1, Identifier(globalExec(), "debug"), functionDebug));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 1, Identifier(globalExec(), "print"), functionPrint));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 0, Identifier(globalExec(), "quit"), functionQuit));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 0, Identifier(globalExec(), "gc"), functionGC));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 1, Identifier(globalExec(), "version"), functionVersion));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 1, Identifier(globalExec(), "run"), functionRun));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 1, Identifier(globalExec(), "load"), functionLoad));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 1, Identifier(globalExec(), "checkSyntax"), functionCheckSyntax));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 0, Identifier(globalExec(), "readline"), functionReadline));
 
 #if ENABLE(SAMPLING_FLAGS)
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 1, Identifier(globalExec(), "setSamplingFlags"), functionSetSamplingFlags));
-    putDirectFunction(globalExec(), new (globalExec()) NativeFunctionWrapper(globalExec(), this, prototypeFunctionStructure(), 1, Identifier(globalExec(), "clearSamplingFlags"), functionClearSamplingFlags));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 1, Identifier(globalExec(), "setSamplingFlags"), functionSetSamplingFlags));
+    putDirectFunction(globalExec(), new (globalExec()) JSFunction(globalExec(), this, functionStructure(), 1, Identifier(globalExec(), "clearSamplingFlags"), functionClearSamplingFlags));
 #endif
 
     JSObject* array = constructEmptyArray(globalExec());
@@ -325,7 +324,15 @@ int jscmain(int argc, char** argv, JSGlobalData*);
 
 int main(int argc, char** argv)
 {
-#if defined(_DEBUG) && OS(WINDOWS)
+#if OS(WINDOWS)
+#if !OS(WINCE)
+    // Cygwin calls ::SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
+    // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
+    // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
+    ::SetErrorMode(0);
+#endif
+
+#if defined(_DEBUG)
     _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
     _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
     _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
@@ -334,7 +341,6 @@ int main(int argc, char** argv)
     _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
 #endif
 
-#if COMPILER(MSVC) && !OS(WINCE)
     timeBeginPeriod(1);
 #endif
 

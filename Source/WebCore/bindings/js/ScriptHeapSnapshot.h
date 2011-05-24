@@ -31,7 +31,6 @@
 #ifndef ScriptHeapSnapshot_h
 #define ScriptHeapSnapshot_h
 
-#include "InspectorValues.h"
 #include "PlatformString.h"
 
 namespace WebCore {
@@ -51,6 +50,7 @@ public:
     unsigned int uid() const { return 0; }
 
     void writeJSON(OutputStream*) { }
+    int exactRetainedSize(uint64_t) { return -1; }
 
 private:
     ScriptHeapSnapshot() { }

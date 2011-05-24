@@ -26,6 +26,7 @@
 #import "config.h"
 #import "WebProcess.h"
 
+#import "FullKeyboardAccessWatcher.h"
 #import "SandboxExtension.h"
 #import "WebProcessCreationParameters.h"
 #import <WebCore/MemoryCache.h>
@@ -110,6 +111,11 @@ void WebProcess::platformClearResourceCaches()
     [[NSURLCache sharedURLCache] removeAllCachedResponses];
 }
 
+bool WebProcess::fullKeyboardAccessEnabled()
+{
+    return [FullKeyboardAccessWatcher fullKeyboardAccessEnabled];
+}
+
 #if ENABLE(WEB_PROCESS_SANDBOX)
 static void appendSandboxParameterPath(Vector<const char*>& vector, const char* name, const char* path)
 {
@@ -179,7 +185,7 @@ void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters
         NSUInteger cacheMemoryCapacity = parameters.nsURLCacheMemoryCapacity;
         NSUInteger cacheDiskCapacity = parameters.nsURLCacheDiskCapacity;
 
-        NSString *nsCachePath = [[NSFileManager defaultManager] stringWithFileSystemRepresentation:parameters.nsURLCachePath.data() length:parameters.nsURLCachePath.length()];
+        NSString *nsCachePath = [[NSFileManager defaultManager] stringWithFileSystemRepresentation:parameters.nsURLCachePath.data() length:strlen(parameters.nsURLCachePath.data())];
         RetainPtr<NSURLCache> parentProcessURLCache(AdoptNS, [[NSURLCache alloc] initWithMemoryCapacity:cacheMemoryCapacity diskCapacity:cacheDiskCapacity diskPath:nsCachePath]);
         [NSURLCache setSharedURLCache:parentProcessURLCache.get()];
     }
@@ -187,7 +193,7 @@ void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters
     m_compositingRenderServerPort = parameters.acceleratedCompositingPort.port();
 }
 
-void WebProcess::platformShutdown()
+void WebProcess::platformTerminate()
 {
 }
 

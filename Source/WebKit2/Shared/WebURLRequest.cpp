@@ -10,6 +10,8 @@
 #include "config.h"
 #include "WebURLRequest.h"
 
+#include "WebContext.h"
+
 using namespace WebCore;
 
 namespace WebKit {
@@ -22,6 +24,21 @@ PassRefPtr<WebURLRequest> WebURLRequest::create(const KURL& url)
 WebURLRequest::WebURLRequest(const ResourceRequest& request)
     : m_request(request)
 {
+}
+
+double WebURLRequest::defaultTimeoutInterval()
+{
+    return ResourceRequest::defaultTimeoutInterval();
+}
+
+// FIXME: This function should really be on WebContext.
+void WebURLRequest::setDefaultTimeoutInterval(double timeoutInterval)
+{
+    ResourceRequest::setDefaultTimeoutInterval(timeoutInterval);
+
+    const Vector<WebContext*>& contexts = WebContext::allContexts();
+    for (size_t i = 0; i < contexts.size(); ++i)
+        contexts[i]->setDefaultRequestTimeoutInterval(timeoutInterval);
 }
 
 } // namespace WebKit

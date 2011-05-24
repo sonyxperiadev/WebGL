@@ -83,6 +83,7 @@ LayoutTestController::LayoutTestController(const std::string& testPathOrURL, con
     , m_handlesAuthenticationChallenges(false)
     , m_isPrinting(false)
     , m_deferMainResourceDataLoad(true)
+    , m_shouldPaintBrokenImage(true)
     , m_testPathOrURL(testPathOrURL)
     , m_expectedPixelHash(expectedPixelHash)
 {
@@ -146,14 +147,21 @@ static JSValueRef dumpConfigurationForViewportCallback(JSContextRef context, JSO
     if (argumentCount < 2)
         return JSValueMakeUndefined(context);
 
-    double availableWidth = JSValueToNumber(context, arguments[0], exception);
+
+    double deviceDPI = JSValueToNumber(context, arguments[0], exception);
     ASSERT(!*exception);
-    double availableHeight = JSValueToNumber(context, arguments[1], exception);
+    double deviceWidth = JSValueToNumber(context, arguments[1], exception);
+    ASSERT(!*exception);
+    double deviceHeight = JSValueToNumber(context, arguments[2], exception);
+    ASSERT(!*exception);
+    double availableWidth = JSValueToNumber(context, arguments[3], exception);
+    ASSERT(!*exception);
+    double availableHeight = JSValueToNumber(context, arguments[4], exception);
     ASSERT(!*exception);
 
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
-    controller->dumpConfigurationForViewport(static_cast<int>(availableWidth), static_cast<int>(availableHeight));
-   
+    controller->dumpConfigurationForViewport(static_cast<int>(deviceDPI), static_cast<int>(deviceWidth), static_cast<int>(deviceHeight), static_cast<int>(availableWidth), static_cast<int>(availableHeight));
+
     return JSValueMakeUndefined(context);
 }
 
@@ -1424,6 +1432,21 @@ static JSValueRef setUserStyleSheetLocationCallback(JSContextRef context, JSObje
     return JSValueMakeUndefined(context);
 }
 
+static JSValueRef setValueForUserCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    // Has mac implementation
+    if (argumentCount != 2)
+        return JSValueMakeUndefined(context);
+
+    JSRetainPtr<JSStringRef> value(Adopt, JSValueToStringCopy(context, arguments[1], exception));
+    ASSERT(!*exception);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setValueForUser(context, arguments[0], value.get());
+
+    return JSValueMakeUndefined(context);
+}
+
 static JSValueRef setViewModeMediaFeatureCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     // Has mac implementation
@@ -1780,6 +1803,18 @@ static JSValueRef addUserStyleSheetCallback(JSContextRef context, JSObjectRef, J
     return JSValueMakeUndefined(context);
 }
 
+static JSValueRef setShouldPaintBrokenImageCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    // Has Mac implementation
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setShouldPaintBrokenImage(JSValueToBoolean(context, arguments[0]));
+
+    return JSValueMakeUndefined(context);
+}
+
 static JSValueRef apiTestNewWindowDataLoadBaseURLCallback(JSContextRef context, JSObjectRef, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     if (argumentCount != 2)
@@ -1924,6 +1959,20 @@ static bool setGlobalFlagCallback(JSContextRef context, JSObjectRef thisObject, 
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     controller->setGlobalFlag(JSValueToBoolean(context, value));
     return true;
+}
+
+static JSValueRef setMinimumTimerIntervalCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+
+    double minimum = JSValueToNumber(context, arguments[0], exception);
+    ASSERT(!*exception);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setMinimumTimerInterval(minimum);
+
+    return JSValueMakeUndefined(context);
 }
 
 static void layoutTestControllerObjectFinalize(JSObjectRef object)
@@ -2073,6 +2122,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "setIconDatabaseEnabled", setIconDatabaseEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setJavaScriptProfilingEnabled", setJavaScriptProfilingEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setMainFrameIsFirstResponder", setMainFrameIsFirstResponderCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "setMinimumTimerInterval", setMinimumTimerIntervalCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setMockDeviceOrientation", setMockDeviceOrientationCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setMockGeolocationError", setMockGeolocationErrorCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setMockGeolocationPosition", setMockGeolocationPositionCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -2094,6 +2144,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "setUseDashboardCompatibilityMode", setUseDashboardCompatibilityModeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setUserStyleSheetEnabled", setUserStyleSheetEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setUserStyleSheetLocation", setUserStyleSheetLocationCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "setValueForUser", setValueForUserCallback, kJSPropertyAttributeDontDelete },
         { "setViewModeMediaFeature", setViewModeMediaFeatureCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setWebViewEditable", setWebViewEditableCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setWillSendRequestClearHeader", setWillSendRequestClearHeaderCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -2112,6 +2163,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "addOriginAccessWhitelistEntry", addOriginAccessWhitelistEntryCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setScrollbarPolicy", setScrollbarPolicyCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "authenticateSession", authenticateSessionCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "setShouldPaintBrokenImage", setShouldPaintBrokenImageCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { 0, 0, 0 }
     };
 
@@ -2199,6 +2251,11 @@ void LayoutTestController::addURLToRedirect(std::string origin, std::string dest
 const std::string& LayoutTestController::redirectionDestinationForURL(std::string origin)
 {
     return m_URLsToRedirect[origin];
+}
+
+void LayoutTestController::setShouldPaintBrokenImage(bool shouldPaintBrokenImage)
+{
+    m_shouldPaintBrokenImage = shouldPaintBrokenImage;
 }
 
 const unsigned LayoutTestController::maxViewWidth = 800;

@@ -37,6 +37,7 @@ create a final report.
 
 from __future__ import with_statement
 
+import copy
 import errno
 import logging
 import math
@@ -45,17 +46,17 @@ import random
 import sys
 import time
 
-from result_summary import ResultSummary
-from test_input import TestInput
-
-import dump_render_tree_thread
-import json_layout_results_generator
-import message_broker
-import printing
-import test_expectations
-import test_failures
-import test_results
-import test_results_uploader
+from webkitpy.layout_tests.layout_package import dump_render_tree_thread
+from webkitpy.layout_tests.layout_package import json_layout_results_generator
+from webkitpy.layout_tests.layout_package import json_results_generator
+from webkitpy.layout_tests.layout_package import message_broker
+from webkitpy.layout_tests.layout_package import printing
+from webkitpy.layout_tests.layout_package import test_expectations
+from webkitpy.layout_tests.layout_package import test_failures
+from webkitpy.layout_tests.layout_package import test_results
+from webkitpy.layout_tests.layout_package import test_results_uploader
+from webkitpy.layout_tests.layout_package.result_summary import ResultSummary
+from webkitpy.layout_tests.layout_package.test_input import TestInput
 
 from webkitpy.thirdparty import simplejson
 from webkitpy.tool import grammar
@@ -68,8 +69,7 @@ BUILDER_BASE_URL = "http://build.chromium.org/buildbot/layout_test_results/"
 TestExpectationsFile = test_expectations.TestExpectationsFile
 
 
-def summarize_unexpected_results(port_obj, expectations, result_summary,
-                                 retry_summary):
+def summarize_results(port_obj, expectations, result_summary, retry_summary, test_timings, only_unexpected):
     """Summarize any unexpected results as a dict.
 
     FIXME: split this data structure into a separate class?
@@ -79,6 +79,8 @@ def summarize_unexpected_results(port_obj, expectations, result_summary,
         expectations: test_expectations.TestExpectations object
         result_summary: summary object from initial test runs
         retry_summary: summary object from final test run of retried tests
+        test_timings: a list of TestResult objects which contain test runtimes in seconds
+        only_unexpected: whether to return a summary only for the unexpected results
     Returns:
         A dictionary containing a summary of the unexpected results from the
         run, with the following fields:
@@ -88,10 +90,12 @@ def summarize_unexpected_results(port_obj, expectations, result_summary,
         'num_regressions': # of non-flaky failures
         'num_flaky': # of flaky failures
         'num_passes': # of unexpected passes
-        'tests': a dict of tests -> {'expected': '...', 'actual': '...'}
+        'tests': a dict of tests -> {'expected': '...', 'actual': '...', 'time_ms': ...}
     """
     results = {}
     results['version'] = 1
+
+    test_timings_map = dict((test_result.filename, test_result.test_run_time) for test_result in test_timings)
 
     tbe = result_summary.tests_by_expectation
     tbt = result_summary.tests_by_timeline
@@ -104,31 +108,36 @@ def summarize_unexpected_results(port_obj, expectations, result_summary,
     num_flaky = 0
     num_regressions = 0
     keywords = {}
-    for k, v in TestExpectationsFile.EXPECTATIONS.iteritems():
-        keywords[v] = k.upper()
+    for expecation_string, expectation_enum in TestExpectationsFile.EXPECTATIONS.iteritems():
+        keywords[expectation_enum] = expecation_string.upper()
+
+    for modifier_string, modifier_enum in TestExpectationsFile.MODIFIERS.iteritems():
+        keywords[modifier_enum] = modifier_string.upper()
 
     tests = {}
-    for filename, result in result_summary.unexpected_results.iteritems():
+    original_results = result_summary.unexpected_results if only_unexpected else result_summary.results
+
+    for filename, result in original_results.iteritems():
         # Note that if a test crashed in the original run, we ignore
         # whether or not it crashed when we retried it (if we retried it),
         # and always consider the result not flaky.
         test = port_obj.relative_test_filename(filename)
         expected = expectations.get_expectations_string(filename)
-        actual = [keywords[result]]
+        result_type = result.type
+        actual = [keywords[result_type]]
 
-        if result == test_expectations.PASS:
+        if result_type == test_expectations.PASS:
             num_passes += 1
-        elif result == test_expectations.CRASH:
+        elif result_type == test_expectations.CRASH:
             num_regressions += 1
-        else:
+        elif filename in result_summary.unexpected_results:
             if filename not in retry_summary.unexpected_results:
-                actual.extend(expectations.get_expectations_string(
-                    filename).split(" "))
+                actual.extend(expectations.get_expectations_string(filename).split(" "))
                 num_flaky += 1
             else:
-                retry_result = retry_summary.unexpected_results[filename]
-                if result != retry_result:
-                    actual.append(keywords[retry_result])
+                retry_result_type = retry_summary.unexpected_results[filename].type
+                if result_type != retry_result_type:
+                    actual.append(keywords[retry_result_type])
                     num_flaky += 1
                 else:
                     num_regressions += 1
@@ -136,6 +145,10 @@ def summarize_unexpected_results(port_obj, expectations, result_summary,
         tests[test] = {}
         tests[test]['expected'] = expected
         tests[test]['actual'] = " ".join(actual)
+
+        if filename in test_timings_map:
+            time_seconds = test_timings_map[filename]
+            tests[test]['time_ms'] = int(1000 * time_seconds)
 
     results['tests'] = tests
     results['num_passes'] = num_passes
@@ -149,6 +162,9 @@ class TestRunInterruptedException(Exception):
     """Raised when a test run should be stopped immediately."""
     def __init__(self, reason):
         self.reason = reason
+
+    def __reduce__(self):
+        return self.__class__, (self.reason,)
 
 
 class TestRunner:
@@ -683,17 +699,19 @@ class TestRunner:
                                              result_summary.expected,
                                              result_summary.unexpected)
 
-        unexpected_results = summarize_unexpected_results(self._port,
-            self._expectations, result_summary, retry_summary)
+        unexpected_results = summarize_results(self._port,
+            self._expectations, result_summary, retry_summary, individual_test_timings, only_unexpected=True)
         self._printer.print_unexpected_results(unexpected_results)
 
         # FIXME: remove record_results. It's just used for testing. There's no need
         # for it to be a commandline argument.
         if (self._options.record_results and not self._options.dry_run and
-            not interrupted):
+            not keyboard_interrupted):
             # Write the same data to log files and upload generated JSON files
             # to appengine server.
-            self._upload_json_files(unexpected_results, result_summary,
+            summarized_results = summarize_results(self._port,
+                self._expectations, result_summary, retry_summary, individual_test_timings, only_unexpected=False)
+            self._upload_json_files(unexpected_results, summarized_results, result_summary,
                                     individual_test_timings)
 
         # Write the summary to disk (results.html) and display it if requested.
@@ -782,14 +800,22 @@ class TestRunner:
         """
         failed_results = {}
         for test, result in result_summary.unexpected_results.iteritems():
-            if (result == test_expectations.PASS or
-                result == test_expectations.CRASH and not include_crashes):
+            if (result.type == test_expectations.PASS or
+                result.type == test_expectations.CRASH and not include_crashes):
                 continue
-            failed_results[test] = result
+            failed_results[test] = result.type
 
         return failed_results
 
-    def _upload_json_files(self, unexpected_results, result_summary,
+    def _char_for_result(self, result):
+        result = result.lower()
+        if result in TestExpectationsFile.EXPECTATIONS:
+            result_enum_value = TestExpectationsFile.EXPECTATIONS[result]
+        else:
+            result_enum_value = TestExpectationsFile.MODIFIERS[result]
+        return json_layout_results_generator.JSONLayoutResultsGenerator.FAILURE_TO_CHAR[result_enum_value]
+
+    def _upload_json_files(self, unexpected_results, summarized_results, result_summary,
                            individual_test_timings):
         """Writes the results of the test run as JSON files into the results
         dir and upload the files to the appengine server.
@@ -803,19 +829,22 @@ class TestRunner:
 
         Args:
           unexpected_results: dict of unexpected results
+          summarized_results: dict of results
           result_summary: full summary object
           individual_test_timings: list of test times (used by the flakiness
             dashboard).
         """
-        results_directory = self._options.results_directory
-        _log.debug("Writing JSON files in %s." % results_directory)
-        unexpected_json_path = self._fs.join(results_directory, "unexpected_results.json")
-        with self._fs.open_text_file_for_writing(unexpected_json_path) as file:
-            simplejson.dump(unexpected_results, file, sort_keys=True, indent=2)
+        _log.debug("Writing JSON files in %s." % self._options.results_directory)
+
+        unexpected_json_path = self._fs.join(self._options.results_directory, "unexpected_results.json")
+        json_results_generator.write_json(self._fs, unexpected_results, unexpected_json_path)
+
+        full_results_path = self._fs.join(self._options.results_directory, "full_results.json")
+        json_results_generator.write_json(self._fs, summarized_results, full_results_path)
 
         # Write a json file of the test_expectations.txt file for the layout
         # tests dashboard.
-        expectations_path = self._fs.join(results_directory, "expectations.json")
+        expectations_path = self._fs.join(self._options.results_directory, "expectations.json")
         expectations_json = \
             self._expectations.get_expectations_json_for_all_platforms()
         self._fs.write_text_file(expectations_path,
@@ -832,7 +861,7 @@ class TestRunner:
 
         _log.debug("Finished writing JSON files.")
 
-        json_files = ["expectations.json", "incremental_results.json"]
+        json_files = ["expectations.json", "incremental_results.json", "full_results.json"]
 
         generator.upload_json_files(json_files)
 
@@ -930,34 +959,9 @@ class TestRunner:
         Args:
           individual_test_timings: List of TestResults for all tests.
         """
-        test_types = []  # Unit tests don't actually produce any timings.
-        if individual_test_timings:
-            test_types = individual_test_timings[0].time_for_diffs.keys()
-        times_for_dump_render_tree = []
-        times_for_diff_processing = []
-        times_per_test_type = {}
-        for test_type in test_types:
-            times_per_test_type[test_type] = []
-
-        for test_stats in individual_test_timings:
-            times_for_dump_render_tree.append(test_stats.test_run_time)
-            times_for_diff_processing.append(
-                test_stats.total_time_for_all_diffs)
-            time_for_diffs = test_stats.time_for_diffs
-            for test_type in test_types:
-                times_per_test_type[test_type].append(
-                    time_for_diffs[test_type])
-
-        self._print_statistics_for_test_timings(
-            "PER TEST TIME IN TESTSHELL (seconds):",
-            times_for_dump_render_tree)
-        self._print_statistics_for_test_timings(
-            "PER TEST DIFF PROCESSING TIMES (seconds):",
-            times_for_diff_processing)
-        for test_type in test_types:
-            self._print_statistics_for_test_timings(
-                "PER TEST TIMES BY TEST TYPE: %s" % test_type,
-                times_per_test_type[test_type])
+        times_for_dump_render_tree = [test_stats.test_run_time for test_stats in individual_test_timings]
+        self._print_statistics_for_test_timings("PER TEST TIME IN TESTSHELL (seconds):",
+                                                times_for_dump_render_tree)
 
     def _print_individual_test_times(self, individual_test_timings,
                                   result_summary):

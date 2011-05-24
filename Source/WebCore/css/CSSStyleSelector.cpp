@@ -6,6 +6,7 @@
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -70,6 +71,7 @@
 #include "PageGroup.h"
 #include "Pair.h"
 #include "PerspectiveTransformOperation.h"
+#include "QuotesData.h"
 #include "Rect.h"
 #include "RenderScrollbar.h"
 #include "RenderScrollbarTheme.h"
@@ -363,6 +365,7 @@ public:
     bool hasFastCheckableSelector() const { return m_hasFastCheckableSelector; }
     bool hasMultipartSelector() const { return m_hasMultipartSelector; }
     bool hasTopSelectorMatchingHTMLBasedOnRuleHash() const { return m_hasTopSelectorMatchingHTMLBasedOnRuleHash; }
+    unsigned specificity() const { return m_specificity; }
     
     // Try to balance between memory usage (there can be lots of RuleData objects) and good filtering performance.
     static const unsigned maximumIdentifierCount = 4;
@@ -374,6 +377,7 @@ private:
     
     CSSStyleRule* m_rule;
     CSSSelector* m_selector;
+    unsigned m_specificity;
     unsigned m_position : 29;
     bool m_hasFastCheckableSelector : 1;
     bool m_hasMultipartSelector : 1;
@@ -399,8 +403,8 @@ public:
                       CSSStyleRule* rule, CSSSelector* sel);
     void shrinkToFit();
     void disableAutoShrinkToFit() { m_autoShrinkToFitEnabled = false; }
-    
-    void collectIdsAndSiblingRules(HashSet<AtomicStringImpl*>& ids, OwnPtr<RuleSet>& siblingRules) const;
+
+    void collectFeatures(CSSStyleSelector::Features&) const;
     
     const Vector<RuleData>* getIDRules(AtomicStringImpl* key) const { return m_idRules.get(key); }
     const Vector<RuleData>* getClassRules(AtomicStringImpl* key) const { return m_classRules.get(key); }
@@ -445,12 +449,11 @@ static inline bool elementCanUseSimpleDefaultStyle(Element* e)
 
 static inline void collectSiblingRulesInDefaultStyle()
 {
-    OwnPtr<RuleSet> siblingRules;
-    HashSet<AtomicStringImpl*> ids;
-    defaultStyle->collectIdsAndSiblingRules(ids, siblingRules);
-    ASSERT(ids.isEmpty());
+    CSSStyleSelector::Features features;
+    defaultStyle->collectFeatures(features);
+    ASSERT(features.idsInRules.isEmpty());
     delete siblingRulesInDefaultStyle;
-    siblingRulesInDefaultStyle = siblingRules.leakPtr();
+    siblingRulesInDefaultStyle = features.siblingRules.leakPtr();
 }
 
 static inline void assertNoSiblingRulesInDefaultStyle()
@@ -473,6 +476,26 @@ static const MediaQueryEvaluator& printEval()
 {
     DEFINE_STATIC_LOCAL(const MediaQueryEvaluator, staticPrintEval, ("print"));
     return staticPrintEval;
+}
+
+static CSSMutableStyleDeclaration* leftToRightDeclaration()
+{
+    DEFINE_STATIC_LOCAL(RefPtr<CSSMutableStyleDeclaration>, leftToRightDecl, (CSSMutableStyleDeclaration::create()));
+    if (!leftToRightDecl->length()) {
+        leftToRightDecl->setProperty(CSSPropertyDirection, "ltr", false, false);
+        leftToRightDecl->setStrictParsing(false);
+    }
+    return leftToRightDecl.get();
+}
+
+static CSSMutableStyleDeclaration* rightToLeftDeclaration()
+{
+    DEFINE_STATIC_LOCAL(RefPtr<CSSMutableStyleDeclaration>, rightToLeftDecl, (CSSMutableStyleDeclaration::create()));
+    if (!rightToLeftDecl->length()) {
+        rightToLeftDecl->setProperty(CSSPropertyDirection, "rtl", false, false);
+        rightToLeftDecl->setStrictParsing(false);
+    }
+    return rightToLeftDecl.get();
 }
 
 CSSStyleSelector::CSSStyleSelector(Document* document, StyleSheetList* styleSheets, CSSStyleSheet* mappedElementSheet,
@@ -555,14 +578,14 @@ CSSStyleSelector::CSSStyleSelector(Document* document, StyleSheetList* styleShee
     // sharing candidates.
     // Usually there are no sibling rules in the default style but the MathML sheet has some.
     if (siblingRulesInDefaultStyle)
-        siblingRulesInDefaultStyle->collectIdsAndSiblingRules(m_idsInRules, m_siblingRules);
-    m_authorStyle->collectIdsAndSiblingRules(m_idsInRules, m_siblingRules);
+        siblingRulesInDefaultStyle->collectFeatures(m_features);
+    m_authorStyle->collectFeatures(m_features);
     if (m_userStyle)
-        m_userStyle->collectIdsAndSiblingRules(m_idsInRules, m_siblingRules);
+        m_userStyle->collectFeatures(m_features);
 
     m_authorStyle->shrinkToFit();
-    if (m_siblingRules)
-        m_siblingRules->shrinkToFit();
+    if (m_features.siblingRules)
+        m_features.siblingRules->shrinkToFit();
 
     if (document->renderer() && document->renderer()->style())
         document->renderer()->style()->font().update(fontSelector());
@@ -579,6 +602,17 @@ CSSStyleSelector::~CSSStyleSelector()
 {
     m_fontSelector->clearDocument();
     deleteAllValues(m_viewportDependentMediaQueryResults);
+}
+    
+CSSStyleSelector::Features::Features() 
+    : usesFirstLineRules(false)
+    , usesBeforeAfterRules(false)
+    , usesLinkRules(false)
+{
+}
+
+CSSStyleSelector::Features::~Features()
+{
 }
 
 static CSSStyleSheet* parseUASheet(const String& str)
@@ -772,7 +806,7 @@ void CSSStyleSelector::matchRules(RuleSet* rules, int& firstRuleIndex, int& last
         return;
     
     // Sort the set of matched rules.
-    sortMatchedRules(0, m_matchedRules.size());
+    sortMatchedRules();
     
     // Now transfer the set of matched rules over to our list of decls.
     if (!m_checker.m_collectRulesOnly) {
@@ -839,80 +873,16 @@ void CSSStyleSelector::matchRulesForList(const Vector<RuleData>* rules, int& fir
     }
 }
 
-static bool operator >(const RuleData& r1, const RuleData& r2)
+static inline bool compareRules(const RuleData* r1, const RuleData* r2)
 {
-    int spec1 = r1.selector()->specificity();
-    int spec2 = r2.selector()->specificity();
-    return (spec1 == spec2) ? r1.position() > r2.position() : spec1 > spec2; 
-}
-    
-static bool operator <=(const RuleData& r1, const RuleData& r2)
-{
-    return !(r1 > r2);
+    unsigned specificity1 = r1->specificity();
+    unsigned specificity2 = r2->specificity();
+    return (specificity1 == specificity2) ? r1->position() < r2->position() : specificity1 < specificity2; 
 }
 
-void CSSStyleSelector::sortMatchedRules(unsigned start, unsigned end)
+void CSSStyleSelector::sortMatchedRules()
 {
-    if (start >= end || (end - start == 1))
-        return; // Sanity check.
-
-    if (end - start <= 6) {
-        // Apply a bubble sort for smaller lists.
-        for (unsigned i = end - 1; i > start; i--) {
-            bool sorted = true;
-            for (unsigned j = start; j < i; j++) {
-                const RuleData* elt = m_matchedRules[j];
-                const RuleData* elt2 = m_matchedRules[j + 1];
-                if (*elt > *elt2) {
-                    sorted = false;
-                    m_matchedRules[j] = elt2;
-                    m_matchedRules[j + 1] = elt;
-                }
-            }
-            if (sorted)
-                return;
-        }
-        return;
-    }
-
-    // Perform a merge sort for larger lists.
-    unsigned mid = (start + end) / 2;
-    sortMatchedRules(start, mid);
-    sortMatchedRules(mid, end);
-    
-    const RuleData* elt = m_matchedRules[mid - 1];
-    const RuleData* elt2 = m_matchedRules[mid];
-    
-    // Handle the fast common case (of equal specificity).  The list may already
-    // be completely sorted.
-    if (*elt <= *elt2)
-        return;
-    
-    // We have to merge sort.  Ensure our merge buffer is big enough to hold
-    // all the items.
-    Vector<const RuleData*> rulesMergeBuffer;
-    rulesMergeBuffer.reserveInitialCapacity(end - start); 
-
-    unsigned i1 = start;
-    unsigned i2 = mid;
-    
-    elt = m_matchedRules[i1];
-    elt2 = m_matchedRules[i2];
-    
-    while (i1 < mid || i2 < end) {
-        if (i1 < mid && (i2 == end || *elt <= *elt2)) {
-            rulesMergeBuffer.append(elt);
-            if (++i1 < mid)
-                elt = m_matchedRules[i1];
-        } else {
-            rulesMergeBuffer.append(elt2);
-            if (++i2 < end)
-                elt2 = m_matchedRules[i2];
-        }
-    }
-    
-    for (unsigned i = start; i < end; i++)
-        m_matchedRules[i] = rulesMergeBuffer[i - start];
+    std::sort(m_matchedRules.begin(), m_matchedRules.end(), compareRules);
 }
 
 inline EInsideLink CSSStyleSelector::SelectorChecker::determineLinkState(Element* element) const
@@ -1054,142 +1024,173 @@ bool CSSStyleSelector::SelectorChecker::checkSelector(CSSSelector* sel, Element*
 }
 
 static const unsigned cStyleSearchThreshold = 10;
+static const unsigned cStyleSearchLevelThreshold = 10;
 
-Node* CSSStyleSelector::locateCousinList(Element* parent, unsigned depth) const
+Node* CSSStyleSelector::locateCousinList(Element* parent, unsigned& visitedNodeCount) const
 {
+    if (visitedNodeCount >= cStyleSearchThreshold * cStyleSearchLevelThreshold)
+        return 0;
     if (!parent || !parent->isStyledElement())
         return 0;
     StyledElement* p = static_cast<StyledElement*>(parent);
     if (p->inlineStyleDecl())
         return 0;
-    if (p->hasID() && m_idsInRules.contains(p->idForStyleResolution().impl()))
+    if (p->hasID() && m_features.idsInRules.contains(p->idForStyleResolution().impl()))
         return 0;
-    Node* r = p->previousSibling();
+
+    RenderStyle* parentStyle = p->renderStyle();
     unsigned subcount = 0;
-    RenderStyle* st = p->renderStyle();
-    while (r) {
-        if (r->renderStyle() == st)
-            return r->lastChild();
-        if (subcount++ == cStyleSearchThreshold)
-            return 0;
-        r = r->previousSibling();
+    Node* thisCousin = p;
+    Node* currentNode = p->previousSibling();
+
+    // Reserve the tries for this level. This effectively makes sure that the algorithm
+    // will never go deeper than cStyleSearchLevelThreshold levels into recursion.
+    visitedNodeCount += cStyleSearchThreshold;
+    while (thisCousin) {
+        while (currentNode) {
+            ++subcount;
+            if (currentNode->renderStyle() == parentStyle && currentNode->lastChild()) {
+                // Adjust for unused reserved tries.
+                visitedNodeCount -= cStyleSearchThreshold - subcount;
+                return currentNode->lastChild();
+            }
+            if (subcount >= cStyleSearchThreshold)
+                return 0;
+            currentNode = currentNode->previousSibling();
+        }
+        currentNode = locateCousinList(thisCousin->parentElement(), visitedNodeCount);
+        thisCousin = currentNode;
     }
-    if (!r && depth < cStyleSearchThreshold)
-        r = locateCousinList(parent->parentElement(), depth + 1);
-    while (r) {
-        if (r->renderStyle() == st)
-            return r->lastChild();
-        if (subcount++ == cStyleSearchThreshold)
-            return 0;
-        r = r->previousSibling();
-    }
+
     return 0;
 }
 
 bool CSSStyleSelector::matchesSiblingRules()
 {
     int firstSiblingRule = -1, lastSiblingRule = -1;
-    matchRules(m_siblingRules.get(), firstSiblingRule, lastSiblingRule, false);
+    matchRules(m_features.siblingRules.get(), firstSiblingRule, lastSiblingRule, false);
     if (m_matchedDecls.isEmpty())
         return false;
     m_matchedDecls.clear();
     return true;
 }
 
-bool CSSStyleSelector::canShareStyleWithElement(Node* n) const
+bool CSSStyleSelector::canShareStyleWithElement(Node* node) const
 {
-    if (n->isStyledElement()) {
-        StyledElement* s = static_cast<StyledElement*>(n);
-        RenderStyle* style = s->renderStyle();
-        if (style && !style->unique() &&
-            (s->tagQName() == m_element->tagQName()) &&
-            (s->hasClass() == m_element->hasClass()) && !s->inlineStyleDecl() &&
-            (s->hasMappedAttributes() == m_styledElement->hasMappedAttributes()) &&
-            (s->isLink() == m_element->isLink()) && 
-            !style->affectedByAttributeSelectors() &&
-            (s->hovered() == m_element->hovered()) &&
-            (s->active() == m_element->active()) &&
-            (s->focused() == m_element->focused()) &&
-            (s->shadowPseudoId() == m_element->shadowPseudoId()) &&
-            (s != s->document()->cssTarget() && m_element != m_element->document()->cssTarget()) &&
-            (s->fastGetAttribute(typeAttr) == m_element->fastGetAttribute(typeAttr)) &&
-            (s->fastGetAttribute(XMLNames::langAttr) == m_element->fastGetAttribute(XMLNames::langAttr)) &&
-            (s->fastGetAttribute(langAttr) == m_element->fastGetAttribute(langAttr)) &&
-            (s->fastGetAttribute(readonlyAttr) == m_element->fastGetAttribute(readonlyAttr)) &&
-            (s->fastGetAttribute(cellpaddingAttr) == m_element->fastGetAttribute(cellpaddingAttr))) {
-            
-            if (s->hasID() && m_idsInRules.contains(s->idForStyleResolution().impl()))
-                return 0;
-            
-            bool isControl = s->isFormControlElement();
-            if (isControl != m_element->isFormControlElement())
-                return false;
-            if (isControl) {
-                InputElement* thisInputElement = toInputElement(s);
-                InputElement* otherInputElement = toInputElement(m_element);
-                if (thisInputElement && otherInputElement) {
-                    if ((thisInputElement->isAutofilled() != otherInputElement->isAutofilled()) ||
-                        (thisInputElement->isChecked() != otherInputElement->isChecked()) ||
-                        (thisInputElement->isIndeterminate() != otherInputElement->isIndeterminate()))
-                    return false;
-                } else
-                    return false;
+    if (!node->isStyledElement())
+        return false;
 
-                if (s->isEnabledFormControl() != m_element->isEnabledFormControl())
-                    return false;
+    StyledElement* element = static_cast<StyledElement*>(node);
+    RenderStyle* style = element->renderStyle();
 
-                if (s->isDefaultButtonForForm() != m_element->isDefaultButtonForForm())
-                    return false;
-                
-                if (!m_element->document()->containsValidityStyleRules())
-                    return false;
-                
-                bool willValidate = s->willValidate();
-                if (willValidate != m_element->willValidate())
-                    return false;
-                
-                if (willValidate && (s->isValidFormControlElement() != m_element->isValidFormControlElement()))
-                    return false;
+    if (!style)
+        return false;
+    if (style->unique())
+        return false;
+    if (element->tagQName() != m_element->tagQName())
+        return false;
+    if (element->hasClass() != m_element->hasClass())
+        return false;
+    if (element->inlineStyleDecl())
+        return false;
+    if (element->hasMappedAttributes() != m_styledElement->hasMappedAttributes())
+        return false;
+    if (element->isLink() != m_element->isLink())
+        return false;
+    if (style->affectedByAttributeSelectors())
+        return false;
+    if (element->hovered() != m_element->hovered())
+        return false;
+    if (element->active() != m_element->active())
+        return false;
+    if (element->focused() != m_element->focused())
+        return false;
+    if (element->shadowPseudoId() != m_element->shadowPseudoId())
+        return false;
+    if (element == element->document()->cssTarget())
+        return false;
+    if (m_element == m_element->document()->cssTarget())
+        return false;
+    if (element->fastGetAttribute(typeAttr) != m_element->fastGetAttribute(typeAttr))
+        return false;
+    if (element->fastGetAttribute(XMLNames::langAttr) != m_element->fastGetAttribute(XMLNames::langAttr))
+        return false;
+    if (element->fastGetAttribute(langAttr) != m_element->fastGetAttribute(langAttr))
+        return false;
+    if (element->fastGetAttribute(readonlyAttr) != m_element->fastGetAttribute(readonlyAttr))
+        return false;
+    if (element->fastGetAttribute(cellpaddingAttr) != m_element->fastGetAttribute(cellpaddingAttr))
+        return false;
 
-                if (s->isInRange() != m_element->isInRange())
-                    return false;
+    if (element->hasID() && m_features.idsInRules.contains(element->idForStyleResolution().impl()))
+        return false;
 
-                if (s->isOutOfRange() != m_element->isOutOfRange())
-                    return false;
-            }
+    bool isControl = element->isFormControlElement();
 
-            if (style->transitions() || style->animations())
-                return false;
+    if (isControl != m_element->isFormControlElement())
+        return false;
+
+    if (isControl) {
+        InputElement* thisInputElement = toInputElement(element);
+        InputElement* otherInputElement = toInputElement(m_element);
+
+        if (!thisInputElement || !otherInputElement)
+            return false;
+
+        if (thisInputElement->isAutofilled() != otherInputElement->isAutofilled())
+            return false;
+        if (thisInputElement->isChecked() != otherInputElement->isChecked())
+            return false;
+        if (thisInputElement->isIndeterminate() != otherInputElement->isIndeterminate())
+            return false;
+
+        if (element->isEnabledFormControl() != m_element->isEnabledFormControl())
+            return false;
+
+        if (element->isDefaultButtonForForm() != m_element->isDefaultButtonForForm())
+            return false;
+
+        if (!m_element->document()->containsValidityStyleRules())
+            return false;
+
+        bool willValidate = element->willValidate();
+
+        if (willValidate != m_element->willValidate())
+            return false;
+
+        if (willValidate && (element->isValidFormControlElement() != m_element->isValidFormControlElement()))
+            return false;
+
+        if (element->isInRange() != m_element->isInRange())
+            return false;
+
+        if (element->isOutOfRange() != m_element->isOutOfRange())
+            return false;
+    }
+
+    if (style->transitions() || style->animations())
+        return false;
 
 #if USE(ACCELERATED_COMPOSITING)
-            // Turn off style sharing for elements that can gain layers for reasons outside of the style system.
-            // See comments in RenderObject::setStyle().
-            if (s->hasTagName(iframeTag) || s->hasTagName(embedTag) || s->hasTagName(objectTag) || s->hasTagName(appletTag))
-                return false;
+    // Turn off style sharing for elements that can gain layers for reasons outside of the style system.
+    // See comments in RenderObject::setStyle().
+    if (element->hasTagName(iframeTag) || element->hasTagName(embedTag) || element->hasTagName(objectTag) || element->hasTagName(appletTag))
+        return false;
 #endif
 
-            bool classesMatch = true;
-            if (s->hasClass()) {
-                const AtomicString& class1 = m_element->fastGetAttribute(classAttr);
-                const AtomicString& class2 = s->fastGetAttribute(classAttr);
-                classesMatch = (class1 == class2);
-            }
-            
-            if (classesMatch) {
-                bool mappedAttrsMatch = true;
-                if (s->hasMappedAttributes())
-                    mappedAttrsMatch = s->attributeMap()->mappedMapsEquivalent(m_styledElement->attributeMap());
-                if (mappedAttrsMatch) {
-                    if (s->isLink()) {
-                        if (m_elementLinkState != style->insideLink())
-                            return false;
-                    }
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
+    if (equalIgnoringCase(element->fastGetAttribute(dirAttr), "auto") || equalIgnoringCase(m_element->fastGetAttribute(dirAttr), "auto"))
+        return false;
+
+    if (element->hasClass() && m_element->fastGetAttribute(classAttr) != element->fastGetAttribute(classAttr))
+        return false;
+
+    if (element->hasMappedAttributes() && !element->attributeMap()->mappedMapsEquivalent(m_styledElement->attributeMap()))
+        return false;
+
+    if (element->isLink() && m_elementLinkState != style->insideLink())
+        return false;
+
+    return true;
 }
     
 inline Node* CSSStyleSelector::findSiblingForStyleSharing(Node* node, unsigned& count) const
@@ -1221,19 +1222,27 @@ ALWAYS_INLINE RenderStyle* CSSStyleSelector::locateSharedStyle()
     if (m_styledElement->inlineStyleDecl())
         return 0;
     // Ids stop style sharing if they show up in the stylesheets.
-    if (m_styledElement->hasID() && m_idsInRules.contains(m_styledElement->idForStyleResolution().impl()))
+    if (m_styledElement->hasID() && m_features.idsInRules.contains(m_styledElement->idForStyleResolution().impl()))
         return 0;
     if (parentStylePreventsSharing(m_parentStyle))
         return 0;
-    // Check previous siblings.
+
+    // Check previous siblings and their cousins.
     unsigned count = 0;
-    Node* shareNode = findSiblingForStyleSharing(m_styledElement->previousSibling(), count);
-    if (!shareNode) {
-        Node* cousinList = locateCousinList(m_styledElement->parentElement());
-        shareNode = findSiblingForStyleSharing(cousinList, count); 
-        if (!shareNode)
-            return 0;
+    unsigned visitedNodeCount = 0;
+    Node* shareNode = 0;
+    Node* cousinList = m_styledElement->previousSibling();
+    while (cousinList) {
+        shareNode = findSiblingForStyleSharing(cousinList, count);
+        if (shareNode)
+            break;
+        cousinList = locateCousinList(cousinList->parentElement(), visitedNodeCount);
     }
+
+    // If we have exhausted all our budget or our cousins.
+    if (!shareNode)
+        return 0;
+
     // Can't share if sibling rules apply. This is checked at the end as it should rarely fail.
     if (matchesSiblingRules())
         return 0;
@@ -1254,8 +1263,8 @@ void CSSStyleSelector::matchUARules(int& firstUARule, int& lastUARule)
     if (!m_checker.m_strictParsing)
         matchRules(defaultQuirksStyle, firstUARule, lastUARule, false);
         
-    // If we're in view source mode, then we match rules from the view source style sheet.
-    if (m_checker.m_document->frame() && m_checker.m_document->frame()->inViewSourceMode()) {
+    // If document uses view source styles (in view source mode or in xml viewer mode), then we match rules from the view source style sheet.
+    if (m_checker.m_document->usesViewSourceStyles()) {
         if (!defaultViewSourceStyle)
             loadViewSourceStyle();
         matchRules(defaultViewSourceStyle, firstUARule, lastUARule, false);
@@ -1474,6 +1483,12 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
                     for (unsigned i = 0; i < additionalDeclsSize; i++)
                         addMatchedDeclaration(m_additionalAttributeStyleDecls[i]);
                 }
+            }
+            if (m_styledElement->isHTMLElement()) {
+                bool isAuto;
+                TextDirection textDirection = toHTMLElement(m_styledElement)->directionalityIfhasDirAutoAttribute(isAuto);
+                if (isAuto)
+                    addMatchedDeclaration(textDirection == LTR ? leftToRightDeclaration() : rightToLeftDeclaration());
             }
         }
     
@@ -2100,7 +2115,8 @@ inline bool CSSStyleSelector::checkSelector(const RuleData& ruleData)
 {
     m_dynamicPseudo = NOPSEUDO;
 
-    if (ruleData.hasFastCheckableSelector()) {
+    // Let the slow path handle SVG as it has some additional rules regarding shadow trees.
+    if (ruleData.hasFastCheckableSelector() && !m_element->isSVGElement()) {
         // We know this selector does not include any pseudo selectors.
         if (m_checker.m_pseudoStyle != NOPSEUDO)
             return false;
@@ -2134,13 +2150,67 @@ static inline bool selectorTagMatches(const Element* element, const CSSSelector*
 static inline bool isFastCheckableSelector(const CSSSelector* selector)
 {
     for (; selector; selector = selector->tagHistory()) {
-        if (selector->relation() != CSSSelector::Descendant)
+        if (selector->relation() != CSSSelector::Descendant && selector->relation() != CSSSelector::Child && selector->relation() != CSSSelector::SubSelector)
             return false;
         if (selector->m_match != CSSSelector::None && selector->m_match != CSSSelector::Id && selector->m_match != CSSSelector::Class)
             return false;
     }
     return true;
 }
+    
+template <class ValueChecker>
+inline bool fastCheckSingleSelector(const CSSSelector*& selector, const Element*& element, const CSSSelector*& topChildOrSubselector, const Element*& topChildOrSubselectorMatchElement)
+{
+    AtomicStringImpl* value = selector->value().impl();
+    for (; element; element = element->parentElement()) {
+        if (ValueChecker::checkValue(element, value) && selectorTagMatches(element, selector)) {
+            if (selector->relation() == CSSSelector::Descendant)
+                topChildOrSubselector = 0;
+            else if (!topChildOrSubselector) {
+                ASSERT(selector->relation() == CSSSelector::Child || selector->relation() == CSSSelector::SubSelector);
+                topChildOrSubselector = selector;
+                topChildOrSubselectorMatchElement = element;
+            }
+            if (selector->relation() != CSSSelector::SubSelector)
+                element = element->parentElement();
+            selector = selector->tagHistory();
+            return true;
+        }
+        if (topChildOrSubselector) {
+            // Child or subselector check failed.
+            // If the match element is null, topChildOrSubselector was also the very topmost selector and had to match 
+            // the original element we were checking.
+            if (!topChildOrSubselectorMatchElement)
+                return false;
+            // There may be other matches down the ancestor chain.
+            // Rewind to the topmost child or subselector and the element it matched, continue checking ancestors.
+            selector = topChildOrSubselector;
+            element = topChildOrSubselectorMatchElement->parentElement();
+            topChildOrSubselector = 0;
+            return true;
+        }
+    }
+    return false;
+}
+
+struct ClassCheck {
+    static bool checkValue(const Element* element, AtomicStringImpl* value) 
+    {
+        return element->hasClass() && static_cast<const StyledElement*>(element)->classNames().contains(value);
+    }
+};
+struct IdCheck {
+    static bool checkValue(const Element* element, AtomicStringImpl* value) 
+    {
+        return element->hasID() && element->idForStyleResolution().impl() == value;
+    }
+};
+struct TagCheck {
+    static bool checkValue(const Element*, AtomicStringImpl*)
+    {
+        return true;
+    }
+};
 
 bool CSSStyleSelector::SelectorChecker::fastCheckSelector(const CSSSelector* selector, const Element* element)
 {
@@ -2150,40 +2220,30 @@ bool CSSStyleSelector::SelectorChecker::fastCheckSelector(const CSSSelector* sel
     if (!selectorTagMatches(element, selector))
         return false;
 
+    const CSSSelector* topChildOrSubselector = 0;
+    const Element* topChildOrSubselectorMatchElement = 0;
+    if (selector->relation() == CSSSelector::Child || selector->relation() == CSSSelector::SubSelector)
+        topChildOrSubselector = selector;
+
+    if (selector->relation() != CSSSelector::SubSelector)
+        element = element->parentElement();
+
     selector = selector->tagHistory();
-    if (!selector)
-        return true;
-    const Element* ancestor = element;
-    // We know this compound selector has descendant combinators only and all components are simple.
-    for (; selector; selector = selector->tagHistory()) {
-        AtomicStringImpl* value;
+
+    // We know this compound selector has descendant, child and subselector combinators only and all components are simple.
+    while (selector) {
         switch (selector->m_match) {
         case CSSSelector::Class:
-            value = selector->value().impl();
-            while (true) {
-                if (!(ancestor = ancestor->parentElement()))
-                    return false;
-                const StyledElement* styledElement = static_cast<const StyledElement*>(ancestor);
-                if (ancestor->hasClass() && styledElement->classNames().contains(value) && selectorTagMatches(ancestor, selector))
-                    break;
-            }
+            if (!fastCheckSingleSelector<ClassCheck>(selector, element, topChildOrSubselector, topChildOrSubselectorMatchElement))
+                return false;
             break;
         case CSSSelector::Id:
-            value = selector->value().impl();
-            while (true) {
-                if (!(ancestor = ancestor->parentElement()))
-                    return false;
-                if (ancestor->hasID() && ancestor->idForStyleResolution().impl() == value && selectorTagMatches(ancestor, selector))
-                    break;
-            }
+            if (!fastCheckSingleSelector<IdCheck>(selector, element, topChildOrSubselector, topChildOrSubselectorMatchElement))
+                return false;
             break;
         case CSSSelector::None:
-            while (true) {
-                if (!(ancestor = ancestor->parentElement()))
-                    return false;
-                if (selectorTagMatches(ancestor, selector))
-                    break;
-            }
+            if (!fastCheckSingleSelector<TagCheck>(selector, element, topChildOrSubselector, topChildOrSubselectorMatchElement))
+                return false;
             break;
         default:
             ASSERT_NOT_REACHED();
@@ -2191,7 +2251,6 @@ bool CSSStyleSelector::SelectorChecker::fastCheckSelector(const CSSSelector* sel
     }
     return true;
 }
-    
 
 // Recursive check of selectors and combinators
 // It can return 3 different values:
@@ -3052,6 +3111,7 @@ static inline bool isSelectorMatchingHTMLBasedOnRuleHash(const CSSSelector* sele
 RuleData::RuleData(CSSStyleRule* rule, CSSSelector* selector, unsigned position)
     : m_rule(rule)
     , m_selector(selector)
+    , m_specificity(selector->specificity())
     , m_position(position)
     , m_hasFastCheckableSelector(isFastCheckableSelector(selector))
     , m_hasMultipartSelector(selector->tagHistory())
@@ -3223,47 +3283,64 @@ void RuleSet::addStyleRule(CSSStyleRule* rule)
             addRule(rule, s);
     }
 }
+    
+static inline void collectFeaturesFromSelector(CSSStyleSelector::Features& features, const CSSSelector* selector)
+{
+    if (selector->m_match == CSSSelector::Id && !selector->value().isEmpty())
+        features.idsInRules.add(selector->value().impl());
+    switch (selector->pseudoType()) {
+    case CSSSelector::PseudoFirstLine:
+        features.usesFirstLineRules = true;
+        break;
+    case CSSSelector::PseudoBefore:
+    case CSSSelector::PseudoAfter:
+        features.usesBeforeAfterRules = true;
+        break;
+    case CSSSelector::PseudoLink:
+    case CSSSelector::PseudoVisited:
+        features.usesLinkRules = true;
+        break;
+    default:
+        break;
+    }
+}
 
-static void collectIdsAndSiblingRulesFromList(HashSet<AtomicStringImpl*>& ids, OwnPtr<RuleSet>& siblingRules, const Vector<RuleData>& rules)
+static void collectFeaturesFromList(CSSStyleSelector::Features& features, const Vector<RuleData>& rules)
 {
     unsigned size = rules.size();
     for (unsigned i = 0; i < size; ++i) {
         const RuleData& ruleData = rules[i];
         bool foundSiblingSelector = false;
         for (CSSSelector* selector = ruleData.selector(); selector; selector = selector->tagHistory()) {
-            if (selector->m_match == CSSSelector::Id && !selector->value().isEmpty())
-                ids.add(selector->value().impl());
-            if (CSSSelector* simpleSelector = selector->simpleSelector()) {
-                ASSERT(!simpleSelector->simpleSelector());
-                if (simpleSelector->m_match == CSSSelector::Id && !simpleSelector->value().isEmpty())
-                    ids.add(simpleSelector->value().impl());
-            }
+            collectFeaturesFromSelector(features, selector);
+            if (CSSSelector* simpleSelector = selector->simpleSelector())
+                collectFeaturesFromSelector(features, simpleSelector);
             if (selector->isSiblingSelector())
                 foundSiblingSelector = true;
         }
         if (foundSiblingSelector) {
-            if (!siblingRules)
-                siblingRules = adoptPtr(new RuleSet);
-            siblingRules->addRule(ruleData.rule(), ruleData.selector());   
+            if (!features.siblingRules)
+                features.siblingRules = adoptPtr(new RuleSet);
+            features.siblingRules->addRule(ruleData.rule(), ruleData.selector());   
         }
     }
 }
 
-void RuleSet::collectIdsAndSiblingRules(HashSet<AtomicStringImpl*>& ids, OwnPtr<RuleSet>& siblingRules) const
+void RuleSet::collectFeatures(CSSStyleSelector::Features& features) const
 {
     AtomRuleMap::const_iterator end = m_idRules.end();
     for (AtomRuleMap::const_iterator it = m_idRules.begin(); it != end; ++it)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, *it->second);
+        collectFeaturesFromList(features, *it->second);
     end = m_classRules.end();
     for (AtomRuleMap::const_iterator it = m_classRules.begin(); it != end; ++it)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, *it->second);
+        collectFeaturesFromList(features, *it->second);
     end = m_tagRules.end();
     for (AtomRuleMap::const_iterator it = m_tagRules.begin(); it != end; ++it)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, *it->second);
+        collectFeaturesFromList(features, *it->second);
     end = m_pseudoRules.end();
     for (AtomRuleMap::const_iterator it = m_pseudoRules.begin(); it != end; ++it)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, *it->second);
-    collectIdsAndSiblingRulesFromList(ids, siblingRules, m_universalRules);
+        collectFeaturesFromList(features, *it->second);
+    collectFeaturesFromList(features, m_universalRules);
 }
     
 static inline void shrinkMapVectorsToFit(RuleSet::AtomRuleMap& map)
@@ -3363,7 +3440,7 @@ void CSSStyleSelector::matchPageRules(RuleSet* rules, bool isLeftPage, bool isFi
         return;
 
     // Sort the set of matched rules.
-    sortMatchedRules(0, m_matchedRules.size());
+    sortMatchedRules();
 
     // Now transfer the set of matched rules over to our list of decls.
     for (unsigned i = 0; i < m_matchedRules.size(); i++)
@@ -4220,8 +4297,10 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     // length, percent
     case CSSPropertyMaxWidth:
         // +none +inherit
-        if (primitiveValue && primitiveValue->getIdent() == CSSValueNone)
+        if (primitiveValue && primitiveValue->getIdent() == CSSValueNone) {
+            l = Length(undefinedLength, Fixed);
             apply = true;
+        }
     case CSSPropertyTop:
     case CSSPropertyLeft:
     case CSSPropertyRight:
@@ -4675,36 +4754,59 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             
             CSSPrimitiveValue* contentValue = static_cast<CSSPrimitiveValue*>(item);
             switch (contentValue->primitiveType()) {
-                case CSSPrimitiveValue::CSS_STRING:
-                    m_style->setContent(contentValue->getStringValue().impl(), didSet);
+            case CSSPrimitiveValue::CSS_STRING:
+                m_style->setContent(contentValue->getStringValue().impl(), didSet);
+                didSet = true;
+                break;
+            case CSSPrimitiveValue::CSS_ATTR: {
+                // FIXME: Can a namespace be specified for an attr(foo)?
+                if (m_style->styleType() == NOPSEUDO)
+                    m_style->setUnique();
+                else
+                    m_parentStyle->setUnique();
+                QualifiedName attr(nullAtom, contentValue->getStringValue().impl(), nullAtom);
+                m_style->setContent(m_element->getAttribute(attr).impl(), didSet);
+                didSet = true;
+                // register the fact that the attribute value affects the style
+                m_selectorAttrs.add(attr.localName().impl());
+                break;
+            }
+            case CSSPrimitiveValue::CSS_URI: {
+                if (!contentValue->isImageValue())
+                    break;
+                m_style->setContent(cachedOrPendingFromValue(CSSPropertyContent, static_cast<CSSImageValue*>(contentValue)), didSet);
+                didSet = true;
+                break;
+            }
+            case CSSPrimitiveValue::CSS_COUNTER: {
+                Counter* counterValue = contentValue->getCounterValue();
+                OwnPtr<CounterContent> counter = adoptPtr(new CounterContent(counterValue->identifier(),
+                    (EListStyleType)counterValue->listStyleNumber(), counterValue->separator()));
+                m_style->setContent(counter.release(), didSet);
+                didSet = true;
+                break;
+            }
+            case CSSPrimitiveValue::CSS_IDENT:
+                switch (contentValue->getIdent()) {
+                case CSSValueOpenQuote:
+                    m_style->setContent(OPEN_QUOTE, didSet);
                     didSet = true;
                     break;
-                case CSSPrimitiveValue::CSS_ATTR: {
-                    // FIXME: Can a namespace be specified for an attr(foo)?
-                    if (m_style->styleType() == NOPSEUDO)
-                        m_style->setUnique();
-                    else
-                        m_parentStyle->setUnique();
-                    QualifiedName attr(nullAtom, contentValue->getStringValue().impl(), nullAtom);
-                    m_style->setContent(m_element->getAttribute(attr).impl(), didSet);
-                    didSet = true;
-                    // register the fact that the attribute value affects the style
-                    m_selectorAttrs.add(attr.localName().impl());
-                    break;
-                }
-                case CSSPrimitiveValue::CSS_URI: {
-                    if (!contentValue->isImageValue())
-                        break;
-                    m_style->setContent(cachedOrPendingFromValue(CSSPropertyContent, static_cast<CSSImageValue*>(contentValue)), didSet);
+                case CSSValueCloseQuote:
+                    m_style->setContent(CLOSE_QUOTE, didSet);
                     didSet = true;
                     break;
-                }
-                case CSSPrimitiveValue::CSS_COUNTER: {
-                    Counter* counterValue = contentValue->getCounterValue();
-                    OwnPtr<CounterContent> counter = adoptPtr(new CounterContent(counterValue->identifier(),
-                        (EListStyleType)counterValue->listStyleNumber(), counterValue->separator()));
-                    m_style->setContent(counter.release(), didSet);
+                case CSSValueNoOpenQuote:
+                    m_style->setContent(NO_OPEN_QUOTE, didSet);
                     didSet = true;
+                    break;
+                case CSSValueNoCloseQuote:
+                    m_style->setContent(NO_CLOSE_QUOTE, didSet);
+                    didSet = true;
+                    break;
+                default:
+                    // normal and none do not have any effect.
+                    {}
                 }
             }
         }
@@ -4712,6 +4814,37 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_style->clearContent();
         return;
     }
+    case CSSPropertyQuotes:
+        if (isInherit) {
+            if (m_parentStyle)
+                m_style->setQuotes(m_parentStyle->quotes());
+            return;
+        }
+        if (isInitial) {
+            m_style->setQuotes(0);
+            return;
+        }
+        if (value->isValueList()) {
+            CSSValueList* list = static_cast<CSSValueList*>(value);
+            size_t length = list->length();
+            QuotesData* data = QuotesData::create(length);
+            if (!data)
+                return; // Out of memory
+            String* quotes = data->data();
+            for (size_t i = 0; i < length; i++) {
+                CSSValue* item = list->itemWithoutBoundsCheck(i);
+                ASSERT(item->isPrimitiveValue());
+                primitiveValue = static_cast<CSSPrimitiveValue*>(item);
+                ASSERT(primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_STRING);
+                quotes[i] = primitiveValue->getStringValue();
+            }
+            m_style->setQuotes(adoptRef(data));
+        } else if (primitiveValue) {
+            ASSERT(primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_IDENT);
+            if (primitiveValue->getIdent() == CSSValueNone)
+                m_style->setQuotes(adoptRef(QuotesData::create(0)));
+        }
+        return;
 
     case CSSPropertyCounterIncrement:
         applyCounterList(style(), value->isValueList() ? static_cast<CSSValueList*>(value) : 0, false);
@@ -5626,12 +5759,28 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_style->setHyphenationString(primitiveValue->getStringValue());
         return;
     }
-    case CSSPropertyWebkitHyphenateLocale: {
-        HANDLE_INHERIT_AND_INITIAL(hyphenationLocale, HyphenationLocale);
+    case CSSPropertyWebkitHyphenateLimitAfter: {
+        HANDLE_INHERIT_AND_INITIAL(hyphenationLimitAfter, HyphenationLimitAfter);
         if (primitiveValue->getIdent() == CSSValueAuto)
-            m_style->setHyphenationLocale(nullAtom);
+            m_style->setHyphenationLimitAfter(-1);
         else
-            m_style->setHyphenationLocale(primitiveValue->getStringValue());
+            m_style->setHyphenationLimitAfter(min(primitiveValue->getIntValue(CSSPrimitiveValue::CSS_NUMBER), static_cast<int>(numeric_limits<short>::max())));
+        return;
+    }
+    case CSSPropertyWebkitHyphenateLimitBefore: {
+        HANDLE_INHERIT_AND_INITIAL(hyphenationLimitBefore, HyphenationLimitBefore);
+        if (primitiveValue->getIdent() == CSSValueAuto)
+            m_style->setHyphenationLimitBefore(-1);
+        else
+            m_style->setHyphenationLimitBefore(min(primitiveValue->getIntValue(CSSPrimitiveValue::CSS_NUMBER), static_cast<int>(numeric_limits<short>::max())));
+        return;
+    }
+    case CSSPropertyWebkitLocale: {
+        HANDLE_INHERIT_AND_INITIAL(locale, Locale);
+        if (primitiveValue->getIdent() == CSSValueAuto)
+            m_style->setLocale(nullAtom);
+        else
+            m_style->setLocale(primitiveValue->getStringValue());
         return;
     }
     case CSSPropertyWebkitBorderFit: {
@@ -5953,7 +6102,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 
     case CSSPropertyFontStretch:
     case CSSPropertyPage:
-    case CSSPropertyQuotes:
     case CSSPropertyTextLineThrough:
     case CSSPropertyTextLineThroughColor:
     case CSSPropertyTextLineThroughMode:

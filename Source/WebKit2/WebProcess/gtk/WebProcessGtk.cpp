@@ -27,8 +27,8 @@
 #include "config.h"
 #include "WebProcess.h"
 
-#include "NotImplemented.h"
 #include "WebProcessCreationParameters.h"
+#include <WebCore/NotImplemented.h>
 
 namespace WebKit {
 
@@ -47,7 +47,7 @@ void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters
     notImplemented();
 }
 
-void WebProcess::platformShutdown()
+void WebProcess::platformTerminate()
 {
 }
 

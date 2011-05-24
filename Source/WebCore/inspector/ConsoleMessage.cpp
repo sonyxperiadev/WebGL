@@ -86,7 +86,7 @@ ConsoleMessage::~ConsoleMessage()
 {
 }
 
-void ConsoleMessage::addToFrontend(InspectorFrontend* frontend, InjectedScriptHost* injectedScriptHost)
+void ConsoleMessage::addToFrontend(InspectorFrontend::Console* frontend, InjectedScriptHost* injectedScriptHost)
 {
     RefPtr<InspectorObject> jsonObj = InspectorObject::create();
     jsonObj->setNumber("source", static_cast<int>(m_source));
@@ -103,7 +103,7 @@ void ConsoleMessage::addToFrontend(InspectorFrontend* frontend, InjectedScriptHo
         if (!injectedScript.hasNoValue()) {
             RefPtr<InspectorArray> jsonArgs = InspectorArray::create();
             for (unsigned i = 0; i < m_arguments->argumentCount(); ++i) {
-                RefPtr<InspectorValue> inspectorValue = injectedScript.wrapForConsole(m_arguments->argumentAt(i));
+                RefPtr<InspectorValue> inspectorValue = injectedScript.wrapObject(m_arguments->argumentAt(i), "console");
                 if (!inspectorValue) {
                     ASSERT_NOT_REACHED();
                     return;
@@ -118,7 +118,7 @@ void ConsoleMessage::addToFrontend(InspectorFrontend* frontend, InjectedScriptHo
     frontend->addConsoleMessage(jsonObj);
 }
 
-void ConsoleMessage::updateRepeatCountInConsole(InspectorFrontend* frontend)
+void ConsoleMessage::updateRepeatCountInConsole(InspectorFrontend::Console* frontend)
 {
     frontend->updateConsoleMessageRepeatCount(m_repeatCount);
 }

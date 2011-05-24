@@ -1,6 +1,6 @@
 /*      
     WebKitSystemInterface.h
-    Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+    Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
 
     Public header file.
 */
@@ -22,6 +22,8 @@ typedef enum {
 } WKCertificateParseResult;
 
 CFStringRef WKCopyCFLocalizationPreferredName(CFStringRef localization);
+void WKSetDefaultLocalization(CFStringRef localization);
+
 CFStringRef WKSignedPublicKeyAndChallengeString(unsigned keySize, CFStringRef challenge, CFStringRef keyDescription);
 WKCertificateParseResult WKAddCertificatesToKeychainFromData(const void *bytes, unsigned length);
 
@@ -86,9 +88,11 @@ void WKUnregisterUniqueIdForElement(id element);
 // Remote Accessibility API.
 void WKAXRegisterRemoteApp(void);
 void WKAXInitializeElementWithPresenterPid(id, pid_t);
-CFDataRef WKAXRemoteTokenForElement(id);
-id WKAXRemoteElementForToken(CFDataRef);
-void WKAXInitializeRemoteElementWithWindow(id remoteElement, id window);
+NSData *WKAXRemoteTokenForElement(id);
+id WKAXRemoteElementForToken(NSData *);
+void WKAXSetWindowForRemoteElement(id remoteWindow, id remoteElement);
+void WKAXRegisterRemoteProcess(bool registerProcess, pid_t);
+pid_t WKAXRemoteProcessIdentifier(id remoteElement);
 #endif
 
 void WKSetUpFontCache(void);
@@ -229,6 +233,18 @@ void WKQTMovieDisableComponent(uint32_t[5]);
 
 CFStringRef WKCopyFoundationCacheDirectory(void);
 
+typedef const struct __CFURLStorageSession* CFURLStorageSessionRef;
+CFURLStorageSessionRef WKCreatePrivateStorageSession(CFStringRef);
+NSURLRequest *WKCopyRequestWithStorageSession(CFURLStorageSessionRef, NSURLRequest*);
+NSCachedURLResponse *WKCachedResponseForRequest(CFURLStorageSessionRef, NSURLRequest*);
+
+typedef struct OpaqueCFHTTPCookieStorage* CFHTTPCookieStorageRef;
+CFHTTPCookieStorageRef WKCreatePrivateInMemoryHTTPCookieStorage(CFURLStorageSessionRef);
+unsigned WKGetHTTPCookieAcceptPolicy(CFHTTPCookieStorageRef);
+NSArray *WKHTTPCookiesForURL(CFHTTPCookieStorageRef, NSURL *);
+void WKSetHTTPCookiesForURL(CFHTTPCookieStorageRef, NSArray *, NSURL *, NSURL *);
+void WKDeleteHTTPCookie(CFHTTPCookieStorageRef, NSHTTPCookie *);
+
 void WKSetVisibleApplicationName(CFStringRef);
 
 typedef enum {
@@ -367,6 +383,9 @@ ScriptCode WKGetScriptCodeFromCurrentKeyboardInputSource(void);
 CFIndex WKGetHyphenationLocationBeforeIndex(CFStringRef string, CFIndex index);
 #endif
 
+CFArrayRef WKCFURLCacheCopyAllHostNamesInPersistentStore(void);
+void WKCFURLCacheDeleteHostNamesInPersistentStore(CFArrayRef hostArray);    
+
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
 typedef enum {
     WKSandboxExtensionTypeReadOnly,
@@ -386,10 +405,37 @@ WKSandboxExtensionRef WKSandboxExtensionCreateFromSerializedFormat(const char* s
 
 typedef struct __WKScrollbarPainter *WKScrollbarPainterRef;
 WKScrollbarPainterRef WKMakeScrollbarPainter(int controlSize, bool isHorizontal);
+WKScrollbarPainterRef WKMakeScrollbarReplacementPainter(WKScrollbarPainterRef oldPainter, int newStyle, int controlSize, bool isHorizontal);
+void WKScrollbarPainterSetDelegate(WKScrollbarPainterRef, id scrollbarPainterDelegate);
 void WKScrollbarPainterPaint(WKScrollbarPainterRef, bool enabled, double value, CGFloat proportion, CGRect frameRect);
 int WKScrollbarThickness(int controlSize);
 int WKScrollbarMinimumThumbLength(WKScrollbarPainterRef);
 int WKScrollbarMinimumTotalLengthNeededForThumb(WKScrollbarPainterRef);
+CGFloat WKScrollbarPainterKnobAlpha(WKScrollbarPainterRef);
+void WKSetScrollbarPainterKnobAlpha(WKScrollbarPainterRef, CGFloat);
+CGFloat WKScrollbarPainterTrackAlpha(WKScrollbarPainterRef);
+void WKSetScrollbarPainterTrackAlpha(WKScrollbarPainterRef, CGFloat);
+bool WKScrollbarPainterIsHorizontal(WKScrollbarPainterRef);
+void WKScrollbarPainterSetOverlayState(WKScrollbarPainterRef, int overlayScrollerState);
+
+typedef struct __WKScrollbarPainterController *WKScrollbarPainterControllerRef;
+WKScrollbarPainterControllerRef WKMakeScrollbarPainterController(id painterControllerDelegate);
+void WKSetPainterForPainterController(WKScrollbarPainterControllerRef, WKScrollbarPainterRef, bool isHorizontal);
+WKScrollbarPainterRef WKVerticalScrollbarPainterForController(WKScrollbarPainterControllerRef);
+WKScrollbarPainterRef WKHorizontalScrollbarPainterForController(WKScrollbarPainterControllerRef);
+void WKSetScrollbarPainterControllerStyle(WKScrollbarPainterControllerRef, int newStyle);
+void WKContentAreaScrolled(WKScrollbarPainterControllerRef);
+void WKContentAreaWillPaint(WKScrollbarPainterControllerRef);
+void WKMouseEnteredContentArea(WKScrollbarPainterControllerRef);
+void WKMouseExitedContentArea(WKScrollbarPainterControllerRef);
+void WKMouseMovedInContentArea(WKScrollbarPainterControllerRef);
+void WKWillStartLiveResize(WKScrollbarPainterControllerRef);
+void WKContentAreaResized(WKScrollbarPainterControllerRef);
+void WKWillEndLiveResize(WKScrollbarPainterControllerRef);
+void WKContentAreaDidShow(WKScrollbarPainterControllerRef);
+void WKContentAreaDidHide(WKScrollbarPainterControllerRef);
+
+bool WKScrollbarPainterUsesOverlayScrollers(void);
 
 #endif
 

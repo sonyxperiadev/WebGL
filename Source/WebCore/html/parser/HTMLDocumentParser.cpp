@@ -86,7 +86,7 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument* document, bool reportErrors
     , m_parserScheduler(HTMLParserScheduler::create(this))
     , m_xssFilter(this)
     , m_endWasDelayed(false)
-    , m_writeNestingLevel(0)
+    , m_pumpSessionNestingLevel(0)
 {
 }
 
@@ -98,7 +98,7 @@ HTMLDocumentParser::HTMLDocumentParser(DocumentFragment* fragment, Element* cont
     , m_treeBuilder(HTMLTreeBuilder::create(this, fragment, contextElement, scriptingPermission, usePreHTML5ParserQuirks(fragment->document())))
     , m_xssFilter(this)
     , m_endWasDelayed(false)
-    , m_writeNestingLevel(0)
+    , m_pumpSessionNestingLevel(0)
 {
     bool reportErrors = false; // For now document fragment parsing never reports errors.
     m_tokenizer->setState(tokenizerStateForContextElement(contextElement, reportErrors));
@@ -107,7 +107,7 @@ HTMLDocumentParser::HTMLDocumentParser(DocumentFragment* fragment, Element* cont
 HTMLDocumentParser::~HTMLDocumentParser()
 {
     ASSERT(!m_parserScheduler);
-    ASSERT(!m_writeNestingLevel);
+    ASSERT(!m_pumpSessionNestingLevel);
     ASSERT(!m_preloadScanner);
 }
 
@@ -155,9 +155,14 @@ void HTMLDocumentParser::prepareToStopParsing()
     attemptToRunDeferredScriptsAndEnd();
 }
 
+bool HTMLDocumentParser::isParsingFragment() const
+{
+    return m_treeBuilder->isParsingFragment();
+}
+
 bool HTMLDocumentParser::processingData() const
 {
-    return isScheduledForResume() || inWrite();
+    return isScheduledForResume() || inPumpSession();
 }
 
 void HTMLDocumentParser::pumpTokenizerIfPossible(SynchronousMode mode)
@@ -204,6 +209,36 @@ bool HTMLDocumentParser::runScriptsForPausedTreeBuilder()
     return m_scriptRunner->execute(scriptElement.release(), scriptStartPosition);
 }
 
+bool HTMLDocumentParser::canTakeNextToken(SynchronousMode mode, PumpSession& session)
+{
+    if (isStopped())
+        return false;
+
+    // The parser will pause itself when waiting on a script to load or run.
+    if (m_treeBuilder->isPaused()) {
+        // If we're paused waiting for a script, we try to execute scripts before continuing.
+        bool shouldContinueParsing = runScriptsForPausedTreeBuilder();
+        m_treeBuilder->setPaused(!shouldContinueParsing);
+        if (!shouldContinueParsing || isStopped())
+            return false;
+    }
+
+    // FIXME: It's wrong for the HTMLDocumentParser to reach back to the
+    //        Frame, but this approach is how the old parser handled
+    //        stopping when the page assigns window.location.  What really
+    //        should happen is that assigning window.location causes the
+    //        parser to stop parsing cleanly.  The problem is we're not
+    //        perpared to do that at every point where we run JavaScript.
+    if (!isParsingFragment()
+        && document()->frame() && document()->frame()->navigationScheduler()->locationChangePending())
+        return false;
+
+    if (mode == AllowYield)
+        m_parserScheduler->checkForYieldBeforeToken(session);
+
+    return true;
+}
+
 void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
 {
     ASSERT(!isStopped());
@@ -212,6 +247,8 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
     // ASSERT that this object is both attached to the Document and protected.
     ASSERT(refCount() >= 2);
 
+    PumpSession session(m_pumpSessionNestingLevel);
+
     // We tell the InspectorInstrumentation about every pump, even if we
     // end up pumping nothing.  It can filter out empty pumps itself.
     // FIXME: m_input.current().length() is only accurate if we
@@ -219,52 +256,34 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
     // much we parsed as part of didWriteHTML instead of willWriteHTML.
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willWriteHTML(document(), m_input.current().length(), m_tokenizer->lineNumber());
 
-    HTMLParserScheduler::PumpSession session;
-    // FIXME: This loop body has is now too long and needs cleanup.
-    while (mode == ForceSynchronous || m_parserScheduler->shouldContinueParsing(session)) {
-        // FIXME: It's wrong for the HTMLDocumentParser to reach back to the
-        //        Frame, but this approach is how the old parser handled
-        //        stopping when the page assigns window.location.  What really
-        //        should happen is that assigning window.location causes the
-        //        parser to stop parsing cleanly.  The problem is we're not
-        //        perpared to do that at every point where we run JavaScript.
-        if (!m_treeBuilder->isParsingFragment()
-            && document()->frame() && document()->frame()->navigationScheduler()->locationChangePending())
-            break;
+    while (canTakeNextToken(mode, session) && !session.needsYield) {
+        if (!isParsingFragment())
+            m_sourceTracker.start(m_input, m_token);
 
-        m_sourceTracker.start(m_input, m_token);
         if (!m_tokenizer->nextToken(m_input.current(), m_token))
             break;
-        m_sourceTracker.end(m_input, m_token);
 
-        m_xssFilter.filterToken(m_token);
+        if (!isParsingFragment()) {
+            m_sourceTracker.end(m_input, m_token);
+
+            // We do not XSS filter innerHTML, which means we (intentionally) fail
+            // http/tests/security/xssAuditor/dom-write-innerHTML.html
+            m_xssFilter.filterToken(m_token);
+        }
 
         m_treeBuilder->constructTreeFromToken(m_token);
         m_token.clear();
-
-        // JavaScript may have stopped or detached the parser.
-        if (isStopped())
-            return;
-
-        // The parser will pause itself when waiting on a script to load or run.
-        if (!m_treeBuilder->isPaused())
-            continue;
-
-        // If we're paused waiting for a script, we try to execute scripts before continuing.
-        bool shouldContinueParsing = runScriptsForPausedTreeBuilder();
-        m_treeBuilder->setPaused(!shouldContinueParsing);
-
-        // JavaScript may have stopped or detached the parser.
-        if (isStopped())
-            return;
-
-        if (!shouldContinueParsing)
-            break;
     }
 
     // Ensure we haven't been totally deref'ed after pumping. Any caller of this
     // function should be holding a RefPtr to this to ensure we weren't deleted.
     ASSERT(refCount() >= 1);
+
+    if (isStopped())
+        return;
+
+    if (session.needsYield)
+        m_parserScheduler->scheduleForResume();
 
     if (isWaitingForScripts()) {
         ASSERT(m_tokenizer->state() == HTMLTokenizer::DataState);
@@ -301,14 +320,10 @@ void HTMLDocumentParser::insert(const SegmentedString& source)
     // but we need to ensure it isn't deleted yet.
     RefPtr<HTMLDocumentParser> protect(this);
 
-    {
-        NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
-
-        SegmentedString excludedLineNumberSource(source);
-        excludedLineNumberSource.setExcludeLineNumbers();
-        m_input.insertAtCurrentInsertionPoint(excludedLineNumberSource);
-        pumpTokenizerIfPossible(ForceSynchronous);
-    }
+    SegmentedString excludedLineNumberSource(source);
+    excludedLineNumberSource.setExcludeLineNumbers();
+    m_input.insertAtCurrentInsertionPoint(excludedLineNumberSource);
+    pumpTokenizerIfPossible(ForceSynchronous);
 
     endIfDelayed();
 }
@@ -322,13 +337,11 @@ void HTMLDocumentParser::append(const SegmentedString& source)
     // but we need to ensure it isn't deleted yet.
     RefPtr<HTMLDocumentParser> protect(this);
 
-    {
-        NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
+    m_input.appendToEnd(source);
+    if (m_preloadScanner)
+        m_preloadScanner->appendToEnd(source);
 
-        m_input.appendToEnd(source);
-        if (m_preloadScanner)
-            m_preloadScanner->appendToEnd(source);
-
+<<<<<<< HEAD
         if (m_writeNestingLevel > 1) {
             // We've gotten data off the network in a nested write.
             // We don't want to consume any more of the input stream now.  Do
@@ -340,7 +353,16 @@ void HTMLDocumentParser::append(const SegmentedString& source)
         }
 
         pumpTokenizerIfPossible(AllowYield);
+=======
+    if (inPumpSession()) {
+        // We've gotten data off the network in a nested write.
+        // We don't want to consume any more of the input stream now.  Do
+        // not worry.  We'll consume this data in a less-nested write().
+        return;
+>>>>>>> WebKit at r80534
     }
+
+    pumpTokenizerIfPossible(AllowYield);
 
     endIfDelayed();
 #ifdef ANDROID_INSTRUMENT

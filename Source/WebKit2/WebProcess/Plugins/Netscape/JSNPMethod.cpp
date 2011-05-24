@@ -27,24 +27,25 @@
 #include "JSNPMethod.h"
 
 #include "JSNPObject.h"
-#include "NotImplemented.h"
 #include <JavaScriptCore/Error.h>
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/JSGlobalObject.h>
 #include <WebCore/JSHTMLElement.h>
 #include <WebCore/JSPluginElementFunctions.h>
+#include <WebCore/NotImplemented.h>
 
 using namespace JSC;
 using namespace WebCore;
 
 namespace WebKit {
 
-const ClassInfo JSNPMethod::s_info = { "NPMethod", &InternalFunction::info, 0, 0 };
+const ClassInfo JSNPMethod::s_info = { "NPMethod", &InternalFunction::s_info, 0, 0 };
 
 JSNPMethod::JSNPMethod(ExecState* exec, JSGlobalObject* globalObject, const Identifier& name, NPIdentifier npIdentifier)
     : InternalFunction(&exec->globalData(), globalObject, createStructure(globalObject->functionPrototype()), name)
     , m_npIdentifier(npIdentifier)
 {
+    ASSERT(inherits(&s_info));
 }
 
 static EncodedJSValue JSC_HOST_CALL callMethod(ExecState* exec)

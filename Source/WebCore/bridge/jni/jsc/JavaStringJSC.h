@@ -68,9 +68,8 @@ public:
         }
         return m_utf8String.data();
     }
-    const jchar* uchars() const { return (const jchar*)m_impl->characters(); }
     int length() const { return m_impl->length(); }
-    UString uString() const { return UString(m_impl); }
+    StringImpl* impl() const { return m_impl.get(); }
 
 private:
     RefPtr<StringImpl> m_impl;

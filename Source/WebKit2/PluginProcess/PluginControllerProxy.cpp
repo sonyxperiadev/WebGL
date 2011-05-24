@@ -58,6 +58,8 @@ PluginControllerProxy::PluginControllerProxy(WebProcessConnection* connection, u
     , m_isPrivateBrowsingEnabled(isPrivateBrowsingEnabled)
     , m_isAcceleratedCompositingEnabled(isAcceleratedCompositingEnabled)
     , m_paintTimer(RunLoop::main(), this, &PluginControllerProxy::paint)
+    , m_pluginDestructionProtectCount(0)
+    , m_pluginDestroyTimer(RunLoop::main(), this, &PluginControllerProxy::destroy)
     , m_waitingForDidUpdate(false)
     , m_pluginCanceledManualStreamLoad(false)
 #if PLATFORM(MAC)
@@ -93,10 +95,20 @@ void PluginControllerProxy::destroy()
 {
     ASSERT(m_plugin);
 
+    if (m_pluginDestructionProtectCount) {
+        // We have plug-in code on the stack so we can't destroy it right now.
+        // Destroy it later.
+        m_pluginDestroyTimer.startOneShot(0);
+        return;
+    }
+
     m_plugin->destroy();
     m_plugin = 0;
 
     platformDestroy();
+
+    // This will delete the plug-in controller proxy object.
+    m_connection->removePluginControllerProxy(this);
 }
 
 void PluginControllerProxy::paint()
@@ -205,6 +217,8 @@ NPObject* PluginControllerProxy::pluginElementNPObject()
 
 bool PluginControllerProxy::evaluate(NPObject* npObject, const String& scriptString, NPVariant* result, bool allowPopups)
 {
+    PluginDestructionProtector protector(this);
+
     NPVariant npObjectAsNPVariant;
     OBJECT_TO_NPVARIANT(npObject, npObjectAsNPVariant);
 
@@ -283,6 +297,18 @@ void PluginControllerProxy::setCookiesForURL(const String& urlString, const Stri
 bool PluginControllerProxy::isPrivateBrowsingEnabled()
 {
     return m_isPrivateBrowsingEnabled;
+}
+
+void PluginControllerProxy::protectPluginFromDestruction()
+{
+    m_pluginDestructionProtectCount++;
+}
+
+void PluginControllerProxy::unprotectPluginFromDestruction()
+{
+    ASSERT(m_pluginDestructionProtectCount);
+
+    m_pluginDestructionProtectCount--;
 }
 
 void PluginControllerProxy::frameDidFinishLoading(uint64_t requestID)
@@ -401,6 +427,17 @@ void PluginControllerProxy::paintEntirePlugin()
 
     m_dirtyRect = m_frameRect;
     paint();
+}
+
+void PluginControllerProxy::snapshot(WebCore::IntSize& bufferSize, SharedMemory::Handle& backingStoreHandle)
+{
+    ASSERT(m_plugin);
+    RefPtr<ShareableBitmap> bitmap = m_plugin->snapshot();
+    if (!bitmap)
+        return;
+
+    bitmap->createHandle(backingStoreHandle);
+    bufferSize = bitmap->size();
 }
 
 void PluginControllerProxy::setFocus(bool hasFocus)

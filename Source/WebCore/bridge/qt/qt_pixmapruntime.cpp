@@ -34,6 +34,7 @@
 #include <runtime_method.h>
 #include <runtime_object.h>
 #include <runtime_root.h>
+#include "runtime/FunctionPrototype.h"
 
 using namespace WebCore;
 namespace JSC {
@@ -151,14 +152,11 @@ public:
 
     static PassRefPtr<Structure> createStructure(JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount);
+        return Structure::create(prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount, &s_info);
     }
 
 protected:
     static const unsigned StructureFlags = RuntimeObject::StructureFlags | OverridesMarkChildren;
-
-private:
-    virtual const ClassInfo* classInfo() const { return &s_info; }
 };
 
 QtPixmapRuntimeObject::QtPixmapRuntimeObject(ExecState* exec, JSGlobalObject* globalObject, PassRefPtr<Instance> instance)
@@ -181,7 +179,7 @@ Class* QtPixmapInstance::getClass() const
 JSValue QtPixmapInstance::getMethod(ExecState* exec, const Identifier& propertyName)
 {
     MethodList methodList = getClass()->methodsNamed(propertyName, this);
-    return new (exec) RuntimeMethod(exec, exec->lexicalGlobalObject(), propertyName, methodList);
+    return new (exec) RuntimeMethod(exec, exec->lexicalGlobalObject(), WebCore::deprecatedGetDOMStructure<RuntimeMethod>(exec), propertyName, methodList);
 }
 
 JSValue QtPixmapInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)

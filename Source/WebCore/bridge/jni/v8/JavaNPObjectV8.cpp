@@ -27,8 +27,11 @@
 #include "config.h"
 #include "JavaNPObjectV8.h"
 
+#if ENABLE(JAVA_BRIDGE)
+
 #include "JNIUtilityPrivate.h"
 #include "JavaClassV8.h"
+#include "JavaFieldV8.h"
 #include "JavaInstanceV8.h"
 #include "npruntime_impl.h"
 
@@ -174,3 +177,5 @@ bool JavaNPObjectGetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* 
 } // namespace Bindings
 
 } // namespace JSC
+
+#endif // ENABLE(JAVA_BRIDGE)

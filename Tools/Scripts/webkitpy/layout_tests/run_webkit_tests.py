@@ -37,6 +37,7 @@ import os
 import signal
 import sys
 
+from layout_package import json_results_generator
 from layout_package import printing
 from layout_package import test_runner
 from layout_package import test_runner2
@@ -171,11 +172,9 @@ def _gather_unexpected_results(filesystem, options):
     """Returns the unexpected results from the previous run, if any."""
     last_unexpected_results = []
     if options.print_last_failures or options.retest_last_failures:
-        unexpected_results_filename = filesystem.join(
-            options.results_directory, "unexpected_results.json")
+        unexpected_results_filename = filesystem.join(options.results_directory, "unexpected_results.json")
         if filesystem.exists(unexpected_results_filename):
-            content = filesystem.read_text_file(unexpected_results_filename)
-            results = simplejson.loads(content)
+            results = json_results_generator.load_json(filesystem, unexpected_results_filename)
             last_unexpected_results = results['tests'].keys()
     return last_unexpected_results
 
@@ -234,7 +233,7 @@ def parse_args(args=None):
             help="Don't check the system dependencies (themes)"),
         optparse.make_option("--accelerated-compositing",
             action="store_true",
-            help="Use hardware-accelated compositing for rendering"),
+            help="Use hardware-accelerated compositing for rendering"),
         optparse.make_option("--no-accelerated-compositing",
             action="store_false",
             dest="accelerated_compositing",
@@ -376,12 +375,12 @@ def parse_args(args=None):
         optparse.make_option("--experimental-fully-parallel",
             action="store_true", default=False,
             help="run all tests in parallel"),
-        optparse.make_option("--exit-after-n-failures", type="int", nargs=1,
+        optparse.make_option("--exit-after-n-failures", type="int", default=500,
             help="Exit after the first N failures instead of running all "
             "tests"),
         optparse.make_option("--exit-after-n-crashes-or-timeouts", type="int",
-            nargs=1, help="Exit after the first N crashes instead of running "
-            "all tests"),
+            default=20, help="Exit after the first N crashes instead of "
+            "running all tests"),
         # FIXME: consider: --iterations n
         #      Number of times to run the set of tests (e.g. ABCABCABC)
         optparse.make_option("--print-last-failures", action="store_true",

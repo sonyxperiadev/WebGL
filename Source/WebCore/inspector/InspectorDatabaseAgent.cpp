@@ -34,10 +34,10 @@
 
 #include "Database.h"
 #include "ExceptionCode.h"
-#include "InspectorAgent.h"
 #include "InspectorDatabaseResource.h"
 #include "InspectorFrontend.h"
 #include "InspectorValues.h"
+#include "InstrumentingAgents.h"
 #include "SQLError.h"
 #include "SQLStatementCallback.h"
 #include "SQLStatementErrorCallback.h"
@@ -61,18 +61,18 @@ public:
 
     virtual ~FrontendProvider() { }
 
-    InspectorFrontend* frontend() { return m_inspectorFrontend; }
+    InspectorFrontend::Database* frontend() { return m_inspectorFrontend; }
     void clearFrontend() { m_inspectorFrontend = 0; }
 private:
-    FrontendProvider(InspectorFrontend* inspectorFrontend) : m_inspectorFrontend(inspectorFrontend) { }
-    InspectorFrontend* m_inspectorFrontend;
+    FrontendProvider(InspectorFrontend* inspectorFrontend) : m_inspectorFrontend(inspectorFrontend->database()) { }
+    InspectorFrontend::Database* m_inspectorFrontend;
 };
 
 namespace {
 
 long lastTransactionId = 0;
 
-void reportTransactionFailed(InspectorFrontend* frontend, long transactionId, SQLError* error)
+void reportTransactionFailed(InspectorFrontend::Database* frontend, long transactionId, SQLError* error)
 {
     if (!frontend)
         return;
@@ -218,12 +218,46 @@ private:
 
 } // namespace
 
-InspectorDatabaseAgent::~InspectorDatabaseAgent()
+void InspectorDatabaseAgent::didOpenDatabase(PassRefPtr<Database> database, const String& domain, const String& name, const String& version)
 {
-    m_frontendProvider->clearFrontend();
+    RefPtr<InspectorDatabaseResource> resource = InspectorDatabaseResource::create(database, domain, name, version);
+    m_resources.set(resource->id(), resource);
+    // Resources are only bound while visible.
+    if (m_frontendProvider)
+        resource->bind(m_frontendProvider->frontend());
 }
 
-void InspectorDatabaseAgent::getDatabaseTableNames(long databaseId, RefPtr<InspectorArray>* names)
+void InspectorDatabaseAgent::clearResources()
+{
+    m_resources.clear();
+}
+
+InspectorDatabaseAgent::InspectorDatabaseAgent(InstrumentingAgents* instrumentingAgents)
+    : m_instrumentingAgents(instrumentingAgents)
+{
+    m_instrumentingAgents->setInspectorDatabaseAgent(this);
+}
+
+InspectorDatabaseAgent::~InspectorDatabaseAgent()
+{
+    m_instrumentingAgents->setInspectorDatabaseAgent(0);
+}
+
+void InspectorDatabaseAgent::setFrontend(InspectorFrontend* frontend)
+{
+    m_frontendProvider = FrontendProvider::create(frontend);
+    DatabaseResourcesMap::iterator databasesEnd = m_resources.end();
+    for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != databasesEnd; ++it)
+        it->second->bind(m_frontendProvider->frontend());
+}
+
+void InspectorDatabaseAgent::clearFrontend()
+{
+    m_frontendProvider->clearFrontend();
+    m_frontendProvider.clear();
+}
+
+void InspectorDatabaseAgent::getDatabaseTableNames(ErrorString*, long databaseId, RefPtr<InspectorArray>* names)
 {
     Database* database = databaseForId(databaseId);
     if (database) {
@@ -234,7 +268,7 @@ void InspectorDatabaseAgent::getDatabaseTableNames(long databaseId, RefPtr<Inspe
     }
 }
 
-void InspectorDatabaseAgent::executeSQL(long databaseId, const String& query, bool* success, long* transactionId)
+void InspectorDatabaseAgent::executeSQL(ErrorString*, long databaseId, const String& query, bool* success, long* transactionId)
 {
     Database* database = databaseForId(databaseId);
     if (!database) {
@@ -250,31 +284,21 @@ void InspectorDatabaseAgent::executeSQL(long databaseId, const String& query, bo
     *success = true;
 }
 
+long InspectorDatabaseAgent::databaseId(Database* database)
+{
+    for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
+        if (it->second->database() == database)
+            return it->first;
+    }
+    return 0;
+}
+
 Database* InspectorDatabaseAgent::databaseForId(long databaseId)
 {
-    DatabaseResourcesMap::iterator it = m_databaseResources->find(databaseId);
-    if (it == m_databaseResources->end())
+    DatabaseResourcesMap::iterator it = m_resources.find(databaseId);
+    if (it == m_resources.end())
         return 0;
     return it->second->database();
-}
-
-void InspectorDatabaseAgent::selectDatabase(Database* database)
-{
-    if (!m_frontendProvider->frontend())
-        return;
-
-    for (DatabaseResourcesMap::iterator it = m_databaseResources->begin(); it != m_databaseResources->end(); ++it) {
-        if (it->second->database() == database) {
-            m_frontendProvider->frontend()->selectDatabase(it->first);
-            break;
-        }
-    }
-}
-
-InspectorDatabaseAgent::InspectorDatabaseAgent(DatabaseResourcesMap* databaseResources, InspectorFrontend* frontend)
-    : m_databaseResources(databaseResources)
-    , m_frontendProvider(FrontendProvider::create(frontend))
-{
 }
 
 } // namespace WebCore

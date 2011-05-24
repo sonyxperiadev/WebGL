@@ -34,8 +34,6 @@
 
 namespace WebCore {
 
-class SQLiteStatement;
-
 class IDBKey : public ThreadSafeShared<IDBKey> {
 public:
     static PassRefPtr<IDBKey> createNull()
@@ -99,14 +97,8 @@ public:
         return m_number;
     }
 
-    static PassRefPtr<IDBKey> fromQuery(SQLiteStatement& query, int baseColumn);
-
-    bool isEqual(IDBKey* other);
-    String whereSyntax(String qualifiedTableName = "") const;
-    String lowerCursorWhereFragment(String comparisonOperator, String qualifiedTableName = "");
-    String upperCursorWhereFragment(String comparisonOperator, String qualifiedTableName = "");
-    int bind(SQLiteStatement& query, int column) const;
-    void bindWithNulls(SQLiteStatement& query, int baseColumn) const;
+    bool isLessThan(const IDBKey* other) const;
+    bool isEqual(const IDBKey* other) const;
 
     using ThreadSafeShared<IDBKey>::ref;
     using ThreadSafeShared<IDBKey>::deref;

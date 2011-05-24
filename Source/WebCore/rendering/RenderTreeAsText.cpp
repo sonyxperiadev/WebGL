@@ -278,22 +278,22 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
             ts << " " << quoteAndEscapeNonPrintables(toRenderFileUploadControl(&o)->fileTextValue());
 
         if (o.parent() && (o.parent()->style()->color() != o.style()->color()))
-            ts << " [color=" << o.style()->color().name() << "]";
+            ts << " [color=" << o.style()->color().nameForRenderTreeAsText() << "]";
 
         if (o.parent() && (o.parent()->style()->backgroundColor() != o.style()->backgroundColor()) &&
             o.style()->backgroundColor().isValid() && o.style()->backgroundColor().rgb())
             // Do not dump invalid or transparent backgrounds, since that is the default.
-            ts << " [bgcolor=" << o.style()->backgroundColor().name() << "]";
+            ts << " [bgcolor=" << o.style()->backgroundColor().nameForRenderTreeAsText() << "]";
         
         if (o.parent() && (o.parent()->style()->textFillColor() != o.style()->textFillColor()) &&
             o.style()->textFillColor().isValid() && o.style()->textFillColor() != o.style()->color() &&
             o.style()->textFillColor().rgb())
-            ts << " [textFillColor=" << o.style()->textFillColor().name() << "]";
+            ts << " [textFillColor=" << o.style()->textFillColor().nameForRenderTreeAsText() << "]";
 
         if (o.parent() && (o.parent()->style()->textStrokeColor() != o.style()->textStrokeColor()) &&
             o.style()->textStrokeColor().isValid() && o.style()->textStrokeColor() != o.style()->color() &&
             o.style()->textStrokeColor().rgb())
-            ts << " [textStrokeColor=" << o.style()->textStrokeColor().name() << "]";
+            ts << " [textStrokeColor=" << o.style()->textStrokeColor().nameForRenderTreeAsText() << "]";
 
         if (o.parent() && (o.parent()->style()->textStrokeWidth() != o.style()->textStrokeWidth()) &&
             o.style()->textStrokeWidth() > 0)
@@ -317,7 +317,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                     Color col = o.style()->borderTopColor();
                     if (!col.isValid())
                         col = o.style()->color();
-                    ts << col.name() << ")";
+                    ts << col.nameForRenderTreeAsText() << ")";
                 }
             }
 
@@ -331,7 +331,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                     Color col = o.style()->borderRightColor();
                     if (!col.isValid())
                         col = o.style()->color();
-                    ts << col.name() << ")";
+                    ts << col.nameForRenderTreeAsText() << ")";
                 }
             }
 
@@ -345,7 +345,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                     Color col = o.style()->borderBottomColor();
                     if (!col.isValid())
                         col = o.style()->color();
-                    ts << col.name() << ")";
+                    ts << col.nameForRenderTreeAsText() << ")";
                 }
             }
 
@@ -359,7 +359,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                     Color col = o.style()->borderLeftColor();
                     if (!col.isValid())
                         col = o.style()->color();
-                    ts << col.name() << ")";
+                    ts << col.nameForRenderTreeAsText() << ")";
                 }
             }
 
@@ -470,11 +470,17 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
 
 static void writeTextRun(TextStream& ts, const RenderText& o, const InlineTextBox& run)
 {
-    // FIXME: Table cell adjustment is temporary until results can be updated.
+    // FIXME: For now use an "enclosingIntRect" model for x, y and logicalWidth, although this makes it harder
+    // to detect any changes caused by the conversion to floating point. :(
+    int x = run.m_x;
     int y = run.m_y;
+    int logicalWidth = ceilf(run.m_x + run.m_logicalWidth) - x;
+
+    // FIXME: Table cell adjustment is temporary until results can be updated.
     if (o.containingBlock()->isTableCell())
         y -= toRenderTableCell(o.containingBlock())->intrinsicPaddingBefore();
-    ts << "text run at (" << run.m_x << "," << y << ") width " << run.m_logicalWidth;
+        
+    ts << "text run at (" << x << "," << y << ") width " << logicalWidth;
     if (!run.isLeftToRightDirection() || run.m_dirOverride) {
         ts << (!run.isLeftToRightDirection() ? " RTL" : " LTR");
         if (run.m_dirOverride)
@@ -715,13 +721,13 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
 
     VisibleSelection selection = frame->selection()->selection();
     if (selection.isCaret()) {
-        ts << "caret: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().node());
+        ts << "caret: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().deprecatedNode());
         if (selection.affinity() == UPSTREAM)
             ts << " (upstream affinity)";
         ts << "\n";
     } else if (selection.isRange())
-        ts << "selection start: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().node()) << "\n"
-           << "selection end:   position " << selection.end().deprecatedEditingOffset() << " of " << nodePosition(selection.end().node()) << "\n";
+        ts << "selection start: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().deprecatedNode()) << "\n"
+           << "selection end:   position " << selection.end().deprecatedEditingOffset() << " of " << nodePosition(selection.end().deprecatedNode()) << "\n";
 }
 
 String externalRepresentation(Frame* frame, RenderAsTextBehavior behavior)

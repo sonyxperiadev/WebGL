@@ -32,7 +32,7 @@
 #include "MIMETypeRegistry.h"
 #include "PlatformString.h"
 
-#if PLATFORM(CF) && !PLATFORM(QT)
+#if USE(CF) && !PLATFORM(QT)
 #include "LegacyWebArchive.h"
 #elif PLATFORM(ANDROID)
 #include "WebArchiveAndroid.h"
@@ -62,7 +62,7 @@ static ArchiveMIMETypesMap& archiveMIMETypes()
     if (initialized)
         return mimeTypes;
 
-#if PLATFORM(CF)
+#if USE(CF)
     mimeTypes.set("application/x-webarchive", archiveFactoryCreate<LegacyWebArchive>);
 #elif PLATFORM(ANDROID)
     mimeTypes.set("application/x-webarchive-xml", archiveFactoryCreate<WebArchiveAndroid>);

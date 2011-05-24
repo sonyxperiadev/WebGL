@@ -37,12 +37,12 @@
 #include "FrameView.h"
 #include "HTMLNames.h"
 #include "SMILTimeContainer.h"
+#include "SVGDocumentExtensions.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SVGSVGElement.h"
 #include "SVGURIReference.h"
 #include "XLinkNames.h"
-#include <math.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
@@ -115,6 +115,8 @@ SVGSMILElement::Condition::Condition(Type type, BeginOrEnd beginOrEnd, const Str
     
 SVGSMILElement::SVGSMILElement(const QualifiedName& tagName, Document* doc)
     : SVGElement(tagName, doc)
+    , m_attributeName(anyQName())
+    , m_targetElement(0)
     , m_conditionsConnected(false)
     , m_hasEndEventConditions(false)
     , m_intervalBegin(SMILTime::unresolved())
@@ -140,6 +142,28 @@ SVGSMILElement::~SVGSMILElement()
     if (m_timeContainer)
         m_timeContainer->unschedule(this);
 }
+
+static inline QualifiedName constructQualifiedName(const SVGElement* svgElement, const String& attributeName)
+{
+    ASSERT(svgElement);
+    if (attributeName.isEmpty())
+        return anyQName();
+    if (!attributeName.contains(':'))
+        return QualifiedName(nullAtom, attributeName, nullAtom);
+    
+    String prefix;
+    String localName;
+    ExceptionCode ec = 0;
+    if (!Document::parseQualifiedName(attributeName, prefix, localName, ec))
+        return anyQName();
+    ASSERT(!ec);
+    
+    String namespaceURI = svgElement->lookupNamespaceURI(prefix);    
+    if (namespaceURI.isEmpty())
+        return anyQName();
+    
+    return QualifiedName(nullAtom, localName, namespaceURI);
+}
     
 void SVGSMILElement::insertedIntoDocument()
 {
@@ -149,6 +173,7 @@ void SVGSMILElement::insertedIntoDocument()
     for (ContainerNode* n = this; n; n = n->parentNode())
         ASSERT(!n->isShadowRoot());
 #endif
+    m_attributeName = constructQualifiedName(this, getAttribute(SVGNames::attributeNameAttr));
     SVGSVGElement* owner = ownerSVGElement();
     if (!owner)
         return;
@@ -160,9 +185,14 @@ void SVGSMILElement::insertedIntoDocument()
 
 void SVGSMILElement::removedFromDocument()
 {
+    m_attributeName = anyQName();
     if (m_timeContainer) {
         m_timeContainer->unschedule(this);
         m_timeContainer = 0;
+    }
+    if (m_targetElement) {
+        document()->accessSVGExtensions()->removeAnimationElementFromTarget(this, m_targetElement);
+        m_targetElement = 0;
     }
     // Calling disconnectConditions() may kill us if there are syncbase conditions.
     // OK, but we don't want to die inside the call.
@@ -380,7 +410,11 @@ void SVGSMILElement::attributeChanged(Attribute* attr, bool preserveDecls)
         m_cachedMin = invalidCachedTime;
     else if (attrName == SVGNames::maxAttr)
         m_cachedMax = invalidCachedTime;
-    
+    else if (attrName == SVGNames::attributeNameAttr) {
+        if (inDocument())
+            m_attributeName = constructQualifiedName(this, attr->value());
+    }
+
     if (inDocument()) {
         if (attrName == SVGNames::beginAttr)
             beginListChanged();
@@ -461,18 +495,19 @@ void SVGSMILElement::reschedule()
 
 SVGElement* SVGSMILElement::targetElement() const
 {
+    if (m_targetElement)
+        return m_targetElement;
+
     String href = xlinkHref();
     ContainerNode* target = href.isEmpty() ? parentNode() : document()->getElementById(SVGURIReference::getTarget(href));
-    if (target && target->isSVGElement())
-        return static_cast<SVGElement*>(target);
-    return 0;
-}
+    if (!target || !target->isSVGElement())
+        return 0;
     
-String SVGSMILElement::attributeName() const
-{    
-    return getAttribute(SVGNames::attributeNameAttr).string().stripWhiteSpace();
+    m_targetElement = static_cast<SVGElement*>(target);
+    document()->accessSVGExtensions()->addAnimationElementToTarget(const_cast<SVGSMILElement*>(this), m_targetElement);
+    return m_targetElement;
 }
-    
+
 SMILTime SVGSMILElement::elapsed() const 
 {
     return m_timeContainer ? m_timeContainer->elapsed() : 0;

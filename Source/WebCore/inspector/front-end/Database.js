@@ -81,7 +81,7 @@ WebInspector.Database.prototype = {
         {
             callback(names.sort());
         }
-        InspectorBackend.getDatabaseTableNames(this._id, sortingCallback);
+        DatabaseAgent.getDatabaseTableNames(this._id, sortingCallback);
     },
     
     executeSql: function(query, onSuccess, onError)
@@ -94,7 +94,7 @@ WebInspector.Database.prototype = {
             }
             WebInspector.DatabaseDispatcher._callbacks[transactionId] = {"onSuccess": onSuccess, "onError": onError};
         }
-        InspectorBackend.executeSQL(this._id, query, callback);
+        DatabaseAgent.executeSQL(this._id, query, callback);
     }
 }
 
@@ -107,20 +107,12 @@ WebInspector.DatabaseDispatcher._callbacks = {};
 WebInspector.DatabaseDispatcher.prototype = {
     addDatabase: function(payload)
     {
-        if (!WebInspector.panels.resources)
-            return;
         var database = new WebInspector.Database(
             payload.id,
             payload.domain,
             payload.name,
             payload.version);
         WebInspector.panels.resources.addDatabase(database);
-    },
-
-    selectDatabase: function(o)
-    {
-        WebInspector.showPanel("resources");
-        WebInspector.panels.resources.selectDatabase(o);
     },
 
     sqlTransactionSucceeded: function(transactionId, columnNames, values)

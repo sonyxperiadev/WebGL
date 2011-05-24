@@ -537,6 +537,10 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\BlockStack.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\BloomFilter.h"
 			>
 		</File>
@@ -594,6 +598,10 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\DisallowCType.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\DoublyLinkedList.h"
 			>
 		</File>
 		<File
@@ -866,6 +874,22 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\SegmentedVector.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\SentinelLinkedList.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\SHA1.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\SHA1.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\SinglyLinkedList.h"
 			>
 		</File>
 		<File

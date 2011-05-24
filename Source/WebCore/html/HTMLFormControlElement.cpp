@@ -65,6 +65,7 @@ HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Doc
     , m_willValidateInitialized(false)
     , m_willValidate(true)
     , m_isValid(true)
+    , m_wasChangedSinceLastFormControlChangeEvent(false)
 {
     if (!this->form())
         setForm(findFormAncestor());
@@ -130,7 +131,7 @@ void HTMLFormControlElement::attach()
     // on the renderer.
     if (renderer())
         renderer()->updateFromElement();
-        
+
     // Focus the element if it should honour its autofocus attribute.
     // We have to determine if the element is a TextArea/Input/Button/Select,
     // if input type hidden ignore autofocus. So if disabled or readonly.
@@ -188,13 +189,25 @@ void HTMLFormControlElement::setName(const AtomicString& value)
     setAttribute(nameAttr, value);
 }
 
+bool HTMLFormControlElement::wasChangedSinceLastFormControlChangeEvent() const
+{
+    return m_wasChangedSinceLastFormControlChangeEvent;
+}
+
+void HTMLFormControlElement::setChangedSinceLastFormControlChangeEvent(bool changed)
+{
+    m_wasChangedSinceLastFormControlChangeEvent = changed;
+}
+
 void HTMLFormControlElement::dispatchFormControlChangeEvent()
 {
     HTMLElement::dispatchChangeEvents();
+    setChangedSinceLastFormControlChangeEvent(false);
 }
 
 void HTMLFormControlElement::dispatchFormControlInputEvent()
 {
+    setChangedSinceLastFormControlChangeEvent(true);
     HTMLElement::dispatchInputEvents();
 }
 
@@ -251,7 +264,7 @@ bool HTMLFormControlElement::isKeyboardFocusable(KeyboardEvent* event) const
 {
     if (isFocusable())
         if (document()->frame())
-            return document()->frame()->eventHandler()->tabsToAllControls(event);
+            return document()->frame()->eventHandler()->tabsToAllFormControls(event);
     return false;
 }
 
@@ -451,13 +464,13 @@ PassRefPtr<NodeList> HTMLFormControlElement::labels()
         return 0;
     if (!document())
         return 0;
-    
+
     NodeRareData* data = Node::ensureRareData();
     if (!data->nodeLists()) {
         data->setNodeLists(NodeListsNodeData::create());
         document()->addNodeListCache();
     }
-    
+
     return LabelsNodeList::create(this);
 }
 
@@ -582,6 +595,7 @@ bool HTMLTextFormControlElement::placeholderShouldBeVisible() const
 {
     return supportsPlaceholder()
         && isEmptyValue()
+        && isEmptySuggestedValue()
         && !isPlaceholderEmpty()
         && (document()->focusedNode() != this || (renderer() && renderer()->theme()->shouldShowPlaceholderWhenFocused()));
 }

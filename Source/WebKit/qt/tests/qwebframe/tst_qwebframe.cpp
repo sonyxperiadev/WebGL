@@ -590,6 +590,7 @@ public slots:
     void cleanup();
 
 private slots:
+    void horizontalScrollAfterBack();
     void getSetStaticProperty();
     void getSetDynamicProperty();
     void getSetChildren();
@@ -647,6 +648,8 @@ private slots:
     void setContent_data();
     void setContent();
     void setCacheLoadControlAttribute();
+    void setUrlWithPendingLoads();
+    void setUrlWithFragment();
 
 private:
     QString  evalJS(const QString&s) {
@@ -3101,6 +3104,29 @@ void tst_QWebFrame::scrollbarsOff()
     QCOMPARE(mainFrame->documentElement().findAll("span").at(0).toPlainText(), QString("SUCCESS"));
 }
 
+void tst_QWebFrame::horizontalScrollAfterBack()
+{
+    QWebView view;
+    QWebFrame* frame = view.page()->mainFrame();
+    QSignalSpy loadSpy(view.page(), SIGNAL(loadFinished(bool))); 
+
+    view.page()->settings()->setMaximumPagesInCache(2);
+    frame->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAsNeeded);
+    frame->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAsNeeded);
+
+    view.load(QUrl("qrc:/testiframe2.html"));
+    view.resize(200, 200);
+    QTRY_COMPARE(loadSpy.count(), 1);
+    QTRY_VERIFY((frame->scrollBarGeometry(Qt::Horizontal)).height());
+
+    view.load(QUrl("qrc:/testiframe.html"));
+    QTRY_COMPARE(loadSpy.count(), 2);
+
+    view.page()->triggerAction(QWebPage::Back);
+    QTRY_COMPARE(loadSpy.count(), 3);
+    QTRY_VERIFY((frame->scrollBarGeometry(Qt::Horizontal)).height());
+}
+
 void tst_QWebFrame::evaluateWillCauseRepaint()
 {
     QWebView view;
@@ -3285,6 +3311,33 @@ void tst_QWebFrame::webElementSlotOnly()
     m_page->mainFrame()->addToJavaScriptWindowObject("myWebElementSlotObject", &object);
     evalJS("myWebElementSlotObject.doSomethingWithWebElement(document.body)");
     QCOMPARE(evalJS("myWebElementSlotObject.tagName"), QString("BODY"));
+}
+
+void tst_QWebFrame::setUrlWithPendingLoads()
+{
+    QWebPage page;
+    page.mainFrame()->setHtml("<img src='dummy:'/>");
+    page.mainFrame()->setUrl(QUrl("about:blank"));
+}
+
+void tst_QWebFrame::setUrlWithFragment()
+{
+    QSKIP("Bug https://bugs.webkit.org/show_bug.cgi?id=32723", SkipAll);
+
+    // Based on bug report https://bugs.webkit.org/show_bug.cgi?id=32723
+    QWebPage page;
+    QSignalSpy spy(&page, SIGNAL(loadFinished(bool)));
+
+    const QUrl url("qrc:/test1.html#");
+    QVERIFY(!url.fragment().isNull());
+
+    page.mainFrame()->setUrl(url);
+    ::waitForSignal(&page, SIGNAL(loadFinished(bool)));
+
+    QCOMPARE(spy.count(), 1);
+    QVERIFY(!page.mainFrame()->toPlainText().isEmpty());
+    QCOMPARE(page.mainFrame()->requestedUrl(), url);
+    QCOMPARE(page.mainFrame()->url(), url);
 }
 
 QTEST_MAIN(tst_QWebFrame)

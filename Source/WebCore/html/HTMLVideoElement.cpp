@@ -232,7 +232,7 @@ void HTMLVideoElement::webkitEnterFullscreen(bool isUserGesture, ExceptionCode& 
 
     // Generate an exception if this isn't called in response to a user gesture, or if the 
     // element does not support fullscreen.
-    if (!isUserGesture || !supportsFullscreen()) {
+    if ((requireUserGestureForFullScreen() && !isUserGesture) || !supportsFullscreen()) {
         ec = INVALID_STATE_ERR;
         return;
     }
@@ -264,20 +264,20 @@ void HTMLVideoElement::willMoveToNewOwnerDocument()
 }
 
 #if ENABLE(MEDIA_STATISTICS)
-unsigned long HTMLVideoElement::webkitDecodedFrames() const
+unsigned HTMLVideoElement::webkitDecodedFrameCount() const
 {
     if (!player())
         return 0;
 
-    return player()->decodedFrames();
+    return player()->decodedFrameCount();
 }
 
-unsigned long HTMLVideoElement::webkitDroppedFrames() const
+unsigned HTMLVideoElement::webkitDroppedFrameCount() const
 {
     if (!player())
         return 0;
 
-    return player()->droppedFrames();
+    return player()->droppedFrameCount();
 }
 #endif
 

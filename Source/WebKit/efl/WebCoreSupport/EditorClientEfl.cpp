@@ -145,12 +145,6 @@ void EditorClientEfl::didSetSelectionTypesForPasteboard()
     notImplemented();
 }
 
-bool EditorClientEfl::isEditable()
-{
-    notImplemented();
-    return false;
-}
-
 void EditorClientEfl::registerCommandForUndo(WTF::PassRefPtr<EditCommand>)
 {
     notImplemented();
@@ -164,6 +158,16 @@ void EditorClientEfl::registerCommandForRedo(WTF::PassRefPtr<EditCommand>)
 void EditorClientEfl::clearUndoRedoOperations()
 {
     notImplemented();
+}
+
+bool EditorClientEfl::canCopyCut(bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientEfl::canPaste(bool defaultValue) const
+{
+    return defaultValue;
 }
 
 bool EditorClientEfl::canUndo() const

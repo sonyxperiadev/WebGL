@@ -27,9 +27,6 @@
 #include "config.h"
 #include "WebChromeClient.h"
 
-#define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
-#include "NotImplemented.h"
-
 #include "DrawingArea.h"
 #include "InjectedBundleNavigationAction.h"
 #include "InjectedBundleUserMessageCoders.h"
@@ -54,6 +51,7 @@
 #include <WebCore/FrameView.h>
 #include <WebCore/HTMLNames.h>
 #include <WebCore/HTMLPlugInImageElement.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/SecurityOrigin.h>
 
@@ -64,13 +62,15 @@ namespace WebKit {
 
 static double area(WebFrame* frame)
 {
-    IntSize size = frame->size();
+    IntSize size = frame->visibleContentBoundsExcludingScrollbars().size();
     return static_cast<double>(size.height()) * size.width();
 }
 
 
 static WebFrame* findLargestFrameInFrameSet(WebPage* page)
 {
+    // Approximate what a user could consider a default target frame for application menu operations.
+
     WebFrame* mainFrame = page->mainFrame();
     if (!mainFrame->isFrameSet())
         return 0;
@@ -252,11 +252,7 @@ void WebChromeClient::addMessageToConsole(MessageSource, MessageType, MessageLev
 
 bool WebChromeClient::canRunBeforeUnloadConfirmPanel()
 {
-    bool canRun = false;
-    if (!WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::CanRunBeforeUnloadConfirmPanel(), Messages::WebPageProxy::CanRunBeforeUnloadConfirmPanel::Reply(canRun), m_page->pageID()))
-        return false;
-
-    return canRun;
+    return m_page->canRunBeforeUnloadConfirmPanel();
 }
 
 bool WebChromeClient::runBeforeUnloadConfirmPanel(const String& message, Frame* frame)
@@ -340,9 +336,9 @@ bool WebChromeClient::shouldInterruptJavaScript()
     return false;
 }
 
-bool WebChromeClient::tabsToLinks() const
+KeyboardUIMode WebChromeClient::keyboardUIMode()
 {
-    return m_page->tabsToLinks();
+    return m_page->keyboardUIMode();
 }
 
 IntRect WebChromeClient::windowResizerRect() const
@@ -458,7 +454,7 @@ void WebChromeClient::missingPluginButtonClicked(Element* element) const
 
     HTMLPlugInImageElement* pluginElement = static_cast<HTMLPlugInImageElement*>(element);
 
-    m_page->send(Messages::WebPageProxy::MissingPluginButtonClicked(pluginElement->serviceType(), pluginElement->url()));
+    m_page->send(Messages::WebPageProxy::MissingPluginButtonClicked(pluginElement->serviceType(), pluginElement->url(), pluginElement->getAttribute(pluginspageAttr)));
 }
 
 void WebChromeClient::scrollbarsModeDidChange() const

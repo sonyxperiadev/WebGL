@@ -46,10 +46,12 @@ class InspectorClient;
 class InspectorState {
 public:
     InspectorState(InspectorClient*);
-    InspectorState(InspectorClient*, const String& jsonString);
     virtual ~InspectorState() {}
 
+    void loadFromCookie(const String& inspectorStateCookie);
+
     void mute();
+    void unmute();
 
     bool getBoolean(const String& propertyName);
     String getString(const String& propertyName);

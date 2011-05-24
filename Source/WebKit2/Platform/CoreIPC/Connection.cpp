@@ -343,10 +343,8 @@ PassOwnPtr<ArgumentDecoder> Connection::sendSyncMessage(MessageID messageID, uin
     // We only allow sending sync messages from the client run loop.
     ASSERT(RunLoop::current() == m_clientRunLoop);
 
-    if (!isValid()) {
-        m_client->didFailToSendSyncMessage(this);
+    if (!isValid())
         return 0;
-    }
     
     // Push the pending sync reply information on our stack.
     {
@@ -358,11 +356,13 @@ PassOwnPtr<ArgumentDecoder> Connection::sendSyncMessage(MessageID messageID, uin
 
         m_pendingSyncReplies.append(PendingSyncReply(syncRequestID));
     }
-    
+
+    // We have to begin waiting for the sync reply before sending the message, in case the other side
+    // would have sent a request before us, which would lead to a deadlock.
+    m_syncMessageState->beginWaitForSyncReply();
+
     // First send the message.
     sendMessage(messageID, encoder);
-
-    m_syncMessageState->beginWaitForSyncReply();
 
     // Then wait for a reply. Waiting for a reply could involve dispatching incoming sync messages, so
     // keep an extra reference to the connection here in case it's invalidated.

@@ -117,9 +117,6 @@ public:
     WEBKIT_API double lastModifiedDate() const;
     WEBKIT_API void setLastModifiedDate(double);
 
-    WEBKIT_API bool isContentFiltered() const;
-    WEBKIT_API void setIsContentFiltered(bool);
-
     WEBKIT_API long long appCacheID() const;
     WEBKIT_API void setAppCacheID(long long);
 
@@ -169,10 +166,13 @@ public:
     WEBKIT_API WebString downloadFilePath() const;
     WEBKIT_API void setDownloadFilePath(const WebString&);
 
-    // Remote address of the socket which fetched this resource, for presenting
-    // to inquisitive users.  Can be "ipv4:port", "[ipv6]:port", or empty.
-    WEBKIT_API WebString socketAddress() const;
-    WEBKIT_API void setSocketAddress(const WebString&);
+    // Remote IP address of the socket which fetched this resource.
+    WEBKIT_API WebString remoteIPAddress() const;
+    WEBKIT_API void setRemoteIPAddress(const WebString&);
+
+    // Remote port number of the socket which fetched this resource.
+    WEBKIT_API unsigned short remotePort() const;
+    WEBKIT_API void setRemotePort(unsigned short);
 
 protected:
     void assign(WebURLResponsePrivate*);

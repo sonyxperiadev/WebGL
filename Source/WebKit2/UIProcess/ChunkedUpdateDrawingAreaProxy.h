@@ -30,6 +30,8 @@
 
 #include "DrawingAreaProxy.h"
 #include <WebCore/IntSize.h>
+#include <wtf/PassOwnPtr.h>
+#include <wtf/OwnPtr.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
@@ -80,14 +82,9 @@ private:
     bool platformPaint(const WebCore::IntRect&, PlatformDrawingContext);
     void drawUpdateChunkIntoBackingStore(UpdateChunk*);
     void didSetSize(UpdateChunk*);
-    void update(UpdateChunk*);
+    void deprecatedUpdate(UpdateChunk*);
 
     void sendSetSize();
-
-#if USE(ACCELERATED_COMPOSITING)
-    virtual void attachCompositingContext(uint32_t) { }
-    virtual void detachCompositingContext() { }
-#endif
 
     bool m_isWaitingForDidSetFrameNotification;
     bool m_isVisible;

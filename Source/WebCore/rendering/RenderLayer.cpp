@@ -182,8 +182,8 @@ RenderLayer::RenderLayer(RenderBoxModelObject* renderer)
     , m_hasOverflowScroll(false)
 #endif
     , m_marquee(0)
-    , m_staticX(0)
-    , m_staticY(0)
+    , m_staticInlinePosition(0)
+    , m_staticBlockPosition(0)
     , m_reflection(0)
     , m_scrollCorner(0)
     , m_resizer(0)
@@ -413,7 +413,7 @@ void RenderLayer::updateRepaintRectsAfterScroll(bool fixed)
     if (fixed || renderer()->style()->position() == FixedPosition) {
         computeRepaintRects();
         fixed = true;
-    } else if (renderer()->hasTransform()) {
+    } else if (renderer()->hasTransform() && !renderer()->isRenderView()) {
         // Transforms act as fixed position containers, so nothing inside a
         // transformed element can be fixed relative to the viewport if the
         // transformed element is not fixed itself or child of a fixed element.
@@ -1839,8 +1839,13 @@ PassRefPtr<Scrollbar> RenderLayer::createScrollbar(ScrollbarOrientation orientat
     bool hasCustomScrollbarStyle = actualRenderer->isBox() && actualRenderer->style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
         widget = RenderScrollbar::createCustomScrollbar(this, orientation, toRenderBox(actualRenderer));
-    else
+    else {
         widget = Scrollbar::createNativeScrollbar(this, orientation, RegularScrollbar);
+        if (orientation == HorizontalScrollbar)
+            didAddHorizontalScrollbar(widget.get());
+        else 
+            didAddVerticalScrollbar(widget.get());
+    }
     renderer()->document()->view()->addChild(widget.get());        
     return widget.release();
 }
@@ -1851,6 +1856,12 @@ void RenderLayer::destroyScrollbar(ScrollbarOrientation orientation)
     if (scrollbar) {
         if (scrollbar->isCustomScrollbar())
             static_cast<RenderScrollbar*>(scrollbar.get())->clearOwningRenderer();
+        else {
+            if (orientation == HorizontalScrollbar)
+                willRemoveHorizontalScrollbar(scrollbar.get());
+            else
+                willRemoveVerticalScrollbar(scrollbar.get());
+        }
 
         scrollbar->removeFromParent();
         scrollbar->disconnectFromScrollableArea();
@@ -1863,13 +1874,10 @@ void RenderLayer::setHasHorizontalScrollbar(bool hasScrollbar)
     if (hasScrollbar == (m_hBar != 0))
         return;
 
-    if (hasScrollbar) {
+    if (hasScrollbar)
         m_hBar = createScrollbar(HorizontalScrollbar);
-        ScrollableArea::didAddHorizontalScrollbar(m_hBar.get());
-    } else {
-        ScrollableArea::willRemoveHorizontalScrollbar(m_hBar.get());
+    else
         destroyScrollbar(HorizontalScrollbar);
-    }
 
     // Destroying or creating one bar can cause our scrollbar corner to come and go.  We need to update the opposite scrollbar's style.
     if (m_hBar)
@@ -1889,13 +1897,10 @@ void RenderLayer::setHasVerticalScrollbar(bool hasScrollbar)
     if (hasScrollbar == (m_vBar != 0))
         return;
 
-    if (hasScrollbar) {
+    if (hasScrollbar)
         m_vBar = createScrollbar(VerticalScrollbar);
-        ScrollableArea::didAddVerticalScrollbar(m_vBar.get());
-    } else {
-        ScrollableArea::willRemoveVerticalScrollbar(m_vBar.get());
+    else
         destroyScrollbar(VerticalScrollbar);
-    }
 
      // Destroying or creating one bar can cause our scrollbar corner to come and go.  We need to update the opposite scrollbar's style.
     if (m_hBar)
@@ -1912,14 +1917,14 @@ void RenderLayer::setHasVerticalScrollbar(bool hasScrollbar)
 
 int RenderLayer::verticalScrollbarWidth() const
 {
-    if (!m_vBar || ScrollbarTheme::nativeTheme()->usesOverlayScrollbars())
+    if (!m_vBar || m_vBar->isOverlayScrollbar())
         return 0;
     return m_vBar->width();
 }
 
 int RenderLayer::horizontalScrollbarHeight() const
 {
-    if (!m_hBar || ScrollbarTheme::nativeTheme()->usesOverlayScrollbars())
+    if (!m_hBar || m_hBar->isOverlayScrollbar())
         return 0;
     return m_hBar->height();
 }
@@ -3283,8 +3288,8 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
         RenderView* view = renderer()->view();
         ASSERT(view);
         if (view && clipRects.fixed() && rootLayer->renderer() == view) {
-            x -= view->frameView()->scrollX();
-            y -= view->frameView()->scrollY();
+            x -= view->frameView()->scrollXForFixedPosition();
+            y -= view->frameView()->scrollYForFixedPosition();
         }
         
         if (renderer()->hasOverflowClip()) {
@@ -3336,7 +3341,7 @@ IntRect RenderLayer::backgroundClipRect(const RenderLayer* rootLayer, bool tempo
         RenderView* view = renderer()->view();
         ASSERT(view);
         if (view && parentRects.fixed() && rootLayer->renderer() == view)
-            backgroundRect.move(view->frameView()->scrollX(), view->frameView()->scrollY());
+            backgroundRect.move(view->frameView()->scrollXForFixedPosition(), view->frameView()->scrollYForFixedPosition());
     }
     return backgroundRect;
 }
@@ -3579,26 +3584,6 @@ bool RenderLayer::hasCompositedMask() const
     return m_backing && m_backing->hasMaskLayer();
 }
 #endif
-
-bool RenderLayer::scrollbarWillRenderIntoCompositingLayer() const
-{
-#if USE(ACCELERATED_COMPOSITING)
-    if (enclosingCompositingLayer())
-        return true;
-
-    RenderView* view = renderer()->view();
-    if (!view)
-        return false;
-
-    FrameView* frameView = view->frameView();
-    if (!frameView)
-        return false;
-
-    return frameView->isEnclosedInCompositingLayer();
-#else
-    return false;
-#endif
-}
 
 bool RenderLayer::paintsWithTransform(PaintBehavior paintBehavior) const
 {

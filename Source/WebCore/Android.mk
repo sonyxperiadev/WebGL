@@ -52,6 +52,7 @@ LOCAL_SRC_FILES := \
 	css/CSSParser.cpp \
 	css/CSSParserValues.cpp \
 	css/CSSPrimitiveValue.cpp \
+	css/CSSPrimitiveValueCache.cpp \
 	css/CSSProperty.cpp \
 	css/CSSPropertyLonghand.cpp \
 	css/CSSPropertySourceData.cpp \
@@ -398,6 +399,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	html/shadow/MediaControls.cpp \
 	html/shadow/SliderThumbElement.cpp \
+	html/shadow/TextControlInnerElements.cpp \
 	\
 	inspector/ScriptArguments.cpp \
 	inspector/ScriptCallStack.cpp \
@@ -470,6 +472,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/EventHandler.cpp \
 	page/FocusController.cpp \
 	page/Frame.cpp \
+	page/FrameActionScheduler.cpp \
 	page/FrameTree.cpp \
 	page/FrameView.cpp \
 	page/Geolocation.cpp \
@@ -514,8 +517,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/ContentType.cpp \
 	platform/ContextMenuItem.cpp \
 	platform/CrossThreadCopier.cpp \
+<<<<<<< HEAD
 	platform/Cursor.cpp \
 	platform/DeprecatedPtrListImpl.cpp \
+=======
+>>>>>>> WebKit at r80534
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
 	platform/FileChooser.cpp \
@@ -833,6 +839,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderObject.cpp \
 	rendering/RenderObjectChildList.cpp \
 	rendering/RenderPart.cpp \
+	rendering/RenderQuote.cpp \
 	rendering/RenderReplaced.cpp \
 	rendering/RenderReplica.cpp \
 	rendering/RenderRuby.cpp \
@@ -919,8 +926,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/ScrollBehavior.cpp \
+<<<<<<< HEAD
 	rendering/ShadowElement.cpp \
 	rendering/TextControlInnerElements.cpp \
+=======
+>>>>>>> WebKit at r80534
 	rendering/TransformState.cpp \
 	rendering/break_lines.cpp \
 	\
@@ -929,6 +939,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/style/FillLayer.cpp \
 	rendering/style/KeyframeList.cpp \
 	rendering/style/NinePieceImage.cpp \
+	rendering/style/QuotesData.cpp \
 	rendering/style/RenderStyle.cpp \
 
 ifeq ($(ENABLE_SVG), true)

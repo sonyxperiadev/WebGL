@@ -328,7 +328,7 @@ PopupContainer::~PopupContainer()
         removeChild(m_listBox.get());
 }
 
-IntRect PopupContainer::layoutAndCalculateWidgetRect(int targetControlHeight, int popupInitialY)
+IntRect PopupContainer::layoutAndCalculateWidgetRect(int targetControlHeight, const IntPoint& popupInitialCoordinate)
 {
     // Reset the max height to its default value, it will be recomputed below
     // if necessary.
@@ -336,8 +336,8 @@ IntRect PopupContainer::layoutAndCalculateWidgetRect(int targetControlHeight, in
 
     // Lay everything out to figure out our preferred size, then tell the view's
     // WidgetClient about it.  It should assign us a client.
-    layout();
-  
+    int rightOffset = layoutAndGetRightOffset();
+
     // Assume m_listBox size is already calculated.
     IntSize targetSize(m_listBox->width() + kBorderSize * 2,
                        m_listBox->height() + kBorderSize * 2);
@@ -348,9 +348,22 @@ IntRect PopupContainer::layoutAndCalculateWidgetRect(int targetControlHeight, in
         // If the popup would extend past the bottom of the screen, open upwards
         // instead.
         FloatRect screen = screenAvailableRect(m_frameView.get());
-        // Use this::x() for location because RTL position is considered
-        // in layout().
-        widgetRect = chromeClient->windowToScreen(IntRect(x(), popupInitialY, targetSize.width(), targetSize.height()));
+        // Use popupInitialCoordinate.x() + rightOffset because RTL position
+        // needs to be considered.
+        widgetRect = chromeClient->windowToScreen(IntRect(popupInitialCoordinate.x() + rightOffset, popupInitialCoordinate.y(), targetSize.width(), targetSize.height()));
+
+        // If we have multiple screens and the browser rect is in one screen, we have
+        // to clip the window width to the screen width.
+        FloatRect windowRect = chromeClient->windowRect();
+        if (windowRect.x() >= screen.x() && windowRect.maxX() <= screen.maxX()) {
+            if (m_listBox->m_popupClient->menuStyle().textDirection() == RTL && widgetRect.x() < screen.x()) {
+                widgetRect.setWidth(widgetRect.maxX() - screen.x());
+                widgetRect.setX(screen.x());
+            } else if (widgetRect.maxX() > screen.maxX())
+                widgetRect.setWidth(screen.maxX() - widgetRect.x());
+        }
+
+        // Calculate Y axis size.
         if (widgetRect.maxY() > static_cast<int>(screen.maxY())) {
             if (widgetRect.y() - widgetRect.height() - targetControlHeight > 0) {
                 // There is enough room to open upwards.
@@ -364,9 +377,13 @@ IntRect PopupContainer::layoutAndCalculateWidgetRect(int targetControlHeight, in
                     m_listBox->setMaxHeight(spaceAbove);
                 else
                     m_listBox->setMaxHeight(spaceBelow);
-                layout();
-                // Our size has changed, recompute the widgetRect.
-                widgetRect = chromeClient->windowToScreen(frameRect());
+                layoutAndGetRightOffset();
+                // Our height has changed, so recompute only Y axis of widgetRect.
+                // We don't have to recompute X axis, so we only replace Y axis
+                // in widgetRect.
+                IntRect frameInScreen = chromeClient->windowToScreen(frameRect());
+                widgetRect.setY(frameInScreen.y());
+                widgetRect.setHeight(frameInScreen.height());
                 // And move upwards if necessary.
                 if (spaceAbove > spaceBelow)
                     widgetRect.move(0, -(widgetRect.height() + targetControlHeight));
@@ -383,7 +400,7 @@ void PopupContainer::showPopup(FrameView* view)
     ChromeClientChromium* chromeClient = chromeClientChromium();
     if (chromeClient) {
         IntRect popupRect = frameRect();
-        chromeClient->popupOpened(this, layoutAndCalculateWidgetRect(popupRect.height(), popupRect.y()), false);
+        chromeClient->popupOpened(this, layoutAndCalculateWidgetRect(popupRect.height(), popupRect.location()), false);
         m_popupOpen = true;
     }
 
@@ -412,7 +429,7 @@ void PopupContainer::notifyPopupHidden()
     chromeClientChromium()->popupClosed(this);
 }
 
-void PopupContainer::layout()
+int PopupContainer::layoutAndGetRightOffset()
 {
     m_listBox->layout();
 
@@ -429,12 +446,15 @@ void PopupContainer::layout()
     // of dropdown box should be aligned with the right edge of <select> element box,
     // and the dropdown box should be expanded to left if more space needed.
     PopupMenuClient* popupClient = m_listBox->m_popupClient;
+    int rightOffset = 0;
     if (popupClient) {
         bool rightAligned = m_listBox->m_popupClient->menuStyle().textDirection() == RTL;
         if (rightAligned)
-            move(x() + popupWidth - listBoxWidth, y());
+            rightOffset = popupWidth - listBoxWidth;
     }
     invalidate();
+
+    return rightOffset;
 }
 
 bool PopupContainer::handleMouseDownEvent(const PlatformMouseEvent& event)
@@ -520,7 +540,7 @@ ChromeClientChromium* PopupContainer::chromeClientChromium()
     return static_cast<ChromeClientChromium*>(m_frameView->frame()->page()->chrome()->client());
 }
 
-void PopupContainer::show(const IntRect& r, FrameView* v, int index)
+void PopupContainer::showInRect(const IntRect& r, FrameView* v, int index)
 {
     // The rect is the size of the select box. It's usually larger than we need.
     // subtract border size so that usually the container will be displayed
@@ -553,7 +573,7 @@ void PopupContainer::refresh(const IntRect& targetControlRect)
     listBox()->updateFromElement();
     // Store the original height to check if we need to request the location.
     int originalHeight = height();
-    IntRect widgetRect = layoutAndCalculateWidgetRect(targetControlRect.height(), location.y());
+    IntRect widgetRect = layoutAndCalculateWidgetRect(targetControlRect.height(), location);
     if (originalHeight != widgetRect.height())
         setFrameRect(widgetRect);
 
@@ -1379,7 +1399,7 @@ void PopupMenuChromium::show(const IntRect& r, FrameView* v, int index)
 {
     if (!p.popup)
         p.popup = PopupContainer::create(client(), PopupContainer::Select, dropDownSettings);
-    p.popup->show(r, v, index);
+    p.popup->showInRect(r, v, index);
 }
 
 void PopupMenuChromium::hide()

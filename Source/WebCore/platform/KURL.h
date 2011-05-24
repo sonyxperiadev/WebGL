@@ -30,7 +30,7 @@
 #include "URLString.h"
 #include <wtf/HashMap.h>
 
-#if PLATFORM(CF)
+#if USE(CF)
 typedef const struct __CFURL* CFURLRef;
 #endif
 
@@ -95,6 +95,8 @@ public:
     KURL(const CString& canonicalSpec,
          const url_parse::Parsed& parsed, bool isValid);
 #endif
+
+    String strippedForUseAsReferrer() const;
 
     // FIXME: The above functions should be harmonized so that passing a
     // base of null or the empty string gives the same result as the
@@ -190,7 +192,7 @@ public:
     unsigned pathAfterLastSlash() const;
     operator const String&() const { return string(); }
 
-#if PLATFORM(CF)
+#if USE(CF)
     KURL(CFURLRef);
     CFURLRef createCFURL() const;
 #endif

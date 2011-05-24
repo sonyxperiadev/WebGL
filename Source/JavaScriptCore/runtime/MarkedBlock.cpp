@@ -27,33 +27,38 @@
 #include "MarkedBlock.h"
 
 #include "JSCell.h"
+#include "ScopeChain.h"
 
 namespace JSC {
 
-MarkedBlock* MarkedBlock::create(JSGlobalData* globalData)
+MarkedBlock* MarkedBlock::create(JSGlobalData* globalData, size_t cellSize)
 {
-    PageAllocationAligned allocation = PageAllocationAligned::allocate(BLOCK_SIZE, BLOCK_SIZE, OSAllocator::JSGCHeapPages);
+    PageAllocationAligned allocation = PageAllocationAligned::allocate(blockSize, blockSize, OSAllocator::JSGCHeapPages);
     if (!static_cast<bool>(allocation))
         CRASH();
-    return new (allocation.base()) MarkedBlock(allocation, globalData);
+    return new (allocation.base()) MarkedBlock(allocation, globalData, cellSize);
 }
 
 void MarkedBlock::destroy(MarkedBlock* block)
 {
-    for (size_t i = 0; i < CELLS_PER_BLOCK; ++i)
-        reinterpret_cast<JSCell*>(&block->cells[i])->~JSCell();
+    for (size_t i = block->firstAtom(); i < block->m_endAtom; i += block->m_atomsPerCell)
+        reinterpret_cast<JSCell*>(&block->atoms()[i])->~JSCell();
     block->m_allocation.deallocate();
 }
 
-MarkedBlock::MarkedBlock(const PageAllocationAligned& allocation, JSGlobalData* globalData)
-    : m_allocation(allocation)
+MarkedBlock::MarkedBlock(const PageAllocationAligned& allocation, JSGlobalData* globalData, size_t cellSize)
+    : m_nextAtom(firstAtom())
+    , m_allocation(allocation)
     , m_heap(&globalData->heap)
+    , m_prev(0)
+    , m_next(0)
 {
-    marked.set(CELLS_PER_BLOCK - 1);
+    m_atomsPerCell = (cellSize + atomSize - 1) / atomSize;
+    m_endAtom = atomsPerBlock - m_atomsPerCell + 1;
 
     Structure* dummyMarkableCellStructure = globalData->dummyMarkableCellStructure.get();
-    for (size_t i = 0; i < CELLS_PER_BLOCK; ++i)
-        new (&cells[i]) JSCell(dummyMarkableCellStructure);
+    for (size_t i = firstAtom(); i < m_endAtom; i += m_atomsPerCell)
+        new (&atoms()[i]) JSCell(dummyMarkableCellStructure);
 }
 
 void MarkedBlock::sweep()
@@ -62,17 +67,17 @@ void MarkedBlock::sweep()
     Structure* dummyMarkableCellStructure = m_heap->globalData()->dummyMarkableCellStructure.get();
 #endif
 
-    for (size_t i = 0; i < CELLS_PER_BLOCK; ++i) {
-        if (marked.get(i))
+    for (size_t i = firstAtom(); i < m_endAtom; i += m_atomsPerCell) {
+        if (m_marks.get(i))
             continue;
 
-        JSCell* cell = reinterpret_cast<JSCell*>(&cells[i]);
+        JSCell* cell = reinterpret_cast<JSCell*>(&atoms()[i]);
 #if ENABLE(JSC_ZOMBIES)
         if (!cell->isZombie()) {
             const ClassInfo* info = cell->classInfo();
             cell->~JSCell();
             new (cell) JSZombie(info, JSZombie::leakedZombieStructure());
-            marked.set(i);
+            m_marks.set(i);
         }
 #else
         cell->~JSCell();

@@ -35,15 +35,19 @@ public:
     static void registerEncodingNames(EncodingNameRegistrar);
     static void registerCodecs(TextCodecRegistrar);
 
-    virtual String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError);
-    virtual CString encode(const UChar*, size_t length, UnencodableHandling);
-
 private:
     static PassOwnPtr<TextCodec> create(const TextEncoding&, const void*);
     TextCodecUTF8() : m_partialSequenceSize(0) { }
 
+    virtual String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError);
+    virtual CString encode(const UChar*, size_t length, UnencodableHandling);
+
+    void handlePartialSequence(UChar*& destination, const uint8_t*& source, const uint8_t* end, bool flush, bool stopOnError, bool& sawError);
+    void handleError(UChar*& destination, bool stopOnError, bool& sawError);
+    void consumePartialSequenceByte();
+
     int m_partialSequenceSize;
-    char m_partialSequence[U8_MAX_LENGTH - 1];
+    uint8_t m_partialSequence[U8_MAX_LENGTH];
     
 };
 

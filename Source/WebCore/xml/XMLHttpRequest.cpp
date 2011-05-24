@@ -56,8 +56,8 @@
 #if USE(JSC)
 #include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
+#include <collector/handles/Global.h>
 #include <runtime/JSLock.h>
-#include <runtime/Protect.h>
 #endif
 
 namespace WebCore {
@@ -684,12 +684,7 @@ void XMLHttpRequest::abort()
 
     internalAbort();
 
-    m_responseBuilder.clear();
-    m_createdDocument = false;
-    m_responseXML = 0;
-#if ENABLE(XHR_RESPONSE_BLOB)
-    m_responseBlob = 0;
-#endif
+    clearResponseBuffers();
 
     // Clear headers as required by the spec
     m_requestHeaders.clear();
@@ -733,6 +728,11 @@ void XMLHttpRequest::internalAbort()
 void XMLHttpRequest::clearResponse()
 {
     m_response = ResourceResponse();
+    clearResponseBuffers();
+}
+
+void XMLHttpRequest::clearResponseBuffers()
+{
     m_responseBuilder.clear();
     m_createdDocument = false;
     m_responseXML = 0;
@@ -987,7 +987,7 @@ void XMLHttpRequest::didFailRedirectCheck()
     networkError();
 }
 
-void XMLHttpRequest::didFinishLoading(unsigned long identifier)
+void XMLHttpRequest::didFinishLoading(unsigned long identifier, double)
 {
     if (m_error)
         return;
@@ -999,7 +999,7 @@ void XMLHttpRequest::didFinishLoading(unsigned long identifier)
         m_responseBuilder.append(m_decoder->flush());
 
     m_responseBuilder.shrinkToFit();
-    
+
 #if ENABLE(XHR_RESPONSE_BLOB)
     // FIXME: Set m_responseBlob to something here in the ResponseTypeBlob case.
 #endif

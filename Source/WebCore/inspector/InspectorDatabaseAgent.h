@@ -39,32 +39,41 @@ class Database;
 class InspectorArray;
 class InspectorDatabaseResource;
 class InspectorFrontend;
+class InstrumentingAgents;
+
+typedef String ErrorString;
 
 class InspectorDatabaseAgent {
 public:
     class FrontendProvider;
 
-    typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
-
-    static PassOwnPtr<InspectorDatabaseAgent> create(DatabaseResourcesMap* databaseResources, InspectorFrontend* frontend)
+    static PassOwnPtr<InspectorDatabaseAgent> create(InstrumentingAgents* instrumentingAgents)
     {
-        return adoptPtr(new InspectorDatabaseAgent(databaseResources, frontend));
+        return adoptPtr(new InspectorDatabaseAgent(instrumentingAgents));
     }
+    ~InspectorDatabaseAgent();
 
-    virtual ~InspectorDatabaseAgent();
+    void setFrontend(InspectorFrontend*);
+    void clearFrontend();
+
+    void clearResources();
 
     // Called from the front-end.
-    void getDatabaseTableNames(long databaseId, RefPtr<InspectorArray>* names);
-    void executeSQL(long databaseId, const String& query, bool* success, long* transactionId);
+    void getDatabaseTableNames(ErrorString* error, long databaseId, RefPtr<InspectorArray>* names);
+    void executeSQL(ErrorString* error, long databaseId, const String& query, bool* success, long* transactionId);
 
     // Called from the injected script.
-    Database* databaseForId(long databaseId);
-    void selectDatabase(Database* database);
+    long databaseId(Database*);
 
+    void didOpenDatabase(PassRefPtr<Database>, const String& domain, const String& name, const String& version);
 private:
-    InspectorDatabaseAgent(DatabaseResourcesMap*, InspectorFrontend*);
+    explicit InspectorDatabaseAgent(InstrumentingAgents*);
 
-    DatabaseResourcesMap* m_databaseResources;
+    Database* databaseForId(long databaseId);
+
+    InstrumentingAgents* m_instrumentingAgents;
+    typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
+    DatabaseResourcesMap m_resources;
     RefPtr<FrontendProvider> m_frontendProvider;
 };
 

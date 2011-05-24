@@ -28,11 +28,13 @@
 
 #if ENABLE(INSPECTOR)
 
+#include "WebKitBundle.h"
 #include "WebPageProxy.h"
 #include "WebView.h"
 #include <WebCore/WebCoreInstanceHandle.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/text/StringConcatenate.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
@@ -184,9 +186,16 @@ void WebInspectorProxy::platformClose()
     m_inspectorView = 0;
 }
 
+void WebInspectorProxy::platformInspectedURLChanged(const String& urlString)
+{
+    // FIXME: this should be made localizable once WebKit2 supports it. <rdar://problem/8728860>
+    String title = makeString("Web Inspector ", static_cast<UChar>(0x2014), ' ', urlString);
+    ::SetWindowTextW(m_inspectorWindow, title.charactersWithNullTermination());
+}
+
 String WebInspectorProxy::inspectorPageURL() const
 {
-    RetainPtr<CFURLRef> htmlURLRef(AdoptCF, CFBundleCopyResourceURL(CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit")), CFSTR("inspector"), CFSTR("html"), CFSTR("inspector")));
+    RetainPtr<CFURLRef> htmlURLRef(AdoptCF, CFBundleCopyResourceURL(webKitBundle(), CFSTR("inspector"), CFSTR("html"), CFSTR("inspector")));
     if (!htmlURLRef)
         return String();
 

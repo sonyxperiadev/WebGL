@@ -23,7 +23,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef ImageDecoder_h
@@ -37,7 +37,7 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(SKIA)
+#if USE(SKIA)
 #include "NativeImageSkia.h"
 #include "SkColorPriv.h"
 #elif PLATFORM(QT)
@@ -65,7 +65,7 @@ namespace WebCore {
             DisposeOverwritePrevious, // Clear frame to previous framebuffer
                                       // contents
         };
-#if PLATFORM(SKIA) || PLATFORM(QT)
+#if USE(SKIA) || PLATFORM(QT)
         typedef uint32_t PixelData;
 #else
         typedef unsigned PixelData;
@@ -158,7 +158,7 @@ namespace WebCore {
 
         inline PixelData* getAddr(int x, int y)
         {
-#if PLATFORM(SKIA)
+#if USE(SKIA)
             return m_bitmap.getAddr32(x, y);
 #elif PLATFORM(QT)
             m_image = m_pixmap.toImage();
@@ -180,15 +180,18 @@ namespace WebCore {
                     g = static_cast<unsigned>(g * alphaPercent);
                     b = static_cast<unsigned>(b * alphaPercent);
                 }
-#if PLATFORM(SKIA)
-                *dest = SkPackARGB32(a, r, g, b);
+#if USE(SKIA)
+                // we are sure to call the NoCheck version, since we may
+                // deliberately pass non-premultiplied values, and we don't want
+                // an assert.
+                *dest = SkPackARGB32NoCheck(a, r, g, b);
 #else
                 *dest = (a << 24 | r << 16 | g << 8 | b);
 #endif
             }
         }
 
-#if PLATFORM(SKIA)
+#if USE(SKIA)
         NativeImageSkia m_bitmap;
 #elif PLATFORM(QT)
         mutable QPixmap m_pixmap;

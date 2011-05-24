@@ -95,8 +95,14 @@ public:
     virtual void setExperimentalWebGLEnabled(bool) = 0;
     virtual void setOpenGLMultisamplingEnabled(bool) = 0;
     virtual void setShowDebugBorders(bool) = 0;
+    virtual void setShowFPSCounter(bool) = 0;
+    virtual bool showFPSCounter() const = 0;
+    virtual void setShowPlatformLayerTree(bool) = 0;
+    virtual bool showPlatformLayerTree() const = 0;
     virtual void setEditingBehavior(EditingBehavior) = 0;
     virtual void setAcceleratedCompositingEnabled(bool) = 0;
+    virtual void setCompositeToTextureEnabled(bool) = 0;
+    virtual bool compositeToTextureEnabled() const = 0;
     virtual void setAcceleratedCompositingFor3DTransformsEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForVideoEnabled(bool) = 0;
     virtual void setAcceleratedCompositingForCanvasEnabled(bool) = 0;
@@ -108,6 +114,8 @@ public:
     virtual void setAsynchronousSpellCheckingEnabled(bool) = 0;
     virtual void setCaretBrowsingEnabled(bool) = 0;
     virtual void setInteractiveFormValidationEnabled(bool) = 0;
+    virtual void setMinimumTimerInterval(double) = 0;
+    virtual void setFullScreenEnabled(bool) = 0;
 
 protected:
     ~WebSettings() { }

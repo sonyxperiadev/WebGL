@@ -158,6 +158,7 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
         InspectorInstrumentation::willInsertDOMNode(document(), child, this);
 #endif
 
+        child->setDocumentRecursively(document());
         insertBeforeCommon(next.get(), child);
 
         // Send notification about the children change.
@@ -306,6 +307,8 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
         InspectorInstrumentation::willInsertDOMNode(document(), child.get(), this);
 #endif
 
+        child->setDocumentRecursively(document());
+
         // Add child after "prev".
         forbidEventDispatch();
         Node* next;
@@ -355,7 +358,8 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
 
 void ContainerNode::willRemove()
 {
-    NodeVector nodes;
+    Vector<RefPtr<Node>, 10> nodes;
+    nodes.reserveInitialCapacity(childNodeCount());
     for (Node* n = m_lastChild; n; n = n->previousSibling())
         nodes.append(n);
     for (; nodes.size(); nodes.removeLast())
@@ -512,10 +516,11 @@ void ContainerNode::removeChildren()
     document()->removeFocusedNodeOfSubtree(this, true);
 
     forbidEventDispatch();
-    Vector<RefPtr<Node> > removedChildren;
+    Vector<RefPtr<Node>, 10> removedChildren;
+    removedChildren.reserveInitialCapacity(childNodeCount());
     while (RefPtr<Node> n = m_firstChild) {
         Node* next = n->nextSibling();
-        
+
         // Remove the node from the tree before calling detach or removedFromDocument (4427024, 4129744).
         // removeChild() does this after calling detach(). There is no explanation for
         // this discrepancy between removeChild() and its optimized version removeChildren().
@@ -591,6 +596,8 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
 #if ENABLE(INSPECTOR)
         InspectorInstrumentation::willInsertDOMNode(document(), child, this);
 #endif
+
+        child->setDocumentRecursively(document());
 
         // Append child to the end of the list
         forbidEventDispatch();

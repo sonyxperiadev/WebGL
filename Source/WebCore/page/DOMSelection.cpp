@@ -101,7 +101,7 @@ Node* DOMSelection::anchorNode() const
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
         return shadowAncestor->parentNodeGuaranteedHostFree();
-    return anchorPosition(visibleSelection()).node();
+    return anchorPosition(visibleSelection()).deprecatedNode();
 }
 
 int DOMSelection::anchorOffset() const
@@ -119,7 +119,7 @@ Node* DOMSelection::focusNode() const
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
         return shadowAncestor->parentNodeGuaranteedHostFree();
-    return focusPosition(visibleSelection()).node();
+    return focusPosition(visibleSelection()).deprecatedNode();
 }
 
 int DOMSelection::focusOffset() const
@@ -137,7 +137,7 @@ Node* DOMSelection::baseNode() const
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
         return shadowAncestor->parentNodeGuaranteedHostFree();
-    return basePosition(visibleSelection()).node();
+    return basePosition(visibleSelection()).deprecatedNode();
 }
 
 int DOMSelection::baseOffset() const
@@ -155,7 +155,7 @@ Node* DOMSelection::extentNode() const
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
         return shadowAncestor->parentNodeGuaranteedHostFree();
-    return extentPosition(visibleSelection()).node();
+    return extentPosition(visibleSelection()).deprecatedNode();
 }
 
 int DOMSelection::extentOffset() const
@@ -211,7 +211,8 @@ void DOMSelection::collapse(Node* node, int offset, ExceptionCode& ec)
     if (!isValidForPosition(node))
         return;
 
-    m_frame->selection()->moveTo(VisiblePosition(node, offset, DOWNSTREAM));
+    // FIXME: Eliminate legacy editing positions
+    m_frame->selection()->moveTo(VisiblePosition(Position(node, offset), DOWNSTREAM));
 }
 
 void DOMSelection::collapseToEnd(ExceptionCode& ec)
@@ -264,8 +265,9 @@ void DOMSelection::setBaseAndExtent(Node* baseNode, int baseOffset, Node* extent
     if (!isValidForPosition(baseNode) || !isValidForPosition(extentNode))
         return;
 
-    VisiblePosition visibleBase = VisiblePosition(baseNode, baseOffset, DOWNSTREAM);
-    VisiblePosition visibleExtent = VisiblePosition(extentNode, extentOffset, DOWNSTREAM);
+    // FIXME: Eliminate legacy editing positions
+    VisiblePosition visibleBase = VisiblePosition(Position(baseNode, baseOffset), DOWNSTREAM);
+    VisiblePosition visibleExtent = VisiblePosition(Position(extentNode, extentOffset), DOWNSTREAM);
 
     m_frame->selection()->moveTo(visibleBase, visibleExtent);
 }
@@ -282,7 +284,8 @@ void DOMSelection::setPosition(Node* node, int offset, ExceptionCode& ec)
     if (!isValidForPosition(node))
         return;
 
-    m_frame->selection()->moveTo(VisiblePosition(node, offset, DOWNSTREAM));
+    // FIXME: Eliminate legacy editing positions
+    m_frame->selection()->moveTo(VisiblePosition(Position(node, offset), DOWNSTREAM));
 }
 
 void DOMSelection::modify(const String& alterString, const String& directionString, const String& granularityString)
@@ -353,7 +356,8 @@ void DOMSelection::extend(Node* node, int offset, ExceptionCode& ec)
     if (!isValidForPosition(node))
         return;
 
-    m_frame->selection()->setExtent(VisiblePosition(node, offset, DOWNSTREAM));
+    // FIXME: Eliminate legacy editing positions
+    m_frame->selection()->setExtent(VisiblePosition(Position(node, offset), DOWNSTREAM));
 }
 
 PassRefPtr<Range> DOMSelection::getRangeAt(int index, ExceptionCode& ec)

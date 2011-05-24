@@ -35,6 +35,7 @@
 #include "EditorDeleteAction.h"
 #include "EditorInsertAction.h"
 #include "FindOptions.h"
+#include "SelectionController.h"
 #include "Timer.h"
 #include "VisibleSelection.h"
 #include "WritingDirection.h"
@@ -61,6 +62,7 @@ class Pasteboard;
 class SimpleFontData;
 class SpellChecker;
 class Text;
+class TextCheckerClient;
 class TextEvent;
 
 struct CompositionUnderline {
@@ -74,7 +76,6 @@ struct CompositionUnderline {
     bool thick;
 };
 
-enum TriState { FalseTriState, TrueTriState, MixedTriState };
 enum EditorCommandSource { CommandFromMenuOrKeyBinding, CommandFromDOM, CommandFromDOMWithUserInterface };
 
 class Editor {
@@ -83,6 +84,8 @@ public:
     ~Editor();
 
     EditorClient* client() const;
+    TextCheckerClient* textChecker() const;
+
     Frame* frame() const { return m_frame; }
     DeleteButtonController* deleteButtonController() const { return m_deleteButtonController.get(); }
     EditCommand* lastEditCommand() { return m_lastEditCommand.get(); }
@@ -129,7 +132,8 @@ public:
     void respondToChangedSelection(const VisibleSelection& oldSelection);
     void respondToChangedContents(const VisibleSelection& endingSelection);
 
-    TriState selectionHasStyle(CSSStyleDeclaration*) const;
+    bool selectionStartHasStyle(int propertyID, const String& value) const;
+    TriState selectionHasStyle(int propertyID, const String& value) const;
     String selectionStartCSSPropertyValue(int propertyID);
     const SimpleFontData* fontForSelection(bool&) const;
     WritingDirection textDirectionForSelection(bool&) const;
@@ -164,11 +168,8 @@ public:
     void appliedEditing(PassRefPtr<EditCommand>);
     void unappliedEditing(PassRefPtr<EditCommand>);
     void reappliedEditing(PassRefPtr<EditCommand>);
-    
-    bool selectionStartHasStyle(CSSStyleDeclaration*) const;
+    void unappliedSpellCorrection(const VisibleSelection& selectionOfCorrected, const String& corrected, const String& correction);
 
-    bool clientIsEditable() const;
-    
     void setShouldStyleWithCSS(bool flag) { m_shouldStyleWithCSS = flag; }
     bool shouldStyleWithCSS() const { return m_shouldStyleWithCSS; }
 
@@ -350,7 +351,7 @@ public:
 
     IntRect firstRectForRange(Range*) const;
 
-    void respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping);
+    void respondToChangedSelection(const VisibleSelection& oldSelection, SelectionController::SetSelectionOptions);
     bool shouldChangeSelection(const VisibleSelection& oldSelection, const VisibleSelection& newSelection, EAffinity, bool stillSelecting) const;
 
     RenderStyle* styleForSelectionStart(Node*& nodeToRemove) const;
@@ -360,7 +361,7 @@ public:
     bool markedTextMatchesAreHighlighted() const;
     void setMarkedTextMatchesAreHighlighted(bool);
 
-    PassRefPtr<CSSMutableStyleDeclaration> selectionComputedStyle(bool& shouldUseFixedFontDefaultSize) const;
+    PassRefPtr<EditingStyle> selectionStartStyle() const;
 
     void textFieldDidBeginEditing(Element*);
     void textFieldDidEndEditing(Element*);
@@ -374,6 +375,7 @@ public:
     NSWritingDirection baseWritingDirectionForSelectionStart() const;
     bool canCopyExcludingStandaloneImages();
     void takeFindStringFromSelection();
+    void writeSelectionToPasteboard(const String& pasteboardName, const Vector<String>& pasteboardTypes);
 #endif
 
     bool selectionStartHasSpellingMarkerFor(int from, int length) const;
@@ -424,7 +426,9 @@ private:
     void stopCorrectionPanelTimer();
     void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel);
     void applyCorrectionPanelInfo(const Vector<DocumentMarker::MarkerType>& markerTypesToAdd);
-    void applyAutocorrectionBeforeTypingIfAppropriate();
+    // Return true if correction was applied, false otherwise.
+    bool applyAutocorrectionBeforeTypingIfAppropriate();
+    FloatRect windowRectForRange(const Range*) const;
 };
 
 inline void Editor::setStartNewKillRingSequence(bool flag)

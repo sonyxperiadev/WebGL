@@ -26,10 +26,14 @@
 #include "MarkedBlock.h"
 #include "PageAllocationAligned.h"
 #include <wtf/Bitmap.h>
+#include <wtf/DoublyLinkedList.h>
 #include <wtf/FixedArray.h>
-#include <wtf/HashCountedSet.h>
+#include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
+
+#define ASSERT_CLASS_FITS_IN_CELL(class) COMPILE_ASSERT(sizeof(class) <= MarkedSpace::maxCellSize, class_fits_in_cell)
+#define ASSERT_CLASS_FILLS_CELL(class) COMPILE_ASSERT(sizeof(class) == MarkedSpace::maxCellSize, class_fills_cell)
 
 namespace JSC {
 
@@ -40,26 +44,12 @@ namespace JSC {
     class MarkStack;
     class WeakGCHandle;
 
-    struct CollectorHeap {
-        CollectorHeap()
-            : nextBlock(0)
-            , nextCell(0)
-        {
-        }
-        
-        MarkedBlock* collectorBlock(size_t index) const
-        {
-            return blocks[index];
-        }
-
-        size_t nextBlock;
-        size_t nextCell;
-        Vector<MarkedBlock*> blocks;
-    };
-
     class MarkedSpace {
         WTF_MAKE_NONCOPYABLE(MarkedSpace);
     public:
+        // Currently public for use in assertions.
+        static const size_t maxCellSize = 64;
+
         static Heap* heap(JSCell*);
 
         static bool isMarked(const JSCell*);
@@ -91,12 +81,32 @@ namespace JSC {
         template<typename Functor> void forEach(Functor&);
 
     private:
-        NEVER_INLINE MarkedBlock* allocateBlock();
-        NEVER_INLINE void freeBlock(size_t);
+        // [ 8, 16... 64 ]
+        static const size_t preciseStep = MarkedBlock::atomSize;
+        static const size_t preciseCutoff = maxCellSize;
+        static const size_t preciseCount = preciseCutoff / preciseStep;
+
+        typedef HashSet<MarkedBlock*>::iterator BlockIterator;
+
+        struct SizeClass {
+            SizeClass();
+            void reset();
+
+            MarkedBlock* nextBlock;
+            DoublyLinkedList<MarkedBlock> blockList;
+            size_t cellSize;
+        };
+
+        MarkedBlock* allocateBlock(SizeClass&);
+        void freeBlocks(DoublyLinkedList<MarkedBlock>&);
+
+        SizeClass& sizeClassFor(size_t);
+        void* allocateFromSizeClass(SizeClass&);
 
         void clearMarks(MarkedBlock*);
 
-        CollectorHeap m_heap;
+        SizeClass m_preciseSizeClasses[preciseCount];
+        HashSet<MarkedBlock*> m_blocks;
         size_t m_waterMark;
         size_t m_highWaterMark;
         JSGlobalData* m_globalData;
@@ -124,31 +134,32 @@ namespace JSC {
 
     inline bool MarkedSpace::contains(const void* x)
     {
-        if (!MarkedBlock::isCellAligned(x))
+        if (!MarkedBlock::isAtomAligned(x))
             return false;
 
         MarkedBlock* block = MarkedBlock::blockFor(x);
-        if (!block)
+        if (!block || !m_blocks.contains(block))
             return false;
 
-        size_t size = m_heap.blocks.size();
-        for (size_t i = 0; i < size; i++) {
-            if (block != m_heap.collectorBlock(i))
-                continue;
-
-            // x is a pointer into the heap. Now, verify that the cell it
-            // points to is live. (If the cell is dead, we must not mark it,
-            // since that would revive it in a zombie state.)
-            return block->isMarked(x);
-        }
-        
-        return false;
+        return block->contains(x);
     }
 
     template <typename Functor> inline void MarkedSpace::forEach(Functor& functor)
     {
-        for (size_t i = 0; i < m_heap.blocks.size(); ++i)
-            m_heap.collectorBlock(i)->forEach(functor);
+        BlockIterator end = m_blocks.end();
+        for (BlockIterator it = m_blocks.begin(); it != end; ++it)
+            (*it)->forEach(functor);
+    }
+    
+    inline MarkedSpace::SizeClass::SizeClass()
+        : nextBlock(0)
+        , cellSize(0)
+    {
+    }
+
+    inline void MarkedSpace::SizeClass::reset()
+    {
+        nextBlock = blockList.head();
     }
 
 } // namespace JSC

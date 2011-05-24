@@ -73,18 +73,30 @@ struct WebProcessCreationParameters {
 
     TextCheckerState textCheckerState;
 
+    double defaultRequestTimeoutInterval;
+
+#if USE(CFURLSTORAGESESSIONS)
+    String uiProcessBundleIdentifier;
+#endif
+
 #if PLATFORM(MAC)
     String parentProcessName;
 
     pid_t presenterApplicationPid;
-    CString nsURLCachePath;
 
+    // FIXME: These should be merged with CFURLCache counterparts below.
+    CString nsURLCachePath;
     uint64_t nsURLCacheMemoryCapacity;
     uint64_t nsURLCacheDiskCapacity;
+
     CoreIPC::MachPort acceleratedCompositingPort;
 
     CString uiProcessBundleResourcePath;
 #elif PLATFORM(WIN)
+    String cfURLCachePath;
+    uint64_t cfURLCacheDiskCapacity;
+    uint64_t cfURLCacheMemoryCapacity;
+
     bool shouldPaintNativeControls;
 #endif
 };

@@ -400,7 +400,7 @@ int RenderTableSection::calcRowLogicalHeight()
             // find out the baseline
             EVerticalAlign va = cell->style()->verticalAlign();
             if (va == BASELINE || va == TEXT_BOTTOM || va == TEXT_TOP || va == SUPER || va == SUB) {
-                int b = cell->baselinePosition();
+                int b = cell->cellBaselinePosition();
                 if (b > cell->borderBefore() + cell->paddingBefore()) {
                     baseline = max(baseline, b - cell->intrinsicPaddingBefore());
                     bdesc = max(bdesc, m_rowPos[indx] + ch - (b - cell->intrinsicPaddingBefore()));
@@ -655,7 +655,7 @@ int RenderTableSection::layoutRows(int toAdd)
                 // If the baseline moved, we may have to update the data for our row. Find out the new baseline.
                 EVerticalAlign va = cell->style()->verticalAlign();
                 if (va == BASELINE || va == TEXT_BOTTOM || va == TEXT_TOP || va == SUPER || va == SUB) {
-                    int b = cell->baselinePosition();
+                    int b = cell->cellBaselinePosition();
                     if (b > cell->borderBefore() + cell->paddingBefore())
                         m_grid[r].baseline = max(m_grid[r].baseline, b);
                 }
@@ -672,7 +672,7 @@ int RenderTableSection::layoutRows(int toAdd)
                 case TEXT_TOP:
                 case TEXT_BOTTOM:
                 case BASELINE: {
-                    int b = cell->baselinePosition();
+                    int b = cell->cellBaselinePosition();
                     if (b > cell->borderBefore() + cell->paddingBefore())
                         intrinsicPaddingBefore = getBaseline(r) - (b - oldIntrinsicPaddingBefore);
                     break;

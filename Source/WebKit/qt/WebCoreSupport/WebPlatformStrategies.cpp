@@ -57,7 +57,10 @@ WebPlatformStrategies::WebPlatformStrategies()
 }
 
 
-// PluginStrategy
+CookiesStrategy* WebPlatformStrategies::createCookiesStrategy()
+{
+    return this;
+}
 
 PluginStrategy* WebPlatformStrategies::createPluginStrategy()
 {
@@ -72,6 +75,10 @@ LocalizationStrategy* WebPlatformStrategies::createLocalizationStrategy()
 VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
 {
     return this;
+}
+
+void WebPlatformStrategies::notifyCookiesChanged()
+{
 }
 
 void WebPlatformStrategies::refreshPlugins()
@@ -168,6 +175,11 @@ String WebPlatformStrategies::fileButtonChooseFileLabel()
 String WebPlatformStrategies::fileButtonNoFileSelectedLabel()
 {
     return QCoreApplication::translate("QWebPage", "No file selected", "text to display in file button used in HTML forms when no file is selected");
+}
+
+String WebPlatformStrategies::defaultDetailsSummaryText()
+{
+    return QCoreApplication::translate("QWebPage", "Details", "text to display in <details> tag when it has no <summary> child");
 }
 
 String WebPlatformStrategies::contextMenuItemTagOpenLinkInNewWindow()

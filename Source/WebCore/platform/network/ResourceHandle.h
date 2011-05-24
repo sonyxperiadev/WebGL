@@ -37,7 +37,7 @@
 typedef struct _SoupSession SoupSession;
 #endif
 
-#if PLATFORM(CF)
+#if USE(CF)
 typedef const struct __CFData * CFDataRef;
 #endif
 
@@ -69,6 +69,10 @@ typedef struct objc_object *id;
 typedef struct _CFURLConnection* CFURLConnectionRef;
 typedef int CFHTTPCookieStorageAcceptPolicy;
 typedef struct OpaqueCFHTTPCookieStorage* CFHTTPCookieStorageRef;
+#endif
+
+#if USE(CFURLSTORAGESESSIONS)
+typedef const struct __CFURLStorageSession* CFURLStorageSessionRef;
 #endif
 
 namespace WebCore {
@@ -140,7 +144,7 @@ public:
 #if PLATFORM(WIN) && USE(CURL)
     static void setHostAllowsAnyHTTPSCertificate(const String&);
 #endif
-#if PLATFORM(WIN) && USE(CURL) && PLATFORM(CF)
+#if PLATFORM(WIN) && USE(CURL) && USE(CF)
     static void setClientCertificate(const String& host, CFDataRef);
 #endif
 
@@ -190,6 +194,12 @@ public:
 
     void fireFailure(Timer<ResourceHandle>*);
 
+#if USE(CFURLSTORAGESESSIONS)
+    static void setPrivateBrowsingEnabled(bool);
+    static CFURLStorageSessionRef privateBrowsingStorageSession();
+    static void setPrivateBrowsingStorageSessionIdentifierBase(const String&);
+#endif
+
     using RefCounted<ResourceHandle>::ref;
     using RefCounted<ResourceHandle>::deref;
 
@@ -214,8 +224,13 @@ private:
 
 #if PLATFORM(MAC)
     void createNSURLConnection(id delegate, bool shouldUseCredentialStorage, bool shouldContentSniff);
-#elif PLATFORM(CF)
+#elif USE(CF)
     void createCFURLConnection(bool shouldUseCredentialStorage, bool shouldContentSniff);
+#endif
+
+#if USE(CFURLSTORAGESESSIONS)
+    static RetainPtr<CFURLStorageSessionRef> createPrivateBrowsingStorageSession(CFStringRef identifier);
+    static String privateBrowsingStorageSessionIdentifierDefaultBase();
 #endif
 
     friend class ResourceHandleInternal;

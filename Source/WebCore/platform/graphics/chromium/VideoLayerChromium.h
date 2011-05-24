@@ -46,53 +46,19 @@ public:
                                                  VideoFrameProvider* = 0);
     virtual ~VideoLayerChromium();
     virtual void updateContentsIfDirty();
-    virtual bool drawsContent() { return true; }
+    virtual bool drawsContent() const { return true; }
     virtual void draw();
 
     // This function is called by VideoFrameProvider. When this method is called
     // putCurrentFrame() must be called to return the frame currently held.
     void releaseCurrentFrame();
 
-    class SharedValues {
-    public:
-        explicit SharedValues(GraphicsContext3D*);
-        ~SharedValues();
-        unsigned yuvShaderProgram() const { return m_yuvShaderProgram; }
-        unsigned rgbaShaderProgram() const { return m_rgbaShaderProgram; }
-        int yuvShaderMatrixLocation() const { return m_yuvShaderMatrixLocation; }
-        int rgbaShaderMatrixLocation() const { return m_rgbaShaderMatrixLocation; }
-        int yuvWidthScaleFactorLocation() const { return m_yuvWidthScaleFactorLocation; }
-        int rgbaWidthScaleFactorLocation() const { return m_rgbaWidthScaleFactorLocation; }
-        int yTextureLocation() const { return m_yTextureLocation; }
-        int uTextureLocation() const { return m_uTextureLocation; }
-        int vTextureLocation() const { return m_vTextureLocation; }
-        int yuvAlphaLocation() const { return m_yuvAlphaLocation; }
-        int rgbaAlphaLocation() const { return m_rgbaAlphaLocation; }
-        int rgbaTextureLocation() const { return m_rgbaTextureLocation; }
-        int ccMatrixLocation() const { return m_ccMatrixLocation; }
-        int signAdjLocation() const { return m_signAdjLocation; }
-        bool initialized() const { return m_initialized; }
-    private:
-        GraphicsContext3D* m_context;
-        unsigned m_yuvShaderProgram;
-        unsigned m_rgbaShaderProgram;
-        int m_yuvShaderMatrixLocation;
-        int m_yuvWidthScaleFactorLocation;
-        int m_rgbaShaderMatrixLocation;
-        int m_rgbaWidthScaleFactorLocation;
-        int m_ccMatrixLocation;
-        int m_signAdjLocation;
-        int m_yTextureLocation;
-        int m_uTextureLocation;
-        int m_vTextureLocation;
-        int m_rgbaTextureLocation;
-        int m_yuvAlphaLocation;
-        int m_rgbaAlphaLocation;
-        bool m_initialized;
-    };
+    typedef ProgramBinding<VertexShaderPosTexTransform, FragmentShaderRGBATexFlipAlpha> RGBAProgram;
+    typedef ProgramBinding<VertexShaderPosTexYUVStretch, FragmentShaderYUVVideo> YUVProgram;
 
 protected:
     virtual void cleanupResources();
+    virtual const char* layerTypeAsString() const { return "VideoLayer"; }
 
 private:
     VideoLayerChromium(GraphicsLayerChromium* owner, VideoFrameProvider*);
@@ -103,8 +69,8 @@ private:
     void updateRGBAContents(GraphicsContext3D*, const VideoFrameChromium*);
     void allocateTexture(GraphicsContext3D*, unsigned textureId, const IntSize& dimensions, unsigned textureFormat);
     void updateTexture(GraphicsContext3D*, unsigned textureId, const IntSize& dimensions, unsigned textureFormat, const void* data);
-    void drawYUV(const SharedValues*);
-    void drawRGBA(const SharedValues*);
+    void drawYUV(const YUVProgram*);
+    void drawRGBA(const RGBAProgram*);
     void resetFrameParameters();
     void saveCurrentFrame(VideoFrameChromium*);
 

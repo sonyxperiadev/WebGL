@@ -60,7 +60,6 @@ public:
         : m_resourceResponseAllocation(*p->m_resourceResponse)
     {
         m_resourceResponse = &m_resourceResponseAllocation;
-        m_downloadFilePath = p->m_downloadFilePath;
     }
 
     virtual void dispose() { delete this; }
@@ -257,16 +256,6 @@ void WebURLResponse::setLastModifiedDate(double lastModifiedDate)
     m_private->m_resourceResponse->setLastModifiedDate(static_cast<time_t>(lastModifiedDate));
 }
 
-bool WebURLResponse::isContentFiltered() const
-{
-    return m_private->m_resourceResponse->isContentFiltered();
-}
-
-void WebURLResponse::setIsContentFiltered(bool isContentFiltered)
-{
-    m_private->m_resourceResponse->setIsContentFiltered(isContentFiltered);
-}
-
 long long WebURLResponse::appCacheID() const
 {
     return m_private->m_resourceResponse->appCacheID();
@@ -376,22 +365,32 @@ void WebURLResponse::setIsMultipartPayload(bool value)
 
 WebString WebURLResponse::downloadFilePath() const
 {
-    return m_private->m_downloadFilePath;
+    return m_private->m_resourceResponse->downloadFilePath();
 }
 
 void WebURLResponse::setDownloadFilePath(const WebString& downloadFilePath)
 {
-    m_private->m_downloadFilePath = downloadFilePath;
+    m_private->m_resourceResponse->setDownloadFilePath(downloadFilePath.utf8().data());
 }
 
-WebString WebURLResponse::socketAddress() const
+WebString WebURLResponse::remoteIPAddress() const
 {
-    return m_private->m_resourceResponse->socketAddress();
+    return m_private->m_resourceResponse->remoteIPAddress();
 }
 
-void WebURLResponse::setSocketAddress(const WebString& socketAddress)
+void WebURLResponse::setRemoteIPAddress(const WebString& remoteIPAddress)
 {
-    m_private->m_resourceResponse->setSocketAddress(socketAddress);
+    m_private->m_resourceResponse->setRemoteIPAddress(remoteIPAddress);
+}
+
+unsigned short WebURLResponse::remotePort() const
+{
+    return m_private->m_resourceResponse->remotePort();
+}
+
+void WebURLResponse::setRemotePort(unsigned short remotePort)
+{
+    m_private->m_resourceResponse->setRemotePort(remotePort);
 }
 
 void WebURLResponse::assign(WebURLResponsePrivate* p)

@@ -37,8 +37,10 @@ class UpdateInfo;
 
 class DrawingAreaImpl : public DrawingArea {
 public:
-    static PassRefPtr<DrawingAreaImpl> create(WebPage*, const WebPageCreationParameters&);
+    static PassOwnPtr<DrawingAreaImpl> create(WebPage*, const WebPageCreationParameters&);
     virtual ~DrawingAreaImpl();
+
+    void layerHostDidFlushLayers();
 
 private:
     DrawingAreaImpl(WebPage*, const WebPageCreationParameters&);
@@ -52,18 +54,18 @@ private:
     virtual void didUninstallPageOverlay();
     virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&);
     
-    virtual void attachCompositingContext();
-    virtual void detachCompositingContext();
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*);
     virtual void scheduleCompositingLayerSync();
     virtual void syncCompositingLayers();
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 
     // CoreIPC message handlers.
-    virtual void setSize(const WebCore::IntSize&, const WebCore::IntSize& scrollOffset);
+    virtual void updateBackingStoreState(uint64_t backingStoreStateID, bool respondImmediately, const WebCore::IntSize&, const WebCore::IntSize& scrollOffset);
     virtual void didUpdate();
     virtual void suspendPainting();
     virtual void resumePainting();
+
+    void sendDidUpdateBackingStoreState();
 
     void enterAcceleratedCompositingMode(WebCore::GraphicsLayer*);
     void exitAcceleratedCompositingModeSoon();
@@ -73,12 +75,18 @@ private:
     void display();
     void display(UpdateInfo&);
 
+    uint64_t m_backingStoreStateID;
+
     Region m_dirtyRegion;
     WebCore::IntRect m_scrollRect;
     WebCore::IntSize m_scrollOffset;
 
-    // Whether we're currently processing a setSize message.
-    bool m_inSetSize;
+    // Whether we're currently processing an UpdateBackingStoreState message.
+    bool m_inUpdateBackingStoreState;
+
+    // When true, we should send an UpdateBackingStoreState message instead of any other messages
+    // we normally send to the UI process.
+    bool m_shouldSendDidUpdateBackingStoreState;
 
     // Whether we're waiting for a DidUpdate message. Used for throttling paints so that the 
     // web process won't paint more frequent than the UI process can handle.
@@ -87,6 +95,7 @@ private:
     // Whether painting is suspended. We'll still keep track of the dirty region but we 
     // won't paint until painting has resumed again.
     bool m_isPaintingSuspended;
+    bool m_alwaysUseCompositing;
 
     RunLoop::Timer<DrawingAreaImpl> m_displayTimer;
     RunLoop::Timer<DrawingAreaImpl> m_exitCompositingTimer;

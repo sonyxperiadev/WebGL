@@ -334,6 +334,11 @@ CFArrayRef arrayFromFormData(const FormData& d)
 static CFURLRequestRef makeFinalRequest(const ResourceRequest& request, bool shouldContentSniff)
 {
     CFMutableURLRequestRef newRequest = CFURLRequestCreateMutableCopy(kCFAllocatorDefault, request.cfURLRequest());
+
+#if USE(CFURLSTORAGESESSIONS)
+    if (CFURLStorageSessionRef storageSession = ResourceHandle::privateBrowsingStorageSession())
+        wkSetRequestStorageSession(storageSession, newRequest);
+#endif
     
     if (!shouldContentSniff)
         wkSetCFURLRequestShouldContentSniff(newRequest, false);
@@ -480,6 +485,11 @@ void ResourceHandle::willSendRequest(ResourceRequest& request, const ResourceRes
     request.removeCredentials();
     if (!protocolHostAndPortAreEqual(request.url(), redirectResponse.url()))
         request.clearHTTPAuthorization();
+
+#if USE(CFURLSTORAGESESSIONS)
+    if (CFURLStorageSessionRef storageSession = privateBrowsingStorageSession())
+        request.setStorageSession(storageSession);
+#endif
 
     client()->willSendRequest(this, request, redirectResponse);
 }
@@ -715,6 +725,20 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame* frame)
 
     return cached;
 }
+
+#if USE(CFURLSTORAGESESSIONS)
+
+RetainPtr<CFURLStorageSessionRef> ResourceHandle::createPrivateBrowsingStorageSession(CFStringRef identifier)
+{
+    return RetainPtr<CFURLStorageSessionRef>(AdoptCF, wkCreatePrivateStorageSession(identifier));
+}
+
+String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
+{
+    return String(reinterpret_cast<CFStringRef>(CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle(), kCFBundleIdentifierKey)));
+}
+
+#endif
 
 void WebCoreSynchronousLoaderClient::willSendRequest(ResourceHandle* handle, ResourceRequest& request, const ResourceResponse& /*redirectResponse*/)
 {

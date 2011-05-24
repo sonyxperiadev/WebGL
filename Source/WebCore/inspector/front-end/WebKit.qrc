@@ -27,9 +27,11 @@
     <file>Database.js</file>
     <file>DatabaseQueryView.js</file>
     <file>DatabaseTableView.js</file>
+    <file>DetailedHeapshotGridNodes.js</file>
     <file>DetailedHeapshotView.js</file>
     <file>DataGrid.js</file>
     <file>DebuggerModel.js</file>
+    <file>DebuggerPresentationModel.js</file>
     <file>DOMAgent.js</file>
     <file>DOMStorage.js</file>
     <file>DOMStorageItemsView.js</file>
@@ -85,6 +87,7 @@
     <file>ScriptFormatter.js</file>
     <file>ScriptFormatterWorker.js</file>
     <file>ScriptsPanel.js</file>
+    <file>SearchController.js</file>
     <file>Section.js</file>
     <file>Settings.js</file>
     <file>ShortcutsHelp.js</file>
@@ -110,6 +113,7 @@
     <file>TimelineGrid.js</file>
     <file>TimelineOverviewPane.js</file>
     <file>TimelinePanel.js</file>
+    <file>Toolbar.js</file>
     <file>TopDownProfileDataGridTree.js</file>
     <file>treeoutline.js</file>
     <file>utilities.js</file>

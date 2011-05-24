@@ -28,6 +28,7 @@
 
 #include "NPRuntimeUtilities.h"
 #include "Plugin.h"
+#include "ShareableBitmap.h"
 #include "WebEvent.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
@@ -505,25 +506,36 @@ void PluginView::setFrameRect(const WebCore::IntRect& rect)
     viewGeometryDidChange();
 }
 
+void PluginView::setBoundsSize(const WebCore::IntSize& size)
+{
+    Widget::setBoundsSize(size);
+    m_boundsSize = size;
+    viewGeometryDidChange();
+}
+
 void PluginView::paint(GraphicsContext* context, const IntRect& dirtyRect)
 {
     if (context->paintingDisabled() || !m_plugin || !m_isInitialized)
         return;
 
     IntRect dirtyRectInWindowCoordinates = parent()->contentsToWindow(dirtyRect);
-    
     IntRect paintRectInWindowCoordinates = intersection(dirtyRectInWindowCoordinates, clipRectInWindowCoordinates());
     if (paintRectInWindowCoordinates.isEmpty())
         return;
 
-    // context is in document coordinates. Translate it to window coordinates.
-    IntPoint documentOriginInWindowCoordinates = parent()->contentsToWindow(IntPoint());
-    context->save();
-    context->translate(-documentOriginInWindowCoordinates.x(), -documentOriginInWindowCoordinates.y());
-
-    m_plugin->paint(context, paintRectInWindowCoordinates);
-
-    context->restore();
+    if (m_snapshot)
+        m_snapshot->paint(*context, frameRect().location(), m_snapshot->bounds());
+    else {
+        // The plugin is given a frame rect which is parent()->contentsToWindow(frameRect()),
+        // and un-translates by the its origin when painting. The current CTM reflects
+        // this widget's frame is its parent (the document), so we have to offset the CTM by
+        // the document's window coordinates.
+        IntPoint documentOriginInWindowCoordinates = parent()->contentsToWindow(IntPoint());
+        context->save();
+        context->translate(-documentOriginInWindowCoordinates.x(), -documentOriginInWindowCoordinates.y());
+        m_plugin->paint(context, paintRectInWindowCoordinates);
+        context->restore();
+    }
 }
 
 void PluginView::frameRectsChanged()
@@ -577,7 +589,20 @@ void PluginView::handleEvent(Event* event)
     if (didHandleEvent)
         event->setDefaultHandled();
 }
-    
+
+void PluginView::notifyWidget(WidgetNotification notification)
+{
+    switch (notification) {
+    case WillPaintFlattened:
+        if (m_plugin && m_isInitialized)
+            m_snapshot = m_plugin->snapshot();
+        break;
+    case DidPaintFlattened:
+        m_snapshot = nullptr;
+        break;
+    }
+}
+
 void PluginView::viewGeometryDidChange()
 {
     if (!m_isInitialized || !m_plugin || !parent())
@@ -585,7 +610,7 @@ void PluginView::viewGeometryDidChange()
 
     // Get the frame rect in window coordinates.
     IntRect frameRectInWindowCoordinates = parent()->contentsToWindow(frameRect());
-
+    frameRectInWindowCoordinates.setSize(m_boundsSize);
     m_plugin->geometryDidChange(frameRectInWindowCoordinates, clipRectInWindowCoordinates());
 }
 
@@ -595,6 +620,7 @@ IntRect PluginView::clipRectInWindowCoordinates() const
 
     // Get the frame rect in window coordinates.
     IntRect frameRectInWindowCoordinates = parent()->contentsToWindow(frameRect());
+    frameRectInWindowCoordinates.setSize(m_boundsSize);
 
     // Get the window clip rect for the enclosing layer (in window coordinates).
     RenderLayer* layer = m_pluginElement->renderer()->enclosingLayer();
@@ -712,7 +738,7 @@ void PluginView::performJavaScriptURLRequest(URLRequest* request)
     bool oldAllowPopups = frame->script()->allowPopupsFromPlugin();
     frame->script()->setAllowPopupsFromPlugin(request->allowPopups());
     
-    ScriptValue result = m_pluginElement->document()->frame()->script()->executeScript(jsString);
+    ScriptValue result = frame->script()->executeScript(jsString);
 
     frame->script()->setAllowPopupsFromPlugin(oldAllowPopups);
 
@@ -720,7 +746,7 @@ void PluginView::performJavaScriptURLRequest(URLRequest* request)
     if (!plugin->controller())
         return;
 
-    ScriptState* scriptState = m_pluginElement->document()->frame()->script()->globalObject(pluginWorld())->globalExec();
+    ScriptState* scriptState = frame->script()->globalObject(pluginWorld())->globalExec();
     String resultString;
     result.getString(scriptState, resultString);
   
@@ -883,7 +909,7 @@ NPObject* PluginView::windowScriptNPObject()
     // FIXME: Handle JavaScript being disabled.
     ASSERT(frame()->script()->canExecuteScripts(NotAboutToExecuteScript));
 
-    return m_npRuntimeObjectMap.getOrCreateNPObject(frame()->script()->windowShell(pluginWorld())->window());
+    return m_npRuntimeObjectMap.getOrCreateNPObject(*pluginWorld()->globalData(), frame()->script()->windowShell(pluginWorld())->window());
 }
 
 NPObject* PluginView::pluginElementNPObject()
@@ -895,7 +921,7 @@ NPObject* PluginView::pluginElementNPObject()
     JSObject* object = frame()->script()->jsObjectForPluginElement(m_pluginElement.get());
     ASSERT(object);
 
-    return m_npRuntimeObjectMap.getOrCreateNPObject(object);
+    return m_npRuntimeObjectMap.getOrCreateNPObject(*pluginWorld()->globalData(), object);
 }
 
 bool PluginView::evaluate(NPObject* npObject, const String& scriptString, NPVariant* result, bool allowPopups)
@@ -1005,6 +1031,18 @@ bool PluginView::isPrivateBrowsingEnabled()
         return true;
 
     return settings->privateBrowsingEnabled();
+}
+
+void PluginView::protectPluginFromDestruction()
+{
+    if (!m_isBeingDestroyed)
+        ref();
+}
+
+void PluginView::unprotectPluginFromDestruction()
+{
+    if (!m_isBeingDestroyed)
+        deref();
 }
 
 void PluginView::didFinishLoad(WebFrame* webFrame)

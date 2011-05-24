@@ -228,12 +228,6 @@ static string textAffinityDescription(WebTextAffinity affinity)
     return "(UNKNOWN AFFINITY)";
 }
 
-static void invokeFinishLastTextCheck(void* context)
-{
-    WebViewHost* wvh = static_cast<WebViewHost*>(context);
-    wvh->finishLastTextCheck();
-}
-
 // WebViewClient -------------------------------------------------------------
 
 WebView* WebViewHost::createView(WebFrame*, const WebURLRequest&, const WebWindowFeatures&, const WebString&)
@@ -422,7 +416,7 @@ void WebViewHost::requestCheckingOfText(const WebString& text, WebTextCheckingCo
 {
     m_lastRequestedTextCheckingCompletion = completion;
     m_lastRequestedTextCheckString = text;
-    webkit_support::PostDelayedTask(invokeFinishLastTextCheck, static_cast<void*>(this), 0);
+    postDelayedTask(new HostMethodTask(this, &WebViewHost::finishLastTextCheck), 0);
 }
 
 void WebViewHost::finishLastTextCheck()
@@ -663,15 +657,9 @@ void WebViewHost::scheduleComposite()
 }
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-static void invokeScheduleComposite(void* context)
-{
-    WebViewHost* wvh = static_cast<WebViewHost*>(context);
-    wvh->scheduleComposite();
-}
-
 void WebViewHost::scheduleAnimation()
 {
-    webkit_support::PostDelayedTask(invokeScheduleComposite, this, 0);
+    postDelayedTask(new HostMethodTask(this, &WebViewHost::scheduleComposite), 0);
 }
 #endif
 
@@ -716,15 +704,9 @@ void WebViewHost::closeWidget()
     // No more code here, we should be deleted at this point.
 }
 
-static void invokeCloseWidget(void* context)
-{
-    WebViewHost* wvh = static_cast<WebViewHost*>(context);
-    wvh->closeWidget();
-}
-
 void WebViewHost::closeWidgetSoon()
 {
-    webkit_support::PostDelayedTask(invokeCloseWidget, static_cast<void*>(this), 0);
+    postDelayedTask(new HostMethodTask(this, &WebViewHost::closeWidget), 0);
 }
 
 void WebViewHost::didChangeCursor(const WebCursorInfo& cursorInfo)
@@ -1226,8 +1208,10 @@ void WebViewHost::reset()
     m_windowRect = WebRect();
     m_paintRect = WebRect();
 
-    if (m_webWidget)
+    if (m_webWidget) {
         webView()->mainFrame()->setName(WebString());
+        webView()->settings()->setMinimumTimerInterval(webkit_support::GetForegroundTabTimerInterval());
+    }
 }
 
 void WebViewHost::setSelectTrailingWhitespaceEnabled(bool enabled)

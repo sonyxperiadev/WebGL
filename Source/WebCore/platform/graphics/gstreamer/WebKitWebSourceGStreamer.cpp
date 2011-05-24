@@ -23,6 +23,7 @@
 #include "Document.h"
 #include "GOwnPtr.h"
 #include "GRefPtr.h"
+#include "GRefPtrGStreamer.h"
 #include "NetworkingContext.h"
 #include "Noncopyable.h"
 #include "NotImplemented.h"
@@ -93,7 +94,8 @@ enum {
     PROP_IRADIO_NAME,
     PROP_IRADIO_GENRE,
     PROP_IRADIO_URL,
-    PROP_IRADIO_TITLE
+    PROP_IRADIO_TITLE,
+    PROP_LOCATION
 };
 
 static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
@@ -118,6 +120,8 @@ static void webKitWebSrcEnoughDataCb(GstAppSrc* appsrc, gpointer userData);
 static gboolean webKitWebSrcSeekDataCb(GstAppSrc* appsrc, guint64 offset, gpointer userData);
 
 static void webKitWebSrcStop(WebKitWebSrc* src, bool seeking);
+static gboolean webKitWebSrcSetUri(GstURIHandler*, const gchar*);
+static const gchar* webKitWebSrcGetUri(GstURIHandler*);
 
 static GstAppSrcCallbacks appsrcCallbacks = {
     webKitWebSrcNeedDataCb,
@@ -203,6 +207,16 @@ static void webkit_web_src_class_init(WebKitWebSrcClass* klass)
                                                         0,
                                                         (GParamFlags) (G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 
+
+    /* Allows setting the uri using the 'location' property, which is used
+     * for example by gst_element_make_from_uri() */
+    g_object_class_install_property(oklass,
+                                    PROP_LOCATION,
+                                    g_param_spec_string("location",
+                                                        "location",
+                                                        "Location to read from",
+                                                        0,
+                                                        (GParamFlags) (G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
     eklass->change_state = webKitWebSrcChangeState;
 
     g_type_class_add_private(klass, sizeof(WebKitWebSrcPrivate));
@@ -288,6 +302,9 @@ static void webKitWebSrcSetProperty(GObject* object, guint propID, const GValue*
     case PROP_IRADIO_MODE:
         priv->iradioMode = g_value_get_boolean(value);
         break;
+    case PROP_LOCATION:
+        webKitWebSrcSetUri(reinterpret_cast<GstURIHandler*>(src), g_value_get_string(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, pspec);
         break;
@@ -314,6 +331,9 @@ static void webKitWebSrcGetProperty(GObject* object, guint propID, GValue* value
         break;
     case PROP_IRADIO_TITLE:
         g_value_set_string(value, priv->iradioTitle);
+        break;
+    case PROP_LOCATION:
+        g_value_set_string(value, webKitWebSrcGetUri(reinterpret_cast<GstURIHandler*>(src)));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, pspec);
@@ -481,7 +501,8 @@ static GstStateChangeReturn webKitWebSrcChangeState(GstElement* element, GstStat
 
 static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query)
 {
-    WebKitWebSrc* src = WEBKIT_WEB_SRC(gst_pad_get_parent(pad));
+    GRefPtr<GstElement> src = adoptGRef(gst_pad_get_parent_element(pad));
+    WebKitWebSrc* webkitSrc = WEBKIT_WEB_SRC(src.get());
     gboolean result = FALSE;
 
     switch (GST_QUERY_TYPE(query)) {
@@ -491,11 +512,17 @@ static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query)
 
         gst_query_parse_duration(query, &format, NULL);
 
-        GST_DEBUG_OBJECT(src, "duration query in format %s", gst_format_get_name(format));
-        if ((format == GST_FORMAT_BYTES) && (src->priv->size > 0)) {
-            gst_query_set_duration(query, format, src->priv->size);
+        GST_DEBUG_OBJECT(webkitSrc, "duration query in format %s", gst_format_get_name(format));
+        if ((format == GST_FORMAT_BYTES) && (webkitSrc->priv->size > 0)) {
+            gst_query_set_duration(query, format, webkitSrc->priv->size);
             result = TRUE;
         }
+        break;
+    }
+    case GST_QUERY_URI:
+    {
+        gst_query_set_uri(query, webkitSrc->priv->uri);
+        result = TRUE;
         break;
     }
     default:
@@ -505,7 +532,6 @@ static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query)
     if (!result)
         result = gst_pad_query_default(pad, query);
 
-    gst_object_unref(src);
     return result;
 }
 

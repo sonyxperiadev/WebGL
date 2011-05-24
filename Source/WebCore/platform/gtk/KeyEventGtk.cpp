@@ -43,7 +43,7 @@ namespace WebCore {
 // FIXME: This is incomplete.  We should change this to mirror
 // more like what Firefox does, and generate these switch statements
 // at build time.
-static String keyIdentifierForGdkKeyCode(guint keyCode)
+String PlatformKeyboardEvent::keyIdentifierForGdkKeyCode(unsigned keyCode)
 {
     switch (keyCode) {
         case GDK_Menu:
@@ -149,7 +149,7 @@ static String keyIdentifierForGdkKeyCode(guint keyCode)
     }
 }
 
-static int windowsKeyCodeForKeyEvent(unsigned int keycode)
+int PlatformKeyboardEvent::windowsKeyCodeForGdkKeyCode(unsigned keycode)
 {
     switch (keycode) {
         case GDK_KP_0:
@@ -516,7 +516,7 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
 
 }
 
-static String singleCharacterString(guint val)
+String PlatformKeyboardEvent::singleCharacterString(unsigned val)
 {
     switch (val) {
         case GDK_ISO_Enter:
@@ -552,7 +552,7 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(GdkEventKey* event)
     , m_unmodifiedText(singleCharacterString(event->keyval))
     , m_keyIdentifier(keyIdentifierForGdkKeyCode(event->keyval))
     , m_autoRepeat(false)
-    , m_windowsVirtualKeyCode(windowsKeyCodeForKeyEvent(event->keyval))
+    , m_windowsVirtualKeyCode(windowsKeyCodeForGdkKeyCode(event->keyval))
     , m_nativeVirtualKeyCode(event->keyval)
     , m_isKeypad(event->keyval >= GDK_KP_Space && event->keyval <= GDK_KP_9)
     , m_shiftKey((event->state & GDK_SHIFT_MASK) || (event->keyval == GDK_3270_BackTab))
@@ -588,11 +588,13 @@ bool PlatformKeyboardEvent::currentCapsLockState()
 
 void PlatformKeyboardEvent::getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey)
 {
-    notImplemented();
-    shiftKey = false;
-    ctrlKey = false;
-    altKey = false;
-    metaKey = false;
+    GdkModifierType state;
+    gtk_get_current_event_state(&state);
+
+    shiftKey = state & GDK_SHIFT_MASK;
+    ctrlKey = state & GDK_CONTROL_MASK;
+    altKey = state & GDK_MOD1_MASK;
+    metaKey = state & GDK_META_MASK;
 }
 
 GdkEventKey* PlatformKeyboardEvent::gdkEventKey() const

@@ -29,6 +29,9 @@
 #include "BackingStore.h"
 #include "DrawingAreaProxy.h"
 #include "LayerTreeContext.h"
+#include "RunLoop.h"
+#include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebKit {
 
@@ -51,35 +54,47 @@ private:
     virtual void sizeDidChange();
     virtual void visibilityDidChange();
     virtual void setPageIsVisible(bool);
-    virtual void attachCompositingContext(uint32_t contextID);
-    virtual void detachCompositingContext();
 
     // CoreIPC message handlers
-    virtual void update(uint64_t sequenceNumber, const UpdateInfo&);
-    virtual void didSetSize(uint64_t sequenceNumber, const UpdateInfo&, const LayerTreeContext&);
-    virtual void enterAcceleratedCompositingMode(uint64_t sequenceNumber, const LayerTreeContext&);
-    virtual void exitAcceleratedCompositingMode(uint64_t sequenceNumber, const UpdateInfo&);
+    virtual void update(uint64_t backingStoreStateID, const UpdateInfo&);
+    virtual void didUpdateBackingStoreState(uint64_t backingStoreStateID, const UpdateInfo&, const LayerTreeContext&);
+    virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&);
+    virtual void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&);
 
     void incorporateUpdate(const UpdateInfo&);
-    void sendSetSize();
-    void waitForAndDispatchDidSetSize();
+
+    enum RespondImmediatelyOrNot { DoNotRespondImmediately, RespondImmediately };
+    void backingStoreStateDidChange(RespondImmediatelyOrNot);
+    void sendUpdateBackingStoreState(RespondImmediatelyOrNot);
+    void waitForAndDispatchDidUpdateBackingStoreState();
 
     void enterAcceleratedCompositingMode(const LayerTreeContext&);
     void exitAcceleratedCompositingMode();
 
     bool isInAcceleratedCompositingMode() const { return !m_layerTreeContext.isEmpty(); }
 
+    void discardBackingStoreSoon();
+    void discardBackingStore();
+
+    // The state ID corresponding to our current backing store. Updated whenever we allocate
+    // a new backing store. Any messages received that correspond to an earlier state are ignored,
+    // as they don't apply to our current backing store.
+    uint64_t m_currentBackingStoreStateID;
+
+    // The next backing store state ID we will request the web process update to. Incremented
+    // whenever our state changes in a way that will require a new backing store to be allocated.
+    uint64_t m_nextBackingStoreStateID;
+
     // The current layer tree context.
     LayerTreeContext m_layerTreeContext;
     
-    // Whether we've sent a SetSize message and are now waiting for a DidSetSize message.
-    // Used to throttle SetSize messages so we don't send them faster than the Web process can handle.
-    bool m_isWaitingForDidSetSize;
-
-    // The sequence number of the last DidSetSize message
-    uint64_t m_lastDidSetSizeSequenceNumber;
+    // Whether we've sent a UpdateBackingStoreState message and are now waiting for a DidUpdateBackingStoreState message.
+    // Used to throttle UpdateBackingStoreState messages so we don't send them faster than the Web process can handle.
+    bool m_isWaitingForDidUpdateBackingStoreState;
 
     OwnPtr<BackingStore> m_backingStore;
+
+    RunLoop::Timer<DrawingAreaProxyImpl> m_discardBackingStoreTimer;
 };
 
 } // namespace WebKit

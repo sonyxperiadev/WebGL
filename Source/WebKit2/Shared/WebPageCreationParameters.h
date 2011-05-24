@@ -52,11 +52,13 @@ struct WebPageCreationParameters {
     bool isInWindow;
     
     WebPreferencesStore store;
-    DrawingAreaInfo drawingAreaInfo;
+    DrawingAreaType drawingAreaType;
     WebPageGroupData pageGroupData;
 
     bool drawsBackground;
     bool drawsTransparentBackground;
+
+    bool areMemoryCacheClientCallsEnabled;
 
     bool useFixedLayout;
     WebCore::IntSize fixedLayoutSize;
@@ -66,6 +68,7 @@ struct WebPageCreationParameters {
     SessionState sessionState;
     uint64_t highestUsedBackForwardItemID;
 
+    bool canRunBeforeUnloadConfirmPanel;
     bool canRunModal;
 
 #if PLATFORM(MAC)

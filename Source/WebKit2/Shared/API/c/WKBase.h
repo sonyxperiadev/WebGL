@@ -67,11 +67,14 @@ typedef const struct OpaqueWKUserContentURLPattern* WKUserContentURLPatternRef;
 
 /* WebKit2 main API types */
 
+typedef const struct OpaqueWKApplicationCacheManager* WKApplicationCacheManagerRef;
 typedef const struct OpaqueWKAuthenticationChallenge* WKAuthenticationChallengeRef;
 typedef const struct OpaqueWKAuthenticationDecisionListener* WKAuthenticationDecisionListenerRef;
 typedef const struct OpaqueWKBackForwardList* WKBackForwardListRef;
 typedef const struct OpaqueWKBackForwardListItem* WKBackForwardListItemRef;
+typedef const struct OpaqueWKResourceCacheManager* WKResourceCacheManagerRef;
 typedef const struct OpaqueWKContext* WKContextRef;
+typedef const struct OpaqueWKCookieManager* WKCookieManagerRef;
 typedef const struct OpaqueWKCredential* WKCredentialRef;
 typedef const struct OpaqueWKDatabaseManager* WKDatabaseManagerRef;
 typedef const struct OpaqueWKDownload* WKDownloadRef;
@@ -82,11 +85,13 @@ typedef const struct OpaqueWKGeolocationManager* WKGeolocationManagerRef;
 typedef const struct OpaqueWKGeolocationPermissionRequest* WKGeolocationPermissionRequestRef;
 typedef const struct OpaqueWKGeolocationPosition* WKGeolocationPositionRef;
 typedef const struct OpaqueWKInspector* WKInspectorRef;
+typedef const struct OpaqueWKKeyValueStorageManager* WKKeyValueStorageManagerRef;
 typedef const struct OpaqueWKNavigationData* WKNavigationDataRef;
 typedef const struct OpaqueWKOpenPanelParameters* WKOpenPanelParametersRef;
 typedef const struct OpaqueWKOpenPanelResultListener* WKOpenPanelResultListenerRef;
 typedef const struct OpaqueWKPage* WKPageRef;
 typedef const struct OpaqueWKPageGroup* WKPageGroupRef;
+typedef const struct OpaqueWKPluginSiteDataManager* WKPluginSiteDataManagerRef;
 typedef const struct OpaqueWKPreferences* WKPreferencesRef;
 typedef const struct OpaqueWKProtectionSpace* WKProtectionSpaceRef;
 

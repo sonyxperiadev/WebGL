@@ -48,6 +48,10 @@ namespace WebCore {
 }
 #endif
 
+namespace WebCore {
+    class HistoryItem;
+}
+
 class FullscreenVideoController;
 class WebBackForwardList;
 class WebFrame;
@@ -813,6 +817,12 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE nextDisplayIsSynchronous();
 
+    virtual HRESULT STDMETHODCALLTYPE defaultMinimumTimerInterval(
+        /* [retval][out] */ double *interval);
+
+    virtual HRESULT STDMETHODCALLTYPE setMinimumTimerInterval(
+        /* [in] */ double);
+
     // WebView
     bool shouldUseEmbeddedView(const WTF::String& mimeType) const;
 
@@ -917,6 +927,8 @@ public:
     void exitFullscreen();
 
     void setLastCursor(HCURSOR cursor) { m_lastSetCursor = cursor; }
+
+    void setGlobalHistoryItem(WebCore::HistoryItem*);
 
 private:
     void setZoomMultiplier(float multiplier, bool isTextOnly);
@@ -1067,6 +1079,8 @@ protected:
     bool m_nextDisplayIsSynchronous;
 
     HCURSOR m_lastSetCursor;
+
+    RefPtr<WebCore::HistoryItem> m_globalHistoryItem;
 };
 
 #endif

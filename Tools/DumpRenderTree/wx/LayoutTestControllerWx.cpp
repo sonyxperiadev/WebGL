@@ -135,6 +135,11 @@ void LayoutTestController::setUserStyleSheetLocation(JSStringRef path)
 {
 }
 
+void LayoutTestController::setValueForUser(JSContextRef context, JSValueRef element, JSStringRef value)
+{
+    // FIXME: implement
+}
+
 void LayoutTestController::setViewModeMediaFeature(JSStringRef mode)
 {
     // FIXME: implement
@@ -511,7 +516,7 @@ bool LayoutTestController::hasSpellingMarker(int, int)
     return false;
 }
 
-void LayoutTestController::dumpConfigurationForViewport(int /*availableWidth*/, int /*availableHeight*/)
+void LayoutTestController::dumpConfigurationForViewport(int /*deviceDPI*/, int /*deviceWidth*/, int /*deviceHeight*/, int /*availableWidth*/, int /*availableHeight*/)
 {
     // FIXME: Implement
 }
@@ -549,3 +554,8 @@ void LayoutTestController::setSerializeHTTPLoads(bool)
 {
     // FIXME: Implement.
 }
+
+void LayoutTestController::setMinimumTimerInterval(double interval) {
+
+}
+    

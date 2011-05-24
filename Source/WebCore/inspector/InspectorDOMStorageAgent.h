@@ -35,36 +35,48 @@
 
 namespace WebCore {
 
+class Frame;
 class InspectorArray;
 class InspectorDOMStorageResource;
 class InspectorFrontend;
+class InstrumentingAgents;
 class Storage;
+class StorageArea;
+
+typedef String ErrorString;
 
 class InspectorDOMStorageAgent {
 public:
-    typedef HashMap<int, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
-
-    static PassOwnPtr<InspectorDOMStorageAgent> create(DOMStorageResourcesMap* domStorageResources, InspectorFrontend* frontend)
+    static PassOwnPtr<InspectorDOMStorageAgent> create(InstrumentingAgents* instrumentingAgents)
     {
-        return adoptPtr(new InspectorDOMStorageAgent(domStorageResources, frontend));
+        return adoptPtr(new InspectorDOMStorageAgent(instrumentingAgents));
     }
+    ~InspectorDOMStorageAgent();
 
-    virtual ~InspectorDOMStorageAgent();
+    void setFrontend(InspectorFrontend*);
+    void clearFrontend();
+
+    void clearResources();
 
     // Called from the front-end.
-    void getDOMStorageEntries(long storageId, RefPtr<InspectorArray>* entries);
-    void setDOMStorageItem(long storageId, const String& key, const String& value, bool* success);
-    void removeDOMStorageItem(long storageId, const String& key, bool* success);
+    void getDOMStorageEntries(ErrorString*, long storageId, RefPtr<InspectorArray>* entries);
+    void setDOMStorageItem(ErrorString*, long storageId, const String& key, const String& value, bool* success);
+    void removeDOMStorageItem(ErrorString*, long storageId, const String& key, bool* success);
 
     // Called from the injected script.
-    void selectDOMStorage(Storage* storage);
+    long storageId(Storage*);
+
+    // Called from InspectorInstrumentation
+    void didUseDOMStorage(StorageArea*, bool isLocalStorage, Frame*);
 
 private:
-    InspectorDOMStorageAgent(DOMStorageResourcesMap*, InspectorFrontend*);
+    explicit InspectorDOMStorageAgent(InstrumentingAgents*);
 
     InspectorDOMStorageResource* getDOMStorageResourceForId(long storageId);
 
-    DOMStorageResourcesMap* m_domStorageResources;
+    InstrumentingAgents* m_instrumentingAgents;
+    typedef HashMap<long, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
+    DOMStorageResourcesMap m_resources;
     InspectorFrontend* m_frontend;
 };
 

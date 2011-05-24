@@ -37,6 +37,7 @@
 #include "HistoryItem.h"
 #include "Page.h"
 #include "PageCache.h"
+#include "ResourceHandle.h"
 #include "StorageMap.h"
 #include <limits>
 
@@ -154,6 +155,7 @@ Settings::Settings(Page* page)
     , m_enforceCSSMIMETypeInNoQuirksMode(true)
     , m_usesEncodingDetector(false)
     , m_allowScriptsToCloseWindows(false)
+    , m_acceleratedDrawingEnabled(false)
     // FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
     // they can't use by. Leaving enabled for now to not change existing behavior.
     , m_downloadableBinaryFontsEnabled(true)
@@ -365,6 +367,10 @@ void Settings::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
     if (m_privateBrowsingEnabled == privateBrowsingEnabled)
         return;
 
+#if USE(CFURLSTORAGESESSIONS)
+    ResourceHandle::setPrivateBrowsingEnabled(privateBrowsingEnabled);
+#endif
+
     // FIXME: We can only enable cookie private browsing mode globally, so it's misleading to have it as a per-page setting.
     setCookieStoragePrivateBrowsingEnabled(privateBrowsingEnabled);
 
@@ -463,9 +469,24 @@ void Settings::setDOMPasteAllowed(bool DOMPasteAllowed)
     m_isDOMPasteAllowed = DOMPasteAllowed;
 }
 
+void Settings::setDefaultMinDOMTimerInterval(double interval)
+{
+    DOMTimer::setDefaultMinTimerInterval(interval);
+}
+
+double Settings::defaultMinDOMTimerInterval()
+{
+    return DOMTimer::defaultMinTimerInterval();
+}
+
 void Settings::setMinDOMTimerInterval(double interval)
 {
-    DOMTimer::setMinTimerInterval(interval);
+    m_page->setMinimumTimerInterval(interval);
+}
+
+double Settings::minDOMTimerInterval()
+{
+    return m_page->minimumTimerInterval();
 }
 
 void Settings::setUsesPageCache(bool usesPageCache)
@@ -798,6 +819,11 @@ void Settings::setAcceleratedCompositingEnabled(bool enabled)
         
     m_acceleratedCompositingEnabled = enabled;
     setNeedsRecalcStyleInAllFrames(m_page);
+}
+
+void Settings::setAcceleratedDrawingEnabled(bool enabled)
+{
+    m_acceleratedDrawingEnabled = enabled;
 }
 
 void Settings::setAcceleratedCompositingFor3DTransformsEnabled(bool enabled)

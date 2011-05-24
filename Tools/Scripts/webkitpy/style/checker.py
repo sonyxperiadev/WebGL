@@ -123,14 +123,11 @@ _PATH_RULES_SPECIFIER = [
       # The API test harnesses have no config.h and use funny macros like
       # TEST_CLASS_NAME.
       "Tools/WebKitAPITest/",
-      "Tools/TestWebKitAPI/"],
+      "Tools/TestWebKitAPI/",
+      "Source/WebKit/qt/tests/qdeclarativewebview"],
      ["-build/include",
       "-readability/naming"]),
-    ([# The EFL APIs use EFL naming style, which includes
-      # both lower-cased and camel-cased, underscore-sparated
-      # values.
-      "Source/WebKit/efl/ewk/",
-      # There is no clean way to avoid "yy_*" names used by flex.
+    ([# There is no clean way to avoid "yy_*" names used by flex.
       "Source/WebCore/css/CSSParser.cpp",
       # Qt code uses '_' in some places (such as private slots
       # and on test xxx_data methos on tests)
@@ -144,13 +141,16 @@ _PATH_RULES_SPECIFIER = [
        "Tools/MiniBrowser/qt"],
       ["-build/include"]),
     ([# The GTK+ APIs use GTK+ naming style, which includes
-      # lower-cased, underscore-separated values.
+      # lower-cased, underscore-separated values, whitespace before
+      # parens for function calls, and always having variable names.
       # Also, GTK+ allows the use of NULL.
       "Source/WebCore/bindings/scripts/test/GObject",
-      "WebKit/gtk/webkit/",
+      "Source/WebKit/gtk/webkit/",
       "Tools/DumpRenderTree/gtk/"],
      ["-readability/naming",
-      "-readability/null"]),
+      "-readability/parameter_name",
+      "-readability/null",
+      "-whitespace/parens"]),
     ([# Header files in ForwardingHeaders have no header guards or
       # exceptional header guards (e.g., WebCore_FWD_Debugger_h).
       "/ForwardingHeaders/"],
@@ -163,6 +163,13 @@ _PATH_RULES_SPECIFIER = [
       "JavaScriptCore/jit/JITStubs.cpp"],
      ["-readability/parameter_name",
       "-whitespace/parens"]),
+
+    ([# The EFL APIs use EFL naming style, which includes
+      # both lower-cased and camel-cased, underscore-sparated
+      # values.
+      "Source/WebKit/efl/ewk/"],
+     ["-readability/naming",
+      "-readability/parameter_name"]),
 
     # WebKit2 rules:
     # WebKit2 and certain directories have idiosyncracies.
@@ -253,7 +260,7 @@ _SKIPPED_FILES_WITH_WARNING = [
 # This list should be in addition to files with FileType.NONE.  Files
 # with FileType.NONE are automatically skipped without warning.
 _SKIPPED_FILES_WITHOUT_WARNING = [
-    "LayoutTests/",
+    "LayoutTests" + os.path.sep,
     ]
 
 # Extensions of files which are allowed to contain carriage returns.
@@ -475,7 +482,7 @@ class CheckerDispatcher(object):
         elif file_extension in _XML_FILE_EXTENSIONS:
             return FileType.XML
         elif (os.path.basename(file_path).startswith('ChangeLog') or
-              (not file_extension and "Tools/Scripts/" in file_path) or
+              (not file_extension and os.path.join("Tools", "Scripts") in file_path) or
               file_extension in _TEXT_FILE_EXTENSIONS):
             return FileType.TEXT
         else:

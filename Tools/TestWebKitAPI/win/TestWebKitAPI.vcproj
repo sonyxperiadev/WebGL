@@ -17,7 +17,7 @@
 		<Configuration
 			Name="Debug|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;..\Configurations\TestWebKitAPICommon.vsprops;..\Configurations\TestWebKitAPICoreFoundation.vsprops"
+			InheritedPropertySheets="..\Configurations\TestWebKitAPIDebug.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -78,7 +78,7 @@
 		<Configuration
 			Name="Release|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;..\Configurations\TestWebKitAPICommon.vsprops;..\Configurations\TestWebKitAPICoreFoundation.vsprops"
+			InheritedPropertySheets="..\Configurations\TestWebKitAPIRelease.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -139,7 +139,7 @@
 		<Configuration
 			Name="Debug_All|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_all.vsprops;..\Configurations\TestWebKitAPICommon.vsprops;..\Configurations\TestWebKitAPICoreFoundation.vsprops"
+			InheritedPropertySheets="..\Configurations\TestWebKitAPIDebugAll.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -200,7 +200,7 @@
 		<Configuration
 			Name="Debug_Cairo_CFLite|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_wincairo.vsprops;..\Configurations\TestWebKitAPICommon.vsprops;..\Configurations\TestWebKitAPICFLite.vsprops"
+			InheritedPropertySheets="..\Configurations\TestWebKitAPIDebugCairoCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -261,7 +261,7 @@
 		<Configuration
 			Name="Release_Cairo_CFLite|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;..\Configurations\TestWebKitAPICommon.vsprops;..\Configurations\TestWebKitAPICFLite.vsprops"
+			InheritedPropertySheets="..\Configurations\TestWebKitAPIReleaseCairoCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -322,7 +322,7 @@
 		<Configuration
 			Name="Release_LTCG|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;..\Configurations\TestWebKitAPICommon.vsprops;..\Configurations\TestWebKitAPICoreFoundation.vsprops"
+			InheritedPropertySheets="..\Configurations\TestWebKitAPIRelease.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
@@ -412,6 +412,10 @@
 				Name="WebKit2"
 				>
 				<File
+					RelativePath="..\Tests\WebKit2\DocumentStartUserScriptAlertCrash.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\Tests\WebKit2\EvaluateJavaScript.cpp"
 					>
 				</File>
@@ -432,6 +436,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\Tests\WebKit2\ForceRepaint.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\Tests\WebKit2\FrameMIMETypeHTML.cpp"
 					>
 				</File>
@@ -441,6 +449,14 @@
 				</File>
 				<File
 					RelativePath="..\Tests\WebKit2\icon.png"
+					>
+				</File>
+				<File
+					RelativePath="..\Tests\WebKit2\HitTestResultNodeHandle.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Tests\WebKit2\InjectedBundleBasic.cpp"
 					>
 				</File>
 				<File
@@ -456,7 +472,15 @@
 					>
 				</File>
 				<File
+					RelativePath="..\Tests\WebKit2\ResponsivenessTimerDoesntFireEarly.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\Tests\WebKit2\RestoreSessionStateContainingFormData.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Tests\WebKit2\simple-accelerated-compositing.html"
 					>
 				</File>
 				<File

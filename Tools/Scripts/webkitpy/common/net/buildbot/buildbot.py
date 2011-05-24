@@ -268,8 +268,9 @@ class BuildBot(object):
             "SnowLeopard.*Build",
             "SnowLeopard.*\(Test",
             "SnowLeopard.*\(WebKit2 Test",
-            "Leopard",
+            "Leopard.*Release",
             "Windows.*Build",
+            "WinCE",
             "EFL",
             "GTK.*32",
             "GTK.*64.*Debug",  # Disallow the 64-bit Release bot which is broken.

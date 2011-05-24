@@ -184,20 +184,18 @@ module window {
         attribute [EnabledAtRuntime] IDBDatabaseConstructor webkitIDBDatabase;
         attribute [EnabledAtRuntime] IDBDatabaseErrorConstructor webkitIDBDatabaseError;
         attribute [EnabledAtRuntime] IDBDatabaseExceptionConstructor webkitIDBDatabaseException;
-        attribute [EnabledAtRuntime] IDBErrorEventConstructor webkitIDBErrorEvent;
-        attribute [EnabledAtRuntime] IDBEventConstructor webkitIDBEvent;
         attribute [EnabledAtRuntime] IDBFactoryConstructor webkitIDBFactory;
         attribute [EnabledAtRuntime] IDBIndexConstructor webkitIDBIndex;
         attribute [EnabledAtRuntime] IDBKeyRangeConstructor webkitIDBKeyRange;
         attribute [EnabledAtRuntime] IDBObjectStoreConstructor webkitIDBObjectStore;
         attribute [EnabledAtRuntime] IDBRequestConstructor webkitIDBRequest;
-        attribute [EnabledAtRuntime] IDBSuccessEventConstructor webkitIDBSuccessEvent;
         attribute [EnabledAtRuntime] IDBTransactionConstructor webkitIDBTransaction;
 #endif
 #if defined(ENABLE_FILE_SYSTEM) && ENABLE_FILE_SYSTEM
         const unsigned short TEMPORARY = 0;
         const unsigned short PERSISTENT = 1;
         [EnabledAtRuntime=FileSystem] void requestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+        [EnabledAtRuntime=FileSystem] void resolveLocalFileSystemURI(in DOMString uri, in [Callback, Optional] EntryCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
 
         attribute [EnabledAtRuntime=FileSystem] FlagsConstructor Flags;
 #endif

@@ -120,6 +120,7 @@
 #include "WebString.h"
 #include "WebVector.h"
 #include "WebViewClient.h"
+#include "cc/CCHeadsUpDisplay.h"
 #include <wtf/ByteArray.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/RefPtr.h>
@@ -805,6 +806,15 @@ bool WebViewImpl::scrollViewWithKeyboard(int keyCode, int modifiers)
 {
     ScrollDirection scrollDirection;
     ScrollGranularity scrollGranularity;
+#if OS(DARWIN)
+    // Control-Up/Down should be PageUp/Down on Mac.
+    if (modifiers & WebMouseEvent::ControlKey) {
+      if (keyCode == VKEY_UP)
+        keyCode = VKEY_PRIOR;
+      else if (keyCode == VKEY_DOWN)
+        keyCode = VKEY_NEXT;
+    }
+#endif
     if (!mapKeyCodeForScroll(keyCode, &scrollDirection, &scrollGranularity))
         return false;
     return propagateScroll(scrollDirection, scrollGranularity);
@@ -900,7 +910,7 @@ void WebViewImpl::hideAutoFillPopup()
     }
 }
 
-Frame* WebViewImpl::focusedWebCoreFrame()
+Frame* WebViewImpl::focusedWebCoreFrame() const
 {
     return m_page.get() ? m_page->focusController()->focusedOrMainFrame() : 0;
 }
@@ -1005,10 +1015,7 @@ void WebViewImpl::layout()
 #if USE(ACCELERATED_COMPOSITING)
 void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect)
 {
-    ASSERT(rect.maxX() <= m_layerRenderer->rootLayerTextureSize().width()
-           && rect.maxY() <= m_layerRenderer->rootLayerTextureSize().height());
-
-#if PLATFORM(SKIA)
+#if USE(SKIA)
     PlatformContextSkia context(canvas);
 
     // PlatformGraphicsContext is actually a pointer to PlatformContextSkia
@@ -1050,7 +1057,7 @@ void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect)
         if (canvas) {
             // Clip rect to the confines of the rootLayerTexture.
             IntRect resizeRect(rect);
-            resizeRect.intersect(IntRect(IntPoint(), m_layerRenderer->rootLayerTextureSize()));
+            resizeRect.intersect(IntRect(IntPoint(), m_layerRenderer->visibleRectSize()));
             doPixelReadbackToCanvas(canvas, resizeRect);
         }
 #endif
@@ -1106,36 +1113,49 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
     m_currentInputEvent = &inputEvent;
 
     if (m_mouseCaptureNode.get() && WebInputEvent::isMouseEventType(inputEvent.type)) {
-        // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
-        RefPtr<Node> node = m_mouseCaptureNode;
-
-        // Not all platforms call mouseCaptureLost() directly.
-        if (inputEvent.type == WebInputEvent::MouseUp)
+        const int mouseButtonModifierMask = WebInputEvent::LeftButtonDown | WebInputEvent::MiddleButtonDown | WebInputEvent::RightButtonDown;
+        if (inputEvent.type == WebInputEvent::MouseDown ||
+            (inputEvent.modifiers & mouseButtonModifierMask) == 0) {
+            // It's possible the mouse was released and we didn't get the "up"
+            // message. This can happen if a dialog pops up while the mouse is
+            // held, for example. This will leave us "stuck" in capture mode.
+            // If we get a new mouse down message or any other mouse message
+            // where no "down" flags are set, we know the user is no longer
+            // dragging and we can release the capture and fall through to the
+            // regular event processing.
             mouseCaptureLost();
+        } else {
+            // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
+            RefPtr<Node> node = m_mouseCaptureNode;
 
-        AtomicString eventType;
-        switch (inputEvent.type) {
-        case WebInputEvent::MouseMove:
-            eventType = eventNames().mousemoveEvent;
-            break;
-        case WebInputEvent::MouseLeave:
-            eventType = eventNames().mouseoutEvent;
-            break;
-        case WebInputEvent::MouseDown:
-            eventType = eventNames().mousedownEvent;
-            break;
-        case WebInputEvent::MouseUp:
-            eventType = eventNames().mouseupEvent;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
+            // Not all platforms call mouseCaptureLost() directly.
+            if (inputEvent.type == WebInputEvent::MouseUp)
+                mouseCaptureLost();
+
+            AtomicString eventType;
+            switch (inputEvent.type) {
+            case WebInputEvent::MouseMove:
+                eventType = eventNames().mousemoveEvent;
+                break;
+            case WebInputEvent::MouseLeave:
+                eventType = eventNames().mouseoutEvent;
+                break;
+            case WebInputEvent::MouseDown:
+                eventType = eventNames().mousedownEvent;
+                break;
+            case WebInputEvent::MouseUp:
+                eventType = eventNames().mouseupEvent;
+                break;
+            default:
+                ASSERT_NOT_REACHED();
+            }
+
+            node->dispatchMouseEvent(
+                  PlatformMouseEventBuilder(mainFrameImpl()->frameView(), *static_cast<const WebMouseEvent*>(&inputEvent)),
+                  eventType, static_cast<const WebMouseEvent*>(&inputEvent)->clickCount);
+            m_currentInputEvent = 0;
+            return true;
         }
-
-        node->dispatchMouseEvent(
-              PlatformMouseEventBuilder(mainFrameImpl()->frameView(), *static_cast<const WebMouseEvent*>(&inputEvent)),
-              eventType, static_cast<const WebMouseEvent*>(&inputEvent)->clickCount);
-        m_currentInputEvent = 0;
-        return true;
     }
 
     bool handled = true;
@@ -1276,7 +1296,7 @@ bool WebViewImpl::setComposition(
     // node, which doesn't exist any longer.
     PassRefPtr<Range> range = editor->compositionRange();
     if (range) {
-        const Node* node = range->startPosition().node();
+        const Node* node = range->startContainer();
         if (!node || !node->isContentEditable())
             return false;
     }
@@ -1325,7 +1345,7 @@ bool WebViewImpl::confirmComposition(const WebString& text)
     // node, which doesn't exist any longer.
     PassRefPtr<Range> range = editor->compositionRange();
     if (range) {
-        const Node* node = range->startPosition().node();
+        const Node* node = range->startContainer();
         if (!node || !node->isContentEditable())
             return false;
     }
@@ -1356,7 +1376,7 @@ WebTextInputType WebViewImpl::textInputType()
     if (!controller)
         return type;
 
-    const Node* node = controller->start().node();
+    const Node* node = controller->start().deprecatedNode();
     if (!node)
         return type;
 
@@ -1385,14 +1405,14 @@ WebRect WebViewImpl::caretOrSelectionBounds()
     if (!view)
         return rect;
 
-    const Node* node = controller->start().node();
+    const Node* node = controller->start().deprecatedNode();
     if (!node || !node->renderer())
         return rect;
 
     if (controller->isCaret())
         rect = view->contentsToWindow(controller->absoluteCaretBounds());
     else if (controller->isRange()) {
-        node = controller->end().node();
+        node = controller->end().deprecatedNode();
         if (!node || !node->renderer())
             return rect;
         RefPtr<Range> range = controller->toNormalizedRange();
@@ -1749,21 +1769,6 @@ WebDragOperation WebViewImpl::dragTargetDragEnter(
     return dragTargetDragEnterOrOver(clientPoint, screenPoint, DragEnter);
 }
 
-WebDragOperation WebViewImpl::dragTargetDragEnterNew(
-    int identity,
-    const WebPoint& clientPoint,
-    const WebPoint& screenPoint,
-    WebDragOperationsMask operationsAllowed)
-{
-    ASSERT(!m_currentDragData.get());
-
-    m_currentDragData = ChromiumDataObject::createReadable(m_page->mainFrame(), Clipboard::DragAndDrop);
-    m_dragIdentity = identity;
-    m_operationsAllowed = operationsAllowed;
-
-    return dragTargetDragEnterOrOver(clientPoint, screenPoint, DragEnter);
-}
-
 WebDragOperation WebViewImpl::dragTargetDragOver(
     const WebPoint& clientPoint,
     const WebPoint& screenPoint,
@@ -1979,7 +1984,7 @@ void WebViewImpl::applyAutoFillSuggestions(
     if (m_autoFillPopupShowing) {
         refreshAutoFillPopup();
     } else {
-        m_autoFillPopup->show(focusedNode->getRect(), focusedNode->ownerDocument()->view(), 0);
+        m_autoFillPopup->showInRect(focusedNode->getRect(), focusedNode->ownerDocument()->view(), 0);
         m_autoFillPopupShowing = true;
     }
 }
@@ -2383,6 +2388,7 @@ void WebViewImpl::doComposite()
     ASSERT(isAcceleratedCompositingActive());
     if (!page())
         return;
+
     FrameView* view = page()->mainFrame()->view();
 
     // The visibleRect includes scrollbars whereas the contentRect doesn't.
@@ -2393,7 +2399,16 @@ void WebViewImpl::doComposite()
     WebViewImplTilePaintInterface tilePaint(this);
 
     WebViewImplScrollbarPaintInterface scrollbarPaint(this);
-    m_layerRenderer->drawLayers(visibleRect, contentRect, scroll, tilePaint, scrollbarPaint);
+    m_layerRenderer->setCompositeOffscreen(settings()->compositeToTextureEnabled());
+
+    CCHeadsUpDisplay* hud = m_layerRenderer->headsUpDisplay();
+    hud->setShowFPSCounter(settings()->showFPSCounter());
+    hud->setShowPlatformLayerTree(settings()->showPlatformLayerTree());
+
+    m_layerRenderer->updateAndDrawLayers(visibleRect, contentRect, scroll, tilePaint, scrollbarPaint);
+
+    if (m_layerRenderer->isCompositingOffscreen())
+        m_layerRenderer->copyOffscreenTextureToDisplay();
 }
 
 void WebViewImpl::reallocateRenderer()

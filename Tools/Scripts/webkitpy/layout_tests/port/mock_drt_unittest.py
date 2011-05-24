@@ -29,6 +29,7 @@
 
 """Unit tests for MockDRT."""
 
+import sys
 import unittest
 
 from webkitpy.common import newstringio
@@ -41,7 +42,14 @@ from webkitpy.layout_tests.port import test
 
 class MockDRTPortTest(port_testcase.PortTestCase):
     def make_port(self):
+        if sys.platform == 'win32':
+            # We use this because the 'win' port doesn't work yet.
+            return mock_drt.MockDRTPort(port_name='mock-chromium-win')
         return mock_drt.MockDRTPort()
+
+    def test_default_worker_model(self):
+        # only overridding the default test; we don't care about this one.
+        pass
 
     def test_port_name_in_constructor(self):
         self.assertTrue(mock_drt.MockDRTPort(port_name='mock-test'))

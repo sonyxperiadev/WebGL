@@ -133,6 +133,7 @@ private:
     virtual void setViewNeedsDisplay(const WebCore::IntRect&);
     virtual void displayView();
     virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
+    virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
     
     virtual WebCore::IntSize viewSize();
     virtual bool isViewWindowActive();
@@ -148,7 +149,6 @@ private:
     virtual void setViewportArguments(const WebCore::ViewportArguments&);
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo);
     virtual void clearAllEditCommands();
-    virtual void setEditCommandState(const WTF::String&, bool, int);
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
     virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled);
@@ -160,14 +160,10 @@ private:
 #if USE(ACCELERATED_COMPOSITING)
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
     virtual void exitAcceleratedCompositingMode();
-
-    virtual void pageDidEnterAcceleratedCompositing();
-    virtual void pageDidLeaveAcceleratedCompositing();
-    void switchToDrawingAreaTypeIfNecessary(DrawingAreaInfo::Type);
 #endif
 
     void didCommitLoadForMainFrame(bool useCustomRepresentation);
-    void didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&);
+    void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&);
     virtual double customRepresentationZoomFactor();
     virtual void setCustomRepresentationZoomFactor(double);
     WebCore::DragOperation keyStateToDragOperation(DWORD grfKeyState) const;

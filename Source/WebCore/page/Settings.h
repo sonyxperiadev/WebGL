@@ -231,8 +231,12 @@ namespace WebCore {
         void setDOMPasteAllowed(bool);
         bool isDOMPasteAllowed() const { return m_isDOMPasteAllowed; }
         
-        static void setMinDOMTimerInterval(double); // Interval specified in seconds.
+        static void setDefaultMinDOMTimerInterval(double); // Interval specified in seconds.
+        static double defaultMinDOMTimerInterval();
         
+        void setMinDOMTimerInterval(double); // Per-page; initialized to default value.
+        double minDOMTimerInterval();
+
         void setUsesPageCache(bool);
         bool usesPageCache() const { return m_usesPageCache; }
 
@@ -347,6 +351,9 @@ namespace WebCore {
         void setXSSAuditorEnabled(bool);
         bool xssAuditorEnabled() const { return m_xssAuditorEnabled; }
 
+        void setAcceleratedDrawingEnabled(bool);
+        bool acceleratedDrawingEnabled() const { return m_acceleratedDrawingEnabled; }
+        
         void setAcceleratedCompositingEnabled(bool);
         bool acceleratedCompositingEnabled() const { return m_acceleratedCompositingEnabled; }
 
@@ -541,6 +548,7 @@ namespace WebCore {
         bool m_enforceCSSMIMETypeInNoQuirksMode : 1;
         bool m_usesEncodingDetector : 1;
         bool m_allowScriptsToCloseWindows : 1;
+        bool m_acceleratedDrawingEnabled : 1;
         bool m_downloadableBinaryFontsEnabled : 1;
         bool m_xssAuditorEnabled : 1;
         bool m_acceleratedCompositingEnabled : 1;

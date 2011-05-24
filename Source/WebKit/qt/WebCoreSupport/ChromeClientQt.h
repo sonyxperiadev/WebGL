@@ -112,7 +112,7 @@ namespace WebCore {
 
         virtual void setStatusbarText(const String&);
 
-        virtual bool tabsToLinks() const;
+        virtual WebCore::KeyboardUIMode keyboardUIMode();
         virtual IntRect windowResizerRect() const;
 
         virtual void invalidateWindow(const IntRect&, bool);
@@ -181,10 +181,10 @@ namespace WebCore {
 
         virtual void setCursor(const Cursor&);
 
-        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const { }
 
-        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
-        virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*);
+        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) { }
+        virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
 
         virtual bool selectItemWritingDirectionIsNatural();
         virtual bool selectItemAlignmentFollowsMenuWritingDirection();

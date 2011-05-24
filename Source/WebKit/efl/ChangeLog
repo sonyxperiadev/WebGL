@@ -1,3 +1,339 @@
+2011-03-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Replace WebKit2's decidePolicyForMIMEType with decidePolicyForResponse
+        https://bugs.webkit.org/show_bug.cgi?id=55827
+
+        Renamed FrameLoaderClient::dispatchDecidePolicyForMIMEType to dispatchDecidePolicyForResponse
+        and pass the entire response, instead of just the MIMEType.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchDecidePolicyForResponse):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2011-03-04  Grzegorz Czajkowski  <g.czajkowski@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Doxygen documentation for ewk_settings
+        https://bugs.webkit.org/show_bug.cgi?id=55667
+
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_default_user_agent_get): only style is fixed
+        * ewk/ewk_settings.h:
+
+2011-03-03  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=55721
+        Global IconDatabase should be returned by reference, not as a pointer
+
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_icon_database_path_set):
+        (ewk_settings_icon_database_path_get):
+        (ewk_settings_icon_database_clear):
+        (ewk_settings_icon_database_icon_surface_get):
+        (ewk_settings_icon_database_icon_object_add):
+
+2011-03-03  Alexey Proskuryakov  <ap@apple.com>
+
+        Removing an include of WebCoreKeyboardUIMode.h that Ive just added. It's already included
+        via ChromeClient.h
+
+        * WebCoreSupport/ChromeClientEfl.h:
+
+2011-03-02  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (WebKit2): Tab keys no longer observe Full Keyboard Access
+        https://bugs.webkit.org/show_bug.cgi?id=55633
+        <rdar://problem/8963023>
+
+        * WebCoreSupport/ChromeClientEfl.cpp: (WebCore::ChromeClientEfl::keyboardUIMode):
+        * WebCoreSupport/ChromeClientEfl.h:
+        Implement keyboardUIMode() instead of tabsToLinks(). No change in functionality, since
+        this platform doesn't observe or have full keyboard access state.
+
+2011-03-01  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Unreviewed. Roll out r80068 and r80073 due to breaking WebKit2 Qt port.
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_viewport_attributes_compute):
+
+2011-03-01  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Viewport Warning/Error Messages Are Now Inaccurate
+        https://bugs.webkit.org/show_bug.cgi?id=53707
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_viewport_attributes_compute): pass a Document into computeViewportAttributes for warnings to be reported to.
+
+2011-02-28  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Remove the support of Frame::isContentEditable and its dependencies.
+        https://bugs.webkit.org/show_bug.cgi?id=54292
+
+        Remove the WebKit side implementation.
+
+        * WebCoreSupport/EditorClientEfl.cpp:
+        * WebCoreSupport/EditorClientEfl.h:
+
+2011-02-27  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Restore parameters of efl header files.
+        https://bugs.webkit.org/show_bug.cgi?id=55292
+
+        Restore parameters in efl header files.
+
+        * ewk/ewk_frame.h:
+        * ewk/ewk_tiled_backing_store.h:
+        * ewk/ewk_tiled_matrix.h:
+        * ewk/ewk_tiled_model.h:
+        * ewk/ewk_view.cpp:
+        (ewk_view_pre_render_relative_radius):
+        * ewk/ewk_view.h:
+        * ewk/ewk_window_features.h:
+
+2011-02-26  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Replace WTF_USE_SOUP macro with USE(SOUP)
+        https://bugs.webkit.org/show_bug.cgi?id=55296
+
+        ewk_cookies.cpp and ewk_main.cpp are using WTF_USE_SOUP macro. 
+        So, according to policy decision macro usage, the macro needs to 
+        be changed with USE(SOUP).
+
+        * ewk/ewk_cookies.cpp:
+        (ewk_cookies_file_set):
+        (ewk_cookies_clear):
+        (ewk_cookies_get_all):
+        (ewk_cookies_cookie_del):
+        (ewk_cookies_cookie_free):
+        (ewk_cookies_policy_set):
+        (ewk_cookies_policy_get):
+        * ewk/ewk_main.cpp:
+        (_ewk_init_body):
+
+2011-02-24  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Eric Seidel.
+
+        Drop the "U; " encryption level from the User Agent string.
+        https://bugs.webkit.org/show_bug.cgi?id=54566
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::composeUserAgent):
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_default_user_agent_get):
+
+2011-02-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Use AtomicString::fromUTF8 instead of String::fromUTF8 for AtomicStrings
+        https://bugs.webkit.org/show_bug.cgi?id=54992
+
+        Also remove the WTF namespace from AtomicString and String.
+
+        * ewk/ewk_view.cpp:
+
+2011-02-22  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Drop the language tag part from the User Agent string
+        https://bugs.webkit.org/show_bug.cgi?id=54560
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::composeUserAgent):
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_default_user_agent_get):
+
+2011-02-21  Lukasz Slachciak  <l.slachciak@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Fixed missing spatial navigation setting initialization. Doxygen comments added.
+        https://bugs.webkit.org/show_bug.cgi?id=54806
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new): spatial navigation setting initialization added
+
+2011-02-20  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Fix coding style errors in tiled BS and ewk_window_feature.h
+        https://bugs.webkit.org/show_bug.cgi?id=54842
+
+        Fix style errors in ewk files.
+
+        * ewk/ewk_tiled_backing_store.h:
+        * ewk/ewk_tiled_matrix.h:
+        * ewk/ewk_tiled_model.h:
+        * ewk/ewk_window_features.h:
+
+2011-02-19  Lukasz Slachciak  <l.slachciak@samsung.com>
+
+        Reviewed by Andreas Kling.
+
+        [EFL] Eliminated error when .webkit directory doesn't exist.
+        https://bugs.webkit.org/show_bug.cgi?id=54813
+
+        * ewk/ewk_main.cpp:
+        (_ewk_init_body):
+
+2011-02-19  Lukasz Slachciak  <l.slachciak@samsung.com>
+
+        Unreviewed build fix.
+
+        SoupSession build break fix
+        https://bugs.webkit.org/show_bug.cgi?id=54796
+
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_proxy_uri_set):
+
+2011-02-19  Lukasz Slachciak  <l.slachciak@samsung.com>
+
+        Reviewed by Andreas Kling.
+
+        [EFL] Use standard WebCore::homeDirectoryPath method instead of reimplementing it
+        https://webkit.org/b/54781
+
+        * ewk/ewk_main.cpp:
+        (_ewk_init_body):
+
+2011-02-19  Charlie Reis  <creis@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        Ensure loading has stopped in HistoryController::goToItem
+        https://bugs.webkit.org/show_bug.cgi?id=54517
+
+        Add a FrameLoaderClient callback for whether to stop loading before goToItem.
+
+        Test: http/tests/navigation/forward-to-fragment-fires-onload.html
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::shouldStopLoadingForHistoryItem): Added.
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2011-02-18  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Fix coding style errors in ewk_frame.h
+        https://bugs.webkit.org/show_bug.cgi?id=54718
+
+        Fix style errors in ewk_frame.h.
+
+        * ewk/ewk_frame.h:
+
+2011-02-18  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Remove proxy feature of soup when proxy is null
+        https://bugs.webkit.org/show_bug.cgi?id=54621
+
+        When proxy value is NULL, remove proxy feature in soup.
+
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_proxy_uri_set):
+
+2011-02-18  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Fix coding style errors in ewk_view.h
+        https://bugs.webkit.org/show_bug.cgi?id=54624
+
+        Fix style errors in ewk_view.h.
+
+        * ewk/ewk_view.cpp:
+        (ewk_view_pre_render_relative_radius):
+        * ewk/ewk_view.h:
+
+2011-02-18  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed build fix after r78634 and r78786.
+
+        * CMakeListsEfl.txt:
+
+2011-02-17  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Possible crash of ewk_frame_contents_set
+        https://bugs.webkit.org/show_bug.cgi?id=54091
+
+        Use length of contents if contents_size parameter is bigger than length
+        of contents.
+
+        * ewk/ewk_frame.cpp:
+        (_ewk_frame_contents_set_internal):
+
+2011-02-17  Grzegorz Czajkowski  <g.czajkowski@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        Doxygen documentation for ewk cookies
+        https://bugs.webkit.org/show_bug.cgi?id=54553
+
+        * ewk/ewk_cookies.cpp:
+        (ewk_cookies_file_set):
+        (ewk_cookies_policy_set):
+        (ewk_cookies_policy_get):
+        * ewk/ewk_cookies.h:
+
+2011-02-16  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Unreviewed build fix.
+
+        [EFL] Build break on r78634
+        https://bugs.webkit.org/show_bug.cgi?id=54602
+
+        Build error because of r78634.
+
+        * CMakeListsEfl.txt:
+
+2011-01-26  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        Refactoring: Extract TextCheckerClient from EditorClient
+        https://bugs.webkit.org/show_bug.cgi?id=53213
+
+        * WebCoreSupport/EditorClientEfl.h:
+        (WebCore::EditorClientEfl::textChecker):
+
+2011-02-07  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add EditorClient callbacks to override isDOMPasteAllowed and javaScriptCanAccessClipboard
+        https://bugs.webkit.org/show_bug.cgi?id=52417
+
+        Added two callback functions, canCopyCut and canPaste to EditorClient. They are currently
+        not implemented.
+
+        * WebCoreSupport/EditorClientEfl.cpp:
+        (WebCore::EditorClientEfl::canCopyCut): Added.
+        (WebCore::EditorClientEfl::canPaste): Added.
+        * WebCoreSupport/EditorClientEfl.h:
+
 2011-02-08  Adam Barth  <abarth@webkit.org>
 
         Reviewed by Eric Seidel.

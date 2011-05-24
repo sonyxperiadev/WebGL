@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
@@ -178,6 +178,27 @@ ViewportAttributes computeViewportAttributes(ViewportArguments args, int desktop
     return result;
 }
 
+static float numericPrefix(const String& keyString, const String& valueString, Document* document, bool* ok)
+{
+    // If a prefix of property-value can be converted to a number using strtod,
+    // the value will be that number. The remainder of the string is ignored.
+    // So when String::toFloat says there is an error, it may be a false positive,
+    // and we should check if the valueString prefix was a number.
+
+    bool didReadNumber;
+    float value = valueString.toFloat(ok, &didReadNumber);
+    if (!*ok) {
+        if (!didReadNumber) {
+            ASSERT(!value);
+            reportViewportWarning(document, UnrecognizedViewportArgumentValueError, valueString, keyString);
+            return value;
+        }
+        *ok = true;
+        reportViewportWarning(document, TruncatedViewportArgumentValueError, valueString, keyString);
+    }
+    return value;
+}
+
 static float findSizeValue(const String& keyString, const String& valueString, Document* document)
 {
     // 1) Non-negative number values are translated to px lengths.
@@ -193,19 +214,12 @@ static float findSizeValue(const String& keyString, const String& valueString, D
         return ViewportArguments::ValueDeviceHeight;
 
     bool ok;
-    float value = valueString.toFloat(&ok);
-    if (!ok) {
-        reportViewportWarning(document, UnrecognizedViewportArgumentError, keyString);
+    float value = numericPrefix(keyString, valueString, document, &ok);
+    if (!ok)
         return float(0.0);
-    }
 
     if (value < 0)
         return ViewportArguments::ValueAuto;
-
-    if (keyString == "width")
-        reportViewportWarning(document, DeviceWidthShouldBeUsedWarning, keyString);
-    else if (keyString == "height")
-        reportViewportWarning(document, DeviceHeightShouldBeUsedWarning, keyString);
 
     return value;
 }
@@ -230,17 +244,15 @@ static float findScaleValue(const String& keyString, const String& valueString, 
         return float(10.0);
 
     bool ok;
-    float value = valueString.toFloat(&ok);
-    if (!ok) {
-        reportViewportWarning(document, UnrecognizedViewportArgumentError, keyString);
+    float value = numericPrefix(keyString, valueString, document, &ok);
+    if (!ok)
         return float(0.0);
-    }
 
     if (value < 0)
         return ViewportArguments::ValueAuto;
 
     if (value > 10.0)
-        reportViewportWarning(document, MaximumScaleTooLargeError, keyString);
+        reportViewportWarning(document, MaximumScaleTooLargeError, String(), String());
 
     return value;
 }
@@ -263,11 +275,9 @@ static bool findUserScalableValue(const String& keyString, const String& valueSt
         return true;
 
     bool ok;
-    float value = valueString.toFloat(&ok);
-    if (!ok) {
-        reportViewportWarning(document, UnrecognizedViewportArgumentError, keyString);
+    float value = numericPrefix(keyString, valueString, document, &ok);
+    if (!ok)
         return false;
-    }
 
     if (fabs(value) < 1)
         return false;
@@ -287,14 +297,12 @@ static float findTargetDensityDPIValue(const String& keyString, const String& va
         return ViewportArguments::ValueHighDPI;
 
     bool ok;
-    float value = valueString.toFloat(&ok);
-    if (!ok) {
-        reportViewportWarning(document, UnrecognizedViewportArgumentError, keyString);
+    float value = numericPrefix(keyString, valueString, document, &ok);
+    if (!ok)
         return ViewportArguments::ValueAuto;
-    }
 
      if (value < 70 || value > 400) {
-        reportViewportWarning(document, TargetDensityDpiTooSmallOrLargeError, keyString);
+        reportViewportWarning(document, TargetDensityDpiTooSmallOrLargeError, String(), String());
         return ViewportArguments::ValueAuto;
     }
 
@@ -319,15 +327,17 @@ void setViewportFeature(const String& keyString, const String& valueString, Docu
         arguments->userScalable = findUserScalableValue(keyString, valueString, document);
     else if (keyString == "target-densitydpi")
         arguments->targetDensityDpi = findTargetDensityDPIValue(keyString, valueString, document);
+    else
+        reportViewportWarning(document, UnrecognizedViewportArgumentKeyError, keyString, String());
 }
 
 static const char* viewportErrorMessageTemplate(ViewportErrorCode errorCode)
 {
     static const char* const errors[] = {
-        "Viewport width or height set to physical device width, try using \"device-width\" constant instead for future compatibility.",
-        "Viewport height or height set to physical device height, try using \"device-height\" constant instead for future compatibility.",
-        "Viewport argument \"%replacement\" not recognized. Content ignored.",
-        "Viewport maximum-scale cannot be larger than 10.0.  The maximum-scale will be set to 10.0.",
+        "Viewport argument key \"%replacement1\" not recognized and ignored.",
+        "Viewport argument value \"%replacement1\" for key \"%replacement2\" not recognized. Content ignored.",
+        "Viewport argument value \"%replacement1\" for key \"%replacement2\" was truncated to its numeric prefix.",
+        "Viewport maximum-scale cannot be larger than 10.0. The maximum-scale will be set to 10.0.",
         "Viewport target-densitydpi has to take a number between 70 and 400 as a valid target dpi, try using \"device-dpi\", \"low-dpi\", \"medium-dpi\" or \"high-dpi\" instead for future compatibility."
     };
 
@@ -336,7 +346,18 @@ static const char* viewportErrorMessageTemplate(ViewportErrorCode errorCode)
 
 static MessageLevel viewportErrorMessageLevel(ViewportErrorCode errorCode)
 {
-    return errorCode == UnrecognizedViewportArgumentError || errorCode == MaximumScaleTooLargeError ? ErrorMessageLevel : TipMessageLevel;
+    switch (errorCode) {
+    case TruncatedViewportArgumentValueError:
+    case TargetDensityDpiTooSmallOrLargeError:
+        return TipMessageLevel;
+    case UnrecognizedViewportArgumentKeyError:
+    case UnrecognizedViewportArgumentValueError:
+    case MaximumScaleTooLargeError:
+        return ErrorMessageLevel;
+    }
+
+    ASSERT_NOT_REACHED();
+    return ErrorMessageLevel;
 }
 
 // FIXME: Why is this different from SVGDocumentExtensions parserLineNumber?
@@ -351,14 +372,17 @@ static int parserLineNumber(Document* document)
     return parser->lineNumber() + 1;
 }
 
-void reportViewportWarning(Document* document, ViewportErrorCode errorCode, const String& replacement)
+void reportViewportWarning(Document* document, ViewportErrorCode errorCode, const String& replacement1, const String& replacement2)
 {
     Frame* frame = document->frame();
     if (!frame)
         return;
 
     String message = viewportErrorMessageTemplate(errorCode);
-    message.replace("%replacement", replacement);
+    if (!replacement1.isNull())
+        message.replace("%replacement1", replacement1);
+    if (!replacement2.isNull())
+        message.replace("%replacement2", replacement2);
 
     frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, viewportErrorMessageLevel(errorCode), message, parserLineNumber(document), document->url().string());
 }

@@ -483,6 +483,11 @@ bool FrameLoaderClientHaiku::shouldGoToHistoryItem(WebCore::HistoryItem*) const
     return true;
 }
 
+bool FrameLoaderClientHaiku::shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const
+{
+    return true;
+}
+
 void FrameLoaderClientHaiku::dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const
 {
 }
@@ -651,8 +656,8 @@ Frame* FrameLoaderClientHaiku::dispatchCreatePage(const WebCore::NavigationActio
     return false;
 }
 
-void FrameLoaderClientHaiku::dispatchDecidePolicyForMIMEType(FramePolicyFunction function,
-                                                             const String& mimetype,
+void FrameLoaderClientHaiku::dispatchDecidePolicyForResponse(FramePolicyFunction function,
+                                                             const ResourceResponse& response,
                                                              const ResourceRequest& request)
 {
     if (!m_frame)

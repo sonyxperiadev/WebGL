@@ -160,6 +160,7 @@ namespace WebCore {
         virtual void updateGlobalHistory();
         virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
+        virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
         virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
         virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;
         virtual void dispatchDidChangeBackForwardIndex() const;
@@ -196,7 +197,7 @@ namespace WebCore {
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const ResourceError&);
         virtual Frame* dispatchCreatePage(const WebCore::NavigationAction&);
-        virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String&, const ResourceRequest&);
+        virtual void dispatchDecidePolicyForResponse(FramePolicyFunction function, const ResourceResponse&, const ResourceRequest&);
         virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String&);
         virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>);
         virtual void dispatchUnableToImplementPolicy(const ResourceError&);

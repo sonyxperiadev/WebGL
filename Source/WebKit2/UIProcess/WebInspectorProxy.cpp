@@ -38,8 +38,7 @@
 #include "WebView.h"
 #endif
 
-#define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
-#include "NotImplemented.h"
+#include <WebCore/NotImplemented.h>
 
 using namespace WebCore;
 
@@ -194,6 +193,11 @@ void WebInspectorProxy::didClose()
     platformClose();
 
     m_isVisible = false;
+}
+
+void WebInspectorProxy::inspectedURLChanged(const String& urlString)
+{
+    platformInspectedURLChanged(urlString);
 }
 
 } // namespace WebKit

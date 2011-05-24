@@ -36,6 +36,7 @@ namespace WebCore {
     macro(beforepaste) \
     macro(beforeprocess) \
     macro(beforeunload) \
+    macro(blocked) \
     macro(blur) \
     macro(cached) \
     macro(change) \
@@ -100,11 +101,13 @@ namespace WebCore {
     macro(search) \
     macro(select) \
     macro(selectstart) \
+    macro(selectionchange) \
     macro(storage) \
     macro(submit) \
     macro(textInput) \
     macro(unload) \
     macro(updateready) \
+    macro(versionchange) \
     macro(write) \
     macro(writeend) \
     macro(writestart) \

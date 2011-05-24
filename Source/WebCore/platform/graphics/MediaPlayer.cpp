@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -153,19 +153,27 @@ static MediaPlayerPrivateInterface* createNullMediaPlayer(MediaPlayer* player)
 struct MediaPlayerFactory {
     WTF_MAKE_NONCOPYABLE(MediaPlayerFactory); WTF_MAKE_FAST_ALLOCATED;
 public:
-    MediaPlayerFactory(CreateMediaEnginePlayer constructor, MediaEngineSupportedTypes getSupportedTypes, MediaEngineSupportsType supportsTypeAndCodecs) 
+    MediaPlayerFactory(CreateMediaEnginePlayer constructor, MediaEngineSupportedTypes getSupportedTypes, MediaEngineSupportsType supportsTypeAndCodecs,
+        MediaEngineGetSitesInMediaCache getSitesInMediaCache, MediaEngineClearMediaCache clearMediaCache, MediaEngineClearMediaCacheForSite clearMediaCacheForSite) 
         : constructor(constructor)
         , getSupportedTypes(getSupportedTypes)
-        , supportsTypeAndCodecs(supportsTypeAndCodecs)  
+        , supportsTypeAndCodecs(supportsTypeAndCodecs)
+        , getSitesInMediaCache(getSitesInMediaCache)
+        , clearMediaCache(clearMediaCache)
+        , clearMediaCacheForSite(clearMediaCacheForSite)
+
     { 
     }
 
     CreateMediaEnginePlayer constructor;
     MediaEngineSupportedTypes getSupportedTypes;
     MediaEngineSupportsType supportsTypeAndCodecs;
+    MediaEngineGetSitesInMediaCache getSitesInMediaCache;
+    MediaEngineClearMediaCache clearMediaCache;
+    MediaEngineClearMediaCacheForSite clearMediaCacheForSite;
 };
 
-static void addMediaEngine(CreateMediaEnginePlayer, MediaEngineSupportedTypes, MediaEngineSupportsType);
+static void addMediaEngine(CreateMediaEnginePlayer, MediaEngineSupportedTypes, MediaEngineSupportsType, MediaEngineGetSitesInMediaCache, MediaEngineClearMediaCache, MediaEngineClearMediaCacheForSite);
 static MediaPlayerFactory* bestMediaEngineForTypeAndCodecs(const String& type, const String& codecs, MediaPlayerFactory* current = 0);
 static MediaPlayerFactory* nextMediaEngine(MediaPlayerFactory* current);
 
@@ -189,12 +197,14 @@ static Vector<MediaPlayerFactory*>& installedMediaEngines()
     return installedEngines;
 }
 
-static void addMediaEngine(CreateMediaEnginePlayer constructor, MediaEngineSupportedTypes getSupportedTypes, MediaEngineSupportsType supportsType)
+static void addMediaEngine(CreateMediaEnginePlayer constructor, MediaEngineSupportedTypes getSupportedTypes, MediaEngineSupportsType supportsType,
+    MediaEngineGetSitesInMediaCache getSitesInMediaCache, MediaEngineClearMediaCache clearMediaCache, MediaEngineClearMediaCacheForSite clearMediaCacheForSite)
 {
     ASSERT(constructor);
     ASSERT(getSupportedTypes);
     ASSERT(supportsType);
-    installedMediaEngines().append(new MediaPlayerFactory(constructor, getSupportedTypes, supportsType));
+
+    installedMediaEngines().append(new MediaPlayerFactory(constructor, getSupportedTypes, supportsType, getSitesInMediaCache, clearMediaCache, clearMediaCacheForSite));
 }
 
 static const AtomicString& applicationOctetStream()
@@ -281,6 +291,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient* client)
     , m_volume(1.0f)
     , m_muted(false)
     , m_preservesPitch(true)
+    , m_privateBrowsing(false)
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_playerProxy(0)
 #endif
@@ -354,6 +365,7 @@ void MediaPlayer::loadWithNextMediaEngine(MediaPlayerFactory* current)
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
         m_private->setMediaPlayerProxy(m_playerProxy);
 #endif
+        m_private->setPrivateBrowsingMode(m_privateBrowsing);
         m_private->setPreload(m_preload);
         m_private->setPreservesPitch(preservesPitch());
     }
@@ -698,24 +710,24 @@ double MediaPlayer::maximumDurationToCacheMediaTime() const
     return m_private->maximumDurationToCacheMediaTime();
 }
 
-unsigned long MediaPlayer::decodedFrames() const
+unsigned MediaPlayer::decodedFrameCount() const
 {
-    return m_private->decodedFrames();
+    return m_private->decodedFrameCount();
 }
 
-unsigned long MediaPlayer::droppedFrames() const
+unsigned MediaPlayer::droppedFrameCount() const
 {
-    return m_private->droppedFrames();
+    return m_private->droppedFrameCount();
 }
 
-unsigned long MediaPlayer::audioBytesDecoded() const
+unsigned MediaPlayer::audioDecodedByteCount() const
 {
-    return m_private->audioBytesDecoded();
+    return m_private->audioDecodedByteCount();
 }
 
-unsigned long MediaPlayer::videoBytesDecoded() const
+unsigned MediaPlayer::videoDecodedByteCount() const
 {
-    return m_private->videoBytesDecoded();
+    return m_private->videoDecodedByteCount();
 }
 
 void MediaPlayer::reloadTimerFired(Timer<MediaPlayer>*)
@@ -724,6 +736,44 @@ void MediaPlayer::reloadTimerFired(Timer<MediaPlayer>*)
     loadWithNextMediaEngine(m_currentMediaEngine);
 }
 
+void MediaPlayer::getSitesInMediaCache(Vector<String>& sites)
+{
+    Vector<MediaPlayerFactory*>& engines = installedMediaEngines();
+    unsigned size = engines.size();
+    for (unsigned i = 0; i < size; i++) {
+        if (!engines[i]->getSitesInMediaCache)
+            continue;
+        Vector<String> engineSites;
+        engines[i]->getSitesInMediaCache(engineSites);
+        sites.append(engineSites);
+    }
+}
+
+void MediaPlayer::clearMediaCache()
+{
+    Vector<MediaPlayerFactory*>& engines = installedMediaEngines();
+    unsigned size = engines.size();
+    for (unsigned i = 0; i < size; i++) {
+        if (engines[i]->clearMediaCache)
+            engines[i]->clearMediaCache();
+    }
+}
+
+void MediaPlayer::clearMediaCacheForSite(const String& site)
+{
+    Vector<MediaPlayerFactory*>& engines = installedMediaEngines();
+    unsigned size = engines.size();
+    for (unsigned i = 0; i < size; i++) {
+        if (engines[i]->clearMediaCacheForSite)
+            engines[i]->clearMediaCacheForSite(site);
+    }
+}
+
+void MediaPlayer::setPrivateBrowsingMode(bool privateBrowsingMode)
+{
+    m_privateBrowsing = privateBrowsingMode;
+    m_private->setPrivateBrowsingMode(m_privateBrowsing);
+}
 
 // Client callbacks.
 void MediaPlayer::networkStateChanged()

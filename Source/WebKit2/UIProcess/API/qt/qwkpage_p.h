@@ -62,8 +62,6 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
     virtual void exitAcceleratedCompositingMode();
-    void pageDidEnterAcceleratedCompositing() { }
-    void pageDidLeaveAcceleratedCompositing() { }
 #endif // USE(ACCELERATED_COMPOSITING)
     virtual void pageDidRequestScroll(const WebCore::IntSize&);
     virtual void processDidCrash();
@@ -87,10 +85,12 @@ public:
     virtual void setFindIndicator(PassRefPtr<WebKit::FindIndicator>, bool fadeOut);
 
     virtual void didCommitLoadForMainFrame(bool useCustomRepresentation);
-    virtual void didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&);
+    virtual void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&);
     virtual double customRepresentationZoomFactor() { return 1; }
     virtual void setCustomRepresentationZoomFactor(double) { }
     virtual void didChangeScrollbarsForMainFrame() const { }
+
+    virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
 
     void paint(QPainter* painter, QRect);
 
@@ -105,7 +105,6 @@ public:
     void updateAction(QWKPage::WebAction action);
     void updateNavigationActions();
     void updateEditorActions();
-    void setEditCommandState(const WTF::String&, bool, int);
 
     void _q_webActionTriggered(bool checked);
 

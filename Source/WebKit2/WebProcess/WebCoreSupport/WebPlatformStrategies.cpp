@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,23 +28,33 @@
 
 #if USE(PLATFORM_STRATEGIES)
 
-#include "NotImplemented.h"
 #include "PluginInfoStore.h"
 #include "WebContextMessages.h"
+#include "WebCookieManager.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcess.h"
+#include <WebCore/LocalizedStrings.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
 #include <wtf/MathExtras.h>
 #include <wtf/text/CString.h>
 
-#if PLATFORM(CF)
+#if USE(CF)
 #include <wtf/RetainPtr.h>
 #endif
 
-// FIXME (WebKit2) <rdar://problem/8728860> WebKit2 needs to be localized
+#if PLATFORM(MAC)
+
+#define UI_STRING(string, description) localizedString(string)
+#define UI_STRING_KEY(string, key, description) localizedString(key)
+
+#else
+
 #define UI_STRING(string, description) String::fromUTF8(string, strlen(string))
 #define UI_STRING_KEY(string, key, description) String::fromUTF8(string, strlen(string))
+
+#endif
 
 using namespace WebCore;
 
@@ -57,7 +67,7 @@ namespace WebKit {
 // type according to section 18.7/3 of the C++ N1905 standard.
 static String formatLocalizedString(String format, ...)
 {
-#if PLATFORM(CF)
+#if USE(CF)
     va_list arguments;
     va_start(arguments, format);
     RetainPtr<CFStringRef> formatCFString(AdoptCF, format.createCFString());
@@ -89,7 +99,10 @@ WebPlatformStrategies::WebPlatformStrategies()
 {
 }
 
-// PluginStrategy
+CookiesStrategy* WebPlatformStrategies::createCookiesStrategy()
+{
+    return this;
+}
 
 PluginStrategy* WebPlatformStrategies::createPluginStrategy()
 {
@@ -104,6 +117,13 @@ LocalizationStrategy* WebPlatformStrategies::createLocalizationStrategy()
 VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
 {
     return this;
+}
+
+// CookiesStrategy
+
+void WebPlatformStrategies::notifyCookiesChanged()
+{
+    WebCookieManager::shared().dispatchCookiesDidChange();
 }
 
 // PluginStrategy
@@ -173,6 +193,11 @@ String WebPlatformStrategies::fileButtonChooseFileLabel()
 String WebPlatformStrategies::fileButtonNoFileSelectedLabel()
 {
     return UI_STRING("no file selected", "text to display in file button used in HTML forms when no file is selected");
+}
+
+String WebPlatformStrategies::defaultDetailsSummaryText()
+{
+    return UI_STRING("Details", "text to display in <details> tag when it has no <summary> child");
 }
 
 #if PLATFORM(MAC)
@@ -748,8 +773,8 @@ String WebPlatformStrategies::allFilesText()
 
 String WebPlatformStrategies::imageTitle(const String& filename, const IntSize& size)
 {
-    // FIXME: It would be nice to have the filename inside the format string, but it's not easy to do that in a way that works with non-ASCII characters in the filename.
-    return filename + formatLocalizedString(UI_STRING(" %d×%d pixels", "window title suffix for a standalone image (uses multiplication symbol, not x)"), size.width(), size.height());
+    // FIXME: This should format the numbers correctly. In Mac WebKit, we used +[NSNumberFormatter localizedStringFromNumber:numberStyle:].
+    return formatLocalizedString(UI_STRING("<filename> %d×%d pixels", "window title suffix for a standalone image (uses multiplication symbol, not x)"), size.width(), size.height()).replace("<filename>", filename);
 }
 
 String WebPlatformStrategies::mediaElementLoadingStateText()

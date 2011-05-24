@@ -27,6 +27,7 @@
 #include "WKPage.h"
 #include "WKPagePrivate.h"
 
+#include "PrintInfo.h"
 #include "WKAPICast.h"
 #include "WebBackForwardList.h"
 #include "WebData.h"
@@ -170,6 +171,11 @@ double WKPageGetEstimatedProgress(WKPageRef pageRef)
     return toImpl(pageRef)->estimatedProgress();
 }
 
+void WKPageSetMemoryCacheClientCallsEnabled(WKPageRef pageRef, bool memoryCacheClientCallsEnabled)
+{
+    toImpl(pageRef)->setMemoryCacheClientCallsEnabled(memoryCacheClientCallsEnabled);
+}
+
 WKStringRef WKPageCopyUserAgent(WKPageRef pageRef)
 {
     return toCopiedAPI(toImpl(pageRef)->userAgent());
@@ -301,6 +307,31 @@ bool WKPageHasVerticalScrollbar(WKPageRef pageRef)
     return toImpl(pageRef)->hasVerticalScrollbar();
 }
 
+bool WKPageIsPinnedToLeftSide(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->isPinnedToLeftSide();
+}
+
+bool WKPageIsPinnedToRightSide(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->isPinnedToRightSide();
+}
+
+bool WKPageCanDelete(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->canDelete();
+}
+
+bool WKPageHasSelectedRange(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->hasSelectedRange();
+}
+
+bool WKPageIsContentEditable(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->isContentEditable();
+}
+
 void WKPageFindString(WKPageRef pageRef, WKStringRef string, WKFindOptions options, unsigned maxMatchCount)
 {
     toImpl(pageRef)->findString(toImpl(string)->string(), toFindOptions(options), maxMatchCount);
@@ -367,11 +398,11 @@ void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClient* wkClient)
 
 void WKPageRunJavaScriptInMainFrame(WKPageRef pageRef, WKStringRef scriptRef, void* context, WKPageRunJavaScriptFunction callback)
 {
-    toImpl(pageRef)->runJavaScriptInMainFrame(toImpl(scriptRef)->string(), StringCallback::create(context, callback));
+    toImpl(pageRef)->runJavaScriptInMainFrame(toImpl(scriptRef)->string(), ScriptValueCallback::create(context, callback));
 }
 
 #ifdef __BLOCKS__
-static void callRunJavaScriptBlockAndRelease(WKStringRef resultValue, WKErrorRef error, void* context)
+static void callRunJavaScriptBlockAndRelease(WKSerializedScriptValueRef resultValue, WKErrorRef error, void* context)
 {
     WKPageRunJavaScriptBlock block = (WKPageRunJavaScriptBlock)context;
     block(resultValue, error);
@@ -452,3 +483,69 @@ WK_EXPORT WKURLRef WKPageCopyPendingAPIRequestURL(WKPageRef pageRef)
         return 0;
     return toCopiedURLAPI(toImpl(pageRef)->pendingAPIRequestURL());
 }
+
+void WKPageSetDebugPaintFlags(WKPageDebugPaintFlags flags)
+{
+    WebPageProxy::setDebugPaintFlags(flags);
+}
+
+WKPageDebugPaintFlags WKPageGetDebugPaintFlags()
+{
+    return WebPageProxy::debugPaintFlags();
+}
+
+void WKPageValidateCommand(WKPageRef pageRef, WKStringRef command, void* context, WKPageValidateCommandCallback callback)
+{
+    toImpl(pageRef)->validateCommand(toImpl(command)->string(), ValidateCommandCallback::create(context, callback)); 
+}
+
+void WKPageExecuteCommand(WKPageRef pageRef, WKStringRef command)
+{
+    toImpl(pageRef)->executeEditCommand(toImpl(command)->string());
+}
+
+#if PLATFORM(MAC) || PLATFORM(WIN)
+struct ComputedPagesContext {
+    ComputedPagesContext(WKPageComputePagesForPrintingFunction callback, void* context)
+        : callback(callback)
+        , context(context)
+    {
+    }
+    WKPageComputePagesForPrintingFunction callback;
+    void* context;
+};
+
+static void computedPagesCallback(const Vector<WebCore::IntRect>& rects, double scaleFactor, WKErrorRef error, void* untypedContext)
+{
+    OwnPtr<ComputedPagesContext> context = adoptPtr(static_cast<ComputedPagesContext*>(untypedContext));
+    Vector<WKRect> wkRects(rects.size());
+    for (size_t i = 0; i < rects.size(); ++i)
+        wkRects[i] = toAPI(rects[i]);
+    context->callback(wkRects.data(), wkRects.size(), scaleFactor, error, context->context);
+}
+
+static PrintInfo printInfoFromWKPrintInfo(const WKPrintInfo& printInfo)
+{
+    PrintInfo result;
+    result.pageSetupScaleFactor = printInfo.pageSetupScaleFactor;
+    result.availablePaperWidth = printInfo.availablePaperWidth;
+    result.availablePaperHeight = printInfo.availablePaperHeight;
+    return result;
+}
+
+void WKPageComputePagesForPrinting(WKPageRef page, WKFrameRef frame, WKPrintInfo printInfo, WKPageComputePagesForPrintingFunction callback, void* context)
+{
+    toImpl(page)->computePagesForPrinting(toImpl(frame), printInfoFromWKPrintInfo(printInfo), ComputedPagesCallback::create(new ComputedPagesContext(callback, context), computedPagesCallback));
+}
+
+void WKPageBeginPrinting(WKPageRef page, WKFrameRef frame, WKPrintInfo printInfo)
+{
+    toImpl(page)->beginPrinting(toImpl(frame), printInfoFromWKPrintInfo(printInfo));
+}
+
+void WKPageDrawPagesToPDF(WKPageRef page, WKFrameRef frame, uint32_t first, uint32_t count, WKPageDrawToPDFFunction callback, void* context)
+{
+    toImpl(page)->drawPagesToPDF(toImpl(frame), first, count, DataCallback::create(context, callback));
+}
+#endif
+

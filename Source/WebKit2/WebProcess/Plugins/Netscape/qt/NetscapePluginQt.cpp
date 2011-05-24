@@ -27,9 +27,9 @@
 #include "config.h"
 #include "NetscapePlugin.h"
 
-#include "NotImplemented.h"
 #include "WebEvent.h"
 #include <WebCore/GraphicsContext.h>
+#include <WebCore/NotImplemented.h>
 
 using namespace WebCore;
 
@@ -57,7 +57,7 @@ void NetscapePlugin::platformGeometryDidChange()
     notImplemented();
 }
 
-void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirtyRect)
+void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirtyRect, bool)
 {
     notImplemented();
 }

@@ -33,7 +33,7 @@ namespace WebCore {
 
 class GraphicsContextPlatformPrivate {
 public:
-    GraphicsContextPlatformPrivate(CGContextRef cgContext)
+    GraphicsContextPlatformPrivate(CGContextRef cgContext, bool isLayerContext = false)
         : m_cgContext(cgContext)
 #if PLATFORM(WIN)
         , m_hdc(0)
@@ -41,6 +41,7 @@ public:
         , m_shouldIncludeChildWindows(false)
 #endif
         , m_userToDeviceTransformKnownToBeIdentity(false)
+        , m_isCALayerContext(isLayerContext)
     {
     }
     
@@ -59,6 +60,7 @@ public:
     void rotate(float) {}
     void translate(float, float) {}
     void concatCTM(const AffineTransform&) {}
+    void setCTM(const AffineTransform&) {}
     void beginTransparencyLayer() {}
     void endTransparencyLayer() {}
 #endif
@@ -74,6 +76,7 @@ public:
     void rotate(float);
     void translate(float, float);
     void concatCTM(const AffineTransform&);
+    void setCTM(const AffineTransform&);
     void beginTransparencyLayer() { m_transparencyCount++; }
     void endTransparencyLayer() { m_transparencyCount--; }
 
@@ -84,6 +87,7 @@ public:
 
     RetainPtr<CGContextRef> m_cgContext;
     bool m_userToDeviceTransformKnownToBeIdentity;
+    bool m_isCALayerContext;
 };
 
 }

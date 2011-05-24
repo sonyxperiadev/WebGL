@@ -42,6 +42,26 @@ import webkitpy.thirdparty.simplejson as simplejson
 
 _log = logging.getLogger("webkitpy.layout_tests.layout_package.json_results_generator")
 
+_JSON_PREFIX = "ADD_RESULTS("
+_JSON_SUFFIX = ");"
+
+
+def strip_json_wrapper(json_content):
+    return json_content[len(_JSON_PREFIX):len(json_content) - len(_JSON_SUFFIX)]
+
+
+def load_json(filesystem, file_path):
+    content = filesystem.read_text_file(file_path)
+    content = strip_json_wrapper(content)
+    return simplejson.loads(content)
+
+
+def write_json(filesystem, json_object, file_path):
+    # Specify separators in order to get compact encoding.
+    json_data = simplejson.dumps(json_object, separators=(',', ':'))
+    json_string = _JSON_PREFIX + json_data + _JSON_SUFFIX
+    filesystem.write_text_file(file_path, json_string)
+
 # FIXME: We already have a TestResult class in test_results.py
 class TestResult(object):
     """A simple class that represents a single test result."""
@@ -80,8 +100,6 @@ class JSONResultsGeneratorBase(object):
     MAX_NUMBER_OF_BUILD_RESULTS_TO_LOG = 750
     # Min time (seconds) that will be added to the JSON.
     MIN_TIME = 1
-    JSON_PREFIX = "ADD_RESULTS("
-    JSON_SUFFIX = ");"
 
     # Note that in non-chromium tests those chars are used to indicate
     # test modifiers (FAILS, FLAKY, etc) but not actual test results.
@@ -109,6 +127,7 @@ class JSONResultsGeneratorBase(object):
     ALL_FIXABLE_COUNT = "allFixableCount"
 
     RESULTS_FILENAME = "results.json"
+    FULL_RESULTS_FILENAME = "full_results.json"
     INCREMENTAL_RESULTS_FILENAME = "incremental_results.json"
 
     URL_FOR_TEST_LIST_JSON = \
@@ -151,10 +170,6 @@ class JSONResultsGeneratorBase(object):
         self._build_number = build_number
         self._builder_base_url = builder_base_url
         self._results_directory = results_file_base_path
-        self._results_file_path = self._fs.join(results_file_base_path,
-            self.RESULTS_FILENAME)
-        self._incremental_results_file_path = self._fs.join(
-            results_file_base_path, self.INCREMENTAL_RESULTS_FILENAME)
 
         self._test_results_map = test_results_map
         self._test_results = test_results_map.values()
@@ -172,8 +187,26 @@ class JSONResultsGeneratorBase(object):
     def generate_json_output(self):
         json = self.get_json()
         if json:
-            self._generate_json_file(
-                json, self._incremental_results_file_path)
+            file_path = self._fs.join(self._results_directory, self.INCREMENTAL_RESULTS_FILENAME)
+            write_json(self._fs, json, file_path)
+
+    def generate_full_results_file(self):
+        # Use the same structure as the compacted version of TestRunner.summarize_results.
+        # For now we only include the times as this is only used for treemaps and
+        # expected/actual don't make sense for gtests.
+        results = {}
+        results['version'] = 1
+
+        tests = {}
+
+        for test in self._test_results_map:
+            time_seconds = self._test_results_map[test].time
+            tests[test] = {}
+            tests[test]['time_ms'] = int(1000 * time_seconds)
+
+        results['tests'] = tests
+        file_path = self._fs.join(self._results_directory, self.FULL_RESULTS_FILENAME)
+        write_json(self._fs, results, file_path)
 
     def get_json(self):
         """Gets the results for the results.json file."""
@@ -248,12 +281,6 @@ class JSONResultsGeneratorBase(object):
             return
 
         _log.info("JSON files uploaded.")
-
-    def _generate_json_file(self, json, file_path):
-        # Specify separators in order to get compact encoding.
-        json_data = simplejson.dumps(json, separators=(',', ':'))
-        json_string = self.JSON_PREFIX + json_data + self.JSON_SUFFIX
-        self._fs.write_text_file(file_path, json_string)
 
     def _get_test_timing(self, test_name):
         """Returns test timing data (elapsed time) in second
@@ -357,8 +384,7 @@ class JSONResultsGeneratorBase(object):
 
         if old_results:
             # Strip the prefix and suffix so we can get the actual JSON object.
-            old_results = old_results[len(self.JSON_PREFIX):
-                                      len(old_results) - len(self.JSON_SUFFIX)]
+            old_results = strip_json_wrapper(old_results)
 
             try:
                 results_json = simplejson.loads(old_results)

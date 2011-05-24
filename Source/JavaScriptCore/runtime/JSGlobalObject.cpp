@@ -46,7 +46,6 @@
 #include "ErrorPrototype.h"
 #include "FunctionConstructor.h"
 #include "FunctionPrototype.h"
-#include "GlobalEvalFunction.h"
 #include "JSFunction.h"
 #include "JSGlobalObjectFunctions.h"
 #include "JSLock.h"
@@ -60,7 +59,6 @@
 #include "ObjectConstructor.h"
 #include "ObjectPrototype.h"
 #include "Profiler.h"
-#include "PrototypeFunction.h"
 #include "RegExpConstructor.h"
 #include "RegExpMatchesArray.h"
 #include "RegExpObject.h"
@@ -104,11 +102,6 @@ JSGlobalObject::~JSGlobalObject()
         (*profiler)->stopProfiling(globalExec(), UString());
     }
 
-    d()->globalData->globalObjects.take(this);
-
-    RegisterFile& registerFile = globalData().interpreter->registerFile();
-    if (registerFile.clearGlobalObject(this))
-        registerFile.setNumGlobals(0);
     d()->destructor(d());
 }
 
@@ -119,10 +112,9 @@ void JSGlobalObject::init(JSObject* thisValue)
     structure()->disableSpecificFunctionTracking();
 
     d()->globalData = Heap::heap(this)->globalData();
-    d()->globalData->globalObjects.set(this, this);
-    d()->globalScopeChain = ScopeChain(this, d()->globalData.get(), this, thisValue);
+    d()->globalScopeChain.set(*d()->globalData, this, new (d()->globalData.get()) ScopeChainNode(0, this, d()->globalData.get(), this, thisValue));
 
-    JSGlobalObject::globalExec()->init(0, 0, d()->globalScopeChain.node(), CallFrame::noCaller(), 0, 0);
+    JSGlobalObject::globalExec()->init(0, 0, d()->globalScopeChain.get(), CallFrame::noCaller(), 0, 0);
 
     d()->debugger = 0;
 
@@ -135,7 +127,7 @@ void JSGlobalObject::put(ExecState* exec, const Identifier& propertyName, JSValu
 {
     ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
 
-    if (symbolTablePut(propertyName, value))
+    if (symbolTablePut(exec->globalData(), propertyName, value))
         return;
     JSVariableObject::put(exec, propertyName, value, slot);
 }
@@ -144,7 +136,7 @@ void JSGlobalObject::putWithAttributes(ExecState* exec, const Identifier& proper
 {
     ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
 
-    if (symbolTablePutWithAttributes(propertyName, value, attributes))
+    if (symbolTablePutWithAttributes(exec->globalData(), propertyName, value, attributes))
         return;
 
     JSValue valueBefore = getDirect(propertyName);
@@ -186,19 +178,18 @@ void JSGlobalObject::reset(JSValue prototype)
     // Prototypes
 
     d()->functionPrototype.set(exec->globalData(), this, new (exec) FunctionPrototype(exec, this, FunctionPrototype::createStructure(jsNull()))); // The real prototype will be set once ObjectPrototype is created.
-    d()->prototypeFunctionStructure = PrototypeFunction::createStructure(d()->functionPrototype.get());
+    d()->functionStructure = JSFunction::createStructure(d()->functionPrototype.get());
     d()->internalFunctionStructure = InternalFunction::createStructure(d()->functionPrototype.get());
-    NativeFunctionWrapper* callFunction = 0;
-    NativeFunctionWrapper* applyFunction = 0;
-    d()->functionPrototype->addFunctionProperties(exec, this, d()->prototypeFunctionStructure.get(), &callFunction, &applyFunction);
+    JSFunction* callFunction = 0;
+    JSFunction* applyFunction = 0;
+    d()->functionPrototype->addFunctionProperties(exec, this, d()->functionStructure.get(), &callFunction, &applyFunction);
     d()->callFunction.set(exec->globalData(), this, callFunction);
     d()->applyFunction.set(exec->globalData(), this, applyFunction);
-    d()->objectPrototype.set(exec->globalData(), this, new (exec) ObjectPrototype(exec, this, ObjectPrototype::createStructure(jsNull()), d()->prototypeFunctionStructure.get()));
+    d()->objectPrototype.set(exec->globalData(), this, new (exec) ObjectPrototype(exec, this, ObjectPrototype::createStructure(jsNull()), d()->functionStructure.get()));
     d()->functionPrototype->structure()->setPrototypeWithoutTransition(d()->objectPrototype.get());
 
     d()->emptyObjectStructure = d()->objectPrototype->inheritorID();
 
-    d()->functionStructure = JSFunction::createStructure(d()->functionPrototype.get());
     d()->callbackFunctionStructure = JSCallbackFunction::createStructure(d()->functionPrototype.get());
     d()->argumentsStructure = Arguments::createStructure(d()->objectPrototype.get());
     d()->callbackConstructorStructure = JSCallbackConstructor::createStructure(d()->objectPrototype.get());
@@ -211,32 +202,32 @@ void JSGlobalObject::reset(JSValue prototype)
     d()->stringPrototype.set(exec->globalData(), this, new (exec) StringPrototype(exec, this, StringPrototype::createStructure(d()->objectPrototype.get())));
     d()->stringObjectStructure = StringObject::createStructure(d()->stringPrototype.get());
 
-    d()->booleanPrototype.set(exec->globalData(), this, new (exec) BooleanPrototype(exec, this, BooleanPrototype::createStructure(d()->objectPrototype.get()), d()->prototypeFunctionStructure.get()));
+    d()->booleanPrototype.set(exec->globalData(), this, new (exec) BooleanPrototype(exec, this, BooleanPrototype::createStructure(d()->objectPrototype.get()), d()->functionStructure.get()));
     d()->booleanObjectStructure = BooleanObject::createStructure(d()->booleanPrototype.get());
 
-    d()->numberPrototype.set(exec->globalData(), this, new (exec) NumberPrototype(exec, this, NumberPrototype::createStructure(d()->objectPrototype.get()), d()->prototypeFunctionStructure.get()));
+    d()->numberPrototype.set(exec->globalData(), this, new (exec) NumberPrototype(exec, this, NumberPrototype::createStructure(d()->objectPrototype.get()), d()->functionStructure.get()));
     d()->numberObjectStructure = NumberObject::createStructure(d()->numberPrototype.get());
 
     d()->datePrototype.set(exec->globalData(), this, new (exec) DatePrototype(exec, this, DatePrototype::createStructure(d()->objectPrototype.get())));
     d()->dateStructure = DateInstance::createStructure(d()->datePrototype.get());
 
-    d()->regExpPrototype.set(exec->globalData(), this, new (exec) RegExpPrototype(exec, this, RegExpPrototype::createStructure(d()->objectPrototype.get()), d()->prototypeFunctionStructure.get()));
+    d()->regExpPrototype.set(exec->globalData(), this, new (exec) RegExpPrototype(exec, this, RegExpPrototype::createStructure(d()->objectPrototype.get()), d()->functionStructure.get()));
     d()->regExpStructure = RegExpObject::createStructure(d()->regExpPrototype.get());
 
     d()->methodCallDummy.set(exec->globalData(), this, constructEmptyObject(exec));
 
-    ErrorPrototype* errorPrototype = new (exec) ErrorPrototype(exec, this, ErrorPrototype::createStructure(d()->objectPrototype.get()), d()->prototypeFunctionStructure.get());
+    ErrorPrototype* errorPrototype = new (exec) ErrorPrototype(exec, this, ErrorPrototype::createStructure(d()->objectPrototype.get()), d()->functionStructure.get());
     d()->errorStructure = ErrorInstance::createStructure(errorPrototype);
 
     // Constructors
 
-    JSCell* objectConstructor = new (exec) ObjectConstructor(exec, this, ObjectConstructor::createStructure(d()->functionPrototype.get()), d()->objectPrototype.get(), d()->prototypeFunctionStructure.get());
+    JSCell* objectConstructor = new (exec) ObjectConstructor(exec, this, ObjectConstructor::createStructure(d()->functionPrototype.get()), d()->objectPrototype.get());
     JSCell* functionConstructor = new (exec) FunctionConstructor(exec, this, FunctionConstructor::createStructure(d()->functionPrototype.get()), d()->functionPrototype.get());
-    JSCell* arrayConstructor = new (exec) ArrayConstructor(exec, this, ArrayConstructor::createStructure(d()->functionPrototype.get()), d()->arrayPrototype.get(), d()->prototypeFunctionStructure.get());
-    JSCell* stringConstructor = new (exec) StringConstructor(exec, this, StringConstructor::createStructure(d()->functionPrototype.get()), d()->prototypeFunctionStructure.get(), d()->stringPrototype.get());
+    JSCell* arrayConstructor = new (exec) ArrayConstructor(exec, this, ArrayConstructor::createStructure(d()->functionPrototype.get()), d()->arrayPrototype.get(), d()->functionStructure.get());
+    JSCell* stringConstructor = new (exec) StringConstructor(exec, this, StringConstructor::createStructure(d()->functionPrototype.get()), d()->functionStructure.get(), d()->stringPrototype.get());
     JSCell* booleanConstructor = new (exec) BooleanConstructor(exec, this, BooleanConstructor::createStructure(d()->functionPrototype.get()), d()->booleanPrototype.get());
     JSCell* numberConstructor = new (exec) NumberConstructor(exec, this, NumberConstructor::createStructure(d()->functionPrototype.get()), d()->numberPrototype.get());
-    JSCell* dateConstructor = new (exec) DateConstructor(exec, this, DateConstructor::createStructure(d()->functionPrototype.get()), d()->prototypeFunctionStructure.get(), d()->datePrototype.get());
+    JSCell* dateConstructor = new (exec) DateConstructor(exec, this, DateConstructor::createStructure(d()->functionPrototype.get()), d()->functionStructure.get(), d()->datePrototype.get());
 
     d()->regExpConstructor.set(exec->globalData(), this, new (exec) RegExpConstructor(exec, this, RegExpConstructor::createStructure(d()->functionPrototype.get()), d()->regExpPrototype.get()));
 
@@ -294,20 +285,20 @@ void JSGlobalObject::reset(JSValue prototype)
 
     // Set global functions.
 
-    d()->evalFunction.set(exec->globalData(), this, new (exec) GlobalEvalFunction(exec, this, GlobalEvalFunction::createStructure(d()->functionPrototype.get()), 1, exec->propertyNames().eval, globalFuncEval, this));
+    d()->evalFunction.set(exec->globalData(), this, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, exec->propertyNames().eval, globalFuncEval));
     putDirectFunctionWithoutTransition(exec, d()->evalFunction.get(), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 2, Identifier(exec, "parseInt"), globalFuncParseInt), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "parseFloat"), globalFuncParseFloat), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "isNaN"), globalFuncIsNaN), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "isFinite"), globalFuncIsFinite), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "escape"), globalFuncEscape), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "unescape"), globalFuncUnescape), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "decodeURI"), globalFuncDecodeURI), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "decodeURIComponent"), globalFuncDecodeURIComponent), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "encodeURI"), globalFuncEncodeURI), DontEnum);
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "encodeURIComponent"), globalFuncEncodeURIComponent), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 2, Identifier(exec, "parseInt"), globalFuncParseInt), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "parseFloat"), globalFuncParseFloat), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "isNaN"), globalFuncIsNaN), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "isFinite"), globalFuncIsFinite), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "escape"), globalFuncEscape), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "unescape"), globalFuncUnescape), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "decodeURI"), globalFuncDecodeURI), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "decodeURIComponent"), globalFuncDecodeURIComponent), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "encodeURI"), globalFuncEncodeURI), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "encodeURIComponent"), globalFuncEncodeURIComponent), DontEnum);
 #ifndef NDEBUG
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, this, d()->prototypeFunctionStructure.get(), 1, Identifier(exec, "jscprint"), globalFuncJSCPrint), DontEnum);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, this, d()->functionStructure.get(), 1, Identifier(exec, "jscprint"), globalFuncJSCPrint), DontEnum);
 #endif
 
     resetPrototype(prototype);
@@ -328,6 +319,8 @@ void JSGlobalObject::markChildren(MarkStack& markStack)
 {
     JSVariableObject::markChildren(markStack);
     
+    markIfNeeded(markStack, &d()->globalScopeChain);
+
     markIfNeeded(markStack, &d()->regExpConstructor);
     markIfNeeded(markStack, &d()->errorConstructor);
     markIfNeeded(markStack, &d()->evalErrorConstructor);
@@ -364,7 +357,6 @@ void JSGlobalObject::markChildren(MarkStack& markStack)
     markIfNeeded(markStack, d()->errorStructure);
     markIfNeeded(markStack, d()->functionStructure);
     markIfNeeded(markStack, d()->numberObjectStructure);
-    markIfNeeded(markStack, d()->prototypeFunctionStructure);
     markIfNeeded(markStack, d()->regExpMatchesArrayStructure);
     markIfNeeded(markStack, d()->regExpStructure);
     markIfNeeded(markStack, d()->stringObjectStructure);
@@ -375,12 +367,12 @@ void JSGlobalObject::markChildren(MarkStack& markStack)
     if (d()->registerArray) {
         // Outside the execution of global code, when our variables are torn off,
         // we can mark the torn-off array.
-        markStack.deprecatedAppendValues(d()->registerArray.get(), d()->registerArraySize);
+        markStack.appendValues(d()->registerArray.get(), d()->registerArraySize);
     } else if (d()->registers) {
         // During execution of global code, when our variables are in the register file,
         // the symbol table tells us how many variables there are, and registers
         // points to where they end, and the registers used for execution begin.
-        markStack.deprecatedAppendValues(d()->registers - symbolTable().size(), symbolTable().size());
+        markStack.appendValues(d()->registers - symbolTable().size(), symbolTable().size());
     }
 }
 
@@ -405,8 +397,8 @@ void JSGlobalObject::copyGlobalsFrom(RegisterFile& registerFile)
         return;
     }
 
-    OwnArrayPtr<Register> registerArray = copyRegisterArray(registerFile.lastGlobal(), numGlobals);
-    Register* registers = registerArray.get() + numGlobals;
+    OwnArrayPtr<WriteBarrier<Unknown> > registerArray = copyRegisterArray(globalData(), reinterpret_cast<WriteBarrier<Unknown>*>(registerFile.lastGlobal()), numGlobals);
+    WriteBarrier<Unknown>* registers = registerArray.get() + numGlobals;
     setRegisters(registers, registerArray.release(), numGlobals);
 }
 
@@ -420,9 +412,32 @@ void JSGlobalObject::copyGlobalsTo(RegisterFile& registerFile)
     registerFile.setNumGlobals(symbolTable().size());
 
     if (d()->registerArray) {
-        memcpy(registerFile.start() - d()->registerArraySize, d()->registerArray.get(), d()->registerArraySize * sizeof(Register));
-        setRegisters(registerFile.start(), 0, 0);
+        // The register file is always a gc root so no barrier is needed here
+        memcpy(registerFile.start() - d()->registerArraySize, d()->registerArray.get(), d()->registerArraySize * sizeof(WriteBarrier<Unknown>));
+        setRegisters(reinterpret_cast<WriteBarrier<Unknown>*>(registerFile.start()), nullptr, 0);
     }
+}
+
+void JSGlobalObject::resizeRegisters(int oldSize, int newSize)
+{
+    ASSERT(symbolTable().size() == newSize);
+    if (newSize == oldSize)
+        return;
+    ASSERT(newSize && newSize > oldSize);
+    if (d()->registerArray || !d()->registers) {
+        ASSERT(static_cast<size_t>(oldSize) == d()->registerArraySize);
+        OwnArrayPtr<WriteBarrier<Unknown> > registerArray = adoptArrayPtr(new WriteBarrier<Unknown>[newSize]);
+        for (int i = 0; i < oldSize; i++)
+            registerArray[newSize - oldSize + i].set(globalData(), this, d()->registerArray[i].get());
+        WriteBarrier<Unknown>* registers = registerArray.get() + newSize;
+        setRegisters(registers, registerArray.release(), newSize);
+    } else {
+        ASSERT(static_cast<size_t>(newSize) < globalData().interpreter->registerFile().maxGlobals());
+        globalData().interpreter->registerFile().setNumGlobals(newSize);
+    }
+
+    for (int i = -newSize; i < -oldSize; ++i)
+        d()->registers[i].setUndefined();
 }
 
 void* JSGlobalObject::operator new(size_t size, JSGlobalData* globalData)

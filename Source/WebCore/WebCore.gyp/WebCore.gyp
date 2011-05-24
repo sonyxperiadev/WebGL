@@ -32,7 +32,7 @@
   'includes': [
     # FIXME: Sense whether upstream or downstream build, and
     # include the right features.gypi
-    '../../../Source/WebKit/chromium/features.gypi',
+    '../../WebKit/chromium/features.gypi',
     '../WebCore.gypi',
   ],
   # Location of the chromium src directory.
@@ -40,8 +40,8 @@
     ['inside_chromium_build==0', {
       # Webkit is being built outside of the full chromium project.
       'variables': {
-        'chromium_src_dir': '../../../Source/WebKit/chromium',
-        'libjpeg_gyp_path': '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp',
+        'chromium_src_dir': '../../WebKit/chromium',
+        'libjpeg_gyp_path': '<(chromium_src_dir)/third_party/libjpeg_turbo/libjpeg.gyp',
       },
     },{
       # WebKit is checked out in src/chromium/third_party/WebKit
@@ -137,6 +137,9 @@
       '../bindings/v8',
       '../bindings/v8/custom',
       '../bindings/v8/specialization',
+      '../bridge',
+      '../bridge/jni',
+      '../bridge/jni/v8',
       '../css',
       '../dom',
       '../dom/default',
@@ -262,6 +265,7 @@
           # related directories.
           # platform/graphics/cg may need to stick around, though.
           '../platform/audio/mac',
+          '../platform/cocoa',
           '../platform/graphics/mac',
           '../platform/mac',
           '../platform/text/mac',
@@ -386,6 +390,22 @@
       ],
       'actions': [
         # Actions to build derived sources.
+        {
+          'action_name': 'generateXMLViewerXSL',
+          'inputs': [
+            '../xml/XMLViewer.xsl',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLViewerXSL.h',
+          ],
+          'action': [
+            'perl',
+            '../inspector/xxd.pl',
+            'XMLViewer_xsl',
+            '<@(_inputs)',
+            '<@(_outputs)'
+          ],
+        },
         {
           'action_name': 'HTMLEntityTable',
           'inputs': [
@@ -533,19 +553,22 @@
         },
         {
           'action_name': 'UserAgentStyleSheets',
+          # The .css files are in the same order as ../DerivedSources.make.
           'inputs': [
             '../css/make-css-file-arrays.pl',
             '../css/html.css',
             '../css/quirks.css',
             '../css/view-source.css',
-            '../css/themeChromiumLinux.css',
-            '../css/themeChromiumSkia.css',
+            '../css/themeChromiumLinux.css', # Chromium only.
+            '../css/themeChromiumSkia.css',  # Chromium only.
             '../css/themeWin.css',
             '../css/themeWinQuirks.css',
             '../css/svg.css',
+            # Skip WML.
             '../css/mathml.css',
             '../css/mediaControls.css',
             '../css/mediaControlsChromium.css',
+            '../css/fullscreen.css',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/webkit/UserAgentStyleSheets.h',
@@ -1141,7 +1164,7 @@
         '<@(webcore_files)',
 
         # For WebCoreSystemInterface, Mac-only.
-        '../../../Source/WebKit/mac/WebCoreSupport/WebSystemInterface.mm',
+        '../../WebKit/mac/WebCoreSupport/WebSystemInterface.mm',
       ],
       'sources/': [
         # Start by excluding everything then include platform files only.
@@ -1151,7 +1174,7 @@
         # Exclude things that don't apply to the Chromium platform on the basis
         # of their enclosing directories and tags at the ends of their
         # filenames.
-        ['exclude', '(android|cairo|cf|cg|curl|fftw|gtk|haiku|linux|mac|mkl|opentype|posix|qt|soup|svg|symbian|win|wx)/'],
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|fftw|gtk|haiku|linux|mac|mkl|opentype|posix|qt|soup|svg|symbian|win|wince|wx)/'],
         ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
 
         # A few things can't be excluded by patterns.  List them individually.
@@ -1160,9 +1183,6 @@
 
         # Exclude some DB-related files.
         ['exclude', 'platform/sql/SQLiteFileSystem\\.cpp$'],
-
-        # Use platform/KURLGoogle.cpp instead.
-        ['exclude', 'platform/KURL\\.cpp$'],
 
         # Use platform/MIMETypeRegistryChromium.cpp instead.
         ['exclude', 'platform/MIMETypeRegistry\\.cpp$'],
@@ -1217,7 +1237,7 @@
             # Additional files from the WebCore Mac build that are presently
             # used in the WebCore Chromium Mac build too.
 
-            # The Mac build is PLATFORM_CF but does not use CFNetwork.
+            # The Mac build is USE(CF) but does not use CFNetwork.
             ['include', 'CF\\.cpp$'],
             ['exclude', 'network/cf/'],
 
@@ -1256,7 +1276,7 @@
             # Use USE_NEW_THEME on Mac.
             ['include', 'platform/Theme\\.cpp$'],
 
-            ['include', 'Source/WebKit/mac/WebCoreSupport/WebSystemInterface\\.mm$'],
+            ['include', 'WebKit/mac/WebCoreSupport/WebSystemInterface\\.mm$'],
 
             # Chromium Mac does not use skia.
             ['exclude', 'platform/graphics/skia/[^/]*Skia\\.(cpp|h)$'],
@@ -1328,6 +1348,64 @@
       ],
     },
     {
+      'target_name': 'webcore_rendering',
+      'type': '<(library)',
+      'dependencies': [
+        'webcore_prerequisites',
+      ],
+      'sources': [
+        '<@(webcore_files)',
+      ],
+      'sources/': [
+        # Start by excluding everything then include rendering files only.
+        ['exclude', '.*'],
+        ['include', 'rendering/'],
+
+        # Exclude things that don't apply to the Chromium platform on the basis
+        # of their enclosing directories and tags at the ends of their
+        # filenames.
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|gtk|haiku|html|linux|mac|opentype|platform|posix|qt|soup|svg|symbian|win|wince|wx)/'],
+        ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
+
+        # Exclude most of SVG except css and javascript bindings.
+        ['exclude', 'rendering/style/SVG[^/]+.(cpp|h)$'],
+        ['exclude', 'rendering/RenderSVG[^/]+.(cpp|h)$'],
+        ['exclude', 'rendering/SVG[^/]+.(cpp|h)$'],
+      ],
+      'conditions': [
+        ['OS=="win"', {
+          'sources/': [
+            ['exclude', 'Posix\\.cpp$'],
+          ],
+        }],
+        ['OS=="mac"', {
+          'sources/': [
+            # RenderThemeChromiumSkia is not used on mac since RenderThemeChromiumMac
+            # does not reference the Skia code that is used by Windows and Linux.
+            ['exclude', 'rendering/RenderThemeChromiumSkia\\.cpp$'],
+          ],
+        }],
+        ['(OS=="linux" or OS=="freebsd" or OS=="openbsd") and gcc_version==42', {
+          # Due to a bug in gcc 4.2.1 (the current version on hardy), we get
+          # warnings about uninitialized this.
+          'cflags': ['-Wno-uninitialized'],
+        }],
+        ['OS!="linux" and OS!="freebsd"', {
+          'sources/': [
+            ['exclude', '(Gtk|Linux)\\.cpp$'],
+          ],
+        }],
+        ['OS!="mac"', {
+          'sources/': [['exclude', 'Mac\\.(cpp|mm?)$']]
+        }],
+        ['OS!="win"', {
+          'sources/': [
+            ['exclude', 'Win\\.cpp$'],
+          ],
+        }],
+      ],
+    },
+    {
       'target_name': 'webcore_remaining',
       'type': '<(library)',
       'dependencies': [
@@ -1341,20 +1419,18 @@
       ],
       'sources/': [
         # Exclude JSC custom bindings.
+        ['exclude', 'bindings/cpp'],
+        ['exclude', 'bindings/gobject'],
         ['exclude', 'bindings/js'],
+        ['exclude', 'bindings/objc'],
 
         # Fortunately, many things can be excluded by using broad patterns.
 
         # Exclude things that don't apply to the Chromium platform on the basis
         # of their enclosing directories and tags at the ends of their
         # filenames.
-        ['exclude', '(android|cairo|cf|cg|curl|gtk|haiku|html|linux|mac|opentype|platform|posix|qt|soup|svg|symbian|win|wx)/'],
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|gtk|haiku|html|linux|mac|opentype|platform|posix|qt|rendering|soup|svg|symbian|win|wince|wx)/'],
         ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
-
-        # Exclude most of SVG except css and javascript bindings.
-        ['exclude', 'rendering/style/SVG[^/]+.(cpp|h)$'],
-        ['exclude', 'rendering/RenderSVG[^/]+.(cpp|h)$'],
-        ['exclude', 'rendering/SVG[^/]+.(cpp|h)$'],
 
         # JSC-only.
         ['exclude', 'inspector/JavaScript[^/]*\\.cpp$'],
@@ -1453,16 +1529,9 @@
             ['include', '/TransparencyWin\\.cpp$'],
           ],
         }],
-        ['OS=="mac"', {
-          'sources/': [
-            # RenderThemeChromiumSkia is not used on mac since RenderThemeChromiumMac
-            # does not reference the Skia code that is used by Windows and Linux.
-            ['exclude', 'rendering/RenderThemeChromiumSkia\\.cpp$'],
-          ],
-        }],
         ['(OS=="linux" or OS=="freebsd" or OS=="openbsd") and gcc_version==42', {
           # Due to a bug in gcc 4.2.1 (the current version on hardy), we get
-          # warnings about uninitialized this.7.
+          # warnings about uninitialized this.
           'cflags': ['-Wno-uninitialized'],
         }],
         ['OS!="linux" and OS!="freebsd"', {
@@ -1493,6 +1562,7 @@
         'webcore_html',
         'webcore_platform',
         'webcore_remaining',
+        'webcore_rendering',
         # Exported.
         'webcore_bindings',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
@@ -1535,7 +1605,7 @@
           'direct_dependent_settings': {
             'include_dirs': [
               '../../../WebKitLibraries',
-              '../../../Source/WebKit/mac/WebCoreSupport',
+              '../../WebKit/mac/WebCoreSupport',
             ],
           },
         }],

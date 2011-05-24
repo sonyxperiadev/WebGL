@@ -52,18 +52,11 @@ namespace WebKit {
 - (void)_enterAcceleratedCompositingMode:(const WebKit::LayerTreeContext&)layerTreeContext;
 - (void)_exitAcceleratedCompositingMode;
 
-#if USE(ACCELERATED_COMPOSITING)
-- (void)_startAcceleratedCompositing:(CALayer *)rootLayer;
-- (void)_stopAcceleratedCompositing;
-- (void)_pageDidEnterAcceleratedCompositing;
-- (void)_pageDidLeaveAcceleratedCompositing;
-#endif
-
 - (void)_setAccessibilityWebProcessToken:(NSData *)data;
 - (void)_setComplexTextInputEnabled:(BOOL)complexTextInputEnabled pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
 
 - (void)_setPageHasCustomRepresentation:(BOOL)pageHasCustomRepresentation;
-- (void)_didFinishLoadingDataForCustomRepresentation:(const CoreIPC::DataReference&)dataReference;
+- (void)_didFinishLoadingDataForCustomRepresentationWithSuggestedFilename:(const String&)suggestedFilename dataReference:(const CoreIPC::DataReference&)dataReference;
 - (double)_customRepresentationZoomFactor;
 - (void)_setCustomRepresentationZoomFactor:(double)zoomFactor;
 - (void)_setDragImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag;

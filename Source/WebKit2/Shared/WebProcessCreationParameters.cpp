@@ -32,7 +32,10 @@ namespace WebKit {
 
 WebProcessCreationParameters::WebProcessCreationParameters()
     : shouldTrackVisitedLinks(false)
+    , clearResourceCaches(false)
+    , clearApplicationCache(false)
     , shouldAlwaysUseComplexTextCodePath(false)
+    , defaultRequestTimeoutInterval(INT_MAX)
 #if PLATFORM(MAC)
     , nsURLCacheMemoryCapacity(0)
     , nsURLCacheDiskCapacity(0)
@@ -54,9 +57,15 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) con
     encoder->encode(mimeTypesWithCustomRepresentation);
     encoder->encodeEnum(cacheModel);
     encoder->encode(shouldTrackVisitedLinks);
+    encoder->encode(clearResourceCaches);
+    encoder->encode(clearApplicationCache);
     encoder->encode(shouldAlwaysUseComplexTextCodePath);
     encoder->encode(languageCode);
     encoder->encode(textCheckerState);
+    encoder->encode(defaultRequestTimeoutInterval);
+#if USE(CFURLSTORAGESESSIONS)
+    encoder->encode(uiProcessBundleIdentifier);
+#endif
 #if PLATFORM(MAC)
     encoder->encode(parentProcessName);
     encoder->encode(presenterApplicationPid);
@@ -67,6 +76,9 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) con
     encoder->encode(uiProcessBundleResourcePath);
 #elif PLATFORM(WIN)
     encoder->encode(shouldPaintNativeControls);
+    encoder->encode(cfURLCachePath);
+    encoder->encode(cfURLCacheDiskCapacity);
+    encoder->encode(cfURLCacheMemoryCapacity);
 #endif
 }
 
@@ -92,12 +104,22 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, Web
         return false;
     if (!decoder->decode(parameters.shouldTrackVisitedLinks))
         return false;
+    if (!decoder->decode(parameters.clearResourceCaches))
+        return false;
+    if (!decoder->decode(parameters.clearApplicationCache))
+        return false;
     if (!decoder->decode(parameters.shouldAlwaysUseComplexTextCodePath))
         return false;
     if (!decoder->decode(parameters.languageCode))
         return false;
     if (!decoder->decode(parameters.textCheckerState))
         return false;
+    if (!decoder->decode(parameters.defaultRequestTimeoutInterval))
+        return false;
+#if USE(CFURLSTORAGESESSIONS)
+    if (!decoder->decode(parameters.uiProcessBundleIdentifier))
+        return false;
+#endif
 
 #if PLATFORM(MAC)
     if (!decoder->decode(parameters.parentProcessName))
@@ -116,6 +138,12 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, Web
         return false;
 #elif PLATFORM(WIN)
     if (!decoder->decode(parameters.shouldPaintNativeControls))
+        return false;
+    if (!decoder->decode(parameters.cfURLCachePath))
+        return false;
+    if (!decoder->decode(parameters.cfURLCacheDiskCapacity))
+        return false;
+    if (!decoder->decode(parameters.cfURLCacheMemoryCapacity))
         return false;
 #endif
 

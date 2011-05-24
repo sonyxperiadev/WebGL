@@ -28,7 +28,6 @@
 #include "JSStringBuilder.h"
 #include "Interpreter.h"
 #include "Lexer.h"
-#include "PrototypeFunction.h"
 
 namespace JSC {
 
@@ -44,12 +43,12 @@ FunctionPrototype::FunctionPrototype(ExecState* exec, JSGlobalObject* globalObje
     putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(0), DontDelete | ReadOnly | DontEnum);
 }
 
-void FunctionPrototype::addFunctionProperties(ExecState* exec, JSGlobalObject* globalObject, Structure* prototypeFunctionStructure, NativeFunctionWrapper** callFunction, NativeFunctionWrapper** applyFunction)
+void FunctionPrototype::addFunctionProperties(ExecState* exec, JSGlobalObject* globalObject, Structure* functionStructure, JSFunction** callFunction, JSFunction** applyFunction)
 {
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, globalObject, prototypeFunctionStructure, 0, exec->propertyNames().toString, functionProtoFuncToString), DontEnum);
-    *applyFunction = new (exec) NativeFunctionWrapper(exec, globalObject, prototypeFunctionStructure, 2, exec->propertyNames().apply, functionProtoFuncApply);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, globalObject, functionStructure, 0, exec->propertyNames().toString, functionProtoFuncToString), DontEnum);
+    *applyFunction = new (exec) JSFunction(exec, globalObject, functionStructure, 2, exec->propertyNames().apply, functionProtoFuncApply);
     putDirectFunctionWithoutTransition(exec, *applyFunction, DontEnum);
-    *callFunction = new (exec) NativeFunctionWrapper(exec, globalObject, prototypeFunctionStructure, 1, exec->propertyNames().call, functionProtoFuncCall);
+    *callFunction = new (exec) JSFunction(exec, globalObject, functionStructure, 1, exec->propertyNames().call, functionProtoFuncCall);
     putDirectFunctionWithoutTransition(exec, *callFunction, DontEnum);
 }
 
@@ -86,7 +85,7 @@ static inline void insertSemicolonIfNeeded(UString& functionBody)
 EncodedJSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
-    if (thisValue.inherits(&JSFunction::info)) {
+    if (thisValue.inherits(&JSFunction::s_info)) {
         JSFunction* function = asFunction(thisValue);
         if (function->isHostFunction())
             return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(exec), "() {\n    [native code]\n}"));
@@ -96,7 +95,7 @@ EncodedJSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec)
         return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(exec), "(", executable->paramString(), ") ", sourceString));
     }
 
-    if (thisValue.inherits(&InternalFunction::info)) {
+    if (thisValue.inherits(&InternalFunction::s_info)) {
         InternalFunction* function = asInternalFunction(thisValue);
         return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(exec), "() {\n    [native code]\n}"));
     }
@@ -118,11 +117,11 @@ EncodedJSValue JSC_HOST_CALL functionProtoFuncApply(ExecState* exec)
     if (!array.isUndefinedOrNull()) {
         if (!array.isObject())
             return throwVMTypeError(exec);
-        if (asObject(array)->classInfo() == &Arguments::info)
+        if (asObject(array)->classInfo() == &Arguments::s_info)
             asArguments(array)->fillArgList(exec, applyArgs);
         else if (isJSArray(&exec->globalData(), array))
             asArray(array)->fillArgList(exec, applyArgs);
-        else if (asObject(array)->inherits(&JSArray::info)) {
+        else if (asObject(array)->inherits(&JSArray::s_info)) {
             unsigned length = asArray(array)->get(exec, exec->propertyNames().length).toUInt32(exec);
             for (unsigned i = 0; i < length; ++i)
                 applyArgs.append(asArray(array)->get(exec, i));

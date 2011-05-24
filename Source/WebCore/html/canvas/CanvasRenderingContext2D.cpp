@@ -174,6 +174,11 @@ void CanvasRenderingContext2D::reset()
         if (m_context3D && m_drawingBuffer) {
             m_drawingBuffer->reset(IntSize(canvas()->width(), canvas()->height()));
             c->setSharedGraphicsContext3D(m_context3D.get(), m_drawingBuffer.get(), IntSize(canvas()->width(), canvas()->height()));
+#if USE(ACCELERATED_COMPOSITING)
+            RenderBox* renderBox = canvas()->renderBox();
+            if (renderBox && renderBox->hasLayer() && renderBox->layer()->hasAcceleratedCompositing())
+                renderBox->layer()->contentChanged(RenderLayer::CanvasChanged);
+#endif
         }
     }
 #endif
@@ -446,7 +451,7 @@ void CanvasRenderingContext2D::setGlobalCompositeOperation(const String& operati
     if (!c)
         return;
     c->setCompositeOperation(op);
-#if ENABLE(ACCELERATED_2D_CANVAS)
+#if ENABLE(ACCELERATED_2D_CANVAS) && !ENABLE(SKIA_GPU)
     if (isAccelerated() && op != CompositeSourceOver) {
         c->setSharedGraphicsContext3D(0, 0, IntSize());
         m_drawingBuffer.clear();
@@ -877,6 +882,8 @@ bool CanvasRenderingContext2D::isPointInPath(const float x, const float y)
     FloatPoint point(x, y);
     AffineTransform ctm = state().m_transform;
     FloatPoint transformedPoint = ctm.inverse().mapPoint(point);
+    if (!isfinite(transformedPoint.x()) || !isfinite(transformedPoint.y()))
+        return false;
     return m_path.contains(transformedPoint);
 }
 
@@ -1771,7 +1778,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
 
     unsigned length = text.length();
     const UChar* string = text.characters();
-    TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, rtl, override, false, false);
+    TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, rtl, override);
 
     // Draw the item text at the correct point.
     FloatPoint location(x, y);

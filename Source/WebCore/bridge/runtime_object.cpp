@@ -36,33 +36,24 @@ using namespace WebCore;
 namespace JSC {
 namespace Bindings {
 
-const ClassInfo RuntimeObject::s_info = { "RuntimeObject", 0, 0, 0 };
-
-RuntimeObject::RuntimeObject(ExecState* exec, JSGlobalObject* globalObject, PassRefPtr<Instance> instance)
-    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
-    // We need to pass in the right global object for "i".
-    : JSObjectWithGlobalObject(globalObject, deprecatedGetDOMStructure<RuntimeObject>(exec))
-    , m_instance(instance)
-{
-}
+const ClassInfo RuntimeObject::s_info = { "RuntimeObject", &JSObjectWithGlobalObject::s_info, 0, 0 };
 
 RuntimeObject::RuntimeObject(ExecState*, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, PassRefPtr<Instance> instance)
     : JSObjectWithGlobalObject(globalObject, structure)
     , m_instance(instance)
 {
+    ASSERT(inherits(&s_info));
 }
 
 RuntimeObject::~RuntimeObject()
 {
-    if (m_instance)
-        m_instance->willDestroyRuntimeObject(this);
 }
 
 void RuntimeObject::invalidate()
 {
     ASSERT(m_instance);
     if (m_instance)
-        m_instance->willInvalidateRuntimeObject(this);
+        m_instance->willInvalidateRuntimeObject();
     m_instance = 0;
 }
 

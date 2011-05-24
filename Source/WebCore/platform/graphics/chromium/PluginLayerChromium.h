@@ -37,31 +37,16 @@ namespace WebCore {
 class PluginLayerChromium : public LayerChromium {
 public:
     static PassRefPtr<PluginLayerChromium> create(GraphicsLayerChromium* owner = 0);
-    virtual bool drawsContent() { return true; }
+    virtual bool drawsContent() const { return true; }
     virtual void updateContentsIfDirty();
     virtual void draw();
     
     void setTextureId(unsigned textureId);
         
-    class SharedValues {
-    public:
-        SharedValues(GraphicsContext3D* context);
-        ~SharedValues();
+    typedef ProgramBinding<VertexShaderPosTex, FragmentShaderRGBATexFlipAlpha> Program;
 
-        unsigned shaderProgram() const { return m_shaderProgram; }
-        int shaderSamplerLocation() const { return m_shaderSamplerLocation; }
-        int shaderMatrixLocation() const { return m_shaderMatrixLocation; }
-        int shaderAlphaLocation() const { return m_shaderAlphaLocation; }
-        bool initialized() const { return m_initialized; }
-
-    private:
-        GraphicsContext3D* m_context;
-        unsigned m_shaderProgram;
-        int m_shaderSamplerLocation;
-        int m_shaderMatrixLocation;
-        int m_shaderAlphaLocation;
-        bool m_initialized;
-    };
+protected:
+    virtual const char* layerTypeAsString() const { return "PluginLayer"; }
 
 private:
     PluginLayerChromium(GraphicsLayerChromium* owner);

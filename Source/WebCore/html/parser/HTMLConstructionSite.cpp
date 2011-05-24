@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google, Inc. All Rights Reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,16 +59,16 @@ using namespace HTMLNames;
 
 namespace {
 
-bool hasImpliedEndTag(Element* element)
+bool hasImpliedEndTag(ContainerNode* node)
 {
-    return element->hasTagName(ddTag)
-        || element->hasTagName(dtTag)
-        || element->hasTagName(liTag)
-        || element->hasTagName(optionTag)
-        || element->hasTagName(optgroupTag)
-        || element->hasTagName(pTag)
-        || element->hasTagName(rpTag)
-        || element->hasTagName(rtTag);
+    return node->hasTagName(ddTag)
+        || node->hasTagName(dtTag)
+        || node->hasTagName(liTag)
+        || node->hasTagName(optionTag)
+        || node->hasTagName(optgroupTag)
+        || node->hasTagName(pTag)
+        || node->hasTagName(rpTag)
+        || node->hasTagName(rtTag);
 }
 
 bool causesFosterParenting(const QualifiedName& tagName)
@@ -204,6 +205,12 @@ void HTMLConstructionSite::mergeAttributesFromTokenIntoElement(AtomicHTMLToken& 
 void HTMLConstructionSite::insertHTMLHtmlStartTagInBody(AtomicHTMLToken& token)
 {
     // FIXME: parse error
+    
+    // Fragments do not have a root HTML element, so any additional HTML elements
+    // encountered during fragment parsing should be ignored.
+    if (m_isParsingFragment)
+        return;
+
     mergeAttributesFromTokenIntoElement(token, m_openElements.htmlElement());
 }
 
@@ -236,7 +243,7 @@ void HTMLConstructionSite::insertDoctype(AtomicHTMLToken& token)
 void HTMLConstructionSite::insertComment(AtomicHTMLToken& token)
 {
     ASSERT(token.type() == HTMLToken::Comment);
-    attach(currentElement(), Comment::create(currentElement()->document(), token.comment()));
+    attach(currentNode(), Comment::create(currentNode()->document(), token.comment()));
 }
 
 void HTMLConstructionSite::insertCommentOnDocument(AtomicHTMLToken& token)
@@ -248,13 +255,13 @@ void HTMLConstructionSite::insertCommentOnDocument(AtomicHTMLToken& token)
 void HTMLConstructionSite::insertCommentOnHTMLHtmlElement(AtomicHTMLToken& token)
 {
     ASSERT(token.type() == HTMLToken::Comment);
-    Element* parent = m_openElements.htmlElement();
+    ContainerNode* parent = m_openElements.rootNode();
     attach(parent, Comment::create(parent->document(), token.comment()));
 }
 
 PassRefPtr<Element> HTMLConstructionSite::attachToCurrent(PassRefPtr<Element> child)
 {
-    return attach(currentElement(), child);
+    return attach(currentNode(), child);
 }
 
 void HTMLConstructionSite::insertHTMLHeadElement(AtomicHTMLToken& token)
@@ -310,7 +317,7 @@ void HTMLConstructionSite::insertFormattingElement(AtomicHTMLToken& token)
 
 void HTMLConstructionSite::insertScriptElement(AtomicHTMLToken& token)
 {
-    RefPtr<HTMLScriptElement> element = HTMLScriptElement::create(scriptTag, currentElement()->document(), true);
+    RefPtr<HTMLScriptElement> element = HTMLScriptElement::create(scriptTag, currentNode()->document(), true);
     if (m_fragmentScriptingPermission == FragmentScriptingAllowed)
         element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
     m_openElements.push(attachToCurrent(element.release()));
@@ -329,27 +336,40 @@ void HTMLConstructionSite::insertForeignElement(AtomicHTMLToken& token, const At
 void HTMLConstructionSite::insertTextNode(const String& characters)
 {
     AttachmentSite site;
-    site.parent = currentElement();
+    site.parent = currentNode();
     site.nextChild = 0;
     if (shouldFosterParent())
         findFosterSite(site);
+
+    unsigned currentPosition = 0;
+
+    // FIXME: Splitting text nodes into smaller chunks contradicts HTML5 spec, but is currently necessary
+    // for performance, see <https://bugs.webkit.org/show_bug.cgi?id=55898>.
 
     Node* previousChild = site.nextChild ? site.nextChild->previousSibling() : site.parent->lastChild();
     if (previousChild && previousChild->isTextNode()) {
         // FIXME: We're only supposed to append to this text node if it
         // was the last text node inserted by the parser.
         CharacterData* textNode = static_cast<CharacterData*>(previousChild);
-        textNode->parserAppendData(characters);
-        return;
+        currentPosition = textNode->parserAppendData(characters.characters(), characters.length(), Text::defaultLengthLimit);
     }
 
-    attachAtSite(site, Text::create(site.parent->document(), characters));
+    while (currentPosition < characters.length()) {
+        RefPtr<Text> textNode = Text::createWithLengthLimit(site.parent->document(), characters, currentPosition);
+        // If we have a whole string of unbreakable characters the above could lead to an infinite loop. Exceeding the length limit is the lesser evil.
+        if (!textNode->length())
+            textNode = Text::create(site.parent->document(), characters.substring(currentPosition));
+
+        currentPosition += textNode->length();
+        ASSERT(currentPosition <= characters.length());
+        attachAtSite(site, textNode.release());
+    }
 }
 
 PassRefPtr<Element> HTMLConstructionSite::createElement(AtomicHTMLToken& token, const AtomicString& namespaceURI)
 {
     QualifiedName tagName(nullAtom, token.name(), namespaceURI);
-    RefPtr<Element> element = currentElement()->document()->createElement(tagName, true);
+    RefPtr<Element> element = currentNode()->document()->createElement(tagName, true);
     element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
     return element.release();
 }
@@ -360,7 +380,7 @@ PassRefPtr<Element> HTMLConstructionSite::createHTMLElement(AtomicHTMLToken& tok
     // FIXME: This can't use HTMLConstructionSite::createElement because we
     // have to pass the current form element.  We should rework form association
     // to occur after construction to allow better code sharing here.
-    RefPtr<Element> element = HTMLElementFactory::createHTMLElement(tagName, currentElement()->document(), form(), true);
+    RefPtr<Element> element = HTMLElementFactory::createHTMLElement(tagName, currentNode()->document(), form(), true);
     element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
     ASSERT(element->isHTMLElement());
     return element.release();
@@ -439,13 +459,13 @@ void HTMLConstructionSite::reconstructTheActiveFormattingElements()
 
 void HTMLConstructionSite::generateImpliedEndTagsWithExclusion(const AtomicString& tagName)
 {
-    while (hasImpliedEndTag(currentElement()) && !currentElement()->hasLocalName(tagName))
+    while (hasImpliedEndTag(currentNode()) && !currentNode()->hasLocalName(tagName))
         m_openElements.pop();
 }
 
 void HTMLConstructionSite::generateImpliedEndTags()
 {
-    while (hasImpliedEndTag(currentElement()))
+    while (hasImpliedEndTag(currentNode()))
         m_openElements.pop();
 }
 
@@ -464,13 +484,14 @@ void HTMLConstructionSite::findFosterSite(AttachmentSite& site)
         return;
     }
     // Fragment case
-    site.parent = m_openElements.bottom(); // <html> element
+    site.parent = m_openElements.rootNode(); // DocumentFragment
     site.nextChild = 0;
 }
 
 bool HTMLConstructionSite::shouldFosterParent() const
 {
     return m_redirectAttachToFosterParent
+        && currentNode()->isElementNode()
         && causesFosterParenting(currentElement()->tagQName());
 }
 

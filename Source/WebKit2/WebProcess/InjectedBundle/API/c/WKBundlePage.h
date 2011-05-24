@@ -114,17 +114,25 @@ struct WKBundlePageLoaderClient {
 };
 typedef struct WKBundlePageLoaderClient WKBundlePageLoaderClient;
 
+enum {
+    WKBundlePagePolicyActionPassThrough,
+    WKBundlePagePolicyActionUse
+};
+typedef uint32_t WKBundlePagePolicyAction;
+
 // Policy Client
-typedef void (*WKBundlePageDecidePolicyForNavigationActionCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKBundleNavigationActionRef navigationAction, WKURLRequestRef request, WKTypeRef* userData, const void* clientInfo);
-typedef void (*WKBundlePageDecidePolicyForNewWindowActionCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKBundleNavigationActionRef navigationAction, WKURLRequestRef request, WKStringRef frameName, WKTypeRef* userData, const void* clientInfo);
-typedef void (*WKBundlePageDecidePolicyForMIMETypeCallback)(WKBundlePageRef page, WKBundleFrameRef frame,  WKStringRef MIMEType, WKURLRequestRef request, WKTypeRef* userData, const void* clientInfo);
+typedef WKBundlePagePolicyAction (*WKBundlePageDecidePolicyForNavigationActionCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKBundleNavigationActionRef navigationAction, WKURLRequestRef request, WKTypeRef* userData, const void* clientInfo);
+typedef WKBundlePagePolicyAction (*WKBundlePageDecidePolicyForNewWindowActionCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKBundleNavigationActionRef navigationAction, WKURLRequestRef request, WKStringRef frameName, WKTypeRef* userData, const void* clientInfo);
+typedef WKBundlePagePolicyAction (*WKBundlePageDecidePolicyForResponseCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKURLResponseRef response, WKURLRequestRef request, WKTypeRef* userData, const void* clientInfo);
+typedef void (*WKBundlePageUnableToImplementPolicyCallback)(WKBundlePageRef page, WKBundleFrameRef frame, WKErrorRef error, WKTypeRef* userData, const void* clientInfo);
 
 struct WKBundlePagePolicyClient {
     int                                                                 version;
     const void *                                                        clientInfo;
     WKBundlePageDecidePolicyForNavigationActionCallback                 decidePolicyForNavigationAction;
     WKBundlePageDecidePolicyForNewWindowActionCallback                  decidePolicyForNewWindowAction;
-    WKBundlePageDecidePolicyForMIMETypeCallback                         decidePolicyForMIMEType;
+    WKBundlePageDecidePolicyForResponseCallback                         decidePolicyForResponse;
+    WKBundlePageUnableToImplementPolicyCallback                         unableToImplementPolicy;
 };
 typedef struct WKBundlePagePolicyClient WKBundlePagePolicyClient;
 
@@ -140,7 +148,10 @@ struct WKBundlePageResourceLoadClient {
     int                                                                 version;
     const void *                                                        clientInfo;
     WKBundlePageDidInitiateLoadForResourceCallback                      didInitiateLoadForResource;
+
+    // willSendRequestForFrame is supposed to return a retained reference to the URL request.
     WKBundlePageWillSendRequestForFrameCallback                         willSendRequestForFrame;
+
     WKBundlePageDidReceiveResponseForResourceCallback                   didReceiveResponseForResource;
     WKBundlePageDidReceiveContentLengthForResourceCallback              didReceiveContentLengthForResource;
     WKBundlePageDidFinishLoadForResourceCallback                        didFinishLoadForResource;

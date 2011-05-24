@@ -229,6 +229,29 @@ static JSValueRef contextClickCallback(JSContextRef context, JSObjectRef functio
     return valueRef;
 }
 
+static gboolean sendClick(gpointer)
+{
+    GdkEvent* pressEvent = gdk_event_new(GDK_BUTTON_PRESS);
+
+    if (!prepareMouseButtonEvent(pressEvent, 1, 0)) {
+        gdk_event_free(pressEvent);
+        return FALSE;
+    }
+
+    GdkEvent* releaseEvent = gdk_event_copy(pressEvent);
+    dispatchEvent(pressEvent);
+    releaseEvent->type = GDK_BUTTON_RELEASE;
+    dispatchEvent(releaseEvent);
+
+    return FALSE;
+}
+
+static JSValueRef scheduleAsynchronousClickCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    g_idle_add(sendClick, 0);
+    return JSValueMakeUndefined(context);
+}
+
 static void updateClickCount(int button)
 {
     if (lastClickPositionX != lastMousePositionX
@@ -644,6 +667,8 @@ static JSValueRef keyDownCallback(JSContextRef context, JSObjectRef function, JS
             gdkKeySym = GDK_Delete;
         else if (JSStringIsEqualToUTF8CString(character, "printScreen"))
             gdkKeySym = GDK_Print;
+        else if (JSStringIsEqualToUTF8CString(character, "menu"))
+            gdkKeySym = GDK_Menu;
         else if (JSStringIsEqualToUTF8CString(character, "F1"))
             gdkKeySym = GDK_F1;
         else if (JSStringIsEqualToUTF8CString(character, "F2"))
@@ -776,6 +801,7 @@ static JSStaticFunction staticFunctions[] = {
     { "textZoomOut", textZoomOutCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { "zoomPageIn", zoomPageInCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { "zoomPageOut", zoomPageOutCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+    { "scheduleAsynchronousClick", scheduleAsynchronousClickCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { 0, 0, 0 }
 };
 

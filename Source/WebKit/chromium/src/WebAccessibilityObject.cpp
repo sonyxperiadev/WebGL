@@ -39,6 +39,7 @@
 #include "Node.h"
 #include "PlatformKeyboardEvent.h"
 #include "RenderStyle.h"
+#include "UserGestureIndicator.h"
 #include "WebDocument.h"
 #include "WebNode.h"
 #include "WebPoint.h"
@@ -64,6 +65,11 @@ void WebAccessibilityObject::assign(const WebKit::WebAccessibilityObject& other)
     if (p)
         p->ref();
     assign(p);
+}
+
+bool WebAccessibilityObject::equals(const WebAccessibilityObject& n) const
+{
+    return (m_private == n.m_private);
 }
 
 WebString WebAccessibilityObject::accessibilityDescription() const
@@ -424,6 +430,8 @@ bool WebAccessibilityObject::performDefaultAction() const
 {
     if (!m_private)
         return false;
+
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
 
     m_private->updateBackingStore();
     return m_private->performDefaultAction();

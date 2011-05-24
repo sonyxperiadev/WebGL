@@ -26,9 +26,6 @@
 #include "config.h"
 #include "WebFrameLoaderClient.h"
 
-#define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
-#include "NotImplemented.h"
-
 #include "AuthenticationManager.h"
 #include "DataReference.h"
 #include "InjectedBundleNavigationAction.h"
@@ -36,6 +33,7 @@
 #include "PlatformCertificateInfo.h"
 #include "PluginView.h"
 #include "StringPairVector.h"
+#include "WebBackForwardListProxy.h"
 #include "WebContextMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
@@ -62,6 +60,7 @@
 #include <WebCore/HistoryItem.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MouseEvent.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PluginData.h>
 #include <WebCore/ProgressTracker.h>
@@ -576,7 +575,7 @@ void WebFrameLoaderClient::dispatchShow()
     webPage->show();
 }
 
-void WebFrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& MIMEType, const ResourceRequest& request)
+void WebFrameLoaderClient::dispatchDecidePolicyForResponse(FramePolicyFunction function, const ResourceResponse& response, const ResourceRequest& request)
 {
     WebPage* webPage = m_frame->page();
     if (!webPage)
@@ -588,7 +587,11 @@ void WebFrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction f
     RefPtr<APIObject> userData;
 
     // Notify the bundle client.
-    webPage->injectedBundlePolicyClient().decidePolicyForMIMEType(webPage, m_frame, MIMEType, request, userData);
+    WKBundlePagePolicyAction policy = webPage->injectedBundlePolicyClient().decidePolicyForResponse(webPage, m_frame, response, request, userData);
+    if (policy == WKBundlePagePolicyActionUse) {
+        (m_frame->coreFrame()->loader()->policyChecker()->*function)(PolicyUse);
+        return;
+    }
 
     uint64_t listenerID = m_frame->setUpPolicyListener(function);
     bool receivedPolicyAction;
@@ -596,7 +599,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction f
     uint64_t downloadID;
 
     // Notify the UIProcess.
-    if (!webPage->sendSync(Messages::WebPageProxy::DecidePolicyForMIMEType(m_frame->frameID(), MIMEType, request, listenerID, InjectedBundleUserMessageEncoder(userData.get())), Messages::WebPageProxy::DecidePolicyForMIMEType::Reply(receivedPolicyAction, policyAction, downloadID)))
+    if (!webPage->sendSync(Messages::WebPageProxy::DecidePolicyForResponse(m_frame->frameID(), response, request, listenerID, InjectedBundleUserMessageEncoder(userData.get())), Messages::WebPageProxy::DecidePolicyForResponse::Reply(receivedPolicyAction, policyAction, downloadID)))
         return;
 
     // We call this synchronously because CFNetwork can only convert a loading connection to a download from its didReceiveResponse callback.
@@ -615,7 +618,11 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFun
     RefPtr<InjectedBundleNavigationAction> action = InjectedBundleNavigationAction::create(m_frame, navigationAction, formState);
 
     // Notify the bundle client.
-    webPage->injectedBundlePolicyClient().decidePolicyForNewWindowAction(webPage, m_frame, action.get(), request, frameName, userData);
+    WKBundlePagePolicyAction policy = webPage->injectedBundlePolicyClient().decidePolicyForNewWindowAction(webPage, m_frame, action.get(), request, frameName, userData);
+    if (policy == WKBundlePagePolicyActionUse) {
+        (m_frame->coreFrame()->loader()->policyChecker()->*function)(PolicyUse);
+        return;
+    }
 
 
     uint64_t listenerID = m_frame->setUpPolicyListener(function);
@@ -630,24 +637,35 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFu
     if (!webPage)
         return;
 
+    // Always ignore requests with empty URLs. 
+    if (request.isEmpty()) { 
+        (m_frame->coreFrame()->loader()->policyChecker()->*function)(PolicyIgnore); 
+        return; 
+    }
+
     RefPtr<APIObject> userData;
 
     RefPtr<InjectedBundleNavigationAction> action = InjectedBundleNavigationAction::create(m_frame, navigationAction, formState);
 
     // Notify the bundle client.
-    webPage->injectedBundlePolicyClient().decidePolicyForNavigationAction(webPage, m_frame, action.get(), request, userData);
+    WKBundlePagePolicyAction policy = webPage->injectedBundlePolicyClient().decidePolicyForNavigationAction(webPage, m_frame, action.get(), request, userData);
+    if (policy == WKBundlePagePolicyActionUse) {
+        (m_frame->coreFrame()->loader()->policyChecker()->*function)(PolicyUse);
+        return;
+    }
 
     uint64_t listenerID = m_frame->setUpPolicyListener(function);
     bool receivedPolicyAction;
     uint64_t policyAction;
+    uint64_t downloadID;
 
     // Notify the UIProcess.
-    if (!webPage->sendSync(Messages::WebPageProxy::DecidePolicyForNavigationAction(m_frame->frameID(), action->navigationType(), action->modifiers(), action->mouseButton(), request, listenerID, InjectedBundleUserMessageEncoder(userData.get())), Messages::WebPageProxy::DecidePolicyForNavigationAction::Reply(receivedPolicyAction, policyAction)))
+    if (!webPage->sendSync(Messages::WebPageProxy::DecidePolicyForNavigationAction(m_frame->frameID(), action->navigationType(), action->modifiers(), action->mouseButton(), request, listenerID, InjectedBundleUserMessageEncoder(userData.get())), Messages::WebPageProxy::DecidePolicyForNavigationAction::Reply(receivedPolicyAction, policyAction, downloadID)))
         return;
 
     // We call this synchronously because WebCore cannot gracefully handle a frame load without a synchronous navigation policy reply.
     if (receivedPolicyAction)
-        m_frame->didReceivePolicyDecision(listenerID, static_cast<PolicyAction>(policyAction), 0);
+        m_frame->didReceivePolicyDecision(listenerID, static_cast<PolicyAction>(policyAction), downloadID);
 }
 
 void WebFrameLoaderClient::cancelPolicyCheck()
@@ -655,9 +673,19 @@ void WebFrameLoaderClient::cancelPolicyCheck()
     m_frame->invalidatePolicyListener();
 }
 
-void WebFrameLoaderClient::dispatchUnableToImplementPolicy(const ResourceError&)
+void WebFrameLoaderClient::dispatchUnableToImplementPolicy(const ResourceError& error)
 {
-    notImplemented();
+    WebPage* webPage = m_frame->page();
+    if (!webPage)
+        return;
+
+    RefPtr<APIObject> userData;
+
+    // Notify the bundle client.
+    webPage->injectedBundlePolicyClient().unableToImplementPolicy(webPage, m_frame, error, userData);
+
+    // Notify the UIProcess.
+    webPage->send(Messages::WebPageProxy::UnableToImplementPolicy(m_frame->frameID(), error, InjectedBundleUserMessageEncoder(userData.get())));
 }
 
 void WebFrameLoaderClient::dispatchWillSubmitForm(FramePolicyFunction function, PassRefPtr<FormState> prpFormState)
@@ -797,7 +825,7 @@ void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
             RefPtr<SharedBuffer> mainResourceData = loader->mainResourceData();
             CoreIPC::DataReference dataReference(reinterpret_cast<const uint8_t*>(mainResourceData ? mainResourceData->data() : 0), mainResourceData ? mainResourceData->size() : 0);
             
-            webPage->send(Messages::WebPageProxy::DidFinishLoadingDataForCustomRepresentation(dataReference));
+            webPage->send(Messages::WebPageProxy::DidFinishLoadingDataForCustomRepresentation(loader->response().suggestedFilename(), dataReference));
         }
 
         return;
@@ -845,9 +873,28 @@ void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
     }
 }
 
-bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem*) const
+bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem* item) const
 {
-    notImplemented();
+    WebPage* webPage = m_frame->page();
+    if (!webPage)
+        return false;
+    
+    uint64_t itemID = WebBackForwardListProxy::idForItem(item);
+    if (!itemID) {
+        // We should never be considering navigating to an item that is not actually in the back/forward list.
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+    
+    bool shouldGoToBackForwardListItem;
+    if (!webPage->sendSync(Messages::WebPageProxy::ShouldGoToBackForwardListItem(itemID), Messages::WebPageProxy::ShouldGoToBackForwardListItem::Reply(shouldGoToBackForwardListItem)))
+        return false;
+    
+    return shouldGoToBackForwardListItem;
+}
+
+bool WebFrameLoaderClient::shouldStopLoadingForHistoryItem(HistoryItem* item) const
+{
     return true;
 }
 
@@ -985,6 +1032,11 @@ void WebFrameLoaderClient::restoreViewState()
     // Inform the UI process of the scale factor.
     double scaleFactor = m_frame->coreFrame()->loader()->history()->currentItem()->pageScaleFactor();
     m_frame->page()->send(Messages::WebPageProxy::ViewScaleFactorDidChange(scaleFactor));
+
+    // FIXME: This should not be necessary. WebCore should be correctly invalidating
+    // the view on restores from the back/forward cache.
+    if (m_frame == m_frame->page()->mainFrame())
+        m_frame->page()->drawingArea()->setNeedsDisplay(m_frame->page()->bounds());
 }
 
 void WebFrameLoaderClient::provisionalLoadStarted()
@@ -1271,6 +1323,23 @@ bool WebFrameLoaderClient::shouldUsePluginDocument(const String& /*mimeType*/) c
 {
     notImplemented();
     return false;
+}
+
+void WebFrameLoaderClient::didChangeScrollOffset()
+{
+    WebPage* webPage = m_frame->page();
+    if (!webPage)
+        return;
+
+    if (!m_frame->isMainFrame())
+        return;
+
+    // If this is called when tearing down a FrameView, the WebCore::Frame's
+    // current FrameView will be null.
+    if (!m_frame->coreFrame()->view())
+        return;
+
+    webPage->didChangeScrollOffsetForMainFrame();
 }
 
 PassRefPtr<FrameNetworkingContext> WebFrameLoaderClient::createNetworkingContext()

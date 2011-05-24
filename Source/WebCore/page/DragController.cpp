@@ -353,7 +353,7 @@ DragOperation DragController::operationForLoad(DragData* dragData)
 {
     ASSERT(dragData);
     Document* doc = m_page->mainFrame()->documentAtPoint(dragData->clientPosition());
-    if (doc && (m_didInitiateDrag || doc->isPluginDocument() || (doc->frame() && doc->frame()->editor()->clientIsEditable())))
+    if (doc && (m_didInitiateDrag || doc->isPluginDocument() || doc->inDesignMode()))
         return DragOperationNone;
     return dragOperation(dragData);
 }
@@ -403,7 +403,7 @@ bool DragController::concludeEditDrag(DragData* dragData)
         RefPtr<Range> innerRange = innerFrame->selection()->toNormalizedRange();
         RefPtr<CSSStyleDeclaration> style = m_documentUnderMouse->createCSSStyleDeclaration();
         ExceptionCode ec;
-        style->setProperty("color", color.name(), ec);
+        style->setProperty("color", color.serialized(), ec);
         if (!innerFrame->editor()->shouldApplyStyle(style.get(), innerRange.get()))
             return false;
         m_client->willPerformDragDestinationAction(DragDestinationActionEdit, dragData);
@@ -465,8 +465,14 @@ bool DragController::concludeEditDrag(DragData* dragData)
             bool smartInsert = smartDelete && innerFrame->selection()->granularity() == WordGranularity && dragData->canSmartReplace();
             applyCommand(MoveSelectionCommand::create(fragment, dragCaret.base(), smartInsert, smartDelete));
         } else {
-            if (setSelectionToDragCaret(innerFrame, dragCaret, range, point))
-                applyCommand(ReplaceSelectionCommand::create(m_documentUnderMouse.get(), fragment, true, dragData->canSmartReplace(), chosePlainText));
+            if (setSelectionToDragCaret(innerFrame, dragCaret, range, point)) {
+                ReplaceSelectionCommand::CommandOptions options = ReplaceSelectionCommand::SelectReplacement | ReplaceSelectionCommand::PreventNesting;
+                if (dragData->canSmartReplace())
+                    options |= ReplaceSelectionCommand::SmartReplace;
+                if (chosePlainText)
+                    options |= ReplaceSelectionCommand::MatchStyle;
+                applyCommand(ReplaceSelectionCommand::create(m_documentUnderMouse.get(), fragment, options));
+            }
         }
     } else {
         String text = dragData->asPlainText(innerFrame);
@@ -477,7 +483,7 @@ bool DragController::concludeEditDrag(DragData* dragData)
 
         m_client->willPerformDragDestinationAction(DragDestinationActionEdit, dragData);
         if (setSelectionToDragCaret(innerFrame, dragCaret, range, point))
-            applyCommand(ReplaceSelectionCommand::create(m_documentUnderMouse.get(), createFragmentFromText(range.get(), text), true, false, true));
+            applyCommand(ReplaceSelectionCommand::create(m_documentUnderMouse.get(), createFragmentFromText(range.get(), text),  ReplaceSelectionCommand::SelectReplacement | ReplaceSelectionCommand::MatchStyle | ReplaceSelectionCommand::PreventNesting));
     }
     cachedResourceLoader->setAllowStaleResources(false);
 
@@ -747,7 +753,7 @@ bool DragController::startDrag(Frame* src, Clipboard* clipboard, DragOperation s
         doSystemDrag(dragImage, dragLoc, mouseDraggedPoint, clipboard, src, true);
     } else if (isSelected && (m_dragSourceAction & DragSourceActionSelection)) {
         if (!clipboard->hasData()) {
-            if (isNodeInTextFormControl(src->selection()->start().node()))
+            if (isNodeInTextFormControl(src->selection()->start().deprecatedNode()))
                 clipboard->writePlainText(src->editor()->selectedText());
             else {
                 RefPtr<Range> selectionRange = src->selection()->toNormalizedRange();

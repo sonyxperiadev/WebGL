@@ -33,6 +33,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 #include "VideoLayerChromium.h"
 
+#include "cc/CCLayerImpl.h"
 #include "Extensions3DChromium.h"
 #include "GraphicsContext3D.h"
 #include "LayerRendererChromium.h"
@@ -50,125 +51,6 @@ const float VideoLayerChromium::yuv2RGB[9] = {
     0.f, -.344f, 1.772f,
     1.403f, -.714f, 0.f,
 };
-
-VideoLayerChromium::SharedValues::SharedValues(GraphicsContext3D* context)
-    : m_context(context)
-    , m_yuvShaderProgram(0)
-    , m_rgbaShaderProgram(0)
-    , m_yuvShaderMatrixLocation(0)
-    , m_yuvWidthScaleFactorLocation(0)
-    , m_rgbaShaderMatrixLocation(0)
-    , m_rgbaWidthScaleFactorLocation(0)
-    , m_ccMatrixLocation(0)
-    , m_signAdjLocation(0)
-    , m_yTextureLocation(0)
-    , m_uTextureLocation(0)
-    , m_vTextureLocation(0)
-    , m_rgbaTextureLocation(0)
-    , m_yuvAlphaLocation(0)
-    , m_rgbaAlphaLocation(0)
-    , m_initialized(false)
-{
-    // Frame textures are allocated based on stride width, not visible frame
-    // width, such that there is a guarantee that the frame rows line up
-    // properly and are not shifted by (stride - width) pixels. To hide the
-    // "padding" pixels between the edge of the visible frame width and the end
-    // of the stride, we give the shader a widthScaleFactor (<=1.0) of how much
-    // of the width of the texture should be shown when drawing the texture onto
-    // the vertices.
-    char vertexShaderString[] =
-        "precision mediump float;     \n"
-        "attribute vec4 a_position;   \n"
-        "attribute vec2 a_texCoord;   \n"
-        "uniform mat4 matrix;         \n"
-        "varying vec2 v_texCoord;     \n"
-        "uniform float widthScaleFactor;  \n"
-        "void main()                  \n"
-        "{                            \n"
-        "  gl_Position = matrix * a_position; \n"
-        "  v_texCoord = vec2(widthScaleFactor * a_texCoord.x, a_texCoord.y); \n"
-        "}                            \n";
-
-    char yuvFragmentShaderString[] =
-        "precision mediump float;                             \n"
-        "precision mediump int;                               \n"
-        "varying vec2 v_texCoord;                             \n"
-        "uniform sampler2D y_texture;                         \n"
-        "uniform sampler2D u_texture;                         \n"
-        "uniform sampler2D v_texture;                         \n"
-        "uniform float alpha;                                 \n"
-        "uniform float adj;                                   \n"
-        "uniform mat3 cc_matrix;                              \n"
-        "void main()                                          \n"
-        "{                                                    \n"
-        "  float y = texture2D(y_texture, v_texCoord).x;      \n"
-        "  float u = texture2D(u_texture, v_texCoord).x - adj; \n"
-        "  float v = texture2D(v_texture, v_texCoord).x - adj; \n"
-        "  vec3 rgb = cc_matrix * vec3(y, u, v);              \n"
-        "  gl_FragColor = vec4(rgb, float(1)) * alpha;        \n"
-        "}                                                    \n";
-
-    char rgbaFragmentShaderString[] =
-        "precision mediump float;                             \n"
-        "varying vec2 v_texCoord;                             \n"
-        "uniform sampler2D rgba_texture;                      \n"
-        "uniform float alpha;                                 \n"
-        "void main()                                          \n"
-        "{                                                    \n"
-        "  vec4 texColor = texture2D(rgba_texture, vec2(v_texCoord.x, float(1) - v_texCoord.y)); \n"
-        "  gl_FragColor = vec4(texColor.x, texColor.y, texColor.z, texColor.w) * alpha; \n"
-        "}                                                    \n";
-
-    m_rgbaShaderProgram = createShaderProgram(m_context, vertexShaderString, rgbaFragmentShaderString);
-    if (!m_rgbaShaderProgram) {
-        LOG_ERROR("VideoLayerChromium: Failed to create rgba shader program");
-        return;
-    }
-
-    m_yuvShaderProgram = createShaderProgram(m_context, vertexShaderString, yuvFragmentShaderString);
-    if (!m_yuvShaderProgram) {
-        LOG_ERROR("VideoLayerChromium: Failed to create yuv shader program");
-        return;
-    }
-
-    m_yuvShaderMatrixLocation = m_context->getUniformLocation(m_yuvShaderProgram, "matrix");
-    m_yuvWidthScaleFactorLocation = m_context->getUniformLocation(m_yuvShaderProgram, "widthScaleFactor");
-    m_yTextureLocation = m_context->getUniformLocation(m_yuvShaderProgram, "y_texture");
-    m_uTextureLocation = m_context->getUniformLocation(m_yuvShaderProgram, "u_texture");
-    m_vTextureLocation = m_context->getUniformLocation(m_yuvShaderProgram, "v_texture");
-    m_ccMatrixLocation = m_context->getUniformLocation(m_yuvShaderProgram, "cc_matrix");
-    m_signAdjLocation = m_context->getUniformLocation(m_yuvShaderProgram, "adj");
-    m_yuvAlphaLocation = m_context->getUniformLocation(m_yuvShaderProgram, "alpha");
-
-    ASSERT(m_yuvShaderMatrixLocation != -1);
-    ASSERT(m_yuvWidthScaleFactorLocation != -1);
-    ASSERT(m_yTextureLocation != -1);
-    ASSERT(m_uTextureLocation != -1);
-    ASSERT(m_vTextureLocation != -1);
-    ASSERT(m_ccMatrixLocation != -1);
-    ASSERT(m_signAdjLocation != -1);
-    ASSERT(m_yuvAlphaLocation != -1);
-
-    m_rgbaShaderMatrixLocation = m_context->getUniformLocation(m_rgbaShaderProgram, "matrix");
-    m_rgbaTextureLocation = m_context->getUniformLocation(m_rgbaShaderProgram, "rgba_texture");
-    m_rgbaWidthScaleFactorLocation = m_context->getUniformLocation(m_rgbaShaderProgram, "widthScaleFactor");
-    m_rgbaAlphaLocation = m_context->getUniformLocation(m_rgbaShaderProgram, "alpha");
-
-    ASSERT(m_rgbaShaderMatrixLocation != -1);
-    ASSERT(m_rgbaTextureLocation != -1);
-    ASSERT(m_rgbaWidthScaleFactorLocation != -1);
-    ASSERT(m_rgbaAlphaLocation != -1);
-
-    m_initialized = true;
-}
-
-VideoLayerChromium::SharedValues::~SharedValues()
-{
-    if (m_yuvShaderProgram)
-        GLC(m_context, m_context->deleteProgram(m_yuvShaderProgram));
-    if (m_rgbaShaderProgram)
-        GLC(m_context, m_context->deleteProgram(m_rgbaShaderProgram));
-}
 
 PassRefPtr<VideoLayerChromium> VideoLayerChromium::create(GraphicsLayerChromium* owner,
                                                           VideoFrameProvider* provider)
@@ -297,9 +179,27 @@ bool VideoLayerChromium::allocateTexturesIfNeeded(GraphicsContext3D* context, Vi
         if (!planeTextureSize.isZero() && planeTextureSize != m_textureSizes[plane]) {
             allocateTexture(context, m_textures[plane], planeTextureSize, textureFormat);
             m_textureSizes[plane] = planeTextureSize;
-            m_frameSizes[plane] = IntSize(frame->width(), frame->height());
+            int frameWidth = frame->width(plane);
+            int frameHeight = frame->height(plane);
+            // When there are dead pixels at the edge of the texture, decrease
+            // the frame width by 1 to prevent the rightmost pixels from
+            // interpolating with the dead pixels.
+            if (frame->hasPaddingBytes(plane))
+                --frameWidth;
+            m_frameSizes[plane] = IntSize(frameWidth, frameHeight);
         }
     }
+
+    // In YV12, every 2x2 square of Y values corresponds to one U and
+    // one V value. If we decrease the width of the UV plane, we must decrease the
+    // width of the Y texture by 2 for proper alignment. This must happen
+    // always, even if Y's texture does not have padding bytes.
+    if (frame->format() == VideoFrameChromium::YV12) {
+        int yPlaneOriginalWidth = frame->width(VideoFrameChromium::yPlane);
+        if (frame->hasPaddingBytes(VideoFrameChromium::uPlane))
+            m_frameSizes[VideoFrameChromium::yPlane].setWidth(yPlaneOriginalWidth - 2);
+    }
+
     return true;
 }
 
@@ -318,9 +218,10 @@ void VideoLayerChromium::updateTexture(GraphicsContext3D* context, unsigned text
         memcpy(mem, data, dimensions.width() * dimensions.height());
         GLC(context, static_cast<Extensions3DChromium*>(context->getExtensions())->unmapTexSubImage2DCHROMIUM(mem));
     } else {
-        // FIXME: We should have some sort of code to handle the case when
-        // mapTexSubImage2D fails.
-        m_skipsDraw = true;
+        // If mapTexSubImage2DCHROMIUM fails, then do the slower texSubImage2D
+        // upload. This does twice the copies as mapTexSubImage2DCHROMIUM, one
+        // in the command buffer and another to the texture.
+        GLC(context, context->texSubImage2D(GraphicsContext3D::TEXTURE_2D, 0, 0, 0, dimensions.width(), dimensions.height(), format, GraphicsContext3D::UNSIGNED_BYTE, data));
     }
 }
 
@@ -330,16 +231,18 @@ void VideoLayerChromium::draw()
         return;
 
     ASSERT(layerRenderer());
-    const VideoLayerChromium::SharedValues* sv = layerRenderer()->videoLayerSharedValues();
-    ASSERT(sv && sv->initialized());
+    const RGBAProgram* rgbaProgram = layerRenderer()->videoLayerRGBAProgram();
+    ASSERT(rgbaProgram && rgbaProgram->initialized());
+    const YUVProgram* yuvProgram = layerRenderer()->videoLayerYUVProgram();
+    ASSERT(yuvProgram && yuvProgram->initialized());
 
     switch (m_frameFormat) {
     case VideoFrameChromium::YV12:
     case VideoFrameChromium::YV16:
-        drawYUV(sv);
+        drawYUV(yuvProgram);
         break;
     case VideoFrameChromium::RGBA:
-        drawRGBA(sv);
+        drawRGBA(rgbaProgram);
         break;
     default:
         // FIXME: Implement other paths.
@@ -359,7 +262,7 @@ void VideoLayerChromium::releaseCurrentFrame()
     resetFrameParameters();
 }
 
-void VideoLayerChromium::drawYUV(const SharedValues* sv)
+void VideoLayerChromium::drawYUV(const VideoLayerChromium::YUVProgram* program)
 {
     GraphicsContext3D* context = layerRendererContext();
     GLC(context, context->activeTexture(GraphicsContext3D::TEXTURE1));
@@ -369,49 +272,57 @@ void VideoLayerChromium::drawYUV(const SharedValues* sv)
     GLC(context, context->activeTexture(GraphicsContext3D::TEXTURE3));
     GLC(context, context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_textures[VideoFrameChromium::vPlane]));
 
-    layerRenderer()->useShader(sv->yuvShaderProgram());
-    unsigned frameWidth = m_frameSizes[VideoFrameChromium::yPlane].width();
-    unsigned textureWidth = m_textureSizes[VideoFrameChromium::yPlane].width();
-    float widthScaleFactor = static_cast<float>(frameWidth) / textureWidth;
-    GLC(context, context->uniform1f(sv->yuvWidthScaleFactorLocation(), widthScaleFactor));
+    layerRenderer()->useShader(program->program());
+    unsigned yFrameWidth = m_frameSizes[VideoFrameChromium::yPlane].width();
+    unsigned yTextureWidth = m_textureSizes[VideoFrameChromium::yPlane].width();
+    // Arbitrarily take the u sizes because u and v dimensions are identical.
+    unsigned uvFrameWidth = m_frameSizes[VideoFrameChromium::uPlane].width();
+    unsigned uvTextureWidth = m_textureSizes[VideoFrameChromium::uPlane].width();
 
-    GLC(context, context->uniform1i(sv->yTextureLocation(), 1));
-    GLC(context, context->uniform1i(sv->uTextureLocation(), 2));
-    GLC(context, context->uniform1i(sv->vTextureLocation(), 3));
+    float yWidthScaleFactor = static_cast<float>(yFrameWidth) / yTextureWidth;
+    float uvWidthScaleFactor = static_cast<float>(uvFrameWidth) / uvTextureWidth;
+    GLC(context, context->uniform1f(program->vertexShader().yWidthScaleFactorLocation(), yWidthScaleFactor));
+    GLC(context, context->uniform1f(program->vertexShader().uvWidthScaleFactorLocation(), uvWidthScaleFactor));
+
+    GLC(context, context->uniform1i(program->fragmentShader().yTextureLocation(), 1));
+    GLC(context, context->uniform1i(program->fragmentShader().uTextureLocation(), 2));
+    GLC(context, context->uniform1i(program->fragmentShader().vTextureLocation(), 3));
 
     // This value of 0.5 maps to 128. It is used in the YUV to RGB conversion
     // formula to turn unsigned u and v values to signed u and v values.
     // This is loaded as a uniform because certain drivers have problems
     // reading literal float values.
-    GLC(context, context->uniform1f(sv->signAdjLocation(), 0.5));
+    GLC(context, context->uniform1f(program->fragmentShader().signAdjLocation(), 0.5));
 
-    GLC(context, context->uniformMatrix3fv(sv->ccMatrixLocation(), 0, const_cast<float*>(yuv2RGB), 1));
+    GLC(context, context->uniformMatrix3fv(program->fragmentShader().ccMatrixLocation(), 0, const_cast<float*>(yuv2RGB), 1));
 
-    drawTexturedQuad(context, layerRenderer()->projectionMatrix(), drawTransform(),
-                     bounds().width(), bounds().height(), drawOpacity(),
-                     sv->yuvShaderMatrixLocation(), sv->yuvAlphaLocation());
+    drawTexturedQuad(context, layerRenderer()->projectionMatrix(), ccLayerImpl()->drawTransform(),
+                     bounds().width(), bounds().height(), ccLayerImpl()->drawOpacity(),
+                     program->vertexShader().matrixLocation(),
+                     program->fragmentShader().alphaLocation());
 
     // Reset active texture back to texture 0.
     GLC(context, context->activeTexture(GraphicsContext3D::TEXTURE0));
 }
 
-void VideoLayerChromium::drawRGBA(const SharedValues* sv)
+void VideoLayerChromium::drawRGBA(const VideoLayerChromium::RGBAProgram* program)
 {
     GraphicsContext3D* context = layerRendererContext();
     GLC(context, context->activeTexture(GraphicsContext3D::TEXTURE0));
     GLC(context, context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_textures[VideoFrameChromium::rgbPlane]));
 
-    layerRenderer()->useShader(sv->rgbaShaderProgram());
+    layerRenderer()->useShader(program->program());
     unsigned frameWidth = m_frameSizes[VideoFrameChromium::rgbPlane].width();
     unsigned textureWidth = m_textureSizes[VideoFrameChromium::rgbPlane].width();
     float widthScaleFactor = static_cast<float>(frameWidth) / textureWidth;
-    GLC(context, context->uniform1f(sv->rgbaWidthScaleFactorLocation(), widthScaleFactor));
+    GLC(context, context->uniform4f(program->vertexShader().texTransformLocation(), 0, 0, widthScaleFactor, 1));
 
-    GLC(context, context->uniform1i(sv->rgbaTextureLocation(), 0));
+    GLC(context, context->uniform1i(program->fragmentShader().samplerLocation(), 0));
 
-    drawTexturedQuad(context, layerRenderer()->projectionMatrix(), drawTransform(),
-                     bounds().width(), bounds().height(), drawOpacity(),
-                     sv->rgbaShaderMatrixLocation(), sv->rgbaAlphaLocation());
+    drawTexturedQuad(context, layerRenderer()->projectionMatrix(), ccLayerImpl()->drawTransform(),
+                     bounds().width(), bounds().height(), ccLayerImpl()->drawOpacity(),
+                     program->vertexShader().matrixLocation(),
+                     program->fragmentShader().alphaLocation());
 }
 
 void VideoLayerChromium::resetFrameParameters()

@@ -43,6 +43,7 @@
 #include "RenderSurfaceChromium.h"
 #include "SkBitmap.h"
 #include "VideoLayerChromium.h"
+#include "cc/CCHeadsUpDisplay.h"
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
@@ -57,7 +58,10 @@
 
 namespace WebCore {
 
+class CCLayerImpl;
+class GeometryBinding;
 class GraphicsContext3D;
+class CCHeadsUpDisplay;
 
 // Class that handles drawing of composited render layers using GL.
 class LayerRendererChromium : public RefCounted<LayerRendererChromium> {
@@ -71,15 +75,16 @@ public:
     void invalidateRootLayerRect(const IntRect& dirtyRect, const IntRect& visibleRect, const IntRect& contentRect);
 
     // updates and draws the current layers onto the backbuffer
-    void drawLayers(const IntRect& visibleRect, const IntRect& contentRect,
-                    const IntPoint& scrollPosition, TilePaintInterface& tilePaint,
-                    TilePaintInterface& scrollbarPaint);
+    void updateAndDrawLayers(const IntRect& visibleRect, const IntRect& contentRect, const IntPoint& scrollPosition,
+                             TilePaintInterface&, TilePaintInterface& scrollbarPaint);
 
     // waits for rendering to finish
     void finish();
 
     // puts backbuffer onscreen
     void present();
+
+    IntSize visibleRectSize() const { return m_visibleRect.size(); }
 
     void setRootLayer(PassRefPtr<LayerChromium> layer);
     LayerChromium* rootLayer() { return m_rootLayer.get(); }
@@ -88,12 +93,9 @@ public:
     bool hardwareCompositing() const { return m_hardwareCompositing; }
 
     void setCompositeOffscreen(bool);
-    bool isCompositingOffscreen() { return m_compositeOffscreen; }
-    LayerTexture* getOffscreenLayerTexture() { return m_compositeOffscreen ? m_rootLayer->m_renderSurface->m_contentsTexture.get() : 0; }
-
-    void setRootLayerCanvasSize(const IntSize&);
-
-    GraphicsContext* rootLayerGraphicsContext() const { return m_rootLayerGraphicsContext.get(); }
+    bool isCompositingOffscreen() const { return m_compositeOffscreen; }
+    LayerTexture* getOffscreenLayerTexture();
+    void copyOffscreenTextureToDisplay();
 
     unsigned createLayerTexture();
     void deleteLayerTexture(unsigned);
@@ -106,30 +108,43 @@ public:
 
     bool checkTextureSize(const IntSize&);
 
-    const LayerChromium::SharedValues* layerSharedValues() const { return m_layerSharedValues.get(); }
-    const ContentLayerChromium::SharedValues* contentLayerSharedValues() const { return m_contentLayerSharedValues.get(); }
-    const CanvasLayerChromium::SharedValues* canvasLayerSharedValues() const { return m_canvasLayerSharedValues.get(); }
-    const VideoLayerChromium::SharedValues* videoLayerSharedValues() const { return m_videoLayerSharedValues.get(); }
-    const PluginLayerChromium::SharedValues* pluginLayerSharedValues() const { return m_pluginLayerSharedValues.get(); }
-    const RenderSurfaceChromium::SharedValues* renderSurfaceSharedValues() const { return m_renderSurfaceSharedValues.get(); }
+    const GeometryBinding* sharedGeometry() const { return m_sharedGeometry.get(); }
+    const LayerChromium::BorderProgram* borderProgram() const { return m_borderProgram.get(); }
+    const ContentLayerChromium::Program* contentLayerProgram() const { return m_contentLayerProgram.get(); }
+    const CanvasLayerChromium::Program* canvasLayerProgram() const { return m_canvasLayerProgram.get(); }
+    const VideoLayerChromium::RGBAProgram* videoLayerRGBAProgram() const { return m_videoLayerRGBAProgram.get(); }
+    const VideoLayerChromium::YUVProgram* videoLayerYUVProgram() const { return m_videoLayerYUVProgram.get(); }
+    const PluginLayerChromium::Program* pluginLayerProgram() const { return m_pluginLayerProgram.get(); }
+    const RenderSurfaceChromium::Program* renderSurfaceProgram() const { return m_renderSurfaceProgram.get(); }
+    const RenderSurfaceChromium::MaskProgram* renderSurfaceMaskProgram() const { return m_renderSurfaceMaskProgram.get(); }
+    const LayerTilerChromium::Program* tilerProgram() const { return m_tilerProgram.get(); }
 
     void resizeOnscreenContent(const IntSize&);
 
-    IntSize rootLayerTextureSize() const { return IntSize(m_rootLayerTextureWidth, m_rootLayerTextureHeight); }
-    IntRect rootLayerContentRect() const { return m_rootContentRect; }
     void getFramebufferPixels(void *pixels, const IntRect& rect);
 
     TextureManager* textureManager() const { return m_textureManager.get(); }
 
+    CCHeadsUpDisplay* headsUpDisplay() { return m_headsUpDisplay.get(); }
+
     void setScissorToRect(const IntRect&);
+
+    String layerTreeAsText() const;
 
 private:
     explicit LayerRendererChromium(PassRefPtr<GraphicsContext3D> graphicsContext3D);
-    void updateLayersRecursive(LayerChromium* layer, const TransformationMatrix& parentMatrix, Vector<LayerChromium*>& renderSurfaceLayerList, Vector<LayerChromium*>& layerList);
 
-    void drawLayer(LayerChromium*, RenderSurfaceChromium*);
+    void updateLayers(const IntRect& visibleRect, const IntRect& contentRect, const IntPoint& scrollPosition,
+                     Vector<CCLayerImpl*>& renderSurfaceLayerList);
+    void updateRootLayerContents(TilePaintInterface&, const IntRect& visibleRect);
+    void updateRootLayerScrollbars(TilePaintInterface& scrollbarPaint, const IntRect& visibleRect, const IntRect& contentRect);
+    void updatePropertiesAndRenderSurfaces(LayerChromium*, const TransformationMatrix& parentMatrix, Vector<CCLayerImpl*>& renderSurfaceLayerList, Vector<CCLayerImpl*>& layerList);
+    void updateContentsRecursive(LayerChromium*);
 
-    void updateAndDrawRootLayer(TilePaintInterface& tilePaint, TilePaintInterface& scrollbarPaint, const IntRect& visibleRect, const IntRect& contentRect);
+    void drawLayers(const Vector<CCLayerImpl*>& renderSurfaceLayerList);
+    void drawLayer(CCLayerImpl*, RenderSurfaceChromium*);
+
+    void drawRootLayer();
 
     bool isLayerVisible(LayerChromium*, const TransformationMatrix&, const IntRect& visibleRect);
 
@@ -139,7 +154,9 @@ private:
 
     bool makeContextCurrent();
 
-    static bool compareLayerZ(const LayerChromium*, const LayerChromium*);
+    static bool compareLayerZ(const CCLayerImpl*, const CCLayerImpl*);
+
+    void dumpRenderSurfaces(TextStream&, int indent, LayerChromium*) const;
 
     bool initializeSharedObjects();
     void cleanupSharedObjects();
@@ -147,8 +164,7 @@ private:
     static IntRect verticalScrollbarRect(const IntRect& visibleRect, const IntRect& contentRect);
     static IntRect horizontalScrollbarRect(const IntRect& visibleRect, const IntRect& contentRect);
 
-    int m_rootLayerTextureWidth;
-    int m_rootLayerTextureHeight;
+    IntRect m_visibleRect;
 
     TransformationMatrix m_projectionMatrix;
 
@@ -166,7 +182,7 @@ private:
     unsigned m_offscreenFramebufferId;
     bool m_compositeOffscreen;
 
-#if PLATFORM(SKIA)
+#if USE(SKIA)
     OwnPtr<skia::PlatformCanvas> m_rootLayerCanvas;
     OwnPtr<PlatformContextSkia> m_rootLayerSkiaContext;
     OwnPtr<GraphicsContext> m_rootLayerGraphicsContext;
@@ -176,11 +192,6 @@ private:
     OwnPtr<GraphicsContext> m_rootLayerGraphicsContext;
 #endif
 
-    IntSize m_rootLayerCanvasSize;
-
-    IntRect m_rootVisibleRect;
-    IntRect m_rootContentRect;
-
     // Maximum texture dimensions supported.
     int m_maxTextureSize;
 
@@ -188,14 +199,20 @@ private:
     // associated with this instance of the compositor. Since there can be
     // multiple instances of the compositor running in the same renderer process
     // we cannot store these values in static variables.
-    OwnPtr<LayerChromium::SharedValues> m_layerSharedValues;
-    OwnPtr<ContentLayerChromium::SharedValues> m_contentLayerSharedValues;
-    OwnPtr<CanvasLayerChromium::SharedValues> m_canvasLayerSharedValues;
-    OwnPtr<VideoLayerChromium::SharedValues> m_videoLayerSharedValues;
-    OwnPtr<PluginLayerChromium::SharedValues> m_pluginLayerSharedValues;
-    OwnPtr<RenderSurfaceChromium::SharedValues> m_renderSurfaceSharedValues;
+    OwnPtr<GeometryBinding> m_sharedGeometry;
+    OwnPtr<LayerChromium::BorderProgram> m_borderProgram;
+    OwnPtr<ContentLayerChromium::Program> m_contentLayerProgram;
+    OwnPtr<CanvasLayerChromium::Program> m_canvasLayerProgram;
+    OwnPtr<VideoLayerChromium::RGBAProgram> m_videoLayerRGBAProgram;
+    OwnPtr<VideoLayerChromium::YUVProgram> m_videoLayerYUVProgram;
+    OwnPtr<PluginLayerChromium::Program> m_pluginLayerProgram;
+    OwnPtr<RenderSurfaceChromium::Program> m_renderSurfaceProgram;
+    OwnPtr<RenderSurfaceChromium::MaskProgram> m_renderSurfaceMaskProgram;
+    OwnPtr<LayerTilerChromium::Program> m_tilerProgram;
 
     OwnPtr<TextureManager> m_textureManager;
+
+    OwnPtr<CCHeadsUpDisplay> m_headsUpDisplay;
 
     RefPtr<GraphicsContext3D> m_context;
 

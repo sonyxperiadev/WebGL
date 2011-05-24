@@ -127,9 +127,9 @@ void FrameLoaderClientWinCE::dispatchDidReceiveResponse(DocumentLoader*, unsigne
     m_response = response;
 }
 
-void FrameLoaderClientWinCE::dispatchDecidePolicyForMIMEType(FramePolicyFunction policyFunction, const String& mimeType, const WebCore::ResourceRequest&)
+void FrameLoaderClientWinCE::dispatchDecidePolicyForResponse(FramePolicyFunction policyFunction, const WebCore::ResourceResponse& response, const WebCore::ResourceRequest&)
 {
-    if (canShowMIMEType(mimeType))
+    if (canShowMIMEType(response.mimeType()))
         (m_frame->loader()->policyChecker()->*policyFunction)(PolicyUse);
     else
         (m_frame->loader()->policyChecker()->*policyFunction)(PolicyDownload);
@@ -246,6 +246,11 @@ void FrameLoaderClientWinCE::restoreViewState()
 bool FrameLoaderClientWinCE::shouldGoToHistoryItem(HistoryItem* item) const
 {
     return item;
+}
+
+bool FrameLoaderClientWinCE::shouldStopLoadingForHistoryItem(HistoryItem* item) const
+{
+    return true;
 }
 
 void FrameLoaderClientWinCE::dispatchDidAddBackForwardItem(HistoryItem*) const

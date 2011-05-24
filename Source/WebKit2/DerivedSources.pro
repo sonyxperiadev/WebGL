@@ -75,15 +75,20 @@ defineReplace(message_receiver_generator_output) {
 
 VPATH = \
     PluginProcess \
+    WebProcess/ApplicationCache \
     WebProcess/Authentication \
+    WebProcess/Cookies \
     WebProcess/Geolocation \
+    WebProcess/KeyValueStorage \
     WebProcess/Plugins \
+    WebProcess/ResourceCache \
     WebProcess/WebCoreSupport \
     WebProcess/WebPage \
     WebProcess \
     UIProcess \
     UIProcess/Downloads \
-    UIProcess/Plugins
+    UIProcess/Plugins \
+    Shared/Plugins
 
 MESSAGE_RECEIVERS = \
     AuthenticationManager.messages.in \
@@ -92,18 +97,27 @@ MESSAGE_RECEIVERS = \
     PluginProcess.messages.in \
     PluginProcessProxy.messages.in \
     PluginProxy.messages.in \
+    WebApplicationCacheManager.messages.in \
+    WebApplicationCacheManagerProxy.messages.in \
     WebContext.messages.in \
+    WebCookieManager.messages.in \
+    WebCookieManagerProxy.messages.in \
     WebDatabaseManager.messages.in \
     WebDatabaseManagerProxy.messages.in \
     WebGeolocationManager.messages.in \
     WebGeolocationManagerProxy.messages.in \
     WebInspectorProxy.messages.in \
+    WebKeyValueStorageManager.messages.in \
+    WebKeyValueStorageManagerProxy.messages.in \
     WebPage/WebInspector.messages.in \
     WebPage/WebPage.messages.in \
     WebPageProxy.messages.in \
     WebProcess.messages.in \
     WebProcessConnection.messages.in \
-    WebProcessProxy.messages.in
+    WebProcessProxy.messages.in \
+    WebResourceCacheManager.messages.in \
+    WebResourceCacheManagerProxy.messages.in \
+    NPObjectMessageReceiver.messages.in
 
 SCRIPTS = \
     $$PWD/Scripts/generate-message-receiver.py \

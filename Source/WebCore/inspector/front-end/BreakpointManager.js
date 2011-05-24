@@ -207,7 +207,7 @@ WebInspector.BreakpointManager.prototype = {
         }
 
         if (!this._breakpointsPushedToFrontend) {
-            InspectorBackend.setAllBrowserBreakpoints(this._stickyBreakpoints);
+            BrowserDebuggerAgent.setAllBrowserBreakpoints(this._stickyBreakpoints);
             this._breakpointsPushedToFrontend = true;
         }
     },
@@ -216,6 +216,9 @@ WebInspector.BreakpointManager.prototype = {
     {
         function didPushNodeByPathToFrontend(path, nodeId)
         {
+            if (!nodeId)
+                return;
+
             pathToNodeId[path] = nodeId;
             pendingCalls -= 1;
             if (pendingCalls)
@@ -243,7 +246,7 @@ WebInspector.BreakpointManager.prototype = {
                 continue;
             pathToNodeId[path] = 0;
             pendingCalls += 1;
-            InspectorBackend.pushNodeByPathToFrontend(path, didPushNodeByPathToFrontend.bind(this, path));
+            WebInspector.domAgent.pushNodeByPathToFrontend(path, didPushNodeByPathToFrontend.bind(this, path));
         }
         if (!pendingCalls)
             this._domBreakpointsRestored = true;
@@ -268,7 +271,7 @@ WebInspector.BreakpointManager.prototype = {
         WebInspector.settings.nativeBreakpoints = breakpoints;
 
         this._stickyBreakpoints[WebInspector.settings.projectId] = breakpoints;
-        InspectorBackend.setAllBrowserBreakpoints(this._stickyBreakpoints);
+        BrowserDebuggerAgent.setAllBrowserBreakpoints(this._stickyBreakpoints);
     },
 
     _validateBreakpoints: function(persistentBreakpoints)
@@ -331,12 +334,12 @@ WebInspector.DOMBreakpoint = function(node, type)
 WebInspector.DOMBreakpoint.prototype = {
     _enable: function()
     {
-        InspectorBackend.setDOMBreakpoint(this._nodeId, this._type);
+        BrowserDebuggerAgent.setDOMBreakpoint(this._nodeId, this._type);
     },
 
     _disable: function()
     {
-        InspectorBackend.removeDOMBreakpoint(this._nodeId, this._type);
+        BrowserDebuggerAgent.removeDOMBreakpoint(this._nodeId, this._type);
     },
 
     _serializeToJSON: function()
@@ -354,12 +357,12 @@ WebInspector.EventListenerBreakpoint = function(eventName)
 WebInspector.EventListenerBreakpoint.prototype = {
     _enable: function()
     {
-        InspectorBackend.setEventListenerBreakpoint(this._eventName);
+        BrowserDebuggerAgent.setEventListenerBreakpoint(this._eventName);
     },
 
     _disable: function()
     {
-        InspectorBackend.removeEventListenerBreakpoint(this._eventName);
+        BrowserDebuggerAgent.removeEventListenerBreakpoint(this._eventName);
     },
 
     _serializeToJSON: function()
@@ -377,12 +380,12 @@ WebInspector.XHRBreakpoint = function(url)
 WebInspector.XHRBreakpoint.prototype = {
     _enable: function()
     {
-        InspectorBackend.setXHRBreakpoint(this._url);
+        BrowserDebuggerAgent.setXHRBreakpoint(this._url);
     },
 
     _disable: function()
     {
-        InspectorBackend.removeXHRBreakpoint(this._url);
+        BrowserDebuggerAgent.removeXHRBreakpoint(this._url);
     },
 
     _serializeToJSON: function()
@@ -476,7 +479,34 @@ WebInspector.DOMBreakpointView.prototype = {
 
     populateStatusMessageElement: function(element, eventData)
     {
+        if (this._type === WebInspector.DOMBreakpointTypes.SubtreeModified) {
+            var targetNodeObject = WebInspector.RemoteObject.fromPayload(eventData.targetNode);
+            targetNodeObject.pushNodeToFrontend(decorateNode.bind(this));
+            function decorateNode(targetNodeId)
+            {
+                if (!targetNodeId)
+                    return;
+
+                RuntimeAgent.releaseObject(eventData.targetNode);
+                var targetNode = WebInspector.panels.elements.linkifyNodeById(targetNodeId);
+                if (eventData.insertion) {
+                    if (targetNodeId !== this._nodeId)
+                        this._format(element, "Paused on a \"%s\" breakpoint set on %s, because a new child was added to its descendant %s.", targetNode);
+                    else
+                        this._format(element, "Paused on a \"%s\" breakpoint set on %s, because a new child was added to that node.");
+                } else
+                    this._format(element, "Paused on a \"%s\" breakpoint set on %s, because its descendant %s was removed.", targetNode);
+            }
+        } else
+            this._format(element, "Paused on a \"%s\" breakpoint set on %s.");
+    },
+
+    _format: function(element, message, extraSubstitution)
+    {
         var substitutions = [WebInspector.domBreakpointTypeLabel(this._type), WebInspector.panels.elements.linkifyNodeById(this._nodeId)];
+        if (extraSubstitution)
+            substitutions.push(extraSubstitution);
+
         var formatters = {
             s: function(substitution)
             {
@@ -489,17 +519,7 @@ WebInspector.DOMBreakpointView.prototype = {
                 b = document.createTextNode(b);
             element.appendChild(b);
         }
-        if (this._type === WebInspector.DOMBreakpointTypes.SubtreeModified) {
-            var targetNode = WebInspector.panels.elements.linkifyNodeById(eventData.targetNodeId);
-            if (eventData.insertion) {
-                if (eventData.targetNodeId !== this._nodeId)
-                    WebInspector.formatLocalized("Paused on a \"%s\" breakpoint set on %s, because a new child was added to its descendant %s.", substitutions.concat(targetNode), formatters, "", append);
-                else
-                    WebInspector.formatLocalized("Paused on a \"%s\" breakpoint set on %s, because a new child was added to that node.", substitutions, formatters, "", append);
-            } else
-                WebInspector.formatLocalized("Paused on a \"%s\" breakpoint set on %s, because its descendant %s was removed.", substitutions.concat(targetNode), formatters, "", append);
-        } else
-            WebInspector.formatLocalized("Paused on a \"%s\" breakpoint set on %s.", substitutions, formatters, "", append);
+        WebInspector.formatLocalized(message, substitutions, formatters, "", append);
     },
 
     _onRemove: function()

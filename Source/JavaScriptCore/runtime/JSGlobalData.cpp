@@ -75,6 +75,7 @@ extern JSC_CONST_HASHTABLE HashTable jsonTable;
 extern JSC_CONST_HASHTABLE HashTable dateTable;
 extern JSC_CONST_HASHTABLE HashTable mathTable;
 extern JSC_CONST_HASHTABLE HashTable numberTable;
+extern JSC_CONST_HASHTABLE HashTable objectConstructorTable;
 extern JSC_CONST_HASHTABLE HashTable regExpTable;
 extern JSC_CONST_HASHTABLE HashTable regExpConstructorTable;
 extern JSC_CONST_HASHTABLE HashTable stringTable;
@@ -119,12 +120,13 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , jsonTable(fastNew<HashTable>(JSC::jsonTable))
     , mathTable(fastNew<HashTable>(JSC::mathTable))
     , numberTable(fastNew<HashTable>(JSC::numberTable))
+    , objectConstructorTable(fastNew<HashTable>(JSC::objectConstructorTable))
     , regExpTable(fastNew<HashTable>(JSC::regExpTable))
     , regExpConstructorTable(fastNew<HashTable>(JSC::regExpConstructorTable))
     , stringTable(fastNew<HashTable>(JSC::stringTable))
     , activationStructure(JSActivation::createStructure(jsNull()))
-    , interruptedExecutionErrorStructure(JSObject::createStructure(jsNull()))
-    , terminatedExecutionErrorStructure(JSObject::createStructure(jsNull()))
+    , interruptedExecutionErrorStructure(JSNonFinalObject::createStructure(jsNull()))
+    , terminatedExecutionErrorStructure(JSNonFinalObject::createStructure(jsNull()))
     , staticScopeStructure(JSStaticScopeObject::createStructure(jsNull()))
     , strictEvalActivationStructure(StrictEvalActivation::createStructure(jsNull()))
     , stringStructure(JSString::createStructure(jsNull()))
@@ -132,14 +134,16 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , propertyNameIteratorStructure(JSPropertyNameIterator::createStructure(jsNull()))
     , getterSetterStructure(GetterSetter::createStructure(jsNull()))
     , apiWrapperStructure(JSAPIValueWrapper::createStructure(jsNull()))
+    , scopeChainNodeStructure(ScopeChainNode::createStructure(jsNull()))
     , dummyMarkableCellStructure(JSCell::createDummyStructure())
     , identifierTable(globalDataType == Default ? wtfThreadData().currentIdentifierTable() : createIdentifierTable())
     , propertyNames(new CommonIdentifiers(this))
     , emptyList(new MarkedArgumentBuffer)
     , lexer(new Lexer(this))
     , parser(new Parser)
-    , interpreter(new Interpreter)
+    , interpreter(0)
     , heap(this)
+    , globalObjectCount(0)
     , dynamicGlobalObject(0)
     , firstStringifierToMark(0)
     , cachedUTCOffset(NaN)
@@ -152,6 +156,7 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , exclusiveThread(0)
 #endif
 {
+    interpreter = new Interpreter(*this);
     if (globalDataType == Default)
         m_stack = wtfThreadData().stack();
 
@@ -159,7 +164,7 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     startProfilerServerIfNeeded();
 #endif
 #if ENABLE(JIT) && ENABLE(INTERPRETER)
-#if PLATFORM(CF)
+#if USE(CF)
     CFStringRef canUseJITKey = CFStringCreateWithCString(0 , "JavaScriptCoreUseJIT", kCFStringEncodingMacRoman);
     CFBooleanRef canUseJIT = (CFBooleanRef)CFPreferencesCopyAppValue(canUseJITKey, kCFPreferencesCurrentApplication);
     if (canUseJIT) {
@@ -201,6 +206,7 @@ JSGlobalData::~JSGlobalData()
     jsonTable->deleteTable();
     mathTable->deleteTable();
     numberTable->deleteTable();
+    objectConstructorTable->deleteTable();
     regExpTable->deleteTable();
     regExpConstructorTable->deleteTable();
     stringTable->deleteTable();
@@ -210,6 +216,7 @@ JSGlobalData::~JSGlobalData()
     fastDelete(const_cast<HashTable*>(jsonTable));
     fastDelete(const_cast<HashTable*>(mathTable));
     fastDelete(const_cast<HashTable*>(numberTable));
+    fastDelete(const_cast<HashTable*>(objectConstructorTable));
     fastDelete(const_cast<HashTable*>(regExpTable));
     fastDelete(const_cast<HashTable*>(regExpConstructorTable));
     fastDelete(const_cast<HashTable*>(stringTable));
@@ -283,6 +290,11 @@ PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction functi
 {
     return jitStubs->hostFunctionStub(this, function, generator);
 }
+#else
+PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction function)
+{
+    return NativeExecutable::create(function, callHostFunctionAsConstructor);
+}
 #endif
 
 JSGlobalData::ClientData::~ClientData()
@@ -320,7 +332,7 @@ public:
 
 inline void Recompiler::operator()(JSCell* cell)
 {
-    if (!cell->inherits(&JSFunction::info))
+    if (!cell->inherits(&JSFunction::s_info))
         return;
     JSFunction* function = asFunction(cell);
     if (function->executable()->isHostFunction())

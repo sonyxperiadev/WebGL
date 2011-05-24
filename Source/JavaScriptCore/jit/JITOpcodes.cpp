@@ -330,9 +330,6 @@ void JIT::emit_op_mov(Instruction* currentInstruction)
 
 void JIT::emit_op_end(Instruction* currentInstruction)
 {
-    if (m_codeBlock->needsFullScopeChain())
-        JITStubCall(this, cti_op_end).call();
-
     ASSERT(returnValueRegister != callFrameRegister);
     emitGetVirtualRegister(currentInstruction[1].u.operand, returnValueRegister);
     restoreReturnAddressBeforeReturn(Address(callFrameRegister, RegisterFile::ReturnPC * static_cast<int>(sizeof(Register))));
@@ -543,12 +540,6 @@ void JIT::emit_op_tear_off_arguments(Instruction* currentInstruction)
 
 void JIT::emit_op_ret(Instruction* currentInstruction)
 {
-    // We could JIT generate the deref, only calling out to C when the refcount hits zero.
-    if (m_codeBlock->needsFullScopeChain()) {
-        Jump activationNotCreated = branchTestPtr(Zero, addressFor(m_codeBlock->activationRegister()));
-        JITStubCall(this, cti_op_ret_scopeChain).call();
-        activationNotCreated.link(this);
-    }
     ASSERT(callFrameRegister != regT1);
     ASSERT(regT1 != returnValueRegister);
     ASSERT(returnValueRegister != callFrameRegister);
@@ -569,13 +560,6 @@ void JIT::emit_op_ret(Instruction* currentInstruction)
 
 void JIT::emit_op_ret_object_or_this(Instruction* currentInstruction)
 {
-    // We could JIT generate the deref, only calling out to C when the refcount hits zero.
-    if (m_codeBlock->needsFullScopeChain()) {
-        Jump activationNotCreated = branchTestPtr(Zero, addressFor(m_codeBlock->activationRegister()));
-        JITStubCall(this, cti_op_ret_scopeChain).call();
-        activationNotCreated.link(this);
-    }
-
     ASSERT(callFrameRegister != regT1);
     ASSERT(regT1 != returnValueRegister);
     ASSERT(returnValueRegister != callFrameRegister);
@@ -689,7 +673,7 @@ void JIT::emit_op_resolve_global(Instruction* currentInstruction, bool)
 
     // Load cached property
     // Assume that the global object always uses external storage.
-    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSGlobalObject, m_externalStorage)), regT0);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSGlobalObject, m_propertyStorage)), regT0);
     load32(offsetAddr, regT1);
     loadPtr(BaseIndex(regT0, regT1, ScalePtr), regT0);
     emitPutVirtualRegister(currentInstruction[1].u.operand);

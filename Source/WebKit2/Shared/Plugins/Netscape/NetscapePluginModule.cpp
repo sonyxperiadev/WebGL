@@ -27,8 +27,14 @@
 #include "NetscapePluginModule.h"
 
 #include "Module.h"
+#include "NPRuntimeUtilities.h"
 #include "NetscapeBrowserFuncs.h"
 #include <wtf/PassOwnPtr.h>
+#include <wtf/text/CString.h>
+
+#if !PLUGIN_ARCHITECTURE(MAC) && !PLUGIN_ARCHITECTURE(WIN) && !PLUGIN_ARCHITECTURE(X11)
+#error Unknown plug-in architecture
+#endif
 
 namespace WebKit {
 
@@ -41,7 +47,7 @@ static Vector<NetscapePluginModule*>& initializedNetscapePluginModules()
 NetscapePluginModule::NetscapePluginModule(const String& pluginPath)
     : m_pluginPath(pluginPath)
     , m_isInitialized(false)
-    , m_pluginCount(0)
+    , m_loadCount(0)
     , m_shutdownProcPtr(0)
     , m_pluginFuncs()
 {
@@ -54,23 +60,72 @@ NetscapePluginModule::~NetscapePluginModule()
 
 void NetscapePluginModule::pluginCreated()
 {
-    if (!m_pluginCount) {
-        // Load the plug-in module if necessary.
-        load();
-    }
-        
-    m_pluginCount++;
+    incrementLoadCount();
 }
 
 void NetscapePluginModule::pluginDestroyed()
 {
-    ASSERT(m_pluginCount > 0);
-    m_pluginCount--;
-    
-    if (!m_pluginCount) {
-        shutdown();
-        unload();
+    decrementLoadCount();
+}
+
+Vector<String> NetscapePluginModule::sitesWithData()
+{
+    Vector<String> sites;
+
+    incrementLoadCount();
+    tryGetSitesWithData(sites);
+    decrementLoadCount();
+
+    return sites;
+}
+
+bool NetscapePluginModule::clearSiteData(const String& site, uint64_t flags, uint64_t maxAge)
+{
+    incrementLoadCount();
+    bool result = tryClearSiteData(site, flags, maxAge);
+    decrementLoadCount();
+
+    return result;
+}
+
+bool NetscapePluginModule::tryGetSitesWithData(Vector<String>& sites)
+{
+    if (!m_isInitialized)
+        return false;
+
+    // Check if the plug-in supports NPP_GetSitesWithData.
+    if (!m_pluginFuncs.getsiteswithdata)
+        return false;
+
+    char** siteArray = m_pluginFuncs.getsiteswithdata();
+    for (int i = 0; siteArray[i]; ++i) {
+        char* site = siteArray[i];
+
+        String siteString = String::fromUTF8(site);
+        if (!siteString.isNull())
+            sites.append(siteString);
+
+        npnMemFree(site);
     }
+
+    npnMemFree(siteArray);
+    return true;
+}
+
+bool NetscapePluginModule::tryClearSiteData(const String& site, uint64_t flags, uint64_t maxAge)
+{
+    if (!m_isInitialized)
+        return false;
+
+    // Check if the plug-in supports NPP_ClearSiteData.
+    if (!m_pluginFuncs.clearsitedata)
+        return false;
+
+    CString siteString;
+    if (!site.isNull())
+        siteString = site.utf8();
+
+    return m_pluginFuncs.clearsitedata(siteString.data(), flags, maxAge) == NPERR_NO_ERROR;
 }
 
 void NetscapePluginModule::shutdown()
@@ -106,6 +161,27 @@ PassRefPtr<NetscapePluginModule> NetscapePluginModule::getOrCreate(const String&
     return pluginModule.release();
 }
 
+void NetscapePluginModule::incrementLoadCount()
+{
+    if (!m_loadCount) {
+        // Load the plug-in module if necessary.
+        load();
+    }
+    
+    m_loadCount++;
+}
+    
+void NetscapePluginModule::decrementLoadCount()
+{
+    ASSERT(m_loadCount > 0);
+    m_loadCount--;
+    
+    if (!m_loadCount) {
+        shutdown();
+        unload();
+    }
+}
+
 bool NetscapePluginModule::load()
 {
     if (m_isInitialized) {
@@ -130,6 +206,10 @@ bool NetscapePluginModule::load()
 
 bool NetscapePluginModule::tryLoad()
 {
+#if PLUGIN_ARCHITECTURE(X11)
+    applyX11QuirksBeforeLoad();
+#endif
+
     m_module = adoptPtr(new Module(m_pluginPath));
     if (!m_module->load())
         return false;
@@ -138,9 +218,11 @@ bool NetscapePluginModule::tryLoad()
     if (!initializeFuncPtr)
         return false;
 
+#if !PLUGIN_ARCHITECTURE(X11)
     NP_GetEntryPointsFuncPtr getEntryPointsFuncPtr = m_module->functionPointer<NP_GetEntryPointsFuncPtr>("NP_GetEntryPoints");
     if (!getEntryPointsFuncPtr)
         return false;
+#endif
 
     m_shutdownProcPtr = m_module->functionPointer<NPP_ShutdownProcPtr>("NP_Shutdown");
     if (!m_shutdownProcPtr)
@@ -152,11 +234,14 @@ bool NetscapePluginModule::tryLoad()
     // On Mac, NP_Initialize must be called first, then NP_GetEntryPoints. On Windows, the order is
     // reversed. Failing to follow this order results in crashes (e.g., in Silverlight on Mac and
     // in Flash and QuickTime on Windows).
-#if PLATFORM(MAC)
+#if PLUGIN_ARCHITECTURE(MAC)
     if (initializeFuncPtr(netscapeBrowserFuncs()) != NPERR_NO_ERROR || getEntryPointsFuncPtr(&m_pluginFuncs) != NPERR_NO_ERROR)
         return false;
-#elif PLATFORM(WIN)
+#elif PLUGIN_ARCHITECTURE(WIN)
     if (getEntryPointsFuncPtr(&m_pluginFuncs) != NPERR_NO_ERROR || initializeFuncPtr(netscapeBrowserFuncs()) != NPERR_NO_ERROR)
+        return false;
+#elif PLUGIN_ARCHITECTURE(X11)
+    if (initializeFuncPtr(netscapeBrowserFuncs(), &m_pluginFuncs) != NPERR_NO_ERROR)
         return false;
 #endif
 

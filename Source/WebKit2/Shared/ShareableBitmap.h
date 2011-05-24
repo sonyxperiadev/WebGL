@@ -47,6 +47,9 @@ public:
     // Create a shareable bitmap whose backing memory can be shared with another process.
     static PassRefPtr<ShareableBitmap> createShareable(const WebCore::IntSize&);
 
+    // Create a shareable bitmap from an already existing shared memory block.
+    static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&, PassRefPtr<SharedMemory>);
+
     // Create a shareable bitmap from a shared memory handle.
     static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&, const SharedMemory::Handle&);
 
@@ -74,6 +77,8 @@ private:
 
     static size_t numBytesForSize(const WebCore::IntSize& size) { return size.width() * size.height() * 4; }
 
+    static void releaseData(void* typelessBitmap, void* typelessData);
+    
     void* data() const;
     size_t sizeInBytes() const { return numBytesForSize(m_size); }
 

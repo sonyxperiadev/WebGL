@@ -397,7 +397,7 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
     int rightAligned = FALSE;
     IntPoint location;
 
-    if (!start.node() || !end.node()
+    if (!start.deprecatedNode() || !end.deprecatedNode()
         || (frame->selection()->selection().isCaret() && !frame->selection()->selection().isContentEditable())) {
         // If there's a focused elment, use its location.
         if (Node* focusedNode = getFocusedNode(frame)) {
@@ -406,7 +406,7 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
         } else
             location = IntPoint(rightAligned ? view->contentsWidth() - contextMenuMargin : contextMenuMargin, contextMenuMargin);
     } else {
-        RenderObject* renderer = start.node()->renderer();
+        RenderObject* renderer = start.deprecatedNode()->renderer();
         if (!renderer)
             return FALSE;
 
@@ -708,9 +708,8 @@ static gboolean webkit_web_view_expose_event(GtkWidget* widget, GdkEventExpose* 
     if (frame->contentRenderer() && frame->view()) {
         frame->view()->updateLayoutAndStyleIfNeededRecursive();
 
-        cairo_t* cr = gdk_cairo_create(event->window);
-        GraphicsContext ctx(cr);
-        cairo_destroy(cr);
+        RefPtr<cairo_t> cr = adoptRef(gdk_cairo_create(event->window));
+        GraphicsContext ctx(cr.get());
         ctx.setGdkExposeEvent(event);
 
         int rectCount;
@@ -3283,7 +3282,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     WebKitWebSettings* webSettings = priv->webSettings.get();
     Settings* settings = core(webView)->settings();
 
-    gchar* defaultEncoding, *cursiveFontFamily, *defaultFontFamily, *fantasyFontFamily, *monospaceFontFamily, *sansSerifFontFamily, *serifFontFamily, *userStylesheetUri;
+    gchar* defaultEncoding, *cursiveFontFamily, *defaultFontFamily, *fantasyFontFamily, *monospaceFontFamily, *sansSerifFontFamily, *serifFontFamily, *userStylesheetUri, *defaultSpellCheckingLanguages;
     gboolean autoLoadImages, autoShrinkImages, printBackgrounds,
         enableScripts, enablePlugins, enableDeveloperExtras, resizableTextAreas,
         enablePrivateBrowsing, enableCaretBrowsing, enableHTML5Database, enableHTML5LocalStorage,
@@ -3330,6 +3329,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
                  "enable-page-cache", &usePageCache,
                  "enable-java-applet", &enableJavaApplet,
                  "enable-hyperlink-auditing", &enableHyperlinkAuditing,
+                 "spell-checking-languages", &defaultSpellCheckingLanguages,
                  "enable-fullscreen", &enableFullscreen,
                  NULL);
 
@@ -3371,6 +3371,11 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
 #if ENABLE(FULLSCREEN_API)
     settings->setFullScreenEnabled(enableFullscreen);
 #endif
+#if ENABLE(SPELLCHECK)
+    WebKit::EditorClient* client = static_cast<WebKit::EditorClient*>(core(webView)->editorClient());
+    static_cast<WebKit::TextCheckerClientEnchant*>(client->textChecker())->updateSpellCheckingLanguage(defaultSpellCheckingLanguages);
+#endif
+
     Page* page = core(webView);
     if (page)
         page->setTabKeyCyclesThroughElements(tabKeyCyclesThroughElements);
@@ -3485,6 +3490,12 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
         settings->setJavaEnabled(g_value_get_boolean(&value));
     else if (name == g_intern_string("enable-hyperlink-auditing"))
         settings->setHyperlinkAuditingEnabled(g_value_get_boolean(&value));
+#if ENABLE(SPELLCHECK)
+    else if (name == g_intern_string("spell-checking-languages")) {
+        WebKit::EditorClient* client = static_cast<WebKit::EditorClient*>(core(webView)->editorClient());
+        static_cast<WebKit::TextCheckerClientEnchant*>(client->textChecker())->updateSpellCheckingLanguage(g_value_get_string(&value));
+    }
+#endif
     else if (!g_object_class_find_property(G_OBJECT_GET_CLASS(webSettings), name))
         g_warning("Unexpected setting '%s'", name);
     g_value_unset(&value);
@@ -3533,7 +3544,6 @@ static void webkit_web_view_init(WebKitWebView* webView)
     gtk_widget_set_can_focus(GTK_WIDGET(webView), TRUE);
     priv->mainFrame = WEBKIT_WEB_FRAME(webkit_web_frame_new(webView));
     priv->lastPopupXPosition = priv->lastPopupYPosition = -1;
-    priv->editable = false;
 
     priv->backForwardList = adoptGRef(webkit_web_back_forward_list_new_with_web_view(webView));
 
@@ -4327,9 +4337,8 @@ gboolean webkit_web_view_get_editable(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
 
-    WebKitWebViewPrivate* priv = webView->priv;
-
-    return priv->editable;
+    Frame* frame = core(webView)->mainFrame();
+    return frame && frame->document()->inDesignMode();
 }
 
 /**
@@ -4354,17 +4363,15 @@ void webkit_web_view_set_editable(WebKitWebView* webView, gboolean flag)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    WebKitWebViewPrivate* priv = webView->priv;
-
     Frame* frame = core(webView)->mainFrame();
     g_return_if_fail(frame);
 
     // TODO: What happens when the frame is replaced?
     flag = flag != FALSE;
-    if (flag == priv->editable)
+    if (flag == webkit_web_view_get_editable(webView))
         return;
 
-    priv->editable = flag;
+    frame->document()->setDesignMode(flag ? WebCore::Document::on : WebCore::Document::off);
 
     if (flag) {
         frame->editor()->applyEditingStyleToBodyElement();
@@ -5051,7 +5058,7 @@ WebKitHitTestResult* webkit_web_view_get_hit_test_result(WebKitWebView* webView,
 G_CONST_RETURN gchar* webkit_web_view_get_icon_uri(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-    String iconURL = iconDatabase()->iconURLForPageURL(core(webView)->mainFrame()->document()->url().prettyURL());
+    String iconURL = iconDatabase().iconURLForPageURL(core(webView)->mainFrame()->document()->url().prettyURL());
     webView->priv->iconURI = iconURL.utf8();
     return webView->priv->iconURI.data();
 }

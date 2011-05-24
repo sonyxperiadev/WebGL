@@ -34,6 +34,7 @@
 #include "FindIndicator.h"
 #include "LocalizedStrings.h"
 #include "NativeWebKeyboardEvent.h"
+#include "NotImplemented.h"
 #include "TiledDrawingAreaProxy.h"
 #include "WebContext.h"
 #include "WebContextMenuProxyQt.h"
@@ -50,6 +51,7 @@
 #include <QtDebug>
 #include <WebCore/Cursor.h>
 #include <WebCore/FloatRect.h>
+#include <WebCore/NotImplemented.h>
 #include <WebKit2/WKFrame.h>
 #include <WebKit2/WKPageGroup.h>
 #include <WebKit2/WKRetainPtr.h>
@@ -163,20 +165,17 @@ WebCore::IntSize QWKPagePrivate::viewSize()
 
 bool QWKPagePrivate::isViewWindowActive()
 {
-    // FIXME: Implement.
-    return true;
+    return view && view->isActive();
 }
 
 bool QWKPagePrivate::isViewFocused()
 {
-    // FIXME: Implement.
-    return true;
+    return view && view->hasFocus();
 }
 
 bool QWKPagePrivate::isViewVisible()
 {
-    // FIXME: Implement.
-    return true;
+    return view && view->isVisible();
 }
 
 bool QWKPagePrivate::isViewInWindow()
@@ -254,8 +253,13 @@ void QWKPagePrivate::didCommitLoadForMainFrame(bool useCustomRepresentation)
 {
 }
 
-void QWKPagePrivate::didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&)
+void QWKPagePrivate::didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&)
 {
+}
+
+void QWKPagePrivate::flashBackingStoreUpdates(const Vector<IntRect>&)
+{
+    notImplemented();
 }
 
 void QWKPagePrivate::paint(QPainter* painter, QRect area)
@@ -323,10 +327,6 @@ void QWKPagePrivate::wheelEvent(QGraphicsSceneWheelEvent* ev)
 {
     WebWheelEvent wheelEvent = WebEventFactory::createWebWheelEvent(ev);
     page->handleWheelEvent(wheelEvent);
-}
-
-void QWKPagePrivate::setEditCommandState(const WTF::String&, bool, int)
-{
 }
 
 void QWKPagePrivate::updateAction(QWKPage::WebAction action)
@@ -442,7 +442,8 @@ QWKPage::QWKPage(QWKContext* context)
         qt_wk_didBecomeUnresponsive,
         qt_wk_didBecomeResponsive,
         0,  /* processDidCrash */
-        0   /* didChangeBackForwardList */
+        0,  /* didChangeBackForwardList */
+        0   /* shouldGoToBackForwardListItem */
     };
     WKPageSetPageLoaderClient(pageRef(), &loadClient);
 

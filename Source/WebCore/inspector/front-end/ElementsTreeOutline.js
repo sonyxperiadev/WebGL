@@ -329,8 +329,11 @@ WebInspector.ElementsTreeElement.prototype = {
         if (this._searchQuery === searchQuery)
             return;
 
+        if (searchQuery)
+            delete this._searchHighlightedHTML; // A new search query (not clear-the-current-highlighting).
+
         this._searchQuery = searchQuery;
-        this.updateTitle();
+        this.updateTitle(true);
     },
 
     get hovered()
@@ -400,17 +403,35 @@ WebInspector.ElementsTreeElement.prototype = {
         if (!node.nodeName || node.nodeName.toLowerCase() !== "img")
             return;
 
-        function setTooltip(properties)
+        function setTooltip(result)
         {
-            if (!properties)
+            if (!result || result.type !== "string")
                 return;
 
-            if (properties.offsetHeight === properties.naturalHeight && properties.offsetWidth === properties.naturalWidth)
-                this.tooltip = WebInspector.UIString("%d × %d pixels", properties.offsetWidth, properties.offsetHeight);
-            else
-                this.tooltip = WebInspector.UIString("%d × %d pixels (Natural: %d × %d pixels)", properties.offsetWidth, properties.offsetHeight, properties.naturalWidth, properties.naturalHeight);
+            try {
+                var properties = JSON.parse(result.description);
+                var offsetWidth = properties[0];
+                var offsetHeight = properties[1];
+                var naturalWidth = properties[2];
+                var naturalHeight = properties[3];
+                if (offsetHeight === naturalHeight && offsetWidth === naturalWidth)
+                    this.tooltip = WebInspector.UIString("%d \xd7 %d pixels", offsetWidth, offsetHeight);
+                else
+                    this.tooltip = WebInspector.UIString("%d \xd7 %d pixels (Natural: %d \xd7 %d pixels)", offsetWidth, offsetHeight, naturalWidth, naturalHeight);
+            } catch (e) {
+                console.error(e);
+            }
         }
-        InspectorBackend.getNodeProperties(node.id, ["naturalHeight", "naturalWidth", "offsetHeight", "offsetWidth"], setTooltip.bind(this));
+
+        function resolvedNode(objectPayload)
+        {
+            if (!objectPayload)
+                return;
+
+            var object = WebInspector.RemoteObject.fromPayload(objectPayload);
+            object.evaluate("return '[' + this.offsetWidth + ',' + this.offsetHeight + ',' + this.naturalWidth + ',' + this.naturalHeight + ']'", setTooltip.bind(this));
+        }
+        DOMAgent.resolveNode(node.id, "", resolvedNode.bind(this));
     },
 
     updateSelection: function()
@@ -1154,7 +1175,7 @@ WebInspector.ElementsTreeElement.prototype = {
             moveToNextAttributeIfNeeded.call(newTreeItem);
         }
 
-        InspectorBackend.changeTagName(this.representedObject.id, newText, changeTagNameCallback);
+        DOMAgent.changeTagName(this.representedObject.id, newText, changeTagNameCallback);
     },
 
     _textNodeEditingCommitted: function(element, newText)
@@ -1198,14 +1219,20 @@ WebInspector.ElementsTreeElement.prototype = {
         return (tags.length === 1 ? null : tags[tags.length-1]);
     },
 
-    updateTitle: function()
+    updateTitle: function(onlySearchQueryChanged)
     {
         // If we are editing, return early to prevent canceling the edit.
         // After editing is committed updateTitle will be called.
         if (this._editing)
             return;
 
-        this.titleHTML = "<span class=\"highlight\">" + this._nodeTitleInfo(WebInspector.linkifyURL).titleHTML + "</span>";
+        if (onlySearchQueryChanged && this._normalHTML)
+            this.titleHTML = this._normalHTML;
+        else {
+            delete this._normalHTML;
+            this.titleHTML = "<span class=\"highlight\">" + this._nodeTitleInfo(WebInspector.linkifyURL).titleHTML + "</span>";
+        }
+
         delete this.selectionElement;
         this.updateSelection();
         this._preventFollowingLinksOnDoubleClick();
@@ -1381,7 +1408,7 @@ WebInspector.ElementsTreeElement.prototype = {
             parentElement.adjustCollapsedRange(true);
         }
 
-        InspectorBackend.removeNode(this.representedObject.id, removeNodeCallback);
+        DOMAgent.removeNode(this.representedObject.id, removeNodeCallback);
     },
 
     _editAsHTML: function()
@@ -1408,32 +1435,41 @@ WebInspector.ElementsTreeElement.prototype = {
 
         function commitChange(value)
         {
-            InspectorBackend.setOuterHTML(node.id, value, selectNode);
+            DOMAgent.setOuterHTML(node.id, value, selectNode);
         }
 
-        InspectorBackend.getOuterHTML(node.id, this._startEditingAsHTML.bind(this, commitChange));
+        DOMAgent.getOuterHTML(node.id, this._startEditingAsHTML.bind(this, commitChange));
     },
 
     _copyHTML: function()
     {
-        InspectorBackend.copyNode(this.representedObject.id);
+        DOMAgent.copyNode(this.representedObject.id);
     },
 
     _highlightSearchResults: function()
     {
         if (!this._searchQuery)
             return;
+        if (this._searchHighlightedHTML) {
+            this.listItemElement.innerHTML = this._searchHighlightedHTML;
+            return;
+        }
+
+        if (!this._normalHTML)
+            this._normalHTML = this.titleHTML;
+
         var text = this.listItemElement.textContent;
-        var regexObject = createSearchRegex(this._searchQuery);
+        var regexObject = createSearchRegex(this._searchQuery, "g");
 
         var offset = 0;
         var match = regexObject.exec(text);
+        var matchRanges = [];
         while (match) {
-            highlightSearchResult(this.listItemElement, offset + match.index, match[0].length);
-            offset += match.index + 1;
-            text = text.substring(match.index + 1);
+            matchRanges.push({ offset: match.index, length: match[0].length });
             match = regexObject.exec(text);
         }
+        highlightSearchResults(this.listItemElement, matchRanges);
+        this._searchHighlightedHTML = this.listItemElement.innerHTML;
     }
 }
 

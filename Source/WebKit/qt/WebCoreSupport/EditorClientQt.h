@@ -31,6 +31,7 @@
 #define EditorClientQt_h
 
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 #include "RefCounted.h"
 
 #include <wtf/Forward.h>
@@ -39,7 +40,7 @@ class QWebPage;
 
 namespace WebCore {
 
-class EditorClientQt : public EditorClient {
+class EditorClientQt : public EditorClient, public TextCheckerClient {
 public:
     EditorClientQt(QWebPage* page);
     
@@ -56,7 +57,6 @@ public:
     virtual void toggleGrammarChecking();
     virtual int spellCheckerDocumentTag();
     virtual bool selectWordBeforeMenuEvent();
-    virtual bool isEditable();
 
     virtual bool shouldBeginEditing(Range*);
     virtual bool shouldEndEditing(Range*);
@@ -79,6 +79,8 @@ public:
     virtual void registerCommandForRedo(PassRefPtr<EditCommand>);
     virtual void clearUndoRedoOperations();
 
+    virtual bool canCopyCut(bool defaultValue) const;
+    virtual bool canPaste(bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
     
@@ -108,6 +110,7 @@ public:
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
     virtual void requestCheckingOfString(SpellChecker*, int, const String&) {}
+    virtual TextCheckerClient* textChecker() { return this; }
 
     bool isEditing() const;
 

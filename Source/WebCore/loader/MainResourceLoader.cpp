@@ -59,6 +59,7 @@ MainResourceLoader::MainResourceLoader(Frame* frame)
     , m_dataLoadTimer(this, &MainResourceLoader::handleDataLoadNow)
     , m_loadingMultipartContent(false)
     , m_waitingForContentPolicy(false)
+    , m_timeOfLastDataReceived(0.0)
 {
 }
 
@@ -359,7 +360,7 @@ void MainResourceLoader::didReceiveResponse(const ResourceResponse& r)
 
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
     // See <rdar://problem/6304600> for more details.
-#if !PLATFORM(CF)
+#if !USE(CF)
     ASSERT(shouldLoadAsEmptyDocument(r.url()) || !defersLoading());
 #endif
 
@@ -405,7 +406,7 @@ void MainResourceLoader::didReceiveResponse(const ResourceResponse& r)
     }
 #endif
 
-    frameLoader()->policyChecker()->checkContentPolicy(m_response.mimeType(), callContinueAfterContentPolicy, this);
+    frameLoader()->policyChecker()->checkContentPolicy(m_response, callContinueAfterContentPolicy, this);
 }
 
 void MainResourceLoader::didReceiveData(const char* data, int length, long long lengthReceived, bool allAtOnce)
@@ -426,7 +427,7 @@ void MainResourceLoader::didReceiveData(const char* data, int length, long long 
 
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
     // See <rdar://problem/6304600> for more details.
-#if !PLATFORM(CF)
+#if !USE(CF)
     ASSERT(!defersLoading());
 #endif
  
@@ -447,7 +448,7 @@ void MainResourceLoader::didFinishLoading(double finishTime)
 {
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
     // See <rdar://problem/6304600> for more details.
-#if !PLATFORM(CF)
+#if !USE(CF)
     ASSERT(shouldLoadAsEmptyDocument(frameLoader()->activeDocumentLoader()->url()) || !defersLoading());
 #endif
     
@@ -460,7 +461,7 @@ void MainResourceLoader::didFinishLoading(double finishTime)
 #endif
 
     ASSERT(!documentLoader()->timing()->responseEnd);
-    documentLoader()->timing()->responseEnd = finishTime ? finishTime : m_timeOfLastDataReceived;
+    documentLoader()->timing()->responseEnd = finishTime ? finishTime : (m_timeOfLastDataReceived ? m_timeOfLastDataReceived : currentTime());
     frameLoader()->finishedLoading();
     ResourceLoader::didFinishLoading(finishTime);
     
@@ -478,7 +479,7 @@ void MainResourceLoader::didFail(const ResourceError& error)
 
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
     // See <rdar://problem/6304600> for more details.
-#if !PLATFORM(CF)
+#if !USE(CF)
     ASSERT(!defersLoading());
 #endif
     

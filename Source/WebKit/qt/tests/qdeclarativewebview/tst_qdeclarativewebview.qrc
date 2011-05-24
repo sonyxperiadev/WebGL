@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/webviewtestdefault.qml</file>
+        <file>resources/webviewtest.qml</file>
+        <file>resources/sample.html</file>
+    </qresource>
+</RCC>

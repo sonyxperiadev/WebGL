@@ -386,6 +386,11 @@ String resetButtonDefaultLabel()
             PlatformBridge::ResetLabel));
 }
 
+String defaultDetailsSummaryText()
+{
+    return String("Details");
+}
+
 String submitButtonDefaultLabel()
 {
     return *(PlatformBridge::globalLocalizedName(

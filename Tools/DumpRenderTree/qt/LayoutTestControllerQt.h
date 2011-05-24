@@ -114,7 +114,7 @@ public slots:
     void dumpResourceLoadCallbacks();
     void dumpResourceResponseMIMETypes();
     void dumpHistoryCallbacks();
-    void dumpConfigurationForViewport(int availableWidth, int availableHeight);
+    void dumpConfigurationForViewport(int deviceDPI, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight);
     void setWillSendRequestReturnsNullOnRedirect(bool enabled);
     void setWillSendRequestReturnsNull(bool enabled);
     void setWillSendRequestClearHeader(const QStringList& headers);
@@ -251,6 +251,8 @@ public slots:
     QString pageSizeAndMarginsInPixels(int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft);
     QString pageProperty(const QString& propertyName, int pageNumber);
     void addUserStyleSheet(const QString& sourceCode);
+
+    void setMinimumTimerInterval(double);
 
 private slots:
     void processWork();

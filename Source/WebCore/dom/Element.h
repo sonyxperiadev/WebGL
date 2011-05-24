@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -274,6 +274,9 @@ public:
     // Use Document::registerForMediaVolumeCallbacks() to subscribe to this
     virtual void mediaVolumeDidChange() { }
 
+    // Use Document::registerForPrivateBrowsingStateChangedCallbacks() to subscribe to this.
+    virtual void privateBrowsingStateDidChange() { }
+
     bool isFinishedParsingChildren() const { return isParsingChildrenFinished(); }
     virtual void finishParsingChildren();
     virtual void beginParsingChildren();
@@ -323,6 +326,8 @@ public:
     virtual bool saveFormControlState(String&) const { return false; }
     virtual void restoreFormControlState(const String&) { }
 
+    virtual bool wasChangedSinceLastFormControlChangeEvent() const;
+    virtual void setChangedSinceLastFormControlChangeEvent(bool);
     virtual void dispatchFormControlChangeEvent() { }
 
 #if ENABLE(SVG)
@@ -423,6 +428,11 @@ void toElement(const Element*);
 inline bool Node::hasTagName(const QualifiedName& name) const
 {
     return isElementNode() && toElement(this)->hasTagName(name);
+}
+    
+inline bool Node::hasLocalName(const AtomicString& name) const
+{
+    return isElementNode() && toElement(this)->hasLocalName(name);
 }
 
 inline bool Node::hasAttributes() const

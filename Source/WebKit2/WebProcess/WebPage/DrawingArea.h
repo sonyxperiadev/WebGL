@@ -28,13 +28,17 @@
 
 #include "DrawingAreaInfo.h"
 #include <WebCore/IntRect.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
+#include <wtf/Noncopyable.h>
+#include <wtf/PassOwnPtr.h>
+
+namespace CoreIPC {
+    class ArgumentDecoder;
+    class Connection;
+    class MessageID;
+}
 
 namespace WebCore {
-#if USE(ACCELERATED_COMPOSITING)
     class GraphicsLayer;
-#endif
 }
 
 namespace WebKit {
@@ -42,10 +46,11 @@ namespace WebKit {
 class WebPage;
 struct WebPageCreationParameters;
 
-class DrawingArea : public RefCounted<DrawingArea> {
+class DrawingArea {
+    WTF_MAKE_NONCOPYABLE(DrawingArea);
+
 public:
-    // FIXME: It might make sense to move this create function into a factory style class. 
-    static PassRefPtr<DrawingArea> create(WebPage*, const WebPageCreationParameters&);
+    static PassOwnPtr<DrawingArea> create(WebPage*, const WebPageCreationParameters&);
     virtual ~DrawingArea();
     
 #if PLATFORM(MAC) || PLATFORM(WIN)
@@ -57,7 +62,6 @@ public:
 
     // FIXME: These should be pure virtual.
     virtual void pageBackgroundTransparencyChanged() { }
-    virtual void onPageClose() { }
     virtual void forceRepaint() { }
 
     virtual void didInstallPageOverlay() { }
@@ -65,8 +69,6 @@ public:
     virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&) { }
 
 #if USE(ACCELERATED_COMPOSITING)
-    virtual void attachCompositingContext() = 0;
-    virtual void detachCompositingContext() = 0;
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
     virtual void scheduleCompositingLayerSync() = 0;
     virtual void syncCompositingLayers() = 0;
@@ -74,18 +76,16 @@ public:
 
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*) = 0;
 
-    const DrawingAreaInfo& info() const { return m_info; }
-
 protected:
-    DrawingArea(DrawingAreaInfo::Type, DrawingAreaInfo::Identifier, WebPage*);
+    DrawingArea(DrawingAreaType, WebPage*);
 
-    DrawingAreaInfo m_info;
+    DrawingAreaType m_type;
     WebPage* m_webPage;
 
 private:
     // CoreIPC message handlers.
     // FIXME: These should be pure virtual.
-    virtual void setSize(const WebCore::IntSize& size, const WebCore::IntSize& scrollOffset) { }
+    virtual void updateBackingStoreState(uint64_t backingStoreStateID, bool respondImmediately, const WebCore::IntSize& size, const WebCore::IntSize& scrollOffset) { }
     virtual void didUpdate() { }
     virtual void suspendPainting() { }
     virtual void resumePainting() { }

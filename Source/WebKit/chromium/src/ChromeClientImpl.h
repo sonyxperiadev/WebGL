@@ -38,9 +38,11 @@
 
 namespace WebCore {
 class AccessibilityObject;
+class Element;
 class FileChooser;
 class PopupContainer;
 class PopupMenuClient;
+class RenderBox;
 class SecurityOrigin;
 struct WindowFeatures;
 }
@@ -99,7 +101,7 @@ public:
         const WTF::String& defaultValue, WTF::String& result);
     virtual void setStatusbarText(const WTF::String& message);
     virtual bool shouldInterruptJavaScript();
-    virtual bool tabsToLinks() const;
+    virtual WebCore::KeyboardUIMode keyboardUIMode();
     virtual WebCore::IntRect windowResizerRect() const;
 #if ENABLE(REGISTER_PROTOCOL_HANDLER)
     virtual void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title);
@@ -162,6 +164,13 @@ public:
     virtual bool supportsFullscreenForNode(const WebCore::Node*);
     virtual void enterFullscreenForNode(WebCore::Node*);
     virtual void exitFullscreenForNode(WebCore::Node*);
+
+#if ENABLE(FULLSCREEN_API)
+    virtual bool supportsFullScreenForElement(const WebCore::Element*);
+    virtual void enterFullScreenForElement(WebCore::Element*);
+    virtual void exitFullScreenForElement(WebCore::Element*);
+    virtual void fullScreenRendererChanged(WebCore::RenderBox*);
+#endif
 
     // ChromeClientChromium methods:
     virtual void popupOpened(WebCore::PopupContainer* popupContainer,

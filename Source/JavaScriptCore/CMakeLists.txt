@@ -6,6 +6,7 @@ SET(JavaScriptCore_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/assembler"
     "${JAVASCRIPTCORE_DIR}/bytecode"
     "${JAVASCRIPTCORE_DIR}/bytecompiler"
+    "${JAVASCRIPTCORE_DIR}/collector/handles"
     "${JAVASCRIPTCORE_DIR}/debugger"
     "${JAVASCRIPTCORE_DIR}/interpreter"
     "${JAVASCRIPTCORE_DIR}/jit"
@@ -39,6 +40,8 @@ SET(JavaScriptCore_SOURCES
 
     bytecompiler/BytecodeGenerator.cpp
     bytecompiler/NodesCodegen.cpp
+
+    collector/handles/HandleHeap.cpp
 
     debugger/Debugger.cpp
     debugger/DebuggerActivation.cpp
@@ -100,9 +103,7 @@ SET(JavaScriptCore_SOURCES
     runtime/FunctionConstructor.cpp
     runtime/FunctionPrototype.cpp
     runtime/GCActivityCallback.cpp
-    runtime/GCHandle.cpp
     runtime/GetterSetter.cpp
-    runtime/GlobalEvalFunction.cpp
     runtime/Identifier.cpp
     runtime/InitializeThreading.cpp
     runtime/InternalFunction.cpp
@@ -146,7 +147,6 @@ SET(JavaScriptCore_SOURCES
     runtime/PropertyDescriptor.cpp
     runtime/PropertyNameArray.cpp
     runtime/PropertySlot.cpp
-    runtime/PrototypeFunction.cpp
     runtime/RegExp.cpp
     runtime/RegExpCache.cpp
     runtime/RegExpConstructor.cpp
@@ -182,6 +182,7 @@ SET(JavaScriptCore_LUT_FILES
     runtime/JSONObject.cpp
     runtime/MathObject.cpp
     runtime/NumberConstructor.cpp
+    runtime/ObjectConstructor.cpp
     runtime/RegExpConstructor.cpp
     runtime/RegExpObject.cpp
     runtime/StringPrototype.cpp

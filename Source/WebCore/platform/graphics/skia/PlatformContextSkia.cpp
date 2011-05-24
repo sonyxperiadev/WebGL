@@ -688,7 +688,7 @@ void PlatformContextSkia::applyAntiAliasedClipPaths(WTF::Vector<SkPath>& paths)
     paint.setStyle(SkPaint::kFill_Style);
 
     for (size_t i = paths.size() - 1; i < paths.size(); --i) {
-        paths[i].setFillType(SkPath::kInverseWinding_FillType);
+        paths[i].toggleInverseFillType();
         m_canvas->drawPath(paths[i], paint);
     }
 
@@ -821,7 +821,7 @@ void PlatformContextSkia::syncSoftwareCanvas() const
     if (!m_useGPU) {
 #if ENABLE(SKIA_GPU)
         if (m_gpuCanvas)
-            m_gpuCanvas->bindFramebuffer();
+            m_gpuCanvas->context()->makeContextCurrent();
 #endif
         return;
     }

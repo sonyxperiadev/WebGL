@@ -192,6 +192,65 @@ void FileSystemCallbacks::didOpenFileSystem(const String& name, PassOwnPtr<Async
     m_successCallback.clear();
 }
 
+// ResolveURICallbacks --------------------------------------------------------
+
+namespace {
+
+class ErrorCallbackWrapper : public ErrorCallback {
+public:
+    static PassRefPtr<ErrorCallbackWrapper> create(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, PassRefPtr<DirectoryEntry> root, const String& filePath)
+    {
+        return adoptRef(new ErrorCallbackWrapper(successCallback, errorCallback, root, filePath));
+    }
+
+    virtual bool handleEvent(FileError* error)
+    {
+        ASSERT(error);
+        if (error->code() == FileError::TYPE_MISMATCH_ERR)
+            m_root->getFile(m_filePath, 0, m_successCallback, m_errorCallback);
+        else if (m_errorCallback)
+            m_errorCallback->handleEvent(error);
+        return true;
+    }
+
+private:
+    ErrorCallbackWrapper(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, PassRefPtr<DirectoryEntry> root, const String& filePath)
+        : m_successCallback(successCallback)
+        , m_errorCallback(errorCallback)
+        , m_root(root)
+        , m_filePath(filePath)
+    {
+        ASSERT(m_root);
+    }
+
+    RefPtr<EntryCallback> m_successCallback;
+    RefPtr<ErrorCallback> m_errorCallback;
+    RefPtr<DirectoryEntry> m_root;
+    String m_filePath;
+};
+
+} // namespace
+
+PassOwnPtr<ResolveURICallbacks> ResolveURICallbacks::create(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, ScriptExecutionContext* scriptExecutionContext, const String& filePath)
+{
+    return adoptPtr(new ResolveURICallbacks(successCallback, errorCallback, scriptExecutionContext, filePath));
+}
+
+ResolveURICallbacks::ResolveURICallbacks(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, ScriptExecutionContext* context, const String& filePath)
+    : FileSystemCallbacksBase(errorCallback)
+    , m_successCallback(successCallback)
+    , m_scriptExecutionContext(context)
+    , m_filePath(filePath)
+{
+}
+
+void ResolveURICallbacks::didOpenFileSystem(const String& name, PassOwnPtr<AsyncFileSystem> asyncFileSystem)
+{
+    ASSERT(asyncFileSystem);
+    RefPtr<DirectoryEntry> root = DOMFileSystem::create(m_scriptExecutionContext.get(), name, asyncFileSystem.leakPtr())->root();
+    root->getDirectory(m_filePath, 0, m_successCallback, ErrorCallbackWrapper::create(m_successCallback, m_errorCallback, root, m_filePath));
+}
+
 // MetadataCallbacks ----------------------------------------------------------
 
 PassOwnPtr<MetadataCallbacks> MetadataCallbacks::create(PassRefPtr<MetadataCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)

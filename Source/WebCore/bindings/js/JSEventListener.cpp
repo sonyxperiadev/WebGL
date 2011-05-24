@@ -34,11 +34,10 @@ namespace WebCore {
 
 JSEventListener::JSEventListener(JSObject* function, JSObject* wrapper, bool isAttribute, DOMWrapperWorld* isolatedWorld)
     : EventListener(JSEventListenerType)
+    , m_wrapper(*isolatedWorld->globalData(), wrapper)
     , m_isAttribute(isAttribute)
     , m_isolatedWorld(isolatedWorld)
 {
-    if (wrapper)
-        m_wrapper = wrapper;
     m_jsFunction.set(*m_isolatedWorld->globalData(), wrapper, function);
 }
 
@@ -127,9 +126,10 @@ void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext
 
         globalObject->setCurrentEvent(savedEvent);
 
-        if (exec->hadException())
+        if (exec->hadException()) {
+            event->target()->uncaughtExceptionInEventHandler();
             reportCurrentException(exec);
-        else {
+        } else {
             if (!retval.isUndefinedOrNull() && event->storesResultAsString())
                 event->storeResult(ustringToString(retval.toString(exec)));
             if (m_isAttribute) {

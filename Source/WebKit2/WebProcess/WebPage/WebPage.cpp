@@ -91,6 +91,7 @@
 #include <WebCore/RenderView.h>
 #include <WebCore/ReplaceSelectionCommand.h>
 #include <WebCore/ResourceRequest.h>
+#include <WebCore/SerializedScriptValue.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/SubstituteData.h>
@@ -98,6 +99,9 @@
 #include <WebCore/markup.h>
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
+
+#include <WebCore/Range.h>
+#include <WebCore/VisiblePosition.h>
 
 #if PLATFORM(MAC) || PLATFORM(WIN)
 #include <WebCore/LegacyWebArchive.h>
@@ -151,8 +155,11 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
     , m_findController(this)
     , m_geolocationPermissionRequestManager(this)
     , m_pageID(pageID)
+    , m_canRunBeforeUnloadConfirmPanel(parameters.canRunBeforeUnloadConfirmPanel)
     , m_canRunModal(parameters.canRunModal)
     , m_isRunningModal(false)
+    , m_cachedMainFrameIsPinnedToLeftSide(false)
+    , m_cachedMainFrameIsPinnedToRightSide(false)
 {
     ASSERT(m_pageID);
 
@@ -184,13 +191,15 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
     m_page->setGroupName(m_pageGroup->identifier());
 
     platformInitialize();
-    Settings::setMinDOMTimerInterval(0.004);
+    Settings::setDefaultMinDOMTimerInterval(0.004);
 
     m_drawingArea = DrawingArea::create(this, parameters);
     m_mainFrame = WebFrame::createMainFrame(this);
 
     setDrawsBackground(parameters.drawsBackground);
     setDrawsTransparentBackground(parameters.drawsTransparentBackground);
+
+    setMemoryCacheMessagesEnabled(parameters.areMemoryCacheClientCallsEnabled);
 
     setActive(parameters.isActive);
     setFocused(parameters.isFocused);
@@ -319,45 +328,13 @@ void WebPage::clearMainFrameName()
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-void WebPage::changeAcceleratedCompositingMode(WebCore::GraphicsLayer* layer)
-{
-    if (m_isClosed)
-        return;
-
-    // With the new drawing area we don't need to inform the UI process when the accelerated
-    // compositing mode changes.
-    if (m_drawingArea->info().type == DrawingAreaInfo::Impl)
-        return;
-
-    bool compositing = layer;
-    
-    // Tell the UI process that accelerated compositing changed. It may respond by changing
-    // drawing area types.
-    DrawingAreaInfo newDrawingAreaInfo;
-
-    if (!sendSync(Messages::WebPageProxy::DidChangeAcceleratedCompositing(compositing), Messages::WebPageProxy::DidChangeAcceleratedCompositing::Reply(newDrawingAreaInfo)))
-        return;
-    
-    if (newDrawingAreaInfo.type != drawingArea()->info().type) {
-        m_drawingArea = 0;
-        if (newDrawingAreaInfo.type != DrawingAreaInfo::None) {
-            WebPageCreationParameters parameters;
-            parameters.drawingAreaInfo = newDrawingAreaInfo;
-            m_drawingArea = DrawingArea::create(this, parameters);
-            m_drawingArea->setNeedsDisplay(IntRect(IntPoint(0, 0), m_viewSize));
-        }
-    }
-}
-
 void WebPage::enterAcceleratedCompositingMode(GraphicsLayer* layer)
 {
-    changeAcceleratedCompositingMode(layer);
     m_drawingArea->setRootCompositingLayer(layer);
 }
 
 void WebPage::exitAcceleratedCompositingMode()
 {
-    changeAcceleratedCompositingMode(0);
     m_drawingArea->setRootCompositingLayer(0);
 }
 #endif
@@ -393,15 +370,16 @@ void WebPage::close()
     m_mainFrame->coreFrame()->loader()->detachFromParent();
     m_page.clear();
 
-    m_drawingArea->onPageClose();
     m_drawingArea.clear();
 
+    bool isRunningModal = m_isRunningModal;
+    m_isRunningModal = false;
+
+    // The WebPage can be destroyed by this call.
     WebProcess::shared().removeWebPage(m_pageID);
 
-    if (m_isRunningModal) {
-        m_isRunningModal = false;
+    if (isRunningModal)
         WebProcess::shared().runLoop()->stop();
-    }
 }
 
 void WebPage::tryClose()
@@ -482,25 +460,34 @@ void WebPage::reload(bool reloadFromOrigin)
 
 void WebPage::goForward(uint64_t backForwardItemID, const SandboxExtension::Handle& sandboxExtensionHandle)
 {
-    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
-
     HistoryItem* item = WebBackForwardListProxy::itemForID(backForwardItemID);
+    ASSERT(item);
+    if (!item)
+        return;
+
+    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
     m_page->goToItem(item, FrameLoadTypeForward);
 }
 
 void WebPage::goBack(uint64_t backForwardItemID, const SandboxExtension::Handle& sandboxExtensionHandle)
 {
-    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
-
     HistoryItem* item = WebBackForwardListProxy::itemForID(backForwardItemID);
+    ASSERT(item);
+    if (!item)
+        return;
+
+    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
     m_page->goToItem(item, FrameLoadTypeBack);
 }
 
 void WebPage::goToBackForwardItem(uint64_t backForwardItemID, const SandboxExtension::Handle& sandboxExtensionHandle)
 {
-    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
-
     HistoryItem* item = WebBackForwardListProxy::itemForID(backForwardItemID);
+    ASSERT(item);
+    if (!item)
+        return;
+
+    m_sandboxExtensionTracker.beginLoad(m_mainFrame.get(), sandboxExtensionHandle);
     m_page->goToItem(item, FrameLoadTypeIndexedBackForward);
 }
 
@@ -603,10 +590,6 @@ void WebPage::drawRect(GraphicsContext& graphicsContext, const IntRect& rect)
     graphicsContext.clip(rect);
     m_mainFrame->coreFrame()->view()->paint(&graphicsContext, rect);
     graphicsContext.restore();
-
-    // FIXME: Remove this code once we're using the new drawing area on mac and windows.
-    if (m_pageOverlay && m_drawingArea->info().type != DrawingAreaInfo::Impl)
-        drawPageOverlay(graphicsContext, rect);
 }
 
 void WebPage::drawPageOverlay(GraphicsContext& graphicsContext, const IntRect& rect)
@@ -999,7 +982,7 @@ void WebPage::gestureEvent(const WebGestureEvent& gestureEvent)
 }
 #endif
 
-void WebPage::validateMenuItem(const String& commandName)
+void WebPage::validateCommand(const String& commandName, uint64_t callbackID)
 {
     bool isEnabled = false;
     int32_t state = 0;
@@ -1010,7 +993,7 @@ void WebPage::validateMenuItem(const String& commandName)
         isEnabled = command.isSupported() && command.isEnabled();
     }
 
-    send(Messages::WebPageProxy::DidValidateMenuItem(commandName, isEnabled, state));
+    send(Messages::WebPageProxy::ValidateCommandCallback(commandName, isEnabled, state, callbackID));
 }
 
 void WebPage::executeEditCommand(const String& commandName)
@@ -1209,18 +1192,29 @@ IntRect WebPage::windowResizerRect() const
                    m_windowResizerSize.width(), m_windowResizerSize.height());
 }
 
+KeyboardUIMode WebPage::keyboardUIMode()
+{
+    bool fullKeyboardAccessEnabled = WebProcess::shared().fullKeyboardAccessEnabled();
+    return static_cast<KeyboardUIMode>((fullKeyboardAccessEnabled ? KeyboardAccessFull : KeyboardAccessDefault) | (m_tabToLinks ? KeyboardAccessTabsToLinks : 0));
+}
+
 void WebPage::runJavaScriptInMainFrame(const String& script, uint64_t callbackID)
 {
     // NOTE: We need to be careful when running scripts that the objects we depend on don't
     // disappear during script execution.
 
-    JSLock lock(SilenceAssertionsOnly);
-    JSValue resultValue = m_mainFrame->coreFrame()->script()->executeScript(script, true).jsValue();
-    String resultString;
-    if (resultValue)
-        resultString = ustringToString(resultValue.toString(m_mainFrame->coreFrame()->script()->globalObject(mainThreadNormalWorld())->globalExec()));
+    // Retain the SerializedScriptValue at this level so it (and the internal data) lives
+    // long enough for the DataReference to be encoded by the sent message.
+    RefPtr<SerializedScriptValue> serializedResultValue;
+    CoreIPC::DataReference dataReference;
 
-    send(Messages::WebPageProxy::StringCallback(resultString, callbackID));
+    JSLock lock(SilenceAssertionsOnly);
+    if (JSValue resultValue = m_mainFrame->coreFrame()->script()->executeScript(script, true).jsValue()) {
+        if ((serializedResultValue = SerializedScriptValue::create(m_mainFrame->coreFrame()->script()->globalObject(mainThreadNormalWorld())->globalExec(), resultValue)))
+            dataReference = CoreIPC::DataReference(serializedResultValue->data().data(), serializedResultValue->data().size());
+    }
+
+    send(Messages::WebPageProxy::ScriptValueCallback(dataReference, callbackID));
 }
 
 void WebPage::getContentsAsString(uint64_t callbackID)
@@ -1291,7 +1285,7 @@ void WebPage::getWebArchiveOfFrame(uint64_t frameID, uint64_t callbackID)
 #if PLATFORM(MAC) || PLATFORM(WIN)
     RetainPtr<CFDataRef> data;
     if (WebFrame* frame = WebProcess::shared().webFrame(frameID)) {
-        if (RefPtr<LegacyWebArchive> archive = LegacyWebArchive::create(frame->coreFrame())) {
+        if (RefPtr<LegacyWebArchive> archive = LegacyWebArchive::create(frame->coreFrame()->document())) {
             if ((data = archive->rawDataRepresentation()))
                 dataReference = CoreIPC::DataReference(CFDataGetBytePtr(data.get()), CFDataGetLength(data.get()));
         }
@@ -1301,12 +1295,17 @@ void WebPage::getWebArchiveOfFrame(uint64_t frameID, uint64_t callbackID)
     send(Messages::WebPageProxy::DataCallback(dataReference, callbackID));
 }
 
-void WebPage::forceRepaint(uint64_t callbackID)
+void WebPage::forceRepaintWithoutCallback()
 {
     m_drawingArea->forceRepaint();
+}
+
+void WebPage::forceRepaint(uint64_t callbackID)
+{
+    forceRepaintWithoutCallback();
     send(Messages::WebPageProxy::VoidCallback(callbackID));
 }
-    
+
 void WebPage::preferencesDidChange(const WebPreferencesStore& store)
 {
     WebPreferencesStore::removeTestRunnerOverrides();
@@ -1363,8 +1362,10 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 #if PLATFORM(WIN)
     // Temporarily turn off accelerated compositing until we have a good solution for rendering it.
     settings->setAcceleratedCompositingEnabled(false);
+    settings->setAcceleratedDrawingEnabled(false);
 #else
     settings->setAcceleratedCompositingEnabled(store.getBoolValueForKey(WebPreferencesKey::acceleratedCompositingEnabledKey()));
+    settings->setAcceleratedDrawingEnabled(store.getBoolValueForKey(WebPreferencesKey::acceleratedDrawingEnabledKey()));
 #endif
     settings->setShowDebugBorders(store.getBoolValueForKey(WebPreferencesKey::compositingBordersVisibleKey()));
     settings->setShowRepaintCounter(store.getBoolValueForKey(WebPreferencesKey::compositingRepaintCountersVisibleKey()));
@@ -1664,15 +1665,32 @@ void WebPage::replaceSelectionWithText(Frame* frame, const String& text)
 {
     if (frame->selection()->isNone())
         return;
-    
+
     RefPtr<DocumentFragment> textFragment = createFragmentFromText(frame->selection()->toNormalizedRange().get(), text);
-    applyCommand(ReplaceSelectionCommand::create(frame->document(), textFragment.release(), true, false, true));
+    applyCommand(ReplaceSelectionCommand::create(frame->document(), textFragment.release(), ReplaceSelectionCommand::SelectReplacement | ReplaceSelectionCommand::MatchStyle | ReplaceSelectionCommand::PreventNesting));
     frame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
 bool WebPage::mainFrameHasCustomRepresentation() const
 {
     return static_cast<WebFrameLoaderClient*>(mainFrame()->coreFrame()->loader()->client())->frameHasCustomRepresentation();
+}
+
+void WebPage::didChangeScrollOffsetForMainFrame()
+{
+    Frame* frame = m_page->mainFrame();
+    IntPoint scrollPosition = frame->view()->scrollPosition();
+    IntPoint maximumScrollPosition = frame->view()->maximumScrollPosition();
+
+    bool isPinnedToLeftSide = (scrollPosition.x() <= 0);
+    bool isPinnedToRightSide = (scrollPosition.x() >= maximumScrollPosition.x());
+
+    if (isPinnedToLeftSide != m_cachedMainFrameIsPinnedToLeftSide || isPinnedToRightSide != m_cachedMainFrameIsPinnedToRightSide) {
+        send(Messages::WebPageProxy::DidChangeScrollOffsetPinningForMainFrame(isPinnedToLeftSide, isPinnedToRightSide));
+        
+        m_cachedMainFrameIsPinnedToLeftSide = isPinnedToLeftSide;
+        m_cachedMainFrameIsPinnedToRightSide = isPinnedToRightSide;
+    }
 }
 
 #if PLATFORM(MAC)
@@ -1969,8 +1987,7 @@ void WebPage::computePagesForPrinting(uint64_t frameID, const PrintInfo& printIn
     send(Messages::WebPageProxy::ComputedPagesCallback(resultPageRects, resultTotalScaleFactorForPrinting, callbackID));
 }
 
-#if PLATFORM(MAC)
-// FIXME: Find a better place for Mac specific code.
+#if PLATFORM(MAC) || PLATFORM(WIN)
 void WebPage::drawRectToPDF(uint64_t frameID, const WebCore::IntRect& rect, uint64_t callbackID)
 {
     WebFrame* frame = WebProcess::shared().webFrame(frameID);
@@ -2048,6 +2065,11 @@ void WebPage::runModal()
     send(Messages::WebPageProxy::RunModal());
     RunLoop::run();
     ASSERT(!m_isRunningModal);
+}
+
+void WebPage::setMemoryCacheMessagesEnabled(bool memoryCacheMessagesEnabled)
+{
+    m_page->setMemoryCacheClientCallsEnabled(memoryCacheMessagesEnabled);
 }
 
 } // namespace WebKit

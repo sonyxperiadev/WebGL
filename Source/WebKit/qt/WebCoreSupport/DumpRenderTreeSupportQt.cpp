@@ -45,9 +45,11 @@
 #include "V8GCController.h"
 #include "V8Proxy.h"
 #endif
-#include "Geolocation.h"
-#include "GeolocationServiceMock.h"
-#include "Geoposition.h"
+#include "GeolocationClient.h"
+#include "GeolocationClientMock.h"
+#include "GeolocationController.h"
+#include "GeolocationError.h"
+#include "GeolocationPosition.h"
 #include "HistoryItem.h"
 #include "HTMLInputElement.h"
 #include "InspectorController.h"
@@ -80,9 +82,22 @@
 #include "qwebpage_p.h"
 #include "qwebscriptworld.h"
 
+#if ENABLE(VIDEO) && ENABLE(QT_MULTIMEDIA)
+#include "HTMLVideoElement.h"
+#include "MediaPlayerPrivateQt.h"
+#endif
+
 using namespace WebCore;
 
 QMap<int, QWebScriptWorld*> m_worldMap;
+
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+GeolocationClientMock* toGeolocationClientMock(GeolocationClient* client)
+{
+     ASSERT(QWebPagePrivate::drtRun);
+     return static_cast<GeolocationClientMock*>(client);
+}
+#endif
 
 QDRTNode::QDRTNode()
     : m_node(0)
@@ -603,8 +618,6 @@ bool DumpRenderTreeSupportQt::elementDoesAutoCompleteForElementWithId(QWebFrame*
         return false;
 
     HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(coreNode);
-    if (!inputElement)
-        return false;
 
     return inputElement->isTextField() && !inputElement->isPasswordField() && inputElement->autoComplete();
 }
@@ -717,14 +730,15 @@ void DumpRenderTreeSupportQt::dumpNotification(bool b)
 #endif
 }
 
-QString DumpRenderTreeSupportQt::viewportAsText(QWebPage* page, const QSize& availableSize)
+QString DumpRenderTreeSupportQt::viewportAsText(QWebPage* page, int deviceDPI, const QSize& deviceSize, const QSize& availableSize)
 {
     WebCore::ViewportArguments args = page->d->viewportArguments();
+
     WebCore::ViewportAttributes conf = WebCore::computeViewportAttributes(args,
         /* desktop-width */ 980,
-        /* device-width  */ 320,
-        /* device-height */ 480,
-        /* device-dpi    */ 160,
+        /* device-width  */ deviceSize.width(),
+        /* device-height */ deviceSize.height(),
+        /* device-dpi    */ deviceDPI,
         availableSize);
 
     QString res;
@@ -760,19 +774,50 @@ void DumpRenderTreeSupportQt::setMockDeviceOrientation(bool canProvideAlpha, dou
 #endif
 }
 
-void DumpRenderTreeSupportQt::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
+void DumpRenderTreeSupportQt::resetGeolocationMock(QWebPage* page)
 {
-#if ENABLE(GEOLOCATION)
-    RefPtr<Geoposition> geoposition = Geoposition::create(Coordinates::create(latitude, longitude, false, 0, accuracy, true, 0, false, 0, false, 0), currentTime() * 1000.0);
-    GeolocationServiceMock::setPosition(geoposition);
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    Page* corePage = QWebPagePrivate::core(page);
+    GeolocationClientMock* mockClient = toGeolocationClientMock(corePage->geolocationController()->client());
+    mockClient->reset();
 #endif
 }
 
-void DumpRenderTreeSupportQt::setMockGeolocationError(int errorCode, const QString& message)
+void DumpRenderTreeSupportQt::setMockGeolocationPermission(QWebPage* page, bool allowed)
 {
-#if ENABLE(GEOLOCATION)
-    RefPtr<PositionError> positionError = PositionError::create(static_cast<PositionError::ErrorCode>(errorCode), message);
-    GeolocationServiceMock::setError(positionError);
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    Page* corePage = QWebPagePrivate::core(page);
+    GeolocationClientMock* mockClient = toGeolocationClientMock(corePage->geolocationController()->client());
+    mockClient->setPermission(allowed);
+#endif
+}
+
+void DumpRenderTreeSupportQt::setMockGeolocationPosition(QWebPage* page, double latitude, double longitude, double accuracy)
+{
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    Page* corePage = QWebPagePrivate::core(page);
+    GeolocationClientMock* mockClient = toGeolocationClientMock(corePage->geolocationController()->client());
+    mockClient->setPosition(GeolocationPosition::create(currentTime(), latitude, longitude, accuracy));
+#endif
+}
+
+void DumpRenderTreeSupportQt::setMockGeolocationError(QWebPage* page, int errorCode, const QString& message)
+{
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    Page* corePage = QWebPagePrivate::core(page);
+
+    GeolocationError::ErrorCode code = GeolocationError::PositionUnavailable;
+    switch (errorCode) {
+    case PositionError::PERMISSION_DENIED:
+        code = GeolocationError::PermissionDenied;
+        break;
+    case PositionError::POSITION_UNAVAILABLE:
+        code = GeolocationError::PositionUnavailable;
+        break;
+    }
+
+    GeolocationClientMock* mockClient = static_cast<GeolocationClientMock*>(corePage->geolocationController()->client());
+    mockClient->setError(GeolocationError::create(code, message));
 #endif
 }
 
@@ -911,6 +956,12 @@ QString DumpRenderTreeSupportQt::responseMimeType(QWebFrame* frame)
     return docLoader->responseMIMEType();
 }
 
+void DumpRenderTreeSupportQt::clearOpener(QWebFrame* frame)
+{
+    WebCore::Frame* coreFrame = QWebFramePrivate::core(frame);
+    coreFrame->loader()->setOpener(0);
+}
+
 void DumpRenderTreeSupportQt::addURLToRedirect(const QString& origin, const QString& destination)
 {
     FrameLoaderClientQt::URLsToRedirect[origin] = destination;
@@ -942,6 +993,51 @@ QStringList DumpRenderTreeSupportQt::contextMenu(QWebPage* page)
     return QStringList();
 #endif
 }
+
+double DumpRenderTreeSupportQt::defaultMinimumTimerInterval()
+{
+    return Settings::defaultMinDOMTimerInterval();
+}
+
+void DumpRenderTreeSupportQt::setMinimumTimerInterval(QWebPage* page, double interval)
+{
+    Page* corePage = QWebPagePrivate::core(page);
+    if (!corePage)
+        return;
+
+    corePage->settings()->setMinDOMTimerInterval(interval);
+}
+
+QUrl DumpRenderTreeSupportQt::mediaContentUrlByElementId(QWebFrame* frame, const QString& elementId)
+{
+    QUrl res;
+
+#if ENABLE(VIDEO) && ENABLE(QT_MULTIMEDIA)
+    Frame* coreFrame = QWebFramePrivate::core(frame);
+    if (!coreFrame)
+        return res;
+
+    Document* doc = coreFrame->document();
+    if (!doc)
+        return res;
+
+    Node* coreNode = doc->getElementById(elementId);
+    if (!coreNode)
+        return res;
+
+    HTMLVideoElement* videoElement = static_cast<HTMLVideoElement*>(coreNode);
+    PlatformMedia platformMedia = videoElement->platformMedia();
+    if (platformMedia.type != PlatformMedia::QtMediaPlayerType)
+        return res;
+
+    MediaPlayerPrivateQt* mediaPlayerQt = static_cast<MediaPlayerPrivateQt*>(platformMedia.media.qtMediaPlayer);
+    if (mediaPlayerQt && mediaPlayerQt->mediaPlayer())
+        res = mediaPlayerQt->mediaPlayer()->media().canonicalUrl();
+#endif
+
+    return res;
+}
+
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release
 
 void QWEBKIT_EXPORT qt_resumeActiveDOMObjects(QWebFrame* frame)

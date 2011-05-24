@@ -39,11 +39,6 @@ WebInspector.DOMStorage.prototype = {
         return this._id;
     },
 
-    get domStorage()
-    {
-        return this._domStorage;
-    },
-
     get domain()
     {
         return this._domain;
@@ -56,17 +51,17 @@ WebInspector.DOMStorage.prototype = {
 
     getEntries: function(callback)
     {
-        InspectorBackend.getDOMStorageEntries(this._id, callback);
+        DOMStorageAgent.getDOMStorageEntries(this._id, callback);
     },
     
     setItem: function(key, value, callback)
     {
-        InspectorBackend.setDOMStorageItem(this._id, key, value, callback);
+        DOMStorageAgent.setDOMStorageItem(this._id, key, value, callback);
     },
     
     removeItem: function(key, callback)
     {
-        InspectorBackend.removeDOMStorageItem(this._id, key, callback);
+        DOMStorageAgent.removeDOMStorageItem(this._id, key, callback);
     }
 }
 
@@ -85,12 +80,6 @@ WebInspector.DOMStorageDispatcher.prototype = {
             payload.host,
             payload.isLocalStorage);
         WebInspector.panels.resources.addDOMStorage(domStorage);
-    },
-
-    selectDOMStorage: function(o)
-    {
-        WebInspector.showPanel("resources");
-        WebInspector.panels.resources.selectDOMStorage(o);
     },
 
     updateDOMStorage: function(storageId)

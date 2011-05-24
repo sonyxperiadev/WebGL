@@ -42,10 +42,10 @@
 #include "InspectorAgent.h"
 #include "InspectorClient.h"
 #include "InspectorConsoleAgent.h"
-#include "InspectorDOMAgent.h"
 #include "InspectorDOMStorageAgent.h"
 #include "InspectorDatabaseAgent.h"
 #include "InspectorFrontend.h"
+#include "InspectorValues.h"
 #include "Pasteboard.h"
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -80,17 +80,30 @@ InjectedScriptHost::~InjectedScriptHost()
 {
 }
 
-void InjectedScriptHost::evaluateOnSelf(const String& functionBody, PassRefPtr<InspectorArray> argumentsArray, RefPtr<InspectorValue>* result)
+void InjectedScriptHost::inspectImpl(PassRefPtr<InspectorValue> objectId, PassRefPtr<InspectorValue> hints)
 {
-    InjectedScript injectedScript = injectedScriptForMainFrame();
-    if (!injectedScript.hasNoValue())
-        injectedScript.evaluateOnSelf(functionBody, argumentsArray, result);
+    if (InspectorFrontend* fe = frontend())
+        fe->inspector()->inspect(objectId->asObject(), hints->asObject());
 }
 
 void InjectedScriptHost::clearConsoleMessages()
 {
-    if (m_inspectorAgent)
-        m_inspectorAgent->consoleAgent()->clearConsoleMessages();
+    if (m_inspectorAgent) {
+        ErrorString error;
+        m_inspectorAgent->consoleAgent()->clearConsoleMessages(&error);
+    }
+}
+
+void InjectedScriptHost::addInspectedNode(Node* node)
+{
+    m_inspectedNodes.prepend(node);
+    while (m_inspectedNodes.size() > 5)
+        m_inspectedNodes.removeLast();
+}
+
+void InjectedScriptHost::clearInspectedNodes()
+{
+    m_inspectedNodes.clear();
 }
 
 void InjectedScriptHost::copyText(const String& text)
@@ -98,55 +111,28 @@ void InjectedScriptHost::copyText(const String& text)
     Pasteboard::generalPasteboard()->writePlainText(text);
 }
 
-Node* InjectedScriptHost::nodeForId(long nodeId)
+Node* InjectedScriptHost::inspectedNode(unsigned long num)
 {
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        return domAgent->nodeForId(nodeId);
+    if (num < m_inspectedNodes.size())
+        return m_inspectedNodes[num].get();
     return 0;
-}
-
-long InjectedScriptHost::pushNodePathToFrontend(Node* node, bool withChildren, bool selectInUI)
-{
-    InspectorDOMAgent* domAgent = inspectorDOMAgent();
-    if (!domAgent || !frontend())
-        return 0;
-    long id = domAgent->pushNodePathToFrontend(node);
-    if (withChildren)
-        domAgent->pushChildNodesToFrontend(id);
-    if (selectInUI)
-        frontend()->updateFocusedNode(id);
-    return id;
-}
-
-long InjectedScriptHost::inspectedNode(unsigned long num)
-{
-    InspectorDOMAgent* domAgent = inspectorDOMAgent();
-    if (!domAgent)
-        return 0;
-
-    return domAgent->inspectedNode(num);
 }
 
 #if ENABLE(DATABASE)
-Database* InjectedScriptHost::databaseForId(long databaseId)
+long InjectedScriptHost::databaseIdImpl(Database* database)
 {
     if (m_inspectorAgent && m_inspectorAgent->databaseAgent())
-        return m_inspectorAgent->databaseAgent()->databaseForId(databaseId);
+        return m_inspectorAgent->databaseAgent()->databaseId(database);
     return 0;
-}
-
-void InjectedScriptHost::selectDatabase(Database* database)
-{
-    if (m_inspectorAgent && m_inspectorAgent->databaseAgent())
-        m_inspectorAgent->databaseAgent()->selectDatabase(database);
 }
 #endif
 
 #if ENABLE(DOM_STORAGE)
-void InjectedScriptHost::selectDOMStorage(Storage* storage)
+long InjectedScriptHost::storageIdImpl(Storage* storage)
 {
     if (m_inspectorAgent && m_inspectorAgent->domStorageAgent())
-        m_inspectorAgent->domStorageAgent()->selectDOMStorage(storage);
+        return m_inspectorAgent->domStorageAgent()->storageId(storage);
+    return 0;
 }
 #endif
 
@@ -177,24 +163,17 @@ void InjectedScriptHost::discardInjectedScripts()
     m_idToInjectedScript.clear();
 }
 
-void InjectedScriptHost::releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup)
+void InjectedScriptHost::releaseObjectGroup(long injectedScriptId, const String& objectGroup)
 {
     if (injectedScriptId) {
          InjectedScript injectedScript = m_idToInjectedScript.get(injectedScriptId);
          if (!injectedScript.hasNoValue())
-             injectedScript.releaseWrapperObjectGroup(objectGroup);
+             injectedScript.releaseObjectGroup(objectGroup);
     } else {
          // Iterate over all injected scripts if injectedScriptId is not specified.
          for (IdToInjectedScriptMap::iterator it = m_idToInjectedScript.begin(); it != m_idToInjectedScript.end(); ++it)
-              it->second.releaseWrapperObjectGroup(objectGroup);
+              it->second.releaseObjectGroup(objectGroup);
     }
-}
-
-InspectorDOMAgent* InjectedScriptHost::inspectorDOMAgent()
-{
-    if (!m_inspectorAgent)
-        return 0;
-    return m_inspectorAgent->domAgent();
 }
 
 InspectorFrontend* InjectedScriptHost::frontend()

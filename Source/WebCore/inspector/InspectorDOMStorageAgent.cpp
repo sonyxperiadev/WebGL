@@ -39,21 +39,47 @@
 #include "InspectorDOMStorageResource.h"
 #include "InspectorFrontend.h"
 #include "InspectorValues.h"
+#include "InstrumentingAgents.h"
 #include "Storage.h"
+#include "StorageArea.h"
 #include "VoidCallback.h"
 
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-InspectorDOMStorageAgent::~InspectorDOMStorageAgent()
+typedef HashMap<int, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
+
+InspectorDOMStorageAgent::InspectorDOMStorageAgent(InstrumentingAgents* instrumentingAgents)
+    : m_instrumentingAgents(instrumentingAgents)
+    , m_frontend(0)
 {
-    DOMStorageResourcesMap::iterator domStorageEnd = m_domStorageResources->end();
-    for (DOMStorageResourcesMap::iterator it = m_domStorageResources->begin(); it != domStorageEnd; ++it)
-        it->second->unbind();
+    m_instrumentingAgents->setInspectorDOMStorageAgent(this);
 }
 
-void InspectorDOMStorageAgent::getDOMStorageEntries(long storageId, RefPtr<InspectorArray>* entries)
+InspectorDOMStorageAgent::~InspectorDOMStorageAgent()
+{
+    m_instrumentingAgents->setInspectorDOMStorageAgent(0);
+    m_instrumentingAgents = 0;
+}
+
+void InspectorDOMStorageAgent::setFrontend(InspectorFrontend* frontend)
+{
+    m_frontend = frontend;
+    DOMStorageResourcesMap::iterator resourcesEnd = m_resources.end();
+    for (DOMStorageResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it)
+        it->second->bind(m_frontend);
+}
+
+void InspectorDOMStorageAgent::clearFrontend()
+{
+    DOMStorageResourcesMap::iterator domStorageEnd = m_resources.end();
+    for (DOMStorageResourcesMap::iterator it = m_resources.begin(); it != domStorageEnd; ++it)
+        it->second->unbind();
+    m_frontend = 0;
+}
+
+void InspectorDOMStorageAgent::getDOMStorageEntries(ErrorString*, long storageId, RefPtr<InspectorArray>* entries)
 {
     InspectorDOMStorageResource* storageResource = getDOMStorageResourceForId(storageId);
     if (storageResource) {
@@ -70,7 +96,7 @@ void InspectorDOMStorageAgent::getDOMStorageEntries(long storageId, RefPtr<Inspe
     }
 }
 
-void InspectorDOMStorageAgent::setDOMStorageItem(long storageId, const String& key, const String& value, bool* success)
+void InspectorDOMStorageAgent::setDOMStorageItem(ErrorString*, long storageId, const String& key, const String& value, bool* success)
 {
     InspectorDOMStorageResource* storageResource = getDOMStorageResourceForId(storageId);
     if (storageResource) {
@@ -80,7 +106,7 @@ void InspectorDOMStorageAgent::setDOMStorageItem(long storageId, const String& k
     }
 }
 
-void InspectorDOMStorageAgent::removeDOMStorageItem(long storageId, const String& key, bool* success)
+void InspectorDOMStorageAgent::removeDOMStorageItem(ErrorString*, long storageId, const String& key, bool* success)
 {
     InspectorDOMStorageResource* storageResource = getDOMStorageResourceForId(storageId);
     if (storageResource) {
@@ -89,40 +115,51 @@ void InspectorDOMStorageAgent::removeDOMStorageItem(long storageId, const String
     }
 }
 
-void InspectorDOMStorageAgent::selectDOMStorage(Storage* storage)
+long InspectorDOMStorageAgent::storageId(Storage* storage)
 {
     ASSERT(storage);
-    if (!m_frontend)
-        return;
-
     Frame* frame = storage->frame();
     ExceptionCode ec = 0;
     bool isLocalStorage = (frame->domWindow()->localStorage(ec) == storage && !ec);
-    long storageResourceId = 0;
-    DOMStorageResourcesMap::iterator domStorageEnd = m_domStorageResources->end();
-    for (DOMStorageResourcesMap::iterator it = m_domStorageResources->begin(); it != domStorageEnd; ++it) {
-        if (it->second->isSameHostAndType(frame, isLocalStorage)) {
-            storageResourceId = it->first;
-            break;
-        }
+    DOMStorageResourcesMap::iterator domStorageEnd = m_resources.end();
+    for (DOMStorageResourcesMap::iterator it = m_resources.begin(); it != domStorageEnd; ++it) {
+        if (it->second->isSameHostAndType(frame, isLocalStorage))
+            return it->first;
     }
-    if (storageResourceId)
-        m_frontend->selectDOMStorage(storageResourceId);
-}
-
-InspectorDOMStorageAgent::InspectorDOMStorageAgent(DOMStorageResourcesMap* domStorageResources, InspectorFrontend* frontend)
-    : m_domStorageResources(domStorageResources)
-    , m_frontend(frontend)
-{
+    return 0;
 }
 
 InspectorDOMStorageResource* InspectorDOMStorageAgent::getDOMStorageResourceForId(long storageId)
 {
-    DOMStorageResourcesMap::iterator it = m_domStorageResources->find(storageId);
-    if (it == m_domStorageResources->end())
+    DOMStorageResourcesMap::iterator it = m_resources.find(storageId);
+    if (it == m_resources.end())
         return 0;
     return it->second.get();
 }
+
+void InspectorDOMStorageAgent::didUseDOMStorage(StorageArea* storageArea, bool isLocalStorage, Frame* frame)
+{
+    DOMStorageResourcesMap::iterator domStorageEnd = m_resources.end();
+    for (DOMStorageResourcesMap::iterator it = m_resources.begin(); it != domStorageEnd; ++it) {
+        if (it->second->isSameHostAndType(frame, isLocalStorage))
+            return;
+    }
+
+    RefPtr<Storage> domStorage = Storage::create(frame, storageArea);
+    RefPtr<InspectorDOMStorageResource> resource = InspectorDOMStorageResource::create(domStorage.get(), isLocalStorage, frame);
+
+    m_resources.set(resource->id(), resource);
+
+    // Resources are only bound while visible.
+    if (m_frontend)
+        resource->bind(m_frontend);
+}
+
+void InspectorDOMStorageAgent::clearResources()
+{
+    m_resources.clear();
+}
+
 
 } // namespace WebCore
 

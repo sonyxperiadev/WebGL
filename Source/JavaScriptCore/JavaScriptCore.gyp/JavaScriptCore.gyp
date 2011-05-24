@@ -32,7 +32,7 @@
   'includes': [
     # FIXME: Sense whether upstream or downstream build, and
     # include the right features.gypi
-    '../../../Source/WebKit/chromium/features.gypi',
+    '../../WebKit/chromium/features.gypi',
     '../JavaScriptCore.gypi',
   ],
   'variables': {
@@ -40,7 +40,7 @@
     'conditions': [
       ['inside_chromium_build==0', {
         # Webkit is being built outside of the full chromium project.
-        'chromium_src_dir': '../../../Source/WebKit/chromium',
+        'chromium_src_dir': '../../WebKit/chromium',
       },{
         # WebKit is checked out in src/chromium/third_party/WebKit
         'chromium_src_dir': '../../../../..',
@@ -106,6 +106,8 @@
         '../wtf/unicode',
       ],
       'sources': [
+        '<@(javascriptcore_publicheader_files)',
+        '<@(javascriptcore_privateheader_files)',
         '<@(javascriptcore_files)',
       ],
       'sources/': [
@@ -113,10 +115,27 @@
         ['exclude', '../'],
         # ... Then include what we want.
         ['include', '../wtf/'],
+        # FIXME: This is clearly not sustainable. 
+        ['exclude', '../wtf/android'], 
+        ['exclude', '../wtf/brew'], 
+        ['exclude', '../wtf/efl'], 
+        ['exclude', '../wtf/gobject'], 
+        ['exclude', '../wtf/gtk'], 
+        ['exclude', '../wtf/haiku'], 
+        ['exclude', '../wtf/mac'], 
+        ['exclude', '../wtf/qt'], 
+        ['exclude', '../wtf/url'], 
+        ['exclude', '../wtf/wince'], 
+        ['exclude', '../wtf/wx'], 
+        ['exclude', '../wtf/unicode/brew'], 
+        ['exclude', '../wtf/unicode/wince'], 
+        ['exclude', '../wtf/unicode/glib'], 
+        ['exclude', '../wtf/unicode/qt4'], 
         # GLib/GTK, even though its name doesn't really indicate.
         ['exclude', '/(gtk|glib|gobject)/.*\\.(cpp|h)$'],
-        ['exclude', '(Default|Gtk|Mac|None|Qt|Win|Wx)\\.(cpp|mm)$'],
+        ['exclude', '(Default|Gtk|Mac|None|Qt|Win|Wx|Efl|Symbian)\\.(cpp|mm)$'],
         ['exclude', 'wtf/CurrentTime\\.cpp$'],
+        ['exclude', 'wtf/OSRandomSource\\.cpp$'],
         ['exclude', 'wtf/MainThread.cpp$'],
         ['exclude', 'wtf/TC.*\\.(cpp|h)$'],
       ],

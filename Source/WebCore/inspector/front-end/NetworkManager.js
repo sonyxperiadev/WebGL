@@ -33,7 +33,7 @@ WebInspector.NetworkManager = function(resourceTreeModel)
     WebInspector.Object.call(this);
     this._resourceTreeModel = resourceTreeModel;
     this._dispatcher = new WebInspector.NetworkDispatcher(resourceTreeModel, this);
-    InspectorBackend.cachedResources(this._processCachedResources.bind(this));
+    NetworkAgent.enable(this._processCachedResources.bind(this));
 }
 
 WebInspector.NetworkManager.EventTypes = {
@@ -44,11 +44,11 @@ WebInspector.NetworkManager.EventTypes = {
 }
 
 WebInspector.NetworkManager.prototype = {
-    reset: function()
+    frontendReused: function()
     {
         WebInspector.panels.network.clear();
         this._resourceTreeModel.reset();
-        InspectorBackend.cachedResources(this._processCachedResources.bind(this));
+        NetworkAgent.enable(this._processCachedResources.bind(this));
     },
 
     requestContent: function(resource, base64Encode, callback)
@@ -57,7 +57,7 @@ WebInspector.NetworkManager.prototype = {
         {
             callback(success ? content : null);
         }
-        InspectorBackend.resourceContent(resource.loader.frameId, resource.url, base64Encode, callbackWrapper);
+        NetworkAgent.resourceContent(resource.loader.frameId, resource.url, base64Encode, callbackWrapper);
     },
 
     _processCachedResources: function(mainFramePayload)

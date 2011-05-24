@@ -47,6 +47,7 @@
 #include "InspectorFrontend.h"
 #include "InspectorState.h"
 #include "InspectorValues.h"
+#include "InstrumentingAgents.h"
 #include "KURL.h"
 #include "Page.h"
 #include "ProgressTracker.h"
@@ -72,11 +73,21 @@ static const char resourceAgentEnabled[] = "resourceAgentEnabled";
 static const char extraRequestHeaders[] = "extraRequestHeaders";
 }
 
-PassRefPtr<InspectorResourceAgent> InspectorResourceAgent::restore(Page* page, InspectorState* state, InspectorFrontend* frontend)
+void InspectorResourceAgent::setFrontend(InspectorFrontend* frontend)
 {
-    if (state->getBoolean(ResourceAgentState::resourceAgentEnabled))
-        return create(page, state, frontend);
-    return 0;
+    m_frontend = frontend->network();
+}
+
+void InspectorResourceAgent::clearFrontend()
+{
+    m_frontend = 0;
+    disable(0);
+}
+
+void InspectorResourceAgent::restore()
+{
+    if (m_state->getBoolean(ResourceAgentState::resourceAgentEnabled))
+        enable();
 }
 
 bool InspectorResourceAgent::resourceContent(Frame* frame, const KURL& url, String* result)
@@ -107,7 +118,7 @@ bool InspectorResourceAgent::resourceContentBase64(Frame* frame, const KURL& url
         return false;
     }
 
-    *result = base64Encode(data->buffer());
+    *result = base64Encode(data->data(), data->size());
     return true;
 }
 
@@ -296,7 +307,7 @@ static void populateObjectWithFrameResources(Frame* frame, PassRefPtr<InspectorO
 
 InspectorResourceAgent::~InspectorResourceAgent()
 {
-    m_state->setBoolean(ResourceAgentState::resourceAgentEnabled, false);
+    ASSERT(!m_instrumentingAgents->inspectorResourceAgent());
 }
 
 void InspectorResourceAgent::identifierForInitialRequest(unsigned long identifier, const KURL& url, DocumentLoader* loader)
@@ -311,7 +322,7 @@ void InspectorResourceAgent::identifierForInitialRequest(unsigned long identifie
     m_frontend->identifierForInitialRequest(identifier, url.string(), loaderObject, callStackValue);
 }
 
-void InspectorResourceAgent::setExtraHeaders(PassRefPtr<InspectorObject> headers)
+void InspectorResourceAgent::setExtraHeaders(ErrorString*, PassRefPtr<InspectorObject> headers)
 {
     m_state->setObject(ResourceAgentState::extraRequestHeaders, headers);
 }
@@ -498,12 +509,27 @@ Frame* InspectorResourceAgent::frameForId(unsigned long frameId)
     return 0;
 }
 
-void InspectorResourceAgent::cachedResources(RefPtr<InspectorObject>* object)
+void InspectorResourceAgent::enable(ErrorString*, RefPtr<InspectorObject>* object)
 {
+    enable();
     *object = buildObjectForFrameTree(m_page->mainFrame(), true);
 }
 
-void InspectorResourceAgent::resourceContent(unsigned long frameId, const String& url, bool base64Encode, bool* success, String* content)
+void InspectorResourceAgent::enable()
+{
+    if (!m_frontend)
+        return;
+    m_state->setBoolean(ResourceAgentState::resourceAgentEnabled, true);
+    m_instrumentingAgents->setInspectorResourceAgent(this);
+}
+
+void InspectorResourceAgent::disable(ErrorString*)
+{
+    m_state->setBoolean(ResourceAgentState::resourceAgentEnabled, false);
+    m_instrumentingAgents->setInspectorResourceAgent(0);
+}
+
+void InspectorResourceAgent::resourceContent(ErrorString*, unsigned long frameId, const String& url, bool base64Encode, bool* success, String* content)
 {
     Frame* frame = frameForId(frameId);
     if (!frame) {
@@ -516,12 +542,12 @@ void InspectorResourceAgent::resourceContent(unsigned long frameId, const String
         *success = InspectorResourceAgent::resourceContent(frame, KURL(ParsedURLString, url), content);
 }
 
-InspectorResourceAgent::InspectorResourceAgent(Page* page, InspectorState* state, InspectorFrontend* frontend)
-    : m_page(page)
+InspectorResourceAgent::InspectorResourceAgent(InstrumentingAgents* instrumentingAgents, Page* page, InspectorState* state)
+    : m_instrumentingAgents(instrumentingAgents)
+    , m_page(page)
     , m_state(state)
-    , m_frontend(frontend)
+    , m_frontend(0)
 {
-    m_state->setBoolean(ResourceAgentState::resourceAgentEnabled, true);
 }
 
 } // namespace WebCore

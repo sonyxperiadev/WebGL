@@ -689,9 +689,6 @@ sub GenerateHeader
         push(@headerContent, "    $className(NonNullPassRefPtr<JSC::Structure>, JSDOMGlobalObject*, PassRefPtr<$implType>);\n");
     }
 
-    # Destructor
-    push(@headerContent, "    virtual ~$className();\n") if (!$hasParent or $eventTarget or $interfaceName eq "DOMWindow");
-
     # Prototype
     push(@headerContent, "    static JSC::JSObject* createPrototype(JSC::ExecState*, JSC::JSGlobalObject*);\n") unless ($dataNode->extendedAttributes->{"ExtendsDOMGlobalObject"});
 
@@ -741,7 +738,6 @@ sub GenerateHeader
     }
 
     # Class info
-    push(@headerContent, "    virtual const JSC::ClassInfo* classInfo() const { return &s_info; }\n");
     push(@headerContent, "    static const JSC::ClassInfo s_info;\n\n");
 
     # Structure ID
@@ -752,7 +748,7 @@ sub GenerateHeader
     push(@headerContent,
         "    static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)\n" .
         "    {\n" .
-        "        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount);\n" .
+        "        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);\n" .
         "    }\n\n");
 
     # markChildren function
@@ -762,7 +758,7 @@ sub GenerateHeader
     }
 
     # Custom pushEventHandlerScope function
-    push(@headerContent, "    virtual void pushEventHandlerScope(JSC::ExecState*, JSC::ScopeChain&) const;\n\n") if $dataNode->extendedAttributes->{"CustomPushEventHandlerScope"};
+    push(@headerContent, "    virtual JSC::ScopeChainNode* pushEventHandlerScope(JSC::ExecState*, JSC::ScopeChainNode*) const;\n\n") if $dataNode->extendedAttributes->{"CustomPushEventHandlerScope"};
 
     # Custom call functions
     push(@headerContent, "    virtual JSC::CallType getCallData(JSC::CallData&);\n\n") if $dataNode->extendedAttributes->{"CustomCall"};
@@ -950,7 +946,6 @@ sub GenerateHeader
     } else {
         push(@headerContent, "    static JSC::JSObject* self(JSC::ExecState*, JSC::JSGlobalObject*);\n");
     }
-    push(@headerContent, "    virtual const JSC::ClassInfo* classInfo() const { return &s_info; }\n");
     push(@headerContent, "    static const JSC::ClassInfo s_info;\n");
     if ($numFunctions > 0 || $numConstants > 0 || $dataNode->extendedAttributes->{"DelegatingPrototypeGetOwnPropertySlot"}) {
         push(@headerContent, "    virtual bool getOwnPropertySlot(JSC::ExecState*, const JSC::Identifier&, JSC::PropertySlot&);\n");
@@ -965,7 +960,7 @@ sub GenerateHeader
     push(@headerContent,
         "    static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)\n" .
         "    {\n" .
-        "        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount);\n" .
+        "        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);\n" .
         "    }\n");
     if ($dataNode->extendedAttributes->{"DelegatingPrototypePutFunction"}) {
         push(@headerContent, "    virtual void put(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValue, JSC::PutPropertySlot&);\n");
@@ -1310,9 +1305,9 @@ sub GenerateImplementation
         push(@implContent, "{\n");
         push(@implContent, "    return getHashTableForGlobalData(exec->globalData(), &${className}PrototypeTable);\n");
         push(@implContent, "}\n");
-        push(@implContent, "const ClassInfo ${className}Prototype::s_info = { \"${visibleClassName}Prototype\", 0, 0, get${className}PrototypeTable };\n\n");
+        push(@implContent, "const ClassInfo ${className}Prototype::s_info = { \"${visibleClassName}Prototype\", &JSC::JSObjectWithGlobalObject::s_info, 0, get${className}PrototypeTable };\n\n");
     } else {
-        push(@implContent, "const ClassInfo ${className}Prototype::s_info = { \"${visibleClassName}Prototype\", 0, &${className}PrototypeTable, 0 };\n\n");
+        push(@implContent, "const ClassInfo ${className}Prototype::s_info = { \"${visibleClassName}Prototype\", &JSC::JSObjectWithGlobalObject::s_info, &${className}PrototypeTable, 0 };\n\n");
     }
     if ($interfaceName eq "DOMWindow") {
         push(@implContent, "void* ${className}Prototype::operator new(size_t size)\n");
@@ -1386,12 +1381,8 @@ sub GenerateImplementation
         push(@implContent, "    return getHashTableForGlobalData(exec->globalData(), &${className}Table);\n");
         push(@implContent, "}\n");
     }
-    push(@implContent, "const ClassInfo $className" . "::s_info = { \"${visibleClassName}\", ");
-    if ($hasParent) {
-        push(@implContent, "&" . $parentClassName . "::s_info, ");
-    } else {
-        push(@implContent, "0, ");
-    }
+
+    push(@implContent, "const ClassInfo $className" . "::s_info = { \"${visibleClassName}\", &" . $parentClassName . "::s_info, ");
 
     if ($numAttributes > 0 && !$dataNode->extendedAttributes->{"NoStaticTables"}) {
         push(@implContent, "&${className}Table");
@@ -1432,32 +1423,12 @@ sub GenerateImplementation
         }
     }
     push(@implContent, "{\n");
+    push(@implContent, "    ASSERT(inherits(&s_info));\n");
     if ($numCachedAttributes > 0) {
         push(@implContent, "    for (unsigned i = Base::AnonymousSlotCount; i < AnonymousSlotCount; i++)\n");
         push(@implContent, "        putAnonymousValue(globalObject->globalData(), i, JSValue());\n");
     }
     push(@implContent, "}\n\n");
-
-    # Destructor
-    if (!$hasParent || $eventTarget) {
-        push(@implContent, "${className}::~$className()\n");
-        push(@implContent, "{\n");
-
-        if ($eventTarget) {
-            $implIncludes{"RegisteredEventListener.h"} = 1;
-            push(@implContent, "    impl()->invalidateJSEventListeners(this);\n");
-        }
-
-        if (!$dataNode->extendedAttributes->{"ExtendsDOMGlobalObject"}) {
-            if ($interfaceName eq "Node") {
-                 push(@implContent, "    forgetDOMNode(this, impl(), impl()->document());\n");
-            } else {
-                push(@implContent, "    forgetDOMObject(this, impl());\n");
-            }
-        }
-
-        push(@implContent, "}\n\n");
-    }
 
     if ($needsMarkChildren && !$dataNode->extendedAttributes->{"CustomMarkFunction"}) {
         push(@implContent, "void ${className}::markChildren(MarkStack& markStack)\n");
@@ -2039,7 +2010,7 @@ sub GenerateImplementation
                                 }
                             }
 
-                            push(@implContent, "    " . GetNativeTypeFromSignature($parameter) . " $name = " . JSValueToNative($parameter, "exec->argument($argsIndex)") . ";\n");
+                            push(@implContent, "    " . GetNativeTypeFromSignature($parameter) . " $name(" . JSValueToNative($parameter, "exec->argument($argsIndex)") . ");\n");
 
                             # If a parameter is "an index" and it's negative it should throw an INDEX_SIZE_ERR exception.
                             # But this needs to be done in the bindings, because the type is unsigned and the fact that it
@@ -2398,7 +2369,6 @@ my %nativeType = (
     "NodeFilter" => "RefPtr<NodeFilter>",
     "SerializedScriptValue" => "RefPtr<SerializedScriptValue>",
     "IDBKey" => "RefPtr<IDBKey>",
-    "SVGPaintType" => "SVGPaint::SVGPaintType",
     "boolean" => "bool",
     "double" => "double",
     "float" => "float",
@@ -2485,7 +2455,6 @@ sub JSValueToNative
 
     return "valueToDate(exec, $value)" if $type eq "Date";
     return "static_cast<Range::CompareHow>($value.toInt32(exec))" if $type eq "CompareHow";
-    return "static_cast<SVGPaint::SVGPaintType>($value.toInt32(exec))" if $type eq "SVGPaintType";
 
     if ($type eq "DOMString") {
         return "valueToStringWithNullCheck(exec, $value)" if $signature->extendedAttributes->{"ConvertNullToNullString"} || $signature->extendedAttributes->{"Reflect"};
@@ -2494,12 +2463,12 @@ sub JSValueToNative
     }
 
     if ($type eq "DOMObject") {
-        return "$value";
+        return "exec->globalData(), $value";
     }
 
     if ($type eq "MediaQueryListListener") {
         $implIncludes{"MediaQueryListListener.h"} = 1;
-        return "MediaQueryListListener::create(" . $value .")";
+        return "MediaQueryListListener::create(ScriptValue(exec->globalData(), " . $value ."))";
     }
 
     if ($type eq "SerializedScriptValue" or $type eq "any") {
@@ -2544,7 +2513,7 @@ sub NativeToJSValue
         return "jsNumber(std::max(0, " . $value . "))";
     }
 
-    if ($codeGenerator->IsPrimitiveType($type) or $type eq "SVGPaintType" or $type eq "DOMTimeStamp") {
+    if ($codeGenerator->IsPrimitiveType($type) or $type eq "DOMTimeStamp") {
         $implIncludes{"<runtime/JSNumberCell.h>"} = 1;
         return "jsNumber($value)";
     }
@@ -2902,12 +2871,11 @@ sub GenerateConstructorDeclaration
 
     push(@$outputArray, "    virtual bool getOwnPropertySlot(JSC::ExecState*, const JSC::Identifier&, JSC::PropertySlot&);\n");
     push(@$outputArray, "    virtual bool getOwnPropertyDescriptor(JSC::ExecState*, const JSC::Identifier&, JSC::PropertyDescriptor&);\n");
-    push(@$outputArray, "    virtual const JSC::ClassInfo* classInfo() const { return &s_info; }\n");
     push(@$outputArray, "    static const JSC::ClassInfo s_info;\n");
 
     push(@$outputArray, "    static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)\n");
     push(@$outputArray, "    {\n");
-    push(@$outputArray, "        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount);\n");
+    push(@$outputArray, "        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);\n");
     push(@$outputArray, "    }\n");
 
     push(@$outputArray, "protected:\n");
@@ -2936,11 +2904,12 @@ sub GenerateConstructorDefinition
     my $callWith = $dataNode->extendedAttributes->{"CallWith"};
     my $numberOfconstructParameters = $dataNode->extendedAttributes->{"ConstructorParameters"};
 
-    push(@$outputArray, "const ClassInfo ${constructorClassName}::s_info = { \"${visibleClassName}Constructor\", 0, &${constructorClassName}Table, 0 };\n\n");
+    push(@$outputArray, "const ClassInfo ${constructorClassName}::s_info = { \"${visibleClassName}Constructor\", &DOMConstructorObject::s_info, &${constructorClassName}Table, 0 };\n\n");
 
     push(@$outputArray, "${constructorClassName}::${constructorClassName}(ExecState* exec, JSDOMGlobalObject* globalObject)\n");
     push(@$outputArray, "    : DOMConstructorObject(${constructorClassName}::createStructure(globalObject->objectPrototype()), globalObject)\n");
     push(@$outputArray, "{\n");
+    push(@$outputArray, "    ASSERT(inherits(&s_info));\n");
     if ($interfaceName eq "DOMWindow") {
         push(@$outputArray, "    putDirect(exec->globalData(), exec->propertyNames().prototype, globalObject->prototype(), DontDelete | ReadOnly);\n");
     } else {

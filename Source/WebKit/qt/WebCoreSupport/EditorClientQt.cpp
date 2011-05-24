@@ -238,11 +238,6 @@ bool EditorClientQt::selectWordBeforeMenuEvent()
     return false;
 }
 
-bool EditorClientQt::isEditable()
-{ 
-    return m_page->isContentEditable();
-}
-
 void EditorClientQt::registerCommandForUndo(WTF::PassRefPtr<WebCore::EditCommand> cmd)
 {
 #ifndef QT_NO_UNDOSTACK
@@ -262,6 +257,16 @@ void EditorClientQt::clearUndoRedoOperations()
 #ifndef QT_NO_UNDOSTACK
     return m_page->undoStack()->clear();
 #endif
+}
+
+bool EditorClientQt::canCopyCut(bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientQt::canPaste(bool defaultValue) const
+{
+    return defaultValue;
 }
 
 bool EditorClientQt::canUndo() const
@@ -410,7 +415,7 @@ void EditorClientQt::handleKeyboardEvent(KeyboardEvent* event)
     if (!kevent || kevent->type() == PlatformKeyboardEvent::KeyUp)
         return;
 
-    Node* start = frame->selection()->start().node();
+    Node* start = frame->selection()->start().containerNode();
     if (!start)
         return;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All Rights Reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
@@ -176,6 +176,7 @@ Page::Page(const PageClients& pageClients)
     , m_customHTMLTokenizerChunkSize(-1)
     , m_canStartMedia(true)
     , m_viewMode(ViewModeWindowed)
+    , m_minimumTimerInterval(Settings::defaultMinDOMTimerInterval())
 {
     if (!allPages) {
         allPages = new HashSet<Page*>;
@@ -348,36 +349,16 @@ void Page::goToItem(HistoryItem* item, FrameLoadType type)
     // stopAllLoaders may end up running onload handlers, which could cause further history traversals that may lead to the passed in HistoryItem
     // being deref()-ed. Make sure we can still use it with HistoryController::goToItem later.
     RefPtr<HistoryItem> protector(item);
-    
-    // Abort any current load unless we're navigating the current document to a new state object
-    HistoryItem* currentItem = m_mainFrame->loader()->history()->currentItem();
-    if (!item->stateObject() || !currentItem || item->documentSequenceNumber() != currentItem->documentSequenceNumber() || item == currentItem) {
-        // Define what to do with any open database connections. By default we stop them and terminate the database thread.
-        DatabasePolicy databasePolicy = DatabasePolicyStop;
 
-#if ENABLE(DATABASE)
-        // If we're navigating the history via a fragment on the same document, then we do not want to stop databases.
-        const KURL& currentURL = m_mainFrame->document()->url();
-        const KURL& newURL = item->url();
-    
-        if (newURL.hasFragmentIdentifier() && equalIgnoringFragmentIdentifier(currentURL, newURL))
-            databasePolicy = DatabasePolicyContinue;
-#endif
+    if (m_mainFrame->loader()->history()->shouldStopLoadingForHistoryItem(item))
+        m_mainFrame->loader()->stopAllLoaders();
 
-        m_mainFrame->loader()->stopAllLoaders(databasePolicy);
-    }
-        
     m_mainFrame->loader()->history()->goToItem(item, type);
 }
 
 int Page::getHistoryLength()
 {
     return backForward()->backCount() + 1 + backForward()->forwardCount();
-}
-
-void Page::setGlobalHistoryItem(HistoryItem* item)
-{
-    m_globalHistoryItem = item;
 }
 
 void Page::setGroupName(const String& name)
@@ -850,6 +831,21 @@ bool Page::javaScriptURLsAreAllowed() const
     return m_javaScriptURLsAreAllowed;
 }
 
+void Page::setMinimumTimerInterval(double minimumTimerInterval)
+{
+    double oldTimerInterval = m_minimumTimerInterval;
+    m_minimumTimerInterval = minimumTimerInterval;
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNextWithWrap(false)) {
+        if (frame->document())
+            frame->document()->adjustMinimumTimerInterval(oldTimerInterval);
+    }
+}
+
+double Page::minimumTimerInterval() const
+{
+    return m_minimumTimerInterval;
+}
+
 #if ENABLE(INPUT_SPEECH)
 SpeechInput* Page::speechInput()
 {
@@ -869,6 +865,9 @@ void Page::dnsPrefetchingStateChanged()
 void Page::privateBrowsingStateChanged()
 {
     bool privateBrowsingEnabled = m_settings->privateBrowsingEnabled();
+
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext())
+        frame->document()->privateBrowsingStateDidChange();
 
     // Collect the PluginViews in to a vector to ensure that action the plug-in takes
     // from below privateBrowsingStateChanged does not affect their lifetime.

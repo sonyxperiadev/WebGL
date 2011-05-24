@@ -82,6 +82,8 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
     m_inspectorView.adoptNS([[WKView alloc] initWithFrame:NSZeroRect contextRef:toAPI(page()->context()) pageGroupRef:toAPI(inspectorPageGroup())]);
     ASSERT(m_inspectorView);
 
+    [m_inspectorView.get() setDrawsBackground:NO];
+
     return toImpl(m_inspectorView.get().pageRef);
 }
 
@@ -128,6 +130,13 @@ void WebInspectorProxy::platformClose()
     m_inspectorWindow = 0;
     m_inspectorView = 0;
     m_inspectorProxyObjCAdapter = 0;
+}
+
+void WebInspectorProxy::platformInspectedURLChanged(const String& urlString)
+{
+    // FIXME: this should be made localizable once WebKit2 supports it. <rdar://problem/8728860>
+    NSString *title = [NSString stringWithFormat:@"Web Inspector \u2014 %@", (NSString *)urlString];
+    [m_inspectorWindow.get() setTitle:title];
 }
 
 String WebInspectorProxy::inspectorPageURL() const

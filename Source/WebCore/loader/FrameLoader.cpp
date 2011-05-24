@@ -258,6 +258,13 @@ void FrameLoader::setDefersLoading(bool defers)
         m_frame->navigationScheduler()->startTimer();
         startCheckCompleteTimer();
     }
+
+    // This code is not logically part of load deferring, but we do not want JS code executed beneath modal
+    // windows or sheets, which is exactly when PageGroupLoadDeferrer is used.
+    if (defers)
+        m_frame->document()->suspendScheduledTasks();
+    else
+        m_frame->document()->resumeScheduledTasks();
 }
 
 bool FrameLoader::canHandleRequest(const ResourceRequest& request)
@@ -367,7 +374,7 @@ void FrameLoader::submitForm(PassRefPtr<FormSubmission> submission)
     targetFrame->navigationScheduler()->scheduleFormSubmission(submission);
 }
 
-void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolicy databasePolicy)
+void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy)
 {
     if (m_frame->document() && m_frame->document()->parser())
         m_frame->document()->parser()->stopParsing();
@@ -434,10 +441,7 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
             cachedResourceLoader->cancelRequests();
 
 #if ENABLE(DATABASE)
-        if (databasePolicy == DatabasePolicyStop)
-            doc->stopDatabases(0);
-#else
-    UNUSED_PARAM(databasePolicy);
+        doc->stopDatabases(0);
 #endif
     }
 
@@ -642,11 +646,7 @@ void FrameLoader::receivedFirstData()
 
 void FrameLoader::setOutgoingReferrer(const KURL& url)
 {
-    KURL outgoingReferrer(url);
-    outgoingReferrer.setUser(String());
-    outgoingReferrer.setPass(String());
-    outgoingReferrer.removeFragmentIdentifier();
-    m_outgoingReferrer = outgoingReferrer.string();
+    m_outgoingReferrer = url.strippedForUseAsReferrer();
 }
 
 void FrameLoader::didBeginDocument(bool dispatch)
@@ -707,7 +707,7 @@ void FrameLoader::startIconLoader()
     if (!isLoadingMainFrame())
         return;
 
-    if (!iconDatabase() || !iconDatabase()->isEnabled())
+    if (!iconDatabase().isEnabled())
         return;
     
     KURL url(iconURL());
@@ -717,7 +717,7 @@ void FrameLoader::startIconLoader()
 
     // If we're not reloading and the icon database doesn't say to load now then bail before we actually start the load
     if (loadType() != FrameLoadTypeReload && loadType() != FrameLoadTypeReloadFromOrigin) {
-        IconLoadDecision decision = iconDatabase()->loadDecisionForIconURL(urlString, m_documentLoader.get());
+        IconLoadDecision decision = iconDatabase().loadDecisionForIconURL(urlString, m_documentLoader.get());
         if (decision == IconLoadNo) {
             LOG(IconDatabase, "FrameLoader::startIconLoader() - Told not to load this icon, committing iconURL %s to database for pageURL mapping", urlString.ascii().data());
             commitIconURLToIconDatabase(url);
@@ -726,11 +726,11 @@ void FrameLoader::startIconLoader()
             // If the icon data hasn't been read in from disk yet, kick off the read of the icon from the database to make sure someone
             // has done it.  This is after registering for the notification so the WebView can call the appropriate delegate method.
             // Otherwise if the icon data *is* available, notify the delegate
-            if (!iconDatabase()->iconDataKnownForIconURL(urlString)) {
+            if (!iconDatabase().iconDataKnownForIconURL(urlString)) {
                 LOG(IconDatabase, "Told not to load icon %s but icon data is not yet available - registering for notification and requesting load from disk", urlString.ascii().data());
                 m_client->registerForIconNotification();
-                iconDatabase()->iconForPageURL(m_frame->document()->url().string(), IntSize(0, 0));
-                iconDatabase()->iconForPageURL(originalRequestURL().string(), IntSize(0, 0));
+                iconDatabase().iconForPageURL(m_frame->document()->url().string(), IntSize(0, 0));
+                iconDatabase().iconForPageURL(originalRequestURL().string(), IntSize(0, 0));
             } else
                 m_client->dispatchDidReceiveIcon();
                 
@@ -765,10 +765,9 @@ void FrameLoader::startIconLoader()
 
 void FrameLoader::commitIconURLToIconDatabase(const KURL& icon)
 {
-    ASSERT(iconDatabase());
     LOG(IconDatabase, "Committing iconURL %s to database for pageURLs %s and %s", icon.string().ascii().data(), m_frame->document()->url().string().ascii().data(), originalRequestURL().string().ascii().data());
-    iconDatabase()->setIconURLForPageURL(icon.string(), m_frame->document()->url().string());
-    iconDatabase()->setIconURLForPageURL(icon.string(), originalRequestURL().string());
+    iconDatabase().setIconURLForPageURL(icon.string(), m_frame->document()->url().string());
+    iconDatabase().setIconURLForPageURL(icon.string(), originalRequestURL().string());
 }
 
 void FrameLoader::finishedParsing()
@@ -826,10 +825,6 @@ void FrameLoader::checkCompleted()
     if (m_frame->view())
         m_frame->view()->checkStopDelayingDeferredRepaints();
 
-    // Any frame that hasn't completed yet?
-    if (!allChildrenAreComplete())
-        return;
-
     // Have we completed before?
     if (m_isComplete)
         return;
@@ -844,6 +839,10 @@ void FrameLoader::checkCompleted()
 
     // Still waiting for elements that don't go through a FrameLoader?
     if (m_frame->document()->isDelayingLoadEvent())
+        return;
+
+    // Any frame that hasn't completed yet?
+    if (!allChildrenAreComplete())
         return;
 
     // OK, completed.
@@ -1313,6 +1312,9 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
 void FrameLoader::loadURL(const KURL& newURL, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType newLoadType,
     PassRefPtr<Event> event, PassRefPtr<FormState> prpFormState)
 {
+    if (m_inStopAllLoaders)
+        return;
+
     RefPtr<FormState> formState = prpFormState;
     bool isFormSubmission = formState;
     
@@ -1495,7 +1497,7 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
         if (loader->triggeringAction().isEmpty())
             loader->setTriggeringAction(NavigationAction(newURL, policyChecker()->loadType(), isFormSubmission));
 
-        if (Element* ownerElement = m_frame->document()->ownerElement()) {
+        if (Element* ownerElement = m_frame->ownerElement()) {
             if (!ownerElement->dispatchBeforeLoadEvent(loader->request().url().string())) {
                 continueLoadAfterNavigationPolicy(loader->request(), formState, false);
                 return;
@@ -1697,13 +1699,13 @@ bool FrameLoader::shouldAllowNavigation(Frame* targetFrame) const
     return false;
 }
 
-void FrameLoader::stopLoadingSubframes(DatabasePolicy databasePolicy, ClearProvisionalItemPolicy clearProvisionalItemPolicy)
+void FrameLoader::stopLoadingSubframes(ClearProvisionalItemPolicy clearProvisionalItemPolicy)
 {
     for (RefPtr<Frame> child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling())
-        child->loader()->stopAllLoaders(databasePolicy, clearProvisionalItemPolicy);
+        child->loader()->stopAllLoaders(clearProvisionalItemPolicy);
 }
 
-void FrameLoader::stopAllLoaders(DatabasePolicy databasePolicy, ClearProvisionalItemPolicy clearProvisionalItemPolicy)
+void FrameLoader::stopAllLoaders(ClearProvisionalItemPolicy clearProvisionalItemPolicy)
 {
     ASSERT(!m_frame->document() || !m_frame->document()->inPageCache());
     if (m_pageDismissalEventBeingDispatched)
@@ -1722,11 +1724,11 @@ void FrameLoader::stopAllLoaders(DatabasePolicy databasePolicy, ClearProvisional
     if (clearProvisionalItemPolicy == ShouldClearProvisionalItem)
         history()->setProvisionalItem(0);
 
-    stopLoadingSubframes(databasePolicy, clearProvisionalItemPolicy);
+    stopLoadingSubframes(clearProvisionalItemPolicy);
     if (m_provisionalDocumentLoader)
-        m_provisionalDocumentLoader->stopLoading(databasePolicy);
+        m_provisionalDocumentLoader->stopLoading();
     if (m_documentLoader)
-        m_documentLoader->stopLoading(databasePolicy);
+        m_documentLoader->stopLoading();
 
     setProvisionalDocumentLoader(0);
     
@@ -2388,7 +2390,7 @@ void FrameLoader::checkLoadCompleteForThisFrame()
                 // FIXME: can stopping loading here possibly have any effect, if isLoading is false,
                 // which it must be to be in this branch of the if? And is it OK to just do a full-on
                 // stopAllLoaders instead of stopLoadingSubframes?
-                stopLoadingSubframes(DatabasePolicyStop, ShouldNotClearProvisionalItem);
+                stopLoadingSubframes(ShouldNotClearProvisionalItem);
                 pdl->stopLoading();
 
                 // If we're in the middle of loading multipart data, we need to restore the document loader.
@@ -2408,8 +2410,7 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             if (shouldReset && item)
                 if (Page* page = m_frame->page()) {
                     page->backForward()->setCurrentItem(item.get());
-                    Settings* settings = m_frame->settings();
-                    page->setGlobalHistoryItem((!settings || settings->privateBrowsingEnabled()) ? 0 : item.get());
+                    m_frame->loader()->client()->updateGlobalHistoryItemForPage();
                 }
             return;
         }
@@ -2985,21 +2986,21 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
         // If the navigation request came from the back/forward menu, and we punt on it, we have the 
         // problem that we have optimistically moved the b/f cursor already, so move it back.  For sanity, 
         // we only do this when punting a navigation for the target frame or top-level frame.  
-        if ((isTargetItem || isLoadingMainFrame()) && isBackForwardLoadType(policyChecker()->loadType()))
+        if ((isTargetItem || isLoadingMainFrame()) && isBackForwardLoadType(policyChecker()->loadType())) {
             if (Page* page = m_frame->page()) {
                 Frame* mainFrame = page->mainFrame();
                 if (HistoryItem* resetItem = mainFrame->loader()->history()->currentItem()) {
                     page->backForward()->setCurrentItem(resetItem);
-                    Settings* settings = m_frame->settings();
-                    page->setGlobalHistoryItem((!settings || settings->privateBrowsingEnabled()) ? 0 : resetItem);
+                    m_frame->loader()->client()->updateGlobalHistoryItemForPage();
                 }
             }
+        }
         return;
     }
 
     FrameLoadType type = policyChecker()->loadType();
     // A new navigation is in progress, so don't clear the history's provisional item.
-    stopAllLoaders(DatabasePolicyStop, ShouldNotClearProvisionalItem);
+    stopAllLoaders(ShouldNotClearProvisionalItem);
     
     // <rdar://problem/6250856> - In certain circumstances on pages with multiple frames, stopAllLoaders()
     // might detach the current FrameLoader, in which case we should bail on this newly defunct load. 

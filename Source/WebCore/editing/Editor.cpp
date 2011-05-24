@@ -64,6 +64,7 @@
 #include "NodeList.h"
 #include "Page.h"
 #include "Pasteboard.h"
+#include "TextCheckerClient.h"
 #include "TextCheckingHelper.h"
 #include "RemoveFormatCommand.h"
 #include "RenderBlock.h"
@@ -73,6 +74,7 @@
 #include "Settings.h"
 #include "Sound.h"
 #include "SpellChecker.h"
+#include "SpellingCorrectionCommand.h"
 #include "Text.h"
 #include "TextEvent.h"
 #include "TextIterator.h"
@@ -83,11 +85,14 @@
 #include "visible_units.h"
 #include <wtf/UnusedParam.h>
 #include <wtf/unicode/CharacterNames.h>
+#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
 using namespace std;
 using namespace HTMLNames;
+using namespace WTF;
+using namespace Unicode;
 
 static inline bool isAmbiguousBoundaryCharacter(UChar character)
 {
@@ -96,19 +101,6 @@ static inline bool isAmbiguousBoundaryCharacter(UChar character)
     // FIXME: this is required until 6853027 is fixed and text checking can do this for us.
     return character == '\'' || character == rightSingleQuotationMark || character == hebrewPunctuationGershayim;
 }
-
-#if SUPPORT_AUTOCORRECTION_PANEL
-static FloatRect boundingBoxForRange(Range* range)
-{
-    Vector<FloatQuad> textQuads;
-    range->getBorderAndTextQuads(textQuads);
-    FloatRect totalBoundingBox;
-    size_t size = textQuads.size();
-    for (size_t i = 0; i< size; ++i)
-        totalBoundingBox.unite(textQuads[i].boundingBox());
-    return totalBoundingBox;
-}
-#endif // SUPPORT_AUTOCORRECTION_PANEL
 
 static const Vector<DocumentMarker::MarkerType>& markerTypesForAutocorrection()
 {
@@ -141,7 +133,7 @@ VisibleSelection Editor::selectionForCommand(Event* event)
     // If the target is a text control, and the current selection is outside of its shadow tree,
     // then use the saved selection for that text control.
     Node* target = event->target()->toNode();
-    Node* selectionStart = selection.start().node();
+    Node* selectionStart = selection.start().deprecatedNode();
     if (target && (!selectionStart || target->shadowAncestorNode() != selectionStart->shadowAncestorNode())) {
         RefPtr<Range> range;
         if (target->hasTagName(inputTag) && static_cast<HTMLInputElement*>(target)->isTextField())
@@ -168,6 +160,14 @@ EditorClient* Editor::client() const
 {
     if (Page* page = m_frame->page())
         return page->editorClient();
+    return 0;
+}
+
+
+TextCheckerClient* Editor::textChecker() const
+{
+    if (EditorClient* owner = client())
+        return owner->textChecker();
     return 0;
 }
 
@@ -293,10 +293,10 @@ bool Editor::canDeleteRange(Range* range) const
         return false;
     
     if (range->collapsed(ec)) {
-        VisiblePosition start(startContainer, range->startOffset(ec), DOWNSTREAM);
+        VisiblePosition start(Position(startContainer, range->startOffset(ec), Position::PositionIsOffsetInAnchor), DOWNSTREAM);
         VisiblePosition previous = start.previous();
         // FIXME: We sometimes allow deletions at the start of editable roots, like when the caret is in an empty list item.
-        if (previous.isNull() || previous.deepEquivalent().node()->rootEditableElement() != startContainer->rootEditableElement())
+        if (previous.isNull() || previous.deepEquivalent().deprecatedNode()->rootEditableElement() != startContainer->rootEditableElement())
             return false;
     }
     return true;
@@ -427,8 +427,15 @@ void Editor::replaceSelectionWithFragment(PassRefPtr<DocumentFragment> fragment,
 {
     if (m_frame->selection()->isNone() || !fragment)
         return;
-    
-    applyCommand(ReplaceSelectionCommand::create(m_frame->document(), fragment, selectReplacement, smartReplace, matchStyle));
+
+    ReplaceSelectionCommand::CommandOptions options = ReplaceSelectionCommand::PreventNesting;
+    if (selectReplacement)
+        options |= ReplaceSelectionCommand::SelectReplacement;
+    if (smartReplace)
+        options |= ReplaceSelectionCommand::SmartReplace;
+    if (matchStyle)
+        options |= ReplaceSelectionCommand::MatchStyle;
+    applyCommand(ReplaceSelectionCommand::create(m_frame->document(), fragment, options, EditActionPaste));
     revealSelectionAfterEditingOperation();
 
     Node* nodeToCheck = m_frame->selection()->rootEditableElement();
@@ -536,7 +543,7 @@ void Editor::respondToChangedSelection(const VisibleSelection& oldSelection)
     size_t markerCount = markers.size();
     for (size_t i = 0; i < markerCount; ++i) {
         const DocumentMarker& marker = markers[i];
-        if (((marker.type == DocumentMarker::CorrectionIndicator && marker.description.length()) || marker.type == DocumentMarker::Spelling) && static_cast<int>(marker.endOffset) == endOffset) {
+        if (((marker.type == DocumentMarker::Replacement && !marker.description.isNull()) || marker.type == DocumentMarker::Spelling) && static_cast<int>(marker.endOffset) == endOffset) {
             RefPtr<Range> wordRange = Range::create(frame()->document(), node, marker.startOffset, node, marker.endOffset);
             String currentWord = plainText(wordRange.get());
             if (currentWord.length()) {
@@ -558,7 +565,7 @@ void Editor::respondToChangedSelection(const VisibleSelection& oldSelection)
 void Editor::respondToChangedContents(const VisibleSelection& endingSelection)
 {
     if (AXObjectCache::accessibilityEnabled()) {
-        Node* node = endingSelection.start().node();
+        Node* node = endingSelection.start().deprecatedNode();
         if (node)
             m_frame->document()->axObjectCache()->postNotification(node->renderer(), AXObjectCache::AXValueChanged, false);
     }
@@ -596,7 +603,7 @@ const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
     const SimpleFontData* font = 0;
 
     RefPtr<Range> range = m_frame->selection()->toNormalizedRange();
-    Node* startNode = range->editingStartPosition().node();
+    Node* startNode = range->editingStartPosition().deprecatedNode();
     if (startNode) {
         Node* pastEnd = range->pastLastNode();
         // In the loop below, n should eventually match pastEnd and not become nil, but we've seen at least one
@@ -631,7 +638,7 @@ WritingDirection Editor::textDirectionForSelection(bool& hasNestedOrMultipleEmbe
 
     Position position = m_frame->selection()->selection().start().downstream();
 
-    Node* node = position.node();
+    Node* node = position.deprecatedNode();
     if (!node)
         return NaturalWritingDirection;
 
@@ -663,7 +670,7 @@ WritingDirection Editor::textDirectionForSelection(bool& hasNestedOrMultipleEmbe
             hasNestedOrMultipleEmbeddings = false;
             return direction;
         }
-        node = m_frame->selection()->selection().visibleStart().deepEquivalent().node();
+        node = m_frame->selection()->selection().visibleStart().deepEquivalent().deprecatedNode();
     }
 
     // The selection is either a caret with no typing attributes or a range in which no embedding is added, so just use the start position
@@ -702,7 +709,7 @@ WritingDirection Editor::textDirectionForSelection(bool& hasNestedOrMultipleEmbe
             return NaturalWritingDirection;
 
         // In the range case, make sure that the embedding element persists until the end of the range.
-        if (m_frame->selection()->isRange() && !end.node()->isDescendantOf(node))
+        if (m_frame->selection()->isRange() && !end.deprecatedNode()->isDescendantOf(node))
             return NaturalWritingDirection;
 
         foundDirection = directionValue == CSSValueLtr ? LeftToRightWritingDirection : RightToLeftWritingDirection;
@@ -718,12 +725,12 @@ bool Editor::hasBidiSelection() const
 
     Node* startNode;
     if (m_frame->selection()->isRange()) {
-        startNode = m_frame->selection()->selection().start().downstream().node();
-        Node* endNode = m_frame->selection()->selection().end().upstream().node();
+        startNode = m_frame->selection()->selection().start().downstream().deprecatedNode();
+        Node* endNode = m_frame->selection()->selection().end().upstream().deprecatedNode();
         if (enclosingBlock(startNode) != enclosingBlock(endNode))
             return false;
     } else
-        startNode = m_frame->selection()->selection().visibleStart().deepEquivalent().node();
+        startNode = m_frame->selection()->selection().visibleStart().deepEquivalent().deprecatedNode();
 
     RenderObject* renderer = startNode->renderer();
     while (renderer && !renderer->isRenderBlock())
@@ -938,68 +945,42 @@ void Editor::applyParagraphStyleToSelection(CSSStyleDeclaration* style, EditActi
         applyParagraphStyle(style, editingAction);
 }
 
-bool Editor::clientIsEditable() const
+bool Editor::selectionStartHasStyle(int propertyID, const String& value) const
 {
-    return client() && client()->isEditable();
-}
-
-// CSS properties that only has a visual difference when applied to text.
-static const int textOnlyProperties[] = {
-    CSSPropertyTextDecoration,
-    CSSPropertyWebkitTextDecorationsInEffect,
-    CSSPropertyFontStyle,
-    CSSPropertyFontWeight,
-    CSSPropertyColor,
-};
-
-static TriState triStateOfStyle(CSSStyleDeclaration* desiredStyle, CSSStyleDeclaration* styleToCompare, bool ignoreTextOnlyProperties = false)
-{
-    RefPtr<CSSMutableStyleDeclaration> diff = getPropertiesNotIn(desiredStyle, styleToCompare);
-
-    if (ignoreTextOnlyProperties)
-        diff->removePropertiesInSet(textOnlyProperties, WTF_ARRAY_LENGTH(textOnlyProperties));
-
-    if (!diff->length())
-        return TrueTriState;
-    if (diff->length() == desiredStyle->length())
-        return FalseTriState;
-    return MixedTriState;
-}
-
-bool Editor::selectionStartHasStyle(CSSStyleDeclaration* style) const
-{
-    bool shouldUseFixedFontDefaultSize;
-    RefPtr<CSSMutableStyleDeclaration> selectionStyle = selectionComputedStyle(shouldUseFixedFontDefaultSize);
-    if (!selectionStyle)
+    RefPtr<EditingStyle> style = EditingStyle::create(propertyID, value);
+    RefPtr<EditingStyle> selectionStyle = selectionStartStyle();
+    if (!selectionStyle || !selectionStyle->style())
         return false;
-    return triStateOfStyle(style, selectionStyle.get()) == TrueTriState;
+    return style->triStateOfStyle(selectionStyle->style()) == TrueTriState;
 }
 
-TriState Editor::selectionHasStyle(CSSStyleDeclaration* style) const
+TriState Editor::selectionHasStyle(int propertyID, const String& value) const
 {
-    TriState state = FalseTriState;
+    RefPtr<EditingStyle> style = EditingStyle::create(propertyID, value);
+    if (!m_frame->selection()->isCaretOrRange())
+        return FalseTriState;
 
-    if (!m_frame->selection()->isRange()) {
-        bool shouldUseFixedFontDefaultSize;
-        RefPtr<CSSMutableStyleDeclaration> selectionStyle = selectionComputedStyle(shouldUseFixedFontDefaultSize);
-        if (!selectionStyle)
+    if (m_frame->selection()->isCaret()) {
+        RefPtr<EditingStyle> selectionStyle = selectionStartStyle();
+        if (!selectionStyle || !selectionStyle->style())
             return FalseTriState;
-        state = triStateOfStyle(style, selectionStyle.get());
-    } else {
-        for (Node* node = m_frame->selection()->start().node(); node; node = node->traverseNextNode()) {
-            RefPtr<CSSComputedStyleDeclaration> nodeStyle = computedStyle(node);
-            if (nodeStyle) {
-                TriState nodeState = triStateOfStyle(style, nodeStyle.get(), !node->isTextNode());
-                if (node == m_frame->selection()->start().node())
-                    state = nodeState;
-                else if (state != nodeState && node->isTextNode()) {
-                    state = MixedTriState;
-                    break;
-                }
-            }
-            if (node == m_frame->selection()->end().node())
+        return style->triStateOfStyle(selectionStyle->style());
+    }
+
+    TriState state = FalseTriState;
+    for (Node* node = m_frame->selection()->start().deprecatedNode(); node; node = node->traverseNextNode()) {
+        RefPtr<CSSComputedStyleDeclaration> nodeStyle = computedStyle(node);
+        if (nodeStyle) {
+            TriState nodeState = style->triStateOfStyle(nodeStyle.get(), node->isTextNode() ? EditingStyle::DoNotIgnoreTextOnlyProperties : EditingStyle::IgnoreTextOnlyProperties);
+            if (node == m_frame->selection()->start().deprecatedNode())
+                state = nodeState;
+            else if (state != nodeState && node->isTextNode()) {
+                state = MixedTriState;
                 break;
+            }
         }
+        if (node == m_frame->selection()->end().deprecatedNode())
+            break;
     }
 
     return state;
@@ -1023,33 +1004,30 @@ static bool hasTransparentBackgroundColor(CSSStyleDeclaration* style)
 
 String Editor::selectionStartCSSPropertyValue(int propertyID)
 {
-    bool shouldUseFixedFontDefaultSize = false;
-    RefPtr<CSSMutableStyleDeclaration> selectionStyle = selectionComputedStyle(shouldUseFixedFontDefaultSize);
-    if (!selectionStyle)
+    RefPtr<EditingStyle> selectionStyle = selectionStartStyle();
+    if (!selectionStyle || !selectionStyle->style())
         return String();
 
-    String value = selectionStyle->getPropertyValue(propertyID);
+    String value = selectionStyle->style()->getPropertyValue(propertyID);
 
     // If background color is transparent, traverse parent nodes until we hit a different value or document root
     // Also, if the selection is a range, ignore the background color at the start of selection,
     // and find the background color of the common ancestor.
-    if (propertyID == CSSPropertyBackgroundColor && (m_frame->selection()->isRange() || hasTransparentBackgroundColor(selectionStyle.get()))) {
+    if (propertyID == CSSPropertyBackgroundColor && (m_frame->selection()->isRange() || hasTransparentBackgroundColor(selectionStyle->style()))) {
         RefPtr<Range> range(m_frame->selection()->toNormalizedRange());
         ExceptionCode ec = 0;
         for (Node* ancestor = range->commonAncestorContainer(ec); ancestor; ancestor = ancestor->parentNode()) {
-            selectionStyle = computedStyle(ancestor)->copy();
-            if (!hasTransparentBackgroundColor(selectionStyle.get())) {
-                value = selectionStyle->getPropertyValue(CSSPropertyBackgroundColor);
-                break;
-            }
+            RefPtr<CSSComputedStyleDeclaration> ancestorStyle = computedStyle(ancestor);
+            if (!hasTransparentBackgroundColor(ancestorStyle.get()))
+                return ancestorStyle->getPropertyValue(CSSPropertyBackgroundColor);
         }
     }
 
     if (propertyID == CSSPropertyFontSize) {
-        RefPtr<CSSValue> cssValue = selectionStyle->getPropertyCSSValue(CSSPropertyFontSize);
+        RefPtr<CSSValue> cssValue = selectionStyle->style()->getPropertyCSSValue(CSSPropertyFontSize);
         if (cssValue->isPrimitiveValue()) {
             value = String::number(legacyFontSizeFromCSSValue(m_frame->document(), static_cast<CSSPrimitiveValue*>(cssValue.get()),
-                shouldUseFixedFontDefaultSize, AlwaysUseLegacyFontSize));
+                selectionStyle->shouldUseFixedDefaultFontSize(), AlwaysUseLegacyFontSize));
         }
     }
 
@@ -1079,17 +1057,13 @@ static void dispatchEditableContentChangedEvents(const EditCommand& command)
 
 void Editor::appliedEditing(PassRefPtr<EditCommand> cmd)
 {
-    // We may start reversion panel timer in respondToChangedSelection().
-    // So we stop the timer for current panel before calling changeSelectionAfterCommand() later in this method.
-    stopCorrectionPanelTimer();
     m_frame->document()->updateLayout();
 
     dispatchEditableContentChangedEvents(*cmd);
     VisibleSelection newSelection(cmd->endingSelection());
 
 #if SUPPORT_AUTOCORRECTION_PANEL
-    // Check to see if the command introduced paragraph separator. If it did, we remove existing autocorrection underlines. This is in consistency with the behavior in AppKit.
-    if (cmd->isTopLevelCommand() && !inSameParagraph(cmd->startingSelection().start(), newSelection.end()))
+    if (cmd->isTopLevelCommand() && !cmd->shouldRetainAutocorrectionIndicator())
         m_frame->document()->markers()->removeMarkers(DocumentMarker::CorrectionIndicator);
 #endif
 
@@ -1124,7 +1098,7 @@ void Editor::unappliedEditing(PassRefPtr<EditCommand> cmd)
     m_lastEditCommand = 0;
     if (client())
         client()->registerCommandForRedo(cmd);
-    respondToChangedContents(newSelection);    
+    respondToChangedContents(newSelection);
 }
 
 void Editor::reappliedEditing(PassRefPtr<EditCommand> cmd)
@@ -1139,7 +1113,7 @@ void Editor::reappliedEditing(PassRefPtr<EditCommand> cmd)
     m_lastEditCommand = 0;
     if (client())
         client()->registerCommandForUndo(cmd);
-    respondToChangedContents(newSelection);    
+    respondToChangedContents(newSelection);
 }
 
 Editor::Editor(Frame* frame)
@@ -1150,7 +1124,7 @@ Editor::Editor(Frame* frame)
     // This is off by default, since most editors want this behavior (this matches IE but not FF).
     , m_shouldStyleWithCSS(false)
     , m_killRing(adoptPtr(new KillRing))
-    , m_spellChecker(new SpellChecker(frame, frame->page() ? frame->page()->editorClient() : 0))
+    , m_spellChecker(new SpellChecker(frame, frame->page() ? frame->page()->editorClient()->textChecker() : 0))
     , m_correctionPanelTimer(this, &Editor::correctionPanelTimerFired)
     , m_areMarkedTextMatchesHighlighted(false)
 {
@@ -1193,22 +1167,37 @@ bool Editor::insertTextWithoutSendingTextEvent(const String& text, bool selectIn
     if (!shouldInsertText(text, range.get(), EditorInsertActionTyped))
         return true;
 
+#if REMOVE_MARKERS_UPON_EDITING
+    if (!text.isEmpty())
+        removeSpellAndCorrectionMarkersFromWordsToBeEdited(isSpaceOrNewline(text[0]));
+#endif
+
+    bool shouldConsiderApplyingAutocorrection = false;
     if (text == " " || text == "\t")
-        applyAutocorrectionBeforeTypingIfAppropriate();
+        shouldConsiderApplyingAutocorrection = true;
+
+    if (text.length() == 1 && isPunct(text[0]) && !isAmbiguousBoundaryCharacter(text[0]))
+        shouldConsiderApplyingAutocorrection = true;
+
+    bool autocorrectionWasApplied = shouldConsiderApplyingAutocorrection && applyAutocorrectionBeforeTypingIfAppropriate();
 
     // Get the selection to use for the event that triggered this insertText.
     // If the event handler changed the selection, we may want to use a different selection
     // that is contained in the event target.
     selection = selectionForCommand(triggeringEvent);
     if (selection.isContentEditable()) {
-        if (Node* selectionStart = selection.start().node()) {
+        if (Node* selectionStart = selection.start().deprecatedNode()) {
             RefPtr<Document> document = selectionStart->document();
-            
-            // Insert the text
-            TypingCommand::insertText(document.get(), text, selection, selectInsertedText, 
-                                      triggeringEvent && triggeringEvent->isComposition() ? TypingCommand::TextCompositionConfirm : TypingCommand::TextCompositionNone);
 
-            // Reveal the current selection 
+            // Insert the text
+            TypingCommand::TypingCommandOptions options = 0;
+            if (selectInsertedText)
+                options |= TypingCommand::SelectInsertedText;
+            if (autocorrectionWasApplied)
+                options |= TypingCommand::RetainAutocorrectionIndicator;
+            TypingCommand::insertText(document.get(), text, selection, options, triggeringEvent && triggeringEvent->isComposition() ? TypingCommand::TextCompositionConfirm : TypingCommand::TextCompositionNone);
+
+            // Reveal the current selection
             if (Frame* editedFrame = document->frame())
                 if (Page* page = editedFrame->page())
                     page->focusController()->focusedOrMainFrame()->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
@@ -1226,10 +1215,10 @@ bool Editor::insertLineBreak()
     if (!shouldInsertText("\n", m_frame->selection()->toNormalizedRange().get(), EditorInsertActionTyped))
         return true;
 
-    applyAutocorrectionBeforeTypingIfAppropriate();
-
-    TypingCommand::insertLineBreak(m_frame->document());
+    bool autocorrectionIsApplied = applyAutocorrectionBeforeTypingIfAppropriate();
+    TypingCommand::insertLineBreak(m_frame->document(), autocorrectionIsApplied ? TypingCommand::RetainAutocorrectionIndicator : 0);
     revealSelectionAfterEditingOperation();
+
     return true;
 }
 
@@ -1244,10 +1233,10 @@ bool Editor::insertParagraphSeparator()
     if (!shouldInsertText("\n", m_frame->selection()->toNormalizedRange().get(), EditorInsertActionTyped))
         return true;
 
-    applyAutocorrectionBeforeTypingIfAppropriate();
-
-    TypingCommand::insertParagraphSeparator(m_frame->document());
+    bool autocorrectionIsApplied = applyAutocorrectionBeforeTypingIfAppropriate();
+    TypingCommand::insertParagraphSeparator(m_frame->document(), autocorrectionIsApplied ? TypingCommand::RetainAutocorrectionIndicator : 0);
     revealSelectionAfterEditingOperation();
+
     return true;
 }
 
@@ -1264,7 +1253,7 @@ void Editor::cut()
 #if REMOVE_MARKERS_UPON_EDITING
         removeSpellAndCorrectionMarkersFromWordsToBeEdited(true);
 #endif
-        if (isNodeInTextFormControl(m_frame->selection()->start().node()))
+        if (isNodeInTextFormControl(m_frame->selection()->start().deprecatedNode()))
             Pasteboard::generalPasteboard()->writePlainText(selectedText());
         else
             Pasteboard::generalPasteboard()->writeSelection(selection.get(), canSmartCopyOrDelete(), m_frame);
@@ -1282,7 +1271,7 @@ void Editor::copy()
         return;
     }
 
-    if (isNodeInTextFormControl(m_frame->selection()->start().node()))
+    if (isNodeInTextFormControl(m_frame->selection()->start().deprecatedNode()))
         Pasteboard::generalPasteboard()->writePlainText(selectedText());
     else {
         Document* document = m_frame->document();
@@ -1578,7 +1567,7 @@ void Editor::selectComposition()
     // See <http://bugs.webkit.org/show_bug.cgi?id=15781>
     VisibleSelection selection;
     selection.setWithoutValidation(range->startPosition(), range->endPosition());
-    m_frame->selection()->setSelection(selection, false, false);
+    m_frame->selection()->setSelection(selection, 0);
 }
 
 void Editor::confirmComposition()
@@ -1636,7 +1625,7 @@ void Editor::confirmComposition(const String& text, bool preserveSelection)
     insertTextForConfirmedComposition(text);
 
     if (preserveSelection) {
-        m_frame->selection()->setSelection(oldSelection, false, false);
+        m_frame->selection()->setSelection(oldSelection, 0);
         // An open typing command that disagrees about current selection would cause issues with typing later on.
         TypingCommand::closeTyping(m_lastEditCommand.get());
     }
@@ -1707,9 +1696,9 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
         // Find out what node has the composition now.
         Position base = m_frame->selection()->base().downstream();
         Position extent = m_frame->selection()->extent();
-        Node* baseNode = base.node();
+        Node* baseNode = base.deprecatedNode();
         unsigned baseOffset = base.deprecatedEditingOffset();
-        Node* extentNode = extent.node();
+        Node* extentNode = extent.deprecatedNode();
         unsigned extentOffset = extent.deprecatedEditingOffset();
 
         if (baseNode && baseNode == extentNode && baseNode->isTextNode() && baseOffset + text.length() == extentOffset) {
@@ -1746,7 +1735,7 @@ void Editor::ignoreSpelling()
 
     String text = selectedText();
     ASSERT(text.length());
-    client()->ignoreWordInSpellDocument(text);
+    textChecker()->ignoreWordInSpellDocument(text);
 }
 
 void Editor::learnSpelling()
@@ -1754,12 +1743,15 @@ void Editor::learnSpelling()
     if (!client())
         return;
         
-    // FIXME: We don't call this on the Mac, and it should remove misspelling markers around the 
-    // learned word, see <rdar://problem/5396072>.
+    // FIXME: On Mac OS X, when use "learn" button on "Spelling and Grammar" panel, we don't call this function. It should remove misspelling markers around the learned word, see <rdar://problem/5396072>.
+
+    RefPtr<Range> selectedRange = frame()->selection()->toNormalizedRange();
+    if (selectedRange)
+        frame()->document()->markers()->removeMarkers(selectedRange.get(), DocumentMarker::Spelling);
 
     String text = selectedText();
     ASSERT(text.length());
-    client()->learnWord(text);
+    textChecker()->learnWord(text);
 }
 
 void Editor::advanceToNextMisspelling(bool startBeforeSelection)
@@ -1775,7 +1767,7 @@ void Editor::advanceToNextMisspelling(bool startBeforeSelection)
     RefPtr<Range> spellingSearchRange(rangeOfContents(frame()->document()));
 
     bool startedWithSelection = false;
-    if (selection.start().node()) {
+    if (selection.start().deprecatedNode()) {
         startedWithSelection = true;
         if (startBeforeSelection) {
             VisiblePosition start(selection.visibleStart());
@@ -1799,7 +1791,7 @@ void Editor::advanceToNextMisspelling(bool startBeforeSelection)
             return;
         
         Position rangeCompliantPosition = position.parentAnchoredEquivalent();
-        spellingSearchRange->setStart(rangeCompliantPosition.node(), rangeCompliantPosition.deprecatedEditingOffset(), ec);
+        spellingSearchRange->setStart(rangeCompliantPosition.deprecatedNode(), rangeCompliantPosition.deprecatedEditingOffset(), ec);
         startedWithSelection = false; // won't need to wrap
     }
     
@@ -1949,7 +1941,7 @@ bool Editor::isSelectionMisspelled()
     
     int misspellingLocation = -1;
     int misspellingLength = 0;
-    client()->checkSpellingOfString(selectedString.characters(), length, &misspellingLocation, &misspellingLength);
+    textChecker()->checkSpellingOfString(selectedString.characters(), length, &misspellingLocation, &misspellingLength);
     
     // The selection only counts as misspelled if the selected text is exactly one misspelled word
     if (misspellingLength != length)
@@ -1993,7 +1985,7 @@ Vector<String> Editor::guessesForMisspelledSelection()
 
     Vector<String> guesses;
     if (client())
-        client()->getGuessesForWord(selectedString, String(), guesses);
+        textChecker()->getGuessesForWord(selectedString, String(), guesses);
     return guesses;
 }
 
@@ -2110,6 +2102,7 @@ void Editor::markMisspellingsAfterTypingToWord(const VisiblePosition &wordStart,
     } else {
         markAllMisspellingsAndBadGrammarInRanges(textCheckingOptions, adjacentWords.toNormalizedRange().get(), adjacentWords.toNormalizedRange().get());
     }
+
 #else
     UNUSED_PARAM(selectionAfterTyping);
     if (!isContinuousSpellCheckingEnabled())
@@ -2125,7 +2118,7 @@ void Editor::markMisspellingsAfterTypingToWord(const VisiblePosition &wordStart,
     
     // Get the misspelled word.
     const String misspelledWord = plainText(misspellingRange.get());
-    String autocorrectedString = client()->getAutoCorrectSuggestionForMisspelledWord(misspelledWord);
+    String autocorrectedString = textChecker()->getAutoCorrectSuggestionForMisspelledWord(misspelledWord);
 
     // If autocorrected word is non empty, replace the misspelled word by this word.
     if (!autocorrectedString.isEmpty()) {
@@ -2204,7 +2197,7 @@ bool Editor::isSpellCheckingEnabledFor(Node* node) const
 
 bool Editor::isSpellCheckingEnabledInFocusedNode() const
 {
-    return isSpellCheckingEnabledFor(m_frame->selection()->start().node());
+    return isSpellCheckingEnabledFor(m_frame->selection()->start().deprecatedNode());
 }
 
 void Editor::markMisspellings(const VisibleSelection& selection, RefPtr<Range>& firstMisspellingRange)
@@ -2260,7 +2253,7 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
     if (shouldMarkGrammar ? (spellingParagraph.isRangeEmpty() && grammarParagraph.isEmpty()) : spellingParagraph.isEmpty())
         return;
 
-    if (shouldPerformReplacement) {
+    if (shouldPerformReplacement || shouldMarkSpelling) {
         if (m_frame->selection()->selectionType() == VisibleSelection::CaretSelection) {
             // Attempt to save the caret position so we can restore it later if needed
             Position caretPosition = m_frame->selection()->end();
@@ -2296,7 +2289,7 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
         if (shouldMarkSpelling && isAutomaticSpellingCorrectionEnabled())
             checkingTypes |= TextCheckingTypeCorrection;
     }
-    client()->checkTextOfParagraph(paragraph.textCharacters(), paragraph.textLength(), checkingTypes, results);
+    textChecker()->checkTextOfParagraph(paragraph.textCharacters(), paragraph.textLength(), checkingTypes, results);
 
 #if SUPPORT_AUTOCORRECTION_PANEL
     // If this checking is only for showing correction panel, we shouldn't bother to mark misspellings.
@@ -2345,7 +2338,7 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
             // In this case the result range just has to touch the spelling range, so we can handle replacing non-word text such as punctuation.
             ASSERT(resultLength > 0 && resultLocation >= 0);
 
-            if (shouldShowCorrectionPanel && resultLocation + resultLength < spellingRangeEndOffset)
+            if (shouldShowCorrectionPanel && (resultLocation + resultLength < spellingRangeEndOffset || result->type != TextCheckingTypeCorrection))
                 continue;
 
             int replacementLength = result->replacement.length();
@@ -2360,10 +2353,10 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
 
             // adding links should be done only immediately after they are typed
             if (result->type == TextCheckingTypeLink && selectionOffset > resultLocation + resultLength + 1)
-                doReplacement = false;
+                continue;
 
             // Don't correct spelling in an already-corrected word.
-            if (doReplacement && result->type == TextCheckingTypeCorrection) {
+            if (result->type == TextCheckingTypeCorrection) {
                 Node* node = rangeToReplace->startContainer();
                 int startOffset = rangeToReplace->startOffset();
                 int endOffset = startOffset + replacementLength;
@@ -2379,58 +2372,71 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
                         break;
                 }
             }
-            if (doReplacement && !shouldShowCorrectionPanel && selectionToReplace != m_frame->selection()->selection()) {
-                if (m_frame->selection()->shouldChangeSelection(selectionToReplace)) {
-                    m_frame->selection()->setSelection(selectionToReplace);
-                    selectionChanged = true;
-                } else {
-                    doReplacement = false;
+
+            if (!doReplacement)
+                continue;
+
+#if SUPPORT_AUTOCORRECTION_PANEL
+            if (shouldShowCorrectionPanel) {
+                if (resultLocation + resultLength == spellingRangeEndOffset) {
+                    // We only show the correction panel on the last word.
+                    FloatRect boundingBox = windowRectForRange(rangeToReplace.get());
+                    if (boundingBox.isEmpty())
+                        break;
+                    m_correctionPanelInfo.rangeToBeReplaced = rangeToReplace;
+                    m_correctionPanelInfo.replacedString = plainText(rangeToReplace.get());
+                    m_correctionPanelInfo.replacementString = result->replacement;
+                    m_correctionPanelInfo.isActive = true;
+                    client()->showCorrectionPanel(m_correctionPanelInfo.panelType, boundingBox, m_correctionPanelInfo.replacedString, result->replacement, Vector<String>(), this);
+                    break;
                 }
+                // If this function is called for showing correction panel, we ignore other correction or replacement.
+                continue;
+            }
+#endif
+
+            if (selectionToReplace != m_frame->selection()->selection()) {
+                if (!m_frame->selection()->shouldChangeSelection(selectionToReplace))
+                    continue;
             }
 
-            String replacedString;
-            if (doReplacement) {
-                if (result->type == TextCheckingTypeLink) {
-                    restoreSelectionAfterChange = false;
-                    if (canEditRichly())
-                        applyCommand(CreateLinkCommand::create(m_frame->document(), result->replacement));
-                } else if (canEdit() && shouldInsertText(result->replacement, rangeToReplace.get(), EditorInsertActionTyped)) {
-                    if (result->type == TextCheckingTypeCorrection)
-                        replacedString = plainText(rangeToReplace.get());
-#if SUPPORT_AUTOCORRECTION_PANEL
-                    if (shouldShowCorrectionPanel && resultLocation + resultLength == spellingRangeEndOffset && result->type == TextCheckingTypeCorrection) {
-                        // We only show the correction panel on the last word.
-                        Vector<FloatQuad> textQuads;
-                        rangeToReplace->getBorderAndTextQuads(textQuads);
-                        Vector<FloatQuad>::const_iterator end = textQuads.end();
-                        FloatRect totalBoundingBox;
-                        for (Vector<FloatQuad>::const_iterator it = textQuads.begin(); it < end; ++it)
-                            totalBoundingBox.unite(it->boundingBox());
-                        m_correctionPanelInfo.rangeToBeReplaced = rangeToReplace;
-                        m_correctionPanelInfo.replacedString = replacedString;
-                        m_correctionPanelInfo.replacementString = result->replacement;
-                        m_correctionPanelInfo.isActive = true;
-                        client()->showCorrectionPanel(m_correctionPanelInfo.panelType, totalBoundingBox, m_correctionPanelInfo.replacedString, result->replacement, Vector<String>(), this);
-                        doReplacement = false;
-                    }
-#endif
-                    if (doReplacement) {
-                        replaceSelectionWithText(result->replacement, false, false);
-                        offsetDueToReplacement += replacementLength - resultLength;
-                        if (resultLocation < selectionOffset) {
-                            selectionOffset += replacementLength - resultLength;
-                            if (ambiguousBoundaryOffset >= 0)
-                                ambiguousBoundaryOffset = selectionOffset - 1;
-                        }
+            if (result->type == TextCheckingTypeLink) {
+                m_frame->selection()->setSelection(selectionToReplace);
+                selectionChanged = true;
+                restoreSelectionAfterChange = false;
+                if (canEditRichly())
+                    applyCommand(CreateLinkCommand::create(m_frame->document(), result->replacement));
+            } else if (canEdit() && shouldInsertText(result->replacement, rangeToReplace.get(), EditorInsertActionTyped)) {
+                String replacedString;
+                if (result->type == TextCheckingTypeCorrection)
+                    replacedString = plainText(rangeToReplace.get());
 
-                        if (result->type == TextCheckingTypeCorrection) {
-                            // Add a marker so that corrections can easily be undone and won't be re-corrected.
-                            RefPtr<Range> replacedRange = paragraph.subrange(resultLocation, replacementLength);
-                            replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::Replacement, replacedString);
-                            replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::CorrectionIndicator, replacedString);
-                            replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::SpellCheckingExemption);
-                        }
-                    }
+                bool useSpellingCorrectionCommand = false;
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+                if (result->type == TextCheckingTypeCorrection)
+                    useSpellingCorrectionCommand = true;
+#endif
+                if (useSpellingCorrectionCommand)
+                    applyCommand(SpellingCorrectionCommand::create(rangeToReplace, result->replacement));
+                else {
+                    m_frame->selection()->setSelection(selectionToReplace);
+                    replaceSelectionWithText(result->replacement, false, false);
+                }
+
+                selectionChanged = true;
+                offsetDueToReplacement += replacementLength - resultLength;
+                if (resultLocation < selectionOffset) {
+                    selectionOffset += replacementLength - resultLength;
+                    if (ambiguousBoundaryOffset >= 0)
+                        ambiguousBoundaryOffset = selectionOffset - 1;
+                }
+
+                if (result->type == TextCheckingTypeCorrection) {
+                    // Add a marker so that corrections can easily be undone and won't be re-corrected.
+                    RefPtr<Range> replacedRange = paragraph.subrange(resultLocation, replacementLength);
+                    replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::Replacement, replacedString);
+                    replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::CorrectionIndicator);
+                    replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::SpellCheckingExemption);
                 }
             }
         }
@@ -2461,10 +2467,17 @@ void Editor::changeBackToReplacedString(const String& replacedString)
     if (!shouldInsertText(replacedString, selection.get(), EditorInsertActionPasted))
         return;
     
+#if SUPPORT_AUTOCORRECTION_PANEL
+    String replacement = plainText(selection.get());
+    client()->recordAutocorrectionResponse(EditorClient::AutocorrectionReverted, replacedString, replacement);
+#endif
     TextCheckingParagraph paragraph(selection);
     replaceSelectionWithText(replacedString, false, false);
     RefPtr<Range> changedRange = paragraph.subrange(paragraph.checkingStart(), replacedString.length());
     changedRange->startContainer()->document()->markers()->addMarker(changedRange.get(), DocumentMarker::Replacement, String());
+#if SUPPORT_AUTOCORRECTION_PANEL
+    changedRange->startContainer()->document()->markers()->addMarker(changedRange.get(), DocumentMarker::SpellCheckingExemption);
+#endif
 }
 
 #endif
@@ -2502,7 +2515,9 @@ void Editor::correctionPanelTimerFired(Timer<Editor>*)
     case CorrectionPanelInfo::PanelTypeReversion: {
         m_correctionPanelInfo.isActive = true;
         m_correctionPanelInfo.replacedString = plainText(m_correctionPanelInfo.rangeToBeReplaced.get());
-        client()->showCorrectionPanel(m_correctionPanelInfo.panelType, boundingBoxForRange(m_correctionPanelInfo.rangeToBeReplaced.get()), m_correctionPanelInfo.replacedString, m_correctionPanelInfo.replacementString, Vector<String>(), this);
+        FloatRect boundingBox = windowRectForRange(m_correctionPanelInfo.rangeToBeReplaced.get());
+        if (!boundingBox.isEmpty())
+            client()->showCorrectionPanel(m_correctionPanelInfo.panelType, boundingBox, m_correctionPanelInfo.replacedString, m_correctionPanelInfo.replacementString, Vector<String>(), this);
     }
         break;
     case CorrectionPanelInfo::PanelTypeSpellingSuggestions: {
@@ -2510,7 +2525,7 @@ void Editor::correctionPanelTimerFired(Timer<Editor>*)
             break;
         String paragraphText = plainText(TextCheckingParagraph(m_correctionPanelInfo.rangeToBeReplaced).paragraphRange().get());
         Vector<String> suggestions;
-        client()->getGuessesForWord(m_correctionPanelInfo.replacedString, paragraphText, suggestions);
+        textChecker()->getGuessesForWord(m_correctionPanelInfo.replacedString, paragraphText, suggestions);
         if (suggestions.isEmpty()) {
             m_correctionPanelInfo.rangeToBeReplaced.clear();
             break;
@@ -2518,7 +2533,9 @@ void Editor::correctionPanelTimerFired(Timer<Editor>*)
         String topSuggestion = suggestions.first();
         suggestions.remove(0);
         m_correctionPanelInfo.isActive = true;
-        client()->showCorrectionPanel(m_correctionPanelInfo.panelType, boundingBoxForRange(m_correctionPanelInfo.rangeToBeReplaced.get()), m_correctionPanelInfo.replacedString, topSuggestion, suggestions, this);
+        FloatRect boundingBox = windowRectForRange(m_correctionPanelInfo.rangeToBeReplaced.get());
+        if (!boundingBox.isEmpty())
+            client()->showCorrectionPanel(m_correctionPanelInfo.panelType, boundingBox, m_correctionPanelInfo.replacedString, topSuggestion, suggestions, this);
     }
         break;
     }
@@ -2640,20 +2657,22 @@ void Editor::removeSpellAndCorrectionMarkersFromWordsToBeEdited(bool doNotRemove
     VisiblePosition startOfLastWord = startOfWord(endOfSelection, RightWordIfOnBoundary);
     VisiblePosition endOfLastWord = endOfWord(endOfSelection, RightWordIfOnBoundary);
 
-    // This can be the case if the end of selection is at the end of document.
-    if (endOfLastWord.deepEquivalent().anchorType() != Position::PositionIsOffsetInAnchor) {
-        startOfLastWord = startOfWord(frame()->selection()->selection().start(), LeftWordIfOnBoundary);
-        endOfLastWord = endOfWord(frame()->selection()->selection().start(), LeftWordIfOnBoundary);
+    if (startOfFirstWord.isNull()) {
+        startOfFirstWord = startOfWord(startOfSelection, RightWordIfOnBoundary);
+        endOfFirstWord = endOfWord(startOfSelection, RightWordIfOnBoundary);
+    }
+    
+    if (endOfLastWord.isNull()) {
+        startOfLastWord = startOfWord(endOfSelection, LeftWordIfOnBoundary);
+        endOfLastWord = endOfWord(endOfSelection, LeftWordIfOnBoundary);
     }
 
     // If doNotRemoveIfSelectionAtWordBoundary is true, and first word ends at the start of selection,
     // we choose next word as the first word.
     if (doNotRemoveIfSelectionAtWordBoundary && endOfFirstWord == startOfSelection) {
         startOfFirstWord = nextWordPosition(startOfFirstWord);
-        if (startOfFirstWord == endOfSelection)
-            return;
         endOfFirstWord = endOfWord(startOfFirstWord, RightWordIfOnBoundary);
-        if (endOfFirstWord.deepEquivalent().anchorType() != Position::PositionIsOffsetInAnchor)
+        if (startOfFirstWord == endOfSelection)
             return;
     }
 
@@ -2662,9 +2681,12 @@ void Editor::removeSpellAndCorrectionMarkersFromWordsToBeEdited(bool doNotRemove
     if (doNotRemoveIfSelectionAtWordBoundary && startOfLastWord == endOfSelection) {
         startOfLastWord = previousWordPosition(startOfLastWord);
         endOfLastWord = endOfWord(startOfLastWord, RightWordIfOnBoundary);
-        if (endOfLastWord == startOfFirstWord)
+        if (endOfLastWord == startOfSelection)
             return;
     }
+
+    if (startOfFirstWord.isNull() || endOfFirstWord.isNull() || startOfLastWord.isNull() || endOfLastWord.isNull())
+        return;
 
     // Now we remove markers on everything between startOfFirstWord and endOfLastWord.
     // However, if an autocorrection change a single word to multiple words, we want to remove correction mark from all the
@@ -2676,10 +2698,12 @@ void Editor::removeSpellAndCorrectionMarkersFromWordsToBeEdited(bool doNotRemove
     RefPtr<Range> wordRange = Range::create(document, startOfFirstWord.deepEquivalent(), endOfLastWord.deepEquivalent());
 
     document->markers()->removeMarkers(wordRange.get(), DocumentMarker::Spelling | DocumentMarker::CorrectionIndicator | DocumentMarker::SpellCheckingExemption, DocumentMarkerController::RemovePartiallyOverlappingMarker);
+    document->markers()->clearDescriptionOnMarkersIntersectingRange(wordRange.get(), DocumentMarker::Replacement);
 }
 
 void Editor::applyCorrectionPanelInfo(const Vector<DocumentMarker::MarkerType>& markerTypesToAdd)
 {
+#if SUPPORT_AUTOCORRECTION_PANEL
     if (!m_correctionPanelInfo.rangeToBeReplaced)
         return;
 
@@ -2711,36 +2735,66 @@ void Editor::applyCorrectionPanelInfo(const Vector<DocumentMarker::MarkerType>& 
 
     // Clone the range, since the caller of this method may want to keep the original range around.
     RefPtr<Range> rangeToBeReplaced = m_correctionPanelInfo.rangeToBeReplaced->cloneRange(ec);
-    VisibleSelection selectionToReplace(rangeToBeReplaced.get(), DOWNSTREAM);
-    if (m_frame->selection()->shouldChangeSelection(selectionToReplace)) {
-        m_frame->selection()->setSelection(selectionToReplace);
-        replaceSelectionWithText(m_correctionPanelInfo.replacementString, false, false);
-        setEnd(paragraphRangeContainingCorrection.get(), m_frame->selection()->selection().start());
-        RefPtr<Range> replacementRange = TextIterator::subrange(paragraphRangeContainingCorrection.get(), correctionStartOffsetInParagraph, m_correctionPanelInfo.replacementString.length());
-        DocumentMarkerController* markers = replacementRange->startContainer()->document()->markers();
-        size_t size = markerTypesToAdd.size();
-        for (size_t i = 0; i < size; ++i) {
-            if (m_correctionPanelInfo.panelType == CorrectionPanelInfo::PanelTypeReversion)
-                markers->addMarker(replacementRange.get(), markerTypesToAdd[i]);
-            else
-                markers->addMarker(replacementRange.get(), markerTypesToAdd[i], m_correctionPanelInfo.replacedString);
-        }
+    applyCommand(SpellingCorrectionCommand::create(rangeToBeReplaced, m_correctionPanelInfo.replacementString));
+    setEnd(paragraphRangeContainingCorrection.get(), m_frame->selection()->selection().start());
+    RefPtr<Range> replacementRange = TextIterator::subrange(paragraphRangeContainingCorrection.get(), correctionStartOffsetInParagraph,  m_correctionPanelInfo.replacementString.length());
+    String newText = plainText(replacementRange.get());
+
+    // Check to see if replacement succeeded.
+    if (newText != m_correctionPanelInfo.replacementString)
+        return;
+
+    DocumentMarkerController* markers = replacementRange->startContainer()->document()->markers();
+    size_t size = markerTypesToAdd.size();
+    for (size_t i = 0; i < size; ++i) {
+        if (m_correctionPanelInfo.panelType == CorrectionPanelInfo::PanelTypeReversion)
+            markers->addMarker(replacementRange.get(), markerTypesToAdd[i]);
+        else
+            markers->addMarker(replacementRange.get(), markerTypesToAdd[i], m_correctionPanelInfo.replacedString);
     }
+#else // SUPPORT_AUTOCORRECTION_PANEL
+    UNUSED_PARAM(markerTypesToAdd);
+#endif // SUPPORT_AUTOCORRECTION_PANEL
 }
 
-void Editor::applyAutocorrectionBeforeTypingIfAppropriate()
+bool Editor::applyAutocorrectionBeforeTypingIfAppropriate()
 {
     if (!m_correctionPanelInfo.rangeToBeReplaced || !m_correctionPanelInfo.isActive)
-        return;
+        return false;
 
     if (m_correctionPanelInfo.panelType != CorrectionPanelInfo::PanelTypeCorrection)
-        return;
+        return false;
 
     Position caretPosition = m_frame->selection()->selection().start();
 
+    if (m_correctionPanelInfo.rangeToBeReplaced->endPosition() == caretPosition) {
+        dismissCorrectionPanel(ReasonForDismissingCorrectionPanelAccepted);
+        return true;
+    } 
+    
     // Pending correction should always be where caret is. But in case this is not always true, we still want to dismiss the panel without accepting the correction.
     ASSERT(m_correctionPanelInfo.rangeToBeReplaced->endPosition() == caretPosition);
-    dismissCorrectionPanel(m_correctionPanelInfo.rangeToBeReplaced->endPosition() == caretPosition ? ReasonForDismissingCorrectionPanelAccepted : ReasonForDismissingCorrectionPanelIgnored);
+    dismissCorrectionPanel(ReasonForDismissingCorrectionPanelIgnored);
+    return false;
+}
+
+void Editor::unappliedSpellCorrection(const VisibleSelection& selectionOfCorrected, const String& corrected, const String& correction)
+{
+#if SUPPORT_AUTOCORRECTION_PANEL
+    client()->recordAutocorrectionResponse(EditorClient::AutocorrectionReverted, corrected, correction);
+    m_frame->document()->updateLayout();
+    m_frame->selection()->setSelection(selectionOfCorrected, SelectionController::CloseTyping | SelectionController::ClearTypingStyle | SelectionController::SpellCorrectionTriggered);
+    RefPtr<Range> range = Range::create(m_frame->document(), m_frame->selection()->selection().start(), m_frame->selection()->selection().end());
+
+    DocumentMarkerController* markers = m_frame->document()->markers();
+    markers->removeMarkers(range.get(), DocumentMarker::Spelling);
+    markers->addMarker(range.get(), DocumentMarker::Replacement);
+    markers->addMarker(range.get(), DocumentMarker::SpellCheckingExemption);
+#else // SUPPORT_AUTOCORRECTION_PANEL
+    UNUSED_PARAM(selectionOfCorrected);
+    UNUSED_PARAM(corrected);
+    UNUSED_PARAM(correction);
+#endif // SUPPORT_AUTOCORRECTION_PANEL
 }
 
 PassRefPtr<Range> Editor::rangeForPoint(const IntPoint& windowPoint)
@@ -2794,10 +2848,10 @@ bool Editor::getCompositionSelection(unsigned& selectionStart, unsigned& selecti
     if (!m_compositionNode)
         return false;
     Position start = m_frame->selection()->start();
-    if (start.node() != m_compositionNode)
+    if (start.deprecatedNode() != m_compositionNode)
         return false;
     Position end = m_frame->selection()->end();
-    if (end.node() != m_compositionNode)
+    if (end.deprecatedNode() != m_compositionNode)
         return false;
 
     if (static_cast<unsigned>(start.deprecatedEditingOffset()) < m_compositionStart)
@@ -3014,8 +3068,14 @@ void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection, b
     // The old selection can be invalid here and calling shouldChangeSelection can produce some strange calls.
     // See <rdar://problem/5729315> Some shouldChangeSelectedDOMRange contain Ranges for selections that are no longer valid
     bool selectionDidNotChangeDOMPosition = newSelection == m_frame->selection()->selection();
-    if (selectionDidNotChangeDOMPosition || m_frame->selection()->shouldChangeSelection(newSelection))
-        m_frame->selection()->setSelection(newSelection, closeTyping, clearTypingStyle);
+    if (selectionDidNotChangeDOMPosition || m_frame->selection()->shouldChangeSelection(newSelection)) {
+        SelectionController::SetSelectionOptions options = 0;
+        if (closeTyping)
+            options |= SelectionController::CloseTyping;
+        if (clearTypingStyle)
+            options |= SelectionController::ClearTypingStyle;
+        m_frame->selection()->setSelection(newSelection, options);
+    }
 
     // Some editing operations change the selection visually without affecting its position within the DOM.
     // For example when you press return in the following (the caret is marked by ^):
@@ -3047,7 +3107,7 @@ IntRect Editor::firstRectForRange(Range* range) const
         return IntRect();
     startPosition.getInlineBoxAndOffset(DOWNSTREAM, startInlineBox, startCaretOffset);
 
-    RenderObject* startRenderer = startPosition.node()->renderer();
+    RenderObject* startRenderer = startPosition.deprecatedNode()->renderer();
     ASSERT(startRenderer);
     IntRect startCaretRect = startRenderer->localCaretRect(startInlineBox, startCaretOffset, &extraWidthToEndOfLine);
     if (startCaretRect != IntRect())
@@ -3060,7 +3120,7 @@ IntRect Editor::firstRectForRange(Range* range) const
         return IntRect();
     endPosition.getInlineBoxAndOffset(UPSTREAM, endInlineBox, endCaretOffset);
 
-    RenderObject* endRenderer = endPosition.node()->renderer();
+    RenderObject* endRenderer = endPosition.deprecatedNode()->renderer();
     ASSERT(endRenderer);
     IntRect endCaretRect = endRenderer->localCaretRect(endInlineBox, endCaretOffset);
     if (endCaretRect != IntRect())
@@ -3112,7 +3172,7 @@ void Editor::computeAndSetTypingStyle(CSSStyleDeclaration* style, EditAction edi
     m_frame->selection()->setTypingStyle(typingStyle);
 }
 
-PassRefPtr<CSSMutableStyleDeclaration> Editor::selectionComputedStyle(bool& shouldUseFixedFontDefaultSize) const
+PassRefPtr<EditingStyle> Editor::selectionStartStyle() const
 {
     if (m_frame->selection()->isNone())
         return 0;
@@ -3132,19 +3192,9 @@ PassRefPtr<CSSMutableStyleDeclaration> Editor::selectionComputedStyle(bool& shou
     if (!element)
         return 0;
 
-    RefPtr<Element> styleElement = element;
-    RefPtr<CSSComputedStyleDeclaration> style = computedStyle(styleElement.release());
-    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->copy();
-    shouldUseFixedFontDefaultSize = style->useFixedFontDefaultSize();
-
-    if (!m_frame->selection()->typingStyle())
-        return mutableStyle;
-
-    RefPtr<EditingStyle> typingStyle = m_frame->selection()->typingStyle()->copy();
-    typingStyle->prepareToApplyAt(position);
-    mutableStyle->merge(typingStyle->style());
-
-    return mutableStyle;
+    RefPtr<EditingStyle> style = EditingStyle::create(element, EditingStyle::AllProperties);
+    style->mergeTypingStyle(m_frame->document());
+    return style;
 }
 
 void Editor::textFieldDidBeginEditing(Element* e)
@@ -3220,12 +3270,12 @@ RenderStyle* Editor::styleForSelectionStart(Node *&nodeToRemove) const
     Position position = m_frame->selection()->selection().visibleStart().deepEquivalent();
     if (!position.isCandidate())
         return 0;
-    if (!position.node())
+    if (!position.deprecatedNode())
         return 0;
 
     RefPtr<EditingStyle> typingStyle = m_frame->selection()->typingStyle();
     if (!typingStyle || !typingStyle->style())
-        return position.node()->renderer()->style();
+        return position.deprecatedNode()->renderer()->style();
 
     RefPtr<Element> styleElement = m_frame->document()->createElement(spanTag, false);
 
@@ -3237,7 +3287,7 @@ RenderStyle* Editor::styleForSelectionStart(Node *&nodeToRemove) const
     styleElement->appendChild(m_frame->document()->createEditingTextNode(""), ec);
     ASSERT(!ec);
 
-    position.node()->parentNode()->appendChild(styleElement, ec);
+    position.deprecatedNode()->parentNode()->appendChild(styleElement, ec);
     ASSERT(!ec);
 
     nodeToRemove = styleElement.get();
@@ -3439,7 +3489,7 @@ void Editor::setMarkedTextMatchesAreHighlighted(bool flag)
     m_frame->document()->markers()->repaintMarkers(DocumentMarker::TextMatch);
 }
 
-void Editor::respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping)
+void Editor::respondToChangedSelection(const VisibleSelection& oldSelection, SelectionController::SetSelectionOptions options)
 {
 #if SUPPORT_AUTOCORRECTION_PANEL
     // Make sure there's no pending autocorrection before we call markMisspellingsAndBadGrammar() below.
@@ -3450,6 +3500,7 @@ void Editor::respondToChangedSelection(const VisibleSelection& oldSelection, boo
     }
 #endif // SUPPORT_AUTOCORRECTION_PANEL
 
+    bool closeTyping = options & SelectionController::CloseTyping;
     bool isContinuousSpellCheckingEnabled = this->isContinuousSpellCheckingEnabled();
     bool isContinuousGrammarCheckingEnabled = isContinuousSpellCheckingEnabled && isGrammarCheckingEnabled();
     if (isContinuousSpellCheckingEnabled) {
@@ -3463,10 +3514,16 @@ void Editor::respondToChangedSelection(const VisibleSelection& oldSelection, boo
                 newSelectedSentence = VisibleSelection(startOfSentence(newStart), endOfSentence(newStart));
         }
 
+        bool shouldCheckSpellingAndGrammar = true;
+#if SUPPORT_AUTOCORRECTION_PANEL
+        // Don't check spelling and grammar if the change of selection is triggered by spelling correction itself.
+        shouldCheckSpellingAndGrammar = !(options & SelectionController::SpellCorrectionTriggered);
+#endif
+
         // When typing we check spelling elsewhere, so don't redo it here.
         // If this is a change in selection resulting from a delete operation,
         // oldSelection may no longer be in the document.
-        if (closeTyping && oldSelection.isContentEditable() && oldSelection.start().node() && oldSelection.start().node()->inDocument()) {
+        if (shouldCheckSpellingAndGrammar && closeTyping && oldSelection.isContentEditable() && oldSelection.start().deprecatedNode() && oldSelection.start().anchorNode()->inDocument()) {
             VisiblePosition oldStart(oldSelection.visibleStart());
             VisibleSelection oldAdjacentWords = VisibleSelection(startOfWord(oldStart, LeftWordIfOnBoundary), endOfWord(oldStart, RightWordIfOnBoundary));
             if (oldAdjacentWords != newAdjacentWords) {
@@ -3505,7 +3562,7 @@ static Node* findFirstMarkable(Node* node)
         if (node->renderer()->isText())
             return node;
         if (node->renderer()->isTextControl())
-            node = toRenderTextControl(node->renderer())->visiblePositionForIndex(1).deepEquivalent().node();
+            node = toRenderTextControl(node->renderer())->visiblePositionForIndex(1).deepEquivalent().deprecatedNode();
         else if (node->firstChild())
             node = node->firstChild();
         else
@@ -3517,7 +3574,7 @@ static Node* findFirstMarkable(Node* node)
 
 bool Editor::selectionStartHasSpellingMarkerFor(int from, int length) const
 {
-    Node* node = findFirstMarkable(m_frame->selection()->start().node());
+    Node* node = findFirstMarkable(m_frame->selection()->start().deprecatedNode());
     if (!node)
         return false;
 
@@ -3533,5 +3590,10 @@ bool Editor::selectionStartHasSpellingMarkerFor(int from, int length) const
     return false;
 }
 
+FloatRect Editor::windowRectForRange(const Range* range) const
+{
+    FrameView* view = frame()->view();
+    return view ? view->contentsToWindow(IntRect(range->boundingRect())) : FloatRect();
+}        
 
 } // namespace WebCore

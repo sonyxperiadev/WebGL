@@ -31,7 +31,6 @@
 #import "DrawingAreaProxyImpl.h"
 #import "FindIndicator.h"
 #import "FindIndicatorWindow.h"
-#import "LayerBackedDrawingAreaProxy.h"
 #import "LayerTreeContext.h"
 #import "Logging.h"
 #import "NativeWebKeyboardEvent.h"
@@ -52,7 +51,6 @@
 #import "WebEventFactory.h"
 #import "WebPage.h"
 #import "WebPageProxy.h"
-#import "WebProcessManager.h"
 #import "WebProcessProxy.h"
 #import "WebSystemInterface.h"
 #import <QuartzCore/QuartzCore.h>
@@ -207,6 +205,8 @@ static bool useNewDrawingArea()
     self = [super initWithFrame:frame];
     if (!self)
         return nil;
+
+    [NSApp registerServicesMenuSendTypes:PasteboardTypes::forSelection() returnTypes:PasteboardTypes::forEditing()];
 
     InitWebCoreSystemInterface();
     RunLoop::initializeMainRunLoop();
@@ -496,6 +496,30 @@ WEBCORE_COMMAND(yankAndSelect)
 
 #undef WEBCORE_COMMAND
 
+- (BOOL)writeSelectionToPasteboard:(NSPasteboard *)pasteboard types:(NSArray *)types
+{
+    Vector<String> pasteboardTypes;
+    size_t numTypes = [types count];
+    for (size_t i = 0; i < numTypes; ++i)
+        pasteboardTypes.append([types objectAtIndex:i]);
+    return _data->_page->writeSelectionToPasteboard([pasteboard name], pasteboardTypes);
+}
+
+- (id)validRequestorForSendType:(NSString *)sendType returnType:(NSString *)returnType
+{
+    BOOL isValidSendType = !sendType || ([PasteboardTypes::forSelection() containsObject:sendType] && !_data->_page->selectionState().isNone);
+    BOOL isValidReturnType = NO;
+    if (!returnType)
+        isValidReturnType = YES;
+    else if ([PasteboardTypes::forEditing() containsObject:returnType] && _data->_page->selectionState().isContentEditable) {
+        // We can insert strings in any editable context.  We can insert other types, like images, only in rich edit contexts.
+        isValidReturnType = _data->_page->selectionState().isContentRichlyEditable || [returnType isEqualToString:NSStringPboardType];
+    }
+    if (isValidSendType && isValidReturnType)
+        return self;
+    return [[self nextResponder] validRequestorForSendType:sendType returnType:returnType];
+}
+
 /*
 
 When possible, editing-related methods should be implemented in WebCore with the
@@ -546,6 +570,18 @@ static NSToolbarItem *toolbarItem(id <NSValidatedUserInterfaceItem> item)
     if (![(NSObject *)item isKindOfClass:[NSToolbarItem class]])
         return nil;
     return (NSToolbarItem *)item;
+}
+
+static void validateCommandCallback(WKStringRef commandName, bool isEnabled, int32_t state, WKErrorRef error, void* context)
+{
+    // If the process exits before the command can be validated, we'll be called back with an error.
+    if (error)
+        return;
+    
+    WKView* wkView = static_cast<WKView*>(context);
+    ASSERT(wkView);
+    
+    [wkView _setUserInterfaceItemState:nsStringFromWebCoreString(toImpl(commandName)->string()) enabled:isEnabled state:state];
 }
 
 - (BOOL)validateUserInterfaceItem:(id <NSValidatedUserInterfaceItem>)item
@@ -643,8 +679,7 @@ static NSToolbarItem *toolbarItem(id <NSValidatedUserInterfaceItem> item)
         // If we are not already awaiting validation for this command, start the asynchronous validation process.
         // FIXME: Theoretically, there is a race here; when we get the answer it might be old, from a previous time
         // we asked for the same command; there is no guarantee the answer is still valid.
-        // FIXME: The function called here should be renamed validateCommand because it is not specific to menu items.
-        _data->_page->validateMenuItem(commandName);
+        _data->_page->validateCommand(commandName, ValidateCommandCallback::create(self, validateCommandCallback));
     }
 
     // Treat as enabled until we get the result back from the web process and _setUserInterfaceItemState is called.
@@ -713,6 +748,23 @@ static void speakString(WKStringRef string, WKErrorRef error, void*)
 
     if (!spellCheckingEnabled)
         _data->_page->unmarkAllMisspellings();
+}
+
+- (BOOL)isGrammarCheckingEnabled
+{
+    return TextChecker::state().isGrammarCheckingEnabled;
+}
+
+- (void)setGrammarCheckingEnabled:(BOOL)flag
+{
+    if (static_cast<bool>(flag) == TextChecker::state().isGrammarCheckingEnabled)
+        return;
+    
+    TextChecker::setGrammarCheckingEnabled(flag);
+    _data->_page->process()->updateTextCheckerState();
+
+    if (!flag)
+        _data->_page->unmarkAllBadGrammar();
 }
 
 - (IBAction)toggleGrammarChecking:(id)sender
@@ -1496,6 +1548,13 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
     return _data->_page->drawsBackground();
 }
 
+- (BOOL)mouseDownCanMoveWindow
+{
+    // -[NSView mouseDownCanMoveWindow] returns YES when the NSView is transparent,
+    // but we don't want a drag in the NSView to move the window, even if it's transparent.
+    return NO;
+}
+
 - (void)viewDidHide
 {
     _data->_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
@@ -1504,6 +1563,11 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
 - (void)viewDidUnhide
 {
     _data->_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
+}
+
+- (id)accessibilityFocusedUIElement
+{
+    return _data->_remoteAccessibilityChild.get();
 }
 
 - (BOOL)accessibilityIsIgnored
@@ -1802,95 +1866,6 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
     _data->_findIndicatorWindow->setFindIndicator(findIndicator, fadeOut);
 }
 
-#if USE(ACCELERATED_COMPOSITING)
-- (void)_startAcceleratedCompositing:(CALayer *)rootLayer
-{
-    if (!_data->_oldLayerHostingView) {
-        NSView *hostingView = [[NSView alloc] initWithFrame:[self bounds]];
-#if !defined(BUILDING_ON_LEOPARD)
-        [hostingView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
-#endif
-        
-        [self addSubview:hostingView];
-        [hostingView release];
-        _data->_oldLayerHostingView = hostingView;
-    }
-
-    // Make a container layer, which will get sized/positioned by AppKit and CA.
-    CALayer *viewLayer = [CALayer layer];
-
-#ifndef NDEBUG
-    [viewLayer setName:@"hosting layer"];
-#endif
-
-#if defined(BUILDING_ON_LEOPARD)
-    // Turn off default animations.
-    NSNull *nullValue = [NSNull null];
-    NSDictionary *actions = [NSDictionary dictionaryWithObjectsAndKeys:
-                             nullValue, @"anchorPoint",
-                             nullValue, @"bounds",
-                             nullValue, @"contents",
-                             nullValue, @"contentsRect",
-                             nullValue, @"opacity",
-                             nullValue, @"position",
-                             nullValue, @"sublayerTransform",
-                             nullValue, @"sublayers",
-                             nullValue, @"transform",
-                             nil];
-    [viewLayer setStyle:[NSDictionary dictionaryWithObject:actions forKey:@"actions"]];
-#endif
-
-#if !defined(BUILDING_ON_LEOPARD)
-    // If we aren't in the window yet, we'll use the screen's scale factor now, and reset the scale 
-    // via -viewDidMoveToWindow.
-    CGFloat scaleFactor = [self window] ? [[self window] userSpaceScaleFactor] : [[NSScreen mainScreen] userSpaceScaleFactor];
-    [viewLayer setTransform:CATransform3DMakeScale(scaleFactor, scaleFactor, 1)];
-#endif
-
-    [_data->_oldLayerHostingView setLayer:viewLayer];
-    [_data->_oldLayerHostingView setWantsLayer:YES];
-    
-    // Parent our root layer in the container layer
-    [viewLayer addSublayer:rootLayer];
-}
-
-- (void)_stopAcceleratedCompositing
-{
-    if (_data->_oldLayerHostingView) {
-        [_data->_oldLayerHostingView setLayer:nil];
-        [_data->_oldLayerHostingView setWantsLayer:NO];
-        [_data->_oldLayerHostingView removeFromSuperview];
-        _data->_oldLayerHostingView = nil;
-    }
-}
-
-- (void)_switchToDrawingAreaTypeIfNecessary:(DrawingAreaInfo::Type)type
-{
-    DrawingAreaInfo::Type existingDrawingAreaType = _data->_page->drawingArea() ? _data->_page->drawingArea()->info().type : DrawingAreaInfo::None;
-    if (existingDrawingAreaType == type)
-        return;
-
-    OwnPtr<DrawingAreaProxy> newDrawingArea;
-    switch (type) {
-        case DrawingAreaInfo::Impl:
-        case DrawingAreaInfo::None:
-            break;
-        case DrawingAreaInfo::ChunkedUpdate: {
-            newDrawingArea = ChunkedUpdateDrawingAreaProxy::create(self, _data->_page.get());
-            break;
-        }
-        case DrawingAreaInfo::LayerBacked: {
-            newDrawingArea = LayerBackedDrawingAreaProxy::create(self, _data->_page.get());
-            break;
-        }
-    }
-
-    newDrawingArea->setSize(IntSize([self frame].size), IntSize());
-
-    _data->_page->drawingArea()->detachCompositingContext();
-    _data->_page->setDrawingArea(newDrawingArea.release());
-}
-
 - (void)_enterAcceleratedCompositingMode:(const LayerTreeContext&)layerTreeContext
 {
     ASSERT(!_data->_layerHostingView);
@@ -1899,6 +1874,9 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
     // Create an NSView that will host our layer tree.
     _data->_layerHostingView.adoptNS([[NSView alloc] initWithFrame:[self bounds]]);
     [_data->_layerHostingView.get() setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
     [self addSubview:_data->_layerHostingView.get()];
 
     // Create a root layer that will back the NSView.
@@ -1912,30 +1890,20 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
 
     [_data->_layerHostingView.get() setLayer:rootLayer.get()];
     [_data->_layerHostingView.get() setWantsLayer:YES];
+
+    [CATransaction commit];
 }
 
 - (void)_exitAcceleratedCompositingMode
 {
     ASSERT(_data->_layerHostingView);
 
+    [_data->_layerHostingView.get() removeFromSuperview];
     [_data->_layerHostingView.get() setLayer:nil];
     [_data->_layerHostingView.get() setWantsLayer:NO];
-    [_data->_layerHostingView.get() removeFromSuperview];
     
     _data->_layerHostingView = nullptr;
 }
-
-- (void)_pageDidEnterAcceleratedCompositing
-{
-    [self _switchToDrawingAreaTypeIfNecessary:DrawingAreaInfo::LayerBacked];
-}
-
-- (void)_pageDidLeaveAcceleratedCompositing
-{
-    // FIXME: we may want to avoid flipping back to the non-layer-backed drawing area until the next page load, to avoid thrashing.
-    [self _switchToDrawingAreaTypeIfNecessary:DrawingAreaInfo::ChunkedUpdate];
-}
-#endif // USE(ACCELERATED_COMPOSITING)
 
 - (void)_setAccessibilityWebProcessToken:(NSData *)data
 {
@@ -1978,11 +1946,11 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
         _data->_pdfViewController = PDFViewController::create(self);
 }
 
-- (void)_didFinishLoadingDataForCustomRepresentation:(const CoreIPC::DataReference&)dataReference
+- (void)_didFinishLoadingDataForCustomRepresentationWithSuggestedFilename:(const String&)suggestedFilename dataReference:(const CoreIPC::DataReference&)dataReference
 {
     ASSERT(_data->_pdfViewController);
 
-    _data->_pdfViewController->setPDFDocumentData(_data->_page->mainFrame()->mimeType(), dataReference);
+    _data->_pdfViewController->setPDFDocumentData(_data->_page->mainFrame()->mimeType(), suggestedFilename, dataReference);
 }
 
 - (double)_customRepresentationZoomFactor
@@ -2054,6 +2022,15 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
 - (BOOL)frameSizeUpdatesDisabled
 {
     return _frameSizeUpdatesDisabledCount > 0;
+}
+
+- (void)performDictionaryLookupAtCurrentMouseLocation
+{
+    NSPoint thePoint = [NSEvent mouseLocation];
+    thePoint = [[self window] convertScreenToBase:thePoint];
+    thePoint = [self convertPoint:thePoint fromView:nil];
+
+    _data->_page->performDictionaryLookupAtLocation(FloatPoint(thePoint.x, thePoint.y));
 }
 
 @end

@@ -78,6 +78,7 @@ public:
     static void willModifyDOMAttr(Document*, Element*);
     static void didModifyDOMAttr(Document*, Element*);
     static void characterDataModified(Document*, CharacterData*);
+    static void didInvalidateStyleAttr(Document*, Node*);
 
     static void mouseDidMoveOverElement(Page*, const HitTestResult&, unsigned modifierFlags);
     static bool handleMousePress(Page*);
@@ -194,6 +195,7 @@ private:
     static void willModifyDOMAttrImpl(InspectorAgent*, Element*);
     static void didModifyDOMAttrImpl(InspectorAgent*, Element*);
     static void characterDataModifiedImpl(InspectorAgent*, CharacterData*);
+    static void didInvalidateStyleAttrImpl(InspectorAgent*, Node*);
 
     static void mouseDidMoveOverElementImpl(InspectorAgent*, const HitTestResult&, unsigned modifierFlags);
     static bool handleMousePressImpl(InspectorAgent*);
@@ -241,7 +243,7 @@ private:
     static void domContentLoadedEventFiredImpl(InspectorAgent*, Frame*, const KURL&);
     static void loadEventFiredImpl(InspectorAgent*, Frame*, const KURL&);
     static void frameDetachedFromParentImpl(InspectorAgent*, Frame*);
-    static void didCommitLoadImpl(InspectorAgent*, DocumentLoader*);
+    static void didCommitLoadImpl(Page*, InspectorAgent*, DocumentLoader*);
 
     static InspectorInstrumentationCookie willWriteHTMLImpl(InspectorAgent*, unsigned int length, unsigned int startLine);
     static void didWriteHTMLImpl(const InspectorInstrumentationCookie&, unsigned int endLine);
@@ -360,6 +362,14 @@ inline void InspectorInstrumentation::didModifyDOMAttr(Document* document, Eleme
 #if ENABLE(INSPECTOR)
     if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForDocument(document))
         didModifyDOMAttrImpl(inspectorAgent, element);
+#endif
+}
+
+inline void InspectorInstrumentation::didInvalidateStyleAttr(Document* document, Node* node)
+{
+#if ENABLE(INSPECTOR)
+    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForDocument(document))
+        didInvalidateStyleAttrImpl(inspectorAgent, node);
 #endif
 }
 
@@ -733,8 +743,13 @@ inline void InspectorInstrumentation::frameDetachedFromParent(Frame* frame)
 inline void InspectorInstrumentation::didCommitLoad(Frame* frame, DocumentLoader* loader)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(frame))
-        didCommitLoadImpl(inspectorAgent, loader);
+    if (!frame)
+        return;
+    Page* page = frame->page();
+    if (!page)
+        return;
+    if (InspectorAgent* inspectorAgent = inspectorAgentForPage(page))
+        didCommitLoadImpl(page, inspectorAgent, loader);
 #endif
 }
 

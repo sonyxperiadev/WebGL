@@ -31,8 +31,8 @@
 #include <QObject>
 #include <QThread>
 #include <QProcess>
+#include <WebCore/NotImplemented.h>
 #include <wtf/Threading.h>
-#include "NotImplemented.h"
 
 class WorkQueue::WorkItemQt : public QObject {
     Q_OBJECT
@@ -111,9 +111,11 @@ void WorkQueue::scheduleWork(PassOwnPtr<WorkItem> item)
     itemQt->moveToThread(m_workThread);
 }
 
-void WorkQueue::scheduleWorkAfterDelay(PassOwnPtr<WorkItem>, double)
+void WorkQueue::scheduleWorkAfterDelay(PassOwnPtr<WorkItem> item, double delayInSecond)
 {
-    notImplemented();
+    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, item.leakPtr());
+    itemQt->startTimer(static_cast<int>(delayInSecond * 1000));
+    itemQt->moveToThread(m_workThread);
 }
 
 void WorkQueue::scheduleWorkOnTermination(WebKit::PlatformProcessIdentifier process, PassOwnPtr<WorkItem> workItem)

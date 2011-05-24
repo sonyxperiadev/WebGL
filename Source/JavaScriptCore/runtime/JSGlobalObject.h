@@ -26,7 +26,6 @@
 #include "JSGlobalData.h"
 #include "JSVariableObject.h"
 #include "JSWeakObjectMapRefInternal.h"
-#include "NativeFunctionWrapper.h"
 #include "NumberPrototype.h"
 #include "StringPrototype.h"
 #include <wtf/HashSet.h>
@@ -42,10 +41,8 @@ namespace JSC {
     class ErrorConstructor;
     class FunctionPrototype;
     class GlobalCodeBlock;
-    class GlobalEvalFunction;
     class NativeErrorConstructor;
     class ProgramCodeBlock;
-    class PrototypeFunction;
     class RegExpConstructor;
     class RegExpPrototype;
     class RegisterFile;
@@ -72,7 +69,7 @@ namespace JSC {
                 : JSVariableObjectData(&symbolTable, 0)
                 , destructor(destructor)
                 , registerArraySize(0)
-                , globalScopeChain(NoScopeChain())
+                , globalScopeChain()
                 , weakRandom(static_cast<unsigned>(randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0)))
             {
             }
@@ -86,7 +83,7 @@ namespace JSC {
 
             Debugger* debugger;
             
-            ScopeChain globalScopeChain;
+            WriteBarrier<ScopeChainNode> globalScopeChain;
             Register globalCallFrame[RegisterFile::CallFrameHeaderSize];
 
             WriteBarrier<RegExpConstructor> regExpConstructor;
@@ -98,9 +95,9 @@ namespace JSC {
             WriteBarrier<NativeErrorConstructor> typeErrorConstructor;
             WriteBarrier<NativeErrorConstructor> URIErrorConstructor;
 
-            WriteBarrier<GlobalEvalFunction> evalFunction;
-            WriteBarrier<NativeFunctionWrapper> callFunction;
-            WriteBarrier<NativeFunctionWrapper> applyFunction;
+            WriteBarrier<JSFunction> evalFunction;
+            WriteBarrier<JSFunction> callFunction;
+            WriteBarrier<JSFunction> applyFunction;
 
             WriteBarrier<ObjectPrototype> objectPrototype;
             WriteBarrier<FunctionPrototype> functionPrototype;
@@ -124,7 +121,6 @@ namespace JSC {
             RefPtr<Structure> errorStructure;
             RefPtr<Structure> functionStructure;
             RefPtr<Structure> numberObjectStructure;
-            RefPtr<Structure> prototypeFunctionStructure;
             RefPtr<Structure> regExpMatchesArrayStructure;
             RefPtr<Structure> regExpStructure;
             RefPtr<Structure> stringObjectStructure;
@@ -181,6 +177,10 @@ namespace JSC {
         virtual void defineGetter(ExecState*, const Identifier& propertyName, JSObject* getterFunc, unsigned attributes);
         virtual void defineSetter(ExecState*, const Identifier& propertyName, JSObject* setterFunc, unsigned attributes);
 
+        // We use this in the code generator as we perform symbol table
+        // lookups prior to initializing the properties
+        bool symbolTableHasProperty(const Identifier& propertyName);
+
         // The following accessors return pristine values, even if a script 
         // replaces the global object's associated property.
 
@@ -194,7 +194,7 @@ namespace JSC {
         NativeErrorConstructor* typeErrorConstructor() const { return d()->typeErrorConstructor.get(); }
         NativeErrorConstructor* URIErrorConstructor() const { return d()->URIErrorConstructor.get(); }
 
-        GlobalEvalFunction* evalFunction() const { return d()->evalFunction.get(); }
+        JSFunction* evalFunction() const { return d()->evalFunction.get(); }
 
         ObjectPrototype* objectPrototype() const { return d()->objectPrototype.get(); }
         FunctionPrototype* functionPrototype() const { return d()->functionPrototype.get(); }
@@ -218,7 +218,6 @@ namespace JSC {
         Structure* errorStructure() const { return d()->errorStructure.get(); }
         Structure* functionStructure() const { return d()->functionStructure.get(); }
         Structure* numberObjectStructure() const { return d()->numberObjectStructure.get(); }
-        Structure* prototypeFunctionStructure() const { return d()->prototypeFunctionStructure.get(); }
         Structure* internalFunctionStructure() const { return d()->internalFunctionStructure.get(); }
         Structure* regExpMatchesArrayStructure() const { return d()->regExpMatchesArrayStructure.get(); }
         Structure* regExpStructure() const { return d()->regExpStructure.get(); }
@@ -233,7 +232,7 @@ namespace JSC {
         virtual bool supportsProfiling() const { return false; }
         virtual bool supportsRichSourceInfo() const { return true; }
 
-        ScopeChain& globalScopeChain() { return d()->globalScopeChain; }
+        ScopeChainNode* globalScopeChain() { return d()->globalScopeChain.get(); }
 
         virtual bool isGlobalObject() const { return true; }
 
@@ -247,7 +246,8 @@ namespace JSC {
 
         void copyGlobalsFrom(RegisterFile&);
         void copyGlobalsTo(RegisterFile&);
-        
+        void resizeRegisters(int oldSize, int newSize);
+
         void resetPrototype(JSValue prototype);
 
         JSGlobalData& globalData() const { return *d()->globalData.get(); }
@@ -255,7 +255,7 @@ namespace JSC {
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
         void registerWeakMap(OpaqueJSWeakObjectMap* map)
@@ -295,7 +295,7 @@ namespace JSC {
         void init(JSObject* thisValue);
         void reset(JSValue prototype);
 
-        void setRegisters(Register* registers, PassOwnArrayPtr<Register> registerArray, size_t count);
+        void setRegisters(WriteBarrier<Unknown>* registers, PassOwnArrayPtr<WriteBarrier<Unknown> > registerArray, size_t count);
 
         void* operator new(size_t); // can only be allocated with JSGlobalData
     };
@@ -308,7 +308,7 @@ namespace JSC {
         return static_cast<JSGlobalObject*>(asObject(value));
     }
 
-    inline void JSGlobalObject::setRegisters(Register* registers, PassOwnArrayPtr<Register> registerArray, size_t count)
+    inline void JSGlobalObject::setRegisters(WriteBarrier<Unknown>* registers, PassOwnArrayPtr<WriteBarrier<Unknown> > registerArray, size_t count)
     {
         JSVariableObject::setRegisters(registers, registerArray);
         d()->registerArraySize = count;
@@ -318,17 +318,21 @@ namespace JSC {
     {
         size_t oldSize = d()->registerArraySize;
         size_t newSize = oldSize + count;
-        Register* registerArray = new Register[newSize];
-        if (d()->registerArray)
-            memcpy(registerArray + count, d()->registerArray.get(), oldSize * sizeof(Register));
-        setRegisters(registerArray + newSize, registerArray, newSize);
+        OwnArrayPtr<WriteBarrier<Unknown> > registerArray = adoptArrayPtr(new WriteBarrier<Unknown>[newSize]);
+        if (d()->registerArray) {
+            // memcpy is safe here as we're copying barriers we already own from the existing array
+            memcpy(registerArray.get() + count, d()->registerArray.get(), oldSize * sizeof(Register));
+        }
+
+        WriteBarrier<Unknown>* registers = registerArray.get() + newSize;
+        setRegisters(registers, registerArray.release(), newSize);
 
         for (int i = 0, index = -static_cast<int>(oldSize) - 1; i < count; ++i, --index) {
             GlobalPropertyInfo& global = globals[i];
             ASSERT(global.attributes & DontDelete);
             SymbolTableEntry newEntry(index, global.attributes);
             symbolTable().add(global.identifier.impl(), newEntry);
-            registerAt(index) = global.value;
+            registerAt(index).set(globalData(), this, global.value);
         }
     }
 
@@ -353,6 +357,12 @@ namespace JSC {
             return true;
         bool slotIsWriteable;
         return symbolTableGet(propertyName, slot, slotIsWriteable);
+    }
+
+    inline bool JSGlobalObject::symbolTableHasProperty(const Identifier& propertyName)
+    {
+        SymbolTableEntry entry = symbolTable().inlineGet(propertyName.impl());
+        return !entry.isNull();
     }
 
     inline JSValue Structure::prototypeForLookup(ExecState* exec) const
@@ -401,16 +411,16 @@ namespace JSC {
         return globalData().dynamicGlobalObject;
     }
 
-    inline JSObject* constructEmptyObject(ExecState* exec)
-    {
-        return new (exec) JSObject(exec->lexicalGlobalObject()->emptyObjectStructure());
-    }
-    
     inline JSObject* constructEmptyObject(ExecState* exec, JSGlobalObject* globalObject)
     {
-        return new (exec) JSObject(globalObject->emptyObjectStructure());
+        return constructEmptyObject(exec, globalObject->emptyObjectStructure());
     }
 
+    inline JSObject* constructEmptyObject(ExecState* exec)
+    {
+        return constructEmptyObject(exec, exec->lexicalGlobalObject());
+    }
+    
     inline JSArray* constructEmptyArray(ExecState* exec)
     {
         return new (exec) JSArray(exec->lexicalGlobalObject()->arrayStructure());

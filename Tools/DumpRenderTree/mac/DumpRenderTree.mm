@@ -407,6 +407,7 @@ static void resetDefaultsToConsistentValues()
 
     [defaults setBool:NO forKey:@"AppleScrollAnimationEnabled"];
     [defaults setBool:NO forKey:@"NSOverlayScrollersEnabled"];
+    [defaults setObject:@"Always" forKey:@"AppleShowScrollBars"];
 
     if (initialValue)
         CFPreferencesSetValue(CFSTR("AppleScrollBarVariant"), initialValue.get(), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
@@ -995,6 +996,11 @@ static bool shouldOpenWebInspector(const char* pathOrURL)
     return strstr(pathOrURL, "inspector/");
 }
 
+static bool shouldDumpAsText(const char* pathOrURL)
+{
+    return strstr(pathOrURL, "dumpAsText/");
+}
+
 static bool shouldEnableDeveloperExtras(const char* pathOrURL)
 {
     return true;
@@ -1017,6 +1023,7 @@ static void resetWebViewToConsistentStateBeforeTesting()
     [[webView undoManager] removeAllActions];
     [WebView _removeAllUserContentFromGroup:[webView groupName]];
     [[webView window] setAutodisplay:NO];
+    [webView _setMinimumTimerInterval:[WebView _defaultMinimumTimerInterval]];
 
     resetDefaultsToConsistentValues();
 
@@ -1030,6 +1037,8 @@ static void resetWebViewToConsistentStateBeforeTesting()
     
     // Clear the contents of the general pasteboard
     [[NSPasteboard generalPasteboard] declareTypes:[NSArray arrayWithObject:NSStringPboardType] owner:nil];
+
+    [mainFrame _clearOpener];
 }
 
 static void runTest(const string& testPathOrURL)
@@ -1088,6 +1097,10 @@ static void runTest(const string& testPathOrURL)
         gLayoutTestController->setDeveloperExtrasEnabled(true);
         if (shouldOpenWebInspector(pathOrURL.c_str()))
             gLayoutTestController->showWebInspector();
+        if (shouldDumpAsText(pathOrURL.c_str())) {
+            gLayoutTestController->setDumpAsText(true);
+            gLayoutTestController->setGeneratePixelResults(false);
+        }
     }
 
     if ([WebHistory optionalSharedHistory])

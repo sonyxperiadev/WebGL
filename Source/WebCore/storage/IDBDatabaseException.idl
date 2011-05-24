@@ -39,6 +39,7 @@ module storage {
         [DontEnum] DOMString toString();
 #endif
 
+        const unsigned short NO_ERR = 0;
         const unsigned short UNKNOWN_ERR = 1;
         const unsigned short NON_TRANSIENT_ERR = 2;
         const unsigned short NOT_FOUND_ERR = 3;
@@ -51,6 +52,7 @@ module storage {
         const unsigned short TIMEOUT_ERR = 10;
         const unsigned short DEADLOCK_ERR = 11;
         const unsigned short READ_ONLY_ERR = 12;
+        const unsigned short ABORT_ERR = 13;
     };
 
 }

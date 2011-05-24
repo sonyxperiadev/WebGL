@@ -375,7 +375,7 @@ void GraphicsContext::drawImage(Image* image, ColorSpace styleColorSpace, const 
 }
 
 #if !OS(WINCE) || PLATFORM(QT)
-void GraphicsContext::drawText(const Font& font, const TextRun& run, const IntPoint& point, int from, int to)
+void GraphicsContext::drawText(const Font& font, const TextRun& run, const FloatPoint& point, int from, int to)
 {
     if (paintingDisabled())
         return;
@@ -384,7 +384,7 @@ void GraphicsContext::drawText(const Font& font, const TextRun& run, const IntPo
 }
 #endif
 
-void GraphicsContext::drawEmphasisMarks(const Font& font, const TextRun& run, const AtomicString& mark, const IntPoint& point, int from, int to)
+void GraphicsContext::drawEmphasisMarks(const Font& font, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to)
 {
     if (paintingDisabled())
         return;
@@ -422,13 +422,13 @@ void GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const F
         bidiRun = bidiRun->next();
         // FIXME: Have Font::drawText return the width of what it drew so that we don't have to re-measure here.
         if (bidiRun)
-            currPoint.move(font.floatWidth(subrun), 0.f);
+            currPoint.move(font.width(subrun), 0);
     }
 
     bidiResolver.deleteRuns();
 }
 
-void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run, const IntPoint& point, int h, const Color& backgroundColor, ColorSpace colorSpace, int from, int to)
+void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run, const FloatPoint& point, int h, const Color& backgroundColor, ColorSpace colorSpace, int from, int to)
 {
     if (paintingDisabled())
         return;
@@ -550,6 +550,13 @@ void GraphicsContext::drawImageBuffer(ImageBuffer* image, ColorSpace styleColorS
         image->draw(this, styleColorSpace, FloatRect(dest.location(), FloatSize(tw, th)), FloatRect(src.location(), FloatSize(tsw, tsh)), op, useLowQualityScale);
 }
 
+#if !PLATFORM(QT)
+void GraphicsContext::clip(const IntRect& rect)
+{
+    clip(FloatRect(rect));
+}
+#endif
+
 void GraphicsContext::addRoundedRectClip(const RoundedIntRect& rect)
 {
     if (paintingDisabled())
@@ -649,7 +656,11 @@ CompositeOperator GraphicsContext::compositeOperation() const
     return m_state.compositeOperator;
 }
 
+<<<<<<< HEAD
 #if !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
+=======
+#if !USE(SKIA)
+>>>>>>> WebKit at r80534
 void GraphicsContext::setPlatformFillGradient(Gradient*)
 {
 }
@@ -667,7 +678,11 @@ void GraphicsContext::setPlatformStrokePattern(Pattern*)
 }
 #endif
 
+<<<<<<< HEAD
 #if !PLATFORM(CG) && !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
+=======
+#if !PLATFORM(CG) && !USE(SKIA)
+>>>>>>> WebKit at r80534
 // Implement this if you want to go ahead and push the drawing mode into your native context
 // immediately.
 void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
@@ -675,7 +690,11 @@ void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
 }
 #endif
 
+<<<<<<< HEAD
 #if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(PLATFORM(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
+=======
+#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !USE(SKIA) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
+>>>>>>> WebKit at r80534
 void GraphicsContext::setPlatformStrokeStyle(StrokeStyle)
 {
 }
@@ -687,7 +706,7 @@ void GraphicsContext::setPlatformShouldSmoothFonts(bool)
 }
 #endif
 
-#if !PLATFORM(SKIA)
+#if !USE(SKIA)
 void GraphicsContext::setSharedGraphicsContext3D(SharedGraphicsContext3D*, DrawingBuffer*, const IntSize&)
 {
 }

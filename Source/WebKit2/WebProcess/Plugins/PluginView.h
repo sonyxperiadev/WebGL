@@ -104,12 +104,14 @@ private:
     
     // WebCore::Widget
     virtual void setFrameRect(const WebCore::IntRect&);
+    virtual void setBoundsSize(const WebCore::IntSize&);
     virtual void paint(WebCore::GraphicsContext*, const WebCore::IntRect&);
     virtual void invalidateRect(const WebCore::IntRect&);
     virtual void setFocus(bool);
     virtual void frameRectsChanged();
     virtual void setParent(WebCore::ScrollView*);
     virtual void handleEvent(WebCore::Event*);
+    virtual void notifyWidget(WebCore::WidgetNotification);
 
     // WebCore::MediaCanStartListener
     virtual void mediaCanStart();
@@ -138,6 +140,8 @@ private:
     virtual String cookiesForURL(const String&);
     virtual void setCookiesForURL(const String& urlString, const String& cookieString);
     virtual bool isPrivateBrowsingEnabled();
+    virtual void protectPluginFromDestruction();
+    virtual void unprotectPluginFromDestruction();
 
     // WebFrame::LoadListener
     virtual void didFinishLoad(WebFrame*);
@@ -179,6 +183,9 @@ private:
     WebCore::ResourceResponse m_manualStreamResponse;
     WebCore::ResourceError m_manualStreamError;
     RefPtr<WebCore::SharedBuffer> m_manualStreamData;
+    
+    RefPtr<ShareableBitmap> m_snapshot;
+    WebCore::IntSize m_boundsSize;
 };
 
 } // namespace WebKit

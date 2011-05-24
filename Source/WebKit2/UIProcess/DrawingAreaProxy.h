@@ -29,12 +29,23 @@
 
 #include "DrawingAreaInfo.h"
 #include <WebCore/IntSize.h>
+#include <wtf/Noncopyable.h>
 
 #if PLATFORM(QT)
 class QPainter;
 #elif PLATFORM(GTK)
 typedef struct _cairo cairo_t;
 #endif
+
+namespace CoreIPC {
+    class ArgumentDecoder;
+    class Connection;
+    class MessageID;
+}
+
+namespace WebCore {
+    class IntRect;
+}
 
 namespace WebKit {
 
@@ -56,16 +67,15 @@ class DrawingAreaProxy {
     WTF_MAKE_NONCOPYABLE(DrawingAreaProxy);
 
 public:
-    static DrawingAreaInfo::Identifier nextIdentifier();
-
     virtual ~DrawingAreaProxy();
+
+    DrawingAreaType type() const { return m_type; }
 
 #if PLATFORM(MAC) || PLATFORM(WIN)
     void didReceiveDrawingAreaProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 #endif
 
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*) = 0;
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*) { ASSERT_NOT_REACHED(); }
 
     // Returns true if painting was successful, false otherwise.
     virtual bool paint(const WebCore::IntRect&, PlatformDrawingContext) = 0;
@@ -76,21 +86,14 @@ public:
     virtual void visibilityDidChange() { }
 
     virtual void setPageIsVisible(bool isVisible) = 0;
-    
-#if USE(ACCELERATED_COMPOSITING)
-    virtual void attachCompositingContext(uint32_t contextID) = 0;
-    virtual void detachCompositingContext() = 0;
-#endif
-
-    const DrawingAreaInfo& info() const { return m_info; }
 
     const WebCore::IntSize& size() const { return m_size; }
     void setSize(const WebCore::IntSize&, const WebCore::IntSize& scrollOffset);
 
 protected:
-    explicit DrawingAreaProxy(DrawingAreaInfo::Type, WebPageProxy*);
+    explicit DrawingAreaProxy(DrawingAreaType, WebPageProxy*);
 
-    DrawingAreaInfo m_info;
+    DrawingAreaType m_type;
     WebPageProxy* m_webPageProxy;
 
     WebCore::IntSize m_size;
@@ -99,11 +102,11 @@ protected:
 private:
     // CoreIPC message handlers.
     // FIXME: These should be pure virtual.
-    virtual void update(uint64_t sequenceNumber, const UpdateInfo&) { }
-    virtual void didSetSize(uint64_t sequenceNumber, const UpdateInfo&, const LayerTreeContext&) { }
+    virtual void update(uint64_t backingStoreStateID, const UpdateInfo&) { }
+    virtual void didUpdateBackingStoreState(uint64_t backingStoreStateID, const UpdateInfo&, const LayerTreeContext&) { }
 #if USE(ACCELERATED_COMPOSITING)
-    virtual void enterAcceleratedCompositingMode(uint64_t sequenceNumber, const LayerTreeContext&) { }
-    virtual void exitAcceleratedCompositingMode(uint64_t sequenceNumber, const UpdateInfo&) { }
+    virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) { }
+    virtual void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&) { }
 #endif
 };
 

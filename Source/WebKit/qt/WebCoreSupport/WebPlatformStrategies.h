@@ -28,6 +28,7 @@
 #ifndef WebPlatformStrategies_h
 #define WebPlatformStrategies_h
 
+#include <CookiesStrategy.h>
 #include <LocalizationStrategy.h>
 #include <PlatformStrategies.h>
 #include <PluginStrategy.h>
@@ -37,7 +38,7 @@ namespace WebCore {
 class Page;
 }
 
-class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::PluginStrategy, private WebCore::LocalizationStrategy, private WebCore::VisitedLinkStrategy {
+class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::PluginStrategy, private WebCore::LocalizationStrategy, private WebCore::VisitedLinkStrategy {
 public:
     static void initialize();
 
@@ -45,9 +46,13 @@ private:
     WebPlatformStrategies();
 
     // WebCore::PlatformStrategies
+    virtual WebCore::CookiesStrategy* createCookiesStrategy();
     virtual WebCore::PluginStrategy* createPluginStrategy();
     virtual WebCore::LocalizationStrategy* createLocalizationStrategy();
     virtual WebCore::VisitedLinkStrategy* createVisitedLinkStrategy();
+    
+    // WebCore::CookiesStrategy
+    virtual void notifyCookiesChanged();
 
     // WebCore::PluginStrategy
     virtual void refreshPlugins();
@@ -60,6 +65,7 @@ private:
     virtual WTF::String submitButtonDefaultLabel();
     virtual WTF::String fileButtonChooseFileLabel();
     virtual WTF::String fileButtonNoFileSelectedLabel();
+    virtual WTF::String defaultDetailsSummaryText();
     virtual WTF::String contextMenuItemTagOpenLinkInNewWindow();
     virtual WTF::String contextMenuItemTagDownloadLinkToDisk();
     virtual WTF::String contextMenuItemTagCopyLinkToClipboard();

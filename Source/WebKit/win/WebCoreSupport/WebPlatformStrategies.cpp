@@ -46,7 +46,10 @@ WebPlatformStrategies::WebPlatformStrategies()
     setPlatformStrategies(this);
 }
 
-// PluginStrategy
+CookiesStrategy* WebPlatformStrategies::createCookiesStrategy()
+{
+    return this;
+}
 
 PluginStrategy* WebPlatformStrategies::createPluginStrategy()
 {
@@ -61,6 +64,10 @@ LocalizationStrategy* WebPlatformStrategies::createLocalizationStrategy()
 VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
 {
     return this;
+}
+
+void WebPlatformStrategies::notifyCookiesChanged()
+{
 }
 
 void WebPlatformStrategies::refreshPlugins()
@@ -131,6 +138,11 @@ String WebPlatformStrategies::fileButtonChooseFileLabel()
 String WebPlatformStrategies::fileButtonNoFileSelectedLabel()
 {
     return UI_STRING("no file selected", "text to display in file button used in HTML forms when no file is selected");
+}
+
+String WebPlatformStrategies::defaultDetailsSummaryText()
+{
+    return UI_STRING("Details", "text to display in <details> tag when it has no <summary> child");
 }
 
 String WebPlatformStrategies::contextMenuItemTagOpenLinkInNewWindow()

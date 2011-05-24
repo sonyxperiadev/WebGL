@@ -58,8 +58,10 @@ private:
     bool filterParamToken(HTMLToken&);
     bool filterEmbedToken(HTMLToken&);
     bool filterAppletToken(HTMLToken&);
+    bool filterIframeToken(HTMLToken&);
     bool filterMetaToken(HTMLToken&);
     bool filterBaseToken(HTMLToken&);
+    bool filterFormToken(HTMLToken&);
 
     bool eraseDangerousAttributesIfInjected(HTMLToken&);
     bool eraseAttributeIfInjected(HTMLToken&, const QualifiedName&, const String& replacementValue = String());

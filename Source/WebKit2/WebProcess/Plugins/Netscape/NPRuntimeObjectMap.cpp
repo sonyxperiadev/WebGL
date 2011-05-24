@@ -29,12 +29,12 @@
 #include "JSNPObject.h"
 #include "NPJSObject.h"
 #include "NPRuntimeUtilities.h"
-#include "NotImplemented.h"
 #include "PluginView.h"
 #include <JavaScriptCore/Error.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/SourceCode.h>
 #include <WebCore/Frame.h>
+#include <WebCore/NotImplemented.h>
 
 using namespace JSC;
 using namespace WebCore;
@@ -58,7 +58,7 @@ NPRuntimeObjectMap::PluginProtector::~PluginProtector()
 {
 }
 
-NPObject* NPRuntimeObjectMap::getOrCreateNPObject(JSObject* jsObject)
+NPObject* NPRuntimeObjectMap::getOrCreateNPObject(JSGlobalData& globalData, JSObject* jsObject)
 {
     // If this is a JSNPObject, we can just get its underlying NPObject.
     if (jsObject->classInfo() == &JSNPObject::s_info) {
@@ -75,7 +75,7 @@ NPObject* NPRuntimeObjectMap::getOrCreateNPObject(JSObject* jsObject)
         return npJSObject;
     }
 
-    NPJSObject* npJSObject = NPJSObject::create(this, jsObject);
+    NPJSObject* npJSObject = NPJSObject::create(globalData, this, jsObject);
     m_npJSObjects.set(jsObject, npJSObject);
 
     return npJSObject;
@@ -172,7 +172,7 @@ void NPRuntimeObjectMap::convertJSValueToNPVariant(ExecState* exec, JSValue valu
     }
 
     if (value.isObject()) {
-        NPObject* npObject = getOrCreateNPObject(asObject(value));
+        NPObject* npObject = getOrCreateNPObject(exec->globalData(), asObject(value));
         OBJECT_TO_NPVARIANT(npObject, variant);
         return;
     }
@@ -182,14 +182,14 @@ void NPRuntimeObjectMap::convertJSValueToNPVariant(ExecState* exec, JSValue valu
 
 bool NPRuntimeObjectMap::evaluate(NPObject* npObject, const String&scriptString, NPVariant* result)
 {
-    ProtectedPtr<JSGlobalObject> globalObject = this->globalObject();
+    Global<JSGlobalObject> globalObject(this->globalObject()->globalData(), this->globalObject());
     if (!globalObject)
         return false;
 
     ExecState* exec = globalObject->globalExec();
     
     JSLock lock(SilenceAssertionsOnly);
-    JSValue thisValue = getOrCreateJSObject(globalObject, npObject);
+    JSValue thisValue = getOrCreateJSObject(globalObject.get(), npObject);
 
     globalObject->globalData().timeoutChecker.start();
     Completion completion = JSC::evaluate(exec, globalObject->globalScopeChain(), makeSource(UString(scriptString.impl())), thisValue);

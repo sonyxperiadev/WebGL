@@ -40,6 +40,7 @@
 #include "Node.h"
 #include "Page.h"
 #include "ScriptDebugServer.h"
+#include "ScriptValue.h"
 
 #include "V8Binding.h"
 #include "V8BindingState.h"
@@ -53,6 +54,22 @@
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
+
+Node* InjectedScriptHost::scriptValueAsNode(ScriptValue value)
+{
+    if (!value.isObject() || value.isNull())
+        return 0;
+    return V8Node::toNative(v8::Handle<v8::Object>::Cast(value.v8Value()));
+}
+
+ScriptValue InjectedScriptHost::nodeAsScriptValue(ScriptState* state, Node* node)
+{
+    v8::HandleScope scope;
+    v8::Local<v8::Context> context = state->context();
+    v8::Context::Scope contextScope(context);
+
+    return ScriptValue(toV8(node));
+}
 
 static void WeakReferenceCallback(v8::Persistent<v8::Value> object, void* parameter)
 {
@@ -134,19 +151,16 @@ void InjectedScriptHost::discardInjectedScript(ScriptState* inspectedScriptState
     global->DeleteHiddenValue(key);
 }
 
-v8::Handle<v8::Value> V8InjectedScriptHost::nodeForIdCallback(const v8::Arguments& args)
+v8::Handle<v8::Value> V8InjectedScriptHost::inspectedNodeCallback(const v8::Arguments& args)
 {
-    INC_STATS("InjectedScriptHost.nodeForId()");
+    INC_STATS("InjectedScriptHost.inspectedNode()");
     if (args.Length() < 1)
         return v8::Undefined();
 
     InjectedScriptHost* host = V8InjectedScriptHost::toNative(args.Holder());
     
-    Node* node = host->nodeForId(args[0]->ToInt32()->Value());
+    Node* node = host->inspectedNode(args[0]->ToInt32()->Value());
     if (!node)
-        return v8::Undefined();
-
-    if (!host->inspectorAgent())
         return v8::Undefined();
 
     return toV8(node);
@@ -164,61 +178,58 @@ v8::Handle<v8::Value> V8InjectedScriptHost::internalConstructorNameCallback(cons
     return args[0]->ToObject()->GetConstructorName();
 }
 
-v8::Handle<v8::Value> V8InjectedScriptHost::pushNodePathToFrontendCallback(const v8::Arguments& args)
+v8::Handle<v8::Value> V8InjectedScriptHost::inspectCallback(const v8::Arguments& args)
 {
-    INC_STATS("InjectedScriptHost.pushNodePathToFrontend()");
-    if (args.Length() < 3)
+    INC_STATS("InjectedScriptHost.inspect()");
+    if (args.Length() < 2)
         return v8::Undefined();
 
     InjectedScriptHost* host = V8InjectedScriptHost::toNative(args.Holder());
-    Node* node = V8Node::toNative(v8::Handle<v8::Object>::Cast(args[0]));
-    bool withChildren = args[1]->ToBoolean()->Value();
-    bool selectInUI = args[2]->ToBoolean()->Value();
-    if (node)
-        return v8::Number::New(host->pushNodePathToFrontend(node, withChildren, selectInUI));
+    ScriptValue objectId(args[0]);
+    ScriptValue hints(args[1]);
+    host->inspectImpl(objectId.toInspectorValue(ScriptState::current()), hints.toInspectorValue(ScriptState::current()));
 
     return v8::Undefined();
 }
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
 v8::Handle<v8::Value> V8InjectedScriptHost::currentCallFrameCallback(const v8::Arguments& args)
 {
+#if ENABLE(JAVASCRIPT_DEBUGGER)
     INC_STATS("InjectedScriptHost.currentCallFrame()");
     return toV8(ScriptDebugServer::shared().currentCallFrame());
-}
+#else
+    UNUSED_PARAM(args);
+    return v8::Undefined();
 #endif
+}
 
-#if ENABLE(DATABASE)
-v8::Handle<v8::Value> V8InjectedScriptHost::selectDatabaseCallback(const v8::Arguments& args)
+v8::Handle<v8::Value> V8InjectedScriptHost::databaseIdCallback(const v8::Arguments& args)
 {
-    INC_STATS("InjectedScriptHost.selectDatabase()");
+    INC_STATS("InjectedScriptHost.databaseId()");
     if (args.Length() < 1)
         return v8::Undefined();
-
+#if ENABLE(DATABASE)
     InjectedScriptHost* host = V8InjectedScriptHost::toNative(args.Holder());
     Database* database = V8Database::toNative(v8::Handle<v8::Object>::Cast(args[0]));
     if (database)
-        host->selectDatabase(database);
-
+        return v8::Number::New(host->databaseIdImpl(database));
+#endif
     return v8::Undefined();
 }
-#endif
 
-#if ENABLE(DOM_STORAGE)
-v8::Handle<v8::Value> V8InjectedScriptHost::selectDOMStorageCallback(const v8::Arguments& args)
+v8::Handle<v8::Value> V8InjectedScriptHost::storageIdCallback(const v8::Arguments& args)
 {
-    INC_STATS("InjectedScriptHost.selectDOMStorage()");
     if (args.Length() < 1)
         return v8::Undefined();
-
+#if ENABLE(DOM_STORAGE)
+    INC_STATS("InjectedScriptHost.storageId()");
     InjectedScriptHost* host = V8InjectedScriptHost::toNative(args.Holder());
     Storage* storage = V8Storage::toNative(v8::Handle<v8::Object>::Cast(args[0]));
     if (storage)
-        host->selectDOMStorage(storage);
-
+        return v8::Number::New(host->storageIdImpl(storage));
+#endif
     return v8::Undefined();
 }
-#endif
 
 InjectedScript InjectedScriptHost::injectedScriptFor(ScriptState* inspectedScriptState)
 {

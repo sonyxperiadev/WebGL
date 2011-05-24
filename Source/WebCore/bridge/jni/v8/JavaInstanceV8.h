@@ -27,9 +27,12 @@
 #ifndef JavaInstanceV8_h
 #define JavaInstanceV8_h
 
+#if ENABLE(JAVA_BRIDGE)
+
+#include "JNIUtility.h"
+#include "JobjectWrapper.h"
 #include "npruntime.h"
 
-#include <JavaVM/jni.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
@@ -40,33 +43,6 @@ namespace JSC {
 namespace Bindings {
 
 class JavaClass;
-
-class JObjectWrapper {
-friend class RefPtr<JObjectWrapper>;
-friend class JavaField;
-friend class JavaInstance;
-
-public:
-    jobject instance() const { return m_instance; }
-    void setInstance(jobject instance) { m_instance = instance; }
-
-    void ref() { m_refCount++; }
-    void deref()
-    {
-        if (!(--m_refCount))
-            delete this;
-    }
-
-protected:
-    JObjectWrapper(jobject);
-    ~JObjectWrapper();
-
-    jobject m_instance;
-
-private:
-    JNIEnv* m_env;
-    unsigned int m_refCount;
-};
 
 class JavaInstance : public RefCounted<JavaInstance> {
 public:
@@ -86,7 +62,7 @@ public:
     void end() { virtualEnd(); }
 
 protected:
-    RefPtr<JObjectWrapper> m_instance;
+    RefPtr<JobjectWrapper> m_instance;
     mutable JavaClass* m_class;
 
     virtual void virtualBegin();
@@ -96,5 +72,7 @@ protected:
 } // namespace Bindings
 
 } // namespace JSC
+
+#endif // ENABLE(JAVA_BRIDGE)
 
 #endif // JavaInstanceV8_h

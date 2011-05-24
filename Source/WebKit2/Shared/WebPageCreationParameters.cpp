@@ -39,15 +39,18 @@ void WebPageCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) const
     encoder->encode(isInWindow);
 
     encoder->encode(store);
-    encoder->encode(drawingAreaInfo);
+    encoder->encodeEnum(drawingAreaType);
     encoder->encode(pageGroupData);
     encoder->encode(drawsBackground);
     encoder->encode(drawsTransparentBackground);
+    encoder->encode(areMemoryCacheClientCallsEnabled);
     encoder->encode(useFixedLayout);
     encoder->encode(fixedLayoutSize);
     encoder->encode(userAgent);
     encoder->encode(sessionState);
     encoder->encode(highestUsedBackForwardItemID);
+    encoder->encode(canRunBeforeUnloadConfirmPanel);
+    encoder->encode(canRunModal);
 
 #if PLATFORM(MAC)
     encoder->encode(isSmartInsertDeleteEnabled);
@@ -72,13 +75,15 @@ bool WebPageCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, WebPag
         return false;
     if (!decoder->decode(parameters.store))
         return false;
-    if (!decoder->decode(parameters.drawingAreaInfo))
+    if (!decoder->decodeEnum(parameters.drawingAreaType))
         return false;
     if (!decoder->decode(parameters.pageGroupData))
         return false;
     if (!decoder->decode(parameters.drawsBackground))
         return false;
     if (!decoder->decode(parameters.drawsTransparentBackground))
+        return false;
+    if (!decoder->decode(parameters.areMemoryCacheClientCallsEnabled))
         return false;
     if (!decoder->decode(parameters.useFixedLayout))
         return false;
@@ -89,6 +94,10 @@ bool WebPageCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, WebPag
     if (!decoder->decode(parameters.sessionState))
         return false;
     if (!decoder->decode(parameters.highestUsedBackForwardItemID))
+        return false;
+    if (!decoder->decode(parameters.canRunBeforeUnloadConfirmPanel))
+        return false;
+    if (!decoder->decode(parameters.canRunModal))
         return false;
 
 #if PLATFORM(MAC)

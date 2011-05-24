@@ -33,6 +33,7 @@
 #include "IDBIndexBackendInterface.h"
 #include "IDBKey.h"
 #include "IDBKeyRange.h"
+#include "IDBObjectStore.h"
 #include "IDBRequest.h"
 #include "IDBTransaction.h"
 
@@ -40,11 +41,13 @@ namespace WebCore {
 
 static const unsigned short defaultDirection = IDBCursor::NEXT;
 
-IDBIndex::IDBIndex(PassRefPtr<IDBIndexBackendInterface> backend, IDBTransaction* transaction)
+IDBIndex::IDBIndex(PassRefPtr<IDBIndexBackendInterface> backend, IDBObjectStore* objectStore, IDBTransaction* transaction)
     : m_backend(backend)
+    , m_objectStore(objectStore)
     , m_transaction(transaction)
 {
     ASSERT(m_backend);
+    ASSERT(m_objectStore);
     ASSERT(m_transaction);
 }
 
@@ -61,9 +64,12 @@ PassRefPtr<IDBRequest> IDBIndex::openCursor(ScriptExecutionContext* context, Pas
     }
 
     RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
+    request->setCursorType(IDBCursorBackendInterface::IndexCursor);
     m_backend->openCursor(keyRange, direction, request, m_transaction->backend(), ec);
-    if (ec)
+    if (ec) {
+        request->markEarlyDeath();
         return 0;
+    }
     return request;
 }
 
@@ -76,9 +82,12 @@ PassRefPtr<IDBRequest> IDBIndex::openKeyCursor(ScriptExecutionContext* context, 
     }
 
     RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
+    request->setCursorType(IDBCursorBackendInterface::IndexKeyCursor);
     m_backend->openKeyCursor(keyRange, direction, request, m_transaction->backend(), ec);
-    if (ec)
+    if (ec) {
+        request->markEarlyDeath();
         return 0;
+    }
     return request;
 }
 
@@ -86,8 +95,10 @@ PassRefPtr<IDBRequest> IDBIndex::get(ScriptExecutionContext* context, PassRefPtr
 {
     RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
     m_backend->get(key, request, m_transaction->backend(), ec);
-    if (ec)
+    if (ec) {
+        request->markEarlyDeath();
         return 0;
+    }
     return request;
 }
 
@@ -95,8 +106,10 @@ PassRefPtr<IDBRequest> IDBIndex::getKey(ScriptExecutionContext* context, PassRef
 {
     RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
     m_backend->getKey(key, request, m_transaction->backend(), ec);
-    if (ec)
+    if (ec) {
+        request->markEarlyDeath();
         return 0;
+    }
     return request;
 }
 

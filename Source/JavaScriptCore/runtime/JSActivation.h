@@ -62,12 +62,11 @@ namespace JSC {
         virtual JSObject* toThisObject(ExecState*) const;
         virtual JSValue toStrictThisObject(ExecState*) const;
 
-        void copyRegisters();
+        void copyRegisters(JSGlobalData&);
         
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static const ClassInfo s_info;
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); }
+        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); }
 
     protected:
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | NeedsThisConversion | OverridesMarkChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
@@ -93,8 +92,8 @@ namespace JSC {
         bool symbolTableGet(const Identifier&, PropertySlot&);
         bool symbolTableGet(const Identifier&, PropertyDescriptor&);
         bool symbolTableGet(const Identifier&, PropertySlot&, bool& slotIsWriteable);
-        bool symbolTablePut(const Identifier&, JSValue);
-        bool symbolTablePutWithAttributes(const Identifier&, JSValue, unsigned attributes);
+        bool symbolTablePut(JSGlobalData&, const Identifier&, JSValue);
+        bool symbolTablePutWithAttributes(JSGlobalData&, const Identifier&, JSValue, unsigned attributes);
 
         static JSValue argumentsGetter(ExecState*, JSValue, const Identifier&);
         NEVER_INLINE PropertySlot::GetValueFunc getArgumentsGetter();
@@ -106,7 +105,7 @@ namespace JSC {
 
     inline JSActivation* asActivation(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&JSActivation::info));
+        ASSERT(asObject(value)->inherits(&JSActivation::s_info));
         return static_cast<JSActivation*>(asObject(value));
     }
 

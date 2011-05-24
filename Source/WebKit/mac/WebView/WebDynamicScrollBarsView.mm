@@ -160,11 +160,6 @@ struct WebDynamicScrollBarsViewPrivate {
     return _private->verticalScrollingAllowedButScrollerHidden || [self hasVerticalScroller];
 }
 
-- (BOOL)inProgramaticScroll
-{
-    return _private->inProgrammaticScroll;
-}
-
 @end
 
 @implementation WebDynamicScrollBarsView (WebInternal)
@@ -563,9 +558,10 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
     [self release];
 }
 
+// This object will be the parent of the web area in WK1, so it should not be ignored.
 - (BOOL)accessibilityIsIgnored 
 {
-    return YES;
+    return NO;
 }
 
 - (void)setScrollOrigin:(NSPoint)scrollOrigin updatePositionAtAll:(BOOL)updatePositionAtAll immediately:(BOOL)updatePositionSynchronously
@@ -592,6 +588,11 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
 - (NSPoint)scrollOrigin
 {
     return _private->scrollOrigin;
+}
+
+- (BOOL)inProgrammaticScroll
+{
+    return _private->inProgrammaticScroll;
 }
 
 @end

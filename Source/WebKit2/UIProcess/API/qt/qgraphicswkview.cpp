@@ -55,7 +55,7 @@ struct QGraphicsWKViewPrivate {
 
     QGraphicsWKView* q;
     QWKPage* page;
-    QMenu* activeMenu;
+    QSharedPointer<QMenu> activeMenu;
     RunLoop::Timer<QGraphicsWKViewPrivate> m_scaleCommitTimer;
     bool m_isChangingScale;
 };
@@ -83,7 +83,7 @@ QGraphicsWKView::QGraphicsWKView(QWKContext* context, BackingStoreType backingSt
     connect(d->page, SIGNAL(urlChanged(const QUrl&)), this, SIGNAL(urlChanged(const QUrl&)));
     connect(d->page, SIGNAL(cursorChanged(const QCursor&)), this, SLOT(updateCursor(const QCursor&)));
     connect(d->page, SIGNAL(focusNextPrevChild(bool)), this, SLOT(focusNextPrevChildCallback(bool)));
-    connect(d->page, SIGNAL(showContextMenu(QMenu*)), this, SLOT(showContextMenu(QMenu*)));
+    connect(d->page, SIGNAL(showContextMenu(QSharedPointer<QMenu>)), this, SLOT(showContextMenu(QSharedPointer<QMenu>)));
 }
 
 QGraphicsWKView::~QGraphicsWKView()
@@ -327,11 +327,21 @@ void QGraphicsWKView::focusOutEvent(QFocusEvent*)
     page()->d->page->viewStateDidChange(WebPageProxy::ViewIsFocused | WebPageProxy::ViewWindowIsActive);
 }
 
-void QGraphicsWKView::showContextMenu(QMenu* menu)
+
+/*!
+    This slot is called when the engine require a context sensitive menu to be displayed.
+
+    The \a menu passed as a parameter is the menu to be displayed. It is populated with the
+    actions possible for its current position. The menu is empty if there is no action for the position.
+*/
+void QGraphicsWKView::showContextMenu(QSharedPointer<QMenu> menu)
 {
     // Remove the active menu in case this function is called twice.
     if (d->activeMenu)
         d->activeMenu->hide();
+
+    if (menu->isEmpty())
+        return;
 
     d->activeMenu = menu;
 
@@ -351,14 +361,14 @@ void QGraphicsWKView::showContextMenu(QMenu* menu)
         menu->setParent(view, menu->windowFlags());
     menu->exec(view->mapToGlobal(menu->pos()));
     if (d->activeMenu == menu)
-        d->activeMenu = 0;
+        d->activeMenu.clear();
 }
 
 void QGraphicsWKView::takeSnapshot(const QSize& size, const QRect& contentsRect)
 {
 #if ENABLE(TILED_BACKING_STORE)
     DrawingAreaProxy* drawingArea = page()->d->page->drawingArea();
-    if (drawingArea->info().type != DrawingAreaInfo::Tiled)
+    if (drawingArea->type() != DrawingAreaTypeTiled)
         return;
     TiledDrawingAreaProxy* tiledDrawingArea = static_cast<TiledDrawingAreaProxy*>(drawingArea);
     tiledDrawingArea->takeSnapshot(size, contentsRect);
@@ -419,7 +429,7 @@ void QGraphicsWKViewPrivate::commitScale()
 #if ENABLE(TILED_BACKING_STORE)
     DrawingAreaProxy* drawingArea = page->d->page->drawingArea();
     float newScale = q->scale();
-    if (drawingArea->info().type == DrawingAreaInfo::Tiled) {
+    if (drawingArea->type() == DrawingAreaTypeTiled) {
         TiledDrawingAreaProxy* tiledDrawingArea = static_cast<TiledDrawingAreaProxy*>(drawingArea);
         if (tiledDrawingArea->contentsScale() == newScale)
             return;

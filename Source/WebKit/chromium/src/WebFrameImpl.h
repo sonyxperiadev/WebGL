@@ -73,12 +73,14 @@ public:
     virtual WebURL openSearchDescriptionURL() const;
     virtual WebString encoding() const;
     virtual WebSize scrollOffset() const;
+    virtual void setScrollOffset(const WebSize&);
     virtual WebSize contentsSize() const;
     virtual int contentsPreferredWidth() const;
     virtual int documentElementScrollHeight() const;
     virtual bool hasVisibleContent() const;
     virtual WebView* view() const;
     virtual WebFrame* opener() const;
+    virtual void clearOpener();
     virtual WebFrame* parent() const;
     virtual WebFrame* top() const;
     virtual WebFrame* firstChild() const;
@@ -107,6 +109,9 @@ public:
     virtual v8::Handle<v8::Value> executeScriptAndReturnValue(
         const WebScriptSource&);
     virtual v8::Local<v8::Context> mainWorldScriptContext() const;
+    virtual v8::Handle<v8::Value> createFileSystem(int type,
+                                                   const WebString& name,
+                                                   const WebString& path);
 #endif
     virtual bool insertStyleText(const WebString& css, const WebString& id);
     virtual void reload(bool ignoreCache);
@@ -133,6 +138,7 @@ public:
     virtual unsigned unloadListenerCount() const;
     virtual bool isProcessingUserGesture() const;
     virtual bool willSuppressOpenerInNewFrame() const;
+    virtual bool pageDismissalEventBeingDispatched() const;
     virtual void replaceSelection(const WebString&);
     virtual void insertText(const WebString&);
     virtual void setMarkedText(const WebString&, unsigned location, unsigned length);
@@ -209,7 +215,7 @@ public:
     void paintWithContext(WebCore::GraphicsContext&, const WebRect&);
     void createFrameView();
 
-    static WebFrameImpl* fromFrame(const WebCore::Frame*);
+    static WebFrameImpl* fromFrame(WebCore::Frame* frame);
     static WebFrameImpl* fromFrameOwnerElement(WebCore::Element* element);
 
     // If the frame hosts a PluginDocument, this method returns the WebPluginContainerImpl
@@ -361,7 +367,7 @@ private:
     // This variable keeps a cumulative total of matches found so far for ALL the
     // frames on the page, and is only incremented by calling IncreaseMatchCount
     // (on the main frame only). It should be -1 for all other frames.
-    size_t m_totalMatchCount;
+    int m_totalMatchCount;
 
     // This variable keeps a cumulative total of how many frames are currently
     // scoping, and is incremented/decremented on the main frame only.

@@ -69,10 +69,6 @@ static const type& name() \
 #define JS_EXPORTDATA
 #define JS_EXPORTCLASS
 
-// Disable notImplemented() warnings not to break layout tests.
-// FIXME: WebKit2 logging system should behave identical to WebKit1.
-#define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
-
 #elif defined(__APPLE__)
 
 #ifdef __OBJC__
@@ -140,3 +136,12 @@ static const type& name() \
 
 #endif /* defined(WIN32) || defined(_WIN32) */
 
+#if PLATFORM(MAC) || (OS(MAC_OS_X) && PLATFORM(QT))
+#define PLUGIN_ARCHITECTURE_MAC 1
+#elif PLATFORM(WIN) || (OS(WINDOWS) && PLATFORM(QT))
+#define PLUGIN_ARCHITECTURE_WIN 1
+#elif (PLATFORM(QT) && defined(Q_WS_X11)) || (PLATFORM(GTK) && OS(UNIX) && !OS(MAC_OS_X))
+#define PLUGIN_ARCHITECTURE_X11 1
+#endif
+
+#define PLUGIN_ARCHITECTURE(ARCH) (defined PLUGIN_ARCHITECTURE_##ARCH && PLUGIN_ARCHITECTURE_##ARCH)

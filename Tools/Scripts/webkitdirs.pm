@@ -60,6 +60,7 @@ my $sourceDir;
 my $currentSVNRevision;
 my $osXVersion;
 my $isQt;
+my $qmakebin = "qmake"; # Allow override of the qmake binary from $PATH
 my $isSymbian;
 my %qtFeatureDefaults;
 my $isGtk;
@@ -69,6 +70,7 @@ my $isEfl;
 my @wxArgs;
 my $isChromium;
 my $isInspectorFrontend;
+my $isWK2;
 
 # Variables for Win32 support
 my $vcBuildPath;
@@ -104,6 +106,11 @@ sub currentPerlPath()
         $thisPerl .= $Config{_exe} unless $thisPerl =~ m/$Config{_exe}$/i;
     }
     return $thisPerl;
+}
+
+sub setQmakeBinaryPath($)
+{
+    ($qmakebin) = @_;
 }
 
 # used for scripts which are stored in a non-standard location
@@ -587,7 +594,7 @@ sub builtDylibPathForName
                 $libraryName .= "d";
             }
 
-            my $mkspec = `qmake -query QMAKE_MKSPECS`;
+            my $mkspec = `$qmakebin -query QMAKE_MKSPECS`;
             $mkspec =~ s/[\n|\r]$//g;
             my $qtMajorVersion = retrieveQMakespecVar("$mkspec/qconfig.pri", "QT_MAJOR_VERSION");
             if (not $qtMajorVersion) {
@@ -610,7 +617,7 @@ sub builtDylibPathForName
         return $libraryDir . "libwebkitgtk-1.0.$extension";
     }
     if (isEfl()) {
-        return "$configurationProductDir/$libraryName/../.libs/libewebkit.so";
+        return "$configurationProductDir/$libraryName/../WebKit/libewebkit.so";
     }
     if (isWinCE()) {
         return "$configurationProductDir/$libraryName";
@@ -681,10 +688,10 @@ sub commandExists($)
 sub determineQtFeatureDefaults()
 {
     return if %qtFeatureDefaults;
-    die "ERROR: qmake missing but required to build WebKit.\n" if not commandExists("qmake");
+    die "ERROR: qmake missing but required to build WebKit.\n" if not commandExists($qmakebin);
     my $originalCwd = getcwd();
     chdir File::Spec->catfile(sourceDir(), "Source", "WebCore");
-    my $defaults = `qmake CONFIG+=compute_defaults 2>&1`;
+    my $defaults = `$qmakebin CONFIG+=compute_defaults 2>&1`;
     chdir $originalCwd;
 
     while ($defaults =~ m/(\S+?)=(\S+?)/gi) {
@@ -714,6 +721,18 @@ sub checkForArgumentAndRemoveFromArrayRef
     return $#indicesToRemove > -1;
 }
 
+sub isWK2()
+{
+    if (defined($isWK2)) {
+        return $isWK2;
+    }
+    if (checkForArgumentAndRemoveFromARGV("-2")) {
+        $isWK2 = 1;
+    } else {
+        $isWK2 = 0;
+    }
+    return $isWK2;
+}
 
 sub determineIsQt()
 {
@@ -1549,7 +1568,6 @@ sub buildQMakeProject($@)
 
     my @buildArgs = ("-r");
 
-    my $qmakebin = "qmake"; # Allow override of the qmake binary from $PATH
     my $makeargs = "";
     my $installHeaders;
     my $installLibs;
@@ -1823,7 +1841,7 @@ sub setPathForRunningWebKitApp
     if (isAppleWinWebKit()) {
         $env->{PATH} = join(':', productDir(), dirname(installedSafariPath()), appleApplicationSupportPath(), $env->{PATH} || "");
     } elsif (isQt()) {
-        my $qtLibs = `qmake -query QT_INSTALL_LIBS`;
+        my $qtLibs = `$qmakebin -query QT_INSTALL_LIBS`;
         $qtLibs =~ s/[\n|\r]$//g;
         $env->{PATH} = join(';', $qtLibs, productDir() . "/lib", $env->{PATH} || "");
     }

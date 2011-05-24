@@ -37,16 +37,17 @@
 
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
 class Database;
 class InjectedScript;
-class InspectorDOMAgent;
 class InspectorFrontend;
 class InspectorObject;
 class Node;
 class ScriptObject;
+class ScriptValue;
 class Storage;
 
 class InjectedScriptHost : public RefCounted<InjectedScriptHost>
@@ -57,27 +58,28 @@ public:
         return adoptRef(new InjectedScriptHost(inspectorAgent));
     }
 
-    ~InjectedScriptHost();
+    static Node* scriptValueAsNode(ScriptValue);
+    static ScriptValue nodeAsScriptValue(ScriptState*, Node*);
 
-    // Part of the protocol.
-    void evaluateOnSelf(const String& functionBody, PassRefPtr<InspectorArray> argumentsArray, RefPtr<InspectorValue>* result);
+    ~InjectedScriptHost();
 
     InspectorAgent* inspectorAgent() { return m_inspectorAgent; }
     void disconnectController() { m_inspectorAgent = 0; }
 
+    void inspectImpl(PassRefPtr<InspectorValue> objectId, PassRefPtr<InspectorValue> hints);
     void clearConsoleMessages();
 
+    void addInspectedNode(Node*);
+    void clearInspectedNodes();
+
     void copyText(const String& text);
-    Node* nodeForId(long nodeId);
-    long pushNodePathToFrontend(Node* node, bool withChildren, bool selectInUI);
-    long inspectedNode(unsigned long num);
+    Node* inspectedNode(unsigned long num);
 
 #if ENABLE(DATABASE)
-    Database* databaseForId(long databaseId);
-    void selectDatabase(Database* database);
+    long databaseIdImpl(Database*);
 #endif
 #if ENABLE(DOM_STORAGE)
-    void selectDOMStorage(Storage* storage);
+    long storageIdImpl(Storage*);
 #endif
 #if ENABLE(WORKERS)
     long nextWorkerId();
@@ -91,13 +93,12 @@ public:
     InjectedScript injectedScriptForObjectId(InspectorObject* objectId);
     InjectedScript injectedScriptForMainFrame();
     void discardInjectedScripts();
-    void releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup);
+    void releaseObjectGroup(long injectedScriptId, const String& objectGroup);
 
     static bool canAccessInspectedWindow(ScriptState*);
 
 private:
     InjectedScriptHost(InspectorAgent*);
-    InspectorDOMAgent* inspectorDOMAgent();
     InspectorFrontend* frontend();
     String injectedScriptSource();
     ScriptObject createInjectedScript(const String& source, ScriptState* scriptState, long id);
@@ -108,6 +109,7 @@ private:
     long m_lastWorkerId;
     typedef HashMap<long, InjectedScript> IdToInjectedScriptMap;
     IdToInjectedScriptMap m_idToInjectedScript;
+    Vector<RefPtr<Node> > m_inspectedNodes;
 };
 
 } // namespace WebCore

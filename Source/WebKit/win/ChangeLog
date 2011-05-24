@@ -1,3 +1,413 @@
+2011-03-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Replace WebKit2's decidePolicyForMIMEType with decidePolicyForResponse
+        https://bugs.webkit.org/show_bug.cgi?id=55827
+
+        Renamed FrameLoaderClient::dispatchDecidePolicyForMIMEType to dispatchDecidePolicyForResponse
+        and pass the entire response, instead of just the MIMEType.
+
+        * WebFrame.cpp:
+        (WebFrame::dispatchDecidePolicyForResponse):
+        * WebFrame.h:
+
+2011-03-04  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Adopt VersionStamper tool for Windows WebKit DLLs
+        https://bugs.webkit.org/show_bug.cgi?id=55784
+
+        Calculate the WebKit version for the useragent via autoversion.h
+        instead of reading it back from the DLL.
+        
+        We now use a tool to stamp the version number onto the Apple WebKit DLLs
+        during the post-build step.
+
+        * WebKit.vcproj/WebKit.rc: Removed. This file wasn't used.
+        * WebKit.vcproj/WebKitLibCommon.vsprops: Fetch version from a string resource.
+        * WebView.cpp:
+        (WebView::standardUserAgentWithApplicationName): Use __BUILD_NUMBER_SHORT__ for the version.
+        (osVersion): Removed
+
+2011-03-03  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Get rid of Page::globalHistoryItem
+        https://bugs.webkit.org/show_bug.cgi?id=55738
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::updateGlobalHistoryItemForPage):
+        Get the current history item and update it using WebView::setGlobalHistoryItem.
+        
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebView.cpp:
+        (WebView::globalHistoryItem):
+        (WebView::setGlobalHistoryItem):
+        * WebView.h:
+
+2011-03-03  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed build correction.
+
+        * WebFrame.cpp:
+        (scaleFactor): Update after 77286 to replace right/bottom
+        with new maxX/maxY terminology.
+
+2011-03-03  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=55721
+        Global IconDatabase should be returned by reference, not as a pointer
+
+        * WebCoreStatistics.cpp:
+        (WebCoreStatistics::iconPageURLMappingCount):
+        (WebCoreStatistics::iconRetainedPageURLCount):
+        (WebCoreStatistics::iconRecordCount):
+        (WebCoreStatistics::iconsWithDataCount):
+        * WebIconDatabase.cpp:
+        (WebIconDatabase::init):
+        (WebIconDatabase::startUpIconDatabase):
+        (WebIconDatabase::iconForURL):
+        (WebIconDatabase::retainIconForURL):
+        (WebIconDatabase::releaseIconForURL):
+        (WebIconDatabase::removeAllIcons):
+        (WebIconDatabase::iconURLForURL):
+        (WebIconDatabase::isEnabled):
+        (WebIconDatabase::setEnabled):
+        (WebIconDatabase::hasIconForURL):
+        (WebIconDatabase::getOrCreateDefaultIconBitmap):
+        * WebKitDLL.cpp:
+        (shutDownWebKit):
+
+2011-03-03  Alexey Proskuryakov  <ap@apple.com>
+
+        Removing an include of WebCoreKeyboardUIMode.h that Ive just added. It's already included
+        via ChromeClient.h
+
+        * WebCoreSupport/WebChromeClient.h:
+
+2011-03-02  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (WebKit2): Tab keys no longer observe Full Keyboard Access
+        https://bugs.webkit.org/show_bug.cgi?id=55633
+        <rdar://problem/8963023>
+
+        * WebCoreSupport/WebChromeClient.cpp: (WebChromeClient::keyboardUIMode):
+        * WebCoreSupport/WebChromeClient.h:
+        Implement keyboardUIMode() instead of tabsToLinks(). No change in functionality, since
+        this platform doesn't observe or have full keyboard access state.
+
+2011-03-03  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by James Robinson.
+
+        Drop redundant "Windows; " from the Windows-specific User Agent string.
+        https://bugs.webkit.org/show_bug.cgi?id=54567
+
+        * WebView.cpp:
+        (WebView::standardUserAgentWithApplicationName):
+
+2011-03-01  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Part of WebKit2: Need a way to send notifications to client when cookies change
+        https://bugs.webkit.org/show_bug.cgi?id=55427
+        <rdar://problem/9056027>
+        
+        Add stubs for CookiesStrategy on Windows WebKit1.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebPlatformStrategies::createCookiesStrategy):
+        (WebPlatformStrategies::notifyCookiesChanged):
+        * WebCoreSupport/WebPlatformStrategies.h:
+
+2011-02-28  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Remove the support of Frame::isContentEditable and its dependencies.
+        https://bugs.webkit.org/show_bug.cgi?id=54292
+
+        Remove the WebKit side implementation.
+
+        * WebCoreSupport/WebEditorClient.cpp:
+        * WebCoreSupport/WebEditorClient.h:
+
+2011-02-28  Adam Roben  <aroben@apple.com>
+
+        Build TestWebKitAPIInjectedBundle on Windows
+
+        Fixes <http://webkit.org/b/55420> run-api-tests doesn't run injected bundle tests on Windows
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcproj/WebKit.sln: Added TestWebKitAPIInjectedBundle. Let VS simplify the paths to
+        the project files.
+
+2011-02-28  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r78789.
+        http://trac.webkit.org/changeset/78789
+        https://bugs.webkit.org/show_bug.cgi?id=55409
+
+        Incorrect canvas fallback implementation (Requested by
+        inferno-sec on #webkit).
+
+        * AccessibleBase.cpp:
+        (MSAARole):
+
+2011-02-26  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        DumpRenderTree should reset frame opener between tests.
+        https://bugs.webkit.org/show_bug.cgi?id=54874
+
+        Added clearOpener method to IWebFramePrivate.
+        Touched WebKit.idl to trigger build scripts.
+
+        * Interfaces/IWebFramePrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebFrame.cpp:
+        (WebFrame::clearOpener):
+        * WebFrame.h:
+
+2011-02-26  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r79764.
+        http://trac.webkit.org/changeset/79764
+        https://bugs.webkit.org/show_bug.cgi?id=55295
+
+        "broke Chromium builds" (Requested by rniwa on #webkit).
+
+        * Interfaces/IWebFramePrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebFrame.cpp:
+        * WebFrame.h:
+
+2011-02-26  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        DumpRenderTree should reset frame opener between tests.
+        https://bugs.webkit.org/show_bug.cgi?id=54874
+
+        Added clearOpener method to IWebFramePrivate.
+        Touched WebKit.idl to trigger build scripts.
+
+        * Interfaces/IWebFramePrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebFrame.cpp:
+        (WebFrame::clearOpener):
+        * WebFrame.h:
+
+2011-02-24  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Eric Seidel.
+
+        Drop the "U; " encryption level from the User Agent string.
+        https://bugs.webkit.org/show_bug.cgi?id=54566
+
+        * WebView.cpp:
+        (WebView::standardUserAgentWithApplicationName):
+
+2011-02-24  Andrew Wilson  <atwilson@chromium.org>
+
+        Unreviewed, rolling out r79570.
+        http://trac.webkit.org/changeset/79570
+        https://bugs.webkit.org/show_bug.cgi?id=54874
+
+        Breaks chromium build because glue/mocks/mock_web_frame.h/cc
+        was not updated
+
+        * Interfaces/IWebFramePrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebFrame.cpp:
+        * WebFrame.h:
+
+2011-02-24  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        DumpRenderTree should reset frame opener between tests.
+        https://bugs.webkit.org/show_bug.cgi?id=54874
+
+        Added clearOpener method to IWebFramePrivate.
+        Touched WebKit.idl to trigger build scripts.
+
+        * Interfaces/IWebFramePrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebFrame.cpp:
+        (WebFrame::clearOpener):
+        * WebFrame.h:
+
+2011-02-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Rename PLATFORM(CF) to USE(CF)
+        https://bugs.webkit.org/show_bug.cgi?id=53540
+
+        * WebView.cpp:
+
+2011-02-22  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Drop the language tag part from the User Agent string
+        https://bugs.webkit.org/show_bug.cgi?id=54560
+
+        * WebView.cpp:
+        (WebView::standardUserAgentWithApplicationName):
+
+2011-02-19  Charlie Reis  <creis@chromium.org>
+
+        Reviewed by Mihai Parparita.
+
+        Ensure loading has stopped in HistoryController::goToItem
+        https://bugs.webkit.org/show_bug.cgi?id=54517
+
+        Add a FrameLoaderClient callback for whether to stop loading before goToItem.
+
+        Test: http/tests/navigation/forward-to-fragment-fires-onload.html
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::shouldStopLoadingForHistoryItem): Added.
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2011-02-16  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        https://bugs.webkit.org/show_bug.cgi?id=54244
+        
+        Convert the line box tree to floating point and eliminate font rounding hacks.  This patch removes all of the rounding
+        hacks from the Font code and makes sure all Font APIs involving width measurement and width offsets use floats.
+        
+        The line box tree's x, y and logicalWidth members have all been converted to floats and all of the line box APIs have
+        been changed as well.
+        
+        In terms of pixel adjustments, overflow is using an enclosing model (so it will be enclosingIntRect of a line box's x/y/width/height).
+        
+        Background and border painting is using a rounding model, so borders and backgrounds will round to the nearest pixel when painting.
+        
+        Replaced elements still snap to integer positions on lines, and they use a rounding model as well, although their underlying line boxes
+        still have a precise floating point position.
+
+        Justification will now allow subpixel positioning to occur as well.  Platforms that don't support subpixel positioning should already
+        be rounding justification spacing in their font code.
+
+        Many layout test results change on Mac, since rounding hacks were used there and are now gone.
+
+        * WebKitGraphics.cpp:
+        (CenterTruncateStringToWidth):
+        (RightTruncateStringToWidth):
+
+2011-02-10  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Adam Roben.
+
+        HTML5 <details> and <summary>: localized text
+        https://bugs.webkit.org/show_bug.cgi?id=54260
+
+        The method defaultDetailsSummaryText was added to LocalizationStrategy class. It is used to
+        provide the default label to be used by a <details> tag that has no <summary> child.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebPlatformStrategies::defaultDetailsSummaryText):
+        * WebCoreSupport/WebPlatformStrategies.h:
+
+2011-02-16  Dominic Mazzoni  <dmazzoni@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        Add new role for canvas elements.
+
+        https://bugs.webkit.org/show_bug.cgi?id=50126
+
+        Test: accessibility/canvas-fallback-content.html
+
+        * AccessibleBase.cpp:
+        (MSAARole):
+
+2011-02-15  Kenneth Russell  <kbr@google.com>
+
+        Unreviewed. Remove whitespace-only change from
+        http://trac.webkit.org/changeset/78620 (https://bugs.webkit.org/show_bug.cgi?id=54312)
+        now that the patch has passed the Windows build bots.
+
+        * Interfaces/WebKit.idl:
+
+2011-02-15  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Allow controlling minimum DOMTimer interval on a per-page basis
+        https://bugs.webkit.org/show_bug.cgi?id=54312
+
+        Added needed methods to implement LayoutTestController's new
+        setMinimumTimerInterval method. Includes whitespace-only change to
+        WebKit.idl to trigger proper rebuild on bots; will be removed in
+        subsequent checkin.
+
+        * Interfaces/IWebViewPrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebView.cpp:
+        (WebView::initWithFrame):
+        (WebView::defaultMinimumTimerInterval):
+        (WebView::setMinimumTimerInterval):
+        * WebView.h:
+
+2011-01-26  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        Refactoring: Extract TextCheckerClient from EditorClient
+        https://bugs.webkit.org/show_bug.cgi?id=53213
+
+        * WebCoreSupport/WebEditorClient.h:
+        (WebEditorClient::textChecker):
+
+2011-02-07  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add EditorClient callbacks to override isDOMPasteAllowed and javaScriptCanAccessClipboard
+        https://bugs.webkit.org/show_bug.cgi?id=52417
+
+        Added two callback functions, canCopyCut and canPaste to EditorClient. They are currently
+        not implemented.
+
+        * WebCoreSupport/WebEditorClient.cpp:
+        (WebEditorClient::canCopyCut): Added.
+        (WebEditorClient::canPaste): Added.
+        * WebCoreSupport/WebEditorClient.h:
+
+2011-02-14  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        Need WebKit API to determine whether we have a site icon for a given URL
+        https://bugs.webkit.org/show_bug.cgi?id=54400
+        
+        This patch implements IWebIconDatabase::hasIconForURL which tells us whether or not
+        we have a site icon for the given URL.
+
+        * Interfaces/IWebIconDatabase.idl: Added new function.
+        * Interfaces/WebKit.idl: Touched to make sure Interfaces rebuilds.
+        * WebIconDatabase.cpp:
+        (WebIconDatabase::hasIconForURL): Call IconDatabase::iconForPageURL to make sure we
+            load the icon from disk, and call iconURLForPageURL to determine whether or not
+            we actually have an icon.
+        * WebIconDatabase.h:
+
 2011-02-11  Geoffrey Garen  <ggaren@apple.com>
 
         Reviewed by Oliver Hunt.

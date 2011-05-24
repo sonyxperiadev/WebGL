@@ -37,6 +37,7 @@
 #include "FloatRect.h"
 #include "FocusController.h"
 #include "Frame.h"
+#include "FrameActionScheduler.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameTree.h"
@@ -118,14 +119,6 @@ double FrameView::s_deferredRepaintDelayIncrementDuringLoading = 0;
 // The maximum number of updateWidgets iterations that should be done before returning.
 static const unsigned maxUpdateWidgetsIterations = 2;
 
-struct ScheduledEvent {
-    WTF_MAKE_NONCOPYABLE(ScheduledEvent); WTF_MAKE_FAST_ALLOCATED;
-public:
-    ScheduledEvent() { }
-    RefPtr<Event> m_event;
-    RefPtr<Node> m_eventTarget;
-};
-
 FrameView::FrameView(Frame* frame)
     : m_frame(frame)
     , m_canHaveScrollbars(true)
@@ -139,7 +132,7 @@ FrameView::FrameView(Frame* frame)
     , m_isTransparent(false)
     , m_baseBackgroundColor(Color::white)
     , m_mediaType("screen")
-    , m_enqueueEvents(0)
+    , m_actionScheduler(new FrameActionScheduler())
     , m_overflowStatusDirty(true)
     , m_viewportRenderer(0)
     , m_wasScrolledByUser(false)
@@ -148,6 +141,7 @@ FrameView::FrameView(Frame* frame)
     , m_shouldUpdateWhileOffscreen(true)
     , m_deferSetNeedsLayouts(0)
     , m_setNeedsLayoutWasDeferred(false)
+    , m_isRestoringFromBackForward(false)
     , m_scrollCorner(0)
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     , m_hasOverflowScroll(false)
@@ -167,6 +161,7 @@ PassRefPtr<FrameView> FrameView::create(Frame* frame, const IntSize& initialSize
 {
     RefPtr<FrameView> view = adoptRef(new FrameView(frame));
     view->Widget::setFrameRect(IntRect(view->pos(), initialSize));
+    view->setInitialBoundsSize(initialSize);
     view->show();
     return view.release();
 }
@@ -175,8 +170,7 @@ FrameView::~FrameView()
 {
     if (m_hasPendingPostLayoutTasks) {
         m_postLayoutTasksTimer.stop();
-        m_scheduledEvents.clear();
-        m_enqueueEvents = 0;
+        m_actionScheduler->clear();
     }
     
     if (AXObjectCache::accessibilityEnabled() && axObjectCache())
@@ -192,8 +186,7 @@ FrameView::~FrameView()
     setHasVerticalScrollbar(false);
     
     ASSERT(!m_scrollCorner);
-    ASSERT(m_scheduledEvents.isEmpty());
-    ASSERT(!m_enqueueEvents);
+    ASSERT(m_actionScheduler->isEmpty());
 
     if (m_frame) {
         ASSERT(m_frame->view() != this || !m_frame->contentRenderer());
@@ -236,6 +229,7 @@ void FrameView::reset()
     m_isPainting = false;
     m_isVisuallyNonEmpty = false;
     m_firstVisuallyNonEmptyLayoutCallbackPending = true;
+    m_isRestoringFromBackForward = false;
     m_maintainScrollPositionAnchor = 0;
 }
 
@@ -269,7 +263,7 @@ void FrameView::init()
     m_size = IntSize();
 
     // Propagate the marginwidth/height and scrolling modes to the view.
-    Element* ownerElement = m_frame && m_frame->document() ? m_frame->document()->ownerElement() : 0;
+    Element* ownerElement = m_frame ? m_frame->ownerElement() : 0;
     if (ownerElement && (ownerElement->hasTagName(frameTag) || ownerElement->hasTagName(iframeTag))) {
         HTMLFrameElement* frameElt = static_cast<HTMLFrameElement*>(ownerElement);
         if (frameElt->scrollingMode() == ScrollbarAlwaysOff)
@@ -675,10 +669,8 @@ bool FrameView::isEnclosedInCompositingLayer() const
     if (frameOwnerRenderer && frameOwnerRenderer->containerForRepaint())
         return true;
 
-    if (Frame* parentFrame = m_frame->tree()->parent()) {
-        if (FrameView* parentView = parentFrame->view())
-            return parentView->isEnclosedInCompositingLayer();
-    }
+    if (FrameView* parentView = parentFrameView())
+        return parentView->isEnclosedInCompositingLayer();
 #endif
     return false;
 }
@@ -844,7 +836,7 @@ void FrameView::layout(bool allowSubtree)
         }
         
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
-        if (m_firstLayout && !document->ownerElement())
+        if (m_firstLayout && !m_frame->ownerElement())
             printf("Elapsed time before first layout: %d\n", document->elapsedTime());
 #endif        
     }
@@ -862,7 +854,12 @@ void FrameView::layout(bool allowSubtree)
 
         if (m_firstLayout || (hMode != currentHMode || vMode != currentVMode)) {
             if (m_firstLayout) {
-                setScrollbarsSuppressed(true);
+                if (!m_isRestoringFromBackForward)
+                    setScrollbarsSuppressed(true);
+                else {
+                    setScrollbarsSuppressed(false);
+                    m_isRestoringFromBackForward = false;
+                }
 
                 m_firstLayout = false;
                 m_firstLayoutCallbackPending = true;
@@ -901,7 +898,7 @@ void FrameView::layout(bool allowSubtree)
 
     RenderLayer* layer = root->enclosingLayer();
 
-    pauseScheduledEvents();
+    m_actionScheduler->pause();
 
     bool disableLayoutState = false;
     if (subtree) {
@@ -983,13 +980,12 @@ void FrameView::layout(bool allowSubtree)
             m_hasPendingPostLayoutTasks = true;
             m_postLayoutTasksTimer.startOneShot(0);
             if (needsLayout()) {
-                pauseScheduledEvents();
+                m_actionScheduler->pause();
                 layout();
             }
         }
     } else {
-        resumeScheduledEvents();
-        ASSERT(m_enqueueEvents);
+        m_actionScheduler->resume();
     }
 
     InspectorInstrumentation::didLayout(cookie);
@@ -1069,10 +1065,8 @@ bool FrameView::useSlowRepaints() const
     if (m_useSlowRepaints || m_slowRepaintObjectCount > 0 || (platformWidget() && m_fixedObjectCount > 0) || m_isOverlapped || !m_contentIsOpaque)
         return true;
 
-    if (Frame* parentFrame = m_frame->tree()->parent()) {
-        if (FrameView* parentView = parentFrame->view())
-            return parentView->useSlowRepaints();
-    }
+    if (FrameView* parentView = parentFrameView())
+        return parentView->useSlowRepaints();
 
     return false;
 }
@@ -1082,10 +1076,8 @@ bool FrameView::useSlowRepaintsIfNotOverlapped() const
     if (m_useSlowRepaints || m_slowRepaintObjectCount > 0 || (platformWidget() && m_fixedObjectCount > 0) || !m_contentIsOpaque)
         return true;
 
-    if (Frame* parentFrame = m_frame->tree()->parent()) {
-        if (FrameView* parentView = parentFrame->view())
-            return parentView->useSlowRepaintsIfNotOverlapped();
-    }
+    if (FrameView* parentView = parentFrameView())
+        return parentView->useSlowRepaintsIfNotOverlapped();
 
     return false;
 }
@@ -1134,6 +1126,7 @@ void FrameView::removeFixedObject()
         updateCanBlitOnScrollRecursively();
 }
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // When the screen size change, fixed positioned element should be updated.
 void FrameView::updatePositionedObjects()
@@ -1156,6 +1149,64 @@ void FrameView::updatePositionedObjects()
     }
 }
 #endif
+=======
+int FrameView::scrollXForFixedPosition() const
+{
+    int visibleContentWidth = visibleContentRect().width();
+    int maxX = contentsWidth() - visibleContentWidth;
+
+    if (maxX == 0)
+        return 0;
+
+    int x = scrollX();
+
+    if (x < 0)
+        x = 0;
+    else if (x > maxX)
+        x = maxX;
+
+    if (!m_frame)
+        return x;
+
+    float pageScaleFactor = m_frame->pageScaleFactor();
+
+    // When the page is scaled, the scaled "viewport" with respect to which fixed object are positioned
+    // doesn't move as fast as the content view, so that when the content is scrolled all the way to the
+    // end, the bottom of the scaled "viewport" touches the bottom of the real viewport.
+    float dragFactor = (contentsWidth() - visibleContentWidth * pageScaleFactor) / maxX;
+
+    return x * dragFactor / pageScaleFactor;
+}
+
+int FrameView::scrollYForFixedPosition() const
+{
+    int visibleContentHeight = visibleContentRect().height();
+
+    int maxY = contentsHeight() - visibleContentHeight;
+    if (maxY == 0)
+        return 0;
+
+    int y = scrollY();
+
+    if (y < 0)
+        y = 0;
+    else if (y > maxY)
+        y = maxY;
+
+    if (!m_frame)
+        return y;
+
+    float pageScaleFactor = m_frame->pageScaleFactor();
+    float dragFactor = (contentsHeight() - visibleContentHeight * pageScaleFactor) / maxY;
+
+    return y * dragFactor / pageScaleFactor;
+}
+
+IntSize FrameView::scrollOffsetForFixedPosition() const
+{
+    return IntSize(scrollXForFixedPosition(), scrollYForFixedPosition());
+}
+>>>>>>> WebKit at r80534
 
 IntPoint FrameView::currentMousePosition() const
 {
@@ -1277,11 +1328,9 @@ bool FrameView::isOverlappedIncludingAncestors() const
     if (isOverlapped())
         return true;
 
-    if (Frame* parentFrame = m_frame->tree()->parent()) {
-        if (FrameView* parentView = parentFrame->view()) {
-            if (parentView->isOverlapped())
-                return true;
-        }
+    if (FrameView* parentView = parentFrameView()) {
+        if (parentView->isOverlapped())
+            return true;
     }
 
     return false;
@@ -1440,7 +1489,7 @@ const unsigned cRepaintRectUnionThreshold = 25;
 
 void FrameView::repaintContentRectangle(const IntRect& r, bool immediate)
 {
-    ASSERT(!m_frame->document()->ownerElement());
+    ASSERT(!m_frame->ownerElement());
 
     double delay = adjustedDeferredRepaintDelay();
     if ((m_deferringRepaints || m_deferredRepaintTimer.isActive() || delay) && !immediate) {
@@ -1776,11 +1825,12 @@ Color FrameView::baseBackgroundColor() const
     return m_baseBackgroundColor;
 }
 
-void FrameView::setBaseBackgroundColor(Color bc)
+void FrameView::setBaseBackgroundColor(const Color& backgroundColor)
 {
-    if (!bc.isValid())
-        bc = Color::white;
-    m_baseBackgroundColor = bc;
+    if (!backgroundColor.isValid())
+        m_baseBackgroundColor = Color::white;
+    else
+        m_baseBackgroundColor = backgroundColor;
 }
 
 void FrameView::updateBackgroundRecursively(const Color& backgroundColor, bool transparent)
@@ -1814,30 +1864,17 @@ bool FrameView::shouldUpdate(bool immediateRequested) const
 
 void FrameView::scheduleEvent(PassRefPtr<Event> event, PassRefPtr<Node> eventTarget)
 {
-    if (!m_enqueueEvents) {
-        ExceptionCode ec = 0;
-        eventTarget->dispatchEvent(event, ec);
-        return;
-    }
-
-    ScheduledEvent* scheduledEvent = new ScheduledEvent;
-    scheduledEvent->m_event = event;
-    scheduledEvent->m_eventTarget = eventTarget;
-    m_scheduledEvents.append(scheduledEvent);
+    m_actionScheduler->scheduleEvent(event, eventTarget);
 }
 
 void FrameView::pauseScheduledEvents()
 {
-    ASSERT(m_scheduledEvents.isEmpty() || m_enqueueEvents);
-    m_enqueueEvents++;
+    m_actionScheduler->pause();
 }
 
 void FrameView::resumeScheduledEvents()
 {
-    m_enqueueEvents--;
-    if (!m_enqueueEvents)
-        dispatchScheduledEvents();
-    ASSERT(m_scheduledEvents.isEmpty() || m_enqueueEvents);
+    m_actionScheduler->resume();
 }
 
 void FrameView::scrollToAnchor()
@@ -1940,14 +1977,16 @@ void FrameView::performPostLayoutTasks()
     m_frame->selection()->setCaretRectNeedsUpdate();
     m_frame->selection()->updateAppearance();
 
-    if (m_firstLayoutCallbackPending) {
-        m_firstLayoutCallbackPending = false;
-        m_frame->loader()->didFirstLayout();
-    }
-
-    if (m_isVisuallyNonEmpty && m_firstVisuallyNonEmptyLayoutCallbackPending) {
-        m_firstVisuallyNonEmptyLayoutCallbackPending = false;
-        m_frame->loader()->didFirstVisuallyNonEmptyLayout();
+    if (m_nestedLayoutCount <= 1) {
+        if (m_firstLayoutCallbackPending) {
+            m_firstLayoutCallbackPending = false;
+            m_frame->loader()->didFirstLayout();
+        }
+        
+        if (m_isVisuallyNonEmpty && m_firstVisuallyNonEmptyLayoutCallbackPending) {
+            m_firstVisuallyNonEmptyLayoutCallbackPending = false;
+            m_frame->loader()->didFirstVisuallyNonEmptyLayout();
+        }
     }
 
     RenderView* root = m_frame->contentRenderer();
@@ -1961,7 +2000,7 @@ void FrameView::performPostLayoutTasks()
 
     scrollToAnchor();
 
-    resumeScheduledEvents();
+    m_actionScheduler->resume();
 
     if (!root->printing()) {
         IntSize currentSize = IntSize(width(), height());
@@ -1998,33 +2037,11 @@ void FrameView::updateOverflowStatus(bool horizontalOverflow, bool verticalOverf
         m_horizontalOverflow = horizontalOverflow;
         m_verticalOverflow = verticalOverflow;
         
-        scheduleEvent(OverflowEvent::create(horizontalOverflowChanged, horizontalOverflow,
+        m_actionScheduler->scheduleEvent(OverflowEvent::create(horizontalOverflowChanged, horizontalOverflow,
             verticalOverflowChanged, verticalOverflow),
             m_viewportRenderer->node());
     }
     
-}
-
-void FrameView::dispatchScheduledEvents()
-{
-    if (m_scheduledEvents.isEmpty())
-        return;
-
-    Vector<ScheduledEvent*> scheduledEventsCopy = m_scheduledEvents;
-    m_scheduledEvents.clear();
-    
-    Vector<ScheduledEvent*>::iterator end = scheduledEventsCopy.end();
-    for (Vector<ScheduledEvent*>::iterator it = scheduledEventsCopy.begin(); it != end; ++it) {
-        ScheduledEvent* scheduledEvent = *it;
-        
-        ExceptionCode ec = 0;
-        
-        // Only dispatch events to nodes that are in the document
-        if (scheduledEvent->m_eventTarget->inDocument())
-            scheduledEvent->m_eventTarget->dispatchEvent(scheduledEvent->m_event, ec);
-        
-        delete scheduledEvent;
-    }
 }
 
 IntRect FrameView::windowClipRect(bool clipToContents) const
@@ -2036,11 +2053,11 @@ IntRect FrameView::windowClipRect(bool clipToContents) const
 
     // Set our clip rect to be our contents.
     IntRect clipRect = contentsToWindow(visibleContentRect(!clipToContents));
-    if (!m_frame || !m_frame->document() || !m_frame->document()->ownerElement())
+    if (!m_frame || !m_frame->ownerElement())
         return clipRect;
 
     // Take our owner element and get the clip rect from the enclosing layer.
-    Element* elt = m_frame->document()->ownerElement();
+    Element* elt = m_frame->ownerElement();
     RenderLayer* layer = elt->renderer()->enclosingLayer();
     // FIXME: layer should never be null, but sometimes seems to be anyway.
     if (!layer)
@@ -2208,6 +2225,15 @@ bool FrameView::hasCustomScrollbars() const
     return false;
 }
 
+FrameView* FrameView::parentFrameView() const
+{
+    if (Widget* parentView = parent()) {
+        if (parentView->isFrameView())
+            return static_cast<FrameView*>(parentView);
+    }
+    return 0;
+}
+
 void FrameView::updateControlTints()
 {
     // This is called when control tints are changed from aqua/graphite to clear and vice versa.
@@ -2252,13 +2278,13 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
 
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willPaint(m_frame.get(), rect);
 
-    Document* document = frame()->document();
+    Document* document = m_frame->document();
 
 #ifndef NDEBUG
     bool fillWithRed;
     if (document->printing())
         fillWithRed = false; // Printing, don't fill with red (can't remember why).
-    else if (document->ownerElement())
+    else if (m_frame->ownerElement())
         fillWithRed = false; // Subframe, don't fill with red.
     else if (isTransparent())
         fillWithRed = false; // Transparent, don't fill with red.
@@ -2293,6 +2319,12 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
 #endif
 
     PaintBehavior oldPaintBehavior = m_paintBehavior;
+    
+    if (FrameView* parentView = parentFrameView()) {
+        if (parentView->paintBehavior() & PaintBehaviorFlattenCompositingLayers)
+            m_paintBehavior |= PaintBehaviorFlattenCompositingLayers;
+    }
+    
     if (m_paintBehavior == PaintBehaviorNormal)
         document->markers()->invalidateRenderedRectsForMarkersInRect(rect);
 
@@ -2300,7 +2332,7 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
         m_paintBehavior |= PaintBehaviorFlattenCompositingLayers;
 
     bool flatteningPaint = m_paintBehavior & PaintBehaviorFlattenCompositingLayers;
-    bool isRootFrame = !document->ownerElement();
+    bool isRootFrame = !m_frame->ownerElement();
     if (flatteningPaint && isRootFrame)
         notifyWidgetsInAllFrames(WillPaintFlattened);
 

@@ -40,12 +40,13 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSCallbackFunction);
 
-const ClassInfo JSCallbackFunction::info = { "CallbackFunction", &InternalFunction::info, 0, 0 };
+const ClassInfo JSCallbackFunction::s_info = { "CallbackFunction", &InternalFunction::s_info, 0, 0 };
 
 JSCallbackFunction::JSCallbackFunction(ExecState* exec, JSGlobalObject* globalObject, JSObjectCallAsFunctionCallback callback, const Identifier& name)
     : InternalFunction(&exec->globalData(), globalObject, globalObject->callbackFunctionStructure(), name)
     , m_callback(callback)
 {
+    ASSERT(inherits(&s_info));
 }
 
 EncodedJSValue JSCallbackFunction::call(ExecState* exec)

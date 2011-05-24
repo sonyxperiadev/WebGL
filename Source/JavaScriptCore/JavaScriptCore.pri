@@ -18,8 +18,6 @@ CONFIG(standalone_package) {
     isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = generated
 }
 
-CONFIG(standalone_package): DEFINES *= NDEBUG
-
 JAVASCRIPTCORE_INCLUDEPATH = \
     $$PWD \
     $$PWD/.. \
@@ -27,6 +25,7 @@ JAVASCRIPTCORE_INCLUDEPATH = \
     $$PWD/assembler \
     $$PWD/bytecode \
     $$PWD/bytecompiler \
+    $$PWD/collector/handles \
     $$PWD/debugger \
     $$PWD/interpreter \
     $$PWD/jit \
@@ -48,9 +47,8 @@ symbian {
     INCLUDEPATH = $$JAVASCRIPTCORE_INCLUDEPATH $$INCLUDEPATH
 }
 
-symbian: {
+symbian {
     LIBS += -lhal
-    # For hal.h
     INCLUDEPATH *= $$MW_LAYER_SYSTEMINCLUDE
 }
 
@@ -70,16 +68,16 @@ wince* {
 }
 
 
-defineTest(addJavaScriptCoreLib) {
+defineTest(prependJavaScriptCoreLib) {
     # Argument is the relative path to JavaScriptCore.pro's qmake output
     pathToJavaScriptCoreOutput = $$ARGS/$$JAVASCRIPTCORE_DESTDIR
 
     win32-msvc*|wince* {
-        LIBS += -L$$pathToJavaScriptCoreOutput
-        LIBS += -l$$JAVASCRIPTCORE_TARGET
+        LIBS = -l$$JAVASCRIPTCORE_TARGET $$LIBS
+        LIBS = -L$$pathToJavaScriptCoreOutput $$LIBS
         POST_TARGETDEPS += $${pathToJavaScriptCoreOutput}$${QMAKE_DIR_SEP}$${JAVASCRIPTCORE_TARGET}.lib
     } else:symbian {
-        LIBS += -l$${JAVASCRIPTCORE_TARGET}.lib
+        LIBS = -l$${JAVASCRIPTCORE_TARGET}.lib $$LIBS
         # The default symbian build system does not use library paths at all. However when building with
         # qmake's symbian makespec that uses Makefiles
         QMAKE_LIBDIR += $$pathToJavaScriptCoreOutput
@@ -88,13 +86,7 @@ defineTest(addJavaScriptCoreLib) {
         # Make sure jscore will be early in the list of libraries to workaround a bug in MinGW
         # that can't resolve symbols from QtCore if libjscore comes after.
         QMAKE_LIBDIR = $$pathToJavaScriptCoreOutput $$QMAKE_LIBDIR
-        webkit2 {
-            # FIXME Workaround for undefined reference linking issues until the build system gets redesigned
-            mac: LIBS += -Wl,-all_load -l$$JAVASCRIPTCORE_TARGET -WL,-noall_load 
-            else: LIBS += -Wl,-whole-archive -l$$JAVASCRIPTCORE_TARGET -Wl,-no-whole-archive
-        } else {
-            LIBS += -l$$JAVASCRIPTCORE_TARGET
-        }
+        LIBS = -l$$JAVASCRIPTCORE_TARGET $$LIBS
         POST_TARGETDEPS += $${pathToJavaScriptCoreOutput}$${QMAKE_DIR_SEP}lib$${JAVASCRIPTCORE_TARGET}.a
     }
 

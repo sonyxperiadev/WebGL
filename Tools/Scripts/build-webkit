@@ -41,9 +41,9 @@ use webkitdirs;
 use webkitperl::features;
 use POSIX;
 
+sub checkForJavaSDK();
 sub formatBuildTime($);
 sub writeCongrats();
-sub checkForJavaSDK();
 
 my $originalWorkingDirectory = getcwd();
 chdirWebKit();
@@ -70,6 +70,7 @@ my (
     $databaseSupport,
     $datagridSupport,
     $datalistSupport,
+    $dataTransferItemsSupport,
     $deviceOrientationSupport,
     $directoryUploadSupport,
     $domStorageSupport,
@@ -148,6 +149,9 @@ my @features = (
     { option => "datalist", desc => "Toggle HTML5 datalist support",
       define => "ENABLE_DATALIST", default => 1, value => \$datalistSupport },
 
+    { option => "data-transfer-items", desc => "Toggle HTML5 data transfer items support",
+      define => "ENABLE_DATA_TRANSFER_ITEMS", default => 0, value => \$dataTransferItemsSupport },
+
     { option => "device-orientation", desc => "Toggle DeviceOrientation support",
       define => "ENABLE_DEVICE_ORIENTATION", default => 0, value => \$deviceOrientationSupport },
 
@@ -200,7 +204,7 @@ my @features = (
       define => "ENABLE_MEDIA_STATISTICS", default => 0, value => \$mediaStatisticsSupport },
 
     { option => "meter-tag", desc => "Meter Tag support",
-      define => "ENABLE_METER_TAG", default => !isGtk() && !isAppleWinWebKit(), value => \$meterTagSupport },
+      define => "ENABLE_METER_TAG", default => !isAppleWinWebKit(), value => \$meterTagSupport },
 
     { option => "netscape-plugin", desc => "Netscape Plugin support",
       define => "ENABLE_NETSCAPE_PLUGIN_API", default => !isEfl(), value => \$netscapePluginSupport },
@@ -286,6 +290,13 @@ my @features = (
 
 # Update defaults from Qt's project file
 if (isQt()) {
+    # Take a sneek peek at the arguments, since we will need the qmake binary early
+    # on to do profile parsing.
+    foreach (@ARGV) {
+        if (/^--qmake=(.*)/) {
+            setQmakeBinaryPath($1);
+        }
+    }
     my %qtDefaults = qtFeatureDefaults();
     foreach (@features) {
         $_->{default} = $qtDefaults{$_->{define}} || 0;
@@ -372,10 +383,14 @@ setConfiguration();
 
 my $productDir = productDir();
 
+# Remove Qt makefiles from productDir.
+# https://bugs.webkit.org/show_bug.cgi?id=54466
+File::Find::find(sub {unlink $File::Find::name if $File::Find::name =~ m/Makefile/;}, $productDir) if (isQt() && !isSymbian() && -e $productDir);
+
 # Remove 0 byte sized files from productDir after slave lost for Qt buildbots.
 File::Find::find(\&unlinkZeroFiles, $productDir) if (isQt() && !isSymbian() && -e $productDir);
 
-sub unlinkZeroFiles ()
+sub unlinkZeroFiles()
 {
     my $file = $File::Find::name;
     if (! -s $file) {
@@ -606,7 +621,7 @@ sub checkForJavaSDK()
     }
     print "\nCan't find required $jniHeader, build will fail.\n\n";
     print "After installing \"Java for Mac OS X 10.6 Update 3\", the Java Developer Package is required to build WebKit.\n";
-    print "Please install the package from http://connect.apple.com (found under Dowloads > Java).\n\n";
+    print "Please install the package from http://connect.apple.com (found under Downloads > Java).\n\n";
     print "For more information, see:\n";
     print "https://lists.webkit.org/pipermail/webkit-dev/2010-October/014867.html\n";
     print "https://webkit.org/building/tools.html\n\n";

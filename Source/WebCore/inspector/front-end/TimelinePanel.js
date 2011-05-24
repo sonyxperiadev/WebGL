@@ -270,10 +270,10 @@ WebInspector.TimelinePanel.prototype = {
     _toggleTimelineButtonClicked: function()
     {
         if (this.toggleTimelineButton.toggled)
-            InspectorBackend.stopTimelineProfiler();
+            TimelineAgent.stop();
         else {
             this._clearPanel();
-            InspectorBackend.startTimelineProfiler();
+            TimelineAgent.start();
         }
     },
 
@@ -865,7 +865,6 @@ WebInspector.TimelinePanel.FormattedRecord = function(record, parentRecord, pane
     this.endTime = (typeof record.endTime !== "undefined") ? record.endTime / 1000 : this.startTime;
     this._selfTime = this.endTime - this.startTime;
     this._lastChildEndTime = this.endTime;
-    this.originalRecordForTests = record;
     if (record.stackTrace && record.stackTrace.length)
         this.stackTrace = record.stackTrace;
     this.totalHeapSize = record.totalHeapSize;

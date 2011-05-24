@@ -54,8 +54,13 @@ public:
     static void setLinksIncludedInFocusChain(bool);
     static bool linksIncludedInFocusChain();
     static void setIconDatabaseEnabled(bool);
+    static void setSelectTrailingWhitespaceEnabled(bool);
+    static bool selectTrailingWhitespaceEnabled();
+
     static JSValueRef nodesFromRect(JSContextRef context, JSValueRef value, int x, int y, unsigned top, unsigned right, unsigned bottom, unsigned left, bool ignoreClipping);
-    static void dumpConfigurationForViewport(WebKitWebView* webView, gint availableWidth, gint availableHeight);
+    static void dumpConfigurationForViewport(WebKitWebView* webView, gint deviceDPI, gint deviceWidth, gint deviceHeight, gint availableWidth, gint availableHeight);
+
+    static void clearOpener(WebKitWebFrame*);
 
     // FIXME: Move these to webkitwebframe.h once their API has been discussed.
     static GSList* getFrameChildren(WebKitWebFrame*);
@@ -89,6 +94,8 @@ public:
     static void confirmComposition(WebKitWebView*, const char* text);
     static bool firstRectForCharacterRange(WebKitWebView*, int location, int length, GdkRectangle*);
     static bool selectedRange(WebKitWebView*, int* start, int* end);
+    static double defaultMinimumTimerInterval(); // Not really tied to WebView
+    static void setMinimumTimerInterval(WebKitWebView*, double);
 
     // GC
     static void gcCollectJavascriptObjects();
@@ -103,6 +110,7 @@ public:
 private:
     static bool s_drtRun;
     static bool s_linksIncludedInTabChain;
+    static bool s_selectTrailingWhitespaceEnabled;
 };
 
 #endif

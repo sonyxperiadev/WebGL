@@ -25,8 +25,6 @@
 
 #include "config.h"
 
-#if !USE(GOOGLEURL)
-
 #include "KURL.h"
 
 #include "TextEncoding.h"
@@ -53,6 +51,11 @@ namespace WebCore {
 
 typedef Vector<char, 512> CharBuffer;
 typedef Vector<UChar, 512> UCharBuffer;
+
+static const unsigned maximumValidPortNumber = 0xFFFE;
+static const unsigned invalidPortNumber = 0xFFFF;
+
+#if !USE(GOOGLEURL)
 
 // FIXME: This file makes too much use of the + operator on String.
 // We either have to optimize that operator so it doesn't involve
@@ -215,9 +218,6 @@ static const unsigned char characterClassTable[256] = {
     /* 252 */ BadChar, /* 253 */ BadChar, /* 254 */ BadChar, /* 255 */ BadChar
 };
 
-static const unsigned maximumValidPortNumber = 0xFFFE;
-static const unsigned invalidPortNumber = 0xFFFF;
-
 static int copyPathRemovingDots(char* dst, const char* src, int srcStart, int srcEnd);
 static void encodeRelativeString(const String& rel, const TextEncoding&, CharBuffer& ouput);
 static String substituteBackslashes(const String&);
@@ -342,6 +342,14 @@ KURL::KURL(const KURL& base, const String& relative, const TextEncoding& encodin
     init(base, relative, encoding.encodingForFormSubmission());
 }
 
+static bool shouldTrimFromURL(unsigned char c)
+{
+    // Browsers ignore leading/trailing whitespace and control
+    // characters from URLs.  Note that c is an *unsigned* char here
+    // so this comparison should only catch control characters.
+    return c <= ' ';
+}
+
 void KURL::init(const KURL& base, const String& relative, const TextEncoding& encoding)
 {
     // Allow resolutions with a null or empty base URL, but not with any other invalid one.
@@ -377,15 +385,15 @@ void KURL::init(const KURL& base, const String& relative, const TextEncoding& en
         len = strlen(str);
     }
 
-    // Get rid of leading whitespace.
-    while (*str == ' ') {
+    // Get rid of leading whitespace and control characters.
+    while (len && shouldTrimFromURL(*str)) {
         originalString = 0;
         str++;
         --len;
     }
 
-    // Get rid of trailing whitespace.
-    while (len && str[len - 1] == ' ') {
+    // Get rid of trailing whitespace and control characters.
+    while (len && shouldTrimFromURL(str[len - 1])) {
         originalString = 0;
         str[--len] = '\0';
     }
@@ -957,15 +965,6 @@ String decodeURLEscapeSequences(const String& str, const TextEncoding& encoding)
     result.append(str.characters() + decodedPosition, length - decodedPosition);
 
     return String::adopt(result);
-}
-
-bool KURL::isLocalFile() const
-{
-    // Including feed here might be a bad idea since drag and drop uses this check
-    // and including feed would allow feeds to potentially let someone's blog
-    // read the contents of the clipboard on a drag, even without a drop.
-    // Likewise with using the FrameLoader::shouldTreatURLAsLocal() function.
-    return protocolIs("file");
 }
 
 // Caution: This function does not bounds check.
@@ -1746,11 +1745,6 @@ bool protocolIs(const String& url, const char* protocol)
     }
 }
 
-bool protocolIsJavaScript(const String& url)
-{
-    return protocolIs(url, "javascript");
-}
-
 bool isValidProtocol(const String& protocol)
 {
     // RFC3986: ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
@@ -1764,6 +1758,44 @@ bool isValidProtocol(const String& protocol)
             return false;
     }
     return true;
+}
+
+#ifndef NDEBUG
+void KURL::print() const
+{
+    printf("%s\n", m_string.utf8().data());
+}
+#endif
+
+#endif // !USE(GOOGLEURL)
+
+String KURL::strippedForUseAsReferrer() const
+{
+    KURL referrer(*this);
+    referrer.setUser(String());
+    referrer.setPass(String());
+    referrer.removeFragmentIdentifier();
+    return referrer.string();
+}
+
+bool KURL::isLocalFile() const
+{
+    // Including feed here might be a bad idea since drag and drop uses this check
+    // and including feed would allow feeds to potentially let someone's blog
+    // read the contents of the clipboard on a drag, even without a drop.
+    // Likewise with using the FrameLoader::shouldTreatURLAsLocal() function.
+    return protocolIs("file");
+}
+
+bool protocolIsJavaScript(const String& url)
+{
+    return protocolIs(url, "javascript");
+}
+
+const KURL& blankURL()
+{
+    DEFINE_STATIC_LOCAL(KURL, staticBlankURL, (ParsedURLString, "about:blank"));
+    return staticBlankURL;
 }
 
 bool isDefaultPortForProtocol(unsigned short port, const String& protocol)
@@ -1900,19 +1932,4 @@ String mimeTypeFromDataURL(const String& url)
     return "";
 }
 
-const KURL& blankURL()
-{
-    DEFINE_STATIC_LOCAL(KURL, staticBlankURL, (ParsedURLString, "about:blank"));
-    return staticBlankURL;
 }
-
-#ifndef NDEBUG
-void KURL::print() const
-{
-    printf("%s\n", m_string.utf8().data());
-}
-#endif
-
-}
-
-#endif  // !USE(GOOGLEURL)

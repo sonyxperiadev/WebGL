@@ -32,6 +32,7 @@
 #define InspectorDatabaseResource_h
 
 #if ENABLE(DATABASE)
+#include "InspectorFrontend.h"
 #include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -45,14 +46,15 @@ class InspectorDatabaseResource : public RefCounted<InspectorDatabaseResource> {
 public:
     static PassRefPtr<InspectorDatabaseResource> create(PassRefPtr<Database> database, const String& domain, const String& name, const String& version);
 
-    void bind(InspectorFrontend* frontend);
+    void bind(InspectorFrontend::Database*);
     Database* database() { return m_database.get(); }
     long id() const { return m_id; }
+
 private:
     InspectorDatabaseResource(PassRefPtr<Database>, const String& domain, const String& name, const String& version);
 
     RefPtr<Database> m_database;
-    int m_id;
+    long m_id;
     String m_domain;
     String m_name;
     String m_version;

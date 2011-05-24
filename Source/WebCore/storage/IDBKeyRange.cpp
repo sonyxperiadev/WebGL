@@ -56,29 +56,9 @@ PassRefPtr<IDBKeyRange> IDBKeyRange::upperBound(PassRefPtr<IDBKey> bound, bool o
     return IDBKeyRange::create(0, bound, false, open);
 }
 
-PassRefPtr<IDBKeyRange> IDBKeyRange::bound(PassRefPtr<IDBKey> lower, PassRefPtr<IDBKey> upper, const OptionsObject& options)
+PassRefPtr<IDBKeyRange> IDBKeyRange::bound(PassRefPtr<IDBKey> lower, PassRefPtr<IDBKey> upper, bool lowerOpen, bool upperOpen)
 {
-    bool lowerOpen = false;
-    bool upperOpen = false;
-    options.getKeyBool("lowerOpen", lowerOpen);
-    options.getKeyBool("upperOpen", upperOpen);
     return IDBKeyRange::create(lower, upper, lowerOpen, upperOpen);
-}
-
-String IDBKeyRange::lowerWhereClauseComparisonOperator() const
-{
-    ASSERT(m_lower);
-    if (m_lowerOpen)
-        return "<";
-    return "<=";
-}
-
-String IDBKeyRange::upperWhereClauseComparisonOperator() const
-{
-    ASSERT(m_upper);
-    if (m_upperOpen)
-        return "<";
-    return "<=";
 }
 
 } // namespace WebCore

@@ -29,6 +29,7 @@
 
 #import <WebCore/Editor.h>
 #import <WebCore/EditorClient.h>
+#import <WebCore/TextCheckerClient.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Forward.h>
 #import <wtf/Vector.h>
@@ -36,7 +37,7 @@
 @class WebView;
 @class WebEditorUndoTarget;
 
-class WebEditorClient : public WebCore::EditorClient {
+class WebEditorClient : public WebCore::EditorClient, public WebCore::TextCheckerClient {
 public:
     WebEditorClient(WebView *);
     virtual ~WebEditorClient();
@@ -50,7 +51,6 @@ public:
 
     virtual bool smartInsertDeleteEnabled();
     virtual bool isSelectTrailingWhitespaceEnabled();
-    virtual bool isEditable();
 
     virtual bool shouldDeleteRange(WebCore::Range*);    
     virtual bool shouldShowDeleteInterface(WebCore::HTMLElement*);
@@ -98,13 +98,17 @@ public:
     virtual void toggleAutomaticSpellingCorrection();
 #endif
 
+    TextCheckerClient* textChecker() { return this; }
+
     virtual void respondToChangedContents();
     virtual void respondToChangedSelection();
 
     virtual void registerCommandForUndo(PassRefPtr<WebCore::EditCommand>);
     virtual void registerCommandForRedo(PassRefPtr<WebCore::EditCommand>);
     virtual void clearUndoRedoOperations();
-    
+
+    virtual bool canCopyCut(bool defaultValue) const;
+    virtual bool canPaste(bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
     
@@ -139,6 +143,7 @@ public:
     virtual void showCorrectionPanel(WebCore::CorrectionPanelInfo::PanelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const WTF::String& replacedString, const WTF::String& replacementString, const WTF::Vector<WTF::String>& alternativeReplacementStrings, WebCore::Editor*);
     virtual void dismissCorrectionPanel(WebCore::ReasonForDismissingCorrectionPanel);
     virtual bool isShowingCorrectionPanel();
+    virtual void recordAutocorrectionResponse(AutocorrectionResponseType, const WTF::String& replacedString, const WTF::String& replacementString);
 #endif
 private:
     void registerCommandForUndoOrRedo(PassRefPtr<WebCore::EditCommand>, bool isRedo);

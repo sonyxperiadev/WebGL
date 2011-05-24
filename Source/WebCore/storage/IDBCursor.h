@@ -29,6 +29,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "ExceptionCode.h"
+#include "IDBKey.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -38,7 +39,6 @@ namespace WebCore {
 class IDBAny;
 class IDBCallbacks;
 class IDBCursorBackendInterface;
-class IDBKey;
 class IDBRequest;
 class IDBTransaction;
 class ScriptExecutionContext;
@@ -52,11 +52,8 @@ public:
         PREV = 2,
         PREV_NO_DUPLICATE = 3,
     };
-    static PassRefPtr<IDBCursor> create(PassRefPtr<IDBCursorBackendInterface> backend, IDBRequest* request, IDBTransaction* transaction)
-    {
-        return adoptRef(new IDBCursor(backend, request, transaction));
-    }
-    ~IDBCursor();
+    static PassRefPtr<IDBCursor> create(PassRefPtr<IDBCursorBackendInterface>, IDBRequest*, IDBAny* source, IDBTransaction*);
+    virtual ~IDBCursor();
 
     // FIXME: Try to modify the code generator so this is unneeded.
     void continueFunction(ExceptionCode& ec) { continueFunction(0, ec); }
@@ -64,16 +61,21 @@ public:
     // Implement the IDL
     unsigned short direction() const;
     PassRefPtr<IDBKey> key() const;
-    PassRefPtr<IDBAny> value() const;
+    PassRefPtr<IDBKey> primaryKey() const;
+    PassRefPtr<SerializedScriptValue> value() const;
+    IDBAny* source() const;
+
     PassRefPtr<IDBRequest> update(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue>, ExceptionCode&);
     void continueFunction(PassRefPtr<IDBKey>, ExceptionCode&);
     PassRefPtr<IDBRequest> deleteFunction(ScriptExecutionContext*, ExceptionCode&);
 
-private:
-    explicit IDBCursor(PassRefPtr<IDBCursorBackendInterface>, IDBRequest*, IDBTransaction*);
+protected:
+    IDBCursor(PassRefPtr<IDBCursorBackendInterface>, IDBRequest*, IDBAny* source, IDBTransaction*);
 
+private:
     RefPtr<IDBCursorBackendInterface> m_backend;
     RefPtr<IDBRequest> m_request;
+    RefPtr<IDBAny> m_source;
     RefPtr<IDBTransaction> m_transaction;
 };
 

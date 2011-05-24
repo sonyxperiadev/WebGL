@@ -454,7 +454,7 @@ TestSuite.prototype.testPauseWhenLoadingDevTools = function()
 
     // Script execution can already be paused.
     if (WebInspector.currentPanel.paused) {
-        var callFrame = WebInspector.currentPanel.sidebarPanes.callstack.selectedCallFrame;
+        var callFrame = WebInspector.currentPanel._presentationModel.selectedCallFrame;
         this.assertEquals(expectations.functionsOnStack[0], callFrame.functionName);
         var callbackInvoked = false;
         this._checkSourceFrameWhenLoaded(expectations, function() {
@@ -616,7 +616,7 @@ TestSuite.prototype.evaluateInConsole_ = function(code, callback)
  */
 TestSuite.prototype._checkExecutionLine = function(sourceFrame, lineNumber, lineContent)
 {
-    this.assertEquals(lineNumber, sourceFrame._executionLine, "Unexpected execution line number.");
+    this.assertEquals(lineNumber, sourceFrame._executionLineNumber + 1, "Unexpected execution line number.");
     this.assertEquals(lineContent, sourceFrame._textModel.line(lineNumber - 1), "Unexpected execution line text.");
 }
 
@@ -734,7 +734,7 @@ TestSuite.prototype._waitUntilScriptsAreParsed = function(expectedScripts, callb
         if (test._scriptsAreParsed(expectedScripts))
             callback();
         else
-            test.addSniffer(WebInspector.debuggerModel, "_parsedScriptSource", waitForAllScripts);
+            test.addSniffer(WebInspector.panels.scripts, "_addOptionToFilesSelect", waitForAllScripts);
     }
 
     waitForAllScripts();

@@ -38,18 +38,6 @@
 #include "LayerRendererChromium.h"
 #include "LayerTexture.h"
 
-#if PLATFORM(SKIA)
-#include "NativeImageSkia.h"
-#include "PlatformContextSkia.h"
-#endif
-
-#if PLATFORM(CG)
-#include <CoreGraphics/CGBitmapContext.h>
-#include <CoreGraphics/CGContext.h>
-#include <CoreGraphics/CGImage.h>
-#include <wtf/RetainPtr.h>
-#endif
-
 namespace WebCore {
 
 PassRefPtr<ImageLayerChromium> ImageLayerChromium::create(GraphicsLayerChromium* owner)
@@ -84,80 +72,17 @@ void ImageLayerChromium::updateContentsIfDirty()
         return;
     }
 
-    void* pixels = 0;
-    IntSize bitmapSize;
+    m_decodedImage.updateFromImage(m_contents->nativeImageForCurrentFrame());
+}
 
-    NativeImagePtr nativeImage = m_contents->nativeImageForCurrentFrame();
-
-#if PLATFORM(SKIA)
-    // The layer contains an Image.
-    NativeImageSkia* skiaImage = static_cast<NativeImageSkia*>(nativeImage);
-    const SkBitmap* skiaBitmap = skiaImage;
-    bitmapSize = IntSize(skiaBitmap->width(), skiaBitmap->height());
-    ASSERT(skiaBitmap);
-#elif PLATFORM(CG)
-    // NativeImagePtr is a CGImageRef on Mac OS X.
-    int width = CGImageGetWidth(nativeImage);
-    int height = CGImageGetHeight(nativeImage);
-    bitmapSize = IntSize(width, height);
-#endif
-
-    // Clip the dirty rect to the bitmap dimensions.
-    IntRect dirtyRect(m_dirtyRect);
-    dirtyRect.intersect(IntRect(IntPoint(0, 0), bitmapSize));
-
-    if (!m_contentsTexture || !m_contentsTexture->isValid(bitmapSize, GraphicsContext3D::RGBA))
-        dirtyRect = IntRect(IntPoint(0, 0), bitmapSize);
-    else if (!m_contentsDirty) {
-        m_contentsTexture->reserve(bitmapSize, GraphicsContext3D::RGBA);
+void ImageLayerChromium::updateTextureIfNeeded()
+{
+    // FIXME: Remove this test when tiled layers are implemented.
+    if (requiresClippedUpdateRect()) {
+        ContentLayerChromium::updateTextureIfNeeded();
         return;
     }
-
-#if PLATFORM(SKIA)
-    SkAutoLockPixels lock(*skiaBitmap);
-    SkBitmap::Config skiaConfig = skiaBitmap->config();
-    // FIXME: do we need to support more image configurations?
-    if (skiaConfig == SkBitmap::kARGB_8888_Config)
-        pixels = skiaBitmap->getPixels();
-#elif PLATFORM(CG)
-    // FIXME: we should get rid of this temporary copy where possible.
-    int tempRowBytes = width * 4;
-    Vector<uint8_t> tempVector;
-    tempVector.resize(height * tempRowBytes);
-    // Note we do not zero this vector since we are going to
-    // completely overwrite its contents with the image below.
-    // Try to reuse the color space from the image to preserve its colors.
-    // Some images use a color space (such as indexed) unsupported by the bitmap context.
-    RetainPtr<CGColorSpaceRef> colorSpaceReleaser;
-    CGColorSpaceRef colorSpace = CGImageGetColorSpace(nativeImage);
-    CGColorSpaceModel colorSpaceModel = CGColorSpaceGetModel(colorSpace);
-    switch (colorSpaceModel) {
-    case kCGColorSpaceModelMonochrome:
-    case kCGColorSpaceModelRGB:
-    case kCGColorSpaceModelCMYK:
-    case kCGColorSpaceModelLab:
-    case kCGColorSpaceModelDeviceN:
-        break;
-    default:
-        colorSpaceReleaser.adoptCF(CGColorSpaceCreateDeviceRGB());
-        colorSpace = colorSpaceReleaser.get();
-        break;
-    }
-    RetainPtr<CGContextRef> tempContext(AdoptCF, CGBitmapContextCreate(tempVector.data(),
-                                                                       width, height, 8, tempRowBytes,
-                                                                       colorSpace,
-                                                                       kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host));
-    CGContextSetBlendMode(tempContext.get(), kCGBlendModeCopy);
-    CGContextDrawImage(tempContext.get(),
-                       CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)),
-                       nativeImage);
-    pixels = tempVector.data();
-#else
-#error "Need to implement for your platform."
-#endif
-
-    if (pixels)
-        updateTextureRect(pixels, bitmapSize,  dirtyRect);
+    updateTexture(m_decodedImage.pixels(), m_decodedImage.size());
 }
 
 }

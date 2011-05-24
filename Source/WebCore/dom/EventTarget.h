@@ -52,6 +52,7 @@ namespace WebCore {
     class IDBDatabase;
     class IDBRequest;
     class IDBTransaction;
+    class IDBVersionChangeRequest;
     class JavaScriptAudioNode;
     class MessagePort;
     class Node;
@@ -142,6 +143,7 @@ namespace WebCore {
         virtual IDBDatabase* toIDBDatabase();
         virtual IDBRequest* toIDBRequest();
         virtual IDBTransaction* toIDBTransaction();
+        virtual IDBVersionChangeRequest* toIDBVersionChangeRequest();
 #endif
 
         virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
@@ -151,6 +153,7 @@ namespace WebCore {
         virtual void removeAllEventListeners();
         virtual bool dispatchEvent(PassRefPtr<Event>);
         bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&); // DOM API
+        virtual void uncaughtExceptionInEventHandler();
 
         // Used for legacy "onEvent" attribute APIs.
         bool setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
@@ -229,20 +232,6 @@ namespace WebCore {
             EventListenerVector& entry = *it->second;
             for (size_t i = 0; i < entry.size(); ++i)
                 entry[i].listener->markJSFunction(markStack);
-        }
-    }
-
-    inline void EventTarget::invalidateJSEventListeners(JSC::JSObject* wrapper)
-    {
-        EventTargetData* d = eventTargetData();
-        if (!d)
-            return;
-
-        EventListenerMap::iterator end = d->eventListenerMap.end();
-        for (EventListenerMap::iterator it = d->eventListenerMap.begin(); it != end; ++it) {
-            EventListenerVector& entry = *it->second;
-            for (size_t i = 0; i < entry.size(); ++i)
-                entry[i].listener->invalidateJSFunction(wrapper);
         }
     }
 #endif

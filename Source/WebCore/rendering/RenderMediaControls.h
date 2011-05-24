@@ -34,11 +34,15 @@
 namespace WebCore {
 
 class HTMLMediaElement;
+
 class RenderMediaControls {
 public:
+
+#if PLATFORM(WIN)
     static bool paintMediaControlsPart(MediaControlElementType, RenderObject*, const PaintInfo&, const IntRect&);
     static void adjustMediaSliderThumbSize(RenderObject*);
-    static IntPoint volumeSliderOffsetFromMuteButton(Node*, const IntSize&);
+#endif
+    static IntPoint volumeSliderOffsetFromMuteButton(RenderBox*, const IntSize&);
 };
 
 } // namespace WebCore

@@ -251,16 +251,19 @@ def message_to_struct_declaration(message):
 def struct_or_class(namespace, type):
     structs = frozenset([
         'WebCore::CompositionUnderline',
+        'WebCore::GrammarDetail',
         'WebCore::KeypressCommand',
         'WebCore::PluginInfo',
         'WebCore::PrintInfo',
         'WebCore::ViewportArguments',
         'WebCore::WindowFeatures',
         'WebKit::ContextMenuState',
+        'WebKit::DictionaryPopupInfo',
         'WebKit::DrawingAreaInfo',
         'WebKit::PlatformPopupMenuData',
         'WebKit::PluginProcessCreationParameters',
         'WebKit::PrintInfo',
+        'WebKit::SecurityOriginData',
         'WebKit::SelectionState',
         'WebKit::TextCheckerState',
         'WebKit::WebNavigationDataStore',
@@ -311,7 +314,7 @@ def forward_declarations_and_headers(receiver):
             # Include its header instead.
             headers.update(headers_for_type(type))
 
-    forward_declarations = '\n'.join([forward_declarations_for_namespace(namespace, types) for (namespace, types) in sorted(types_by_namespace.iteritems())])
+    forward_declarations = '\n'.join([forward_declarations_for_namespace(namespace, types) for (namespace, types) in sorted(types_by_namespace.items())])
     headers = ['#include %s\n' % header for header in sorted(headers)]
 
     return (forward_declarations, headers)
@@ -424,7 +427,7 @@ def headers_for_type(type):
         'WebCore::CompositionUnderline': '<WebCore/Editor.h>',
         'WebCore::KeypressCommand': '<WebCore/KeyboardEvent.h>',
         'WebCore::PluginInfo': '<WebCore/PluginData.h>',
-        'WebCore::TextCheckingResult': '<WebCore/EditorClient.h>',
+        'WebCore::TextCheckingResult': '<WebCore/TextCheckerClient.h>',
         'WebKit::WebGestureEvent': '"WebEvent.h"',
         'WebKit::WebKeyboardEvent': '"WebEvent.h"',
         'WebKit::WebMouseEvent': '"WebEvent.h"',

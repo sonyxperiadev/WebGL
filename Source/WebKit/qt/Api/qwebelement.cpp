@@ -49,7 +49,9 @@
 #include "StaticNodeList.h"
 #include "qwebframe.h"
 #include "qwebframe_p.h"
+#if USE(JSC)
 #include "runtime_root.h"
+#endif
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 
@@ -784,7 +786,7 @@ QVariant QWebElement::evaluateJavaScript(const QString& scriptSource)
     if (!setupScriptContext(m_element, thisValue, state, scriptController))
         return QVariant();
 #if USE(JSC)
-    JSC::ScopeChain& scopeChain = state->dynamicGlobalObject()->globalScopeChain();
+    JSC::ScopeChainNode* scopeChain = state->dynamicGlobalObject()->globalScopeChain();
     JSC::UString script(reinterpret_cast_ptr<const UChar*>(scriptSource.data()), scriptSource.length());
     JSC::Completion completion = JSC::evaluate(state, scopeChain, JSC::makeSource(script), thisValue);
     if ((completion.complType() != JSC::ReturnValue) && (completion.complType() != JSC::Normal))
@@ -1485,6 +1487,14 @@ QWebElement QWebElement::enclosingElement(WebCore::Node* node)
 */
 void QWebElement::render(QPainter* painter)
 {
+    render(painter, QRect());
+}
+
+/*!
+  Render the element into \a painter clipping to \a clip.
+*/
+void QWebElement::render(QPainter* painter, const QRect& clip)
+{
     WebCore::Element* e = m_element;
     Document* doc = e ? e->document() : 0;
     if (!doc)
@@ -1503,12 +1513,17 @@ void QWebElement::render(QPainter* painter)
     if (rect.size().isEmpty())
         return;
 
+    QRect finalClipRect = rect;
+    if (!clip.isEmpty())
+        rect.intersect(clip.translated(rect.location()));
+
     GraphicsContext context(painter);
 
     context.save();
     context.translate(-rect.x(), -rect.y());
+    painter->setClipRect(finalClipRect, Qt::IntersectClip);
     view->setNodeToDraw(e);
-    view->paintContents(&context, rect);
+    view->paintContents(&context, finalClipRect);
     view->setNodeToDraw(0);
     context.restore();
 }

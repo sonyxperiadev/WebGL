@@ -42,7 +42,6 @@
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayer.h"
 #endif
-#include "GeolocationPermissionClientQt.h"
 #include "HitTestResult.h"
 #include "Icon.h"
 #include "NavigationAction.h"
@@ -355,9 +354,10 @@ bool ChromeClientQt::shouldInterruptJavaScript()
     return shouldInterrupt;
 }
 
-bool ChromeClientQt::tabsToLinks() const
+KeyboardUIMode ChromeClientQt::keyboardUIMode()
 {
-    return m_webPage->settings()->testAttribute(QWebSettings::LinksIncludedInFocusChain);
+    return m_webPage->settings()->testAttribute(QWebSettings::LinksIncludedInFocusChain)
+        ? KeyboardAccessTabsToLinks : KeyboardAccessDefault;
 }
 
 IntRect ChromeClientQt::windowResizerRect() const
@@ -604,21 +604,6 @@ void ChromeClientQt::setCursor(const Cursor& cursor)
 #endif
 }
 
-void ChromeClientQt::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
-{
-#if ENABLE(GEOLOCATION)
-    QWebFrame* webFrame = QWebFramePrivate::kit(frame);
-    GeolocationPermissionClientQt::geolocationPermissionClient()->requestGeolocationPermissionForFrame(webFrame, geolocation);
-#endif
-}
-
-void ChromeClientQt::cancelGeolocationPermissionRequestForFrame(Frame* frame, Geolocation* geolocation)
-{
-#if ENABLE(GEOLOCATION)
-    QWebFrame* webFrame = QWebFramePrivate::kit(frame);
-    GeolocationPermissionClientQt::geolocationPermissionClient()->cancelGeolocationPermissionRequestForFrame(webFrame, geolocation);
-#endif
-}
 
 #if USE(ACCELERATED_COMPOSITING)
 void ChromeClientQt::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)

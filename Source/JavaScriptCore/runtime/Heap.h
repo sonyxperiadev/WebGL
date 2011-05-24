@@ -22,9 +22,11 @@
 #ifndef Heap_h
 #define Heap_h
 
+#include "HandleHeap.h"
 #include "MarkStack.h"
 #include "MarkedSpace.h"
 #include <wtf/Forward.h>
+#include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
 
 namespace JSC {
@@ -33,7 +35,6 @@ namespace JSC {
     class GlobalCodeBlock;
     class JSCell;
     class JSGlobalData;
-    class JSValue;
     class JSValue;
     class LiveObjectIterator;
     class MarkStack;
@@ -89,8 +90,6 @@ namespace JSC {
         PassOwnPtr<TypeCountSet> protectedObjectTypeCounts();
         PassOwnPtr<TypeCountSet> objectTypeCounts();
 
-        WeakGCHandle* addWeakGCHandle(JSCell*);
-
         void pushTempSortVector(Vector<ValueStringPair>*);
         void popTempSortVector(Vector<ValueStringPair>*);
         
@@ -100,21 +99,21 @@ namespace JSC {
         
         template <typename Functor> void forEach(Functor&);
         
+        HandleSlot allocateGlobalHandle() { return m_handleHeap.allocate(); }
+
     private:
         friend class JSGlobalData;
 
         static const size_t minExtraCost = 256;
         static const size_t maxExtraCost = 1024 * 1024;
 
+        void* allocateSlowCase(size_t);
         void reportExtraMemoryCostSlowCase(size_t);
 
         void markRoots();
         void markProtectedObjects(MarkStack&);
         void markTempSortVectors(MarkStack&);
 
-        void updateWeakGCHandles();
-        WeakGCHandlePool* weakGCHandlePool(size_t index);
-        
         enum SweepToggle { DoNotSweep, DoSweep };
         void reset(SweepToggle);
 
@@ -124,7 +123,6 @@ namespace JSC {
         MarkedSpace m_markedSpace;
 
         ProtectCountSet m_protectedValues;
-        Vector<PageAllocationAligned> m_weakGCHandlePools;
         Vector<Vector<ValueStringPair>* > m_tempSortingVectors;
         HashSet<GlobalCodeBlock*> m_codeBlocks;
 
@@ -136,6 +134,7 @@ namespace JSC {
         
         MachineStackMarker m_machineStackMarker;
         MarkStack m_markStack;
+        HandleHeap m_handleHeap;
         
         size_t m_extraCost;
     };
@@ -164,11 +163,6 @@ namespace JSC {
     {
         if (cost > minExtraCost) 
             reportExtraMemoryCostSlowCase(cost);
-    }
-    
-    inline WeakGCHandlePool* Heap::weakGCHandlePool(size_t index)
-    {
-        return static_cast<WeakGCHandlePool*>(m_weakGCHandlePools[index].base());
     }
 
     template <typename Functor> inline void Heap::forEach(Functor& functor)

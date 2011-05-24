@@ -420,15 +420,12 @@ void RenderFlexibleBox::layoutHorizontalBox(bool relayoutChildren)
         while (child) {
             if (child->isPositioned()) {
                 child->containingBlock()->insertPositionedObject(child);
-                if (child->style()->hasStaticX()) {
-                    if (style()->isLeftToRightDirection())
-                        child->layer()->setStaticX(xPos);
-                    else child->layer()->setStaticX(width() - xPos);
-                }
-                if (child->style()->hasStaticY()) {
-                    RenderLayer* childLayer = child->layer();
-                    if (childLayer->staticY() != yPos) {
-                        child->layer()->setStaticY(yPos);
+                RenderLayer* childLayer = child->layer();
+                if (child->style()->hasStaticInlinePosition(style()->isHorizontalWritingMode()))
+                    childLayer->setStaticInlinePosition(xPos);
+                if (child->style()->hasStaticBlockPosition(style()->isHorizontalWritingMode())) {
+                    if (childLayer->staticBlockPosition() != yPos) {
+                        childLayer->setStaticBlockPosition(yPos);
                         child->setChildNeedsLayout(true, false);
                     }
                 }
@@ -686,16 +683,16 @@ void RenderFlexibleBox::layoutVerticalBox(bool relayoutChildren)
     
             if (child->isPositioned()) {
                 child->containingBlock()->insertPositionedObject(child);
-                if (child->style()->hasStaticX()) {
+                RenderLayer* childLayer = child->layer();
+                if (child->style()->hasStaticInlinePosition(style()->isHorizontalWritingMode())) {
                     if (style()->isLeftToRightDirection())
-                        child->layer()->setStaticX(borderLeft()+paddingLeft());
+                        childLayer->setStaticInlinePosition(borderLeft() + paddingLeft());
                     else
-                        child->layer()->setStaticX(borderRight()+paddingRight());
+                        childLayer->setStaticInlinePosition(borderRight() + paddingRight());
                 }
-                if (child->style()->hasStaticY()) {
-                    RenderLayer* childLayer = child->layer();
-                    if (childLayer->staticY() != height()) {
-                        child->layer()->setStaticY(height());
+                if (child->style()->hasStaticBlockPosition(style()->isHorizontalWritingMode())) {
+                    if (childLayer->staticBlockPosition() != height()) {
+                        childLayer->setStaticBlockPosition(height());
                         child->setChildNeedsLayout(true, false);
                     }
                 }
@@ -1012,7 +1009,7 @@ void RenderFlexibleBox::applyLineClamp(FlexBoxIterator& iterator, bool relayoutC
         int blockLeftEdge = destBlock->logicalLeftOffsetForLine(lastVisibleLine->y(), false);
 
         int blockEdge = leftToRight ? blockRightEdge : blockLeftEdge;
-        if (!lastVisibleLine->canAccommodateEllipsis(leftToRight, blockEdge, lastVisibleLine->x() + lastVisibleLine->logicalWidth(), totalWidth))
+        if (!lastVisibleLine->lineCanAccommodateEllipsis(leftToRight, blockEdge, lastVisibleLine->x() + lastVisibleLine->logicalWidth(), totalWidth))
             continue;
 
         // Let the truncation code kick in.

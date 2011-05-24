@@ -31,7 +31,7 @@
 #include <objc/objc.h>
 #endif
 
-#if PLATFORM(CF)
+#if USE(CF)
 typedef const struct __CFString * CFStringRef;
 #endif
 
@@ -79,8 +79,8 @@ int64_t charactersToInt64(const UChar*, size_t, bool* ok = 0); // ignores traili
 uint64_t charactersToUInt64(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
 intptr_t charactersToIntPtr(const UChar*, size_t, bool* ok = 0); // ignores trailing garbage
 
-double charactersToDouble(const UChar*, size_t, bool* ok = 0);
-float charactersToFloat(const UChar*, size_t, bool* ok = 0);
+double charactersToDouble(const UChar*, size_t, bool* ok = 0, bool* didReadNumber = 0);
+float charactersToFloat(const UChar*, size_t, bool* ok = 0, bool* didReadNumber = 0);
 
 template<bool isSpecialCharacter(UChar)> bool isAllSpecialCharacters(const UChar*, size_t);
 
@@ -91,6 +91,11 @@ public:
 
     // Construct a string with UTF-16 data.
     String(const UChar* characters, unsigned length);
+
+    // Construct a string by copying the contents of a vector.  To avoid
+    // copying, consider using String::adopt instead.
+    template<size_t inlineCapacity>
+    explicit String(const Vector<UChar, inlineCapacity>&);
 
     // Construct a string with UTF-16 data, from a null-terminated source.
     String(const UChar*);
@@ -264,8 +269,8 @@ public:
     int64_t toInt64(bool* ok = 0) const;
     uint64_t toUInt64(bool* ok = 0) const;
     intptr_t toIntPtr(bool* ok = 0) const;
-    double toDouble(bool* ok = 0) const;
-    float toFloat(bool* ok = 0) const;
+    double toDouble(bool* ok = 0, bool* didReadNumber = 0) const;
+    float toFloat(bool* ok = 0, bool* didReadNumber = 0) const;
 
     bool percentage(int& percentage) const;
 
@@ -284,7 +289,7 @@ public:
     operator UnspecifiedBoolTypeA() const;
     operator UnspecifiedBoolTypeB() const;
 
-#if PLATFORM(CF)
+#if USE(CF)
     String(CFStringRef);
     CFStringRef createCFString() const;
 #endif
@@ -326,7 +331,14 @@ public:
     static String fromUTF8WithLatin1Fallback(const char*, size_t);
     
     // Determines the writing direction using the Unicode Bidi Algorithm rules P2 and P3.
-    WTF::Unicode::Direction defaultWritingDirection() const { return m_impl ? m_impl->defaultWritingDirection() : WTF::Unicode::LeftToRight; }
+    WTF::Unicode::Direction defaultWritingDirection(bool* hasStrongDirectionality = 0) const
+    {
+        if (m_impl)
+            return m_impl->defaultWritingDirection(hasStrongDirectionality);
+        if (hasStrongDirectionality)
+            *hasStrongDirectionality = false;
+        return WTF::Unicode::LeftToRight;
+    }
 
     bool containsOnlyASCII() const { return charactersAreAllASCII(characters(), length()); }
     bool containsOnlyLatin1() const { return charactersAreAllLatin1(characters(), length()); }
@@ -377,6 +389,12 @@ inline bool operator!(const String& str) { return str.isNull(); }
 inline void swap(String& a, String& b) { a.swap(b); }
 
 // Definitions of string operations
+
+template<size_t inlineCapacity>
+String::String(const Vector<UChar, inlineCapacity>& vector)
+    : m_impl(vector.size() ? StringImpl::create(vector.data(), vector.size()) : 0)
+{
+}
 
 #ifdef __OBJC__
 // This is for situations in WebKit where the long standing behavior has been

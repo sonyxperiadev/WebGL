@@ -61,6 +61,7 @@ typedef void (*WKPageDidRunInsecureContentForFrameCallback)(WKPageRef page, WKFr
 typedef bool (*WKPageCanAuthenticateAgainstProtectionSpaceInFrameCallback)(WKPageRef page, WKFrameRef frame, WKProtectionSpaceRef protectionSpace, const void *clientInfo);
 typedef void (*WKPageDidReceiveAuthenticationChallengeInFrameCallback)(WKPageRef page, WKFrameRef frame, WKAuthenticationChallengeRef authenticationChallenge, const void *clientInfo);
 typedef void (*WKPageDidChangeBackForwardListCallback)(WKPageRef page, WKBackForwardListItemRef addedItem, WKArrayRef removedItems, const void *clientInfo);
+typedef bool (*WKPageShouldGoToBackForwardListItemCallback)(WKPageRef page, WKBackForwardListItemRef item, const void *clientInfo);
 
 struct WKPageLoaderClient {
     int                                                                 version;
@@ -93,20 +94,23 @@ struct WKPageLoaderClient {
     WKPageCallback                                                      processDidCrash;
 
     WKPageDidChangeBackForwardListCallback                              didChangeBackForwardList;
+    WKPageShouldGoToBackForwardListItemCallback                         shouldGoToBackForwardListItem;
 };
 typedef struct WKPageLoaderClient WKPageLoaderClient;
 
 // Policy Client.
 typedef void (*WKPageDecidePolicyForNavigationActionCallback)(WKPageRef page, WKFrameRef frame, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef userData, const void* clientInfo);
 typedef void (*WKPageDecidePolicyForNewWindowActionCallback)(WKPageRef page, WKFrameRef frame, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRequestRef request, WKStringRef frameName, WKFramePolicyListenerRef listener, WKTypeRef userData, const void* clientInfo);
-typedef void (*WKPageDecidePolicyForMIMETypeCallback)(WKPageRef page, WKFrameRef frame, WKStringRef MIMEType, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef userData, const void* clientInfo);
+typedef void (*WKPageDecidePolicyForResponseCallback)(WKPageRef page, WKFrameRef frame, WKURLResponseRef response, WKURLRequestRef request, WKFramePolicyListenerRef listener, WKTypeRef userData, const void* clientInfo);
+typedef void (*WKPageUnableToImplementPolicyCallback)(WKPageRef page, WKFrameRef frame, WKErrorRef error, WKTypeRef userData, const void* clientInfo);
 
 struct WKPagePolicyClient {
     int                                                                 version;
     const void *                                                        clientInfo;
     WKPageDecidePolicyForNavigationActionCallback                       decidePolicyForNavigationAction;
     WKPageDecidePolicyForNewWindowActionCallback                        decidePolicyForNewWindowAction;
-    WKPageDecidePolicyForMIMETypeCallback                               decidePolicyForMIMEType;
+    WKPageDecidePolicyForResponseCallback                               decidePolicyForResponse;
+    WKPageUnableToImplementPolicyCallback                               unableToImplementPolicy;
 };
 typedef struct WKPagePolicyClient WKPagePolicyClient;
 
@@ -147,7 +151,7 @@ typedef bool (*WKPageRunJavaScriptConfirmCallback)(WKPageRef page, WKStringRef m
 typedef WKStringRef (*WKPageRunJavaScriptPromptCallback)(WKPageRef page, WKStringRef message, WKStringRef defaultValue, WKFrameRef frame, const void *clientInfo);
 typedef void (*WKPageSetStatusTextCallback)(WKPageRef page, WKStringRef text, const void *clientInfo);
 typedef void (*WKPageMouseDidMoveOverElementCallback)(WKPageRef page, WKEventModifiers modifiers, WKTypeRef userData, const void *clientInfo);
-typedef void (*WKPageMissingPluginButtonClickedCallback)(WKPageRef page, WKStringRef mimeType, WKStringRef url, const void* clientInfo);
+typedef void (*WKPageMissingPluginButtonClickedCallback)(WKPageRef page, WKStringRef mimeType, WKStringRef url, WKStringRef pluginsPageURL, const void* clientInfo);
 typedef void (*WKPageDidNotHandleKeyEventCallback)(WKPageRef page, WKNativeEventPtr event, const void *clientInfo);
 typedef bool (*WKPageGetToolbarsAreVisibleCallback)(WKPageRef page, const void *clientInfo);
 typedef void (*WKPageSetToolbarsAreVisibleCallback)(WKPageRef page, bool toolbarsVisible, const void *clientInfo);
@@ -267,10 +271,14 @@ WK_EXPORT WKBackForwardListRef WKPageGetBackForwardList(WKPageRef page);
 
 WK_EXPORT WKStringRef WKPageCopyTitle(WKPageRef page);
 
+WK_EXPORT WKURLRef WKPageCopyPendingAPIRequestURL(WKPageRef page);
+
 WK_EXPORT WKFrameRef WKPageGetMainFrame(WKPageRef page);
 WK_EXPORT WKFrameRef WKPageGetFocusedFrame(WKPageRef page); // The focused frame may be inactive.
 WK_EXPORT WKFrameRef WKPageGetFrameSetLargestFrame(WKPageRef page);
 WK_EXPORT double WKPageGetEstimatedProgress(WKPageRef page);
+
+WK_EXPORT void WKPageSetMemoryCacheClientCallsEnabled(WKPageRef page, bool memoryCacheClientCallsEnabled);
 
 #if defined(ENABLE_INSPECTOR) && ENABLE_INSPECTOR
 WK_EXPORT WKInspectorRef WKPageGetInspector(WKPageRef page);
@@ -314,6 +322,13 @@ WK_EXPORT WKSize WKPageFixedLayoutSize(WKPageRef page);
 WK_EXPORT bool WKPageHasHorizontalScrollbar(WKPageRef page);
 WK_EXPORT bool WKPageHasVerticalScrollbar(WKPageRef page);
 
+WK_EXPORT bool WKPageIsPinnedToLeftSide(WKPageRef page);
+WK_EXPORT bool WKPageIsPinnedToRightSide(WKPageRef page);
+
+WK_EXPORT bool WKPageCanDelete(WKPageRef page);
+WK_EXPORT bool WKPageHasSelectedRange(WKPageRef page);
+WK_EXPORT bool WKPageIsContentEditable(WKPageRef page);
+
 WK_EXPORT void WKPageFindString(WKPageRef page, WKStringRef string, WKFindOptions findOptions, unsigned maxMatchCount);
 WK_EXPORT void WKPageHideFindUI(WKPageRef page);
 WK_EXPORT void WKPageCountStringMatches(WKPageRef page, WKStringRef string, WKFindOptions findOptions, unsigned maxMatchCount);
@@ -326,10 +341,10 @@ WK_EXPORT void WKPageSetPagePolicyClient(WKPageRef page, const WKPagePolicyClien
 WK_EXPORT void WKPageSetPageResourceLoadClient(WKPageRef page, const WKPageResourceLoadClient* client);
 WK_EXPORT void WKPageSetPageUIClient(WKPageRef page, const WKPageUIClient* client);
 
-typedef void (*WKPageRunJavaScriptFunction)(WKStringRef, WKErrorRef, void*);
+typedef void (*WKPageRunJavaScriptFunction)(WKSerializedScriptValueRef, WKErrorRef, void*);
 WK_EXPORT void WKPageRunJavaScriptInMainFrame(WKPageRef page, WKStringRef script, void* context, WKPageRunJavaScriptFunction function);
 #ifdef __BLOCKS__
-typedef void (^WKPageRunJavaScriptBlock)(WKStringRef, WKErrorRef);
+typedef void (^WKPageRunJavaScriptBlock)(WKSerializedScriptValueRef, WKErrorRef);
 WK_EXPORT void WKPageRunJavaScriptInMainFrame_b(WKPageRef page, WKStringRef script, WKPageRunJavaScriptBlock block);
 #endif
 
@@ -350,7 +365,21 @@ WK_EXPORT void WKPageGetContentsAsString_b(WKPageRef page, WKPageGetContentsAsSt
 typedef void (*WKPageForceRepaintFunction)(WKErrorRef, void*);
 WK_EXPORT void WKPageForceRepaint(WKPageRef page, void* context, WKPageForceRepaintFunction function);
 
-WK_EXPORT WKURLRef WKPageCopyPendingAPIRequestURL(WKPageRef page);
+/*
+    Some of the more common command name strings include the following, although any WebCore EditorCommand string is supported:
+    
+    "Cut"
+    "Copy"
+    "Paste"
+    "SelectAll"
+    "Undo"
+    "Redo"
+*/
+
+// state represents the state of the command in a menu (on is 1, off is 0, and mixed is -1), typically used to add a checkmark next to the menu item.
+typedef void (*WKPageValidateCommandCallback)(WKStringRef command, bool isEnabled, int32_t state, WKErrorRef, void* context);
+WK_EXPORT void WKPageValidateCommand(WKPageRef page, WKStringRef command, void* context, WKPageValidateCommandCallback callback);
+WK_EXPORT void WKPageExecuteCommand(WKPageRef page, WKStringRef command);
 
 #ifdef __cplusplus
 }

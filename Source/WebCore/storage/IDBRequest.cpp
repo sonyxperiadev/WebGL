@@ -36,13 +36,12 @@
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventQueue.h"
-#include "IDBCursor.h"
+#include "IDBCursorWithValue.h"
 #include "IDBDatabase.h"
+#include "IDBEventDispatcher.h"
 #include "IDBIndex.h"
-#include "IDBErrorEvent.h"
-#include "IDBObjectStore.h"
 #include "IDBPendingTransactionMonitor.h"
-#include "IDBSuccessEvent.h"
+#include "IDBTransaction.h"
 
 namespace WebCore {
 
@@ -53,47 +52,157 @@ PassRefPtr<IDBRequest> IDBRequest::create(ScriptExecutionContext* context, PassR
 
 IDBRequest::IDBRequest(ScriptExecutionContext* context, PassRefPtr<IDBAny> source, IDBTransaction* transaction)
     : ActiveDOMObject(context, this)
+    , m_errorCode(0)
     , m_source(source)
     , m_transaction(transaction)
     , m_readyState(LOADING)
     , m_finished(false)
+    , m_cursorType(IDBCursorBackendInterface::InvalidCursorType)
 {
-    if (m_transaction)
+    if (m_transaction) {
+        m_transaction->registerRequest(this);
         IDBPendingTransactionMonitor::removePendingTransaction(m_transaction->backend());
+    }
 }
 
 IDBRequest::~IDBRequest()
 {
+    ASSERT(m_readyState == DONE || m_readyState == EarlyDeath);
+    if (m_transaction)
+        m_transaction->unregisterRequest(this);
+}
+
+PassRefPtr<IDBAny> IDBRequest::result(ExceptionCode& ec) const
+{
+    if (m_readyState != DONE) {
+        ec = IDBDatabaseException::NOT_ALLOWED_ERR;
+        return 0;
+    }
+    return m_result;
+}
+
+unsigned short IDBRequest::errorCode(ExceptionCode& ec) const
+{
+    if (m_readyState != DONE) {
+        ec = IDBDatabaseException::NOT_ALLOWED_ERR;
+        return 0;
+    }
+    return m_errorCode;
+}
+
+String IDBRequest::webkitErrorMessage(ExceptionCode& ec) const
+{
+    if (m_readyState != DONE) {
+        ec = IDBDatabaseException::NOT_ALLOWED_ERR;
+        return String();
+    }
+    return m_errorMessage;
+}
+
+PassRefPtr<IDBAny> IDBRequest::source() const
+{
+    return m_source;
+}
+
+PassRefPtr<IDBTransaction> IDBRequest::transaction() const
+{
+    return m_transaction;
+}
+
+unsigned short IDBRequest::readyState() const
+{
+    ASSERT(m_readyState == LOADING || m_readyState == DONE);
+    return m_readyState;
+}
+
+void IDBRequest::markEarlyDeath()
+{
+    ASSERT(m_readyState == LOADING);
+    m_readyState = EarlyDeath;
 }
 
 bool IDBRequest::resetReadyState(IDBTransaction* transaction)
 {
     ASSERT(!m_finished);
     ASSERT(scriptExecutionContext());
+    ASSERT(transaction == m_transaction);
     if (m_readyState != DONE)
         return false;
 
-    m_transaction = transaction;
     m_readyState = LOADING;
+    m_result.clear();
+    m_errorCode = 0;
+    m_errorMessage = String();
 
     IDBPendingTransactionMonitor::removePendingTransaction(m_transaction->backend());
 
     return true;
 }
 
+IDBAny* IDBRequest::source()
+{
+    return m_source.get();
+}
+
+void IDBRequest::abort()
+{
+    if (m_readyState != LOADING) {
+        ASSERT(m_readyState == DONE);
+        return;
+    }
+
+    ASSERT(scriptExecutionContext()->isDocument());
+    EventQueue* eventQueue = static_cast<Document*>(scriptExecutionContext())->eventQueue();
+    for (size_t i = 0; i < m_enqueuedEvents.size(); ++i) {
+        bool removed = eventQueue->cancelEvent(m_enqueuedEvents[i].get());
+        ASSERT_UNUSED(removed, removed);
+    }
+    m_enqueuedEvents.clear();
+
+    m_errorCode = 0;
+    m_errorMessage = String();
+    m_result.clear();
+    onError(IDBDatabaseError::create(IDBDatabaseException::ABORT_ERR, "The transaction was aborted, so the request cannot be fulfilled."));
+}
+
+void IDBRequest::setCursorType(IDBCursorBackendInterface::CursorType cursorType)
+{
+    ASSERT(m_cursorType == IDBCursorBackendInterface::InvalidCursorType);
+    m_cursorType = cursorType;
+}
+
 void IDBRequest::onError(PassRefPtr<IDBDatabaseError> error)
 {
-    enqueueEvent(IDBErrorEvent::create(m_source, *error));
+    ASSERT(!m_errorCode && m_errorMessage.isNull() && !m_result);
+    m_errorCode = error->code();
+    m_errorMessage = error->message();
+    enqueueEvent(Event::create(eventNames().errorEvent, true, true));
+}
+
+static PassRefPtr<Event> createSuccessEvent()
+{
+    return Event::create(eventNames().successEvent, false, false);
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBCursorBackendInterface> backend)
 {
-    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(IDBCursor::create(backend, this, m_transaction.get()))));
+    ASSERT(!m_errorCode && m_errorMessage.isNull() && !m_result);
+    ASSERT(m_cursorType != IDBCursorBackendInterface::InvalidCursorType);
+    if (m_cursorType == IDBCursorBackendInterface::IndexKeyCursor)
+        m_result = IDBAny::create(IDBCursor::create(backend, this, m_source.get(), m_transaction.get()));
+    else
+        m_result = IDBAny::create(IDBCursorWithValue::create(backend, this, m_source.get(), m_transaction.get()));
+    enqueueEvent(createSuccessEvent());
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBDatabaseBackendInterface> backend)
 {
-    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(IDBDatabase::create(scriptExecutionContext(), backend))));
+    ASSERT(!m_errorCode && m_errorMessage.isNull() && !m_result);
+    RefPtr<IDBDatabase> idbDatabase = IDBDatabase::create(scriptExecutionContext(), backend);
+    idbDatabase->open();
+
+    m_result = IDBAny::create(idbDatabase.release());
+    enqueueEvent(createSuccessEvent());
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBIndexBackendInterface> backend)
@@ -103,16 +212,14 @@ void IDBRequest::onSuccess(PassRefPtr<IDBIndexBackendInterface> backend)
 
 void IDBRequest::onSuccess(PassRefPtr<IDBKey> idbKey)
 {
-    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(idbKey)));
-}
-
-void IDBRequest::onSuccess(PassRefPtr<IDBObjectStoreBackendInterface> backend)
-{
-    ASSERT_NOT_REACHED(); // FIXME: This method should go away.
+    ASSERT(!m_errorCode && m_errorMessage.isNull() && !m_result);
+    m_result = IDBAny::create(idbKey);
+    enqueueEvent(createSuccessEvent());
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBTransactionBackendInterface> prpBackend)
 {
+    ASSERT(!m_errorCode && m_errorMessage.isNull() && !m_result);
     if (!scriptExecutionContext())
         return;
 
@@ -125,12 +232,16 @@ void IDBRequest::onSuccess(PassRefPtr<IDBTransactionBackendInterface> prpBackend
     m_source->idbDatabase()->setSetVersionTransaction(frontend.get());
 
     IDBPendingTransactionMonitor::removePendingTransaction(m_transaction->backend());
-    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(frontend.release())));
+
+    m_result = IDBAny::create(frontend.release());
+    enqueueEvent(createSuccessEvent());
 }
 
 void IDBRequest::onSuccess(PassRefPtr<SerializedScriptValue> serializedScriptValue)
 {
-    enqueueEvent(IDBSuccessEvent::create(m_source, IDBAny::create(serializedScriptValue)));
+    ASSERT(!m_errorCode && m_errorMessage.isNull() && !m_result);
+    m_result = IDBAny::create(serializedScriptValue);
+    enqueueEvent(createSuccessEvent());
 }
 
 bool IDBRequest::hasPendingActivity() const
@@ -141,6 +252,11 @@ bool IDBRequest::hasPendingActivity() const
     return !m_finished || ActiveDOMObject::hasPendingActivity();
 }
 
+void IDBRequest::onBlocked()
+{
+    ASSERT_NOT_REACHED();
+}
+
 ScriptExecutionContext* IDBRequest::scriptExecutionContext() const
 {
     return ActiveDOMObject::scriptExecutionContext();
@@ -149,10 +265,17 @@ ScriptExecutionContext* IDBRequest::scriptExecutionContext() const
 bool IDBRequest::dispatchEvent(PassRefPtr<Event> event)
 {
     ASSERT(!m_finished);
+    ASSERT(m_enqueuedEvents.size());
     ASSERT(scriptExecutionContext());
     ASSERT(event->target() == this);
     ASSERT(m_readyState < DONE);
-    m_readyState = DONE;
+    if (event->type() != eventNames().blockedEvent)
+        m_readyState = DONE;
+
+    for (size_t i = 0; i < m_enqueuedEvents.size(); ++i) {
+        if (m_enqueuedEvents[i].get() == event.get())
+            m_enqueuedEvents.remove(i);
+    }
 
     Vector<RefPtr<EventTarget> > targets;
     targets.append(this);
@@ -165,24 +288,27 @@ bool IDBRequest::dispatchEvent(PassRefPtr<Event> event)
         targets.append(m_transaction->db());
     }
 
-    ASSERT(event->isIDBErrorEvent() || event->isIDBSuccessEvent());
-    bool dontPreventDefault = static_cast<IDBEvent*>(event.get())->dispatch(targets);
+    // FIXME: When we allow custom event dispatching, this will probably need to change.
+    ASSERT(event->type() == eventNames().successEvent || event->type() == eventNames().errorEvent || event->type() == eventNames().blockedEvent);
+    bool dontPreventDefault = IDBEventDispatcher::dispatch(event.get(), targets);
 
-    // If the event's result was of type IDBCursor, then it's possible for us to
-    // fire again (unless the transaction completes).
-    if (event->isIDBSuccessEvent()) {
-        RefPtr<IDBAny> any = static_cast<IDBSuccessEvent*>(event.get())->result();
-        if (any->type() != IDBAny::IDBCursorType)
-            m_finished = true;
-    } else
+    // If the result was of type IDBCursor, then we'll fire again.
+    if (m_result && m_result->type() != IDBAny::IDBCursorType && m_result->type() != IDBAny::IDBCursorWithValueType)
         m_finished = true;
 
     if (m_transaction) {
-        if (dontPreventDefault && event->isIDBErrorEvent())
+        // If an error event and the default wasn't prevented...
+        if (dontPreventDefault && event->type() == eventNames().errorEvent)
             m_transaction->backend()->abort();
         m_transaction->backend()->didCompleteTaskEvents();
     }
     return dontPreventDefault;
+}
+
+void IDBRequest::uncaughtExceptionInEventHandler()
+{
+    if (m_transaction)
+        m_transaction->backend()->abort();
 }
 
 void IDBRequest::enqueueEvent(PassRefPtr<Event> event)
@@ -195,7 +321,8 @@ void IDBRequest::enqueueEvent(PassRefPtr<Event> event)
     ASSERT(scriptExecutionContext()->isDocument());
     EventQueue* eventQueue = static_cast<Document*>(scriptExecutionContext())->eventQueue();
     event->setTarget(this);
-    eventQueue->enqueueEvent(event);
+    eventQueue->enqueueEvent(event.get());
+    m_enqueuedEvents.append(event);
 }
 
 EventTargetData* IDBRequest::eventTargetData()

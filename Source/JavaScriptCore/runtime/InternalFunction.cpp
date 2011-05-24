@@ -29,23 +29,23 @@
 
 namespace JSC {
 
+// Ensure the compiler generates a vtable for InternalFunction!
+void InternalFunction::vtableAnchor() {}
+
 ASSERT_CLASS_FITS_IN_CELL(InternalFunction);
 
-const ClassInfo InternalFunction::info = { "Function", 0, 0, 0 };
-
-const ClassInfo* InternalFunction::classInfo() const
-{
-    return &info;
-}
+const ClassInfo InternalFunction::s_info = { "Function", &JSObjectWithGlobalObject::s_info, 0, 0 };
 
 InternalFunction::InternalFunction(NonNullPassRefPtr<Structure> structure)
     : JSObjectWithGlobalObject(structure)
 {
+    ASSERT(inherits(&s_info));
 }
 
 InternalFunction::InternalFunction(JSGlobalData* globalData, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, const Identifier& name)
     : JSObjectWithGlobalObject(globalObject, structure)
 {
+    ASSERT(inherits(&s_info));
     putDirect(*globalData, globalData->propertyNames->name, jsString(globalData, name.isNull() ? "" : name.ustring()), DontDelete | ReadOnly | DontEnum);
 }
 

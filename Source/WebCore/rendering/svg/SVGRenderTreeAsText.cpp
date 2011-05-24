@@ -222,7 +222,7 @@ static TextStream& operator<<(TextStream& ts, const SVGMarkerElement::SVGMarkerU
 
 TextStream& operator<<(TextStream& ts, const Color& c)
 {
-    return ts << c.name();
+    return ts << c.nameForRenderTreeAsText();
 }
 
 // FIXME: Maybe this should be in KCanvasRenderingStyle.cpp
@@ -435,13 +435,16 @@ static void writeRenderSVGTextBox(TextStream& ts, const RenderBlock& text)
     if (!box)
         return;
 
-    ts << " at (" << text.x() << "," << text.y() << ") size " << box->logicalWidth() << "x" << box->logicalHeight();
+    // FIXME: For now use an int for logicalWidth, although this makes it harder
+    // to detect any changes caused by the conversion to floating point. :(
+    int logicalWidth = ceilf(box->x() + box->logicalWidth()) - box->x();
+    ts << " at (" << text.x() << "," << text.y() << ") size " << logicalWidth << "x" << box->logicalHeight();
     
     // FIXME: Remove this hack, once the new text layout engine is completly landed. We want to preserve the old layout test results for now.
     ts << " contains 1 chunk(s)";
 
     if (text.parent() && (text.parent()->style()->visitedDependentColor(CSSPropertyColor) != text.style()->visitedDependentColor(CSSPropertyColor)))
-        writeNameValuePair(ts, "color", text.style()->visitedDependentColor(CSSPropertyColor).name());
+        writeNameValuePair(ts, "color", text.style()->visitedDependentColor(CSSPropertyColor).nameForRenderTreeAsText());
 }
 
 static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textBox, int indent)

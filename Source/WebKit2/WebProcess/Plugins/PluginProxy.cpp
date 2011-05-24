@@ -117,6 +117,8 @@ void PluginProxy::destroy()
     m_connection->connection()->sendSync(Messages::WebProcessConnection::DestroyPlugin(m_pluginInstanceID), Messages::WebProcessConnection::DestroyPlugin::Reply(), 0);
 
     m_isStarted = false;
+    m_pluginController = 0;
+
     m_connection->removePluginProxy(this);
 }
 
@@ -146,6 +148,16 @@ void PluginProxy::paint(GraphicsContext* graphicsContext, const IntRect& dirtyRe
         m_connection->connection()->send(Messages::PluginControllerProxy::DidUpdate(), m_pluginInstanceID);
         return;
     }
+}
+
+PassRefPtr<ShareableBitmap> PluginProxy::snapshot()
+{
+    IntSize bufferSize;
+    SharedMemory::Handle snapshotStoreHandle;
+    m_connection->connection()->sendSync(Messages::PluginControllerProxy::Snapshot(), Messages::PluginControllerProxy::Snapshot::Reply(bufferSize, snapshotStoreHandle), m_pluginInstanceID);
+
+    RefPtr<ShareableBitmap> snapshotBuffer = ShareableBitmap::create(bufferSize, snapshotStoreHandle);
+    return snapshotBuffer.release();
 }
 
 void PluginProxy::geometryDidChange(const IntRect& frameRect, const IntRect& clipRect)
@@ -394,6 +406,8 @@ void PluginProxy::getPluginElementNPObject(uint64_t& pluginElementNPObjectID)
 
 void PluginProxy::evaluate(const NPVariantData& npObjectAsVariantData, const String& scriptString, bool allowPopups, bool& returnValue, NPVariantData& resultData)
 {
+    PluginController::PluginDestructionProtector protector(m_pluginController);
+
     NPVariant npObjectAsVariant = m_connection->npRemoteObjectMap()->npVariantDataToNPVariant(npObjectAsVariantData);
     ASSERT(NPVARIANT_IS_OBJECT(npObjectAsVariant));
 

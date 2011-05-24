@@ -27,23 +27,26 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(StringObject);
 
-const ClassInfo StringObject::info = { "String", 0, 0, 0 };
+const ClassInfo StringObject::s_info = { "String", &JSWrapperObject::s_info, 0, 0 };
 
 StringObject::StringObject(ExecState* exec, NonNullPassRefPtr<Structure> structure)
     : JSWrapperObject(exec->globalData(), structure)
 {
+    ASSERT(inherits(&s_info));
     setInternalValue(exec->globalData(), jsEmptyString(exec));
 }
 
 StringObject::StringObject(JSGlobalData& globalData, NonNullPassRefPtr<Structure> structure, JSString* string)
     : JSWrapperObject(globalData, structure)
 {
+    ASSERT(inherits(&s_info));
     setInternalValue(globalData, string);
 }
 
 StringObject::StringObject(ExecState* exec, NonNullPassRefPtr<Structure> structure, const UString& string)
     : JSWrapperObject(exec->globalData(), structure)
 {
+    ASSERT(inherits(&s_info));
     setInternalValue(exec->globalData(), jsString(exec, string));
 }
 

@@ -40,6 +40,9 @@
 #include "SoftLinking.h"
 #include "TimeRanges.h"
 #include "Timer.h"
+#include <CoreGraphics/CGColorSpace.h>
+#include <CoreGraphics/CGContext.h>
+#include <CoreGraphics/CGImage.h>
 #include <Wininet.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/HashSet.h>
@@ -76,7 +79,7 @@ MediaPlayerPrivateInterface* MediaPlayerPrivate::create(MediaPlayer* player)
 void MediaPlayerPrivate::registerMediaEngine(MediaEngineRegistrar registrar)
 {
     if (isAvailable())
-        registrar(create, getSupportedTypes, supportsType);
+        registrar(create, getSupportedTypes, supportsType, 0, 0, 0);
 }
 
 MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)

@@ -32,6 +32,7 @@
 #include "EventTarget.h"
 #include "ExceptionCode.h"
 #include "IDBDatabaseBackendInterface.h"
+#include "IDBDatabaseCallbacks.h"
 #include "IDBObjectStore.h"
 #include "IDBTransaction.h"
 #include "OptionsObject.h"
@@ -43,10 +44,10 @@
 
 namespace WebCore {
 
-class IDBAny;
-class IDBRequest;
+class IDBVersionChangeRequest;
+class ScriptExecutionContext;
 
-class IDBDatabase : public RefCounted<IDBDatabase>, public EventTarget, public ActiveDOMObject {
+class IDBDatabase : public IDBDatabaseCallbacks, public EventTarget, public ActiveDOMObject {
 public:
     static PassRefPtr<IDBDatabase> create(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendInterface>);
     ~IDBDatabase();
@@ -66,11 +67,15 @@ public:
 
     PassRefPtr<IDBObjectStore> createObjectStore(const String& name, const OptionsObject&, ExceptionCode&);
     void deleteObjectStore(const String& name, ExceptionCode&);
-    PassRefPtr<IDBRequest> setVersion(ScriptExecutionContext*, const String& version, ExceptionCode&);
+    PassRefPtr<IDBVersionChangeRequest> setVersion(ScriptExecutionContext*, const String& version, ExceptionCode&);
     void close();
 
     DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(versionchange);
+
+    // IDBDatabaseCallbacks
+    virtual void onVersionChange(const String& requestedVersion);
 
     // ActiveDOMObject
     virtual bool hasPendingActivity() const;
@@ -80,8 +85,14 @@ public:
     virtual IDBDatabase* toIDBDatabase() { return this; }
     virtual ScriptExecutionContext* scriptExecutionContext() const;
 
-    using RefCounted<IDBDatabase>::ref;
-    using RefCounted<IDBDatabase>::deref;
+
+    void open();
+    void enqueueEvent(PassRefPtr<Event>);
+    bool dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec) { return EventTarget::dispatchEvent(event, ec); }
+    virtual bool dispatchEvent(PassRefPtr<Event>);
+
+    using RefCounted<IDBDatabaseCallbacks>::ref;
+    using RefCounted<IDBDatabaseCallbacks>::deref;
 
 private:
     IDBDatabase(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendInterface>);
@@ -99,6 +110,10 @@ private:
     bool m_stopped;
 
     EventTargetData m_eventTargetData;
+
+    // Keep track of the versionchange events waiting to be fired on this
+    // database so that we can cancel them if the database closes.
+    Vector<RefPtr<Event> > m_enqueuedEvents;
 };
 
 } // namespace WebCore

@@ -23,11 +23,11 @@
 #ifndef RenderBlock_h
 #define RenderBlock_h
 
-#include "DeprecatedPtrList.h"
 #include "GapRects.h"
 #include "RenderBox.h"
 #include "RenderLineBoxList.h"
 #include "RootInlineBox.h"
+#include <wtf/OwnPtr.h>
 #include <wtf/ListHashSet.h>
 
 namespace WebCore {
@@ -35,6 +35,7 @@ namespace WebCore {
 class ColumnInfo;
 class InlineIterator;
 class LayoutStateMaintainer;
+class LazyLineBreakIterator;
 class RenderInline;
 
 struct BidiRun;
@@ -80,7 +81,7 @@ public:
     void removePositionedObjects(RenderBlock*);
 
     typedef ListHashSet<RenderBox*, 4> PositionedObjectsListHashSet;
-    PositionedObjectsListHashSet* positionedObjects() const { return m_positionedObjects; }
+    PositionedObjectsListHashSet* positionedObjects() const { return m_positionedObjects.get(); }
 
     void addPercentHeightDescendant(RenderBox*);
     static void removePercentHeightDescendant(RenderBox*);
@@ -94,13 +95,14 @@ public:
     void markPositionedObjectsForLayout();
     virtual void markForPaginationRelayoutIfNeeded();
     
-    bool containsFloats() { return m_floatingObjects && !m_floatingObjects->isEmpty(); }
-    bool containsFloat(RenderObject*);
+    bool containsFloats() { return m_floatingObjects && !m_floatingObjects->set().isEmpty(); }
+    bool containsFloat(RenderBox*);
 
     int availableLogicalWidthForLine(int position, bool firstLine) const;
     int logicalRightOffsetForLine(int position, bool firstLine) const { return logicalRightOffsetForLine(position, logicalRightOffsetForContent(), firstLine); }
     int logicalLeftOffsetForLine(int position, bool firstLine) const { return logicalLeftOffsetForLine(position, logicalLeftOffsetForContent(), firstLine); }
-    
+    int startOffsetForLine(int position, bool firstLine) const { return style()->isLeftToRightDirection() ? logicalLeftOffsetForLine(position, firstLine) : logicalRightOffsetForLine(position, firstLine); }
+
     virtual VisiblePosition positionForPoint(const IntPoint&);
     
     // Block flows subclass availableWidth to handle multi column layout (shrinking the width available to children when laying out.)
@@ -132,6 +134,7 @@ public:
     virtual void adjustForColumns(IntSize&, const IntPoint&) const;
 
     void addContinuationWithOutline(RenderInline*);
+    bool paintsContinuationOutline(RenderInline*);
 
     virtual RenderBoxModelObject* virtualContinuation() const { return continuation(); }
     bool isAnonymousBlockContinuation() const { return continuation() && isAnonymousBlock(); }
@@ -270,6 +273,9 @@ protected:
     int logicalRightOffsetForLine(int position, int fixedOffset, bool applyTextIndent = true, int* logicalHeightRemaining = 0) const;
     int logicalLeftOffsetForLine(int position, int fixedOffset, bool applyTextIndent = true, int* logicalHeightRemaining = 0) const;
 
+    virtual ETextAlign textAlignmentForLine(bool endsWithSoftBreak) const;
+    virtual void adjustInlineDirectionLineBounds(int /* expansionOpportunityCount */, float& /* logicalLeft */, float& /* logicalWidth */) const { }
+
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
     virtual void computePreferredLogicalWidths();
@@ -300,9 +306,9 @@ protected:
     void addOverflowFromBlockChildren();
     void addOverflowFromInlineChildren();
 
-#if ENABLE(SVG)
-protected:
+    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
 
+#if ENABLE(SVG)
     // Only used by RenderSVGText, which explicitely overrides RenderBlock::layoutBlock(), do NOT use for anything else.
     void forceLayoutInlineChildren()
     {
@@ -485,10 +491,12 @@ private:
 
     void skipTrailingWhitespace(InlineIterator&, bool isLineEmpty, bool previousLineBrokeCleanly);
     int skipLeadingWhitespace(InlineBidiResolver&, bool firstLine, bool isLineEmpty, bool previousLineBrokeCleanly, FloatingObject* lastFloatFromPreviousLine);
-    void fitBelowFloats(int widthToFit, bool firstLine, int& availableWidth);
-    InlineIterator findNextLineBreak(InlineBidiResolver&, bool firstLine, bool& isLineEmpty, bool& previousLineBrokeCleanly, bool& hyphenated, EClear*, FloatingObject* lastFloatFromPreviousLine);
+    void fitBelowFloats(float widthToFit, bool firstLine, float& availableWidth);
+    typedef std::pair<RenderText*, LazyLineBreakIterator> LineBreakIteratorInfo;
+    InlineIterator findNextLineBreak(InlineBidiResolver&, bool firstLine, bool& isLineEmpty, LineBreakIteratorInfo&, bool& previousLineBrokeCleanly, bool& hyphenated, EClear*, FloatingObject* lastFloatFromPreviousLine);
     RootInlineBox* constructLine(unsigned runCount, BidiRun* firstRun, BidiRun* lastRun, bool firstLine, bool lastLine, RenderObject* endObject);
     InlineFlowBox* createLineBoxes(RenderObject*, bool firstLine);
+
     void computeInlineDirectionPositionsForLine(RootInlineBox*, bool firstLine, BidiRun* firstRun, BidiRun* trailingSpaceRun, bool reachedEnd, GlyphOverflowAndFallbackFontsMap&);
     void computeBlockDirectionPositionsForLine(RootInlineBox*, BidiRun*, GlyphOverflowAndFallbackFontsMap&, VerticalPositionCache&);
     void deleteEllipsisLineBoxes();
@@ -579,8 +587,6 @@ private:
     void paintContinuationOutlines(PaintInfo&, int tx, int ty);
 
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
-
-    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
 
     void adjustPointToColumnContents(IntPoint&) const;
     void adjustForBorderFit(int x, int& left, int& right) const; // Helper function for borderFitAdjust
@@ -695,10 +701,41 @@ private:
     int adjustForUnsplittableChild(RenderBox* child, int logicalOffset, bool includeMargins = false); // If the child is unsplittable and can't fit on the current page, return the top of the next page/column.
     void adjustLinePositionForPagination(RootInlineBox*, int& deltaOffset); // Computes a deltaOffset value that put a line at the top of the next page if it doesn't fit on the current page.
 
-    typedef PositionedObjectsListHashSet::const_iterator Iterator;
-    DeprecatedPtrList<FloatingObject>* m_floatingObjects;
+    struct FloatingObjectHashFunctions {
+        static unsigned hash(FloatingObject* key) { return DefaultHash<RenderBox*>::Hash::hash(key->m_renderer); }
+        static bool equal(FloatingObject* a, FloatingObject* b) { return a->m_renderer == b->m_renderer; }
+        static const bool safeToCompareToEmptyOrDeleted = true;
+    };
+    struct FloatingObjectHashTranslator {
+        static unsigned hash(RenderBox* key) { return DefaultHash<RenderBox*>::Hash::hash(key); }
+        static bool equal(FloatingObject* a, RenderBox* b) { return a->m_renderer == b; }
+    };
+    typedef ListHashSet<FloatingObject*, 4, FloatingObjectHashFunctions> FloatingObjectSet;
+    typedef FloatingObjectSet::const_iterator FloatingObjectSetIterator;
+    class FloatingObjects {
+    public:
+        FloatingObjects()
+            : m_leftObjectsCount(0)
+            , m_rightObjectsCount(0)
+        {
+        }
+
+        void clear();
+        void increaseObjectsCount(FloatingObject::Type);
+        void decreaseObjectsCount(FloatingObject::Type);
+        bool hasLeftObjects() const { return m_leftObjectsCount > 0; }
+        bool hasRightObjects() const { return m_rightObjectsCount > 0; }
+        FloatingObjectSet& set() { return m_set; }
+
+    private:
+        FloatingObjectSet m_set;
+        unsigned m_leftObjectsCount;
+        unsigned m_rightObjectsCount;
+    };
+    OwnPtr<FloatingObjects> m_floatingObjects;
     
-    PositionedObjectsListHashSet* m_positionedObjects;
+    typedef PositionedObjectsListHashSet::const_iterator Iterator;
+    OwnPtr<PositionedObjectsListHashSet> m_positionedObjects;
 
     // Allocated only when some of these fields have non-default values
     struct RenderBlockRareData {

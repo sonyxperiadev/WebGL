@@ -21,7 +21,7 @@
 #include "config.h"
 #include "ewk_cookies.h"
 
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
 #include "CookieJarSoup.h"
 #endif
 #include "EWebKit.h"
@@ -29,7 +29,7 @@
 
 #include <Eina.h>
 #include <eina_safety_checks.h>
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
 #include <glib.h>
 #include <libsoup/soup.h>
 #endif
@@ -37,17 +37,17 @@
 
 
 /**
- * Set the path where the cookies are going to be stored. Use NULL for keep
+ * Sets the path where the cookies are going to be stored. Use @c NULL for keep
  * them just in memory.
  *
  * @param filename path to the cookies.txt file.
  *
- * @returns EINA_FALSE if it wasn't possible to create the cookie jar,
- *          EINA_FALSE otherwise.
+ * @return @c EINA_FALSE if it wasn't possible to create the cookie jar,
+ *          @c EINA_FALSE otherwise.
  */
 EAPI Eina_Bool ewk_cookies_file_set(const char *filename)
 {
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
     SoupCookieJar* cookieJar = 0;
     if (filename)
         cookieJar = soup_cookie_jar_text_new(filename, FALSE);
@@ -74,11 +74,11 @@ EAPI Eina_Bool ewk_cookies_file_set(const char *filename)
 }
 
 /**
- * Clear all the cookies from the cookie jar.
+ * Clears all the cookies from the cookie jar.
  */
 EAPI void ewk_cookies_clear()
 {
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
     GSList* l;
     GSList* p;
     SoupCookieJar* cookieJar = WebCore::defaultCookieJar();
@@ -94,12 +94,12 @@ EAPI void ewk_cookies_clear()
 /**
  * Returns a list of cookies in the cookie jar.
  *
- * @returns an Eina_List with all the cookies in the cookie jar.
+ * @return an @c Eina_List with all the cookies in the cookie jar.
  */
 EAPI Eina_List* ewk_cookies_get_all(void)
 {
     Eina_List* el = 0;
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
     GSList* l;
     GSList* p;
     SoupCookieJar* cookieJar = WebCore::defaultCookieJar();
@@ -123,17 +123,17 @@ EAPI Eina_List* ewk_cookies_get_all(void)
     return el;
 }
 
-/*
+/**
  * Deletes a cookie from the cookie jar.
  *
  * Note that the fields name, value, domain and path are used to match this
  * cookie in the cookie jar.
  *
- * @param cookie an Ewk_Cookie that has the info relative to that cookie.
+ * @param cookie an @c Ewk_Cookie that has the info relative to that cookie.
  */
 EAPI void ewk_cookies_cookie_del(Ewk_Cookie *cookie)
 {
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
     EINA_SAFETY_ON_NULL_RETURN(cookie);
     GSList* l;
     GSList* p;
@@ -155,14 +155,14 @@ EAPI void ewk_cookies_cookie_del(Ewk_Cookie *cookie)
 #endif
 }
 
-/*
- * Free the memory used by a cookie.
+/**
+ * Frees the memory used by a cookie.
  *
  * @param cookie the Ewk_Cookie struct that will be freed.
  */
 EAPI void ewk_cookies_cookie_free(Ewk_Cookie *cookie)
 {
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
     EINA_SAFETY_ON_NULL_RETURN(cookie);
     free(cookie->name);
     free(cookie->value);
@@ -172,19 +172,15 @@ EAPI void ewk_cookies_cookie_free(Ewk_Cookie *cookie)
 #endif
 }
 
-/*
- * Set the cookies accept policy.
- *
- * Possible values are: EWK_COOKIE_JAR_ACCEPT_ALWAYS, which accepts every
- * cookie sent from any page; EWK_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY, which
- * accepts cookies only from the main page; and EWK_COOKIE_JAR_ACCEPT_NEVER,
- * which rejects all cookies.
+/**
+ * Sets the cookies accept policy.
  *
  * @param p the acceptance policy
+ * @see Ewk_Cookie_Policy
  */
 EAPI void ewk_cookies_policy_set(Ewk_Cookie_Policy p)
 {
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
     SoupCookieJar* cookieJar = WebCore::defaultCookieJar();
     SoupCookieJarAcceptPolicy policy;
 
@@ -205,15 +201,16 @@ EAPI void ewk_cookies_policy_set(Ewk_Cookie_Policy p)
 #endif
 }
 
-/*
+/**
  * Gets the acceptance policy used in the current cookie jar.
  *
- * @returns the current acceptance policy
+ * @return the current acceptance policy
+ * @see Ewk_Cookie_Policy
  */
 EAPI Ewk_Cookie_Policy ewk_cookies_policy_get()
 {
     Ewk_Cookie_Policy ewk_policy = EWK_COOKIE_JAR_ACCEPT_ALWAYS;
-#ifdef WTF_USE_SOUP
+#if USE(SOUP)
     SoupCookieJar* cookieJar = WebCore::defaultCookieJar();
     SoupCookieJarAcceptPolicy policy;
 

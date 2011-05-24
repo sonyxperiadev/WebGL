@@ -51,6 +51,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "LocalizedStrings.h"
+#include "MathMLNames.h"
 #include "NodeList.h"
 #include "ProgressTracker.h"
 #include "RenderButton.h"
@@ -662,12 +663,8 @@ bool AccessibilityRenderObject::isReadOnly() const
         HTMLElement* body = document->body();
         if (body && body->isContentEditable())
             return false;
-        
-        Frame* frame = document->frame();
-        if (!frame)
-            return true;
-        
-        return !frame->isContentEditable();
+
+        return !document->inDesignMode();
     }
 
     if (m_renderer->isBoxModelObject()) {
@@ -1354,8 +1351,8 @@ String AccessibilityRenderObject::accessibilityDescription() const
     if (!ariaDescription.isEmpty())
         return ariaDescription;
     
+    Node* node = m_renderer->node();
     if (isImage() || isInputImage() || isNativeImage()) {
-        Node* node = m_renderer->node();
         if (node && node->isHTMLElement()) {
             const AtomicString& alt = toHTMLElement(node)->getAttribute(altAttr);
             if (alt.isEmpty())
@@ -1363,6 +1360,11 @@ String AccessibilityRenderObject::accessibilityDescription() const
             return alt;
         }
     }
+    
+#if ENABLE(MATHML)
+    if (node && node->isElementNode() && static_cast<Element*>(node)->isMathMLElement())
+        return getAttribute(MathMLNames::alttextAttr);
+#endif
     
     if (isWebArea()) {
         Document* document = m_renderer->document();
@@ -2459,14 +2461,14 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForIndex(int index) co
         return VisiblePosition();
     
     if (index <= 0)
-        return VisiblePosition(node, 0, DOWNSTREAM);
+        return VisiblePosition(firstPositionInOrBeforeNode(node), DOWNSTREAM);
     
     ExceptionCode ec = 0;
     RefPtr<Range> range = Range::create(m_renderer->document());
     range->selectNodeContents(node, ec);
     CharacterIterator it(range.get());
     it.advance(index - 1);
-    return VisiblePosition(it.range()->endContainer(ec), it.range()->endOffset(ec), UPSTREAM);
+    return VisiblePosition(Position(it.range()->endContainer(ec), it.range()->endOffset(ec), Position::PositionIsOffsetInAnchor), UPSTREAM);
 }
     
 int AccessibilityRenderObject::indexForVisiblePosition(const VisiblePosition& pos) const
@@ -2482,13 +2484,13 @@ int AccessibilityRenderObject::indexForVisiblePosition(const VisiblePosition& po
         return 0;
     
     Position indexPosition = pos.deepEquivalent();
-    if (!indexPosition.node() || indexPosition.node()->rootEditableElement() != node)
+    if (!indexPosition.anchorNode() || indexPosition.anchorNode()->rootEditableElement() != node)
         return 0;
     
     ExceptionCode ec = 0;
     RefPtr<Range> range = Range::create(m_renderer->document());
     range->setStart(node, 0, ec);
-    range->setEnd(indexPosition.node(), indexPosition.deprecatedEditingOffset(), ec);
+    range->setEnd(indexPosition.anchorNode(), indexPosition.deprecatedEditingOffset(), ec);
     return TextIterator::rangeLength(range.get());
 }
 
@@ -2621,7 +2623,7 @@ int AccessibilityRenderObject::index(const VisiblePosition& position) const
     if (!isTextControl())
         return -1;
     
-    Node* node = position.deepEquivalent().node();
+    Node* node = position.deepEquivalent().deprecatedNode();
     if (!node)
         return -1;
     
@@ -3047,6 +3049,11 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     
     if (headingLevel())
         return HeadingRole;
+    
+#if ENABLE(MATHML)
+    if (node && node->hasTagName(MathMLNames::mathTag))
+        return DocumentMathRole;
+#endif
     
     if (node && node->hasTagName(ddTag))
         return DefinitionListDefinitionRole;

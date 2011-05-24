@@ -34,6 +34,7 @@
 #import "Editor.h"
 #import "EditorClient.h"
 #import "Frame.h"
+#import "FrameView.h"
 #import "FrameLoaderClient.h"
 #import "HitTestResult.h"
 #import "HTMLAnchorElement.h"
@@ -56,7 +57,6 @@
 @interface NSAttributedString (AppKitSecretsIKnowAbout)
 - (id)_initWithDOMRange:(DOMRange *)domRange;
 @end
-
 namespace WebCore {
 
 // FIXME: It's not great to have these both here and in WebKit.
@@ -138,21 +138,22 @@ static NSAttributedString *stripAttachmentCharacters(NSAttributedString *string)
     return result;
 }
 
-void Pasteboard::writeSelection(NSPasteboard* pasteboard, Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
+void Pasteboard::writeSelection(NSPasteboard* pasteboard, NSArray* pasteboardTypes, Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
     if (!WebArchivePboardType)
         Pasteboard::generalPasteboard(); // Initializes pasteboard types.
     ASSERT(selectedRange);
     
-    NSAttributedString *attributedString = [[[NSAttributedString alloc] initWithString:selectedRange->text()] autorelease];
-
+    // Using different API for WebKit and WebKit2.
+    // FIXME - We need to have a way to create the NSAttributedString for WebKit2 that doesn't require accessing the WebFrame.
+    NSAttributedString *attributedString = (frame->view()->platformWidget()) ? [[[NSAttributedString alloc] _initWithDOMRange:kit(selectedRange)] autorelease] : [[[NSAttributedString alloc] initWithString:selectedRange->text()] autorelease];
 #ifdef BUILDING_ON_TIGER
     // 4930197: Mail overrides [WebHTMLView pasteboardTypesForSelection] in order to add another type to the pasteboard
     // after WebKit does.  On Tiger we must call this function so that Mail code will be executed, meaning that 
     // we can't call WebCore::Pasteboard's method for setting types. 
     UNUSED_PARAM(canSmartCopyOrDelete);
 
-    NSArray *types = frame->editor()->client()->pasteboardTypesForSelection(frame);
+    NSArray *types = pasteboardTypes ? pasteboardTypes : frame->editor()->client()->pasteboardTypesForSelection(frame);
     // Don't write RTFD to the pasteboard when the copied attributed string has no attachments.
     NSMutableArray *mutableTypes = nil;
     if (![attributedString containsAttachments]) {
@@ -162,7 +163,7 @@ void Pasteboard::writeSelection(NSPasteboard* pasteboard, Range* selectedRange, 
     }
     [pasteboard declareTypes:types owner:nil];    
 #else
-    NSArray *types = selectionPasteboardTypes(canSmartCopyOrDelete, [attributedString containsAttachments]);
+    NSArray *types = pasteboardTypes ? pasteboardTypes : selectionPasteboardTypes(canSmartCopyOrDelete, [attributedString containsAttachments]);
     [pasteboard declareTypes:types owner:nil];
     frame->editor()->client()->didSetSelectionTypesForPasteboard();
 #endif
@@ -214,7 +215,7 @@ void Pasteboard::writePlainText(NSPasteboard* pasteboard, const String& text)
     
 void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
-    Pasteboard::writeSelection(m_pasteboard.get(), selectedRange, canSmartCopyOrDelete, frame);
+    Pasteboard::writeSelection(m_pasteboard.get(), 0, selectedRange, canSmartCopyOrDelete, frame);
 }
 
 void Pasteboard::writePlainText(const String& text)

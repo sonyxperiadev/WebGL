@@ -94,10 +94,8 @@
 #endif
 
 #if ENABLE(INDEXED_DATABASE)
-#include "IDBErrorEvent.h"
-#include "IDBSuccessEvent.h"
-#include "JSIDBErrorEvent.h"
-#include "JSIDBSuccessEvent.h"
+#include "IDBVersionChangeEvent.h"
+#include "JSIDBVersionChangeEvent.h"
 #endif
 
 #if ENABLE(WEB_AUDIO)
@@ -166,10 +164,8 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
         wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, StorageEvent, event);
 #endif
 #if ENABLE(INDEXED_DATABASE)
-    else if (event->isIDBErrorEvent())
-        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, IDBErrorEvent, event);
-    else if (event->isIDBSuccessEvent())
-        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, IDBSuccessEvent, event);
+    else if (event->isIDBVersionChangeEvent())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, IDBVersionChangeEvent, event);
 #endif
     else if (event->isWebKitAnimationEvent())
         wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, WebKitAnimationEvent, event);

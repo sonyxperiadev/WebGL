@@ -50,7 +50,10 @@ PlatformStrategiesWinCE::PlatformStrategiesWinCE()
     setPlatformStrategies(this);
 }
 
-// PluginStrategy
+CookiesStrategy* PlatformStrategiesWinCE::createCookiesStrategy()
+{
+    return this;
+}
 
 PluginStrategy* PlatformStrategiesWinCE::createPluginStrategy()
 {
@@ -65,6 +68,10 @@ LocalizationStrategy* PlatformStrategiesWinCE::createLocalizationStrategy()
 VisitedLinkStrategy* PlatformStrategiesWinCE::createVisitedLinkStrategy()
 {
     return this;
+}
+
+void PlatformStrategiesWinCE::notifyCookiesChanged()
+{
 }
 
 void PlatformStrategiesWinCE::refreshPlugins()
@@ -135,6 +142,11 @@ String PlatformStrategiesWinCE::fileButtonChooseFileLabel()
 String PlatformStrategiesWinCE::fileButtonNoFileSelectedLabel()
 {
     return UI_STRING("no file selected", "text to display in file button used in HTML forms when no file is selected");
+}
+
+String PlatformStrategiesWinCE::defaultDetailsSummaryText()
+{
+    return UI_STRING("Details", "text to display in <details> tag when it has no <summary> child");
 }
 
 String PlatformStrategiesWinCE::contextMenuItemTagOpenLinkInNewWindow()

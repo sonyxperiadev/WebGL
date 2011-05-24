@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -200,7 +200,7 @@ MediaPlayerPrivateInterface* MediaPlayerPrivateQTKit::create(MediaPlayer* player
 void MediaPlayerPrivateQTKit::registerMediaEngine(MediaEngineRegistrar registrar)
 {
     if (isAvailable())
-        registrar(create, getSupportedTypes, supportsType);
+        registrar(create, getSupportedTypes, supportsType, 0, 0, 0);
 }
 
 MediaPlayerPrivateQTKit::MediaPlayerPrivateQTKit(MediaPlayer* player)
@@ -224,6 +224,7 @@ MediaPlayerPrivateQTKit::MediaPlayerPrivateQTKit(MediaPlayer* player)
     , m_hasUnsupportedTracks(false)
     , m_videoFrameHasDrawn(false)
     , m_isAllowedToRender(false)
+    , m_privateBrowsing(false)
 #if DRAW_FRAME_RATE
     , m_frameCountWhilePlaying(0)
     , m_timeStartedPlaying(0)
@@ -250,6 +251,7 @@ void MediaPlayerPrivateQTKit::createQTMovie(const String& url)
                        [NSNumber numberWithBool:YES], QTSecurityPolicyNoCrossSiteAttribute,
                        [NSNumber numberWithBool:NO], QTMovieAskUnresolvedDataRefsAttribute,
                        [NSNumber numberWithBool:NO], QTMovieLoopsAttribute,
+                       [NSNumber numberWithBool:!m_privateBrowsing], @"QTMovieAllowPersistentCacheAttribute",
 #ifndef BUILDING_ON_TIGER
                        QTMovieApertureModeClean, QTMovieApertureModeAttribute,
 #endif
@@ -552,14 +554,14 @@ MediaPlayerPrivateQTKit::MediaRenderingMode MediaPlayerPrivateQTKit::preferredRe
     if (!m_player->frameView() || !m_qtMovie)
         return MediaRenderingNone;
 
-    if (m_player->inMediaDocument() || !QTVideoRendererClass())
-        return MediaRenderingMovieView;
-
 #if USE(ACCELERATED_COMPOSITING)
     if (supportsAcceleratedRendering() && m_player->mediaPlayerClient()->mediaPlayerRenderingCanBeAccelerated(m_player))
         return MediaRenderingMovieLayer;
 #endif
 
+    if (!QTVideoRendererClass())
+        return MediaRenderingMovieView;
+    
     return MediaRenderingSoftwareRenderer;
 }
 
@@ -1528,9 +1530,7 @@ void MediaPlayerPrivateQTKit::sawUnsupportedTracks()
 #if USE(ACCELERATED_COMPOSITING)
 bool MediaPlayerPrivateQTKit::supportsAcceleratedRendering() const
 {
-    // Also don't claim to support accelerated rendering when in the media document, as we will then render 
-    // via QTMovieView which is already accelerated.
-    return isReadyForVideoSetup() && getQTMovieLayerClass() != Nil && !m_player->inMediaDocument();
+    return isReadyForVideoSetup() && getQTMovieLayerClass() != Nil;
 }
 
 void MediaPlayerPrivateQTKit::acceleratedRenderingStateChanged()
@@ -1576,6 +1576,15 @@ float MediaPlayerPrivateQTKit::mediaTimeForTimeValue(float timeValue) const
     QTTime qttime = createQTTime(timeValue);
     return static_cast<float>(qttime.timeValue) / qttime.timeScale;
 }
+
+void MediaPlayerPrivateQTKit::setPrivateBrowsingMode(bool privateBrowsing)
+{
+    m_privateBrowsing = privateBrowsing;
+    if (!m_qtMovie)
+        return;
+    [m_qtMovie.get() setAttribute:[NSNumber numberWithBool:!privateBrowsing] forKey:@"QTMovieAllowPersistentCacheAttribute"];
+}
+
 
 } // namespace WebCore
 

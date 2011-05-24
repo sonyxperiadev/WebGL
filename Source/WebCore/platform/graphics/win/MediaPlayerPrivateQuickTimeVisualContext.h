@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 
 #include "MediaPlayerPrivate.h"
 #include "Timer.h"
+#include <CoreGraphics/CGAffineTransform.h>
 #include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RetainPtr.h>
@@ -153,6 +154,8 @@ private:
     void visualContextTimerFired(Timer<MediaPlayerPrivateQuickTimeVisualContext>*);
     void retrieveCurrentImage();
 
+    virtual void setPrivateBrowsingMode(bool);
+
     class MovieClient;
     friend class MovieClient;
     OwnPtr<MovieClient> m_movieClient;
@@ -196,6 +199,7 @@ private:
     bool m_newFrameAvailable;
     bool m_delayingLoad;
     String m_movieURL;
+    bool m_privateBrowsing;
     MediaPlayer::Preload m_preload;
 #if DRAW_FRAME_RATE
     double m_frameCountWhilePlaying;

@@ -94,10 +94,16 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMBinding.cpp \
 	bindings/js/JSDOMFormDataCustom.cpp \
 	bindings/js/JSDOMGlobalObject.cpp \
+<<<<<<< HEAD
 	bindings/js/JSDOMMimeTypeArrayCustom.cpp \
 	bindings/js/JSDOMPluginArrayCustom.cpp \
 	bindings/js/JSDOMPluginCustom.cpp \
 	bindings/js/JSDOMStringMapCustom.cpp \
+=======
+	bindings/js/JSDOMImplementationCustom.cpp \
+	bindings/js/JSDOMSettableTokenList.cpp \
+	bindings/js/JSDOMTokenList.cpp \
+>>>>>>> WebKit at r80534
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \
@@ -215,11 +221,13 @@ LOCAL_SRC_FILES += \
 	bridge/c/c_instance.cpp \
 	bridge/c/c_runtime.cpp \
 	bridge/c/c_utility.cpp \
-	bridge/jni/JNIBridge.cpp \
 	bridge/jni/JNIUtility.cpp \
-	bridge/jni/jsc/JNIBridgeJSC.cpp \
+	bridge/jni/JavaMethod.cpp \
+	bridge/jni/JobjectWrapper.cpp \
 	bridge/jni/jsc/JNIUtilityPrivate.cpp \
+	bridge/jni/jsc/JavaArrayJSC.cpp \
 	bridge/jni/jsc/JavaClassJSC.cpp \
+	bridge/jni/jsc/JavaFieldJSC.cpp \
 	bridge/jni/jsc/JavaInstanceJSC.cpp \
 	bridge/jni/jsc/JavaRuntimeObject.cpp \
 	bridge/jsc/BridgeJSC.cpp \

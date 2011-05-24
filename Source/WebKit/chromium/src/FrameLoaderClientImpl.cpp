@@ -842,14 +842,11 @@ void FrameLoaderClientImpl::dispatchShow()
         webView->client()->show(webView->initialNavigationPolicy());
 }
 
-void FrameLoaderClientImpl::dispatchDecidePolicyForMIMEType(
+void FrameLoaderClientImpl::dispatchDecidePolicyForResponse(
      FramePolicyFunction function,
-     const String& mimeType,
+     const ResourceResponse& response,
      const ResourceRequest&)
 {
-    const ResourceResponse& response =
-        m_webFrame->frame()->loader()->activeDocumentLoader()->response();
-
     PolicyAction action;
 
     int statusCode = response.httpStatusCode();
@@ -861,7 +858,7 @@ void FrameLoaderClientImpl::dispatchDecidePolicyForMIMEType(
         // Downloading is handled by the embedder, but we still get the initial
         // response so that we can ignore it and clean up properly.
         action = PolicyIgnore;
-    } else if (!canShowMIMEType(mimeType)) {
+    } else if (!canShowMIMEType(response.mimeType())) {
         // Make sure that we can actually handle this type internally.
         action = PolicyIgnore;
     } else {
@@ -1133,6 +1130,14 @@ bool FrameLoaderClientImpl::shouldGoToHistoryItem(HistoryItem* item) const
         webview->client()->navigateBackForwardSoon(offset);
 
     return false;
+}
+
+bool FrameLoaderClientImpl::shouldStopLoadingForHistoryItem(HistoryItem* targetItem) const
+{
+    // Don't stop loading for pseudo-back-forward URLs, since they will get
+    // translated and then pass through again.
+    const KURL& url = targetItem->url();
+    return !url.protocolIs(backForwardNavigationScheme);
 }
 
 void FrameLoaderClientImpl::dispatchDidAddBackForwardItem(HistoryItem*) const

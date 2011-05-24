@@ -344,7 +344,9 @@ bool RenderLayerCompositor::updateBacking(RenderLayer* layer, CompositingChangeR
             layer->ensureBacking();
 
 #if PLATFORM(MAC) && PLATFORM(CA)
-            if (layer->renderer()->isCanvas()) {
+            if (m_renderView->document()->settings()->acceleratedDrawingEnabled())
+                layer->backing()->graphicsLayer()->setAcceleratesDrawing(true);
+            else if (layer->renderer()->isCanvas()) {
                 HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(layer->renderer()->node());
                 if (canvas->renderingContext() && canvas->renderingContext()->isAccelerated())
                     layer->backing()->graphicsLayer()->setAcceleratesDrawing(true);
@@ -1159,6 +1161,10 @@ void RenderLayerCompositor::updateRootLayerPosition()
         m_rootPlatformLayer->setSize(FloatSize(m_renderView->docWidth(), m_renderView->docHeight()));
         m_rootPlatformLayer->setPosition(FloatPoint(m_renderView->docLeft(), m_renderView->docTop()));
     }
+    if (m_clipLayer) {
+        FrameView* frameView = m_renderView->frameView();
+        m_clipLayer->setSize(FloatSize(frameView->layoutWidth(), frameView->layoutHeight()));
+    }
 }
 
 void RenderLayerCompositor::didStartAcceleratedAnimation(CSSPropertyID property)
@@ -1453,6 +1459,7 @@ bool RenderLayerCompositor::requiresCompositingForFullScreen(RenderObject* rende
 #if ENABLE(FULLSCREEN_API)
     return renderer->isRenderFullScreen() && toRenderFullScreen(renderer)->isAnimating();
 #else
+    UNUSED_PARAM(renderer);
     return false;
 #endif
 }

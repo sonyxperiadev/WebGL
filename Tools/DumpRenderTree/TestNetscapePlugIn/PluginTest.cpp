@@ -79,9 +79,19 @@ NPError PluginTest::NPP_SetWindow(NPP, NPWindow*)
     return NPERR_NO_ERROR;
 }
 
+int16_t PluginTest::NPP_HandleEvent(void*)
+{
+    return 0;
+}
+
 void PluginTest::NPN_InvalidateRect(NPRect* invalidRect)
 {
     browser->invalidaterect(m_npp, invalidRect);
+}
+
+NPError PluginTest::NPN_GetURL(const char* url, const char* target)
+{
+    return browser->geturl(m_npp, url, target);
 }
 
 NPIdentifier PluginTest::NPN_GetStringIdentifier(const NPUTF8 *name)

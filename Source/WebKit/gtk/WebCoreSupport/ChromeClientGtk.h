@@ -91,7 +91,7 @@ namespace WebKit {
         virtual bool runJavaScriptPrompt(WebCore::Frame*, const WTF::String& message, const WTF::String& defaultValue, WTF::String& result);
         virtual void setStatusbarText(const WTF::String&);
         virtual bool shouldInterruptJavaScript();
-        virtual bool tabsToLinks() const;
+        virtual WebCore::KeyboardUIMode keyboardUIMode();
 
         virtual WebCore::IntRect windowResizerRect() const;
 
@@ -154,6 +154,7 @@ namespace WebKit {
         WebKitWebView* m_webView;
         WebCore::KURL m_hoveredLinkURL;
         unsigned int m_closeSoonTimer;
+        bool m_pendingScrollInvalidations;
     };
 }
 

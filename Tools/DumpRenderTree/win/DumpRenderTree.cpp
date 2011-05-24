@@ -40,6 +40,7 @@
 #include "WorkQueueItem.h"
 #include "WorkQueue.h"
 
+#include <comutil.h>
 #include <fcntl.h>
 #include <io.h>
 #include <math.h>
@@ -131,12 +132,40 @@ bool setAlwaysAcceptCookies(bool alwaysAcceptCookies)
 #endif
 }
 
-wstring urlSuitableForTestResult(const wstring& url)
+static RetainPtr<CFStringRef> substringFromIndex(CFStringRef string, CFIndex index)
 {
-    if (url.find(L"file://") == wstring::npos)
-        return url;
+    return RetainPtr<CFStringRef>(AdoptCF, CFStringCreateWithSubstring(kCFAllocatorDefault, string, CFRangeMake(index, CFStringGetLength(string) - index)));
+}
 
-    return lastPathComponent(url);
+wstring urlSuitableForTestResult(const wstring& urlString)
+{
+    RetainPtr<CFURLRef> url(AdoptCF, CFURLCreateWithBytes(kCFAllocatorDefault, reinterpret_cast<const UInt8*>(urlString.c_str()), urlString.length() * sizeof(wstring::value_type), kCFStringEncodingUTF16, 0));
+
+    RetainPtr<CFStringRef> scheme(AdoptCF, CFURLCopyScheme(url.get()));
+    if (scheme && CFStringCompare(scheme.get(), CFSTR("file"), kCFCompareCaseInsensitive) != kCFCompareEqualTo)
+        return urlString;
+
+    COMPtr<IWebDataSource> dataSource;
+    if (FAILED(frame->dataSource(&dataSource))) {
+        if (FAILED(frame->provisionalDataSource(&dataSource)))
+            return urlString;
+    }
+
+    COMPtr<IWebMutableURLRequest> request;
+    if (FAILED(dataSource->request(&request)))
+        return urlString;
+
+    _bstr_t requestURLString;
+    if (FAILED(request->URL(requestURLString.GetAddress())))
+        return urlString;
+
+    RetainPtr<CFURLRef> requestURL(AdoptCF, CFURLCreateWithBytes(kCFAllocatorDefault, reinterpret_cast<const UInt8*>(requestURLString.GetBSTR()), requestURLString.length() * sizeof(OLECHAR), kCFStringEncodingUTF16, 0));
+    RetainPtr<CFURLRef> baseURL(AdoptCF, CFURLCreateCopyDeletingLastPathComponent(kCFAllocatorDefault, requestURL.get()));
+
+    RetainPtr<CFStringRef> basePath(AdoptCF, CFURLCopyPath(baseURL.get()));
+    RetainPtr<CFStringRef> path(AdoptCF, CFURLCopyPath(url.get()));
+
+    return cfStringRefToWString(substringFromIndex(path.get(), CFStringGetLength(basePath.get())).get());
 }
 
 wstring lastPathComponent(const wstring& url)
@@ -166,6 +195,14 @@ string toUTF8(BSTR bstr)
 string toUTF8(const wstring& wideString)
 {
     return toUTF8(wideString.c_str(), wideString.length());
+}
+
+wstring cfStringRefToWString(CFStringRef cfStr)
+{
+    Vector<wchar_t> v(CFStringGetLength(cfStr));
+    CFStringGetCharacters(cfStr, CFRangeMake(0, CFStringGetLength(cfStr)), (UniChar *)v.data());
+
+    return wstring(v.data(), v.size());
 }
 
 static LRESULT CALLBACK DumpRenderTreeWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -763,6 +800,11 @@ static bool shouldOpenWebInspector(const char* pathOrURL)
     return strstr(pathOrURL, "/inspector/") || strstr(pathOrURL, "\\inspector\\");
 }
 
+static bool shouldDumpAsText(const char* pathOrURL)
+{
+    return strstr(pathOrURL, "/dumpAsText/") || strstr(pathOrURL, "\\dumpAsText\\");
+}
+
 static bool shouldEnableDeveloperExtras(const char* pathOrURL)
 {
     return true;
@@ -866,6 +908,10 @@ static void resetWebViewToConsistentStateBeforeTesting()
     if (!webViewPrivate)
         return;
 
+    double minimumInterval = 0;
+    if (SUCCEEDED(webViewPrivate->defaultMinimumTimerInterval(&minimumInterval)))
+        webViewPrivate->setMinimumTimerInterval(minimumInterval);
+
     COMPtr<IWebInspector> inspector;
     if (SUCCEEDED(webViewPrivate->inspector(&inspector)))
         inspector->setJavaScriptProfilingEnabled(FALSE);
@@ -886,6 +932,10 @@ static void resetWebViewToConsistentStateBeforeTesting()
     sharedUIDelegate->resetUndoManager();
 
     sharedFrameLoadDelegate->resetToConsistentState();
+
+    COMPtr<IWebFramePrivate> framePrivate;
+    if (SUCCEEDED(frame->QueryInterface(&framePrivate)))
+        framePrivate->clearOpener();
 }
 
 static void runTest(const string& testPathOrURL)
@@ -953,6 +1003,10 @@ static void runTest(const string& testPathOrURL)
         gLayoutTestController->setDeveloperExtrasEnabled(true);
         if (shouldOpenWebInspector(pathOrURL.c_str()))
             gLayoutTestController->showWebInspector();
+    }
+    if (shouldDumpAsText(pathOrURL.c_str())) {
+        gLayoutTestController->setDumpAsText(true);
+        gLayoutTestController->setGeneratePixelResults(false);
     }
 
     prevTestBFItem = 0;
@@ -1245,6 +1299,11 @@ static LONG WINAPI exceptionFilter(EXCEPTION_POINTERS*)
 
 int main(int argc, char* argv[])
 {
+    // Cygwin calls ::SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
+    // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
+    // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
+    ::SetErrorMode(0);
+
     ::SetUnhandledExceptionFilter(exceptionFilter);
 
     leakChecking = false;

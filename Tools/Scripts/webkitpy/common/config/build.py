@@ -83,10 +83,10 @@ def _should_file_trigger_build(target_platform, file):
     ]
     patterns = [
         # Patterns that shouldn't trigger builds on any bots.
+        (r"(?:^|/)ChangeLog.*$", []),
         (r"(?:^|/)Makefile$", []),
         (r"/ARM", []),
         (r"/CMake.*", []),
-        (r"/ChangeLog.*$", []),
         (r"/LICENSE[^/]+$", []),
         (r"ARM(?:v7)?\.(?:cpp|h)$", []),
         (r"MIPS\.(?:cpp|h)$", []),
@@ -94,10 +94,10 @@ def _should_file_trigger_build(target_platform, file):
         (r"\.(?:bkl|mk)$", []),
 
         # Patterns that should trigger builds on only some bots.
-        (r"/GNUmakefile\.am$", ["gtk"]),
+        (r"(?:^|/)GNUmakefile\.am$", ["gtk"]),
         (r"/\w+Chromium\w*\.(?:cpp|h|mm)$", ["chromium"]),
         (r"Mac\.(?:cpp|h|mm)$", ["mac"]),
-        (r"\.exp$", ["mac"]),
+        (r"\.exp(?:\.in)?$", ["mac"]),
         (r"\.gypi?", ["chromium"]),
         (r"\.order$", ["mac"]),
         (r"\.pr[io]$", ["qt"]),

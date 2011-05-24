@@ -33,9 +33,9 @@ namespace TestWebKitAPI {
 namespace Util {
 
 #ifdef DEBUG_ALL
-const char* injectedBundleDLL = "\\InjectedBundle_debug.dll";
+const char* injectedBundleDLL = "TestWebKitAPIInjectedBundle_debug.dll";
 #else
-const char* injectedBundleDLL = "\\InjectedBundle.dll";
+const char* injectedBundleDLL = "TestWebKitAPIInjectedBundle.dll";
 #endif
 
 void run(bool* done)
@@ -50,6 +50,11 @@ void run(bool* done)
     }
 }
 
+void sleep(double seconds)
+{
+    ::Sleep(seconds * 1000);
+}
+
 RetainPtr<CFStringRef> cf(const char* utf8String)
 {
     return RetainPtr<CFStringRef>(AdoptCF, CFStringCreateWithCString(kCFAllocatorDefault, utf8String, kCFStringEncodingUTF8));
@@ -59,7 +64,7 @@ WKStringRef createInjectedBundlePath()
 {
     RetainPtr<CFURLRef> executableURL(AdoptCF, CFBundleCopyExecutableURL(CFBundleGetMainBundle()));
     RetainPtr<CFURLRef> executableContainerURL(AdoptCF, CFURLCreateCopyDeletingLastPathComponent(0, executableURL.get()));
-    RetainPtr<CFStringRef> dllFilename(AdoptCF, CFStringCreateWithCStringNoCopy(0, injectedBundleDLL, kCFStringEncodingWindowsLatin1, 0));
+    RetainPtr<CFStringRef> dllFilename(AdoptCF, CFStringCreateWithCStringNoCopy(0, injectedBundleDLL, kCFStringEncodingWindowsLatin1, kCFAllocatorNull));
     RetainPtr<CFURLRef> bundleURL(AdoptCF, CFURLCreateCopyAppendingPathComponent(0, executableContainerURL.get(), dllFilename.get(), false));
     RetainPtr<CFStringRef> bundlePath(AdoptCF, CFURLCopyFileSystemPath(bundleURL.get(), kCFURLWindowsPathStyle));
     return WKStringCreateWithCFString(bundlePath.get());

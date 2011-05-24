@@ -495,7 +495,9 @@ public:
 
         for (unsigned i = 0; i < numParenAlternatives; i++) {
             if (!parenthesesDisjunction->m_alternatives[i]->m_terms.size() && numParenAlternatives > 1) {
+                PatternAlternative* altToRemove = parenthesesDisjunction->m_alternatives[i];
                 parenthesesDisjunction->m_alternatives.remove(i);
+                delete altToRemove;
                 --numParenAlternatives;
 
                 containsEmptyAlternative = true;
@@ -812,20 +814,6 @@ public:
         }
     }
 
-    bool addBeginTerm(PatternTerm term, Vector<TermChain>* beginTerms, PatternAlternative* alternative, unsigned numTerms, unsigned termIndex, unsigned depth)
-    {
-        if (term.quantityType == QuantifierFixedCount) {
-            beginTerms->append(TermChain(term));
-            if (depth < 2 && termIndex < numTerms - 1 && term.quantityCount == 1)
-                setupAlternativeBeginTerms(alternative, &beginTerms->last().hotTerms, termIndex + 1, depth + 1);
-        } else if (termIndex != numTerms - 1) {
-            beginTerms->append(TermChain(term));
-            return true;
-        }
-
-        return false;
-    }
-
     // This function collects the terms which are potentially matching the first number of depth characters in the result.
     // If this function returns false then it found at least one term which makes the beginning character
     // look-up optimization inefficient.
@@ -861,10 +849,17 @@ public:
                 return false;
 
             case PatternTerm::TypePatternCharacter:
-                if (addBeginTerm(term, beginTerms, alternative, numTerms, termIndex, depth)) {
+                if (termIndex != numTerms - 1) {
+                    beginTerms->append(TermChain(term));
                     termIndex++;
                     checkNext = true;
+                } else if (term.quantityType == QuantifierFixedCount) {
+                    beginTerms->append(TermChain(term));
+                    if (depth < 2 && termIndex < numTerms - 1 && term.quantityCount == 1)
+                        if (!setupAlternativeBeginTerms(alternative, &beginTerms->last().hotTerms, termIndex + 1, depth + 1))
+                            return false;
                 }
+
                 break;
 
             case PatternTerm::TypeCharacterClass:
@@ -881,7 +876,6 @@ public:
 
                     termIndex++;
                     checkNext = true;
-
                 }
 
                 if (!setupDisjunctionBeginTerms(term.parentheses.disjunction, beginTerms, depth))

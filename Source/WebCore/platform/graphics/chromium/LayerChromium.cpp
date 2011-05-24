@@ -34,106 +34,24 @@
 
 #include "LayerChromium.h"
 
+#include "cc/CCLayerImpl.h"
 #include "GraphicsContext3D.h"
 #include "LayerRendererChromium.h"
-#if PLATFORM(SKIA)
+#if USE(SKIA)
 #include "NativeImageSkia.h"
 #include "PlatformContextSkia.h"
 #endif
 #include "RenderLayerBacking.h"
+#include "TextStream.h"
 #include "skia/ext/platform_canvas.h"
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 using namespace std;
 
-const unsigned LayerChromium::s_positionAttribLocation = 0;
-const unsigned LayerChromium::s_texCoordAttribLocation = 1;
-
-static unsigned loadShader(GraphicsContext3D* context, unsigned type, const char* shaderSource)
-{
-    unsigned shader = context->createShader(type);
-    if (!shader)
-        return 0;
-    String sourceString(shaderSource);
-    GLC(context, context->shaderSource(shader, sourceString));
-    GLC(context, context->compileShader(shader));
-    int compiled = 0;
-    GLC(context, context->getShaderiv(shader, GraphicsContext3D::COMPILE_STATUS, &compiled));
-    if (!compiled) {
-        GLC(context, context->deleteShader(shader));
-        return 0;
-    }
-    return shader;
-}
-
-LayerChromium::SharedValues::SharedValues(GraphicsContext3D* context)
-    : m_context(context)
-    , m_quadVerticesVbo(0)
-    , m_quadElementsVbo(0)
-    , m_maxTextureSize(0)
-    , m_borderShaderProgram(0)
-    , m_borderShaderMatrixLocation(-1)
-    , m_borderShaderColorLocation(-1)
-    , m_initialized(false)
-{
-    // Vertex positions and texture coordinates for the 4 corners of a 1x1 quad.
-    float vertices[] = { -0.5f,  0.5f, 0.0f, 0.0f,  1.0f,
-                         -0.5f, -0.5f, 0.0f, 0.0f,  0.0f,
-                         0.5f, -0.5f, 0.0f, 1.0f,  0.0f,
-                         0.5f,  0.5f, 0.0f, 1.0f,  1.0f };
-    uint16_t indices[] = { 0, 1, 2, 0, 2, 3, // The two triangles that make up the layer quad.
-                           0, 1, 2, 3}; // A line path for drawing the layer border.
-
-    GLC(m_context, m_quadVerticesVbo = m_context->createBuffer());
-    GLC(m_context, m_quadElementsVbo = m_context->createBuffer());
-    GLC(m_context, m_context->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, m_quadVerticesVbo));
-    GLC(m_context, m_context->bufferData(GraphicsContext3D::ARRAY_BUFFER, sizeof(vertices), vertices, GraphicsContext3D::STATIC_DRAW));
-    GLC(m_context, m_context->bindBuffer(GraphicsContext3D::ELEMENT_ARRAY_BUFFER, m_quadElementsVbo));
-    GLC(m_context, m_context->bufferData(GraphicsContext3D::ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GraphicsContext3D::STATIC_DRAW));
-
-    // Get the max texture size supported by the system.
-    GLC(m_context, m_context->getIntegerv(GraphicsContext3D::MAX_TEXTURE_SIZE, &m_maxTextureSize));
-
-    // Shaders for drawing the debug borders around the layers.
-    char borderVertexShaderString[] =
-        "attribute vec4 a_position;   \n"
-        "uniform mat4 matrix;         \n"
-        "void main()                  \n"
-        "{                            \n"
-        "   gl_Position = matrix * a_position; \n"
-        "}                            \n";
-    char borderFragmentShaderString[] =
-        "precision mediump float;                            \n"
-        "uniform vec4 color;                                 \n"
-        "void main()                                         \n"
-        "{                                                   \n"
-        "  gl_FragColor = vec4(color.xyz * color.w, color.w);\n"
-        "}                                                   \n";
-
-    m_borderShaderProgram = createShaderProgram(m_context, borderVertexShaderString, borderFragmentShaderString);
-    if (!m_borderShaderProgram) {
-        LOG_ERROR("ContentLayerChromium: Failed to create shader program");
-        return;
-    }
-
-    m_borderShaderMatrixLocation = m_context->getUniformLocation(m_borderShaderProgram, "matrix");
-    m_borderShaderColorLocation = m_context->getUniformLocation(m_borderShaderProgram, "color");
-    ASSERT(m_borderShaderMatrixLocation != -1);
-    ASSERT(m_borderShaderColorLocation != -1);
-
-    m_initialized = true;
-}
-
-LayerChromium::SharedValues::~SharedValues()
-{
-    GLC(m_context, m_context->deleteBuffer(m_quadVerticesVbo));
-    GLC(m_context, m_context->deleteBuffer(m_quadElementsVbo));
-    if (m_borderShaderProgram)
-        GLC(m_context, m_context->deleteProgram(m_borderShaderProgram));
-}
-
+#ifndef NDEBUG
+static int s_nextLayerDebugID = 1;
+#endif
 
 PassRefPtr<LayerChromium> LayerChromium::create(GraphicsLayerChromium* owner)
 {
@@ -144,25 +62,22 @@ LayerChromium::LayerChromium(GraphicsLayerChromium* owner)
     : m_owner(owner)
     , m_contentsDirty(false)
     , m_maskLayer(0)
-    , m_targetRenderSurface(0)
     , m_superlayer(0)
+#ifndef NDEBUG
+    , m_debugID(s_nextLayerDebugID++)
+#endif
     , m_anchorPoint(0.5, 0.5)
     , m_backgroundColor(0, 0, 0, 0)
-    , m_borderColor(0, 0, 0, 0)
     , m_opacity(1.0)
     , m_zPosition(0.0)
     , m_anchorPointZ(0)
-    , m_borderWidth(0)
     , m_clearsContext(false)
-    , m_doubleSided(true)
     , m_hidden(false)
     , m_masksToBounds(false)
     , m_opaque(true)
     , m_geometryFlipped(false)
     , m_needsDisplayOnBoundsChange(false)
-    , m_drawDepth(0)
-    , m_layerRenderer(0)
-    , m_renderSurface(0)
+    , m_ccLayerImpl(CCLayerImpl::create(this))
     , m_replicaLayer(0)
 {
 }
@@ -179,8 +94,7 @@ LayerChromium::~LayerChromium()
 
 void LayerChromium::cleanupResources()
 {
-    if (m_renderSurface)
-        m_renderSurface->cleanupResources();
+    m_ccLayerImpl->cleanupResources();
 }
 
 void LayerChromium::setLayerRenderer(LayerRendererChromium* renderer)
@@ -192,55 +106,7 @@ void LayerChromium::setLayerRenderer(LayerRendererChromium* renderer)
         setNeedsDisplay();
     }
 
-    m_layerRenderer = renderer;
-}
-
-RenderSurfaceChromium* LayerChromium::createRenderSurface()
-{
-    m_renderSurface = new RenderSurfaceChromium(this);
-    return m_renderSurface.get();
-}
-
-unsigned LayerChromium::createShaderProgram(GraphicsContext3D* context, const char* vertexShaderSource, const char* fragmentShaderSource)
-{
-    unsigned vertexShader = loadShader(context, GraphicsContext3D::VERTEX_SHADER, vertexShaderSource);
-    if (!vertexShader) {
-        LOG_ERROR("Failed to create vertex shader");
-        return 0;
-    }
-
-    unsigned fragmentShader = loadShader(context, GraphicsContext3D::FRAGMENT_SHADER, fragmentShaderSource);
-    if (!fragmentShader) {
-        GLC(context, context->deleteShader(vertexShader));
-        LOG_ERROR("Failed to create fragment shader");
-        return 0;
-    }
-
-    unsigned programObject = context->createProgram();
-    if (!programObject) {
-        LOG_ERROR("Failed to create shader program");
-        return 0;
-    }
-
-    GLC(context, context->attachShader(programObject, vertexShader));
-    GLC(context, context->attachShader(programObject, fragmentShader));
-
-    // Bind the common attrib locations.
-    GLC(context, context->bindAttribLocation(programObject, s_positionAttribLocation, "a_position"));
-    GLC(context, context->bindAttribLocation(programObject, s_texCoordAttribLocation, "a_texCoord"));
-
-    GLC(context, context->linkProgram(programObject));
-    int linked = 0;
-    GLC(context, context->getProgramiv(programObject, GraphicsContext3D::LINK_STATUS, &linked));
-    if (!linked) {
-        LOG_ERROR("Failed to link shader program");
-        GLC(context, context->deleteProgram(programObject));
-        return 0;
-    }
-
-    GLC(context, context->deleteShader(vertexShader));
-    GLC(context, context->deleteShader(fragmentShader));
-    return programObject;
+    m_ccLayerImpl->setLayerRenderer(renderer);
 }
 
 void LayerChromium::setNeedsCommit()
@@ -317,16 +183,15 @@ int LayerChromium::indexOfSublayer(const LayerChromium* reference)
 
 void LayerChromium::setBounds(const IntSize& size)
 {
-    if (m_bounds == size)
+    if (bounds() == size)
         return;
 
-    bool firstResize = !m_bounds.width() && !m_bounds.height() && size.width() && size.height();
+    bool firstResize = !bounds().width() && !bounds().height() && size.width() && size.height();
 
-    m_bounds = size;
-    m_backingStoreSize = size;
+    m_ccLayerImpl->setBounds(size);
 
     if (firstResize)
-        setNeedsDisplay(FloatRect(0, 0, m_bounds.width(), m_bounds.height()));
+        setNeedsDisplay(FloatRect(0, 0, bounds().width(), bounds().height()));
     else
         setNeedsCommit();
 }
@@ -337,7 +202,7 @@ void LayerChromium::setFrame(const FloatRect& rect)
       return;
 
     m_frame = rect;
-    setNeedsDisplay(FloatRect(0, 0, m_bounds.width(), m_bounds.height()));
+    setNeedsDisplay(FloatRect(0, 0, bounds().width(), bounds().height()));
 }
 
 const LayerChromium* LayerChromium::rootLayer() const
@@ -372,6 +237,12 @@ LayerChromium* LayerChromium::superlayer() const
     return m_superlayer;
 }
 
+void LayerChromium::setName(const String& name)
+{
+    m_name = name;
+    m_ccLayerImpl->setName(name);
+}
+
 void LayerChromium::setNeedsDisplay(const FloatRect& dirtyRect)
 {
     // Simply mark the contents as dirty. For non-root layers, the call to
@@ -386,7 +257,7 @@ void LayerChromium::setNeedsDisplay(const FloatRect& dirtyRect)
 void LayerChromium::setNeedsDisplay()
 {
     m_dirtyRect.setLocation(FloatPoint());
-    m_dirtyRect.setSize(m_bounds);
+    m_dirtyRect.setSize(bounds());
     m_contentsDirty = true;
     setNeedsCommit();
 }
@@ -445,38 +316,7 @@ void LayerChromium::drawTexturedQuad(GraphicsContext3D* context, const Transform
     GLC(context, context->drawElements(GraphicsContext3D::TRIANGLES, 6, GraphicsContext3D::UNSIGNED_SHORT, 0));
 }
 
-void LayerChromium::drawDebugBorder()
-{
-    static float glMatrix[16];
-    if (!borderColor().alpha())
-        return;
 
-    ASSERT(layerRenderer());
-    const SharedValues* sv = layerRenderer()->layerSharedValues();
-    ASSERT(sv && sv->initialized());
-    layerRenderer()->useShader(sv->borderShaderProgram());
-    TransformationMatrix renderMatrix = drawTransform();
-    renderMatrix.scale3d(bounds().width(), bounds().height(), 1);
-    toGLMatrix(&glMatrix[0], layerRenderer()->projectionMatrix() * renderMatrix);
-    GraphicsContext3D* context = layerRendererContext();
-    GLC(context, context->uniformMatrix4fv(sv->borderShaderMatrixLocation(), false, &glMatrix[0], 1));
-
-    GLC(context, context->uniform4f(sv->borderShaderColorLocation(), borderColor().red() / 255.0, borderColor().green() / 255.0, borderColor().blue() / 255.0, 1));
-
-    GLC(context, context->lineWidth(borderWidth()));
-
-    // The indices for the line are stored in the same array as the triangle indices.
-    GLC(context, context->drawElements(GraphicsContext3D::LINE_LOOP, 4, GraphicsContext3D::UNSIGNED_SHORT, 6 * sizeof(unsigned short)));
-}
-
-const IntRect LayerChromium::getDrawRect() const
-{
-    // Form the matrix used by the shader to map the corners of the layer's
-    // bounds into the view space.
-    FloatRect layerRect(-0.5 * bounds().width(), -0.5 * bounds().height(), bounds().width(), bounds().height());
-    IntRect mappedRect = enclosingIntRect(drawTransform().mapRect(layerRect));
-    return mappedRect;
-}
 
 // Returns true if any of the layer's descendants has drawable content.
 bool LayerChromium::descendantsDrawContent()
@@ -501,19 +341,92 @@ bool LayerChromium::descendantsDrawContentRecursive()
     return false;
 }
 
-// static
-void LayerChromium::prepareForDraw(const SharedValues* sv)
+String LayerChromium::layerTreeAsText() const
 {
-    GraphicsContext3D* context = sv->context();
-    GLC(context, context->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, sv->quadVerticesVbo()));
-    GLC(context, context->bindBuffer(GraphicsContext3D::ELEMENT_ARRAY_BUFFER, sv->quadElementsVbo()));
-    unsigned offset = 0;
-    GLC(context, context->vertexAttribPointer(s_positionAttribLocation, 3, GraphicsContext3D::FLOAT, false, 5 * sizeof(float), offset));
-    offset += 3 * sizeof(float);
-    GLC(context, context->vertexAttribPointer(s_texCoordAttribLocation, 2, GraphicsContext3D::FLOAT, false, 5 * sizeof(float), offset));
-    GLC(context, context->enableVertexAttribArray(s_positionAttribLocation));
-    GLC(context, context->enableVertexAttribArray(s_texCoordAttribLocation));
+    TextStream ts;
+    dumpLayer(ts, 0);
+    return ts.release();
 }
+
+static void writeIndent(TextStream& ts, int indent)
+{
+    for (int i = 0; i != indent; ++i)
+        ts << "  ";
+}
+
+void LayerChromium::dumpLayer(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+    ts << layerTypeAsString() << "(" << m_name << ")\n";
+    dumpLayerProperties(ts, indent+2);
+    m_ccLayerImpl->dumpLayerProperties(ts, indent+2);
+    if (m_replicaLayer) {
+        writeIndent(ts, indent+2);
+        ts << "Replica:\n";
+        m_replicaLayer->dumpLayer(ts, indent+3);
+    }
+    if (m_maskLayer) {
+        writeIndent(ts, indent+2);
+        ts << "Mask:\n";
+        m_maskLayer->dumpLayer(ts, indent+3);
+    }
+    for (size_t i = 0; i < m_sublayers.size(); ++i)
+        m_sublayers[i]->dumpLayer(ts, indent+1);
+}
+
+void LayerChromium::dumpLayerProperties(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+#ifndef NDEBUG
+    ts << "debugID: " << debugID() << ", ";
+#else
+#endif
+    ts << "drawsContent: " << drawsContent() << "\n";
+
+}
+
+// Begin calls that forward to the CCLayerImpl.
+// ==============================================
+// These exists just for debugging (via drawDebugBorder()).
+void LayerChromium::setBorderColor(const Color& color)
+{
+    m_ccLayerImpl->setDebugBorderColor(color);
+    setNeedsCommit();
+}
+
+Color LayerChromium::borderColor() const
+{
+    return m_ccLayerImpl->debugBorderColor();
+}
+
+void LayerChromium::setBorderWidth(float width)
+{
+    m_ccLayerImpl->setDebugBorderWidth(width);
+    setNeedsCommit();
+}
+
+float LayerChromium::borderWidth() const
+{
+    return m_ccLayerImpl->debugBorderWidth();
+}
+
+LayerRendererChromium* LayerChromium::layerRenderer() const
+{
+    return m_ccLayerImpl->layerRenderer();
+}
+
+void LayerChromium::setDoubleSided(bool doubleSided)
+{
+    m_ccLayerImpl->setDoubleSided(doubleSided);
+    setNeedsCommit();
+}
+
+const IntSize& LayerChromium::bounds() const
+{
+    return m_ccLayerImpl->bounds();
+}
+// ==============================================
+// End calls that forward to the CCLayerImpl.
 
 }
 #endif // USE(ACCELERATED_COMPOSITING)

@@ -38,7 +38,7 @@
 
 namespace WebCore {
 
-static int nextUnusedId = 1;
+static long nextUnusedId = 1;
 
 PassRefPtr<InspectorDatabaseResource> InspectorDatabaseResource::create(PassRefPtr<Database> database, const String& domain, const String& name, const String& version)
 {
@@ -54,7 +54,7 @@ InspectorDatabaseResource::InspectorDatabaseResource(PassRefPtr<Database> databa
 {
 }
 
-void InspectorDatabaseResource::bind(InspectorFrontend* frontend)
+void InspectorDatabaseResource::bind(InspectorFrontend::Database* frontend)
 {
     RefPtr<InspectorObject> jsonObject = InspectorObject::create();
     jsonObject->setNumber("id", m_id);

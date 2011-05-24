@@ -290,6 +290,13 @@ AccessibilityObject* AXObjectCache::rootObject()
     return getOrCreate(m_document->view());
 }
 
+AccessibilityObject* AXObjectCache::rootObjectForFrame(Frame* frame)
+{
+    if (!frame)
+        return 0;
+    return getOrCreate(frame->view());
+}    
+    
 AccessibilityObject* AXObjectCache::getOrCreate(AccessibilityRole role)
 {
     RefPtr<AccessibilityObject> obj = 0;
@@ -573,12 +580,13 @@ VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(TextMarkerData& 
     if (!isNodeInUse(textMarkerData.node))
         return VisiblePosition();
     
-    VisiblePosition visiblePos = VisiblePosition(textMarkerData.node, textMarkerData.offset, textMarkerData.affinity);
+    // FIXME: Accessability should make it clear these are DOM-compliant offsets or store Position objects.
+    VisiblePosition visiblePos = VisiblePosition(Position(textMarkerData.node, textMarkerData.offset), textMarkerData.affinity);
     Position deepPos = visiblePos.deepEquivalent();
     if (deepPos.isNull())
         return VisiblePosition();
     
-    RenderObject* renderer = deepPos.node()->renderer();
+    RenderObject* renderer = deepPos.deprecatedNode()->renderer();
     if (!renderer)
         return VisiblePosition();
     
@@ -586,7 +594,7 @@ VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(TextMarkerData& 
     if (!cache->isIDinUse(textMarkerData.axID))
         return VisiblePosition();
     
-    if (deepPos.node() != textMarkerData.node || deepPos.deprecatedEditingOffset() != textMarkerData.offset)
+    if (deepPos.deprecatedNode() != textMarkerData.node || deepPos.deprecatedEditingOffset() != textMarkerData.offset)
         return VisiblePosition();
     
     return visiblePos;
@@ -602,7 +610,7 @@ void AXObjectCache::textMarkerDataForVisiblePosition(TextMarkerData& textMarkerD
         return;
     
     Position deepPos = visiblePos.deepEquivalent();
-    Node* domNode = deepPos.node();
+    Node* domNode = deepPos.deprecatedNode();
     ASSERT(domNode);
     if (!domNode)
         return;

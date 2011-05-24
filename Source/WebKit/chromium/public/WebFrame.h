@@ -143,6 +143,7 @@ public:
 
     // The scroll offset from the top-left corner of the frame in pixels.
     virtual WebSize scrollOffset() const = 0;
+    virtual void setScrollOffset(const WebSize&) = 0;
 
     // The size of the contents area.
     virtual WebSize contentsSize() const = 0;
@@ -167,6 +168,10 @@ public:
 
     // Returns the frame that opened this frame or 0 if there is none.
     virtual WebFrame* opener() const = 0;
+
+    // Reset the frame that opened this frame to 0.
+    // This is executed between layout tests runs
+    virtual void clearOpener() = 0;
 
     // Returns the parent frame or 0 if this is a top-most frame.
     virtual WebFrame* parent() const = 0;
@@ -250,6 +255,11 @@ public:
     // Returns the V8 context for this frame, or an empty handle if there
     // is none.
     virtual v8::Local<v8::Context> mainWorldScriptContext() const = 0;
+
+    // Creates an instance of file system object.
+    virtual v8::Handle<v8::Value> createFileSystem(int type,
+                                                   const WebString& name,
+                                                   const WebString& path) = 0;
 #endif
 
 
@@ -354,6 +364,10 @@ public:
     // Returns true if this frame is in the process of opening a new frame
     // with a suppressed opener.
     virtual bool willSuppressOpenerInNewFrame() const = 0;
+
+    // Returns true if this frame is in the midst of executing a beforeunload
+    // or unload event handler.
+    virtual bool pageDismissalEventBeingDispatched() const = 0;
 
 
     // Editing -------------------------------------------------------------

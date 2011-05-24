@@ -436,6 +436,17 @@ void GraphicsContext::concatCTM(const AffineTransform& affine)
     platformContext()->canvas()->concat(affine);
 }
 
+void GraphicsContext::setCTM(const AffineTransform& affine)
+{
+    if (paintingDisabled())
+        return;
+
+    if (platformContext()->useGPU())
+        platformContext()->gpuCanvas()->setCTM(affine);
+
+    platformContext()->canvas()->setMatrix(affine);
+}
+
 void GraphicsContext::drawConvexPolygon(size_t numPoints,
                                         const FloatPoint* points,
                                         bool shouldAntialias)
@@ -595,7 +606,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     platformContext()->canvas()->drawPoints(SkCanvas::kLines_PointMode, 2, pts, paint);
 }
 
-void GraphicsContext::drawLineForTextChecking(const IntPoint& pt, int width, TextCheckingLineStyle style)
+void GraphicsContext::drawLineForTextChecking(const FloatPoint& pt, float width, TextCheckingLineStyle style)
 {
     if (paintingDisabled())
         return;
@@ -644,8 +655,8 @@ void GraphicsContext::drawLineForTextChecking(const IntPoint& pt, int width, Tex
     }
 
     // Offset it vertically by 1 so that there's some space under the text.
-    SkScalar originX = SkIntToScalar(pt.x());
-    SkScalar originY = SkIntToScalar(pt.y()) + 1;
+    SkScalar originX = WebCoreFloatToSkScalar(pt.x());
+    SkScalar originY = WebCoreFloatToSkScalar(pt.y()) + 1;
 
     // Make a shader for the bitmap with an origin of the box we'll draw. This
     // shader is refcounted and will have an initial refcount of 1.
@@ -667,13 +678,13 @@ void GraphicsContext::drawLineForTextChecking(const IntPoint& pt, int width, Tex
     SkRect rect;
     rect.set(originX,
              originY,
-             originX + SkIntToScalar(width),
+             originX + WebCoreFloatToSkScalar(width),
              originY + SkIntToScalar(misspellBitmap->height()));
     platformContext()->canvas()->drawRect(rect, paint);
 }
 
-void GraphicsContext::drawLineForText(const IntPoint& pt,
-                                      int width,
+void GraphicsContext::drawLineForText(const FloatPoint& pt,
+                                      float width,
                                       bool printing)
 {
     if (paintingDisabled())
@@ -686,9 +697,9 @@ void GraphicsContext::drawLineForText(const IntPoint& pt,
 
     int thickness = SkMax32(static_cast<int>(strokeThickness()), 1);
     SkRect r;
-    r.fLeft = SkIntToScalar(pt.x());
-    r.fTop = SkIntToScalar(pt.y());
-    r.fRight = r.fLeft + SkIntToScalar(width);
+    r.fLeft = WebCoreFloatToSkScalar(pt.x());
+    r.fTop = WebCoreFloatToSkScalar(pt.y());
+    r.fRight = r.fLeft + WebCoreFloatToSkScalar(width);
     r.fBottom = r.fTop + SkIntToScalar(thickness);
 
     SkPaint paint;
@@ -720,6 +731,7 @@ void GraphicsContext::fillPath(const Path& pathToFill)
     if (paintingDisabled())
         return;
 
+    // FIXME: add support to GLES2Canvas for more than just solid fills.
     if (platformContext()->useGPU() && platformContext()->canAccelerate()) {
         platformContext()->prepareForHardwareDraw();
         platformContext()->gpuCanvas()->fillPath(pathToFill);
@@ -857,43 +869,7 @@ AffineTransform GraphicsContext::getCTM() const
 
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
 {
-    // This logic is copied from GraphicsContextCG, eseidel 5/05/08
-
-    // It is not enough just to round to pixels in device space. The rotation
-    // part of the affine transform matrix to device space can mess with this
-    // conversion if we have a rotating image like the hands of the world clock
-    // widget. We just need the scale, so we get the affine transform matrix and
-    // extract the scale.
-
-    const SkMatrix& deviceMatrix = platformContext()->canvas()->getTotalMatrix();
-    if (deviceMatrix.isIdentity())
-        return rect;
-
-    float deviceScaleX = sqrtf(square(deviceMatrix.getScaleX())
-        + square(deviceMatrix.getSkewY()));
-    float deviceScaleY = sqrtf(square(deviceMatrix.getSkewX())
-        + square(deviceMatrix.getScaleY()));
-
-    FloatPoint deviceOrigin(rect.x() * deviceScaleX, rect.y() * deviceScaleY);
-    FloatPoint deviceLowerRight((rect.x() + rect.width()) * deviceScaleX,
-        (rect.y() + rect.height()) * deviceScaleY);
-
-    deviceOrigin.setX(roundf(deviceOrigin.x()));
-    deviceOrigin.setY(roundf(deviceOrigin.y()));
-    deviceLowerRight.setX(roundf(deviceLowerRight.x()));
-    deviceLowerRight.setY(roundf(deviceLowerRight.y()));
-
-    // Don't let the height or width round to 0 unless either was originally 0
-    if (deviceOrigin.y() == deviceLowerRight.y() && rect.height())
-        deviceLowerRight.move(0, 1);
-    if (deviceOrigin.x() == deviceLowerRight.x() && rect.width())
-        deviceLowerRight.move(1, 0);
-
-    FloatPoint roundedOrigin(deviceOrigin.x() / deviceScaleX,
-        deviceOrigin.y() / deviceScaleY);
-    FloatPoint roundedLowerRight(deviceLowerRight.x() / deviceScaleX,
-        deviceLowerRight.y() / deviceScaleY);
-    return FloatRect(roundedOrigin, roundedLowerRight - roundedOrigin);
+    return rect;
 }
 
 void GraphicsContext::scale(const FloatSize& size)

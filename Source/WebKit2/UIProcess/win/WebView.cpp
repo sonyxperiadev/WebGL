@@ -29,7 +29,6 @@
 #include "ChunkedUpdateDrawingAreaProxy.h"
 #include "DrawingAreaProxyImpl.h"
 #include "FindIndicator.h"
-#include "LayerBackedDrawingAreaProxy.h"
 #include "Logging.h"
 #include "NativeWebKeyboardEvent.h"
 #include "Region.h"
@@ -415,6 +414,7 @@ static void drawPageBackground(HDC dc, const RECT& rect)
 
 void WebView::paint(HDC hdc, const IntRect& dirtyRect)
 {
+    m_page->endPrinting();
     if (useNewDrawingArea()) {
         if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(m_page->drawingArea())) {
             // FIXME: We should port WebKit1's rect coalescing logic here.
@@ -438,10 +438,32 @@ void WebView::paint(HDC hdc, const IntRect& dirtyRect)
     }
 }
 
+static void flashRects(HDC dc, const IntRect rects[], size_t rectCount, HBRUSH brush)
+{
+    for (size_t i = 0; i < rectCount; ++i) {
+        RECT winRect = rects[i];
+        ::FillRect(dc, &winRect, brush);
+    }
+
+    ::GdiFlush();
+    ::Sleep(50);
+}
+
+static OwnPtr<HBRUSH> createBrush(const Color& color)
+{
+    return adoptPtr(::CreateSolidBrush(RGB(color.red(), color.green(), color.blue())));
+}
+
 LRESULT WebView::onPaintEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled)
 {
     PAINTSTRUCT paintStruct;
     HDC hdc = ::BeginPaint(m_window, &paintStruct);
+
+    if (WebPageProxy::debugPaintFlags() & kWKDebugFlashViewUpdates) {
+        static HBRUSH brush = createBrush(WebPageProxy::viewUpdatesFlashColor().rgb()).leakPtr();
+        IntRect rect = paintStruct.rcPaint;
+        flashRects(hdc, &rect, 1, brush);
+    }
 
     paint(hdc, paintStruct.rcPaint);
 
@@ -650,6 +672,14 @@ void WebView::scrollView(const IntRect& scrollRect, const IntSize& scrollOffset)
     setViewNeedsDisplay(scrollRect);
 }
 
+void WebView::flashBackingStoreUpdates(const Vector<IntRect>& updateRects)
+{
+    static HBRUSH brush = createBrush(WebPageProxy::backingStoreUpdatesFlashColor().rgb()).leakPtr();
+    HDC dc = ::GetDC(m_window);
+    flashRects(dc, updateRects.data(), updateRects.size(), brush);
+    ::ReleaseDC(m_window, dc);
+}
+
 WebCore::IntSize WebView::viewSize()
 {
     RECT clientRect;
@@ -768,10 +798,6 @@ void WebView::registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy:
 }
 
 void WebView::clearAllEditCommands()
-{
-}
-
-void WebView::setEditCommandState(const String&, bool, int)
 {
 }
 
@@ -1114,7 +1140,7 @@ void WebView::didCommitLoadForMainFrame(bool useCustomRepresentation)
 {
 }
 
-void WebView::didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&)
+void WebView::didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&)
 {
 }
 
@@ -1151,46 +1177,6 @@ void WebView::exitAcceleratedCompositingMode()
     ASSERT(useNewDrawingArea());
     // FIXME: Implement.
     ASSERT_NOT_REACHED();
-}
-
-void WebView::pageDidEnterAcceleratedCompositing()
-{
-    ASSERT(!useNewDrawingArea());
-    switchToDrawingAreaTypeIfNecessary(DrawingAreaInfo::LayerBacked);
-}
-
-void WebView::pageDidLeaveAcceleratedCompositing()
-{
-    ASSERT(!useNewDrawingArea());
-    switchToDrawingAreaTypeIfNecessary(DrawingAreaInfo::ChunkedUpdate);
-}
-
-void WebView::switchToDrawingAreaTypeIfNecessary(DrawingAreaInfo::Type type)
-{
-    ASSERT(!useNewDrawingArea());
-
-    DrawingAreaInfo::Type existingDrawingAreaType = m_page->drawingArea() ? m_page->drawingArea()->info().type : DrawingAreaInfo::None;
-    if (existingDrawingAreaType == type)
-        return;
-
-    OwnPtr<DrawingAreaProxy> newDrawingArea;
-    switch (type) {
-    case DrawingAreaInfo::Impl:
-    case DrawingAreaInfo::None:
-        break;
-    case DrawingAreaInfo::ChunkedUpdate:
-        newDrawingArea = ChunkedUpdateDrawingAreaProxy::create(this, m_page.get());
-        break;
-    case DrawingAreaInfo::LayerBacked:
-        newDrawingArea = LayerBackedDrawingAreaProxy::create(this, m_page.get());
-        break;
-    }
-
-    if (m_page->drawingArea())
-        newDrawingArea->setSize(m_page->drawingArea()->size(), IntSize());
-
-    m_page->drawingArea()->detachCompositingContext();
-    m_page->setDrawingArea(newDrawingArea.release());
 }
 
 #endif // USE(ACCELERATED_COMPOSITING)
