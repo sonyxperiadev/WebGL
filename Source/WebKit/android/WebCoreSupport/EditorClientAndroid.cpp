@@ -217,6 +217,8 @@ bool EditorClientAndroid::canUndo() const { return false; }
 bool EditorClientAndroid::canRedo() const { return false; }
 void EditorClientAndroid::undo() {}
 void EditorClientAndroid::redo() {}
+bool EditorClientAndroid::canCopyCut(bool defaultValue) const { return defaultValue; }
+bool EditorClientAndroid::canPaste(bool defaultValue) const { return defaultValue; }
 
 // functions new to Jun-07 tip of tree merge:
 void EditorClientAndroid::showSpellingUI(bool) {}

@@ -31,6 +31,7 @@
 
 #include "EditorClient.h"
 #include "Page.h"
+#include "TextCheckerClient.h"
 #include "autofill/WebAutoFill.h"
 
 #include <wtf/OwnPtr.h>
@@ -39,7 +40,7 @@ using namespace WebCore;
 
 namespace android {
 
-class EditorClientAndroid : public EditorClient {
+class EditorClientAndroid : public EditorClient, public TextCheckerClient {
 public:
     EditorClientAndroid() {
         m_shouldChangeSelectedRange = true;
@@ -84,6 +85,8 @@ public:
     virtual void registerCommandForRedo(PassRefPtr<EditCommand>);
     virtual void clearUndoRedoOperations();
     
+    virtual bool canCopyCut(bool defaultValue) const;
+    virtual bool canPaste(bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
     
@@ -113,6 +116,8 @@ public:
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool);
     virtual void requestCheckingOfString(SpellChecker*, int, const String&);
+
+    virtual TextCheckerClient* textChecker() { return this; }
 
     // Android specific:
     void setPage(Page* page) { m_page = page; }
