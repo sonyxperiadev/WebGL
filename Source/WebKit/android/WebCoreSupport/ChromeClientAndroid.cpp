@@ -279,7 +279,10 @@ bool ChromeClientAndroid::shouldInterruptJavaScript() {
   return android::WebViewCore::getWebViewCore(frameView)->jsInterrupt();
 }
 
-bool ChromeClientAndroid::tabsToLinks() const { return false; }
+KeyboardUIMode ChromeClientAndroid::keyboardUIMode()
+{
+    return KeyboardAccessDefault;
+}
 
 IntRect ChromeClientAndroid::windowResizerRect() const { return IntRect(0, 0, 0, 0); }
 

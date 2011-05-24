@@ -108,7 +108,7 @@ namespace android {
         virtual bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result);
         virtual void setStatusbarText(const String&);
         virtual bool shouldInterruptJavaScript();
-        virtual bool tabsToLinks() const;
+        virtual KeyboardUIMode keyboardUIMode();
 
         virtual IntRect windowResizerRect() const;
 
