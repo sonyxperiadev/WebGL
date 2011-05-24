@@ -88,7 +88,7 @@ MediaPlayerPrivate::~MediaPlayerPrivate()
 
 void MediaPlayerPrivate::registerMediaEngine(MediaEngineRegistrar registrar)
 {
-    registrar(create, getSupportedTypes, supportsType);
+    registrar(create, getSupportedTypes, supportsType, 0, 0, 0);
 }
 
 MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, const String& codecs)
