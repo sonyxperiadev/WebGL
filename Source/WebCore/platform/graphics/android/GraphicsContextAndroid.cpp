@@ -617,7 +617,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     }
 }
 
-static void setrectForUnderline(SkRect* r, GraphicsContext* context, const IntPoint& point, int yOffset, int width)
+static void setrectForUnderline(SkRect* r, GraphicsContext* context, const FloatPoint& point, int yOffset, float width)
 {
     float lineThickness = context->strokeThickness();
 #if 0
@@ -630,7 +630,7 @@ static void setrectForUnderline(SkRect* r, GraphicsContext* context, const IntPo
     r->fBottom  = r->fTop + SkFloatToScalar(lineThickness);
 }
 
-void GraphicsContext::drawLineForText(IntPoint const& pt, int width, bool)
+void GraphicsContext::drawLineForText(const FloatPoint& pt, float width, bool)
 {
     if (paintingDisabled())
         return;
@@ -646,7 +646,7 @@ void GraphicsContext::drawLineForText(IntPoint const& pt, int width, bool)
 }
 
 // TODO: Should we draw different based on TextCheckingLineStyle?
-void GraphicsContext::drawLineForTextChecking(const IntPoint& pt, int width, TextCheckingLineStyle)
+void GraphicsContext::drawLineForTextChecking(const FloatPoint& pt, float width, TextCheckingLineStyle)
 {
     if (paintingDisabled())
         return;

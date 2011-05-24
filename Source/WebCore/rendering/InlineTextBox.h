@@ -41,20 +41,13 @@ Color correctedTextColor(Color textColor, Color backgroundColor);
 
 class InlineTextBox : public InlineBox {
 public:
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    InlineTextBox(RenderObject* obj, bool disableRoundingHacks = false)
-#else
     InlineTextBox(RenderObject* obj)
-#endif
         : InlineBox(obj)
         , m_prevTextBox(0)
         , m_nextTextBox(0)
         , m_start(0)
         , m_len(0)
         , m_truncation(cNoTruncation)
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-        , m_disableRoundingHacks(disableRoundingHacks)
-#endif
     {
     }
 
@@ -149,9 +142,6 @@ private:
 
     unsigned short m_truncation; // Where to truncate when text overflow is applied.  We use special constants to
                       // denote no truncation (the whole run paints) and full truncation (nothing paints at all).
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    bool m_disableRoundingHacks;
-#endif
 
 protected:
     void paintCompositionBackground(GraphicsContext*, const FloatPoint& boxOrigin, RenderStyle*, const Font&, int startPos, int endPos);

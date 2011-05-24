@@ -1185,27 +1185,10 @@ void RenderText::dirtyLineBoxes(bool fullLayout)
     }
     m_linesDirty = false;
 }
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-static bool disableRoundingHacks(RenderText* renderText)
-{
-    RenderObject* renderer = renderText;
-    while (renderer) {
-        if (renderer->isTextControl()) {
-            return true;
-        }
-        renderer = renderer->parent();
-    }
-    return false;
-}
-#endif
 
 InlineTextBox* RenderText::createTextBox()
 {
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    return new (renderArena()) InlineTextBox(this, disableRoundingHacks(this));
-#else
     return new (renderArena()) InlineTextBox(this);
-#endif
 }
 
 InlineTextBox* RenderText::createInlineTextBox()

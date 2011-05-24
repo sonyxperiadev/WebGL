@@ -38,7 +38,7 @@ String FileChooser::basenameForWidth(const Font& font, int width) const
         return fileButtonNoFileSelectedLabel();
 
     String output = pathGetFileName(m_filenames[0]);
-    return StringTruncator::centerTruncate(output, static_cast<float>(width), font, false);
+    return StringTruncator::centerTruncate(output, static_cast<float>(width), font);
 }
 
 } // namespace WebCore

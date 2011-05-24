@@ -146,8 +146,6 @@
 
 #define ANDROID_FIX
 
-#define ANDROID_DISABLE_ROUNDING_HACKS
-
 // Ensure that the fixed elements are always relative to the top document.
 #define ANDROID_FIXED_ELEMENTS
 

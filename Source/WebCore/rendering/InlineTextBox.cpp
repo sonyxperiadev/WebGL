@@ -163,15 +163,8 @@ IntRect InlineTextBox::selectionRect(int tx, int ty, int startPos, int endPos)
         ePos = len;
     }
 
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    TextRun textRun = TextRun(characters, len, textObj->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride);
-    if (m_disableRoundingHacks)
-        textRun.disableRoundingHacks();
-    IntRect r = enclosingIntRect(f.selectionRectForText(textRun, IntPoint(), selHeight, sPos, ePos));
-#else
     IntRect r = enclosingIntRect(f.selectionRectForText(TextRun(characters, len, textObj->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride),
                                                         IntPoint(), selHeight, sPos, ePos));
-#endif
                                                         
     int logicalWidth = r.width();
     if (r.x() > m_logicalWidth)
@@ -626,10 +619,6 @@ void InlineTextBox::paint(PaintInfo& paintInfo, int tx, int ty)
         adjustCharactersAndLengthForHyphen(charactersWithHyphen, styleToUse, characters, length);
 
     TextRun textRun(characters, length, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || styleToUse->visuallyOrdered());
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    if (m_disableRoundingHacks)
-        textRun.disableRoundingHacks();
-#endif
 
     int sPos = 0;
     int ePos = 0;
@@ -781,24 +770,11 @@ void InlineTextBox::paintSelection(GraphicsContext* context, const FloatPoint& b
 
     int deltaY = renderer()->style()->isFlippedLinesWritingMode() ? selectionBottom() - logicalBottom() : logicalTop() - selectionTop();
     int selHeight = selectionHeight();
-<<<<<<< HEAD
-    IntPoint localOrigin(boxOrigin.x(), boxOrigin.y() - deltaY);
-    context->clip(IntRect(localOrigin, IntSize(m_logicalWidth, selHeight)));
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    TextRun textRun = TextRun(characters, length, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(),
-                              !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
-    if (m_disableRoundingHacks)
-        textRun.disableRoundingHacks();
-    context->drawHighlightForText(font, textRun, localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
-#else
-=======
     FloatPoint localOrigin(boxOrigin.x(), boxOrigin.y() - deltaY);
     context->clip(FloatRect(localOrigin, FloatSize(m_logicalWidth, selHeight)));
->>>>>>> WebKit at r80534
     context->drawHighlightForText(font, TextRun(characters, length, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), 
                                   !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
                                   localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
-#endif
     context->restore();
 }
 
@@ -819,22 +795,10 @@ void InlineTextBox::paintCompositionBackground(GraphicsContext* context, const F
 
     int deltaY = renderer()->style()->isFlippedLinesWritingMode() ? selectionBottom() - logicalBottom() : logicalTop() - selectionTop();
     int selHeight = selectionHeight();
-<<<<<<< HEAD
-    IntPoint localOrigin(boxOrigin.x(), boxOrigin.y() - deltaY);
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    TextRun textRun = TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(),
-                              !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
-    if (m_disableRoundingHacks)
-        textRun.disableRoundingHacks();
-    context->drawHighlightForText(font, textRun, localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
-#else
-=======
     FloatPoint localOrigin(boxOrigin.x(), boxOrigin.y() - deltaY);
->>>>>>> WebKit at r80534
     context->drawHighlightForText(font, TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(),
                                   !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
                                   localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
-#endif
     context->restore();
 }
 
@@ -995,16 +959,8 @@ void InlineTextBox::paintSpellingOrGrammarMarker(GraphicsContext* pt, const Floa
         int selHeight = selectionHeight();
         FloatPoint startPoint(boxOrigin.x(), boxOrigin.y() - deltaY);
         TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
-<<<<<<< HEAD
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    if (m_disableRoundingHacks)
-        run.disableRoundingHacks();
-#endif
-         
-=======
         
         // FIXME: Convert the document markers to float rects.
->>>>>>> WebKit at r80534
         IntRect markerRect = enclosingIntRect(font.selectionRectForText(run, startPoint, selHeight, startPosition, endPosition));
         start = markerRect.x() - startPoint.x();
         width = markerRect.width();
@@ -1048,10 +1004,6 @@ void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, const FloatPoint& 
     int sPos = max(marker.startOffset - m_start, (unsigned)0);
     int ePos = min(marker.endOffset - m_start, (unsigned)m_len);    
     TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    if (m_disableRoundingHacks)
-        run.disableRoundingHacks();
-#endif
     
     // Always compute and store the rect associated with this marker. The computed rect is in absolute coordinates.
     IntRect markerRect = enclosingIntRect(font.selectionRectForText(run, IntPoint(m_x, selectionTop()), selHeight, sPos, ePos));
@@ -1080,10 +1032,6 @@ void InlineTextBox::computeRectForReplacementMarker(const DocumentMarker& marker
     int sPos = max(marker.startOffset - m_start, (unsigned)0);
     int ePos = min(marker.endOffset - m_start, (unsigned)m_len);    
     TextRun run(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    if (m_disableRoundingHacks)
-        run.disableRoundingHacks();
-#endif
     IntPoint startPoint = IntPoint(m_x, y);
     
     // Compute and store the rect associated with this marker.
@@ -1243,16 +1191,9 @@ int InlineTextBox::offsetForPosition(float lineOffset, bool includePartialGlyphs
     RenderText* text = toRenderText(renderer());
     RenderStyle* style = text->style(m_firstLine);
     const Font* f = &style->font();
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    TextRun textRun = TextRun(textRenderer()->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered());
-    if (m_disableRoundingHacks)
-        textRun.disableRoundingHacks();
-    int offset = f->offsetForPosition(textRun, lineOffset - logicalLeft(), includePartialGlyphs);
-#else
     int offset = f->offsetForPosition(TextRun(textRenderer()->text()->characters() + m_start, m_len,
         textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride || style->visuallyOrdered()),
         lineOffset - logicalLeft(), includePartialGlyphs);
-#endif
     if (blockIsInOppositeDirection && (!offset || offset == m_len))
         return !offset ? m_len : 0;
     return offset;
@@ -1271,20 +1212,8 @@ float InlineTextBox::positionForOffset(int offset) const
     int from = !isLeftToRightDirection() ? offset - m_start : 0;
     int to = !isLeftToRightDirection() ? m_len : offset - m_start;
     // FIXME: Do we need to add rightBearing here?
-<<<<<<< HEAD
-#ifdef ANDROID_DISABLE_ROUNDING_HACKS
-    TextRun textRun = TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride);
-    if (m_disableRoundingHacks)
-        textRun.disableRoundingHacks();
-    return enclosingIntRect(f.selectionRectForText(textRun, IntPoint(logicalLeft(), 0), 0, from, to)).maxX();
-#else
-    return enclosingIntRect(f.selectionRectForText(TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride),
-                                                   IntPoint(logicalLeft(), 0), 0, from, to)).maxX();
-#endif
-=======
     return f.selectionRectForText(TextRun(text->text()->characters() + m_start, m_len, textRenderer()->allowTabs(), textPos(), m_expansion, trailingExpansionBehavior(), !isLeftToRightDirection(), m_dirOverride),
                                   IntPoint(logicalLeft(), 0), 0, from, to).maxX();
->>>>>>> WebKit at r80534
 }
 
 bool InlineTextBox::containsCaretOffset(int offset) const
