@@ -89,10 +89,6 @@ void RenderView::computeLogicalWidth()
         setLogicalWidth(viewLogicalWidth());
 #ifdef ANDROID_LAYOUT
     setVisibleWidth(m_frameView->textWrapWidth());
-    const Settings * settings = document()->settings();
-    ASSERT(settings);
-    if (settings->useWideViewport() && settings->viewportWidth() == -1 && width() < minPreferredLogicalWidth())
-        setWidth(m_minPreferredLogicalWidth);
 #endif
 }
 
