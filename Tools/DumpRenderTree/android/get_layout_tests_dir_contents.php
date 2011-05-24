@@ -74,8 +74,6 @@
   function main() {
     global $rootDir;
 
-    $path = getAbsolutePath($_GET['path']);
-
     if (!isset($_GET['separator'])) {
       $separator = "\n";
     } else {
@@ -91,14 +89,18 @@
     }
 
     # Very primitive check if path tries to go above DOCUMENT_ROOT or is absolute
-    if (strpos($_GET['path'], "..") !== False ||
-        substr($_GET['path'], 0, 1) == DIRECTORY_SEPARATOR) {
+    $path = $_GET['path'];
+    if (strpos($path, "..") !== False ||
+        substr($path, 0, 1) == DIRECTORY_SEPARATOR) {
       return;
     }
 
     # If we don't want realpath to append any prefixes we need to pass it an absolute path
-    $path = realpath(getAbsolutePath($_GET['path']));
-    $relPath = substr($path, strlen($rootDir) + 1);
+    $relPath = substr(realpath(getAbsolutePath($path)), strlen($rootDir) + 1);
+
+    # If the path is not found, return nothing.
+    if ($path !== "" && $relPath == "")
+      return;
 
     # If there is an error of some sort it will be output as a part of the answer!
     foreach (getAllFilesUnderAsArray($relPath, $recurse, $mode) as $i => $value) {
