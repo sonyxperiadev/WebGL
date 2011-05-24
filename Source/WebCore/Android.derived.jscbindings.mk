@@ -318,6 +318,7 @@ GEN := \
     $(intermediates)/html/canvas/JSInt16Array.h \
     $(intermediates)/html/canvas/JSInt32Array.h \
     $(intermediates)/html/canvas/JSOESTextureFloat.h \
+    $(intermediates)/html/canvas/JSOESVertexArrayObject.h \
     $(intermediates)/html/canvas/JSUint8Array.h \
     $(intermediates)/html/canvas/JSUint16Array.h \
     $(intermediates)/html/canvas/JSUint32Array.h \
@@ -330,6 +331,7 @@ GEN := \
     $(intermediates)/html/canvas/JSWebGLShader.h \
     $(intermediates)/html/canvas/JSWebGLTexture.h \
     $(intermediates)/html/canvas/JSWebGLUniformLocation.h \
+    $(intermediates)/html/canvas/JSWebGLVertexArrayObjectOES.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
@@ -449,19 +451,19 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/
 GEN := \
     $(intermediates)/storage/JSIDBAny.h \
     $(intermediates)/storage/JSIDBCursor.h \
+    $(intermediates)/storage/JSIDBCursorWithValue.h \
     $(intermediates)/storage/JSIDBDatabaseError.h \
     $(intermediates)/storage/JSIDBDatabaseException.h \
     $(intermediates)/storage/JSIDBDatabase.h \
-    $(intermediates)/storage/JSIDBErrorEvent.h \
-    $(intermediates)/storage/JSIDBEvent.h \
     $(intermediates)/storage/JSIDBFactory.h \
     $(intermediates)/storage/JSIDBIndex.h \
     $(intermediates)/storage/JSIDBKey.h \
     $(intermediates)/storage/JSIDBKeyRange.h \
     $(intermediates)/storage/JSIDBObjectStore.h \
     $(intermediates)/storage/JSIDBRequest.h \
-    $(intermediates)/storage/JSIDBSuccessEvent.h \
-    $(intermediates)/storage/JSIDBTransaction.h
+    $(intermediates)/storage/JSIDBTransaction.h \
+    $(intermediates)/storage/JSIDBVersionChangeEvent.h \
+    $(intermediates)/storage/JSIDBVersionChangeRequest.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --include storage --outputdir $(dir $@) $<

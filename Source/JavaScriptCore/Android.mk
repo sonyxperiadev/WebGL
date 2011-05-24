@@ -25,7 +25,12 @@
 
 LOCAL_SRC_FILES := \
 	API/JSValueRef.cpp \
+	API/JSCallbackConstructor.cpp \
+	API/JSCallbackFunction.cpp \
 	API/JSCallbackObject.cpp \
+	API/JSClassRef.cpp \
+	API/JSObjectRef.cpp \
+	API/JSStringRef.cpp \
 	API/OpaqueJSString.cpp \
 	\
 	assembler/ARMv7Assembler.cpp \
@@ -38,6 +43,8 @@ LOCAL_SRC_FILES := \
 	\
 	bytecompiler/BytecodeGenerator.cpp \
 	bytecompiler/NodesCodegen.cpp \
+	\
+	collector/handles/HandleHeap.cpp \
 	\
 	debugger/Debugger.cpp \
 	debugger/DebuggerActivation.cpp \
@@ -98,7 +105,6 @@ LOCAL_SRC_FILES := \
 	runtime/FunctionConstructor.cpp \
 	runtime/FunctionPrototype.cpp \
 	runtime/GCActivityCallback.cpp \
-	runtime/GCHandle.cpp \
 	runtime/GetterSetter.cpp \
 	runtime/Identifier.cpp \
 	runtime/InitializeThreading.cpp \
@@ -108,6 +114,7 @@ LOCAL_SRC_FILES := \
 	runtime/JSArray.cpp \
 	runtime/JSByteArray.cpp \
 	runtime/JSCell.cpp \
+	runtime/JSChunk.cpp \
 	runtime/JSFunction.cpp \
 	runtime/JSGlobalData.cpp \
 	runtime/JSGlobalObject.cpp \
@@ -177,6 +184,7 @@ LOCAL_SRC_FILES := \
 	wtf/PageBlock.cpp\
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
+	wtf/SHA1.cpp \
 	wtf/StackBounds.cpp \
 	wtf/TCSystemAlloc.cpp \
 	wtf/ThreadIdentifierDataPthreads.cpp \

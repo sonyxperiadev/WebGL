@@ -179,6 +179,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Range.cpp \
 	dom/RegisteredEventListener.cpp \
 	dom/ScopedEventQueue.cpp \
+	dom/ScriptedAnimationController.cpp \
 	dom/ScriptableDocumentParser.cpp \
 	dom/ScriptElement.cpp \
 	dom/ScriptExecutionContext.cpp \
@@ -247,7 +248,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/ReplaceSelectionCommand.cpp \
 	editing/SelectionController.cpp \
 	editing/SetNodeAttributeCommand.cpp \
+	editing/SetSelectionCommand.cpp \
 	editing/SpellChecker.cpp \
+	editing/SpellingCorrectionCommand.cpp \
 	editing/SplitElementCommand.cpp \
 	editing/SplitTextNodeCommand.cpp \
 	editing/SplitTextNodeContainingElementCommand.cpp \
@@ -272,6 +275,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	fileapi/DirectoryEntrySync.cpp \
 	fileapi/DirectoryReaderSync.cpp \
 	fileapi/EntryArraySync.cpp \
+	fileapi/EntryBase.cpp \
 	fileapi/EntrySync.cpp \
 	fileapi/File.cpp \
 	fileapi/FileEntrySync.cpp \
@@ -372,11 +376,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/Int32Array.cpp \
 	html/canvas/Int8Array.cpp \
 	html/canvas/OESTextureFloat.cpp \
+	html/canvas/OESVertexArrayObject.cpp \
 	html/canvas/Uint16Array.cpp \
 	html/canvas/Uint32Array.cpp \
 	html/canvas/Uint8Array.cpp \
 	html/canvas/WebGLExtension.cpp \
 	html/canvas/WebGLObject.cpp \
+	html/canvas/WebGLVertexArrayObjectOES.cpp \
 	\
 	html/parser/HTMLConstructionSite.cpp \
 	html/parser/HTMLDocumentParser.cpp \
@@ -727,7 +733,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/ResourceResponseBase.cpp \
 	\
 	platform/network/android/CookieJarAndroid.cpp \
-	platform/network/android/NetworkStateNotifierAndroid.cpp \
 	platform/network/android/ProxyServerAndroid.cpp \
 	platform/network/android/ResourceHandleAndroid.cpp \
 	platform/network/android/ResourceRequestAndroid.cpp \
@@ -965,13 +970,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
 	storage/IDBAny.cpp \
-	storage/IDBCompleteEvent.cpp \
+	storage/IDBBackingStore.cpp \
 	storage/IDBCursor.cpp \
 	storage/IDBCursorBackendImpl.cpp \
+	storage/IDBCursorWithValue.cpp \
 	storage/IDBDatabase.cpp \
 	storage/IDBDatabaseBackendImpl.cpp \
-	storage/IDBErrorEvent.cpp \
-	storage/IDBEvent.cpp \
+	storage/IDBEventDispatcher.cpp \
 	storage/IDBFactory.cpp \
 	storage/IDBFactoryBackendInterface.cpp \
 	storage/IDBFactoryBackendImpl.cpp \
@@ -982,9 +987,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBObjectStore.cpp \
 	storage/IDBObjectStoreBackendImpl.cpp \
 	storage/IDBRequest.cpp \
-	storage/IDBSQLiteDatabase.cpp \
-	storage/IDBSuccessEvent.cpp \
 	storage/IDBTransaction.cpp \
+	storage/IDBVersionChangeEvent.cpp \
+	storage/IDBVersionChangeRequest.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
@@ -1177,7 +1182,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	xml/XMLHttpRequest.cpp \
 	xml/XMLHttpRequestProgressEventThrottle.cpp \
 	xml/XMLHttpRequestUpload.cpp \
-	xml/XMLSerializer.cpp
+	xml/XMLSerializer.cpp \
+	xml/XMLTreeViewer.cpp
 
 # For XPath
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

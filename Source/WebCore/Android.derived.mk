@@ -73,6 +73,14 @@ $(GEN): $(LOCAL_PATH)/html/DocTypeStrings.gperf
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
+# XMLViewer XSLT
+
+GEN := $(intermediates)/xml/XMLViewerXSL.h
+$(GEN): SCRIPT := $(LOCAL_PATH)/inspector/xxd.pl
+$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) XMLViewer_xsl $< $@
+$(GEN): $(LOCAL_PATH)/xml/XMLViewer.xsl
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
 
 # HTML entity table
 

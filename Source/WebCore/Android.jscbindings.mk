@@ -98,9 +98,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMMimeTypeArrayCustom.cpp \
 	bindings/js/JSDOMPluginArrayCustom.cpp \
 	bindings/js/JSDOMPluginCustom.cpp \
-	bindings/js/JSDOMSettableTokenList.cpp \
 	bindings/js/JSDOMStringMapCustom.cpp \
-	bindings/js/JSDOMTokenList.cpp \
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \

@@ -465,22 +465,6 @@ void AXObjectCache::remove(Widget*)
     notImplemented();
 }
 
-#if USE(JSC)
-using namespace JSC;
-
-
-OpaqueJSClass::~OpaqueJSClass()
-{
-    notImplemented();
-}
-
-OpaqueJSClassContextData::~OpaqueJSClassContextData()
-{
-    notImplemented();
-}
-
-#endif
-
 namespace WebCore {
 
 void setCookieStoragePrivateBrowsingEnabled(bool)

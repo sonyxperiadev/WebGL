@@ -238,6 +238,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(JAVASCRIPTCORE_PATH) \
+	$(JAVASCRIPTCORE_PATH)/collector/handles \
 	$(JAVASCRIPTCORE_PATH)/wtf \
 	$(JAVASCRIPTCORE_PATH)/wtf/unicode \
 	$(JAVASCRIPTCORE_PATH)/wtf/unicode/icu
@@ -246,7 +247,8 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBCORE_INTERMEDIATES_PATH) \
 	$(WEBCORE_INTERMEDIATES_PATH)/css \
 	$(WEBCORE_INTERMEDIATES_PATH)/html \
-	$(WEBCORE_INTERMEDIATES_PATH)/platform
+	$(WEBCORE_INTERMEDIATES_PATH)/platform \
+	$(WEBCORE_INTERMEDIATES_PATH)/xml
 
 # The following includes are needed by the AutoFill feature, or the chrome http
 # stack

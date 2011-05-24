@@ -303,6 +303,7 @@ GEN := \
     $(intermediates)/bindings/V8Int16Array.h \
     $(intermediates)/bindings/V8Int32Array.h \
     $(intermediates)/bindings/V8OESTextureFloat.h \
+    $(intermediates)/bindings/V8OESVertexArrayObject.h \
     $(intermediates)/bindings/V8Uint8Array.h \
     $(intermediates)/bindings/V8Uint16Array.h \
     $(intermediates)/bindings/V8Uint32Array.h \
@@ -316,6 +317,7 @@ GEN := \
     $(intermediates)/bindings/V8WebGLShader.h \
     $(intermediates)/bindings/V8WebGLTexture.h \
     $(intermediates)/bindings/V8WebGLUniformLocation.h \
+    $(intermediates)/bindings/V8WebGLVertexArrayObjectOES.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<
@@ -434,19 +436,19 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 GEN := \
     $(intermediates)/bindings/V8IDBAny.h \
     $(intermediates)/bindings/V8IDBCursor.h \
+    $(intermediates)/bindings/V8IDBCursorWithValue.h \
     $(intermediates)/bindings/V8IDBDatabaseError.h \
     $(intermediates)/bindings/V8IDBDatabaseException.h \
     $(intermediates)/bindings/V8IDBDatabase.h \
-    $(intermediates)/bindings/V8IDBErrorEvent.h \
-    $(intermediates)/bindings/V8IDBEvent.h \
     $(intermediates)/bindings/V8IDBFactory.h \
     $(intermediates)/bindings/V8IDBIndex.h \
     $(intermediates)/bindings/V8IDBKey.h \
     $(intermediates)/bindings/V8IDBKeyRange.h \
     $(intermediates)/bindings/V8IDBObjectStore.h \
     $(intermediates)/bindings/V8IDBRequest.h \
-    $(intermediates)/bindings/V8IDBSuccessEvent.h \
-    $(intermediates)/bindings/V8IDBTransaction.h
+    $(intermediates)/bindings/V8IDBTransaction.h \
+    $(intermediates)/bindings/V8IDBVersionChangeEvent.h \
+    $(intermediates)/bindings/V8IDBVersionChangeRequest.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include storage --outputdir $(dir $@) $<
