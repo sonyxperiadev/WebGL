@@ -30,11 +30,8 @@
 
 #include "JavaInstanceV8.h"
 #include "JavaNPObjectV8.h"
-<<<<<<< HEAD
 #include "npruntime_impl.h"
-=======
 #include <wtf/text/CString.h>
->>>>>>> WebKit at r80534
 
 namespace JSC {
 
@@ -78,7 +75,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
             else if (NPVARIANT_IS_DOUBLE(npvLength))
                 length = static_cast<jsize>(NPVARIANT_TO_DOUBLE(npvLength));
 
-            if (!strcmp(javaClassName, "[Ljava.lang.String;")) {
+            if (!strcmp(javaClassName.data(), "[Ljava.lang.String;")) {
                 // Match JSC behavior by only allowing Object arrays if they are Strings.
                 jclass stringClass = env->FindClass("java/lang/String");
                 javaArray = env->NewObjectArray(length, stringClass, 0);
@@ -92,7 +89,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                 }
 
                 env->DeleteLocalRef(stringClass);
-            } else if (!strcmp(javaClassName, "[B")) {
+            } else if (!strcmp(javaClassName.data(), "[B")) {
                 // array of bytes
                 javaArray = env->NewByteArray(length);
                 // Now iterate over each element and add to the array.
@@ -107,7 +104,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                     }
                     env->SetByteArrayRegion(static_cast<jbyteArray>(javaArray), i, 1, &bVal);
                 }
-             } else if (!strcmp(javaClassName, "[C")) {
+             } else if (!strcmp(javaClassName.data(), "[C")) {
                 // array of chars
                 javaArray = env->NewCharArray(length);
                 // Now iterate over each element and add to the array.
@@ -123,7 +120,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                     }
                     env->SetCharArrayRegion(static_cast<jcharArray>(javaArray), i, 1, &cVal);
                 }
-             } else if (!strcmp(javaClassName, "[D")) {
+             } else if (!strcmp(javaClassName.data(), "[D")) {
                 // array of doubles
                 javaArray = env->NewDoubleArray(length);
                 // Now iterate over each element and add to the array.
@@ -135,7 +132,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                         env->SetDoubleArrayRegion(static_cast<jdoubleArray>(javaArray), i, 1, &dVal);
                     }
                 }
-             } else if (!strcmp(javaClassName, "[F")) {
+             } else if (!strcmp(javaClassName.data(), "[F")) {
                 // array of floats
                 javaArray = env->NewFloatArray(length);
                 // Now iterate over each element and add to the array.
@@ -147,7 +144,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                         env->SetFloatArrayRegion(static_cast<jfloatArray>(javaArray), i, 1, &fVal);
                     }
                 }
-             } else if (!strcmp(javaClassName, "[I")) {
+             } else if (!strcmp(javaClassName.data(), "[I")) {
                 // array of ints
                 javaArray = env->NewIntArray(length);
                 // Now iterate over each element and add to the array.
@@ -162,7 +159,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                     }
                     env->SetIntArrayRegion(static_cast<jintArray>(javaArray), i, 1, &iVal);
                 }
-             } else if (!strcmp(javaClassName, "[J")) {
+             } else if (!strcmp(javaClassName.data(), "[J")) {
                 // array of longs
                 javaArray = env->NewLongArray(length);
                 // Now iterate over each element and add to the array.
@@ -177,7 +174,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                     }
                     env->SetLongArrayRegion(static_cast<jlongArray>(javaArray), i, 1, &jVal);
                 }
-             } else if (!strcmp(javaClassName, "[S")) {
+             } else if (!strcmp(javaClassName.data(), "[S")) {
                 // array of shorts
                 javaArray = env->NewShortArray(length);
                 // Now iterate over each element and add to the array.
@@ -192,7 +189,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                     }
                     env->SetShortArrayRegion(static_cast<jshortArray>(javaArray), i, 1, &sVal);
                 }
-             } else if (!strcmp(javaClassName, "[Z")) {
+             } else if (!strcmp(javaClassName.data(), "[Z")) {
                 // array of booleans
                 javaArray = env->NewBooleanArray(length);
                 // Now iterate over each element and add to the array.

@@ -29,11 +29,8 @@
 #if ENABLE(JAVA_BRIDGE)
 
 #include "BridgeJSC.h"
-<<<<<<< HEAD
-=======
 #include "JNIUtility.h"
 #include "JobjectWrapper.h"
->>>>>>> WebKit at r80534
 #include "runtime_root.h"
 
 namespace JSC {

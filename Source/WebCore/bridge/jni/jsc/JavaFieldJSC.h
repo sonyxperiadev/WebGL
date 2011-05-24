@@ -30,15 +30,10 @@
 #if ENABLE(JAVA_BRIDGE)
 
 #include "BridgeJSC.h"
-<<<<<<< HEAD:Source/WebCore/bridge/jni/jsc/JNIBridgeJSC.h
-#include "JNIBridge.h"
-#include <JavaVM/jni.h>
-=======
 #include "JNIUtility.h"
 #include "JavaMethod.h"
 #include "JavaString.h"
 #include "JobjectWrapper.h"
->>>>>>> WebKit at r80534:Source/WebCore/bridge/jni/jsc/JavaFieldJSC.h
 
 namespace JSC {
 
