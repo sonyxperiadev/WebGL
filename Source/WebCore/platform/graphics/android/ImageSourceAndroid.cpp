@@ -264,9 +264,8 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 
 #ifdef ANDROID_ANIMATED_GIF
         // First, check to see if this is an animated GIF
-        const Vector<char>& buffer = data->buffer();
-        const char* contents = buffer.data();
-        if (buffer.size() > 3 && strncmp(contents, "GIF8", 4) == 0
+        const char* contents = data->data();
+        if (data->size() > 3 && strncmp(contents, "GIF8", 4) == 0
                 && should_use_animated_gif(origW, origH)
                 && !disabledAnimatedGif) {
             // This means we are looking at a GIF, so create special
@@ -497,6 +496,11 @@ String ImageSource::filenameExtension() const
 bool ImageSource::getHotSpot(IntPoint&) const
 {
     return false;
+}
+
+size_t ImageSource::bytesDecodedToDetermineProperties() const
+{
+    return 0;
 }
 
 }
