@@ -669,25 +669,12 @@ void WebViewCore::recordPictureSet(PictureSet* content)
 
     content->checkDimensions(width, height, &m_addInval);
 
-    // The inval region may replace existing pictures. The existing pictures
-    // may have already been split into pieces. If reuseSubdivided() returns
-    // true, the split pieces are the last entries in the picture already. They
-    // are marked as invalid, and are rebuilt by rebuildPictureSet().
+    // Add the current inval rects to the PictureSet, and rebuild it.
+    content->add(m_addInval, 0, 0, false);
+    rebuildPictureSet(content);
 
-    // If the new region doesn't match a set of split pieces, add it to the end.
-    if (!content->reuseSubdivided(m_addInval)) {
-        const SkIRect& inval = m_addInval.getBounds();
-        SkPicture* picture = rebuildPicture(inval);
-        DBG_SET_LOGD("{%d,%d,w=%d,h=%d}", inval.fLeft,
-            inval.fTop, inval.width(), inval.height());
-        content->add(m_addInval, picture, 0, false);
-        SkSafeUnref(picture);
-    }
-    // Remove any pictures already in the set that are obscured by the new one,
-    // and check to see if any already split pieces need to be redrawn.
-    if (content->build())
-        rebuildPictureSet(content);
     } // WebViewCoreRecordTimeCounter
+
     WebCore::Node* oldFocusNode = currentFocus();
     m_frameCacheOutOfDate = true;
     WebCore::IntRect oldBounds;
@@ -884,7 +871,9 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
     BaseLayerAndroid* base = new BaseLayerAndroid();
     base->setContent(m_content);
 
+    m_skipContentDraw = true;
     bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
+    m_skipContentDraw = false;
     // Layout only fails if called during a layout.
     LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
 
@@ -927,7 +916,10 @@ BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
     }
     region->set(m_addInval);
     m_addInval.setEmpty();
+#if USE(ACCELERATED_COMPOSITING)
+#else
     region->op(m_rebuildInval, SkRegion::kUnion_Op);
+#endif
     m_rebuildInval.setEmpty();
     point->fX = m_content.width();
     point->fY = m_content.height();
