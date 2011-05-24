@@ -165,7 +165,7 @@ namespace android {
         // Android-specific
         void setWebFrame(android::WebFrame* webframe);
         android::WebFrame* webFrame() { return m_webFrame; }
-        void wakeUpMainThreadWithNewQuota(long newQuota);
+        void wakeUpMainThreadWithNewQuota(long long newQuota);
 
 #if USE(ACCELERATED_COMPOSITING)
         virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer* g);
@@ -207,7 +207,8 @@ namespace android {
 #endif
         WTF::ThreadCondition m_quotaThreadCondition;
         WTF::Mutex m_quotaThreadLock;
-        long m_newQuota;
+        unsigned long long m_newQuota;
+        bool m_isNewQuotaSet;
         bool m_triedToReclaimDBQuota;
     };
 

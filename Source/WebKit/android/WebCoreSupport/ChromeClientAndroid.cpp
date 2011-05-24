@@ -361,8 +361,7 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
     SecurityOrigin* origin = frame->document()->securityOrigin();
     DatabaseTracker& tracker = WebCore::DatabaseTracker::tracker();
 
-    // We want to wait on a new quota from the UI thread. Reset the m_newQuota variable to represent we haven't received a new quota.
-    m_newQuota = -1;
+    m_isNewQuotaSet = false;
 
     // This origin is being tracked and has exceeded it's quota. Call into
     // the Java side of things to inform the user.
@@ -380,15 +379,19 @@ void ChromeClientAndroid::exceededDatabaseQuota(Frame* frame, const String& name
 
     // We've sent notification to the browser so now wait for it to come back.
     m_quotaThreadLock.lock();
-    while (m_newQuota == -1) {
+    while (!m_isNewQuotaSet) {
         m_quotaThreadCondition.wait(m_quotaThreadLock);
     }
     m_quotaThreadLock.unlock();
 
-    // If new quota is unavailable, we may be able to resolve the situation by shrinking the quota of an origin that asked for a lot but is only using a little.
-    // If we find such a site, shrink it's quota and ask Java to try again.
+    if (m_newQuota < currentQuota)
+        m_newQuota = currentQuota;
 
-    if ((unsigned long long) m_newQuota == currentQuota && !m_triedToReclaimDBQuota) {
+    // If new quota is unavailable, we may be able to resolve the situation by
+    // shrinking the quota of an origin that asked for a lot but is only using a
+    // little. If we find such a site, shrink it's quota and ask Java to try
+    // again.
+    if (m_newQuota == currentQuota && !m_triedToReclaimDBQuota) {
         m_triedToReclaimDBQuota = true; // we should only try this once per quota overflow.
         unsigned long long reclaimedQuotaBytes = tryToReclaimDatabaseQuota(origin);
 
@@ -435,10 +438,7 @@ static unsigned long long tryToReclaimDatabaseQuota(SecurityOrigin* originNeedin
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
-    // Set m_newQuota before calling into the Java side. If we do this after,
-    // we could overwrite the result passed from the Java side and deadlock in the
-    // wait call below.
-    m_newQuota = -1;
+    m_isNewQuotaSet = false;
     Page* page = m_webFrame->page();
     Frame* mainFrame = page->mainFrame();
     FrameView* view = mainFrame->view();
@@ -446,7 +446,7 @@ void ChromeClientAndroid::reachedMaxAppCacheSize(int64_t spaceNeeded)
 
     // We've sent notification to the browser so now wait for it to come back.
     m_quotaThreadLock.lock();
-    while (m_newQuota == -1) {
+    while (!m_isNewQuotaSet) {
        m_quotaThreadCondition.wait(m_quotaThreadLock);
     }
     m_quotaThreadLock.unlock();
@@ -516,9 +516,10 @@ void ChromeClientAndroid::setCursor(const Cursor&)
     notImplemented(); 
 }
 
-void ChromeClientAndroid::wakeUpMainThreadWithNewQuota(long newQuota) {
+void ChromeClientAndroid::wakeUpMainThreadWithNewQuota(long long newQuota) {
     MutexLocker locker(m_quotaThreadLock);
-    m_newQuota = newQuota;
+    m_newQuota = newQuota < 0 ? 0 : newQuota;
+    m_isNewQuotaSet = true;
     m_quotaThreadCondition.signal();
 }
 
