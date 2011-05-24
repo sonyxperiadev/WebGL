@@ -134,11 +134,11 @@ void WebIconDatabase::deliverNotifications()
 
 static void Open(JNIEnv* env, jobject obj, jstring path)
 {
-    WebCore::IconDatabase* iconDb = WebCore::iconDatabase();
-    if (iconDb->isOpen())
+    WebCore::IconDatabase& iconDb = WebCore::iconDatabase();
+    if (iconDb.isOpen())
         return;
-    iconDb->setEnabled(true);
-    iconDb->setClient(gIconDatabaseClient);
+    iconDb.setEnabled(true);
+    iconDb.setClient(gIconDatabaseClient);
     LOG_ASSERT(path, "No path given to nativeOpen");
     WTF::String pathStr = jstringToWtfString(env, path);
     WTF::CString fullPath = WebCore::pathByAppendingComponent(pathStr,
@@ -157,7 +157,7 @@ static void Open(JNIEnv* env, jobject obj, jstring path)
     }
     if (didSetPermissions) {
         LOGV("Opening WebIconDatabase file '%s'", pathStr.latin1().data());
-        bool res = iconDb->open(pathStr);
+        bool res = iconDb.open(pathStr);
         if (!res)
             LOGE("Open failed!");
     } else
@@ -166,13 +166,13 @@ static void Open(JNIEnv* env, jobject obj, jstring path)
 
 static void Close(JNIEnv* env, jobject obj)
 {
-    WebCore::iconDatabase()->close();
+    WebCore::iconDatabase().close();
 }
 
 static void RemoveAllIcons(JNIEnv* env, jobject obj)
 {
     LOGV("Removing all icons");
-    WebCore::iconDatabase()->removeAllIcons();
+    WebCore::iconDatabase().removeAllIcons();
 }
 
 static jobject IconForPageUrl(JNIEnv* env, jobject obj, jstring url)
@@ -180,7 +180,7 @@ static jobject IconForPageUrl(JNIEnv* env, jobject obj, jstring url)
     LOG_ASSERT(url, "No url given to iconForPageUrl");
     WTF::String urlStr = jstringToWtfString(env, url);
 
-    WebCore::Image* icon = WebCore::iconDatabase()->iconForPageURL(urlStr,
+    WebCore::Image* icon = WebCore::iconDatabase().iconForPageURL(urlStr,
             WebCore::IntSize(16, 16));
     LOGV("Retrieving icon for '%s' %p", urlStr.latin1().data(), icon);
     return webcoreImageToJavaBitmap(env, icon);
@@ -192,7 +192,7 @@ static void RetainIconForPageUrl(JNIEnv* env, jobject obj, jstring url)
     WTF::String urlStr = jstringToWtfString(env, url);
 
     LOGV("Retaining icon for '%s'", urlStr.latin1().data());
-    WebCore::iconDatabase()->retainIconForPageURL(urlStr);
+    WebCore::iconDatabase().retainIconForPageURL(urlStr);
 }
 
 static void ReleaseIconForPageUrl(JNIEnv* env, jobject obj, jstring url)
@@ -201,7 +201,7 @@ static void ReleaseIconForPageUrl(JNIEnv* env, jobject obj, jstring url)
     WTF::String urlStr = jstringToWtfString(env, url);
 
     LOGV("Releasing icon for '%s'", urlStr.latin1().data());
-    WebCore::iconDatabase()->releaseIconForPageURL(urlStr);
+    WebCore::iconDatabase().releaseIconForPageURL(urlStr);
 }
 
 /*

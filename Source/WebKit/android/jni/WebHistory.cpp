@@ -291,7 +291,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
         int refIndex = url.reverseFind('#');
         url = url.substring(0, refIndex);
     }
-    WebCore::Image* icon = WebCore::iconDatabase()->iconForPageURL(url,
+    WebCore::Image* icon = WebCore::iconDatabase().iconForPageURL(url,
             WebCore::IntSize(16, 16));
 
     if (icon)
