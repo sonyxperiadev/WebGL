@@ -467,8 +467,8 @@ static bool TreatAsAttachment(const String& content_disposition) {
     return true;
 }
 
-void FrameLoaderClientAndroid::dispatchDecidePolicyForMIMEType(FramePolicyFunction func,
-                                const String& MIMEType, const ResourceRequest& request) {
+void FrameLoaderClientAndroid::dispatchDecidePolicyForResponse(FramePolicyFunction func,
+                                const ResourceResponse& response, const ResourceRequest& request) {
     ASSERT(m_frame);
     ASSERT(func);
     if (!func)
@@ -483,7 +483,6 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForMIMEType(FramePolicyFuncti
     // Default to Use (display internally).
     PolicyAction action = PolicyUse;
     // Check if we should Download instead.
-    const ResourceResponse& response = m_frame->loader()->activeDocumentLoader()->response();
     const String& content_disposition = response.httpHeaderField("Content-Disposition");
     if (!content_disposition.isEmpty() &&
             TreatAsAttachment(content_disposition)) {
@@ -498,7 +497,7 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForMIMEType(FramePolicyFuncti
     }
 
     // Ask if it can be handled internally.
-    if (!canShowMIMEType(MIMEType)) {
+    if (!canShowMIMEType(response.mimeType())) {
         // Check to see if we are a sub frame (main frame has no owner element)
         if (m_frame->ownerElement() != 0)
             action = PolicyIgnore;
@@ -699,6 +698,11 @@ bool FrameLoaderClientAndroid::shouldGoToHistoryItem(HistoryItem* item) const {
     // hmmm, seems like we might do a more thoughtful check
     ASSERT(m_frame);
     return item != NULL;
+}
+
+bool FrameLoaderClientAndroid::shouldStopLoadingForHistoryItem(HistoryItem* item) const
+{
+    return true;
 }
 
 void FrameLoaderClientAndroid::didDisplayInsecureContent()
