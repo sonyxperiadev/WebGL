@@ -1195,6 +1195,14 @@ AffineTransform GraphicsContext::getCTM() const
                            SkScalarToDouble(m.getTranslateY())); // f
 }
 
+void GraphicsContext::setCTM(const AffineTransform& transform)
+{
+    if (paintingDisabled())
+        return;
+
+    GC2CANVAS(this)->setMatrix(transform);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void GraphicsContext::fillPath(const Path& pathToFill)
