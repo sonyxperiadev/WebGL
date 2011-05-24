@@ -31,7 +31,11 @@
 
 #include "JavaString.h"
 
+#if USE(JSC)
+#include <runtime/JSObject.h>
 #include <runtime/ScopeChain.h>
+#endif
+
 #include <wtf/text/StringBuilder.h>
 
 using namespace JSC;
