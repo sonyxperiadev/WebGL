@@ -69,13 +69,13 @@ base::Thread* WebUrlLoaderClient::ioThread()
     return networkThread;
 }
 
-Lock* WebUrlLoaderClient::syncLock() {
+base::Lock* WebUrlLoaderClient::syncLock() {
     static Lock s_syncLock;
     return &s_syncLock;
 }
 
-ConditionVariable* WebUrlLoaderClient::syncCondition() {
-    static ConditionVariable s_syncCondition(syncLock());
+base::ConditionVariable* WebUrlLoaderClient::syncCondition() {
+    static base::ConditionVariable s_syncCondition(syncLock());
     return &s_syncCondition;
 }
 

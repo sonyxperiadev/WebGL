@@ -228,8 +228,8 @@ private:
         m_condition.Broadcast();
     }
 
-    Lock m_lock;
-    ConditionVariable m_condition;
+    base::Lock m_lock;
+    base::ConditionVariable m_condition;
     volatile int m_count;
 };
 

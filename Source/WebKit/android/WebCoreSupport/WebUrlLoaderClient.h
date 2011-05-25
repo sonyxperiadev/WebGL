@@ -36,10 +36,10 @@
 #include <string>
 #include <vector>
 
-class Lock;
-class ConditionVariable;
 
 namespace base {
+class ConditionVariable;
+class Lock;
 class Thread;
 }
 
@@ -118,8 +118,8 @@ private:
 
     // Mutex and condition variable used for synchronous requests.
     // Note that these are static. This works because there's only one main thread.
-    static Lock* syncLock();
-    static ConditionVariable* syncCondition();
+    static base::Lock* syncLock();
+    static base::ConditionVariable* syncCondition();
 
     // Queue of callbacks to be executed by the main thread. Must only be accessed inside mutex.
     std::deque<Task*> m_queue;

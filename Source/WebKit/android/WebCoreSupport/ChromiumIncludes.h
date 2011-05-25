@@ -47,13 +47,13 @@
 
 #include <android/net/android_network_library_impl.h>
 #include <base/callback.h>
-#include <base/condition_variable.h>
 #include <base/lock.h>
 #include <base/message_loop_proxy.h>
 #include <base/ref_counted.h>
 #include <base/string_util.h>
+#include <base/synchronization/condition_variable.h>
 #include <base/sys_string_conversions.h>
-#include <base/thread.h>
+#include <base/threading/thread.h>
 #include <base/time.h>
 #include <base/tuple.h>
 #include <chrome/browser/net/sqlite_persistent_cookie_store.h>
