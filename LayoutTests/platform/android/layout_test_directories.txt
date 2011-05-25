@@ -18,7 +18,7 @@ fast/dom/HTMLFormElement
 fast/dom/HTMLHtmlElement
 fast/dom/HTMLKeygenElement
 fast/dom/HTMLLabelElement
-fast/dom/HTMLLinklement
+fast/dom/HTMLLinkElement
 fast/dom/HTMLMetaElement
 fast/dom/HTMLTableRowElement
 fast/dom/HTMLTableSectionElement
