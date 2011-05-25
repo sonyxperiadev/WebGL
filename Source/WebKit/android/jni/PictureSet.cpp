@@ -40,6 +40,26 @@
 
 #define MAX_DRAW_TIME 100
 #define MIN_SPLITTABLE 400
+#define MAX_ADDITIONAL_AREA 0.65
+#define MAX_ADDITIONAL_PICTURES 32
+
+#include <wtf/CurrentTime.h>
+
+//#define DEBUG
+#ifdef DEBUG
+
+#include <cutils/log.h>
+#include <wtf/text/CString.h>
+
+#undef XLOG
+#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "PictureSet", __VA_ARGS__)
+
+#else
+
+#undef XLOG
+#define XLOG(...)
+
+#endif // DEBUG
 
 #if PICTURE_SET_DEBUG
 class MeasureStream : public SkWStream {
@@ -58,6 +78,7 @@ namespace android {
 PictureSet::PictureSet()
 {
     mWidth = mHeight = 0;
+    mBaseArea = mAdditionalArea = 0;
 }
 
 PictureSet::~PictureSet()
@@ -73,118 +94,182 @@ void PictureSet::add(const Pictures* temp)
     mPictures.append(pictureAndBounds);
 }
 
+// This function is used to maintain the list of Pictures.
+// Pictures contain an SkPicture covering a specific area; some
+// Pictures are "base" Pictures -- i.e. there is no Pictures
+// underneath them.
+// The idea here is to keep a balance between the number of Pictures
+// we have (more Pictures slow us down) and the area of Pictures that
+// need to be repainted (obviously, smaller areas are better).
+// To do so, we try to not update/repaint the base pictures -- by
+// construction, they usually cover a large area (the entire page).
+// We only reset a base picture if the new invalidated area entirely
+// contains it.
+// Most of the time we thus work on smaller pictures on top of the
+// base ones; We compute the total area of all pictures intersecting
+// with the passed invalidated area (as they would need to be invalidated),
+// and use that as the basis for the correct area we want to invalidate
+// (we then can simply delete the pictures we intersect with).
+// In addition, we do a couple of things to limit the total number of pictures
+// we keep in the list:
+// - if the total area of additional textures reach 65% of the base pictures,
+//   we delete the additional pictures and mark the base pictures as
+//   needing a full repaint
+// - we limit the number of pictures to 32 -- above that, we do the same
+//   things (deleting additional pictures + full repaint of base pictures)
 void PictureSet::add(const SkRegion& area, SkPicture* picture,
     uint32_t elapsed, bool split, bool empty)
 {
-    DBG_SET_LOGD("%p area={%d,%d,r=%d,b=%d} pict=%p elapsed=%d split=%d", this,
-        area.getBounds().fLeft, area.getBounds().fTop,
-        area.getBounds().fRight, area.getBounds().fBottom, picture,
-        elapsed, split);
-    SkSafeRef(picture);
-    /* if nothing is drawn beneath part of the new picture, mark it as a base */
-    SkRegion diff = SkRegion(area);
-    Pictures* last = mPictures.end();
-    for (Pictures* working = mPictures.begin(); working != last; working++)
-        diff.op(working->mArea, SkRegion::kDifference_Op);
-    Pictures pictureAndBounds = {area, picture, area.getBounds(),
-        elapsed, split, false, diff.isEmpty() == false, empty};
-    mPictures.append(pictureAndBounds);
-}
+    bool checkForNewBases = false;
 
-/*
-Pictures are discarded when they are fully drawn over.
-When a picture is partially drawn over, it is discarded if it is not a base, and
-its rectangular bounds is reduced if it is a base.
-*/
-bool PictureSet::build()
-{
-    bool rebuild = false;
-    DBG_SET_LOGD("%p", this);
-    // walk pictures back to front, removing or trimming obscured ones
-    SkRegion drawn;
-    SkRegion inval;
     Pictures* first = mPictures.begin();
     Pictures* last = mPictures.end();
-    Pictures* working;
-    bool checkForNewBases = false;
-    for (working = last; working != first; ) {
-        --working;
-        SkRegion& area = working->mArea;
-        SkRegion visibleArea(area);
-        visibleArea.op(drawn, SkRegion::kDifference_Op);
-#if PICTURE_SET_DEBUG
-        const SkIRect& a = area.getBounds();
-        const SkIRect& d = drawn.getBounds();
-        const SkIRect& i = inval.getBounds();
-        const SkIRect& v = visibleArea.getBounds();
-        DBG_SET_LOGD("%p [%d] area={%d,%d,r=%d,b=%d} drawn={%d,%d,r=%d,b=%d}"
-            " inval={%d,%d,r=%d,b=%d} vis={%d,%d,r=%d,b=%d}",
-            this, working - first,
-            a.fLeft, a.fTop, a.fRight, a.fBottom,
-            d.fLeft, d.fTop, d.fRight, d.fBottom,
-            i.fLeft, i.fTop, i.fRight, i.fBottom,
-            v.fLeft, v.fTop, v.fRight, v.fBottom);
-#endif
-        bool tossPicture = false;
-        if (working->mBase == false) {
-            if (area != visibleArea) {
-                if (visibleArea.isEmpty() == false) {
-                    DBG_SET_LOGD("[%d] partially overdrawn", working - first);
-                    inval.op(visibleArea, SkRegion::kUnion_Op);
-                } else
-                    DBG_SET_LOGD("[%d] fully hidden", working - first);
-                area.setEmpty();
-                tossPicture = true;
-            }
-        } else {
-            const SkIRect& visibleBounds = visibleArea.getBounds();
-            const SkIRect& areaBounds = area.getBounds();
-            if (visibleBounds != areaBounds) {
-                DBG_SET_LOGD("[%d] base to be reduced", working - first);
-                area.setRect(visibleBounds);
-                checkForNewBases = tossPicture = true;
-            }
-            if (area.intersects(inval)) {
-                DBG_SET_LOGD("[%d] base to be redrawn", working - first);
-                tossPicture = true;
-            }
-        }
-        if (tossPicture) {
-            SkSafeUnref(working->mPicture);
-            working->mPicture = NULL; // mark to redraw
-        }
-        if (working->mPicture == NULL) // may have been set to null elsewhere
-            rebuild = true;
-        drawn.op(area, SkRegion::kUnion_Op);
+#ifdef DEBUG
+    XLOG("--- before adding the new inval ---");
+    for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
+        SkIRect currentArea = working->mArea.getBounds();
+        XLOG("picture %d (%d, %d, %d, %d - %d x %d) (isRect? %c) base: %c",
+             working - first,
+             currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+             currentArea.width(), currentArea.height(),
+             working->mArea.isRect() ? 'Y' : 'N',
+             working->mBase ? 'Y' : 'N');
     }
-    // collapse out empty regions
+    XLOG("----------------------------------");
+#endif
+
+    // let's gather all the Pictures intersecting with the new invalidated
+    // area, collect their area and remove their picture
+    SkIRect totalArea = area.getBounds();
+    for (Pictures* working = first; working != last; working++) {
+        SkIRect inval = area.getBounds();
+        bool remove = false;
+        if (!working->mBase && working->mArea.intersects(inval))
+            remove = true;
+        if (working->mBase) {
+            SkIRect baseArea = working->mArea.getBounds();
+            if (area.contains(baseArea)) {
+                remove = true;
+                checkForNewBases = true;
+            }
+        }
+
+        if (remove) {
+            SkIRect currentArea = working->mArea.getBounds();
+            if (working->mBase)
+                mBaseArea -= currentArea.width() * currentArea.height();
+            else
+                mAdditionalArea -= currentArea.width() * currentArea.height();
+
+            totalArea.join(currentArea);
+            XLOG("picture %d (%d, %d, %d, %d - %d x %d) (isRect? %c) intersects with the new inval area (%d, %d, %d, %d - %d x %d) (isRect? %c, we remove it",
+                 working - first,
+                 currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+                 currentArea.width(), currentArea.height(),
+                 working->mArea.isRect() ? 'Y' : 'N',
+                 inval.fLeft, inval.fTop, inval.fRight, inval.fBottom,
+                 inval.width(), inval.height(),
+                 area.isRect() ? 'Y' : 'N');
+            working->mArea.setEmpty();
+            SkSafeUnref(working->mPicture);
+            working->mPicture = 0;
+
+        }
+    }
+
+    // Now we can add the new Picture to the list, with the correct area
+    // that need to be repainted
+    SkRegion collect;
+    collect.setRect(totalArea);
+    Pictures pictureAndBounds = {collect, 0, collect.getBounds(),
+        elapsed, split, false, false, empty};
+    mPictures.append(pictureAndBounds);
+    mAdditionalArea += totalArea.width() * totalArea.height();
+    last = mPictures.end();
+    first = mPictures.begin();
+
+    // Then, let's see if we have to clear up the pictures in order to keep
+    // the total number of pictures under our limit
+    bool clearUp = false;
+    if (last - first > MAX_ADDITIONAL_PICTURES) {
+        XLOG("--- too many pictures, only keeping the bases : %d", last - first);
+        clearUp = true;
+    }
+
+    if (!clearUp) {
+        if (mBaseArea > 0 && mBaseArea * MAX_ADDITIONAL_AREA <= mAdditionalArea) {
+            XLOG("+++ the sum of the additional area is > %.2f\% of the base Area (%.2f (%.2f) <= %.2f",
+                 MAX_ADDITIONAL_AREA * 100, baseArea * 0.65, baseArea, addArea);
+            clearUp = true;
+        }
+    }
+
+    if (clearUp) {
+        for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
+            if (!working->mBase)
+                working->mArea.setEmpty();
+            SkSafeUnref(working->mPicture);
+            working->mPicture = 0;
+        }
+    }
+
+#ifdef DEBUG
+    XLOG("--- after adding the new inval, but before collapsing ---");
+    for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
+        SkIRect currentArea = working->mArea.getBounds();
+        XLOG("picture %d (%d, %d, %d, %d - %d x %d) (isRect? %c) base: %c",
+             working - first,
+             currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+             currentArea.width(), currentArea.height(),
+             working->mArea.isRect() ? 'Y' : 'N',
+             working->mBase ? 'Y' : 'N');
+    }
+    XLOG("----------------------------------");
+    XLOG("let's collapse...");
+#endif
+
+    // Finally, let's do a pass to collapse out empty regions
     Pictures* writer = first;
-    for (working = first; working != last; working++) {
-        if (working->mArea.isEmpty())
+    for (Pictures* working = first; working != last; working++) {
+        if (working && working->mArea.isEmpty())
             continue;
         *writer++ = *working;
     }
-#if PICTURE_SET_DEBUG
-    if ((unsigned) (writer - first) != mPictures.size())
-        DBG_SET_LOGD("shrink=%d (was %d)", writer - first, mPictures.size());
-#endif
+    XLOG("shiking of %d elements", writer - first);
     mPictures.shrink(writer - first);
-    /* When a base is discarded because it was entirely drawn over, all  
-       remaining pictures are checked to see if one has become a base. */
+
+#ifdef DEBUG
+    XLOG("--- after adding the new inval ---");
+    for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
+        SkIRect currentArea = working->mArea.getBounds();
+        XLOG("picture %d (%d, %d, %d, %d - %d x %d) (isRect? %c) base: %c picture %x",
+             working - first,
+             currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+             currentArea.width(), currentArea.height(),
+             working->mArea.isRect() ? 'Y' : 'N',
+             working->mBase ? 'Y' : 'N', working->mPicture);
+    }
+    XLOG("----------------------------------");
+#endif
+
+    // Base pictures might have been removed/added -- let's recompute them
+    SkRegion drawn;
     if (checkForNewBases) {
         drawn.setEmpty();
         Pictures* last = mPictures.end();
-        for (working = mPictures.begin(); working != last; working++) {
+        XLOG("checkForNewBases...");
+        for (Pictures* working = mPictures.begin(); working != last; working++) {
             SkRegion& area = working->mArea;
+            const SkIRect& a = area.getBounds();
             if (drawn.contains(working->mArea) == false) {
                 working->mBase = true;
-                DBG_SET_LOGD("[%d] new base", working - mPictures.begin());
+                float area = a.width() * a.height();
+                mBaseArea += area;
+                mAdditionalArea -= area;
             }
             drawn.op(working->mArea, SkRegion::kUnion_Op);
         }
     }
-    validate(__FUNCTION__);
-    return rebuild;
 }
 
 void PictureSet::checkDimensions(int width, int height, SkRegion* inval)
