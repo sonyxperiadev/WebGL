@@ -85,6 +85,7 @@
 #include "webkitgeolocationpolicydecision.h"
 #include "webkitglobalsprivate.h"
 #include "webkithittestresultprivate.h"
+#include "webkiticondatabase.h"
 #include "webkitmarshal.h"
 #include "webkitnetworkrequest.h"
 #include "webkitnetworkresponse.h"
@@ -709,8 +710,8 @@ static gboolean webkit_web_view_expose_event(GtkWidget* widget, GdkEventExpose* 
         frame->view()->updateLayoutAndStyleIfNeededRecursive();
 
         RefPtr<cairo_t> cr = adoptRef(gdk_cairo_create(event->window));
-        GraphicsContext ctx(cr.get());
-        ctx.setGdkExposeEvent(event);
+        GraphicsContext gc(cr.get());
+        gc.setGdkExposeEvent(event);
 
         int rectCount;
         GOwnPtr<GdkRectangle> rects;
@@ -719,7 +720,7 @@ static gboolean webkit_web_view_expose_event(GtkWidget* widget, GdkEventExpose* 
         for (int i = 0; i < rectCount; i++)
             paintRects.append(IntRect(rects.get()[i]));
 
-        paintWebView(frame, priv->transparent, ctx, static_cast<IntRect>(event->area), paintRects);
+        paintWebView(frame, priv->transparent, gc, static_cast<IntRect>(event->area), paintRects);
     }
 
     return FALSE;
@@ -736,7 +737,7 @@ static gboolean webkit_web_view_draw(GtkWidget* widget, cairo_t* cr)
 
     Frame* frame = core(webView)->mainFrame();
     if (frame->contentRenderer() && frame->view()) {
-        GraphicsContext ctx(cr);
+        GraphicsContext gc(cr);
         IntRect rect = clipRect;
         cairo_rectangle_list_t* rectList = cairo_copy_clip_rectangle_list(cr);
 
@@ -747,7 +748,7 @@ static gboolean webkit_web_view_draw(GtkWidget* widget, cairo_t* cr)
             for (int i = 0; i < rectList->num_rectangles; i++)
                 rects.append(enclosingIntRect(FloatRect(rectList->rectangles[i])));
         }
-        paintWebView(frame, priv->transparent, ctx, rect, rects);
+        paintWebView(frame, priv->transparent, gc, rect, rects);
 
         cairo_rectangle_list_destroy(rectList);
     }
@@ -2315,6 +2316,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @icon_uri: the URI for the icon
      *
      * This signal is emitted when the main frame has got a favicon.
+     * See WebKitIconDatabase::icon-loaded if you want to keep track of
+     * icons for child frames.
      *
      * Since: 1.1.18
      */
@@ -3290,7 +3293,8 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
         javaScriptCanAccessClipboard, enableOfflineWebAppCache,
         enableUniversalAccessFromFileURI, enableFileAccessFromFileURI,
         enableDOMPaste, tabKeyCyclesThroughElements,
-        enableSiteSpecificQuirks, usePageCache, enableJavaApplet, enableHyperlinkAuditing, enableFullscreen;
+        enableSiteSpecificQuirks, usePageCache, enableJavaApplet,
+        enableHyperlinkAuditing, enableFullscreen, enableDNSPrefetching;
 
     WebKitEditingBehavior editingBehavior;
 
@@ -3331,6 +3335,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
                  "enable-hyperlink-auditing", &enableHyperlinkAuditing,
                  "spell-checking-languages", &defaultSpellCheckingLanguages,
                  "enable-fullscreen", &enableFullscreen,
+                 "enable-dns-prefetching", &enableDNSPrefetching,
                  NULL);
 
     settings->setDefaultTextEncodingName(defaultEncoding);
@@ -3375,6 +3380,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     WebKit::EditorClient* client = static_cast<WebKit::EditorClient*>(core(webView)->editorClient());
     static_cast<WebKit::TextCheckerClientEnchant*>(client->textChecker())->updateSpellCheckingLanguage(defaultSpellCheckingLanguages);
 #endif
+    settings->setDNSPrefetchingEnabled(enableDNSPrefetching);
 
     Page* page = core(webView);
     if (page)
@@ -3441,6 +3447,8 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
         settings->setJavaScriptEnabled(g_value_get_boolean(&value));
     else if (name == g_intern_string("enable-plugins"))
         settings->setPluginsEnabled(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-dns-prefetching"))
+        settings->setDNSPrefetchingEnabled(g_value_get_boolean(&value));
     else if (name == g_intern_string("resizable-text-areas"))
         settings->setTextAreasAreResizable(g_value_get_boolean(&value));
     else if (name == g_intern_string("user-stylesheet-uri"))
@@ -4337,8 +4345,7 @@ gboolean webkit_web_view_get_editable(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
 
-    Frame* frame = core(webView)->mainFrame();
-    return frame && frame->document()->inDesignMode();
+    return core(webView)->isEditable();
 }
 
 /**
@@ -4363,15 +4370,14 @@ void webkit_web_view_set_editable(WebKitWebView* webView, gboolean flag)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    Frame* frame = core(webView)->mainFrame();
-    g_return_if_fail(frame);
-
-    // TODO: What happens when the frame is replaced?
     flag = flag != FALSE;
     if (flag == webkit_web_view_get_editable(webView))
         return;
 
-    frame->document()->setDesignMode(flag ? WebCore::Document::on : WebCore::Document::off);
+    core(webView)->setEditable(flag);
+
+    Frame* frame = core(webView)->mainFrame();
+    g_return_if_fail(frame);
 
     if (flag) {
         frame->editor()->applyEditingStyleToBodyElement();
@@ -5058,10 +5064,39 @@ WebKitHitTestResult* webkit_web_view_get_hit_test_result(WebKitWebView* webView,
 G_CONST_RETURN gchar* webkit_web_view_get_icon_uri(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-    String iconURL = iconDatabase().iconURLForPageURL(core(webView)->mainFrame()->document()->url().prettyURL());
+    String iconURL = iconDatabase().synchronousIconURLForPageURL(core(webView)->mainFrame()->document()->url().prettyURL());
     webView->priv->iconURI = iconURL.utf8();
     return webView->priv->iconURI.data();
 }
+
+/**
+ * webkit_web_view_get_icon_pixbuf:
+ * @webView: the #WebKitWebView object
+ *
+ * Obtains a #GdkPixbuf of the favicon for the given #WebKitWebView, or
+ * a default icon if there is no icon for the given page. Use
+ * webkit_web_view_get_icon_uri() if you need to distinguish these cases.
+ * Usually you want to connect to WebKitWebView::icon-loaded and call this
+ * method in the callback.
+ *
+ * The pixbuf will have the largest size provided by the server and should
+ * be resized before it is displayed.
+ * See also webkit_icon_database_get_icon_pixbuf().
+ *
+ * Returns: (transfer full): a new reference to a #GdkPixbuf, or %NULL
+ *
+ * Since: 1.3.13
+ */
+GdkPixbuf* webkit_web_view_get_icon_pixbuf(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
+
+    const gchar* pageURI = webkit_web_view_get_uri(webView);
+    WebKitIconDatabase* database = webkit_get_icon_database();
+    return webkit_icon_database_get_icon_pixbuf(database, pageURI);
+}
+
+
 
 /**
  * webkit_web_view_get_dom_document:

@@ -48,6 +48,7 @@
 #import "PixelDumpSupport.h"
 #import "PolicyDelegate.h"
 #import "ResourceLoadDelegate.h"
+#import "StorageTrackerDelegate.h"
 #import "UIDelegate.h"
 #import "WebArchiveDumpSupport.h"
 #import "WorkQueue.h"
@@ -77,6 +78,7 @@
 #import <WebKit/WebPreferencesPrivate.h>
 #import <WebKit/WebPreferenceKeysPrivate.h>
 #import <WebKit/WebResourceLoadDelegate.h>
+#import <WebKit/WebStorageManagerPrivate.h>
 #import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebViewPrivate.h>
 #import <getopt.h>
@@ -134,6 +136,7 @@ static EditingDelegate *editingDelegate;
 static ResourceLoadDelegate *resourceLoadDelegate;
 static HistoryDelegate *historyDelegate;
 PolicyDelegate *policyDelegate;
+StorageTrackerDelegate *storageDelegate;
 
 static int dumpPixels;
 static int threaded;
@@ -303,6 +306,9 @@ WebView *createWebViewAndOffscreenWindow()
     [WebView registerURLSchemeAsLocal:@"feedsearch"];
     
     [webView setContinuousSpellCheckingEnabled:YES];
+    [webView setGrammarCheckingEnabled:YES];
+    [webView setInteractiveFormValidationEnabled:YES];
+    [webView setValidationMessageTimerMagnification:-1];
     
     // To make things like certain NSViews, dragging, and plug-ins work, put the WebView a window, but put it off-screen so you don't see it.
     // Put it at -10000, -10000 in "flipped coordinates", since WebCore and the DOM use flipped coordinates.
@@ -414,6 +420,7 @@ static void resetDefaultsToConsistentValues()
 
     NSString *path = libraryPathForDumpRenderTree();
     [defaults setObject:[path stringByAppendingPathComponent:@"Databases"] forKey:WebDatabaseDirectoryDefaultsKey];
+    [defaults setObject:[path stringByAppendingPathComponent:@"LocalStorage"] forKey:WebStorageDirectoryDefaultsKey];
     [defaults setObject:[path stringByAppendingPathComponent:@"LocalCache"] forKey:WebKitLocalCacheDefaultsKey];
 
     WebPreferences *preferences = [WebPreferences standardPreferences];
@@ -545,6 +552,7 @@ static void allocateGlobalControllers()
     resourceLoadDelegate = [[ResourceLoadDelegate alloc] init];
     policyDelegate = [[PolicyDelegate alloc] init];
     historyDelegate = [[HistoryDelegate alloc] init];
+    storageDelegate = [[StorageTrackerDelegate alloc] init];
 }
 
 // ObjC++ doens't seem to let me pass NSObject*& sadly.
@@ -562,6 +570,7 @@ static void releaseGlobalControllers()
     releaseAndZero(&resourceLoadDelegate);
     releaseAndZero(&uiDelegate);
     releaseAndZero(&policyDelegate);
+    releaseAndZero(&storageDelegate);
 }
 
 static void initializeGlobalsFromCommandLineOptions(int argc, const char *argv[])

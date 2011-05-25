@@ -13,6 +13,9 @@ CONFIG += staticlib
 
 DESTDIR = $$WEBCORE_DESTDIR
 
+DEFINES += BUILDING_WEBKIT
+DEFINES += QT_MAKEDLL
+
 contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
     DEFINES += ENABLE_NO_LISTBOX_RENDERING=1
 }
@@ -90,6 +93,7 @@ v8 {
         bindings/v8/DOMDataStore.cpp \
         bindings/v8/MainThreadDOMData.cpp \
         bindings/v8/NPV8Object.cpp \
+        bindings/v8/RetainedDOMInfo.cpp \
         bindings/v8/ScheduledAction.cpp \
         bindings/v8/ScopedDOMDataStore.cpp \
         bindings/v8/ScriptCachedFrameData.cpp \
@@ -203,6 +207,7 @@ v8 {
         bindings/v8/custom/V8StorageCustom.cpp \
         bindings/v8/custom/V8StyleSheetCustom.cpp \
         bindings/v8/custom/V8StyleSheetListCustom.cpp \
+        bindings/v8/custom/V8WebKitAnimationCustom.cpp \
         bindings/v8/custom/V8WebKitCSSMatrixConstructor.cpp \
         bindings/v8/custom/V8WebKitPointConstructor.cpp \
         bindings/v8/custom/V8WorkerContextCustom.cpp \
@@ -300,6 +305,7 @@ v8 {
         bindings/js/JSImageConstructor.cpp \
         bindings/js/JSImageDataCustom.cpp \
         bindings/js/JSInjectedScriptHostCustom.cpp \
+        bindings/js/JSInjectedScriptManager.cpp \
         bindings/js/JSInspectorFrontendHostCustom.cpp \
         bindings/js/JSInt16ArrayCustom.cpp \
         bindings/js/JSInt32ArrayCustom.cpp \
@@ -332,12 +338,15 @@ v8 {
         bindings/js/JSUint16ArrayCustom.cpp \
         bindings/js/JSUint32ArrayCustom.cpp \
         bindings/js/JSUint8ArrayCustom.cpp \
+        bindings/js/JSWebKitAnimationCustom.cpp \
+        bindings/js/JSWebKitAnimationListCustom.cpp \
         bindings/js/JSWebKitCSSKeyframeRuleCustom.cpp \
         bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp \
         bindings/js/JSWebKitCSSMatrixCustom.cpp \
         bindings/js/JSWebKitPointCustom.cpp \
         bindings/js/JSXMLHttpRequestCustom.cpp \
         bindings/js/JSXMLHttpRequestUploadCustom.cpp \
+        bindings/js/PageScriptDebugServer.cpp \
         bindings/js/ScheduledAction.cpp \
         bindings/js/ScriptCachedFrameData.cpp \
         bindings/js/ScriptCallStackFactory.cpp \
@@ -389,6 +398,7 @@ SOURCES += \
     css/CSSImportRule.cpp \
     css/CSSInheritedValue.cpp \
     css/CSSInitialValue.cpp \
+    css/CSSLineBoxContainValue.cpp \
     css/CSSMediaRule.cpp \
     css/CSSMutableStyleDeclaration.cpp \
     css/CSSOMUtils.cpp \
@@ -406,6 +416,7 @@ SOURCES += \
     css/CSSSelector.cpp \
     css/CSSSelectorList.cpp \
     css/CSSSegmentedFontFace.cpp \
+    css/CSSStyleApplyProperty.cpp \
     css/CSSStyleDeclaration.cpp \
     css/CSSStyleRule.cpp \
     css/CSSStyleSelector.cpp \
@@ -435,7 +446,6 @@ SOURCES += \
     css/WebKitCSSMatrix.cpp \
     css/WebKitCSSTransformValue.cpp \
     dom/ActiveDOMObject.cpp \
-    dom/AsyncScriptRunner.cpp \
     dom/Attr.cpp \
     dom/Attribute.cpp \
     dom/BeforeProcessEvent.cpp \
@@ -479,6 +489,7 @@ SOURCES += \
     dom/ErrorEvent.cpp \
     dom/Event.cpp \
     dom/EventContext.cpp \
+    dom/EventDispatcher.cpp \
     dom/EventNames.cpp \
     dom/EventTarget.cpp \
     dom/EventQueue.cpp \
@@ -519,6 +530,7 @@ SOURCES += \
     dom/ScriptableDocumentParser.cpp \
     dom/ScriptElement.cpp \
     dom/ScriptExecutionContext.cpp \
+    dom/ScriptRunner.cpp \
     dom/SelectElement.cpp \
     dom/SelectorNodeList.cpp \
     dom/SpaceSplitString.cpp \
@@ -791,8 +803,10 @@ SOURCES += \
     html/shadow/SliderThumbElement.cpp \
     html/shadow/TextControlInnerElements.cpp \
     inspector/ConsoleMessage.cpp \
+    inspector/DOMNodeHighlighter.cpp \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
+    inspector/InjectedScriptManager.cpp \
     inspector/InspectorAgent.cpp \
     inspector/InspectorApplicationCacheAgent.cpp \
     inspector/InspectorBrowserDebuggerAgent.cpp \
@@ -809,6 +823,7 @@ SOURCES += \
     inspector/InspectorFrontendClientLocal.cpp \
     inspector/InspectorFrontendHost.cpp \
     inspector/InspectorInstrumentation.cpp \
+    inspector/InspectorPageAgent.cpp \
     inspector/InspectorProfilerAgent.cpp \
     inspector/InspectorResourceAgent.cpp \
     inspector/InspectorRuntimeAgent.cpp \
@@ -816,10 +831,12 @@ SOURCES += \
     inspector/InspectorStyleSheet.cpp \
     inspector/InspectorTimelineAgent.cpp \
     inspector/InspectorValues.cpp \
+    inspector/PageDebuggerAgent.cpp \
     inspector/ScriptArguments.cpp \
     inspector/ScriptCallFrame.cpp \
     inspector/ScriptCallStack.cpp \
     inspector/TimelineRecordFactory.cpp \
+    inspector/WorkerDebuggerAgent.cpp \
     loader/archive/ArchiveResource.cpp \
     loader/archive/ArchiveResourceCollection.cpp \
     loader/cache/MemoryCache.cpp \
@@ -844,6 +861,7 @@ SOURCES += \
     loader/FrameLoaderStateMachine.cpp \
     loader/HistoryController.cpp \
     loader/FTPDirectoryParser.cpp \
+    loader/icon/IconDatabaseBase.cpp \
     loader/icon/IconLoader.cpp \
     loader/ImageLoader.cpp \
     loader/MainResourceLoader.cpp \
@@ -870,6 +888,8 @@ SOURCES += \
     page/animation/CompositeAnimation.cpp \
     page/animation/ImplicitAnimation.cpp \
     page/animation/KeyframeAnimation.cpp \
+    page/WebKitAnimation.cpp \
+    page/WebKitAnimationList.cpp \
     page/BarInfo.cpp \
     page/Chrome.cpp \
     page/Console.cpp \
@@ -928,6 +948,7 @@ SOURCES += \
     platform/text/LocalizedNumberNone.cpp \
     platform/ContentType.cpp \
     platform/CrossThreadCopier.cpp \
+    platform/DefaultLocalizationStrategy.cpp \
     platform/DragData.cpp \
     platform/DragImage.cpp \
     platform/FileChooser.cpp \
@@ -1198,6 +1219,8 @@ v8 {
         bindings/v8/npruntime_priv.h \
         bindings/v8/NPV8Object.h \
         bindings/v8/OwnHandle.h \
+        bindings/v8/RetainedDOMInfo.h \
+        bindings/v8/RetainedObjectInfo.h \
         bindings/v8/ScheduledAction.h \
         bindings/v8/ScopedDOMDataStore.h \
         bindings/v8/ScriptCachedFrameData.h \
@@ -1281,9 +1304,11 @@ v8 {
         bindings/js/JSStorageCustom.h \
         bindings/js/JSWorkerContextBase.h \
         bindings/js/JavaScriptCallFrame.h \
+        bindings/js/PageScriptDebugServer.h \
         bindings/js/ScheduledAction.h \
         bindings/js/ScriptCachedFrameData.h \
         bindings/js/ScriptController.h \
+        bindings/js/ScriptDebugServer.h \
         bindings/js/ScriptEventListener.h \
         bindings/js/ScriptFunctionCall.h \
         bindings/js/ScriptGCEvent.h \
@@ -1301,6 +1326,7 @@ v8 {
         bindings/js/StringSourceProvider.h \
         bindings/js/WebCoreJSClientData.h \
         bindings/js/WorkerScriptController.h \
+        bindings/js/WorkerScriptDebugServer.h \
         bridge/Bridge.h \
         bridge/c/CRuntimeObject.h \
         bridge/c/c_class.h \
@@ -1356,6 +1382,7 @@ HEADERS += \
     css/CSSSegmentedFontFace.h \
     css/CSSSelector.h \
     css/CSSSelectorList.h \
+    css/CSSStyleApplyProperty.h \
     css/CSSStyleDeclaration.h \
     css/CSSStyleRule.h \
     css/CSSStyleSelector.h \
@@ -1706,8 +1733,10 @@ HEADERS += \
     html/parser/HTMLViewSourceParser.h \
     html/parser/XSSFilter.h \
     inspector/ConsoleMessage.h \
+    inspector/DOMNodeHighlighter.h \
     inspector/InjectedScript.h \
     inspector/InjectedScriptHost.h \
+    inspector/InjectedScriptManager.h \
     inspector/InspectorAgent.h \
     inspector/InspectorApplicationCacheAgent.h \
     inspector/InspectorBrowserDebuggerAgent.h \
@@ -1725,6 +1754,7 @@ HEADERS += \
     inspector/InspectorFrontendClientLocal.h \
     inspector/InspectorFrontendHost.h \
     inspector/InspectorInstrumentation.h \
+    inspector/InspectorPageAgent.h \
     inspector/InspectorProfilerAgent.h \
     inspector/InspectorResourceAgent.h \
     inspector/InspectorRuntimeAgent.h \
@@ -1732,8 +1762,10 @@ HEADERS += \
     inspector/InspectorStyleSheet.h \
     inspector/InspectorTimelineAgent.h \
     inspector/InstrumentingAgents.h \
+    inspector/PageDebuggerAgent.h \
     inspector/ScriptGCEventListener.h \
     inspector/TimelineRecordFactory.h \
+    inspector/WorkerDebuggerAgent.h \
     loader/appcache/ApplicationCacheGroup.h \
     loader/appcache/ApplicationCacheHost.h \
     loader/appcache/ApplicationCache.h \
@@ -1763,6 +1795,7 @@ HEADERS += \
     loader/FrameLoaderStateMachine.h \
     loader/FTPDirectoryParser.h \
     loader/icon/IconDatabase.h \
+    loader/icon/IconDatabaseBase.h \
     loader/icon/IconLoader.h \
     loader/icon/IconRecord.h \
     loader/icon/PageURLRecord.h \
@@ -1833,6 +1866,8 @@ HEADERS += \
     page/SpeechInputListener.h \
     page/SpeechInputResult.h \
     page/SpeechInputResultList.h \
+    page/WebKitAnimation.h \
+    page/WebKitAnimationList.h \
     page/WindowFeatures.h \
     page/WorkerNavigator.h \
     platform/animation/Animation.h \
@@ -1842,6 +1877,7 @@ HEADERS += \
     platform/ContentType.h \
     platform/ContextMenu.h \
     platform/CrossThreadCopier.h \
+    platform/DefaultLocalizationStrategy.h \
     platform/DragData.h \
     platform/DragImage.h \
     platform/FileChooser.h \
@@ -1927,6 +1963,7 @@ HEADERS += \
     platform/Length.h \
     platform/text/LineEnding.h \
     platform/text/TextCheckerClient.h \
+    platform/text/TextChecking.h \
     platform/LinkHash.h \
     platform/Logging.h \
     platform/Language.h \
@@ -2523,7 +2560,9 @@ contains(DEFINES, ENABLE_SMOOTH_SCROLLING=1) {
 }
 
 win32-*|wince* {
+    HEADERS += platform/win/SystemInfo.h
     SOURCES += \
+        platform/win/SystemInfo.cpp \
         platform/win/SystemTimeWin.cpp \
         platform/graphics/win/TransformationMatrixWin.cpp
 }
@@ -2692,6 +2731,16 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBTransaction.cpp
 }
 
+contains(DEFINES, ENABLE_DATA_TRANSFER_ITEMS=1) {
+    HEADERS += \
+        dom/DataTransferItem.h \
+        dom/DataTransferItems.h \
+        dom/StringCallback.h
+    SOURCES += \
+        dom/DataTransferItem.cpp \
+        dom/StringCallback.cpp
+}
+
 contains(DEFINES, ENABLE_DOM_STORAGE=1) {
     HEADERS += \
         storage/AbstractDatabase.h \
@@ -2707,6 +2756,7 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/LocalStorageThread.h \
         storage/OriginQuotaManager.h \
         storage/OriginUsageRecord.h \
+        storage/SQLCallbackWrapper.h \
         storage/SQLResultSet.h \
         storage/SQLResultSetRowList.h \
         storage/SQLStatement.h \
@@ -2725,7 +2775,9 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/StorageMap.h \
         storage/StorageNamespace.h \
         storage/StorageNamespaceImpl.h \
-        storage/StorageSyncManager.h
+        storage/StorageSyncManager.h \
+        storage/StorageTracker.h \
+        storage/StorageTrackerClient.h
 
     !v8 {
         SOURCES += \
@@ -2742,7 +2794,8 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/StorageMap.cpp \
         storage/StorageNamespace.cpp \
         storage/StorageNamespaceImpl.cpp \
-        storage/StorageSyncManager.cpp
+        storage/StorageSyncManager.cpp \
+        storage/StorageTracker.cpp
 }
 
 contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
@@ -2816,9 +2869,6 @@ contains(DEFINES, ENABLE_ICONDATABASE=1) {
         loader/icon/IconDatabase.cpp \
         loader/icon/IconRecord.cpp \
         loader/icon/PageURLRecord.cpp
-} else {
-    SOURCES += \
-        loader/icon/IconDatabaseNone.cpp
 }
 
 contains(DEFINES, ENABLE_WORKERS=1) {
@@ -2828,7 +2878,8 @@ contains(DEFINES, ENABLE_WORKERS=1) {
             bindings/js/JSWorkerContextBase.cpp \
             bindings/js/JSWorkerContextCustom.cpp \
             bindings/js/JSWorkerCustom.cpp \
-            bindings/js/WorkerScriptController.cpp
+            bindings/js/WorkerScriptController.cpp \
+            bindings/js/WorkerScriptDebugServer.cpp
     }
     SOURCES += \
         loader/WorkerThreadableLoader.cpp \
@@ -3369,9 +3420,9 @@ contains(DEFINES, ENABLE_WEBGL=1) {
         html/canvas/OESStandardDerivatives.h \
         html/canvas/OESTextureFloat.h \
         html/canvas/OESVertexArrayObject.h \
-        html/canvas/OESVertexArray.h \
         html/canvas/WebGLTexture.h \
         html/canvas/WebGLUniformLocation.h \
+        html/canvas/WebGLVertexArrayObjectOES.h \
         html/canvas/WebKitLoseContext.h \
         platform/graphics/Extensions3D.h \
         platform/graphics/GraphicsContext3D.h \
@@ -3398,9 +3449,9 @@ contains(DEFINES, ENABLE_WEBGL=1) {
         html/canvas/OESStandardDerivatives.cpp \
         html/canvas/OESTextureFloat.cpp \
         html/canvas/OESVertexArrayObject.cpp \
-        html/canvas/OESVertexArray.cpp \
         html/canvas/WebGLTexture.cpp \
         html/canvas/WebGLUniformLocation.cpp \
+        html/canvas/WebGLVertexArrayObjectOES.cpp \
         html/canvas/WebKitLoseContext.cpp \
         platform/graphics/GraphicsContext3D.cpp \
         platform/graphics/gpu/DrawingBuffer.cpp \

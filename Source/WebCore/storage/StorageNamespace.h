@@ -50,10 +50,16 @@ public:
     virtual PassRefPtr<StorageNamespace> copy() = 0;
     virtual void close() = 0;
     virtual void unlock() = 0;
+<<<<<<< HEAD
 
 #ifdef ANDROID
     virtual void clear(Page*) = 0;
 #endif
+=======
+    virtual void clearOriginForDeletion(SecurityOrigin*) = 0;
+    virtual void clearAllOriginsForDeletion() = 0;
+    virtual void sync() = 0;
+>>>>>>> webkit.org at r82507
 };
 
 } // namespace WebCore

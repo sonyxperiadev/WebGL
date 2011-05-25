@@ -731,7 +731,7 @@ QMultiMap<QString, QString> QWebFrame::metaData() const
 
 static inline QUrl ensureAbsoluteUrl(const QUrl &url)
 {
-    if (!url.isRelative())
+    if (!url.isValid() || !url.isRelative())
         return url;
 
     // This contains the URL with absolute path but without 
@@ -780,26 +780,7 @@ QUrl QWebFrame::url() const
 */
 QUrl QWebFrame::requestedUrl() const
 {
-    // There are some possible edge cases to be handled here,
-    // apart from checking if activeDocumentLoader is valid:
-    //
-    // * Method can be called while processing an unsucessful load.
-    //   In this case, frameLoaderClient will hold the current error
-    //   (m_loadError), and we will make use of it to recover the 'failingURL'.
-    // * If the 'failingURL' holds a null'ed string though, we fallback
-    //   to 'outgoingReferrer' (it yet is safer than originalRequest).
-    FrameLoader* loader = d->frame->loader();
-    FrameLoaderClientQt* loaderClient = d->frameLoaderClient;
-
-    if (!loader->activeDocumentLoader()
-        || !loaderClient->m_loadError.isNull()) {
-        if (!loaderClient->m_loadError.failingURL().isNull())
-            return QUrl(loaderClient->m_loadError.failingURL());
-        else if (!loader->outgoingReferrer().isEmpty())
-            return QUrl(loader->outgoingReferrer());
-    }
-
-    return loader->originalRequest().url();
+    return d->frameLoaderClient->lastRequestedUrl();
 }
 /*!
     \since 4.6
@@ -893,11 +874,9 @@ void QWebFrame::load(const QNetworkRequest &req,
         case QNetworkAccessManager::DeleteOperation:
             request.setHTTPMethod("DELETE");
             break;
-#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
         case QNetworkAccessManager::CustomOperation:
             request.setHTTPMethod(req.attribute(QNetworkRequest::CustomVerbAttribute).toByteArray().constData());
             break;
-#endif
         case QNetworkAccessManager::UnknownOperation:
             // eh?
             break;

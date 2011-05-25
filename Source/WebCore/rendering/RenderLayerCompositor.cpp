@@ -109,11 +109,22 @@ RenderLayerCompositor::RenderLayerCompositor(RenderView* renderView)
     , m_compositing(false)
     , m_compositingLayersNeedRebuild(false)
     , m_flushingLayers(false)
+    , m_forceCompositingMode(false)
     , m_rootLayerAttachment(RootLayerUnattached)
 #if PROFILE_LAYER_REBUILD
     , m_rootLayerUpdateCount(0)
 #endif // PROFILE_LAYER_REBUILD
 {
+    Settings* settings = m_renderView->document()->settings();
+
+    // Even when forcing compositing mode, ignore child frames, or this will trigger
+    // layer creation from the enclosing RenderIFrame.
+    ASSERT(m_renderView->document()->frame());
+    if (settings && settings->forceCompositingMode() && settings->acceleratedCompositingEnabled()
+        && !m_renderView->document()->frame()->tree()->parent()) {
+        m_forceCompositingMode = true;
+        enableCompositingMode();
+    }
 }
 
 RenderLayerCompositor::~RenderLayerCompositor()
@@ -439,7 +450,7 @@ IntRect RenderLayerCompositor::calculateCompositedBounds(const RenderLayer* laye
     if (layer->renderer()->isRoot()) {
         // If the root layer becomes composited (e.g. because some descendant with negative z-index is composited),
         // then it has to be big enough to cover the viewport in order to display the background. This is akin
-        // to the code in RenderBox::paintRootBoxDecorations().
+        // to the code in RenderBox::paintRootBoxFillLayers().
         if (m_renderView->frameView()) {
             int rw = m_renderView->frameView()->contentsWidth();
             int rh = m_renderView->frameView()->contentsHeight();
@@ -770,7 +781,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 
     // If we're back at the root, and no other layers need to be composited, and the root layer itself doesn't need
     // to be composited, then we can drop out of compositing mode altogether.
-    if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !requiresCompositingLayer(layer)) {
+    if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !requiresCompositingLayer(layer) && !m_forceCompositingMode) {
         enableCompositingMode(false);
         willBeComposited = false;
     }
@@ -939,7 +950,7 @@ void RenderLayerCompositor::frameViewDidScroll(const IntPoint& scrollPosition)
         m_scrollLayer->setPosition(FloatPoint(-scrollPosition.x(), -scrollPosition.y()));
 }
 
-String RenderLayerCompositor::layerTreeAsText()
+String RenderLayerCompositor::layerTreeAsText(bool showDebugInfo)
 {
     if (compositingLayerUpdatePending())
         updateCompositingLayers();
@@ -949,7 +960,7 @@ String RenderLayerCompositor::layerTreeAsText()
 
     // We skip dumping the scroll and clip layers to keep layerTreeAsText output
     // similar between platforms.
-    return m_rootPlatformLayer->layerTreeAsText();
+    return m_rootPlatformLayer->layerTreeAsText(showDebugInfo ? LayerTreeAsTextDebug : LayerTreeAsTextBehaviorNormal);
 }
 
 RenderLayerCompositor* RenderLayerCompositor::iframeContentsCompositor(RenderIFrame* renderer)

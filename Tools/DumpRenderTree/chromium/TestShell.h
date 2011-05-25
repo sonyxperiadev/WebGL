@@ -65,6 +65,8 @@ class DRTDevToolsClient;
 struct TestParams {
     bool dumpTree;
     bool dumpPixels;
+    bool debugRenderTree;
+    bool debugLayerTree;
     bool printSeparators;
     WebKit::WebURL testUrl;
     // Resultant image file name. Required only if the test_shell mode.
@@ -74,6 +76,8 @@ struct TestParams {
     TestParams()
         : dumpTree(true)
         , dumpPixels(false)
+        , debugRenderTree(false)
+        , debugLayerTree(false)
         , printSeparators(false) {}
 };
 
@@ -125,6 +129,7 @@ public:
     void setAllowExternalPages(bool allowExternalPages) { m_allowExternalPages = allowExternalPages; }
 
     void setAcceleratedCompositingEnabled(bool enabled) { m_acceleratedCompositingEnabled = enabled; }
+    void setForceCompositingMode(bool enabled) { m_forceCompositingMode = enabled; }
     void setAccelerated2dCanvasEnabled(bool enabled) { m_accelerated2dCanvasEnabled = enabled; }
 
 #if defined(OS_WIN)
@@ -200,6 +205,7 @@ private:
     int m_timeout; // timeout value in millisecond
     bool m_allowExternalPages;
     bool m_acceleratedCompositingEnabled;
+    bool m_forceCompositingMode;
     bool m_accelerated2dCanvasEnabled;
     WebPreferences m_prefs;
     bool m_stressOpt;

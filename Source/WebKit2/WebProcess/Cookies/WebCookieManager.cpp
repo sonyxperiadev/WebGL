@@ -62,21 +62,25 @@ void WebCookieManager::getHostnamesWithCookies(uint64_t callbackID)
     copyToVector(hostnames, hostnameList);
 
     WebProcess::shared().connection()->send(Messages::WebCookieManagerProxy::DidGetHostnamesWithCookies(hostnameList, callbackID), 0);
+    WebProcess::shared().terminateIfPossible();
 }
 
 void WebCookieManager::deleteCookiesForHostname(const String& hostname)
 {
     WebCore::deleteCookiesForHostname(hostname);
+    WebProcess::shared().terminateIfPossible();
 }
 
 void WebCookieManager::deleteAllCookies()
 {
     WebCore::deleteAllCookies();
+    WebProcess::shared().terminateIfPossible();
 }
 
 void WebCookieManager::startObservingCookieChanges()
 {
     WebCore::startObservingCookieChanges();
+    WebProcess::shared().terminateIfPossible();
 }
 
 void WebCookieManager::stopObservingCookieChanges()
@@ -87,6 +91,18 @@ void WebCookieManager::stopObservingCookieChanges()
 void WebCookieManager::dispatchCookiesDidChange()
 {
     WebProcess::shared().connection()->send(Messages::WebCookieManagerProxy::CookiesDidChange(), 0);
+}
+
+void WebCookieManager::setHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy policy)
+{
+    platformSetHTTPCookieAcceptPolicy(policy);
+    WebProcess::shared().terminateIfPossible();
+}
+
+void WebCookieManager::getHTTPCookieAcceptPolicy(uint64_t callbackID)
+{
+    WebProcess::shared().connection()->send(Messages::WebCookieManagerProxy::DidGetHTTPCookieAcceptPolicy(platformGetHTTPCookieAcceptPolicy(), callbackID), 0);
+    WebProcess::shared().terminateIfPossible();
 }
 
 } // namespace WebKit

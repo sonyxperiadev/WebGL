@@ -26,6 +26,7 @@
 #include "config.h"
 #include "JSZombie.h"
 #include "ClassInfo.h"
+#include "JSObject.h"
 #include "ScopeChain.h"
 
 #if ENABLE(JSC_ZOMBIES)
@@ -38,7 +39,7 @@ Structure* JSZombie::leakedZombieStructure() {
     static Structure* structure = 0;
     if (!structure) {
         Structure::startIgnoringLeaks();
-        structure = Structure::create(jsNull(), TypeInfo(UnspecifiedType), 0, &info).leakRef();
+        structure = Structure::create(jsNull(), TypeInfo(UnspecifiedType), 0, &s_info).leakRef();
         Structure::stopIgnoringLeaks();
     }
     return structure;

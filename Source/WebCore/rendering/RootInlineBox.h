@@ -99,8 +99,8 @@ public:
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int, int, int, int);
 
-    bool hasSelectedChildren() const { return m_hasSelectedChildren; }
-    void setHasSelectedChildren(bool);
+    bool hasSelectedChildren() const { return m_hasSelectedChildrenOrCanHaveLeadingExpansion; }
+    void setHasSelectedChildren(bool hasSelectedChildren) { m_hasSelectedChildrenOrCanHaveLeadingExpansion = hasSelectedChildren; }
 
     virtual RenderObject::SelectionState selectionState();
     InlineBox* firstSelectedBox();
@@ -133,6 +133,17 @@ public:
 
     IntRect paddedLayoutOverflowRect(int endPadding) const;
 
+    void ascentAndDescentForBox(InlineBox*, GlyphOverflowAndFallbackFontsMap&, int& ascent, int& descent, bool& affectsAscent, bool& affectsDescent) const;
+    int verticalPositionForBox(InlineBox*, VerticalPositionCache&);
+    bool includeLeadingForBox(InlineBox*) const;
+    bool includeFontForBox(InlineBox*) const;
+    bool includeGlyphsForBox(InlineBox*) const;
+    bool includeMarginForBox(InlineBox*) const;
+    bool fitsToGlyphs() const;
+    bool includesRootLineBoxFontOrLeading() const;
+
+    Node* getLogicalStartBoxWithNode(InlineBox*&);
+    Node* getLogicalEndBoxWithNode(InlineBox*&);
 private:
     bool hasEllipsisBox() const { return m_hasEllipsisBoxOrHyphen; }
     void setHasEllipsisBox(bool hasEllipsisBox) { m_hasEllipsisBoxOrHyphen = hasEllipsisBox; }

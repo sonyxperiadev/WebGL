@@ -221,7 +221,8 @@ bool NetscapePlugin::platformPostInitialize()
     
 #ifndef NP_NO_QUICKDRAW
     // Right now we don't support the QuickDraw drawing model at all
-    if (m_drawingModel == NPDrawingModelQuickDraw)
+    if (m_drawingModel == NPDrawingModelQuickDraw &&
+        !m_pluginModule->pluginQuirks().contains(PluginQuirks::AllowHalfBakedQuickDrawSupport))
         return false;
 #endif
 
@@ -230,7 +231,17 @@ bool NetscapePlugin::platformPostInitialize()
         // Get the Core Animation layer.
         if (NPP_GetValue(NPPVpluginCoreAnimationLayer, &value) == NPERR_NO_ERROR && value) {
             ASSERT(!m_pluginLayer);
-            m_pluginLayer = reinterpret_cast<CALayer *>(value);
+
+            CALayer *realPluginLayer = reinterpret_cast<CALayer *>(value);
+
+            // Create a layer with flipped geometry and add the real plug-in layer as a sublayer
+            // so the coordinate system will match the event coordinate system.
+            m_pluginLayer.adoptNS([[CALayer alloc] init]);
+            [m_pluginLayer.get() setBounds:[realPluginLayer bounds]];
+            [m_pluginLayer.get() setGeometryFlipped:YES];
+
+            [realPluginLayer setAutoresizingMask:kCALayerWidthSizable | kCALayerHeightSizable];
+            [m_pluginLayer.get() addSublayer:realPluginLayer];
         }
     }
 
@@ -277,6 +288,10 @@ void NetscapePlugin::platformDestroy()
 
 bool NetscapePlugin::platformInvalidate(const IntRect&)
 {
+    // NPN_InvalidateRect is just a no-op in the Core Animation drawing model.
+    if (m_drawingModel == NPDrawingModelCoreAnimation)
+        return true;
+
     return false;
 }
 

@@ -34,6 +34,7 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebFrameLoaderClient.h"
+#include "WebFullScreenManager.h"
 #include "WebOpenPanelParameters.h"
 #include "WebOpenPanelResultListener.h"
 #include "WebPage.h"
@@ -51,6 +52,7 @@
 #include <WebCore/FrameView.h>
 #include <WebCore/HTMLNames.h>
 #include <WebCore/HTMLPlugInImageElement.h>
+#include <WebCore/Icon.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/SecurityOrigin.h>
@@ -115,18 +117,17 @@ FloatRect WebChromeClient::pageRect()
 
 float WebChromeClient::scaleFactor()
 {
-    notImplemented();
-    return 1.0;
+    return m_page->userSpaceScaleFactor();
 }
 
 void WebChromeClient::focus()
 {
-    notImplemented();
+    m_page->send(Messages::WebPageProxy::SetFocus(true));
 }
 
 void WebChromeClient::unfocus()
 {
-    notImplemented();
+    m_page->send(Messages::WebPageProxy::SetFocus(false));
 }
 
 bool WebChromeClient::canTakeFocus(FocusDirection)
@@ -373,7 +374,7 @@ void WebChromeClient::scroll(const IntSize& scrollOffset, const IntRect& scrollR
 }
 
 #if ENABLE(TILED_BACKING_STORE)
-void WebChromeClient::delegatedScrollRequested(const IntSize& scrollOffset)
+void WebChromeClient::delegatedScrollRequested(const IntPoint& scrollOffset)
 {
     m_page->pageDidRequestScroll(scrollOffset);
 }
@@ -385,10 +386,9 @@ IntPoint WebChromeClient::screenToWindow(const IntPoint&) const
     return IntPoint();
 }
 
-IntRect WebChromeClient::windowToScreen(const IntRect&) const
+IntRect WebChromeClient::windowToScreen(const IntRect& rect) const
 {
-    notImplemented();
-    return IntRect();
+    return m_page->windowToScreen(rect);
 }
 
 PlatformPageClient WebChromeClient::platformPageClient() const
@@ -545,14 +545,13 @@ void WebChromeClient::paintCustomHighlight(Node*, const AtomicString& type, cons
 
 bool WebChromeClient::shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename)
 {
-    notImplemented();
-    return false;
+    generatedFilename = m_page->injectedBundleUIClient().shouldGenerateFileForUpload(m_page, path);
+    return !generatedFilename.isNull();
 }
 
 String WebChromeClient::generateReplacementFile(const String& path)
 {
-    notImplemented();
-    return String();
+    return m_page->injectedBundleUIClient().generateFileForUpload(m_page, path);
 }
 
 bool WebChromeClient::paintCustomScrollbar(GraphicsContext*, const FloatRect&, ScrollbarControlSize, 
@@ -610,9 +609,9 @@ void WebChromeClient::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFile
     m_page->send(Messages::WebPageProxy::RunOpenPanel(static_cast<WebFrameLoaderClient*>(frame->loader()->client())->webFrame()->frameID(), parameters));
 }
 
-void WebChromeClient::chooseIconForFiles(const Vector<String>&, FileChooser*)
+void WebChromeClient::chooseIconForFiles(const Vector<String>& filenames, FileChooser* chooser)
 {
-    notImplemented();
+    chooser->iconLoaded(Icon::createIconForFiles(filenames));
 }
 
 void WebChromeClient::setCursor(const WebCore::Cursor& cursor)
@@ -639,12 +638,20 @@ void WebChromeClient::formDidBlur(const Node*)
 
 bool WebChromeClient::selectItemWritingDirectionIsNatural()
 {
+#if PLATFORM(WIN)
+    return true;
+#else
     return false;
+#endif
 }
 
 bool WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection()
 {
+#if PLATFORM(WIN)
+    return false;
+#else
     return true;
+#endif
 }
 
 PassRefPtr<WebCore::PopupMenu> WebChromeClient::createPopupMenu(WebCore::PopupMenuClient* client) const
@@ -703,6 +710,29 @@ void WebChromeClient::needTouchEvents(bool)
 void WebChromeClient::setLastSetCursorToCurrentCursor()
 {
 }
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+bool WebChromeClient::supportsFullScreenForElement(const WebCore::Element* element, bool withKeyboard)
+{
+    return m_page->fullScreenManager()->supportsFullScreen(withKeyboard);
+}
+
+void WebChromeClient::enterFullScreenForElement(WebCore::Element* element)
+{
+    m_page->fullScreenManager()->enterFullScreenForElement(element);
+}
+
+void WebChromeClient::exitFullScreenForElement(WebCore::Element* element)
+{
+    m_page->fullScreenManager()->exitFullScreenForElement(element);
+}
+    
+void WebChromeClient::setRootFullScreenLayer(GraphicsLayer* layer)
+{
+    m_page->fullScreenManager()->setRootFullScreenLayer(layer);
+}
+
 #endif
 
 void WebChromeClient::dispatchViewportDataDidChange(const ViewportArguments& args) const

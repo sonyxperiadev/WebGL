@@ -41,6 +41,7 @@
 #include "WebFrame.h"
 #include "WebGeolocationManagerMessages.h"
 #include "WebKeyValueStorageManager.h"
+#include "WebMediaCacheManager.h"
 #include "WebMemorySampler.h"
 #include "WebPage.h"
 #include "WebPageCreationParameters.h"
@@ -50,6 +51,7 @@
 #include "WebProcessMessages.h"
 #include "WebProcessProxyMessages.h"
 #include "WebResourceCacheManager.h"
+#include <WebCore/AXObjectCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/CrossOriginPreflightResultCache.h>
 #include <WebCore/Font.h>
@@ -62,6 +64,7 @@
 #include <WebCore/SchemeRegistry.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/Settings.h>
+#include <WebCore/StorageTracker.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RandomNumber.h>
 
@@ -126,6 +129,7 @@ WebProcess::WebProcess()
 #endif
     , m_textCheckerState()
     , m_geolocationManager(this)
+    , m_iconDatabaseProxy(this)
 {
 #if USE(PLATFORM_STRATEGIES)
     // Initialize our platform strategies.
@@ -175,6 +179,15 @@ void WebProcess::initializeWebProcess(const WebProcessCreationParameters& parame
     WebDatabaseManager::initialize(parameters.databaseDirectory);
 #endif
 
+#if ENABLE(ICONDATABASE)
+    m_iconDatabaseProxy.setEnabled(parameters.iconDatabaseEnabled);
+#endif
+
+#if ENABLE(DOM_STORAGE)
+    StorageTracker::initializeTracker(parameters.localStorageDirectory);
+    m_localStorageDirectory = parameters.localStorageDirectory;
+#endif
+    
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (!parameters.applicationCacheDirectory.isEmpty())
         cacheStorage().setCacheDirectory(parameters.applicationCacheDirectory);
@@ -453,6 +466,17 @@ void WebProcess::calculateCacheSizes(CacheModel cacheModel, uint64_t memorySize,
     };
 }
 
+WebPage* WebProcess::focusedWebPage() const
+{    
+    HashMap<uint64_t, RefPtr<WebPage> >::const_iterator end = m_pageMap.end();
+    for (HashMap<uint64_t, RefPtr<WebPage> >::const_iterator it = m_pageMap.begin(); it != end; ++it) {
+        WebPage* page = (*it).second.get();
+        if (page->windowIsFocused())
+            return page;
+    }
+    return 0;
+}
+    
 WebPage* WebProcess::webPage(uint64_t pageID) const
 {
     return m_pageMap.get(pageID).get();
@@ -565,8 +589,18 @@ void WebProcess::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::Mes
         return;
     }
 
+    if (messageID.is<CoreIPC::MessageClassWebIconDatabaseProxy>()) {
+        m_iconDatabaseProxy.didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
     if (messageID.is<CoreIPC::MessageClassWebKeyValueStorageManager>()) {
         WebKeyValueStorageManager::shared().didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
+    if (messageID.is<CoreIPC::MessageClassWebMediaCacheManager>()) {
+        WebMediaCacheManager::shared().didReceiveMessage(connection, messageID, arguments);
         return;
     }
 
@@ -668,9 +702,11 @@ WebPageGroupProxy* WebProcess::webPageGroup(const WebPageGroupData& pageGroupDat
     return result.first->second.get();
 }
 
-void WebProcess::clearResourceCaches()
+void WebProcess::clearResourceCaches(uint32_t cachesToClear)
 {
-    platformClearResourceCaches();
+    ResourceCachesToClear resourceCachesToClear = static_cast<ResourceCachesToClear>(cachesToClear);
+
+    platformClearResourceCaches(resourceCachesToClear);
 
     // Toggling the cache model like this forces the cache to evict all its in-memory resources.
     // FIXME: We need a better way to do this.
@@ -748,6 +784,11 @@ void WebProcess::cancelDownload(uint64_t downloadID)
     DownloadManager::shared().cancelDownload(downloadID);
 }
 
+void WebProcess::setEnhancedAccessibility(bool flag)
+{
+    WebCore::AXObjectCache::setEnhancedUserInterfaceAccessibility(flag);
+}
+    
 void WebProcess::startMemorySampler(const SandboxExtension::Handle& sampleLogFileHandle, const String& sampleLogFilePath, const double interval)
 {
 #if ENABLE(MEMORY_SAMPLER)    

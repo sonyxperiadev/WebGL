@@ -53,7 +53,6 @@ public:
 
     static void setLinksIncludedInFocusChain(bool);
     static bool linksIncludedInFocusChain();
-    static void setIconDatabaseEnabled(bool);
     static void setSelectTrailingWhitespaceEnabled(bool);
     static bool selectTrailingWhitespaceEnabled();
 
@@ -85,6 +84,8 @@ public:
     static AtkObject* getFocusedAccessibleElement(WebKitWebFrame*);
     static AtkObject* getRootAccessibleElement(WebKitWebFrame*);
     static void layoutFrame(WebKitWebFrame*);
+    static void setAutofilled(JSContextRef, JSValueRef, bool);
+    static void setValueForUser(JSContextRef, JSValueRef, JSStringRef);
 
     // WebKitWebView
     static void executeCoreCommandByName(WebKitWebView*, const gchar* name, const gchar* value);

@@ -124,7 +124,26 @@ WebInspector.ProfilesPanel = function()
     this._profiles = [];
     this._profilerEnabled = Preferences.profilerAlwaysEnabled;
     this._reset();
+
+    this._registerProfileType(new WebInspector.CPUProfileType());
+    if (Preferences.heapProfilerPresent) {
+        if (!Preferences.detailedHeapProfiles)
+            this._registerProfileType(new WebInspector.HeapSnapshotProfileType());
+        else
+            this._registerProfileType(new WebInspector.DetailedHeapshotProfileType());
+    }
+
     InspectorBackend.registerDomainDispatcher("Profiler", new WebInspector.ProfilerDispatcher(this));
+
+    if (Preferences.profilerAlwaysEnabled || WebInspector.settings.profilerEnabled)
+        ProfilerAgent.enable();
+    else {
+        function onProfilerEnebled(error, value) {
+            if (value)
+                this._profilerWasEnabled();
+        }
+        ProfilerAgent.isEnabled(onProfilerEnebled.bind(this));
+    }
 }
 
 WebInspector.ProfilesPanel.prototype = {
@@ -230,7 +249,7 @@ WebInspector.ProfilesPanel.prototype = {
         this._reset();
     },
 
-    registerProfileType: function(profileType)
+    _registerProfileType: function(profileType)
     {
         this._profileTypesByIdMap[profileType.id] = profileType;
         profileType.treeElement = new WebInspector.SidebarSectionTreeElement(profileType.name, null, true);
@@ -614,10 +633,10 @@ WebInspector.ProfilesPanel.prototype = {
     {
         if (this._profilerEnabled) {
             WebInspector.settings.profilerEnabled = false;
-            InspectorAgent.disableProfiler(true);
+            ProfilerAgent.disable();
         } else {
             WebInspector.settings.profilerEnabled = !!optionalAlways;
-            InspectorAgent.enableProfiler();
+            ProfilerAgent.enable();
         }
     },
 
@@ -626,7 +645,9 @@ WebInspector.ProfilesPanel.prototype = {
         if (!this._profilerEnabled || this._profilesWereRequested)
             return;
 
-        function populateCallback(profileHeaders) {
+        function populateCallback(error, profileHeaders) {
+            if (error)
+                return;
             profileHeaders.sort(function(a, b) { return a.uid - b.uid; });
             var profileHeadersLength = profileHeaders.length;
             for (var i = 0; i < profileHeadersLength; ++i)

@@ -450,13 +450,19 @@ void InspectorStyle::populateObjectWithStyleProperties(InspectorObject* result) 
 
         RefPtr<InspectorObject> property = InspectorObject::create();
         propertiesObject->pushObject(property);
-        property->setString("status", it->disabled ? "disabled" : "active");
-        property->setBoolean("parsedOk", propertyEntry.parsedOk);
+        String status = it->disabled ? "disabled" : "active";
+
+        // Default "parsedOk" == true.
+        if (!propertyEntry.parsedOk)
+            property->setBoolean("parsedOk", false);
         if (it->hasRawText())
             property->setString("text", it->rawText);
         property->setString("name", name);
         property->setString("value", propertyEntry.value);
-        property->setString("priority", propertyEntry.important ? "important" : "");
+
+        // Default "priority" == "".
+        if (propertyEntry.important)
+            property->setString("priority", "important");
         if (!it->disabled) {
             if (it->hasSource) {
                 property->setBoolean("implicit", false);
@@ -481,25 +487,35 @@ void InspectorStyle::populateObjectWithStyleProperties(InspectorObject* result) 
 
                 if (shouldInactivate) {
                     activeIt->second->setString("status", "inactive");
-                    activeIt->second->setString("shorthandName", "");
+                    activeIt->second->remove("shorthandName");
                     propertyNameToPreviousActiveProperty.set(name, property);
                 }
             } else {
-                property->setBoolean("implicit", m_style->isPropertyImplicit(name));
-                property->setString("status", "style");
+                bool implicit = m_style->isPropertyImplicit(name);
+                // Default "implicit" == false.
+                if (implicit)
+                    property->setBoolean("implicit", true);
+                status = "";
             }
         }
+
+        // Default "status" == "style".
+        if (!status.isEmpty())
+            property->setString("status", status);
 
         if (propertyEntry.parsedOk) {
             // Both for style-originated and parsed source properties.
             String shorthand = m_style->getPropertyShorthand(name);
-            property->setString("shorthandName", shorthand);
-            if (!shorthand.isEmpty() && !foundShorthands.contains(shorthand)) {
-                foundShorthands.add(shorthand);
-                shorthandValues->setString(shorthand, shorthandValue(shorthand));
+            if (!shorthand.isEmpty()) {
+                // Default "shorthandName" == "".
+                property->setString("shorthandName", shorthand);
+                if (!foundShorthands.contains(shorthand)) {
+                    foundShorthands.add(shorthand);
+                    shorthandValues->setString(shorthand, shorthandValue(shorthand));
+                }
             }
-        } else
-            property->setString("shorthandName", "");
+        }
+        // else shorthandName is not set
     }
 
     result->setArray("cssProperties", propertiesObject);
@@ -692,9 +708,7 @@ PassRefPtr<InspectorObject> InspectorStyleSheet::buildObjectForStyleSheet()
         return 0;
 
     RefPtr<InspectorObject> result = InspectorObject::create();
-    result->setBoolean("disabled", styleSheet->disabled());
-    result->setString("sourceURL", finalURL());
-    result->setString("title", styleSheet->title());
+    result->setString("styleSheetId", id());
     RefPtr<CSSRuleList> cssRuleList = CSSRuleList::create(styleSheet, true);
     RefPtr<InspectorArray> cssRules = buildArrayForRuleList(cssRuleList.get());
     result->setArray("rules", cssRules.release());
@@ -704,8 +718,20 @@ PassRefPtr<InspectorObject> InspectorStyleSheet::buildObjectForStyleSheet()
     if (success)
         result->setString("text", styleSheetText);
 
-    result->setString("styleSheetId", id());
+    return result.release();
+}
 
+PassRefPtr<InspectorObject> InspectorStyleSheet::buildObjectForStyleSheetInfo()
+{
+    CSSStyleSheet* styleSheet = pageStyleSheet();
+    if (!styleSheet)
+        return 0;
+
+    RefPtr<InspectorObject> result = InspectorObject::create();
+    result->setString("styleSheetId", id());
+    result->setBoolean("disabled", styleSheet->disabled());
+    result->setString("sourceURL", finalURL());
+    result->setString("title", styleSheet->title());
     return result.release();
 }
 
@@ -1017,7 +1043,9 @@ bool InspectorStyleSheet::resourceStyleSheetText(String* result) const
     if (!m_pageStyleSheet || !ownerDocument())
         return false;
 
-    return InspectorResourceAgent::resourceContent(ownerDocument()->frame(), m_pageStyleSheet->finalURL(), result);
+    String error;
+    InspectorResourceAgent::resourceContent(&error, ownerDocument()->frame(), m_pageStyleSheet->finalURL(), result);
+    return error.isEmpty();
 }
 
 bool InspectorStyleSheet::inlineStyleSheetText(String* result) const

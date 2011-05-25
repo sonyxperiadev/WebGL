@@ -32,7 +32,6 @@
 #include "PropertyMapHashTable.h"
 #include "PropertyNameArray.h"
 #include "Protect.h"
-#include "StructureChain.h"
 #include "StructureTransitionTable.h"
 #include "JSTypeInfo.h"
 #include "UString.h"
@@ -46,6 +45,7 @@ namespace JSC {
     class MarkStack;
     class PropertyNameArray;
     class PropertyNameArrayData;
+    class StructureChain;
 
     struct ClassInfo;
 
@@ -56,11 +56,16 @@ namespace JSC {
 
     class Structure : public RefCounted<Structure> {
     public:
-        friend class JIT;
         friend class StructureTransitionTable;
-        static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount, const ClassInfo* classInfo)
+        static PassRefPtr<Structure> create(JSGlobalData&, JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount, const ClassInfo* classInfo)
         {
             return adoptRef(new Structure(prototype, typeInfo, anonymousSlotCount, classInfo));
+        }
+
+        enum VPtrStealingHackType { VPtrStealingHack };
+        static PassRefPtr<Structure> create(VPtrStealingHackType, const ClassInfo* classInfo)
+        {
+            return adoptRef(new Structure(jsNull(), TypeInfo(UnspecifiedType), 0, classInfo));
         }
 
         static void startIgnoringLeaks();
@@ -102,6 +107,7 @@ namespace JSC {
         DeprecatedPtr<Unknown>* storedPrototypeSlot() { return &m_prototype; }
         JSValue prototypeForLookup(ExecState*) const;
         StructureChain* prototypeChain(ExecState*) const;
+        DeprecatedPtr<StructureChain>* cachedPrototypeChainSlot() { return &m_cachedPrototypeChain; }
 
         Structure* previousID() const { return m_previous.get(); }
 
@@ -139,6 +145,21 @@ namespace JSC {
         const ClassInfo* classInfo() const { return m_classInfo; }
 
         static void initializeThreading();
+
+        static ptrdiff_t prototypeOffset()
+        {
+            return OBJECT_OFFSETOF(Structure, m_prototype);
+        }
+
+        static ptrdiff_t typeInfoFlagsOffset()
+        {
+            return OBJECT_OFFSETOF(Structure, m_typeInfo) + TypeInfo::flagsOffset();
+        }
+
+        static ptrdiff_t typeInfoTypeOffset()
+        {
+            return OBJECT_OFFSETOF(Structure, m_typeInfo) + TypeInfo::typeOffset();
+        }
 
     private:
         Structure(JSValue prototype, const TypeInfo&, unsigned anonymousSlotCount, const ClassInfo*);
@@ -190,7 +211,7 @@ namespace JSC {
         TypeInfo m_typeInfo;
 
         DeprecatedPtr<Unknown> m_prototype;
-        mutable RefPtr<StructureChain> m_cachedPrototypeChain;
+        mutable DeprecatedPtr<StructureChain> m_cachedPrototypeChain;
 
         RefPtr<Structure> m_previous;
         RefPtr<StringImpl> m_nameInPrevious;

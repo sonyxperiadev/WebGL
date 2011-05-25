@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
  * Coypright (C) 2008 Holger Hans Peter Freyther
@@ -40,6 +40,9 @@
 #include "FrameView.h"
 #include "DocumentLoader.h"
 #include "HitTestResult.h"
+#if ENABLE(ICONDATABASE)
+#include "IconDatabaseClientQt.h"
+#endif
 #if USE(JSC)
 #include "JSDOMWindowBase.h"
 #elif USE(V8)
@@ -119,7 +122,7 @@ static QString drtDescriptionSuitableForTestResult(const WebCore::KURL& _url)
     if (_url.isEmpty() || !_url.isLocalFile())
         return _url.string();
     // Remove the leading path from file urls
-    return QString(_url.string()).replace(WebCore::FrameLoaderClientQt::dumpResourceLoadCallbacksPath, "").mid(1);
+    return QString(_url.string()).remove(WebCore::FrameLoaderClientQt::dumpResourceLoadCallbacksPath).mid(1);
 }
 
 static QString drtDescriptionSuitableForTestResult(const WebCore::ResourceError& error)
@@ -147,17 +150,17 @@ static QString drtDescriptionSuitableForTestResult(const RefPtr<WebCore::Node> n
 {
     QString result;
     if (exception) {
-        result.append("ERROR");
+        result.append(QLatin1String("ERROR"));
         return result;
     }
     if (!node) {
-        result.append("NULL");
+        result.append(QLatin1String("NULL"));
         return result;
     }
     result.append(node->nodeName());
     RefPtr<WebCore::Node> parent = node->parentNode();
     if (parent) {
-        result.append(" > ");
+        result.append(QLatin1String(" > "));
         result.append(drtDescriptionSuitableForTestResult(parent, 0));
     }
     return result;
@@ -437,6 +440,8 @@ void FrameLoaderClientQt::dispatchDidStartProvisionalLoad()
     if (dumpUserGestureInFrameLoaderCallbacks)
         printf("%s - in didStartProvisionalLoadForFrame\n", qPrintable(drtPrintFrameUserGestureStatus(m_frame)));
 
+    m_lastRequestedUrl = m_frame->loader()->activeDocumentLoader()->requestURL();
+
     if (m_webFrame)
         emit m_webFrame->provisionalLoad();
 }
@@ -481,7 +486,7 @@ void FrameLoaderClientQt::dispatchDidCommitLoad()
     // We should assume first the frame has no title. If it has, then the above dispatchDidReceiveTitle()
     // will be called very soon with the correct title.
     // This properly resets the title when we navigate to a URI without a title.
-    emit titleChanged(String());
+    emit titleChanged(QString());
 
     bool isMainFrame = (m_frame == m_frame->page()->mainFrame());
     if (!isMainFrame)
@@ -769,10 +774,24 @@ void FrameLoaderClientQt::didPerformFirstNavigation() const
     m_webFrame->page()->d->updateNavigationActions();
 }
 
-void FrameLoaderClientQt::registerForIconNotification(bool)
+void FrameLoaderClientQt::registerForIconNotification(bool shouldRegister)
 {
-    notImplemented();
+#if ENABLE(ICONDATABASE)
+    if (shouldRegister)
+        connect(IconDatabaseClientQt::instance(), SIGNAL(iconLoadedForPageURL(QString)), this, SLOT(onIconLoadedForPageURL(QString)), Qt::UniqueConnection);
+    else
+        disconnect(IconDatabaseClientQt::instance(), SIGNAL(iconLoadedForPageURL(QString)), this, SLOT(onIconLoadedForPageURL(QString)));
+#endif
 }
+
+void FrameLoaderClientQt::onIconLoadedForPageURL(const QString& url)
+{
+#if ENABLE(ICONDATABASE)
+    if (m_webFrame && m_webFrame->url() == url)
+        emit m_webFrame->iconChanged();
+#endif
+}
+
 
 void FrameLoaderClientQt::updateGlobalHistory()
 {
@@ -1210,7 +1229,7 @@ void FrameLoaderClientQt::dispatchDecidePolicyForNavigationAction(FramePolicyFun
 
         printf("Policy delegate: attempt to load %s with navigation type '%s'%s\n",
                qPrintable(drtDescriptionSuitableForTestResult(request.url())), navigationTypeToString(action.type()),
-               (node) ? qPrintable(QString(" originating from " + drtDescriptionSuitableForTestResult(node, 0))) : "");
+               (node) ? qPrintable(QString::fromLatin1(" originating from ") + drtDescriptionSuitableForTestResult(node, 0)) : "");
 
         if (policyDelegatePermissive)
             result = PolicyUse;
@@ -1310,18 +1329,18 @@ void FrameLoaderClientQt::transferLoadingResourceFromPage(unsigned long, Documen
 {
 }
 
-ObjectContentType FrameLoaderClientQt::objectContentType(const KURL& url, const String& _mimeType)
+ObjectContentType FrameLoaderClientQt::objectContentType(const KURL& url, const String& mimeTypeIn, bool shouldPreferPlugInsForImages)
 {
-//    qDebug()<<" ++++++++++++++++ url is "<<url.prettyURL()<<", mime = "<<_mimeType;
+//    qDebug()<<" ++++++++++++++++ url is "<<url.prettyURL()<<", mime = "<<mimeTypeIn;
     QFileInfo fi(url.path());
     String extension = fi.suffix();
-    if (_mimeType == "application/x-qt-plugin" || _mimeType == "application/x-qt-styled-widget")
+    if (mimeTypeIn == "application/x-qt-plugin" || mimeTypeIn == "application/x-qt-styled-widget")
         return ObjectContentOtherPlugin;
 
-    if (url.isEmpty() && !_mimeType.length())
+    if (url.isEmpty() && !mimeTypeIn.length())
         return ObjectContentNone;
 
-    String mimeType = _mimeType;
+    String mimeType = mimeTypeIn;
     if (!mimeType.length())
         mimeType = MIMETypeRegistry::getMIMETypeForExtension(extension);
 
@@ -1331,14 +1350,17 @@ ObjectContentType FrameLoaderClientQt::objectContentType(const KURL& url, const 
     if (!mimeType.length())
         return ObjectContentFrame;
 
-    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
-        return ObjectContentImage;
-
+    ObjectContentType plugInType = ObjectContentNone;
     if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
-        return ObjectContentNetscapePlugin;
-
-    if (m_frame->page() && m_frame->page()->pluginData() && m_frame->page()->pluginData()->supportsMimeType(mimeType))
-        return ObjectContentOtherPlugin;
+        plugInType = ObjectContentNetscapePlugin;
+    else if (m_frame->page() && m_frame->page()->pluginData() && m_frame->page()->pluginData()->supportsMimeType(mimeType))
+        plugInType = ObjectContentOtherPlugin;
+        
+    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
+        return shouldPreferPlugInsForImages && plugInType != ObjectContentNone ? plugInType : ObjectContentImage;
+    
+    if (plugInType != ObjectContentNone)
+        return plugInType;
 
     if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
         return ObjectContentFrame;

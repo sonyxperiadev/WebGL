@@ -33,6 +33,7 @@ namespace JSC {
     
 class RuntimeArray : public JSArray {
 public:
+    typedef Bindings::Array BindingsArray;
     RuntimeArray(ExecState*, Bindings::Array*);
     virtual ~RuntimeArray();
 
@@ -48,7 +49,7 @@ public:
     
     unsigned getLength() const { return getConcreteArray()->getLength(); }
     
-    Bindings::Array* getConcreteArray() const { return static_cast<Bindings::Array*>(subclassData()); }
+    Bindings::Array* getConcreteArray() const { return static_cast<BindingsArray*>(subclassData()); }
 
     static const ClassInfo s_info;
 
@@ -57,9 +58,9 @@ public:
         return globalObject->arrayPrototype();
     }
 
-    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
 
 protected:

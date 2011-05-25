@@ -56,13 +56,15 @@ void WebResourceCacheManagerProxy::invalidate()
     invalidateCallbackMap(m_arrayCallbacks);
 }
 
+bool WebResourceCacheManagerProxy::shouldTerminate(WebProcessProxy*) const
+{
+    return m_arrayCallbacks.isEmpty();
+}
+
 void WebResourceCacheManagerProxy::getCacheOrigins(PassRefPtr<ArrayCallback> prpCallback)
 {
     RefPtr<ArrayCallback> callback = prpCallback;
-    if (!m_webContext->hasValidProcess()) {
-        callback->invalidate();
-        return;
-    }
+    m_webContext->relaunchProcessIfNecessary();
     uint64_t callbackID = callback->callbackID();
     m_arrayCallbacks.set(callbackID, callback.release());
     m_webContext->process()->send(Messages::WebResourceCacheManager::GetCacheOrigins(callbackID), 0);
@@ -76,8 +78,7 @@ void WebResourceCacheManagerProxy::didGetCacheOrigins(const Vector<SecurityOrigi
 
 void WebResourceCacheManagerProxy::clearCacheForOrigin(WebSecurityOrigin* origin)
 {
-    if (!m_webContext->hasValidProcess())
-        return;
+    m_webContext->relaunchProcessIfNecessary();
 
     SecurityOriginData securityOrigin;
     securityOrigin.protocol = origin->protocol();
@@ -88,8 +89,7 @@ void WebResourceCacheManagerProxy::clearCacheForOrigin(WebSecurityOrigin* origin
 
 void WebResourceCacheManagerProxy::clearCacheForAllOrigins()
 {
-    if (!m_webContext->hasValidProcess())
-        return;
+    m_webContext->relaunchProcessIfNecessary();
     m_webContext->process()->send(Messages::WebResourceCacheManager::ClearCacheForAllOrigins(), 0);
 }
 

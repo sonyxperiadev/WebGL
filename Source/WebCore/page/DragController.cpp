@@ -353,7 +353,7 @@ DragOperation DragController::operationForLoad(DragData* dragData)
 {
     ASSERT(dragData);
     Document* doc = m_page->mainFrame()->documentAtPoint(dragData->clientPosition());
-    if (doc && (m_didInitiateDrag || doc->isPluginDocument() || doc->inDesignMode()))
+    if (doc && (m_didInitiateDrag || doc->isPluginDocument() || doc->rendererIsEditable()))
         return DragOperationNone;
     return dragOperation(dragData);
 }
@@ -371,6 +371,7 @@ static bool setSelectionToDragCaret(Frame* frame, VisibleSelection& dragCaret, R
 
 bool DragController::dispatchTextInputEventFor(Frame* innerFrame, DragData* dragData)
 {
+    ASSERT(!m_page->dragCaretController()->isNone());
     VisibleSelection dragCaret(m_page->dragCaretController()->selection());
     String text = dragCaret.isContentRichlyEditable() ? "" : dragData->asPlainText(innerFrame);
     Node* target = innerFrame->editor()->findEventTargetFrom(dragCaret);
@@ -393,7 +394,7 @@ bool DragController::concludeEditDrag(DragData* dragData)
     Frame* innerFrame = element->ownerDocument()->frame();
     ASSERT(innerFrame);
 
-    if (!dispatchTextInputEventFor(innerFrame, dragData))
+    if (!m_page->dragCaretController()->isNone() && !dispatchTextInputEventFor(innerFrame, dragData))
         return true;
 
     if (dragData->containsColor()) {
@@ -510,7 +511,7 @@ bool DragController::canProcessDrag(DragData* dragData)
     if (dragData->containsFiles() && asFileInput(result.innerNonSharedNode()))
         return true;
 
-    if (!result.innerNonSharedNode()->isContentEditable())
+    if (!result.innerNonSharedNode()->rendererIsEditable())
         return false;
 
     if (m_didInitiateDrag && m_documentUnderMouse == m_dragInitiator && result.isSelected())

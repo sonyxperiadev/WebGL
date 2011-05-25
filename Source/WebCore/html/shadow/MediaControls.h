@@ -53,6 +53,9 @@ class MediaControlStatusDisplayElement;
 class MediaControlTimelineContainerElement;
 class MediaControlVolumeSliderContainerElement;
 class MediaControlElement;
+class MediaControlFullscreenVolumeMinButtonElement;
+class MediaControlFullscreenVolumeSliderElement;
+class MediaControlFullscreenVolumeMaxButtonElement;
 class MediaPlayer;
 
 class RenderBox;
@@ -62,12 +65,21 @@ class MediaControls {
 public:
     MediaControls(HTMLMediaElement*);
 
+    void reset();
+
+    void playbackProgressed();
+    void playbackStarted();
+    void playbackStopped();
+
+    void changedMute();
+    void changedVolume();
+    void changedClosedCaptionsVisibility();
+
     void destroy();
     void update();
     void updateStyle();
     void forwardEvent(Event*);
     void updateTimeDisplay();
-    void updateTimeDisplayVisibility();
 
     // FIXME: This is temporary to allow RenderMedia::layout tweak the position of controls.
     // Once shadow DOM refactoring is complete, the tweaking will be in MediaControlsShadowRoot and this accessor will no longer be necessary.
@@ -78,27 +90,7 @@ public:
 #endif
 
 private:
-    void createControlsShadowRoot();
-    void destroyControlsShadowRoot();
-    void createPanel();
-    void createMuteButton();
-    void createPlayButton();
-    void createSeekBackButton();
-    void createSeekForwardButton();
-    void createRewindButton();
-    void createReturnToRealtimeButton();
-    void createToggleClosedCaptionsButton();
-    void createStatusDisplay();
-    void createTimelineContainer();
-    void createTimeline();
-    void createVolumeSliderContainer();
-    void createVolumeSlider();
-    void createVolumeSliderMuteButton();
-    void createCurrentTimeDisplay();
-    void createTimeRemainingDisplay();
-    void createFullscreenButton();
-
-    void timeUpdateTimerFired(Timer<MediaControls>*);
+    PassRefPtr<MediaControlShadowRootElement> create(HTMLMediaElement*);
 
     void updateControlVisibility();
     void changeOpacity(HTMLElement*, float opacity);
@@ -125,9 +117,11 @@ private:
     RefPtr<MediaControlTimeDisplayElement> m_currentTimeDisplay;
     RefPtr<MediaControlTimeDisplayElement> m_timeRemainingDisplay;
     RefPtr<MediaControlStatusDisplayElement> m_statusDisplay;
+    RefPtr<MediaControlFullscreenVolumeMinButtonElement> m_fullScreenMinVolumeButton;
+    RefPtr<MediaControlFullscreenVolumeSliderElement> m_fullScreenVolumeSlider;
+    RefPtr<MediaControlFullscreenVolumeMaxButtonElement> m_fullScreenMaxVolumeButton;
 
     HTMLMediaElement* m_mediaElement;
-    Timer<MediaControls> m_timeUpdateTimer;
     Timer<MediaControls> m_opacityAnimationTimer;
 
     double m_opacityAnimationStartTime;

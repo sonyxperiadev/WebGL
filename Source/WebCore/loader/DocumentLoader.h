@@ -31,6 +31,7 @@
 
 #include "DocumentLoadTiming.h"
 #include "DocumentWriter.h"
+#include "IconDatabaseBase.h"
 #include "NavigationAction.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
@@ -182,7 +183,7 @@ namespace WebCore {
         String clientRedirectDestinationForHistory() const { return urlForHistory(); }
         void setClientRedirectSourceForHistory(const String& clientedirectSourceForHistory) { m_clientRedirectSourceForHistory = clientedirectSourceForHistory; }
         
-        String serverRedirectSourceForHistory() const { return urlForHistory() == url() ? String() : urlForHistory(); } // null if no server redirect occurred.
+        String serverRedirectSourceForHistory() const { return urlForHistory() == url() ? String() : urlForHistory().string(); } // null if no server redirect occurred.
         String serverRedirectDestinationForHistory() const { return url(); }
 
         bool didCreateGlobalHistoryEntry() const { return m_didCreateGlobalHistoryEntry; }
@@ -193,7 +194,13 @@ namespace WebCore {
         bool startLoadingMainResource(unsigned long identifier);
         void cancelMainResourceLoad(const ResourceError&);
         
+        // Support iconDatabase in synchronous mode.
         void iconLoadDecisionAvailable();
+        
+        // Support iconDatabase in asynchronous mode.
+        void continueIconLoadWithDecision(IconLoadDecision);
+        void getIconLoadDecisionForIconURL(const String&);
+        void getIconDataForIconURL(const String&);
         
         bool isLoadingMainResource() const;
         bool isLoadingSubresources() const;
@@ -326,6 +333,9 @@ namespace WebCore {
         bool m_didCreateGlobalHistoryEntry;
 
         DocumentLoadTiming m_documentLoadTiming;
+    
+        RefPtr<IconLoadDecisionCallback> m_iconLoadDecisionCallback;
+        RefPtr<IconDataCallback> m_iconDataCallback;
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         friend class ApplicationCacheHost;  // for substitute resource delivery

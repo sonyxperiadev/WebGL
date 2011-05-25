@@ -31,7 +31,33 @@
 #import "PluginProcessCreationParameters.h"
 #import "WebKitSystemInterface.h"
 
+@interface WKPlaceholderModalWindow : NSWindow 
+@end
+
+@implementation WKPlaceholderModalWindow
+
+// Prevent NSApp from calling requestUserAttention: when the window is shown 
+// modally, even if the app is inactive. See 6823049.
+- (BOOL)_wantsUserAttention
+{
+    return NO;   
+}
+
+@end
+
 namespace WebKit {
+    
+bool PluginProcessProxy::pluginNeedsExecutableHeap(const PluginInfoStore::Plugin& pluginInfo)
+{
+    static bool forceNonexecutableHeapForPlugins = [[NSUserDefaults standardUserDefaults] boolForKey:@"ForceNonexecutableHeapForPlugins"];
+    if (forceNonexecutableHeapForPlugins)
+        return false;
+    
+    if (pluginInfo.bundleIdentifier == "com.apple.QuickTime Plugin.plugin")
+        return false;
+    
+    return true;
+}
 
 void PluginProcessProxy::platformInitializePluginProcess(PluginProcessCreationParameters& parameters)
 {
@@ -41,7 +67,117 @@ void PluginProcessProxy::platformInitializePluginProcess(PluginProcessCreationPa
     if (renderServerPort != MACH_PORT_NULL)
         parameters.acceleratedCompositingPort = CoreIPC::MachPort(renderServerPort, MACH_MSG_TYPE_COPY_SEND);
 #endif
-}    
+}
+
+bool PluginProcessProxy::getPluginProcessSerialNumber(ProcessSerialNumber& pluginProcessSerialNumber)
+{
+    pid_t pluginProcessPID = m_processLauncher->processIdentifier();
+    return GetProcessForPID(pluginProcessPID, &pluginProcessSerialNumber) == noErr;
+}
+
+void PluginProcessProxy::makePluginProcessTheFrontProcess()
+{
+    ProcessSerialNumber pluginProcessSerialNumber;
+    if (!getPluginProcessSerialNumber(pluginProcessSerialNumber))
+        return;
+
+    SetFrontProcess(&pluginProcessSerialNumber);
+}
+
+void PluginProcessProxy::makeUIProcessTheFrontProcess()
+{
+    ProcessSerialNumber processSerialNumber;
+    GetCurrentProcess(&processSerialNumber);
+    SetFrontProcess(&processSerialNumber);            
+}
+
+void PluginProcessProxy::setFullscreenWindowIsShowing(bool fullscreenWindowIsShowing)
+{
+    if (m_fullscreenWindowIsShowing == fullscreenWindowIsShowing)
+        return;
+
+    m_fullscreenWindowIsShowing = fullscreenWindowIsShowing;
+    if (m_fullscreenWindowIsShowing)
+        enterFullscreen();
+    else
+        exitFullscreen();
+}
+
+void PluginProcessProxy::enterFullscreen()
+{
+    [NSMenu setMenuBarVisible:NO];
+
+    makePluginProcessTheFrontProcess();
+}
+
+void PluginProcessProxy::exitFullscreen()
+{
+    [NSMenu setMenuBarVisible:YES];
+
+    // If the plug-in host is the current application then we should bring ourselves to the front when it exits full-screen mode.
+
+    ProcessSerialNumber frontProcessSerialNumber;
+    GetFrontProcess(&frontProcessSerialNumber);
+    Boolean isSameProcess = 0;
+
+    ProcessSerialNumber pluginProcessSerialNumber;
+    if (!getPluginProcessSerialNumber(pluginProcessSerialNumber))
+        return;
+
+    SameProcess(&frontProcessSerialNumber, &pluginProcessSerialNumber, &isSameProcess);
+    if (!isSameProcess)
+        return;
+
+    makeUIProcessTheFrontProcess();
+}
+
+void PluginProcessProxy::setModalWindowIsShowing(bool modalWindowIsShowing)
+{
+    if (modalWindowIsShowing == m_modalWindowIsShowing) 
+        return;
+    
+    m_modalWindowIsShowing = modalWindowIsShowing;
+    
+    if (m_modalWindowIsShowing)
+        beginModal();
+    else
+        endModal();
+}
+
+void PluginProcessProxy::beginModal()
+{
+    ASSERT(!m_placeholderWindow);
+    ASSERT(!m_activationObserver);
+    
+    m_placeholderWindow.adoptNS([[WKPlaceholderModalWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1) styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES]);
+    
+    m_activationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationWillBecomeActiveNotification object:NSApp queue:nil
+                                                                         usingBlock:^(NSNotification *){ applicationDidBecomeActive(); }];
+    
+    [NSApp runModalForWindow:m_placeholderWindow.get()];
+    
+    [m_placeholderWindow.get() orderOut:nil];
+    m_placeholderWindow = nullptr;
+}
+
+void PluginProcessProxy::endModal()
+{
+    ASSERT(m_placeholderWindow);
+    ASSERT(m_activationObserver);
+    
+    [[NSNotificationCenter defaultCenter] removeObserver:m_activationObserver.get()];
+    m_activationObserver = nullptr;
+    
+    [NSApp stopModal];
+
+    makeUIProcessTheFrontProcess();
+}
+    
+void PluginProcessProxy::applicationDidBecomeActive()
+{
+    makePluginProcessTheFrontProcess();
+}
+
 
 } // namespace WebKit
 

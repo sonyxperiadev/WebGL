@@ -64,7 +64,7 @@ namespace JSC {
         void print();
 #endif
         
-        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
+        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
         virtual void markChildren(MarkStack&);
     private:
         static const unsigned StructureFlags = OverridesMarkChildren;
@@ -100,7 +100,7 @@ namespace JSC {
         bool operator!=(const ScopeChainIterator& other) const { return m_node != other.m_node; }
 
     private:
-        DeprecatedPtr<ScopeChainNode> m_node;
+        ScopeChainNode* m_node;
     };
 
     inline ScopeChainIterator ScopeChainNode::begin()
@@ -127,6 +127,17 @@ namespace JSC {
     ALWAYS_INLINE JSObject* ExecState::globalThisValue() const
     {
         return scopeChain()->globalThis.get();
+    }
+    
+    ALWAYS_INLINE ScopeChainNode* Register::scopeChain() const
+    {
+        return static_cast<ScopeChainNode*>(jsValue().asCell());
+    }
+    
+    ALWAYS_INLINE Register& Register::operator=(ScopeChainNode* scopeChain)
+    {
+        *this = JSValue(scopeChain);
+        return *this;
     }
 
 } // namespace JSC

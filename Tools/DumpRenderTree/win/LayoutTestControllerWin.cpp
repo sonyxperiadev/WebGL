@@ -374,6 +374,27 @@ void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
     prefsPrivate->setAuthorAndUserStylesEnabled(flag);
 }
 
+void LayoutTestController::setAutofilled(JSContextRef context, JSValueRef nodeObject, bool autofilled)
+{
+    COMPtr<IWebView> webView;
+    if (FAILED(frame->webView(&webView)))
+        return;
+
+    COMPtr<IWebViewPrivate> webViewPrivate(Query, webView);
+    if (!webViewPrivate)
+        return;
+
+    COMPtr<IDOMElement> element;
+    if (FAILED(webViewPrivate->elementFromJS(context, nodeObject, &element)))
+        return;
+
+    COMPtr<IFormsAutoFillTransition> autofillElement(Query, element);
+    if (!autofillElement)
+        return;
+
+    autofillElement->setAutofilled(autofilled);
+}
+
 void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permissive)
 {
     COMPtr<IWebView> webView;
@@ -409,6 +430,12 @@ void LayoutTestController::setGeolocationPermission(bool allow)
 {
     // FIXME: Implement for Geolocation layout tests.
     setGeolocationPermissionCommon(allow);
+}
+
+int LayoutTestController::numberOfPendingGeolocationPermissionRequests()
+{
+    // FIXME: Implement for Geolocation layout tests.
+    return -1;
 }
 
 void LayoutTestController::addMockSpeechInputResult(JSStringRef result, double confidence, JSStringRef language)
@@ -922,12 +949,23 @@ bool LayoutTestController::isCommandEnabled(JSStringRef /*name*/)
 
 void LayoutTestController::clearAllApplicationCaches()
 {
-    // FIXME: implement to support Application Cache quotas.
+    // FIXME: Implement to support application cache quotas.
+}
+
+void LayoutTestController::clearApplicationCacheForOrigin(JSStringRef origin)
+{
+    // FIXME: Implement to support deleting all application cache for an origin.
 }
 
 void LayoutTestController::setApplicationCacheOriginQuota(unsigned long long quota)
 {
-    // FIXME: implement to support Application Cache quotas.
+    // FIXME: Implement to support application cache quotas.
+}
+
+JSValueRef LayoutTestController::originsWithApplicationCache(JSContextRef context)
+{
+    // FIXME: Implement to get origins that have application caches.
+    return JSValueMakeUndefined(context);
 }
 
 void LayoutTestController::clearAllDatabases()
@@ -1418,12 +1456,44 @@ bool LayoutTestController::hasSpellingMarker(int from, int length)
     return ret;
 }
 
+bool LayoutTestController::hasGrammarMarker(int from, int length)
+{
+    // FIXME: Implement this.
+    return false;
+}
+
 void LayoutTestController::dumpConfigurationForViewport(int /*deviceDPI*/, int /*deviceWidth*/, int /*deviceHeight*/, int /*availableWidth*/, int /*availableHeight*/)
 {
     // FIXME: Implement this.
 }
 
 void LayoutTestController::setSerializeHTTPLoads(bool)
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::syncLocalStorage()
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::observeStorageTrackerNotifications(unsigned number)
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::deleteAllLocalStorage()
+{
+    // FIXME: Implement.
+}
+
+JSValueRef LayoutTestController::originsWithLocalStorage(JSContextRef context)
+{
+    // FIXME: Implement.
+    return JSValueMakeUndefined(context);
+}
+
+void LayoutTestController::deleteLocalStorageForOrigin(JSStringRef URL)
 {
     // FIXME: Implement.
 }
@@ -1440,3 +1510,5 @@ void LayoutTestController::setMinimumTimerInterval(double minimumTimerInterval)
 
     viewPrivate->setMinimumTimerInterval(minimumTimerInterval);
 }
+
+

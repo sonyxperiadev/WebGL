@@ -81,11 +81,12 @@ public:
     virtual void didRelaunchProcess() = 0;
     virtual void pageClosed() = 0;
 
+    virtual void setFocus(bool focused) = 0;
     virtual void takeFocus(bool direction) = 0;
     virtual void toolTipChanged(const String&, const String&) = 0;
 
 #if ENABLE(TILED_BACKING_STORE)
-    virtual void pageDidRequestScroll(const WebCore::IntSize&) = 0;
+    virtual void pageDidRequestScroll(const WebCore::IntPoint&) = 0;
 #endif
 #if PLATFORM(QT)
     virtual void didChangeContentsSize(const WebCore::IntSize&) = 0;
@@ -100,14 +101,15 @@ public:
 #if PLATFORM(MAC)
     virtual void accessibilityWebProcessTokenReceived(const CoreIPC::DataReference&) = 0;
     virtual void interceptKeyEvent(const NativeWebKeyboardEvent&, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines) = 0;
-    virtual void setDragImage(const WebCore::IntPoint& clientPosition, const WebCore::IntSize& imageSize, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag) = 0;
+    virtual void setDragImage(const WebCore::IntPoint& clientPosition, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag) = 0;
 #endif
 #if PLATFORM(WIN)
     virtual void compositionSelectionChanged(bool) = 0;
 #endif
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) = 0;
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) = 0;
-
+    virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&) = 0;
+    
     virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) = 0;
 
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*) = 0;
@@ -126,9 +128,12 @@ public:
 
 #if PLATFORM(MAC)
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled) = 0;
-    virtual void setAutodisplay(bool) = 0;
     virtual CGContextRef containingWindowGraphicsContext() = 0;
     virtual void didPerformDictionaryLookup(const String&, double scaleFactor, const DictionaryPopupInfo&) = 0;
+    virtual void showCorrectionPanel(WebCore::CorrectionPanelInfo::PanelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings) = 0;
+    virtual void dismissCorrectionPanel(WebCore::ReasonForDismissingCorrectionPanel) = 0;
+    virtual String dismissCorrectionPanelSoon(WebCore::ReasonForDismissingCorrectionPanel) = 0;
+    virtual void recordAutocorrectionResponse(WebCore::EditorClient::AutocorrectionResponseType, const String& replacedString, const String& replacementString) = 0;
 #endif
 
     virtual void didChangeScrollbarsForMainFrame() const = 0;
@@ -140,6 +145,8 @@ public:
     virtual void setCustomRepresentationZoomFactor(double) = 0;
 
     virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects) = 0;
+
+    virtual float userSpaceScaleFactor() const = 0;
 };
 
 } // namespace WebKit

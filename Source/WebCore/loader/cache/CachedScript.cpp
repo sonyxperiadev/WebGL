@@ -88,6 +88,8 @@ const String& CachedScript::script()
         m_script += m_decoder->flush();
         setDecodedSize(m_script.length() * sizeof(UChar));
     }
+    m_decodedDataDeletionTimer.startOneShot(0);
+    
     return m_script;
 }
 
@@ -100,16 +102,6 @@ void CachedScript::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
     setEncodedSize(m_data.get() ? m_data->size() : 0);
     setLoading(false);
     checkNotify();
-}
-
-void CachedScript::checkNotify()
-{
-    if (isLoading())
-        return;
-
-    CachedResourceClientWalker w(m_clients);
-    while (CachedResourceClient* c = w.next())
-        c->notifyFinished(this);
 }
 
 void CachedScript::error(CachedResource::Status status)
@@ -125,7 +117,7 @@ void CachedScript::destroyDecodedData()
     m_script = String();
     unsigned extraSize = 0;
 #if USE(JSC)
-    if (m_sourceProviderCache)
+    if (m_sourceProviderCache && m_clients.isEmpty())
         m_sourceProviderCache->clear();
 
     extraSize = m_sourceProviderCache ? m_sourceProviderCache->byteSize() : 0;

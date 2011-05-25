@@ -56,6 +56,8 @@ namespace WebCore {
 class RenderSliderThumb : public RenderBlock {
 public:
     RenderSliderThumb(Node*);
+
+private:
     virtual void layout();
 };
 
@@ -85,6 +87,16 @@ void RenderSliderThumb::layout()
     RenderBlock::layout();
 }
 
+void SliderThumbElement::setPositionFromValue()
+{
+    // Since today the code to calculate position is in the RenderSlider layout
+    // path, we don't actually update the value here. Instead, we poke at the
+    // renderer directly to trigger layout.
+    // FIXME: Move the logic of positioning the thumb here.
+    if (renderer())
+        renderer()->setNeedsLayout(true);
+}
+
 RenderObject* SliderThumbElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSliderThumb(this);
@@ -92,11 +104,11 @@ RenderObject* SliderThumbElement::createRenderer(RenderArena* arena, RenderStyle
 
 void SliderThumbElement::dragFrom(const IntPoint& point)
 {
-    setPosition(point);
+    setPositionFromPoint(point);
     startDragging();
 }
 
-void SliderThumbElement::setPosition(const IntPoint& point)
+void SliderThumbElement::setPositionFromPoint(const IntPoint& point)
 {
     HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowHost());
     ASSERT(input);
@@ -212,6 +224,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
 #endif
             ) {
         if (m_inDragMode)
+<<<<<<< HEAD
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
         {
             if (event->isMouseEvent()) {
@@ -233,6 +246,9 @@ void SliderThumbElement::defaultEventHandler(Event* event)
 
         }
 #endif
+=======
+            setPositionFromPoint(mouseEvent->absoluteLocation());
+>>>>>>> webkit.org at r82507
         return;
     }
 

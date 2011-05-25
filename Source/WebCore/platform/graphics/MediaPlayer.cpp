@@ -47,6 +47,9 @@
 
 #if PLATFORM(MAC)
 #include "MediaPlayerPrivateQTKit.h"
+#if USE(AVFOUNDATION)
+#include "MediaPlayerPrivateAVFoundationObjC.h"
+#endif
 #define PlatformMediaEngineClassName MediaPlayerPrivateQTKit
 #elif OS(WINCE) && !PLATFORM(QT)
 #include "MediaPlayerPrivateWinCE.h"
@@ -82,7 +85,7 @@ public:
 
     virtual void load(const String&) { }
     virtual void cancelLoad() { }
-    
+
     virtual void prepareToPlay() { }
     virtual void play() { }
     virtual void pause() { }    
@@ -189,11 +192,15 @@ static Vector<MediaPlayerFactory*>& installedMediaEngines()
         MediaPlayerPrivateGStreamer::registerMediaEngine(addMediaEngine);
 #endif
 
+#if USE(AVFOUNDATION) && PLATFORM(MAC)
+        MediaPlayerPrivateAVFoundationObjC::registerMediaEngine(addMediaEngine);
+#endif
+
 #if !PLATFORM(GTK) && !PLATFORM(EFL) && !(PLATFORM(QT) && USE(GSTREAMER))
         PlatformMediaEngineClassName::registerMediaEngine(addMediaEngine);
 #endif
     }
-    
+
     return installedEngines;
 }
 
@@ -241,7 +248,7 @@ static MediaPlayerFactory* bestMediaEngineForTypeAndCodecs(const String& type, c
         if (!codecs.isEmpty())
             return 0;
     }
-    
+
     MediaPlayerFactory* engine = 0;
     MediaPlayer::SupportsType supported = MediaPlayer::IsNotSupported;
     unsigned count = engines.size();
@@ -292,6 +299,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient* client)
     , m_muted(false)
     , m_preservesPitch(true)
     , m_privateBrowsing(false)
+    , m_shouldPrepareToRender(false)
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_playerProxy(0)
 #endif
@@ -351,7 +359,7 @@ void MediaPlayer::loadWithNextMediaEngine(MediaPlayerFactory* current)
         engine = nextMediaEngine(current);
     else
         engine = bestMediaEngineForTypeAndCodecs(m_contentMIMEType, m_contentTypeCodecs, current);
-    
+
     // Don't delete and recreate the player unless it comes from a different engine.
     if (!engine) {
         m_currentMediaEngine = engine;
@@ -368,6 +376,8 @@ void MediaPlayer::loadWithNextMediaEngine(MediaPlayerFactory* current)
         m_private->setPrivateBrowsingMode(m_privateBrowsing);
         m_private->setPreload(m_preload);
         m_private->setPreservesPitch(preservesPitch());
+        if (m_shouldPrepareToRender)
+            m_private->prepareForRendering();
     }
 
     if (m_private)
@@ -383,17 +393,18 @@ bool MediaPlayer::hasAvailableVideoFrame() const
 {
     return m_private->hasAvailableVideoFrame();
 }
-    
+
 void MediaPlayer::prepareForRendering()
 {
-    return m_private->prepareForRendering();
+    m_shouldPrepareToRender = true;
+    m_private->prepareForRendering();
 }
-    
+
 bool MediaPlayer::canLoadPoster() const
 {
     return m_private->canLoadPoster();
 }
-    
+
 void MediaPlayer::setPoster(const String& url)
 {
     m_private->setPoster(url);
@@ -408,7 +419,7 @@ void MediaPlayer::prepareToPlay()
 {
     m_private->prepareToPlay();
 }
-    
+
 void MediaPlayer::play()
 {
     m_private->play();
@@ -478,7 +489,7 @@ bool MediaPlayer::inMediaDocument()
 {
     Frame* frame = m_frameView ? m_frameView->frame() : 0;
     Document* document = frame ? frame->document() : 0;
-    
+
     return document && document->isMediaDocument();
 }
 

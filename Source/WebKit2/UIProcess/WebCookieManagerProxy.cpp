@@ -50,6 +50,12 @@ WebCookieManagerProxy::~WebCookieManagerProxy()
 void WebCookieManagerProxy::invalidate()
 {
     invalidateCallbackMap(m_arrayCallbacks);
+    invalidateCallbackMap(m_httpCookieAcceptPolicyCallbacks);
+}
+
+bool WebCookieManagerProxy::shouldTerminate(WebProcessProxy*) const
+{
+    return m_arrayCallbacks.isEmpty() && m_httpCookieAcceptPolicyCallbacks.isEmpty();
 }
 
 void WebCookieManagerProxy::initializeClient(const WKCookieManagerClient* client)
@@ -67,10 +73,7 @@ void WebCookieManagerProxy::getHostnamesWithCookies(PassRefPtr<ArrayCallback> pr
     ASSERT(m_webContext);
 
     RefPtr<ArrayCallback> callback = prpCallback;
-    if (!m_webContext->hasValidProcess()) {
-        callback->invalidate();
-        return;
-    }
+    m_webContext->relaunchProcessIfNecessary();
     
     uint64_t callbackID = callback->callbackID();
     m_arrayCallbacks.set(callbackID, callback.release());
@@ -97,24 +100,21 @@ void WebCookieManagerProxy::didGetHostnamesWithCookies(const Vector<String>& hos
 void WebCookieManagerProxy::deleteCookiesForHostname(const String& hostname)
 {
     ASSERT(m_webContext);
-    if (!m_webContext->hasValidProcess())
-        return;
+    m_webContext->relaunchProcessIfNecessary();
     m_webContext->process()->send(Messages::WebCookieManager::DeleteCookiesForHostname(hostname), 0);
 }
 
 void WebCookieManagerProxy::deleteAllCookies()
 {
     ASSERT(m_webContext);
-    if (!m_webContext->hasValidProcess())
-        return;
+    m_webContext->relaunchProcessIfNecessary();
     m_webContext->process()->send(Messages::WebCookieManager::DeleteAllCookies(), 0);
 }
 
 void WebCookieManagerProxy::startObservingCookieChanges()
 {
     ASSERT(m_webContext);
-    if (!m_webContext->hasValidProcess())
-        return;
+    m_webContext->relaunchProcessIfNecessary();
     m_webContext->process()->send(Messages::WebCookieManager::StartObservingCookieChanges(), 0);
 }
 
@@ -129,6 +129,39 @@ void WebCookieManagerProxy::stopObservingCookieChanges()
 void WebCookieManagerProxy::cookiesDidChange()
 {
     m_client.cookiesDidChange(this);
+}
+
+void WebCookieManagerProxy::setHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy policy)
+{
+    ASSERT(m_webContext);
+    m_webContext->relaunchProcessIfNecessary();
+#if PLATFORM(MAC)
+    persistHTTPCookieAcceptPolicy(policy);
+#endif
+    m_webContext->process()->send(Messages::WebCookieManager::SetHTTPCookieAcceptPolicy(policy), 0);
+}
+
+void WebCookieManagerProxy::getHTTPCookieAcceptPolicy(PassRefPtr<HTTPCookieAcceptPolicyCallback> prpCallback)
+{
+    ASSERT(m_webContext);
+
+    RefPtr<HTTPCookieAcceptPolicyCallback> callback = prpCallback;
+    m_webContext->relaunchProcessIfNecessary();
+
+    uint64_t callbackID = callback->callbackID();
+    m_httpCookieAcceptPolicyCallbacks.set(callbackID, callback.release());
+    m_webContext->process()->send(Messages::WebCookieManager::GetHTTPCookieAcceptPolicy(callbackID), 0);
+}
+
+void WebCookieManagerProxy::didGetHTTPCookieAcceptPolicy(uint32_t policy, uint64_t callbackID)
+{
+    RefPtr<HTTPCookieAcceptPolicyCallback> callback = m_httpCookieAcceptPolicyCallbacks.take(callbackID);
+    if (!callback) {
+        // FIXME: Log error or assert.
+        return;
+    }
+
+    callback->performCallbackWithReturnValue(policy);
 }
 
 } // namespace WebKit

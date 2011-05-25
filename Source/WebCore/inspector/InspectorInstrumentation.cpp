@@ -47,6 +47,7 @@
 #include "InspectorDOMAgent.h"
 #include "InspectorDOMStorageAgent.h"
 #include "InspectorDebuggerAgent.h"
+#include "InspectorPageAgent.h"
 #include "InspectorProfilerAgent.h"
 #include "InspectorResourceAgent.h"
 #include "InspectorTimelineAgent.h"
@@ -92,6 +93,8 @@ static bool eventHasListeners(const AtomicString& eventType, DOMWindow* window, 
 
 void InspectorInstrumentation::didClearWindowObjectInWorldImpl(InspectorAgent* inspectorAgent, Frame* frame, DOMWrapperWorld* world)
 {
+    if (InspectorPageAgent* pageAgent = inspectorAgent->instrumentingAgents()->inspectorPageAgent())
+        pageAgent->didClearWindowObjectInWorld(frame, world);
     inspectorAgent->didClearWindowObjectInWorld(frame, world);
 }
 
@@ -158,12 +161,15 @@ void InspectorInstrumentation::didInvalidateStyleAttrImpl(InspectorAgent* inspec
 
 void InspectorInstrumentation::mouseDidMoveOverElementImpl(InspectorAgent* inspectorAgent, const HitTestResult& result, unsigned modifierFlags)
 {
-    inspectorAgent->mouseDidMoveOverElement(result, modifierFlags);
+    if (InspectorDOMAgent* domAgent = inspectorAgent->instrumentingAgents()->inspectorDOMAgent())
+        domAgent->mouseDidMoveOverElement(result, modifierFlags);
 }
 
 bool InspectorInstrumentation::handleMousePressImpl(InspectorAgent* inspectorAgent)
 {
-    return inspectorAgent->handleMousePress();
+    if (InspectorDOMAgent* domAgent = inspectorAgent->instrumentingAgents()->inspectorDOMAgent())
+        return domAgent->handleMousePress();
+    return false;
 }
 
 void InspectorInstrumentation::characterDataModifiedImpl(InspectorAgent* inspectorAgent, CharacterData* characterData)
@@ -382,26 +388,18 @@ void InspectorInstrumentation::didRecalculateStyleImpl(const InspectorInstrument
         timelineAgent->didRecalculateStyle();
 }
 
-void InspectorInstrumentation::identifierForInitialRequestImpl(InspectorAgent* inspectorAgent, unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
-{
-    if (!inspectorAgent->enabled())
-        return;
-
-    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
-        resourceAgent->identifierForInitialRequest(identifier, request.url(), loader);
-}
-
 void InspectorInstrumentation::applyUserAgentOverrideImpl(InspectorAgent* inspectorAgent, String* userAgent)
 {
-    inspectorAgent->applyUserAgentOverride(userAgent);
+    if (InspectorPageAgent* pageAgent = retrievePageAgent(inspectorAgent))
+        pageAgent->applyUserAgentOverride(userAgent);
 }
 
-void InspectorInstrumentation::willSendRequestImpl(InspectorAgent* inspectorAgent, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
+void InspectorInstrumentation::willSendRequestImpl(InspectorAgent* inspectorAgent, unsigned long identifier, DocumentLoader* loader, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
     if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(inspectorAgent))
         timelineAgent->willSendResourceRequest(identifier, request);
     if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
-        resourceAgent->willSendRequest(identifier, request, redirectResponse);
+        resourceAgent->willSendRequest(identifier, loader, request, redirectResponse);
 }
 
 void InspectorInstrumentation::markResourceAsCachedImpl(InspectorAgent* inspectorAgent, unsigned long identifier)
@@ -448,18 +446,21 @@ InspectorInstrumentationCookie InspectorInstrumentation::willReceiveResourceResp
 
 void InspectorInstrumentation::didReceiveResourceResponseImpl(const InspectorInstrumentationCookie& cookie, unsigned long identifier, DocumentLoader* loader, const ResourceResponse& response)
 {
-    InspectorAgent* inspectorAgent = cookie.first;
-    if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
-        resourceAgent->didReceiveResponse(identifier, loader, response);
-    inspectorAgent->consoleAgent()->didReceiveResponse(identifier, response);
     if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(cookie))
         timelineAgent->didReceiveResourceResponse();
+    if (!loader)
+        return;
+    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(loader->frame())) {
+        if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
+            resourceAgent->didReceiveResponse(identifier, loader, response);
+        inspectorAgent->consoleAgent()->didReceiveResponse(identifier, response); // This should come AFTER resource notification, front-end relies on this.
+    }
 }
 
-void InspectorInstrumentation::didReceiveContentLengthImpl(InspectorAgent* inspectorAgent, unsigned long identifier, int lengthReceived)
+void InspectorInstrumentation::didReceiveContentLengthImpl(InspectorAgent* inspectorAgent, unsigned long identifier, int dataLength, int lengthReceived)
 {
     if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
-        resourceAgent->didReceiveContentLength(identifier, lengthReceived);
+        resourceAgent->didReceiveContentLength(identifier, dataLength, lengthReceived);
 }
 
 void InspectorInstrumentation::didFinishLoadingImpl(InspectorAgent* inspectorAgent, unsigned long identifier, double finishTime)
@@ -472,11 +473,11 @@ void InspectorInstrumentation::didFinishLoadingImpl(InspectorAgent* inspectorAge
 
 void InspectorInstrumentation::didFailLoadingImpl(InspectorAgent* inspectorAgent, unsigned long identifier, const ResourceError& error)
 {
-    inspectorAgent->consoleAgent()->didFailLoading(identifier, error);
     if (InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(inspectorAgent))
         timelineAgent->didFinishLoadingResource(identifier, true, 0);
     if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
         resourceAgent->didFailLoading(identifier, error);
+    inspectorAgent->consoleAgent()->didFailLoading(identifier, error); // This should come AFTER resource notification, front-end relies on this.
 }
 
 void InspectorInstrumentation::resourceRetrievedByXMLHttpRequestImpl(InspectorAgent* inspectorAgent, unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber)
@@ -494,12 +495,40 @@ void InspectorInstrumentation::scriptImportedImpl(InspectorAgent* inspectorAgent
 
 void InspectorInstrumentation::domContentLoadedEventFiredImpl(InspectorAgent* inspectorAgent, Frame* frame, const KURL& url)
 {
-    inspectorAgent->domContentLoadedEventFired(frame->loader()->documentLoader(), url);
+    DocumentLoader* documentLoader = frame->loader()->documentLoader();
+    ASSERT(documentLoader);
+
+    if (frame->page()->mainFrame() != frame || url != documentLoader->requestURL())
+        return;
+
+    inspectorAgent->domContentLoadedEventFired();
+
+    if (InspectorDOMAgent* domAgent = inspectorAgent->instrumentingAgents()->inspectorDOMAgent())
+        domAgent->mainFrameDOMContentLoaded();
+
+    if (InspectorTimelineAgent* timelineAgent = inspectorAgent->instrumentingAgents()->inspectorTimelineAgent())
+        timelineAgent->didMarkDOMContentEvent();
+
+    if (InspectorPageAgent* pageAgent = inspectorAgent->instrumentingAgents()->inspectorPageAgent())
+        pageAgent->domContentEventFired();
 }
 
 void InspectorInstrumentation::loadEventFiredImpl(InspectorAgent* inspectorAgent, Frame* frame, const KURL& url)
 {
-    inspectorAgent->loadEventFired(frame->loader()->documentLoader(), url);
+    DocumentLoader* documentLoader = frame->loader()->documentLoader();
+    ASSERT(documentLoader);
+
+    if (InspectorDOMAgent* domAgent = inspectorAgent->instrumentingAgents()->inspectorDOMAgent())
+        domAgent->loadEventFired(documentLoader->frame()->document());
+
+    if (frame->page()->mainFrame() != frame || url != documentLoader->requestURL())
+        return;
+
+    if (InspectorTimelineAgent* timelineAgent = inspectorAgent->instrumentingAgents()->inspectorTimelineAgent())
+        timelineAgent->didMarkLoadEvent();
+
+    if (InspectorPageAgent* pageAgent = inspectorAgent->instrumentingAgents()->inspectorPageAgent())
+        pageAgent->loadEventFired();
 }
 
 void InspectorInstrumentation::frameDetachedFromParentImpl(InspectorAgent* inspectorAgent, Frame* frame)
@@ -527,8 +556,6 @@ void InspectorInstrumentation::didCommitLoadImpl(Page* page, InspectorAgent* ins
     if (InspectorDebuggerAgent* debuggerAgent = instrumentingAgents->inspectorDebuggerAgent()) {
         KURL url = inspectorAgent->inspectedURLWithoutFragment();
         debuggerAgent->inspectedURLChanged(url);
-        if (InspectorBrowserDebuggerAgent* browserDebuggerAgent = instrumentingAgents->inspectorBrowserDebuggerAgent())
-            browserDebuggerAgent->inspectedURLChanged(url);
     }
 #endif
 #if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
@@ -549,7 +576,11 @@ void InspectorInstrumentation::didCommitLoadImpl(Page* page, InspectorAgent* ins
 #endif
     if (InspectorDOMAgent* domAgent = instrumentingAgents->inspectorDOMAgent())
         domAgent->setDocument(mainFrame->document());
-    inspectorAgent->didCommitLoad(loader);
+
+    if (InspectorPageAgent* pageAgent = instrumentingAgents->inspectorPageAgent())
+        pageAgent->inspectedURLChanged(loader->url().string());
+
+    inspectorAgent->didCommitLoad();
 }
 
 InspectorInstrumentationCookie InspectorInstrumentation::willWriteHTMLImpl(InspectorAgent* inspectorAgent, unsigned int length, unsigned int startLine)
@@ -627,7 +658,7 @@ String InspectorInstrumentation::getCurrentUserInitiatedProfileNameImpl(Inspecto
 
 bool InspectorInstrumentation::profilerEnabledImpl(InspectorAgent* inspectorAgent)
 {
-    return inspectorAgent->profilerEnabled();
+    return inspectorAgent->instrumentingAgents()->inspectorProfilerAgent()->enabled();
 }
 #endif
 
@@ -733,6 +764,8 @@ InspectorTimelineAgent* InspectorInstrumentation::retrieveTimelineAgent(Inspecto
 
 InspectorTimelineAgent* InspectorInstrumentation::retrieveTimelineAgent(const InspectorInstrumentationCookie& cookie)
 {
+    if (!cookie.first)
+        return 0;
     InspectorTimelineAgent* timelineAgent = retrieveTimelineAgent(cookie.first);
     if (timelineAgent && timelineAgent->id() == cookie.second)
         return timelineAgent;
@@ -742,6 +775,11 @@ InspectorTimelineAgent* InspectorInstrumentation::retrieveTimelineAgent(const In
 InspectorResourceAgent* InspectorInstrumentation::retrieveResourceAgent(InspectorAgent* inspectorAgent)
 {
     return inspectorAgent->instrumentingAgents()->inspectorResourceAgent();
+}
+
+InspectorPageAgent* InspectorInstrumentation::retrievePageAgent(InspectorAgent* inspectorAgent)
+{
+    return inspectorAgent->instrumentingAgents()->inspectorPageAgent();
 }
 
 } // namespace WebCore

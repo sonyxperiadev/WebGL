@@ -187,18 +187,18 @@ String directoryName(const String& path)
     return path.left(pos);
 }
 
-CString openTemporaryFile(const char*, PlatformFileHandle& handle)
+String openTemporaryFile(const String&, PlatformFileHandle& handle)
 {
     handle = INVALID_HANDLE_VALUE;
 
     wchar_t tempPath[MAX_PATH];
     int tempPathLength = ::GetTempPath(WTF_ARRAY_LENGTH(tempPath), tempPath);
     if (tempPathLength <= 0 || tempPathLength > WTF_ARRAY_LENGTH(tempPath))
-        return CString();
+        return String();
 
     HCRYPTPROV hCryptProv = 0;
     if (!CryptAcquireContext(&hCryptProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
-        return CString();
+        return String();
 
     String proposedPath;
     while (1) {
@@ -229,9 +229,28 @@ CString openTemporaryFile(const char*, PlatformFileHandle& handle)
     CryptReleaseContext(hCryptProv, 0);
 
     if (!isHandleValid(handle))
-        return CString();
+        return String();
 
-    return proposedPath.latin1();
+    return proposedPath;
+}
+
+PlatformFileHandle openFile(const String& path, FileOpenMode mode)
+{
+    DWORD desiredAccess = 0;
+    DWORD creationDisposition = 0;
+    switch (mode) {
+        case OpenForRead:
+            desiredAccess = GENERIC_READ;
+            creationDisposition = OPEN_EXISTING;
+        case OpenForWrite:
+            desiredAccess = GENERIC_WRITE;
+            creationDisposition = CREATE_ALWAYS;
+        default:
+            ASSERT_NOT_REACHED();
+    }
+
+    String destination = path;
+    return CreateFile(destination.charactersWithNullTermination(), desiredAccess, 0, 0, creationDisposition, FILE_ATTRIBUTE_NORMAL, 0);
 }
 
 void closeFile(PlatformFileHandle& handle)

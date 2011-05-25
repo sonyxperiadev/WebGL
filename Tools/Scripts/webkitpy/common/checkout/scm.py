@@ -29,6 +29,7 @@
 #
 # Python module for interacting with an SCM system (like SVN or Git)
 
+import logging
 import os
 import re
 import sys
@@ -290,7 +291,7 @@ class SCM:
     def revert_files(self, file_paths):
         self._subclass_must_implement()
 
-    def commit_with_message(self, message, username=None, git_commit=None, force_squash=False):
+    def commit_with_message(self, message, username=None, git_commit=None, force_squash=False, changed_files=None):
         self._subclass_must_implement()
 
     def svn_commit_log(self, svn_revision):
@@ -555,12 +556,8 @@ class SVN(SCM):
         # FIXME: This should probably use cwd=self.checkout_root.
         self.run(['svn', 'revert'] + file_paths)
 
-    def commit_with_message(self, message, username=None, git_commit=None, force_squash=False):
+    def commit_with_message(self, message, username=None, git_commit=None, force_squash=False, changed_files=None):
         # git-commit and force are not used by SVN.
-        if self.dryrun:
-            # Return a string which looks like a commit so that things which parse this output will succeed.
-            return "Dry run, no commit.\nCommitted revision 0."
-
         svn_commit_args = ["svn", "commit"]
 
         if not username and not self.has_authorization_for_realm():
@@ -569,6 +566,17 @@ class SVN(SCM):
             svn_commit_args.extend(["--username", username])
 
         svn_commit_args.extend(["-m", message])
+
+        if changed_files:
+            svn_commit_args.extend(changed_files)
+
+        if self.dryrun:
+            _log = logging.getLogger("webkitpy.common.system")
+            _log.debug('Would run SVN command: "' + " ".join(svn_commit_args) + '"')
+
+            # Return a string which looks like a commit so that things which parse this output will succeed.
+            return "Dry run, no commit.\nCommitted revision 0."
+
         # FIXME: Should this use cwd=self.checkout_root?
         return self.run(svn_commit_args, error_handler=commit_error_handler)
 
@@ -826,7 +834,7 @@ class Git(SCM):
             if num_local_commits > 1 or (num_local_commits > 0 and not working_directory_is_clean):
                 raise AmbiguousCommitError(num_local_commits, working_directory_is_clean)
 
-    def commit_with_message(self, message, username=None, git_commit=None, force_squash=False):
+    def commit_with_message(self, message, username=None, git_commit=None, force_squash=False, changed_files=None):
         # Username is ignored during Git commits.
         working_directory_is_clean = self.working_directory_is_clean()
 

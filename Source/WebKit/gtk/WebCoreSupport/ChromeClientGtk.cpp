@@ -79,6 +79,9 @@ ChromeClient::ChromeClient(WebKitWebView* webView)
 
 void ChromeClient::chromeDestroyed()
 {
+    if (m_closeSoonTimer)
+        g_source_remove(m_closeSoonTimer);
+
     delete this;
 }
 
@@ -720,8 +723,11 @@ void ChromeClient::exitFullscreenForNode(Node* node)
 #endif
 
 #if ENABLE(FULLSCREEN_API)
-bool ChromeClient::supportsFullScreenForElement(const WebCore::Element* element)
+bool ChromeClient::supportsFullScreenForElement(const WebCore::Element* element, bool withKeyboard)
 {
+    if (withKeyboard)
+        return false;
+
     return true;
 }
 

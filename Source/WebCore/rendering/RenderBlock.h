@@ -171,9 +171,9 @@ public:
 
     // Accessors for logical width/height and margins in the containing block's block-flow direction.
     enum ApplyLayoutDeltaMode { ApplyLayoutDelta, DoNotApplyLayoutDelta };
-    int logicalWidthForChild(RenderBox* child) { return style()->isHorizontalWritingMode() ? child->width() : child->height(); }
-    int logicalHeightForChild(RenderBox* child) { return style()->isHorizontalWritingMode() ? child->height() : child->width(); }
-    int logicalTopForChild(RenderBox* child) { return style()->isHorizontalWritingMode() ? child->y() : child->x(); }
+    int logicalWidthForChild(RenderBox* child) { return isHorizontalWritingMode() ? child->width() : child->height(); }
+    int logicalHeightForChild(RenderBox* child) { return isHorizontalWritingMode() ? child->height() : child->width(); }
+    int logicalTopForChild(RenderBox* child) { return isHorizontalWritingMode() ? child->y() : child->x(); }
     void setLogicalLeftForChild(RenderBox* child, int logicalLeft, ApplyLayoutDeltaMode = DoNotApplyLayoutDelta);
     void setLogicalTopForChild(RenderBox* child, int logicalTop, ApplyLayoutDeltaMode = DoNotApplyLayoutDelta);
     int marginBeforeForChild(RenderBoxModelObject* child) const;
@@ -218,8 +218,8 @@ public:
 
     virtual void scrollbarsChanged(bool /*horizontalScrollbarChanged*/, bool /*verticalScrollbarChanged*/) { };
 
-    int logicalRightOffsetForContent() const { return style()->isHorizontalWritingMode() ? borderLeft() + paddingLeft() + availableLogicalWidth() : borderTop() + paddingTop() + availableLogicalWidth(); }
-    int logicalLeftOffsetForContent() const { return style()->isHorizontalWritingMode() ? borderLeft() + paddingLeft() : borderTop() + paddingTop(); }
+    int logicalRightOffsetForContent() const { return isHorizontalWritingMode() ? borderLeft() + paddingLeft() + availableLogicalWidth() : borderTop() + paddingTop() + availableLogicalWidth(); }
+    int logicalLeftOffsetForContent() const { return isHorizontalWritingMode() ? borderLeft() + paddingLeft() : borderTop() + paddingTop(); }
 
 protected:
     // These functions are only used internally to manipulate the render tree structure via remove/insert/appendChildNode.
@@ -297,7 +297,9 @@ protected:
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     virtual bool hasLineIfEmpty() const;
-    bool layoutOnlyPositionedObjects();
+    
+    bool simplifiedLayout();
+    void simplifiedNormalFlowLayout();
 
     void computeOverflow(int oldClientAfterEdge, bool recomputeFloats = false);
     virtual void addOverflowFromChildren();
@@ -429,35 +431,35 @@ private:
 
     IntPoint flipFloatForWritingMode(const FloatingObject*, const IntPoint&) const;
 
-    int logicalTopForFloat(const FloatingObject* child) const { return style()->isHorizontalWritingMode() ? child->y() : child->x(); }
-    int logicalBottomForFloat(const FloatingObject* child) const { return style()->isHorizontalWritingMode() ? child->maxY() : child->maxX(); }
-    int logicalLeftForFloat(const FloatingObject* child) const { return style()->isHorizontalWritingMode() ? child->x() : child->y(); }
-    int logicalRightForFloat(const FloatingObject* child) const { return style()->isHorizontalWritingMode() ? child->maxX() : child->maxY(); }
-    int logicalWidthForFloat(const FloatingObject* child) const { return style()->isHorizontalWritingMode() ? child->width() : child->height(); }
+    int logicalTopForFloat(const FloatingObject* child) const { return isHorizontalWritingMode() ? child->y() : child->x(); }
+    int logicalBottomForFloat(const FloatingObject* child) const { return isHorizontalWritingMode() ? child->maxY() : child->maxX(); }
+    int logicalLeftForFloat(const FloatingObject* child) const { return isHorizontalWritingMode() ? child->x() : child->y(); }
+    int logicalRightForFloat(const FloatingObject* child) const { return isHorizontalWritingMode() ? child->maxX() : child->maxY(); }
+    int logicalWidthForFloat(const FloatingObject* child) const { return isHorizontalWritingMode() ? child->width() : child->height(); }
     void setLogicalTopForFloat(FloatingObject* child, int logicalTop)
     {
-        if (style()->isHorizontalWritingMode())
+        if (isHorizontalWritingMode())
             child->setY(logicalTop);
         else
             child->setX(logicalTop);
     }
     void setLogicalLeftForFloat(FloatingObject* child, int logicalLeft)
     {
-        if (style()->isHorizontalWritingMode())
+        if (isHorizontalWritingMode())
             child->setX(logicalLeft);
         else
             child->setY(logicalLeft);
     }
     void setLogicalHeightForFloat(FloatingObject* child, int logicalHeight)
     {
-        if (style()->isHorizontalWritingMode())
+        if (isHorizontalWritingMode())
             child->setHeight(logicalHeight);
         else
             child->setWidth(logicalHeight);
     }
     void setLogicalWidthForFloat(FloatingObject* child, int logicalWidth)
     {
-        if (style()->isHorizontalWritingMode())
+        if (isHorizontalWritingMode())
             child->setWidth(logicalWidth);
         else
             child->setHeight(logicalWidth);
@@ -465,7 +467,7 @@ private:
 
     int xPositionForFloatIncludingMargin(const FloatingObject* child) const
     {
-        if (style()->isHorizontalWritingMode())
+        if (isHorizontalWritingMode())
             return child->x() + child->renderer()->marginLeft();
         else
             return child->x() + marginBeforeForChild(child->renderer());
@@ -473,31 +475,32 @@ private:
         
     int yPositionForFloatIncludingMargin(const FloatingObject* child) const
     {
-        if (style()->isHorizontalWritingMode())
+        if (isHorizontalWritingMode())
             return child->y() + marginBeforeForChild(child->renderer());
         else
             return child->y() + child->renderer()->marginTop();
     }
 
     // The following functions' implementations are in RenderBlockLineLayout.cpp.
+    void checkFloatsInCleanLine(RootInlineBox*, Vector<FloatWithRect>&, size_t& floatIndex, bool& encounteredNewFloat, bool& dirtiedByFloat);
     RootInlineBox* determineStartPosition(bool& firstLine, bool& fullLayout, bool& previousLineBrokeCleanly,
                                           InlineBidiResolver&, Vector<FloatWithRect>& floats, unsigned& numCleanFloats,
                                           bool& useRepaintBounds, int& repaintTop, int& repaintBottom);
-    RootInlineBox* determineEndPosition(RootInlineBox* startBox, InlineIterator& cleanLineStart,
-                                        BidiStatus& cleanLineBidiStatus,
-                                        int& yPos);
+    RootInlineBox* determineEndPosition(RootInlineBox* startBox, Vector<FloatWithRect>& floats, size_t floatIndex, InlineIterator& cleanLineStart,
+                                        BidiStatus& cleanLineBidiStatus, int& yPos);
     bool matchedEndLine(const InlineBidiResolver&, const InlineIterator& endLineStart, const BidiStatus& endLineStatus,
                         RootInlineBox*& endLine, int& endYPos, int& repaintBottom, int& repaintTop);
 
     void skipTrailingWhitespace(InlineIterator&, bool isLineEmpty, bool previousLineBrokeCleanly);
-    int skipLeadingWhitespace(InlineBidiResolver&, bool firstLine, bool isLineEmpty, bool previousLineBrokeCleanly, FloatingObject* lastFloatFromPreviousLine);
+    void skipLeadingWhitespace(InlineBidiResolver&, bool firstLine, bool isLineEmpty, bool previousLineBrokeCleanly, FloatingObject* lastFloatFromPreviousLine, int& lineLeftOffset, int& lineRightOffset);
     void fitBelowFloats(float widthToFit, bool firstLine, float& availableWidth);
     typedef std::pair<RenderText*, LazyLineBreakIterator> LineBreakIteratorInfo;
-    InlineIterator findNextLineBreak(InlineBidiResolver&, bool firstLine, bool& isLineEmpty, LineBreakIteratorInfo&, bool& previousLineBrokeCleanly, bool& hyphenated, EClear*, FloatingObject* lastFloatFromPreviousLine);
-    RootInlineBox* constructLine(unsigned runCount, BidiRun* firstRun, BidiRun* lastRun, bool firstLine, bool lastLine, RenderObject* endObject);
-    InlineFlowBox* createLineBoxes(RenderObject*, bool firstLine);
+    InlineIterator findNextLineBreak(InlineBidiResolver&, bool firstLine, bool& isLineEmpty, LineBreakIteratorInfo&, bool& previousLineBrokeCleanly, bool& hyphenated,
+                                     EClear*, FloatingObject* lastFloatFromPreviousLine, Vector<RenderBox*>& positionedObjects);
+    RootInlineBox* constructLine(unsigned runCount, BidiRun* firstRun, BidiRun* lastRun, bool firstLine, bool lastLine, RenderObject* endObject, RenderObject* logicallyLastRunRenderer);
+    InlineFlowBox* createLineBoxes(RenderObject*, bool firstLine, InlineBox* childBox);
 
-    void computeInlineDirectionPositionsForLine(RootInlineBox*, bool firstLine, BidiRun* firstRun, BidiRun* trailingSpaceRun, bool reachedEnd, GlyphOverflowAndFallbackFontsMap&);
+    void computeInlineDirectionPositionsForLine(RootInlineBox*, bool firstLine, BidiRun* firstRun, BidiRun* trailingSpaceRun, bool reachedEnd, GlyphOverflowAndFallbackFontsMap&, VerticalPositionCache&);
     void computeBlockDirectionPositionsForLine(RootInlineBox*, BidiRun*, GlyphOverflowAndFallbackFontsMap&, VerticalPositionCache&);
     void deleteEllipsisLineBoxes();
     void checkLinesForTextOverflow();
@@ -526,7 +529,7 @@ private:
     
     // Positions new floats and also adjust all floats encountered on the line if any of them
     // have to move to the next page/column.
-    bool positionNewFloatOnLine(FloatingObject* newFloat, FloatingObject* lastFloatFromPreviousLine);
+    bool positionNewFloatOnLine(FloatingObject* newFloat, FloatingObject* lastFloatFromPreviousLine, bool firstLine, int& lineLeftOffset, int& lineRightOffset);
 
     void clearFloats();
     int getClearDelta(RenderBox* child, int yPos);

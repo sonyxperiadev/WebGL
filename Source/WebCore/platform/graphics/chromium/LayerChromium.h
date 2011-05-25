@@ -89,6 +89,9 @@ public:
     void setBackgroundColor(const Color& color) { m_backgroundColor = color; setNeedsCommit(); }
     Color backgroundColor() const { return m_backgroundColor; }
 
+    void setBounds(const IntSize&);
+    const IntSize& bounds() const { return m_bounds; }
+
     void setClearsContext(bool clears) { m_clearsContext = clears; setNeedsCommit(); }
     bool clearsContext() const { return m_clearsContext; }
 
@@ -133,6 +136,9 @@ public:
     void setTransform(const TransformationMatrix& transform) { m_transform = transform; setNeedsCommit(); }
     const TransformationMatrix& transform() const { return m_transform; }
 
+    bool doubleSided() const { return m_doubleSided; }
+    void setDoubleSided(bool doubleSided) { m_doubleSided = doubleSided; setNeedsCommit(); }
+
     // FIXME: This setting is currently ignored.
     void setGeometryFlipped(bool flipped) { m_geometryFlipped = flipped; setNeedsCommit(); }
     bool geometryFlipped() const { return m_geometryFlipped; }
@@ -143,9 +149,6 @@ public:
     // in the LayerRendererChromium.
     virtual void setLayerRenderer(LayerRendererChromium*);
 
-    // Returns true if any of the layer's descendants has content to draw.
-    bool descendantsDrawContent();
-
     void setOwner(GraphicsLayerChromium* owner) { m_owner = owner; }
 
     void setReplicaLayer(LayerChromium* layer) { m_replicaLayer = layer; }
@@ -153,14 +156,14 @@ public:
 
     // These methods typically need to be overwritten by derived classes.
     virtual bool drawsContent() const { return false; }
-    virtual void updateContentsIfDirty() { }
+    virtual void paintContentsIfDirty() { }
+    virtual void updateCompositorResources() { }
     virtual void unreserveContentsTexture() { }
     virtual void bindContentsTexture() { }
     virtual void draw() { }
 
     // These exists just for debugging (via drawDebugBorder()).
     void setBorderColor(const Color&);
-    Color borderColor() const;
 
 #ifndef NDEBUG
     int debugID() const { return m_debugID; }
@@ -170,21 +173,19 @@ public:
     String layerTreeAsText() const;
 
     void setBorderWidth(float);
-    float borderWidth() const;
 
     // Everything from here down in the public section will move to CCLayerImpl.
-
-    CCLayerImpl* ccLayerImpl() const { return m_ccLayerImpl.get(); }
+    CCLayerImpl* ccLayerImpl();
+    void createCCLayerImplIfNeeded();
 
     static void drawTexturedQuad(GraphicsContext3D*, const TransformationMatrix& projectionMatrix, const TransformationMatrix& layerMatrix,
                                  float width, float height, float opacity,
                                  int matrixLocation, int alphaLocation);
 
+    virtual void pushPropertiesTo(CCLayerImpl*);
+
     // Begin calls that forward to the CCLayerImpl.
     LayerRendererChromium* layerRenderer() const;
-    void setDoubleSided(bool);
-    void setBounds(const IntSize&);
-    const IntSize& bounds() const;
     // End calls that forward to the CCLayerImpl.
 
     typedef ProgramBinding<VertexShaderPos, FragmentShaderColor> BorderProgram;
@@ -217,6 +218,11 @@ protected:
     static const unsigned s_positionAttribLocation;
     static const unsigned s_texCoordAttribLocation;
 
+    // Constructs a CCLayerImpl of the correct runtime type for this LayerChromium type.
+    virtual PassRefPtr<CCLayerImpl> createCCLayerImpl();
+
+    // For now, the LayerChromium directly owns its CCLayerImpl.
+    RefPtr<CCLayerImpl> m_ccLayerImpl;
 private:
     void setNeedsCommit();
 
@@ -233,19 +239,22 @@ private:
     // This should only be called from removeFromSuperlayer.
     void removeSublayer(LayerChromium*);
 
-    bool descendantsDrawContentRecursive();
-
     Vector<RefPtr<LayerChromium> > m_sublayers;
     LayerChromium* m_superlayer;
+
+    RefPtr<LayerRendererChromium> m_layerRenderer;
 
 #ifndef NDEBUG
     int m_debugID;
 #endif
 
     // Layer properties.
+    IntSize m_bounds;
     FloatPoint m_position;
     FloatPoint m_anchorPoint;
     Color m_backgroundColor;
+    Color m_debugBorderColor;
+    float m_debugBorderWidth;
     float m_opacity;
     float m_zPosition;
     float m_anchorPointZ;
@@ -255,13 +264,12 @@ private:
     bool m_opaque;
     bool m_geometryFlipped;
     bool m_needsDisplayOnBoundsChange;
+    bool m_doubleSided;
 
     TransformationMatrix m_transform;
     TransformationMatrix m_sublayerTransform;
 
     FloatRect m_frame;
-    // For now, the LayerChromium directly owns its CCLayerImpl.
-    RefPtr<CCLayerImpl> m_ccLayerImpl;
 
     // Replica layer used for reflections.
     LayerChromium* m_replicaLayer;

@@ -57,7 +57,6 @@ namespace WebCore {
 #ifdef __cplusplus
 
 @interface WebView (WebViewEditingExtras)
-- (BOOL)_interceptEditingKeyEvent:(WebCore::KeyboardEvent*)event shouldSaveCommand:(BOOL)shouldSave;
 - (BOOL)_shouldChangeSelectedDOMRange:(DOMRange *)currentRange toDOMRange:(DOMRange *)proposedRange affinity:(NSSelectionAffinity)selectionAffinity stillSelecting:(BOOL)flag;
 @end
 
@@ -190,7 +189,7 @@ namespace WebCore {
 #endif
 
 #if ENABLE(FULLSCREEN_API) && defined(__cplusplus)
-- (BOOL)_supportsFullScreenForElement:(WebCore::Element*)element;
+- (BOOL)_supportsFullScreenForElement:(WebCore::Element*)element withKeyboard:(BOOL)withKeyboard;
 - (void)_enterFullScreenForElement:(WebCore::Element*)element;
 - (void)_exitFullScreenForElement:(WebCore::Element*)element;
 - (void)_fullScreenRendererChanged:(WebCore::RenderBox*)renderer;

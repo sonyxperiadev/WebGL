@@ -58,7 +58,6 @@ namespace JSC {
     enum ArrayCreationMode { CreateCompact, CreateInitialized };
 
     class JSArray : public JSNonFinalObject {
-        friend class JIT;
         friend class Walker;
 
     public:
@@ -125,12 +124,22 @@ namespace JSC {
         void fillArgList(ExecState*, MarkedArgumentBuffer&);
         void copyToRegisters(ExecState*, Register*, uint32_t);
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
         
         inline void markChildrenDirect(MarkStack& markStack);
+
+        static ptrdiff_t storageOffset()
+        {
+            return OBJECT_OFFSETOF(JSArray, m_storage);
+        }
+
+        static ptrdiff_t vectorLengthOffset()
+        {
+            return OBJECT_OFFSETOF(JSArray, m_vectorLength);
+        }
 
     protected:
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesMarkChildren | OverridesGetPropertyNames | JSObject::StructureFlags;
@@ -142,7 +151,7 @@ namespace JSC {
 
         void* subclassData() const;
         void setSubclassData(void*);
-        
+
     private:
         bool getOwnPropertySlotSlowCase(ExecState*, unsigned propertyName, PropertySlot&);
         void putSlowCase(ExecState*, unsigned propertyName, JSValue);
@@ -174,11 +183,8 @@ namespace JSC {
         return asArray(value.asCell());
     }
 
-    inline bool isJSArray(JSGlobalData* globalData, JSValue v)
-    {
-        return v.isCell() && v.asCell()->vptr() == globalData->jsArrayVPtr;
-    }
     inline bool isJSArray(JSGlobalData* globalData, JSCell* cell) { return cell->vptr() == globalData->jsArrayVPtr; }
+    inline bool isJSArray(JSGlobalData* globalData, JSValue v) { return v.isCell() && isJSArray(globalData, v.asCell()); }
 
     inline void JSArray::markChildrenDirect(MarkStack& markStack)
     {
@@ -194,77 +200,6 @@ namespace JSC {
             for (SparseArrayValueMap::iterator it = map->begin(); it != end; ++it)
                 markStack.append(&it->second);
         }
-    }
-
-    inline void MarkStack::markChildren(JSCell* cell)
-    {
-        ASSERT(Heap::isMarked(cell));
-        if (!cell->structure()->typeInfo().overridesMarkChildren()) {
-#ifdef NDEBUG
-            asObject(cell)->markChildrenDirect(*this);
-#else
-            ASSERT(!m_isCheckingForDefaultMarkViolation);
-            m_isCheckingForDefaultMarkViolation = true;
-            cell->markChildren(*this);
-            ASSERT(m_isCheckingForDefaultMarkViolation);
-            m_isCheckingForDefaultMarkViolation = false;
-#endif
-            return;
-        }
-        if (cell->vptr() == m_jsArrayVPtr) {
-            asArray(cell)->markChildrenDirect(*this);
-            return;
-        }
-        cell->markChildren(*this);
-    }
-
-    inline void MarkStack::drain()
-    {
-#if !ASSERT_DISABLED
-        ASSERT(!m_isDraining);
-        m_isDraining = true;
-#endif
-        while (!m_markSets.isEmpty() || !m_values.isEmpty()) {
-            while (!m_markSets.isEmpty() && m_values.size() < 50) {
-                ASSERT(!m_markSets.isEmpty());
-                MarkSet& current = m_markSets.last();
-                ASSERT(current.m_values);
-                JSValue* end = current.m_end;
-                ASSERT(current.m_values);
-                ASSERT(current.m_values != end);
-            findNextUnmarkedNullValue:
-                ASSERT(current.m_values != end);
-                JSValue value = *current.m_values;
-                current.m_values++;
-
-                JSCell* cell;
-                if (!value || !value.isCell() || Heap::testAndSetMarked(cell = value.asCell())) {
-                    if (current.m_values == end) {
-                        m_markSets.removeLast();
-                        continue;
-                    }
-                    goto findNextUnmarkedNullValue;
-                }
-
-                if (cell->structure()->typeInfo().type() < CompoundType) {
-                    if (current.m_values == end) {
-                        m_markSets.removeLast();
-                        continue;
-                    }
-                    goto findNextUnmarkedNullValue;
-                }
-
-                if (current.m_values == end)
-                    m_markSets.removeLast();
-
-                markChildren(cell);
-            }
-            while (!m_values.isEmpty())
-                markChildren(m_values.removeLast());
-        }
-#if !ASSERT_DISABLED
-        m_isDraining = false;
-#endif
     }
 
     // Rule from ECMA 15.2 about what an array index is.

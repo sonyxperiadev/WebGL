@@ -9,6 +9,7 @@ include(../../../Source/WebKit.pri)
 INCLUDEPATH += ../../../Source
 INCLUDEPATH += ../../../Source/JavaScriptCore
 INCLUDEPATH += ../../../Source/JavaScriptCore/ForwardingHeaders
+INCLUDEPATH += ../../../Source/WebKit/qt/WebCoreSupport
 INCLUDEPATH += $$BASEDIR
 DESTDIR = ../../bin
 
@@ -51,3 +52,4 @@ wince*: {
 }
 
 DEFINES += USE_SYSTEM_MALLOC=1
+DEFINES -= QT_ASCII_CAST_WARNINGS

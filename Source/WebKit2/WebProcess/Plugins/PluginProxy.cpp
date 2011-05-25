@@ -132,7 +132,8 @@ void PluginProxy::paint(GraphicsContext* graphicsContext, const IntRect& dirtyRe
     
         // Blit the plug-in backing store into our own backing store.
         OwnPtr<WebCore::GraphicsContext> graphicsContext = m_backingStore->createGraphicsContext();
-        
+        graphicsContext->setCompositeOperation(CompositeCopy);
+
         m_pluginBackingStore->paint(*graphicsContext, IntPoint(), IntRect(0, 0, m_frameRect.width(), m_frameRect.height()));
 
         m_pluginBackingStoreContainsValidData = true;
@@ -152,12 +153,18 @@ void PluginProxy::paint(GraphicsContext* graphicsContext, const IntRect& dirtyRe
 
 PassRefPtr<ShareableBitmap> PluginProxy::snapshot()
 {
-    IntSize bufferSize;
-    SharedMemory::Handle snapshotStoreHandle;
-    m_connection->connection()->sendSync(Messages::PluginControllerProxy::Snapshot(), Messages::PluginControllerProxy::Snapshot::Reply(bufferSize, snapshotStoreHandle), m_pluginInstanceID);
+    ShareableBitmap::Handle snapshotStoreHandle;
+    m_connection->connection()->sendSync(Messages::PluginControllerProxy::Snapshot(), Messages::PluginControllerProxy::Snapshot::Reply(snapshotStoreHandle), m_pluginInstanceID);
 
-    RefPtr<ShareableBitmap> snapshotBuffer = ShareableBitmap::create(bufferSize, snapshotStoreHandle);
+    RefPtr<ShareableBitmap> snapshotBuffer = ShareableBitmap::create(snapshotStoreHandle);
     return snapshotBuffer.release();
+}
+
+bool PluginProxy::isTransparent()
+{
+    // This should never be called from the web process.
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 void PluginProxy::geometryDidChange(const IntRect& frameRect, const IntRect& clipRect)
@@ -167,14 +174,14 @@ void PluginProxy::geometryDidChange(const IntRect& frameRect, const IntRect& cli
     m_frameRect = frameRect;
 
     if (!needsBackingStore()) {
-        SharedMemory::Handle pluginBackingStoreHandle;
-        m_connection->connection()->send(Messages::PluginControllerProxy::GeometryDidChange(frameRect, clipRect, pluginBackingStoreHandle), m_pluginInstanceID);
+        ShareableBitmap::Handle pluginBackingStoreHandle;
+        m_connection->connection()->send(Messages::PluginControllerProxy::GeometryDidChange(frameRect, clipRect, pluginBackingStoreHandle), m_pluginInstanceID, CoreIPC::DispatchMessageEvenWhenWaitingForSyncReply);
         return;
     }
 
     bool didUpdateBackingStore = false;
     if (!m_backingStore) {
-        m_backingStore = ShareableBitmap::create(frameRect.size());
+        m_backingStore = ShareableBitmap::create(frameRect.size(), ShareableBitmap::SupportsAlpha);
         didUpdateBackingStore = true;
     } else if (frameRect.size() != m_backingStore->size()) {
         // The backing store already exists, just resize it.
@@ -184,24 +191,24 @@ void PluginProxy::geometryDidChange(const IntRect& frameRect, const IntRect& cli
         didUpdateBackingStore = true;
     }
 
-    SharedMemory::Handle pluginBackingStoreHandle;
+    ShareableBitmap::Handle pluginBackingStoreHandle;
 
     if (didUpdateBackingStore) {
         // Create a new plug-in backing store.
-        m_pluginBackingStore = ShareableBitmap::createShareable(frameRect.size());
+        m_pluginBackingStore = ShareableBitmap::createShareable(frameRect.size(), ShareableBitmap::SupportsAlpha);
         if (!m_pluginBackingStore)
             return;
 
         // Create a handle to the plug-in backing store so we can send it over.
         if (!m_pluginBackingStore->createHandle(pluginBackingStoreHandle)) {
-            m_pluginBackingStore.clear();
+            m_pluginBackingStore = nullptr;
             return;
         }
 
         m_pluginBackingStoreContainsValidData = false;
     }
 
-    m_connection->connection()->send(Messages::PluginControllerProxy::GeometryDidChange(frameRect, clipRect, pluginBackingStoreHandle), m_pluginInstanceID);
+    m_connection->connection()->send(Messages::PluginControllerProxy::GeometryDidChange(frameRect, clipRect, pluginBackingStoreHandle), m_pluginInstanceID, CoreIPC::DispatchMessageEvenWhenWaitingForSyncReply);
 }
 
 void PluginProxy::frameDidFinishLoading(uint64_t requestID)
@@ -319,7 +326,7 @@ NPObject* PluginProxy::pluginScriptableNPObject()
     if (!pluginScriptableNPObjectID)
         return 0;
 
-    return m_connection->npRemoteObjectMap()->createNPObjectProxy(pluginScriptableNPObjectID);
+    return m_connection->npRemoteObjectMap()->createNPObjectProxy(pluginScriptableNPObjectID, this);
 }
 
 #if PLATFORM(MAC)
@@ -388,7 +395,7 @@ void PluginProxy::getWindowScriptNPObject(uint64_t& windowScriptNPObjectID)
         return;
     }
 
-    windowScriptNPObjectID = m_connection->npRemoteObjectMap()->registerNPObject(windowScriptNPObject);
+    windowScriptNPObjectID = m_connection->npRemoteObjectMap()->registerNPObject(windowScriptNPObject, this);
     releaseNPObject(windowScriptNPObject);
 }
 
@@ -400,7 +407,7 @@ void PluginProxy::getPluginElementNPObject(uint64_t& pluginElementNPObjectID)
         return;
     }
 
-    pluginElementNPObjectID = m_connection->npRemoteObjectMap()->registerNPObject(pluginElementNPObject);
+    pluginElementNPObjectID = m_connection->npRemoteObjectMap()->registerNPObject(pluginElementNPObject, this);
     releaseNPObject(pluginElementNPObject);
 }
 
@@ -408,16 +415,19 @@ void PluginProxy::evaluate(const NPVariantData& npObjectAsVariantData, const Str
 {
     PluginController::PluginDestructionProtector protector(m_pluginController);
 
-    NPVariant npObjectAsVariant = m_connection->npRemoteObjectMap()->npVariantDataToNPVariant(npObjectAsVariantData);
-    ASSERT(NPVARIANT_IS_OBJECT(npObjectAsVariant));
-
+    NPVariant npObjectAsVariant = m_connection->npRemoteObjectMap()->npVariantDataToNPVariant(npObjectAsVariantData, this);
+    if (!NPVARIANT_IS_OBJECT(npObjectAsVariant) || !(NPVARIANT_TO_OBJECT(npObjectAsVariant))) {
+        returnValue = false;
+        return;
+    }
+        
     NPVariant result;
     returnValue = m_pluginController->evaluate(NPVARIANT_TO_OBJECT(npObjectAsVariant), scriptString, &result, allowPopups);
     if (!returnValue)
         return;
 
     // Convert the NPVariant to an NPVariantData.
-    resultData = m_connection->npRemoteObjectMap()->npVariantToNPVariantData(result);
+    resultData = m_connection->npRemoteObjectMap()->npVariantToNPVariantData(result, this);
     
     // And release the result.
     releaseNPVariantValue(&result);
@@ -458,7 +468,7 @@ void PluginProxy::update(const IntRect& paintedRect)
     if (m_backingStore) {
         // Blit the plug-in backing store into our own backing store.
         OwnPtr<GraphicsContext> graphicsContext = m_backingStore->createGraphicsContext();
-
+        graphicsContext->setCompositeOperation(CompositeCopy);
         m_pluginBackingStore->paint(*graphicsContext, paintedRectPluginCoordinates.location(), 
                                     paintedRectPluginCoordinates);
     }

@@ -33,6 +33,8 @@ struct PaintInfo;
 
 enum LogicalWidthType { LogicalWidth, MinLogicalWidth, MaxLogicalWidth };
 
+enum OverlayScrollbarSizeRelevancy { IgnoreOverlayScrollbarSize, IncludeOverlayScrollbarSize };
+
 class RenderBox : public RenderBoxModelObject {
 public:
     RenderBox(Node*);
@@ -334,7 +336,7 @@ public:
     
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
-    virtual IntRect overflowClipRect(int tx, int ty);
+    virtual IntRect overflowClipRect(int tx, int ty, OverlayScrollbarSizeRelevancy relevancy = IgnoreOverlayScrollbarSize);
     IntRect clipRect(int tx, int ty);
     virtual bool hasControlClip() const { return false; }
     virtual IntRect controlClipRect(int /*tx*/, int /*ty*/) const { return IntRect(); }
@@ -422,11 +424,12 @@ protected:
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed, bool useTransforms, TransformState&) const;
     virtual void mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState&) const;
 
+    void paintRootBoxFillLayers(const PaintInfo&);
+
 private:
     bool includeVerticalScrollbarSize() const;
     bool includeHorizontalScrollbarSize() const;
 
-    void paintRootBoxDecorations(PaintInfo&, int tx, int ty);
     // Returns true if we did a full repaint
     bool repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer* layers, bool drawingBackground);
    

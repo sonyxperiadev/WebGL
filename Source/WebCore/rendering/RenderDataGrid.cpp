@@ -46,10 +46,16 @@ static const int cDefaultWidth = 300;
 RenderDataGrid::RenderDataGrid(Element* elt)
     : RenderBlock(elt)
 {
+    if (Page* page = frame()->page()) {
+        m_page = page;
+        m_page->addScrollableArea(this);
+    }
 }
 
 RenderDataGrid::~RenderDataGrid()
 {
+    if (m_page)
+        m_page->removeScrollableArea(this);
 }
 
 void RenderDataGrid::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -254,6 +260,14 @@ IntPoint RenderDataGrid::convertFromContainingViewToScrollbar(const Scrollbar* s
     int scrollbarTop = borderTop();
     point.move(-scrollbarLeft, -scrollbarTop);
     return point;
+}
+
+bool RenderDataGrid::shouldSuspendScrollAnimations() const
+{
+    RenderView* view = this->view();
+    if (!view)
+        return true;
+    return view->frameView()->shouldSuspendScrollAnimations();
 }
 
 }

@@ -26,12 +26,18 @@ CONFIG += uitools
 
 isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../..
 include(../../Source/WebKit.pri)
+INCLUDEPATH += ../../Source/WebKit/qt/WebCoreSupport
 
 DESTDIR = $$OUTPUT_DIR/bin
 !CONFIG(standalone_package): CONFIG -= app_bundle
 
 QT += network
 macx:QT+=xml
+
+unix:!mac:!symbian {
+    CONFIG += link_pkgconfig
+    PKGCONFIG += fontconfig
+}
 
 linux-* {
     # From Creator's src/rpath.pri:
@@ -56,6 +62,8 @@ contains(QT_CONFIG, opengl) {
     QT += opengl
     DEFINES += QT_CONFIGURED_WITH_OPENGL
 }
+
+DEFINES -= QT_ASCII_CAST_WARNINGS
 
 RESOURCES += \
     QtTestBrowser.qrc

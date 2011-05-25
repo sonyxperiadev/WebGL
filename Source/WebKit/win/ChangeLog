@@ -1,3 +1,443 @@
+2011-03-30  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Dirk Schulze.
+
+        [Cairo] Better separate the concerns of GraphicsContextCairo
+        https://bugs.webkit.org/show_bug.cgi?id=55150
+
+        * WebFrame.cpp:
+        (hdcFromContext): Modify this method to take PlatformContextCairo
+        instead of a cairo_t.
+        (WebFrame::spoolPage): Update to reflect new platform context.
+        (WebFrame::spoolPages): Ditto.
+        * WebFrame.h: Ditto.
+
+2011-03-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Update Windows production build logic for new production configurations
+        https://bugs.webkit.org/show_bug.cgi?id=57494
+
+        * WebKit.vcproj/InterfacesProduction.vsprops:
+        * WebKit.vcproj/WebKit.make:
+        * WebKit.vcproj/WebKitGUIDProduction.vsprops:
+        * WebKit.vcproj/WebKitLibProduction.vsprops:
+
+2011-03-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Rename Windows configuration Release_LTCG to Production for clarity
+        https://bugs.webkit.org/show_bug.cgi?id=57465
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/InterfacesProduction.vsprops: Copied from Source/WebKit/win/WebKit.vcproj/InterfacesReleaseLTCG.vsprops.
+        * WebKit.vcproj/InterfacesReleaseLTCG.vsprops: Removed.
+        * WebKit.vcproj/WebKit.sln:
+        * WebKit.vcproj/WebKit.submit.sln:
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+        * WebKit.vcproj/WebKitGUIDProduction.vsprops: Copied from Source/WebKit/win/WebKit.vcproj/WebKitGUIDReleaseLTCG.vsprops.
+        * WebKit.vcproj/WebKitGUIDReleaseLTCG.vsprops: Removed.
+        * WebKit.vcproj/WebKitLibProduction.vsprops: Copied from Source/WebKit/win/WebKit.vcproj/WebKitLibReleaseLTCG.vsprops.
+        * WebKit.vcproj/WebKitLibReleaseLTCG.vsprops: Removed.
+
+2011-03-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        [WIN] Remove unused GEN_DOMObject files
+        https://bugs.webkit.org/show_bug.cgi?id=57370
+
+        * GEN_DOMObject.cpp: Removed.
+        * GEN_DOMObject.h: Removed.
+
+2011-03-29  Steve Falkenburg  <sfalken@apple.com>
+
+        More build fix.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+
+2011-03-29  Steve Falkenburg  <sfalken@apple.com>
+
+        Build fix.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebPlatformStrategies::contextMenuItemTagLookUpInDictionary):
+
+2011-03-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed. Try to fix Windows build.
+
+        * DOMEventsClasses.cpp: Added initguid.h again.
+
+2011-03-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        [WIN] Cleanup includes in WebKit files
+        https://bugs.webkit.org/show_bug.cgi?id=57381
+
+        Add missing includes to fix build without precompiled header.
+        Also fix paths in #include statements (e.g. WTF -> wtf).
+
+        * AccessibleBase.h:
+        * AccessibleDocument.h: Replace using statement with a qualified name.
+        * CFDictionaryPropertyBag.h:
+        * DOMEventsClasses.cpp:
+        * DOMHTMLClasses.h:
+        * DefaultDownloadDelegate.cpp:
+        * DefaultDownloadDelegate.h:
+        * DefaultPolicyDelegate.cpp:
+        * DefaultPolicyDelegate.h:
+        * WebCoreSupport/EmbeddedWidget.h:
+        * WebCoreSupport/WebInspectorDelegate.h:
+        * WebDataSource.h:
+        * WebDatabaseManager.h:
+        * WebElementPropertyBag.h:
+        * WebFramePolicyListener.h:
+        * WebGeolocationPolicyListener.h:
+        * WebHistory.h:
+        * WebKitClassFactory.h:
+        * WebScriptWorld.h:
+        * WebSerializedJSValue.h:
+        * WebUserContentURLPattern.h:
+
+2011-03-29  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Use per-configuration vsprops in WebKit to avoid WebKitVSPropsRedirectionDir removal by MSVC IDE
+        https://bugs.webkit.org/show_bug.cgi?id=57383
+
+        Visual Studio's IDE was removing instances of $(WebKitVSPropsRedirectionDir) from
+        InheritedPropertySheet rules in our vcproj files when the vcproj was edited from within
+        the IDE. To avoid this, add a separate vsprops file for each project configuration that
+        contains the required inherited property sheets.
+
+        * WebKit.vcproj/Interfaces.vcproj:
+        * WebKit.vcproj/InterfacesDebug.vsprops: Added.
+        * WebKit.vcproj/InterfacesDebugAll.vsprops: Added.
+        * WebKit.vcproj/InterfacesDebugCairoCFLite.vsprops: Added.
+        * WebKit.vcproj/InterfacesRelease.vsprops: Added.
+        * WebKit.vcproj/InterfacesReleaseCairoCFLite.vsprops: Added.
+        * WebKit.vcproj/InterfacesReleaseLTCG.vsprops: Added.
+        * WebKit.vcproj/WebKit.vcproj:
+        * WebKit.vcproj/WebKitGUID.vcproj:
+        * WebKit.vcproj/WebKitGUIDDebug.vsprops: Added.
+        * WebKit.vcproj/WebKitGUIDDebugAll.vsprops: Added.
+        * WebKit.vcproj/WebKitGUIDDebugCairoCFLite.vsprops: Added.
+        * WebKit.vcproj/WebKitGUIDRelease.vsprops: Added.
+        * WebKit.vcproj/WebKitGUIDReleaseCairoCFLite.vsprops: Added.
+        * WebKit.vcproj/WebKitGUIDReleaseLTCG.vsprops: Added.
+        * WebKit.vcproj/WebKitLibDebug.vsprops: Added.
+        * WebKit.vcproj/WebKitLibDebugAll.vsprops: Added.
+        * WebKit.vcproj/WebKitLibDebugCairoCFLite.vsprops: Added.
+        * WebKit.vcproj/WebKitLibRelease.vsprops: Added.
+        * WebKit.vcproj/WebKitLibReleaseCairoCFLite.vsprops: Added.
+        * WebKit.vcproj/WebKitLibReleaseLTCG.vsprops: Added.
+
+2011-03-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Remove #pragma warning push and pop statements
+        https://bugs.webkit.org/show_bug.cgi?id=57198
+
+        We do not need to disable warnings via #pragma since we started
+        compiling WebCore with the same compiler warnings flags as WebKit.
+
+        * DOMCSSClasses.cpp:
+        * DOMCoreClasses.cpp:
+        * DOMEventsClasses.cpp:
+        * DOMHTMLClasses.cpp:
+        * DefaultDownloadDelegate.cpp:
+        * DefaultPolicyDelegate.cpp:
+        * MarshallingHelpers.cpp:
+        * WebActionPropertyBag.cpp:
+        * WebActionPropertyBag.h:
+        * WebCache.cpp:
+        * WebCoreSupport/WebDragClient.cpp:
+        * WebCoreSupport/WebEditorClient.cpp:
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebInspectorClient.cpp:
+        * WebDocumentLoader.h:
+        * WebDownload.cpp:
+        * WebDownloadCFNet.cpp:
+        * WebDownloadCurl.cpp:
+        * WebElementPropertyBag.cpp:
+        * WebError.cpp:
+        * WebError.h:
+        * WebFrame.cpp:
+        * WebFrame.h:
+        * WebFramePolicyListener.cpp:
+        * WebFramePolicyListener.h:
+        * WebHistory.cpp:
+        * WebHistoryItem.cpp:
+        * WebIconDatabase.cpp:
+        * WebIconDatabase.h:
+        * WebInspector.cpp:
+        * WebJavaScriptCollector.cpp:
+        * WebKitGraphics.cpp:
+        * WebKitSystemBits.cpp:
+        * WebLocalizableStrings.cpp:
+        * WebMutableURLRequest.cpp:
+        * WebMutableURLRequest.h:
+        * WebNodeHighlight.cpp:
+        * WebNodeHighlight.h:
+        * WebNotificationCenter.cpp:
+        * WebResource.cpp:
+        * WebResource.h:
+        * WebScrollBar.cpp:
+        * WebScrollBar.h:
+        * WebURLAuthenticationChallenge.cpp:
+        * WebURLAuthenticationChallenge.h:
+        * WebURLAuthenticationChallengeSender.cpp:
+        * WebURLAuthenticationChallengeSenderCFNet.cpp:
+        * WebURLAuthenticationChallengeSenderCurl.cpp:
+        * WebURLCredential.cpp:
+        * WebURLCredential.h:
+        * WebURLProtectionSpace.cpp:
+        * WebURLProtectionSpace.h:
+        * WebURLResponse.cpp:
+        * WebURLResponse.h:
+
+2011-03-29  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed build fix after r82247.
+
+        * WebMutableURLRequest.cpp: The new CertificateCFWin routines
+        are not CFNetwork-specific. All CF-based ports can use them.
+
+2011-03-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        [WIN] Use WCHAR instead of TCHAR
+        https://bugs.webkit.org/show_bug.cgi?id=57191
+
+        We always use the UNICODE versions of windows functions, so
+        the usage of TCHAR makes no sense and mixing them is bad style.
+
+        * DefaultDownloadDelegate.cpp:
+        * WebCoreSupport/WebChromeClient.cpp:
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        * WebCoreSupport/WebInspectorClient.cpp:
+        * WebKitDLL.cpp:
+        * WebNotificationCenter.cpp:
+        * WebPreferences.cpp:
+        * WebURLResponse.cpp:
+        * WebView.cpp:
+
+2011-03-29  Jeff Miller  <jeffm@apple.com>
+
+        Reviewed by Jon Honeycutt.
+
+        Add WebCore::copyCertificateToData() on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=57296
+
+        Remove duplicate code that implemented this functionality in WebMutableURLRequest.cpp and use WebCore::copyCertificateToData() instead. 
+
+        * WebMutableURLRequest.cpp:
+        (WebMutableURLRequest::setClientCertificate):  Use WebCore::copyCertificateToData().
+
+2011-03-28  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        [WIN] Remove unused DOMCreateInstance files
+        https://bugs.webkit.org/show_bug.cgi?id=57193
+
+        * DOMCreateInstance.cpp: Removed.
+        * DOMCreateInstance.h: Removed.
+
+2011-03-28  Adele Peterson  <adele@apple.com>
+
+        Build fix.
+        
+        * WebFrame.cpp: (WebFrame::hasSpellingMarker):
+        Call new selectionStartHasMarkerFor method instead of selectionStartHasSpellingMarkerFor.
+
+2011-03-28  Jeff Miller  <jeffm@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Include certificate when sending a WebCore::ResourceError to UI process on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=57195
+        
+        Rename callers of wkGetSSLPeerCertificateData() to use wkGetSSLPeerCertificateDataBytePtr(), since it returns a void*.
+
+        * WebError.cpp:
+        (WebError::sslPeerCertificate):
+        * WebURLResponse.cpp:
+        (WebURLResponse::sslPeerCertificate):
+
+2011-03-28  Darin Adler  <darin@apple.com>
+
+        Set eol-style to native on more files. I noticed the last check-in had an entire file
+        changing because of an EOL style change, and setting this property prevents that from
+        happening in future. We may want to do this systematically for more of WebKit later.
+
+        * AccessibleBase.cpp: Added property svn:eol-style.
+        * AccessibleBase.h: Added property svn:eol-style.
+        * AccessibleDocument.cpp: Added property svn:eol-style.
+        * AccessibleDocument.h: Added property svn:eol-style.
+        * AccessibleImage.cpp: Added property svn:eol-style.
+        * AccessibleImage.h: Added property svn:eol-style.
+        * COMVariantSetter.h: Added property svn:eol-style.
+        * FullscreenVideoController.cpp: Added property svn:eol-style.
+        * FullscreenVideoController.h: Added property svn:eol-style.
+        * WebCoreSupport/EmbeddedWidget.cpp: Added property svn:eol-style.
+        * WebCoreSupport/EmbeddedWidget.h: Added property svn:eol-style.
+        * WebCoreSupport/WebDesktopNotificationsDelegate.cpp: Added property svn:eol-style.
+        * WebCoreSupport/WebDesktopNotificationsDelegate.h: Added property svn:eol-style.
+        * WebCoreSupport/WebFrameLoaderClient.cpp: Added property svn:eol-style.
+        * WebCoreSupport/WebInspectorDelegate.cpp: Added property svn:eol-style.
+        * WebCoreSupport/WebInspectorDelegate.h: Added property svn:eol-style.
+        * WebCoreSupport/WebPlatformStrategies.cpp: Added property svn:eol-style.
+        * WebCoreSupport/WebPlatformStrategies.h: Added property svn:eol-style.
+        * WebCoreSupport/WebPluginHalterClient.cpp: Added property svn:eol-style.
+        * WebCoreSupport/WebPluginHalterClient.h: Added property svn:eol-style.
+
+2011-03-28  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed build fix.
+
+        * COMPropertyBag.h: Added missing include.
+        * WebKitCOMAPI.h: Ditto.
+        * WebCoreSupport/WebFrameLoaderClient.h: Added missing forward declaration.
+
+2011-03-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Jon Honeycutt.
+
+        WebScrollBar not updating when calling WebScrollBar::setValue.
+        <rdar://problem/9143871>
+
+        * WebScrollBar.cpp:
+        (WebScrollBar::setValue):
+        Call scrollToOffsetWithoutAnimation to actually update the scroll position.
+
+2011-03-25  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        REGRESSION (r70748): latest nightly builds kills AC_QuickTime.js
+        https://bugs.webkit.org/show_bug.cgi?id=49016
+
+        Update objectContentType() implementation to handle the
+        shouldPreferPlugInsForImages flag.
+
+        * WebFrame.cpp:
+        (WebFrame::objectContentType):
+        * WebFrame.h:
+
+2011-03-24  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81916 and r81917.
+        http://trac.webkit.org/changeset/81916
+        http://trac.webkit.org/changeset/81917
+        https://bugs.webkit.org/show_bug.cgi?id=57071
+
+        broke a test on platforms that do not have QuickTime installed
+        (Requested by estes on #webkit).
+
+        * WebFrame.cpp:
+        (WebFrame::objectContentType):
+        * WebFrame.h:
+
+2011-03-24  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r70748): latest nightly builds kills AC_QuickTime.js
+        https://bugs.webkit.org/show_bug.cgi?id=49016
+
+        Update objectContentType() implementation to handle the
+        shouldPreferPlugInsForImages flag.
+
+        * WebFrame.cpp:
+        (WebFrame::objectContentType):
+        * WebFrame.h:
+
+2011-03-23  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change IconDatabase opening to allow for arbitrary filenames
+        https://bugs.webkit.org/show_bug.cgi?id=56977
+
+        * WebIconDatabase.cpp:
+        (WebIconDatabase::startUpIconDatabase):
+
+2011-03-22  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/8648311> and https://bugs.webkit.org/show_bug.cgi?id=56876
+        WK2 Icon DB: Expand IconDatabaseClient interface and move it to the main thread
+
+        Note that while the new client calls always come through on the main thread, our mechanisms to
+        route dispatches to the main thread are still valid and will still work.
+
+        Update to the new IconDatabaseClient interface:
+        * WebIconDatabase.cpp:
+        (WebIconDatabase::performImport):
+        (WebIconDatabase::didRemoveAllIcons):
+        (WebIconDatabase::didImportIconURLForPageURL):
+        (WebIconDatabase::didImportIconDataForPageURL):
+        (WebIconDatabase::didChangeIconForPageURL):
+        (WebIconDatabase::didFinishURLImport):
+        * WebIconDatabase.h:
+
+2011-03-17  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=56425
+        More groundwork for WebKit2 IconDatabase
+
+        Update already-used function names:
+        * WebIconDatabase.cpp:
+        (WebIconDatabase::iconForURL):
+        (WebIconDatabase::iconURLForURL):
+        (WebIconDatabase::hasIconForURL):
+
+2011-03-18  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: implement inspector session storage.
+        https://bugs.webkit.org/show_bug.cgi?id=56643
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorClient::saveSessionSetting):
+        (WebInspectorClient::loadSessionSetting):
+        (WebInspectorFrontendClient::saveSessionSetting):
+        (WebInspectorFrontendClient::loadSessionSetting):
+        * WebCoreSupport/WebInspectorClient.h:
+
+2011-03-11  Brady Eidson  <beidson@apple.com>
+
+        More Windows build fix for https://bugs.webkit.org/show_bug.cgi?id=56216
+
+        * WebCoreStatistics.cpp:
+        * WebIconDatabase.cpp:
+
+2011-03-09  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Mihai Parparita.
+
+        Unify Windows version checks.
+        https://bugs.webkit.org/show_bug.cgi?id=55979
+
+        * WebView.cpp:
+        (WebView::standardUserAgentWithApplicationName):
+        (webKitVersionString):
+
 2011-03-07  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Anders Carlsson.

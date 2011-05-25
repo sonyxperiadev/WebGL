@@ -86,7 +86,7 @@ public:
     virtual void setEncoding(const String&) { }
     virtual String encoding() const { return String(); }
     virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived);
-    virtual void error(CachedResource::Status) { }
+    virtual void error(CachedResource::Status);
 
     virtual bool shouldIgnoreHTTPStatusCodeErrors() const { return false; }
 
@@ -217,6 +217,8 @@ public:
     void updateResponseAfterRevalidation(const ResourceResponse& validatingResponse);
 
 protected:
+    void checkNotify();
+
     void setEncodedSize(unsigned);
     void setDecodedSize(unsigned);
     void didAccessDecodedData(double timeStamp);
@@ -266,9 +268,8 @@ private:
     unsigned m_type : 3; // Type
     unsigned m_status : 3; // Status
 
-    // FIXME: Move m_deleted back inside NDEBUG when http://webkit.org/b/53045 is fixed.
-    bool m_deleted;
 #ifndef NDEBUG
+    bool m_deleted;
     unsigned m_lruIndex;
 #endif
 

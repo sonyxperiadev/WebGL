@@ -31,6 +31,7 @@
 #include "IconDatabase.h"
 #include "PageCache.h"
 #include "ResourceRequest.h"
+#include "SharedBuffer.h"
 #include <stdio.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/Decoder.h>
@@ -228,12 +229,6 @@ const String& HistoryItem::title() const
 const String& HistoryItem::alternateTitle() const
 {
     return m_displayTitle;
-}
-
-Image* HistoryItem::icon() const
-{
-    Image* result = iconDatabase().iconForPageURL(m_urlString, IntSize(16, 16));
-    return result ? result : iconDatabase().defaultIcon(IntSize(16, 16));
 }
 
 double HistoryItem::lastVisitedTime() const

@@ -22,6 +22,7 @@
 #include "Identifier.h"
 
 #include "CallFrame.h"
+#include "JSObject.h"
 #include "NumericStrings.h"
 #include "ScopeChain.h"
 #include <new> // for placement new
@@ -90,7 +91,7 @@ bool Identifier::equal(const StringImpl* r, const UChar* s, unsigned length)
 struct IdentifierCStringTranslator {
     static unsigned hash(const char* c)
     {
-        return WTF::StringHasher::createHash<char>(c);
+        return StringHasher::computeHash<char>(c);
     }
 
     static bool equal(StringImpl* r, const char* s)
@@ -150,7 +151,7 @@ struct UCharBuffer {
 struct IdentifierUCharBufferTranslator {
     static unsigned hash(const UCharBuffer& buf)
     {
-        return WTF::StringHasher::createHash<UChar>(buf.s, buf.length);
+        return StringHasher::computeHash<UChar>(buf.s, buf.length);
     }
 
     static bool equal(StringImpl* str, const UCharBuffer& buf)
@@ -216,7 +217,7 @@ PassRefPtr<StringImpl> Identifier::add(JSGlobalData* globalData, const UChar* s,
 {
     if (length == 1) {
         UChar c = s[0];
-        if (c <= 0xFF)
+        if (c <= maxSingleCharacterString)
             return add(globalData, globalData->smallStrings.singleCharacterStringRep(c));
     }
     if (!length)
@@ -243,7 +244,7 @@ PassRefPtr<StringImpl> Identifier::addSlowCase(JSGlobalData* globalData, StringI
 
     if (r->length() == 1) {
         UChar c = r->characters()[0];
-        if (c <= 0xFF)
+        if (c <= maxSingleCharacterString)
             r = globalData->smallStrings.singleCharacterStringRep(c);
             if (r->isIdentifier())
                 return r;

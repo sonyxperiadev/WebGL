@@ -49,7 +49,9 @@ class WebApplicationCacheManagerProxy;
 class WebCookieManagerProxy;
 class WebDatabaseManagerProxy;
 class WebGeolocationManagerProxy;
+class WebIconDatabase;
 class WebKeyValueStorageManagerProxy;
+class WebMediaCacheManagerProxy;
 class WebPageGroup;
 class WebPageProxy;
 class WebResourceCacheManagerProxy;
@@ -118,7 +120,7 @@ public:
 
     void setCacheModel(CacheModel);
     CacheModel cacheModel() const { return m_cacheModel; }
-    void clearResourceCaches();
+    void clearResourceCaches(ResourceCachesToClear);
     void clearApplicationCache();
 
     void setDefaultRequestTimeoutInterval(double);
@@ -128,8 +130,12 @@ public:
 
 #if PLATFORM(WIN)
     void setShouldPaintNativeControls(bool);
+
+    void setInitialHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy policy) { m_initialHTTPCookieAcceptPolicy = policy; }
 #endif
 
+    void setEnhancedAccessibility(bool);
+    
     // Downloads.
     uint64_t createDownloadProxy();
     WebDownloadClient& downloadClient() { return m_downloadClient; }
@@ -141,7 +147,9 @@ public:
     WebCookieManagerProxy* cookieManagerProxy() const { return m_cookieManagerProxy.get(); }
     WebDatabaseManagerProxy* databaseManagerProxy() const { return m_databaseManagerProxy.get(); }
     WebGeolocationManagerProxy* geolocationManagerProxy() const { return m_geolocationManagerProxy.get(); }
+    WebIconDatabase* iconDatabase() const { return m_iconDatabase.get(); }
     WebKeyValueStorageManagerProxy* keyValueStorageManagerProxy() const { return m_keyValueStorageManagerProxy.get(); }
+    WebMediaCacheManagerProxy* mediaCacheManagerProxy() const { return m_mediaCacheManagerProxy.get(); }
     WebPluginSiteDataManager* pluginSiteDataManager() const { return m_pluginSiteDataManager.get(); }
     WebResourceCacheManagerProxy* resourceCacheManagerProxy() const { return m_resourceCacheManagerProxy.get(); }
 
@@ -150,9 +158,11 @@ public:
         unsigned wkPageCount;
         unsigned wkFrameCount;
     };
-    static Statistics& statistics();
+    static Statistics& statistics();    
 
     void setDatabaseDirectory(const String& dir) { m_overrideDatabaseDirectory = dir; }
+    void setIconDatabasePath(const String&);
+    void setLocalStorageDirectory(const String& dir) { m_overrideLocalStorageDirectory = dir; }
 
     void ensureWebProcess();
 
@@ -164,7 +174,8 @@ private:
     virtual Type type() const { return APIType; }
 
     void platformInitializeWebProcess(WebProcessCreationParameters&);
-
+    void platformInvalidateContext();
+    
     // History client
     void didNavigateWithNavigationData(uint64_t pageID, const WebNavigationDataStore& store, uint64_t frameID);
     void didPerformClientRedirect(uint64_t pageID, const String& sourceURLString, const String& destinationURLString, uint64_t frameID);
@@ -189,6 +200,12 @@ private:
     String databaseDirectory() const;
     String platformDefaultDatabaseDirectory() const;
 
+    String iconDatabasePath() const;
+    String platformDefaultIconDatabasePath() const;
+
+    String localStorageDirectory() const;
+    String platformDefaultLocalStorageDirectory() const;
+    
     ProcessModel m_processModel;
     
     // FIXME: In the future, this should be one or more WebProcessProxies.
@@ -228,15 +245,24 @@ private:
     RefPtr<WebCookieManagerProxy> m_cookieManagerProxy;
     RefPtr<WebDatabaseManagerProxy> m_databaseManagerProxy;
     RefPtr<WebGeolocationManagerProxy> m_geolocationManagerProxy;
+    RefPtr<WebIconDatabase> m_iconDatabase;
     RefPtr<WebKeyValueStorageManagerProxy> m_keyValueStorageManagerProxy;
+    RefPtr<WebMediaCacheManagerProxy> m_mediaCacheManagerProxy;
     RefPtr<WebPluginSiteDataManager> m_pluginSiteDataManager;
     RefPtr<WebResourceCacheManagerProxy> m_resourceCacheManagerProxy;
 
 #if PLATFORM(WIN)
     bool m_shouldPaintNativeControls;
+    HTTPCookieAcceptPolicy m_initialHTTPCookieAcceptPolicy;
 #endif
 
+#if PLATFORM(MAC)
+    RetainPtr<CFTypeRef> m_enhancedAccessibilityObserver;
+#endif
+    
     String m_overrideDatabaseDirectory;
+    String m_overrideIconDatabasePath;
+    String m_overrideLocalStorageDirectory;
 };
 
 } // namespace WebKit

@@ -28,6 +28,8 @@
 
 #if USE(CFNETWORK)
 #include "ArgumentCodersCF.h"
+#include "PlatformCertificateInfo.h"
+#include <WebCore/CertificateCFWin.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
 
@@ -115,6 +117,41 @@ bool decodeResourceResponse(ArgumentDecoder* decoder, WebCore::ResourceResponse&
 #else
     return false;
 #endif
+}
+
+void encodeResourceError(ArgumentEncoder* encoder, const WebCore::ResourceError& resourceError)
+{
+    encoder->encode(CoreIPC::In(resourceError.domain(), resourceError.errorCode(), resourceError.failingURL(), resourceError.localizedDescription()));
+
+#if USE(CFNETWORK)
+    encoder->encode(WebKit::PlatformCertificateInfo(resourceError.certificate()));
+#endif
+}
+
+bool decodeResourceError(ArgumentDecoder* decoder, WebCore::ResourceError& resourceError)
+{
+    String domain;
+    int errorCode;
+    String failingURL;
+    String localizedDescription;
+    if (!decoder->decode(CoreIPC::Out(domain, errorCode, failingURL, localizedDescription)))
+        return false;
+
+#if USE(CFNETWORK)
+    WebKit::PlatformCertificateInfo certificate;
+    if (!decoder->decode(certificate))
+        return false;
+    
+    const Vector<PCCERT_CONTEXT> certificateChain = certificate.certificateChain();
+    if (!certificateChain.isEmpty()) {
+        ASSERT(certificateChain.size() == 1);
+        resourceError = WebCore::ResourceError(domain, errorCode, failingURL, localizedDescription, WebCore::copyCertificateToData(certificateChain.first()).get());
+        return true;
+    }
+#endif
+
+    resourceError = WebCore::ResourceError(domain, errorCode, failingURL, localizedDescription);
+    return true;
 }
 
 } // namespace CoreIPC

@@ -46,15 +46,19 @@ bool RuntimeEnabledFeatures::isLocalStorageEnabled = true;
 bool RuntimeEnabledFeatures::isSessionStorageEnabled = true;
 bool RuntimeEnabledFeatures::isWebkitNotificationsEnabled = false;
 bool RuntimeEnabledFeatures::isApplicationCacheEnabled = true;
+bool RuntimeEnabledFeatures::isDataTransferItemsEnabled = true;
 bool RuntimeEnabledFeatures::isGeolocationEnabled = true;
 bool RuntimeEnabledFeatures::isIndexedDBEnabled = false;
 bool RuntimeEnabledFeatures::isWebAudioEnabled = false;
-bool RuntimeEnabledFeatures::isWebGLEnabled = false;
 bool RuntimeEnabledFeatures::isPushStateEnabled = false;
 bool RuntimeEnabledFeatures::isTouchEnabled = true;
 bool RuntimeEnabledFeatures::isDeviceMotionEnabled = true;
 bool RuntimeEnabledFeatures::isDeviceOrientationEnabled = true;
 bool RuntimeEnabledFeatures::isSpeechInputEnabled = true;
+
+#if ENABLE(MEDIA_STREAM)
+bool RuntimeEnabledFeatures::isMediaStreamEnabled = true;
+#endif
 
 #if ENABLE(XHR_RESPONSE_BLOB)
 bool RuntimeEnabledFeatures::isXHRResponseBlobEnabled = false;

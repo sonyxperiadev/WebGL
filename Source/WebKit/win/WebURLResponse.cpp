@@ -38,14 +38,12 @@
 #endif
 
 #include <wtf/platform.h>
-#pragma warning( push, 0 )
 #include <WebCore/BString.h>
 #include <WebCore/KURL.h>
 #include <WebCore/ResourceHandle.h>
-#pragma warning( pop )
 #include <shlobj.h>
 #include <shlwapi.h>
-#include <tchar.h>
+#include <wchar.h>
 
 using namespace WebCore;
 
@@ -410,7 +408,7 @@ HRESULT STDMETHODCALLTYPE WebURLResponse::sslPeerCertificate(
     CFDictionaryRef dict = certificateDictionary();
     if (!dict)
         return E_FAIL;
-    void* data = wkGetSSLPeerCertificateData(dict);
+    void* data = wkGetSSLPeerCertificateDataBytePtr(dict);
     if (!data)
         return E_FAIL;
     *result = (OLE_HANDLE)(ULONG64)data;
@@ -439,21 +437,21 @@ HRESULT WebURLResponse::suggestedFileExtension(BSTR *result)
         err = RegOpenKeyEx(key, mimeType, 0, KEY_QUERY_VALUE, &subKey);
         if (!err) {
             DWORD keyType = REG_SZ;
-            TCHAR extension[MAX_PATH];
+            WCHAR extension[MAX_PATH];
             DWORD keySize = sizeof(extension)/sizeof(extension[0]);
             err = RegQueryValueEx(subKey, TEXT("Extension"), 0, &keyType, (LPBYTE)extension, &keySize);
             if (!err && keyType != REG_SZ)
                 err = ERROR_INVALID_DATA;
             if (err) {
                 // fallback handlers
-                if (!_tcscmp(mimeType, TEXT("text/html"))) {
-                    _tcscpy(extension, TEXT(".html"));
+                if (!wcscmp(mimeType, L"text/html")) {
+                    wcscpy(extension, L".html");
                     err = 0;
-                } else if (!_tcscmp(mimeType, TEXT("application/xhtml+xml"))) {
-                    _tcscpy(extension, TEXT(".xhtml"));
+                } else if (!wcscmp(mimeType, L"application/xhtml+xml")) {
+                    wcscpy(extension, L".xhtml");
                     err = 0;
-                } else if (!_tcscmp(mimeType, TEXT("image/svg+xml"))) {
-                    _tcscpy(extension, TEXT(".svg"));
+                } else if (!wcscmp(mimeType, L"image/svg+xml")) {
+                    wcscpy(extension, L".svg");
                     err = 0;
                 }
             }

@@ -690,8 +690,10 @@ void Frame::pageDestroyed()
     if (Frame* parent = tree()->parent())
         parent->loader()->checkLoadComplete();
 
-    if (m_domWindow)
+    if (m_domWindow) {
+        m_domWindow->resetGeolocation();
         m_domWindow->pageDestroyed();
+    }
 
     // FIXME: It's unclear as to why this is called more than once, but it is,
     // so page() could be NULL.
@@ -735,6 +737,13 @@ void Frame::transferChildFrameToNewDocument()
 
              m_page->decrementFrameCount();
         }
+
+        // FIXME: We should ideally allow existing Geolocation activities to continue
+        // when the Geolocation's iframe is reparented.
+        // See https://bugs.webkit.org/show_bug.cgi?id=55577
+        // and https://bugs.webkit.org/show_bug.cgi?id=52877
+        if (m_domWindow)
+            m_domWindow->resetGeolocation();
 
         m_page = newPage;
 
@@ -901,7 +910,7 @@ Color Frame::tiledBackingStoreBackgroundColor() const
 }
 #endif
 
-String Frame::layerTreeAsText() const
+String Frame::layerTreeAsText(bool showDebugInfo) const
 {
 #if USE(ACCELERATED_COMPOSITING)
     document()->updateLayout();
@@ -909,7 +918,7 @@ String Frame::layerTreeAsText() const
     if (!contentRenderer())
         return String();
 
-    return contentRenderer()->compositor()->layerTreeAsText();
+    return contentRenderer()->compositor()->layerTreeAsText(showDebugInfo);
 #else
     return String();
 #endif

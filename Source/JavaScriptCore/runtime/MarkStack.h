@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 #define MarkStack_h
 
 #include "JSValue.h"
+#include "Register.h"
 #include "WriteBarrier.h"
 #include <wtf/Vector.h>
 #include <wtf/Noncopyable.h>
@@ -34,6 +35,7 @@
 
 namespace JSC {
 
+    class ConservativeRoots;
     class JSGlobalData;
     class Register;
     
@@ -50,7 +52,13 @@ namespace JSC {
 #endif
         {
         }
-        
+
+        ~MarkStack()
+        {
+            ASSERT(m_markSets.isEmpty());
+            ASSERT(m_values.isEmpty());
+        }
+
         void deprecatedAppend(JSValue*);
         void deprecatedAppend(JSCell**);
         void deprecatedAppend(Register*);
@@ -70,17 +78,18 @@ namespace JSC {
             if (count)
                 m_markSets.append(MarkSet(values, values + count, properties));
         }
+        
+        void append(ConservativeRoots&);
 
-        inline void drain();
+        void drain();
         void compact();
 
-        ~MarkStack()
-        {
-            ASSERT(m_markSets.isEmpty());
-            ASSERT(m_values.isEmpty());
-        }
-
     private:
+        friend class HeapRootMarker; // Allowed to mark a JSValue* or JSCell** directly.
+        void append(JSValue*);
+        void append(JSValue*, size_t count);
+        void append(JSCell**);
+
         void internalAppend(JSCell*);
         void internalAppend(JSValue);
         void markChildren(JSCell*);
@@ -196,7 +205,105 @@ namespace JSC {
         bool m_isDraining;
 #endif
     };
+
+    inline void MarkStack::append(JSValue* slot, size_t count)
+    {
+        if (!count)
+            return;
+        m_markSets.append(MarkSet(slot, slot + count, NoNullValues));
+    }
+
+    template <typename T> inline void MarkStack::append(DeprecatedPtr<T>* slot)
+    {
+        internalAppend(*slot->slot());
+    }
     
-}
+    template <typename T> inline void MarkStack::append(WriteBarrierBase<T>* slot)
+    {
+        internalAppend(*slot->slot());
+    }
+
+    ALWAYS_INLINE void MarkStack::deprecatedAppend(JSCell** value)
+    {
+        ASSERT(value);
+        internalAppend(*value);
+    }
+
+    ALWAYS_INLINE void MarkStack::deprecatedAppend(JSValue* value)
+    {
+        ASSERT(value);
+        internalAppend(*value);
+    }
+    
+    ALWAYS_INLINE void MarkStack::append(JSValue* value)
+    {
+        ASSERT(value);
+        internalAppend(*value);
+    }
+
+    ALWAYS_INLINE void MarkStack::append(JSCell** value)
+    {
+        ASSERT(value);
+        internalAppend(*value);
+    }
+
+    ALWAYS_INLINE void MarkStack::deprecatedAppend(Register* value)
+    {
+        ASSERT(value);
+        internalAppend(value->jsValue());
+    }
+
+    ALWAYS_INLINE void MarkStack::internalAppend(JSValue value)
+    {
+        ASSERT(value);
+        if (value.isCell())
+            internalAppend(value.asCell());
+    }
+
+    // Privileged class for marking JSValues directly. It is only safe to use
+    // this class to mark direct heap roots that are marked during every GC pass.
+    // All other references should be wrapped in WriteBarriers and marked through
+    // the MarkStack.
+    class HeapRootMarker {
+    private:
+        friend class Heap;
+        HeapRootMarker(MarkStack&);
+        
+    public:
+        void mark(JSValue*);
+        void mark(JSValue*, size_t);
+        void mark(JSString**);
+        void mark(JSCell**);
+
+    private:
+        MarkStack& m_markStack;
+    };
+
+    inline HeapRootMarker::HeapRootMarker(MarkStack& markStack)
+        : m_markStack(markStack)
+    {
+    }
+
+    inline void HeapRootMarker::mark(JSValue* slot)
+    {
+        m_markStack.append(slot);
+    }
+
+    inline void HeapRootMarker::mark(JSValue* slot, size_t count)
+    {
+        m_markStack.append(slot, count);
+    }
+
+    inline void HeapRootMarker::mark(JSString** slot)
+    {
+        m_markStack.append(reinterpret_cast<JSCell**>(slot));
+    }
+
+    inline void HeapRootMarker::mark(JSCell** slot)
+    {
+        m_markStack.append(slot);
+    }
+
+} // namespace JSC
 
 #endif

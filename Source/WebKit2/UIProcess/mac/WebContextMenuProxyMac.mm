@@ -199,6 +199,9 @@ void WebContextMenuProxyMac::populate(const Vector<WebContextMenuItemData>& item
 
 void WebContextMenuProxyMac::showContextMenu(const IntPoint& menuLocation, const Vector<WebContextMenuItemData>& items)
 {
+    if (items.isEmpty())
+        return;
+    
     populate(items);
     [[WKMenuTarget sharedMenuTarget] setMenuProxy:this];
     
@@ -215,14 +218,12 @@ void WebContextMenuProxyMac::showContextMenu(const IntPoint& menuLocation, const
     float vertOffset = roundf((NSMaxY(menuRect) - NSMaxY(titleFrame)) + NSHeight(titleFrame));
     NSPoint location = NSMakePoint(NSMinX(menuRect), NSMaxY(menuRect) - vertOffset);
 
-    RetainPtr<NSView> dummyView(AdoptNS, [[NSView alloc] initWithFrame:menuRect]);
-    [m_webView addSubview:dummyView.get()];
-    location = [dummyView.get() convertPoint:location fromView:m_webView];
-
-    WKPopupMenu(menu, location, roundf(NSWidth(menuRect)), dummyView.get(), -1, nil);
+    location = [m_webView convertPoint:location toView:nil];
+    location = [m_webView.window convertBaseToScreen:location];
+ 
+    WKPopupContextMenu(menu, location);
 
     [m_popup.get() dismissPopUp];
-    [dummyView.get() removeFromSuperview];
 }
 
 void WebContextMenuProxyMac::hideContextMenu()

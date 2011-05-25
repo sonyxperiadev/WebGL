@@ -48,13 +48,6 @@
 #endif
 #endif
 
-#if !defined(QWEBKIT_EXPORT)
-#if defined(QT_SHARED)
-#define QWEBKIT_EXPORT Q_DECL_EXPORT
-#else
-#define QWEBKIT_EXPORT
-#endif
-#endif
 #ifndef NDEBUG
 #include <QDebug>
 #endif
@@ -89,7 +82,7 @@ bool EnvHttpProxyFactory::initializeFromEnvironment()
 {
     bool wasSetByEnvironment = false;
 
-    QUrl proxyUrl = QUrl::fromUserInput(qgetenv("http_proxy"));
+    QUrl proxyUrl = QUrl::fromUserInput(QString::fromLocal8Bit(qgetenv("http_proxy")));
     if (proxyUrl.isValid() && !proxyUrl.host().isEmpty()) {
         int proxyPort = (proxyUrl.port() > 0) ? proxyUrl.port() : 8080;
         m_httpProxy << QNetworkProxy(QNetworkProxy::HttpProxy, proxyUrl.host(), proxyPort);
@@ -97,7 +90,7 @@ bool EnvHttpProxyFactory::initializeFromEnvironment()
     } else
         m_httpProxy << QNetworkProxy::NoProxy;
 
-    proxyUrl = QUrl::fromUserInput(qgetenv("https_proxy"));
+    proxyUrl = QUrl::fromUserInput(QString::fromLocal8Bit(qgetenv("https_proxy")));
     if (proxyUrl.isValid() && !proxyUrl.host().isEmpty()) {
         int proxyPort = (proxyUrl.port() > 0) ? proxyUrl.port() : 8080;
         m_httpsProxy << QNetworkProxy(QNetworkProxy::HttpProxy, proxyUrl.host(), proxyPort);
@@ -137,9 +130,9 @@ static void initializeProxy()
     QNetworkProxyFactory::setUseSystemConfiguration(true);
 }
 
-QWEBKIT_EXPORT int WebProcessMainQt(int argc, char** argv)
+Q_DECL_EXPORT int WebProcessMainQt(int argc, char** argv)
 {
-    QApplication::setGraphicsSystem("raster");
+    QApplication::setGraphicsSystem(QLatin1String("raster"));
     QApplication* app = new QApplication(argc, argv);
 #ifndef NDEBUG
     if (!qgetenv("WEBKIT2_PAUSE_WEB_PROCESS_ON_LAUNCH").isEmpty()) {

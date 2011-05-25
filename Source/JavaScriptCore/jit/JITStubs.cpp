@@ -40,6 +40,7 @@
 #include "Debugger.h"
 #include "ExceptionHelpers.h"
 #include "GetterSetter.h"
+#include "Global.h"
 #include "JIT.h"
 #include "JSActivation.h"
 #include "JSArray.h"
@@ -679,6 +680,7 @@ __asm void ctiOpThrowNotCaught()
 #endif
 
 JITThunks::JITThunks(JSGlobalData* globalData)
+    : m_hostFunctionStubMap(new HostFunctionStubMap)
 {
     if (!globalData->executableAllocator.isValid())
         return;
@@ -941,17 +943,17 @@ static NEVER_INLINE void throwStackOverflowError(CallFrame* callFrame, JSGlobalD
 
 #define CHECK_FOR_EXCEPTION() \
     do { \
-        if (UNLIKELY(stackFrame.globalData->exception.get())) \
+        if (UNLIKELY(stackFrame.globalData->exception)) \
             VM_THROW_EXCEPTION(); \
     } while (0)
 #define CHECK_FOR_EXCEPTION_AT_END() \
     do { \
-        if (UNLIKELY(stackFrame.globalData->exception.get())) \
+        if (UNLIKELY(stackFrame.globalData->exception)) \
             VM_THROW_EXCEPTION_AT_END(); \
     } while (0)
 #define CHECK_FOR_EXCEPTION_VOID() \
     do { \
-        if (UNLIKELY(stackFrame.globalData->exception.get())) { \
+        if (UNLIKELY(stackFrame.globalData->exception)) { \
             VM_THROW_EXCEPTION_AT_END(); \
             return; \
         } \
@@ -976,7 +978,7 @@ static ExceptionHandler jitThrow(JSGlobalData* globalData, CallFrame* callFrame,
     return exceptionHandler;
 }
 
-#if CPU(ARM_THUMB2)
+#if CPU(ARM_THUMB2) && COMPILER(GCC)
 
 #define DEFINE_STUB_FUNCTION(rtype, op) \
     extern "C" { \
@@ -1072,7 +1074,7 @@ static ExceptionHandler jitThrow(JSGlobalData* globalData, CallFrame* callFrame,
         ); \
     rtype JITStubThunked_##op(STUB_ARGS_DECLARATION)
 
-#elif CPU(ARM_TRADITIONAL) && COMPILER(RVCT)
+#elif (CPU(ARM_THUMB2) || CPU(ARM_TRADITIONAL)) && COMPILER(RVCT)
 
 #define DEFINE_STUB_FUNCTION(rtype, op) rtype JITStubThunked_##op(STUB_ARGS_DECLARATION)
 
@@ -1085,7 +1087,7 @@ static ExceptionHandler jitThrow(JSGlobalData* globalData, CallFrame* callFrame,
 RVCT(extern "C" #rtype# JITStubThunked_#op#(STUB_ARGS_DECLARATION);)
 RVCT(__asm #rtype# cti_#op#(STUB_ARGS_DECLARATION))
 RVCT({)
-RVCT(    ARM)
+RVCT(    PRESERVE8)
 RVCT(    IMPORT JITStubThunked_#op#)
 RVCT(    str lr, [sp, # THUNK_RETURN_ADDRESS_OFFSET])
 RVCT(    bl JITStubThunked_#op#)
@@ -1172,7 +1174,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_create_this)
     Structure* structure;
     JSValue proto = stackFrame.args[0].jsValue();
     if (proto.isObject())
-        structure = asObject(proto)->inheritorID();
+        structure = asObject(proto)->inheritorID(*stackFrame.globalData);
     else
         structure = constructor->scope()->globalObject->emptyObjectStructure();
     JSValue result = constructEmptyObject(callFrame, structure);
@@ -1551,7 +1553,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_self_fail)
     return JSValue::encode(result);
 }
 
-static PolymorphicAccessStructureList* getPolymorphicAccessStructureListSlot(StructureStubInfo* stubInfo, int& listIndex)
+static PolymorphicAccessStructureList* getPolymorphicAccessStructureListSlot(JSGlobalData& globalData, ScriptExecutable* owner, StructureStubInfo* stubInfo, int& listIndex)
 {
     PolymorphicAccessStructureList* prototypeStructureList = 0;
     listIndex = 1;
@@ -1563,7 +1565,7 @@ static PolymorphicAccessStructureList* getPolymorphicAccessStructureListSlot(Str
         stubInfo->initGetByIdProtoList(prototypeStructureList, 2);
         break;
     case access_get_by_id_chain:
-        prototypeStructureList = new PolymorphicAccessStructureList(stubInfo->stubRoutine, stubInfo->u.getByIdChain.baseObjectStructure, stubInfo->u.getByIdChain.chain);
+        prototypeStructureList = new PolymorphicAccessStructureList(globalData, owner, stubInfo->stubRoutine, stubInfo->u.getByIdChain.baseObjectStructure, stubInfo->u.getByIdChain.chain);
         stubInfo->stubRoutine = CodeLocationLabel();
         stubInfo->initGetByIdProtoList(prototypeStructureList, 2);
         break;
@@ -1651,7 +1653,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_proto_list)
         }
 
         int listIndex;
-        PolymorphicAccessStructureList* prototypeStructureList = getPolymorphicAccessStructureListSlot(stubInfo, listIndex);
+        PolymorphicAccessStructureList* prototypeStructureList = getPolymorphicAccessStructureListSlot(callFrame->globalData(), codeBlock->ownerExecutable(), stubInfo, listIndex);
         if (listIndex < POLYMORPHIC_LIST_CACHE_SIZE) {
             JIT::compileGetByIdProtoList(callFrame->scopeChain()->globalData, callFrame, codeBlock, stubInfo, prototypeStructureList, listIndex, structure, slotBaseObject->structure(), propertyName, slot, offset);
 
@@ -1661,7 +1663,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_proto_list)
     } else if (size_t count = normalizePrototypeChain(callFrame, baseValue, slot.slotBase(), propertyName, offset)) {
         ASSERT(!baseValue.asCell()->structure()->isDictionary());
         int listIndex;
-        PolymorphicAccessStructureList* prototypeStructureList = getPolymorphicAccessStructureListSlot(stubInfo, listIndex);
+        PolymorphicAccessStructureList* prototypeStructureList = getPolymorphicAccessStructureListSlot(callFrame->globalData(), codeBlock->ownerExecutable(), stubInfo, listIndex);
         
         if (listIndex < POLYMORPHIC_LIST_CACHE_SIZE) {
             StructureChain* protoChain = structure->prototypeChain(callFrame);
@@ -3067,7 +3069,15 @@ DEFINE_STUB_FUNCTION(JSObject*, op_new_regexp)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
 
-    return new (stackFrame.globalData) RegExpObject(stackFrame.callFrame->lexicalGlobalObject(), stackFrame.callFrame->lexicalGlobalObject()->regExpStructure(), stackFrame.args[0].regExp());
+    CallFrame* callFrame = stackFrame.callFrame;
+
+    RegExp* regExp = stackFrame.args[0].regExp();
+    if (!regExp->isValid()) {
+        stackFrame.globalData->exception = createSyntaxError(callFrame, "Invalid flags supplied to RegExp constructor.");
+        VM_THROW_EXCEPTION();
+    }
+
+    return new (stackFrame.globalData) RegExpObject(stackFrame.callFrame->lexicalGlobalObject(), stackFrame.callFrame->lexicalGlobalObject()->regExpStructure(), regExp);
 }
 
 DEFINE_STUB_FUNCTION(EncodedJSValue, op_bitor)
@@ -3462,7 +3472,7 @@ DEFINE_STUB_FUNCTION(void*, vm_throw)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
     JSGlobalData* globalData = stackFrame.globalData;
-    ExceptionHandler handler = jitThrow(globalData, stackFrame.callFrame, globalData->exception.get(), globalData->exceptionLocation);
+    ExceptionHandler handler = jitThrow(globalData, stackFrame.callFrame, globalData->exception, globalData->exceptionLocation);
     STUB_SET_RETURN_ADDRESS(handler.catchRoutine);
     return handler.callFrame;
 }
@@ -3483,22 +3493,27 @@ MacroAssemblerCodePtr JITThunks::ctiStub(JSGlobalData* globalData, ThunkGenerato
     return entry.first->second;
 }
 
-PassRefPtr<NativeExecutable> JITThunks::hostFunctionStub(JSGlobalData* globalData, NativeFunction function)
+NativeExecutable* JITThunks::hostFunctionStub(JSGlobalData* globalData, NativeFunction function)
 {
-    std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap.add(function, 0);
+    std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap->add(function, Global<NativeExecutable>(Global<NativeExecutable>::EmptyValue));
     if (entry.second)
-        entry.first->second = NativeExecutable::create(JIT::compileCTINativeCall(globalData, m_executablePool, function), function, ctiNativeConstruct(), callHostFunctionAsConstructor);
-    return entry.first->second;
+        entry.first->second.set(*globalData, NativeExecutable::create(*globalData, JIT::compileCTINativeCall(globalData, m_executablePool, function), function, ctiNativeConstruct(), callHostFunctionAsConstructor));
+    return entry.first->second.get();
 }
 
-PassRefPtr<NativeExecutable> JITThunks::hostFunctionStub(JSGlobalData* globalData, NativeFunction function, ThunkGenerator generator)
+NativeExecutable* JITThunks::hostFunctionStub(JSGlobalData* globalData, NativeFunction function, ThunkGenerator generator)
 {
-    std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap.add(function, 0);
+    std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap->add(function, Global<NativeExecutable>(Global<NativeExecutable>::EmptyValue));
     if (entry.second) {
         MacroAssemblerCodePtr code = globalData->canUseJIT() ? generator(globalData, m_executablePool.get()) : MacroAssemblerCodePtr();
-        entry.first->second = NativeExecutable::create(code, function, ctiNativeConstruct(), callHostFunctionAsConstructor);
+        entry.first->second.set(*globalData, NativeExecutable::create(*globalData, code, function, ctiNativeConstruct(), callHostFunctionAsConstructor));
     }
-    return entry.first->second;
+    return entry.first->second.get();
+}
+
+void JITThunks::clearHostFunctionStubs()
+{
+    m_hostFunctionStubMap.clear();
 }
 
 } // namespace JSC

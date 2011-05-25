@@ -207,6 +207,11 @@ void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
     // FIXME: implement
 }
 
+void LayoutTestController::setAutofilled(JSContextRef, JSValueRef element, bool isAutofilled)
+{
+    // FIXME: implement
+}
+
 void LayoutTestController::setPopupBlockingEnabled(bool popupBlockingEnabled)
 {
     // FIXME: implement
@@ -240,12 +245,23 @@ void LayoutTestController::clearPersistentUserStyleSheet()
 
 void LayoutTestController::clearAllApplicationCaches()
 {
-    // FIXME: implement to support Application Cache quotas.
+    // FIXME: Implement to support application cache quotas.
+}
+
+void LayoutTestController::clearApplicationCacheForOrigin(JSStringRef url)
+{
+    // FIXME: Implement to support deleting all application cache for an origin.
 }
 
 void LayoutTestController::setApplicationCacheOriginQuota(unsigned long long quota)
 {
-    // FIXME: implement to support Application Cache quotas.
+    // FIXME: Implement to support application cache quotas.
+}
+
+JSValueRef LayoutTestController::originsWithApplicationCache(JSContextRef context)
+{
+    // FIXME: Implement to get origins that have application caches.
+    return 0;
 }
 
 void LayoutTestController::clearAllDatabases()
@@ -323,6 +339,12 @@ void LayoutTestController::setGeolocationPermission(bool allow)
 {
     // FIXME: Implement for Geolocation layout tests.
     setGeolocationPermissionCommon(allow);
+}
+
+int LayoutTestController::numberOfPendingGeolocationPermissionRequests()
+{
+    // FIXME: Implement for Geolocation layout tests.
+    return -1;
 }
 
 void LayoutTestController::addMockSpeechInputResult(JSStringRef result, double confidence, JSStringRef language)
@@ -516,6 +538,12 @@ bool LayoutTestController::hasSpellingMarker(int, int)
     return false;
 }
 
+bool LayoutTestController::hasGrammarMarker(int, int)
+{
+    // FIXME: Implement
+    return false;
+}
+
 void LayoutTestController::dumpConfigurationForViewport(int /*deviceDPI*/, int /*deviceWidth*/, int /*deviceHeight*/, int /*availableWidth*/, int /*availableHeight*/)
 {
     // FIXME: Implement
@@ -558,4 +586,29 @@ void LayoutTestController::setSerializeHTTPLoads(bool)
 void LayoutTestController::setMinimumTimerInterval(double interval) {
 
 }
-    
+
+void LayoutTestController::syncLocalStorage()
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::observeStorageTrackerNotifications(unsigned number)
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::deleteAllLocalStorage()
+{
+    // FIXME: Implement.
+}
+
+JSValueRef LayoutTestController::originsWithLocalStorage(JSContextRef context)
+{
+    // FIXME: Implement.
+    return 0;
+}
+
+void LayoutTestController::deleteLocalStorageForOrigin(JSStringRef URL)
+{
+    // FIXME: Implement.
+}

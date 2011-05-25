@@ -179,6 +179,9 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)acceleratedDrawingEnabled;
 - (void)setAcceleratedDrawingEnabled:(BOOL)enabled;
 
+- (BOOL)canvasUsesAcceleratedDrawing;
+- (void)setCanvasUsesAcceleratedDrawing:(BOOL)enabled;
+
 - (BOOL)acceleratedCompositingEnabled;
 - (void)setAcceleratedCompositingEnabled:(BOOL)enabled;
 
@@ -232,5 +235,7 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (void)setUsePreHTML5ParserQuirks:(BOOL)flag;
 - (BOOL)usePreHTML5ParserQuirks;
+
+- (BOOL)useQuickLookResourceCachingQuirks;
 
 @end

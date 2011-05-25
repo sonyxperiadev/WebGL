@@ -47,6 +47,12 @@
 #include <libsoup/soup.h>
 #endif
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#include "appcache/ApplicationCacheStorage.h"
+
+static const char* _ewk_cache_directory_path = 0;
+#endif
+
 static const char* _ewk_default_web_database_path = 0;
 static const char* _ewk_icon_database_path = 0;
 static uint64_t _ewk_default_web_database_quota = 1 * 1024 * 1024;
@@ -81,7 +87,7 @@ static WTF::String _ewk_settings_webkit_os_version_get()
  *
  * @return the current default database quota in bytes
  */
-uint64_t ewk_settings_web_database_default_quota_get()
+uint64_t ewk_settings_web_database_default_quota_get(void)
 {
     return _ewk_default_web_database_quota;
 }
@@ -114,7 +120,7 @@ void ewk_settings_web_database_path_set(const char *path)
  *
  * @return database path or @c 0 if none or web database is not supported
  */
-const char *ewk_settings_web_database_path_get()
+const char *ewk_settings_web_database_path_get(void)
 {
 #if ENABLE(DATABASE)
     return _ewk_default_web_database_path;
@@ -133,7 +139,7 @@ const char *ewk_settings_web_database_path_get()
  */
 Eina_Bool ewk_settings_icon_database_path_set(const char *directory)
 {
-    WebCore::iconDatabase().delayDatabaseCleanup();
+    WebCore::IconDatabase::delayDatabaseCleanup();
 
     if (directory) {
         struct stat st;
@@ -155,7 +161,7 @@ Eina_Bool ewk_settings_icon_database_path_set(const char *directory)
         }
 
         WebCore::iconDatabase().setEnabled(true);
-        WebCore::iconDatabase().open(WTF::String::fromUTF8(directory));
+        WebCore::iconDatabase().open(WTF::String::fromUTF8(directory), WebCore::IconDatabase::defaultDatabaseFilename());
         if (!_ewk_icon_database_path)
             _ewk_icon_database_path = eina_stringshare_add(directory);
         else
@@ -225,7 +231,7 @@ cairo_surface_t* ewk_settings_icon_database_icon_surface_get(const char *url)
     EINA_SAFETY_ON_NULL_RETURN_VAL(url, 0);
 
     WebCore::KURL kurl(WebCore::KURL(), WTF::String::fromUTF8(url));
-    WebCore::Image *icon = WebCore::iconDatabase().iconForPageURL(kurl.string(), WebCore::IntSize(16, 16));
+    WebCore::Image *icon = WebCore::iconDatabase().synchronousIconForPageURL(kurl.string(), WebCore::IntSize(16, 16));
 
     if (!icon) {
         ERR("no icon for url %s", url);
@@ -257,7 +263,7 @@ Evas_Object* ewk_settings_icon_database_icon_object_add(const char* url, Evas* c
     EINA_SAFETY_ON_NULL_RETURN_VAL(canvas, 0);
 
     WebCore::KURL kurl(WebCore::KURL(), WTF::String::fromUTF8(url));
-    WebCore::Image* icon = WebCore::iconDatabase().iconForPageURL(kurl.string(), WebCore::IntSize(16, 16));
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(kurl.string(), WebCore::IntSize(16, 16));
     cairo_surface_t* surface;
 
     if (!icon) {
@@ -300,7 +306,7 @@ void ewk_settings_proxy_uri_set(const char* proxy)
  *
  * @return current proxy URI or @c 0 if it's not set
  */
-const char* ewk_settings_proxy_uri_get()
+const char* ewk_settings_proxy_uri_get(void)
 {
 #if USE(SOUP)
     SoupURI* uri;
@@ -315,7 +321,7 @@ const char* ewk_settings_proxy_uri_get()
     WTF::String proxy = soup_uri_to_string(uri, EINA_FALSE);
     return eina_stringshare_add(proxy.utf8().data());
 #elif USE(CURL)
-    EINA_SAFETY_ON_TRUE_RETURN_VAL(1, NULL);
+    EINA_SAFETY_ON_TRUE_RETURN_VAL(1, 0);
 #endif
 }
 
@@ -326,10 +332,53 @@ const char* ewk_settings_proxy_uri_get()
  *
  * @return a pointer to an eina_stringshare containing the user agent string
  */
-const char* ewk_settings_default_user_agent_get()
+const char* ewk_settings_default_user_agent_get(void)
 {
     WTF::String ua_version = makeString(String::number(WEBKIT_USER_AGENT_MAJOR_VERSION), '.', String::number(WEBKIT_USER_AGENT_MINOR_VERSION), '+');
     WTF::String static_ua = makeString("Mozilla/5.0 (", _ewk_settings_webkit_platform_get(), "; ", _ewk_settings_webkit_os_version_get(), ") AppleWebKit/", ua_version) + makeString(" (KHTML, like Gecko) Version/5.0 Safari/", ua_version);
 
     return eina_stringshare_add(static_ua.utf8().data());
+}
+
+/**
+ * Sets cache directory.
+ *
+ * @param path where to store cache, must be write-able.
+ *
+ * @return @c EINA_TRUE on success, @c EINA_FALSE if path is NULL or offline
+ *         web application is not supported.
+ */
+Eina_Bool ewk_settings_cache_directory_path_set(const char *path)
+{
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    if (!path)
+        return EINA_FALSE;
+
+    WebCore::cacheStorage().setCacheDirectory(WTF::String::fromUTF8(path));
+    if (!_ewk_cache_directory_path)
+        _ewk_cache_directory_path = eina_stringshare_add(path);
+    else
+        eina_stringshare_replace(&_ewk_cache_directory_path, path);
+    return EINA_TRUE;
+#else
+    EINA_SAFETY_ON_TRUE_RETURN_VAL(1, EINA_FALSE);
+#endif
+}
+
+/**
+ * Return cache directory path.
+ *
+ * This is guaranteed to be eina_stringshare, so whenever possible
+ * save yourself some cpu cycles and use eina_stringshare_ref()
+ * instead of eina_stringshare_add() or strdup().
+ *
+ * @return cache directory path.
+ */
+const char *ewk_settings_cache_directory_path_get()
+{
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    return _ewk_cache_directory_path;
+#else
+    EINA_SAFETY_ON_TRUE_RETURN_VAL(1, 0);
+#endif
 }

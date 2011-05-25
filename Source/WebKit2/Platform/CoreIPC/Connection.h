@@ -72,7 +72,7 @@ enum MessageSendFlags {
     } \
 while (0)
 
-class Connection : public ThreadSafeShared<Connection> {
+class Connection : public ThreadSafeRefCounted<Connection> {
 public:
     class MessageReceiver {
     protected:
@@ -113,6 +113,8 @@ public:
 #elif PLATFORM(QT)
     void setShouldCloseConnectionOnProcessTermination(WebKit::PlatformProcessIdentifier);
 #endif
+
+    void setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(bool);
 
     // The set callback will be called on the connection work queue when the connection is closed, 
     // before didCall is called on the client thread. Must be called before the connection is opened.
@@ -191,6 +193,8 @@ private:
 
     // Called on the connection work queue.
     void processIncomingMessage(MessageID, PassOwnPtr<ArgumentDecoder>);
+    void processIncomingSyncReply(PassOwnPtr<ArgumentDecoder>);
+
     bool canSendOutgoingMessages() const;
     bool platformCanSendOutgoingMessages() const;
     void sendOutgoingMessages();
@@ -212,13 +216,15 @@ private:
     bool m_isServer;
     uint64_t m_syncRequestID;
 
+    bool m_onlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage;
     DidCloseOnConnectionWorkQueueCallback m_didCloseOnConnectionWorkQueueCallback;
 
     bool m_isConnected;
     WorkQueue m_connectionQueue;
     RunLoop* m_clientRunLoop;
 
-    uint32_t m_inDispatchMessageCount;
+    unsigned m_inDispatchMessageCount;
+    unsigned m_inDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount;
     bool m_didReceiveInvalidMessage;
 
     // Incoming messages.
@@ -336,7 +342,7 @@ template<typename T> bool Connection::sendSync(const T& message, const typename 
     argumentEncoder->encode(message);
 
     // Now send the message and wait for a reply.
-    OwnPtr<ArgumentDecoder> replyDecoder = sendSyncMessage(MessageID(T::messageID, MessageID::SyncMessage), syncRequestID, argumentEncoder.release(), timeout);
+    OwnPtr<ArgumentDecoder> replyDecoder = sendSyncMessage(MessageID(T::messageID), syncRequestID, argumentEncoder.release(), timeout);
     if (!replyDecoder)
         return false;
 
@@ -367,7 +373,7 @@ inline bool Connection::deprecatedSendSync(E messageID, uint64_t destinationID, 
     argumentEncoder->encode(arguments);
     
     // Now send the message and wait for a reply.
-    OwnPtr<ArgumentDecoder> replyDecoder = sendSyncMessage(MessageID(messageID, MessageID::SyncMessage), syncRequestID, argumentEncoder.release(), timeout);
+    OwnPtr<ArgumentDecoder> replyDecoder = sendSyncMessage(MessageID(messageID), syncRequestID, argumentEncoder.release(), timeout);
     if (!replyDecoder)
         return false;
     

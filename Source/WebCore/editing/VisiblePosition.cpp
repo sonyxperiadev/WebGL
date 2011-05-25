@@ -59,18 +59,22 @@ void VisiblePosition::init(const Position& position, EAffinity affinity)
         m_affinity = DOWNSTREAM;
 }
 
-VisiblePosition VisiblePosition::next(bool stayInEditableContent) const
+VisiblePosition VisiblePosition::next(EditingBoundaryCrossingRule rule) const
 {
+    // FIXME: Support CanSkipEditingBoundary
+    ASSERT(rule == CanCrossEditingBoundary || rule == CannotCrossEditingBoundary);
     VisiblePosition next(nextVisuallyDistinctCandidate(m_deepPosition), m_affinity);
-    
-    if (!stayInEditableContent)
+
+    if (rule == CanCrossEditingBoundary)
         return next;
-    
+
     return honorEditableBoundaryAtOrAfter(next);
 }
 
-VisiblePosition VisiblePosition::previous(bool stayInEditableContent) const
+VisiblePosition VisiblePosition::previous(EditingBoundaryCrossingRule rule) const
 {
+    // FIXME: Support CanSkipEditingBoundary
+    ASSERT(rule == CanCrossEditingBoundary || rule == CannotCrossEditingBoundary);
     // find first previous DOM position that is visible
     Position pos = previousVisuallyDistinctCandidate(m_deepPosition);
     
@@ -91,7 +95,7 @@ VisiblePosition VisiblePosition::previous(bool stayInEditableContent) const
     }
 #endif
 
-    if (!stayInEditableContent)
+    if (rule == CanCrossEditingBoundary)
         return prev;
     
     return honorEditableBoundaryAtOrBefore(prev);
@@ -469,7 +473,7 @@ Position VisiblePosition::canonicalPosition(const Position& passedPosition)
 
     // The new position must be in the same editable element. Enforce that first.
     // Unless the descent is from a non-editable html element to an editable body.
-    if (node && node->hasTagName(htmlTag) && !node->isContentEditable() && node->document()->body() && node->document()->body()->isContentEditable())
+    if (node && node->hasTagName(htmlTag) && !node->rendererIsEditable() && node->document()->body() && node->document()->body()->rendererIsEditable())
         return next.isNotNull() ? next : prev;
 
     Node* editingRoot = editableRootForPosition(position);

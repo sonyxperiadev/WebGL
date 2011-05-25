@@ -375,7 +375,12 @@ GEN := \
     $(intermediates)/page/JSNavigator.h \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSScreen.h \
+<<<<<<< HEAD
     $(intermediates)/page/JSSpeechInputEvent.h \
+=======
+    $(intermediates)/page/JSWebKitAnimation.h \
+    $(intermediates)/page/JSWebKitAnimationList.h \
+>>>>>>> webkit.org at r82507
     $(intermediates)/page/JSWebKitPoint.h \
     $(intermediates)/page/JSWorkerNavigator.h
 

@@ -33,6 +33,7 @@
 #import "EditingDelegate.h"
 #import "MockGeolocationProvider.h"
 #import "PolicyDelegate.h"
+#import "StorageTrackerDelegate.h"
 #import "UIDelegate.h"
 #import "WorkQueue.h"
 #import "WorkQueueItem.h"
@@ -66,6 +67,7 @@
 #import <WebKit/WebQuotaManager.h>
 #import <WebKit/WebScriptWorld.h>
 #import <WebKit/WebSecurityOriginPrivate.h>
+#import <WebKit/WebStorageManagerPrivate.h>
 #import <WebKit/WebTypesInternal.h>
 #import <WebKit/WebView.h>
 #import <WebKit/WebViewPrivate.h>
@@ -133,9 +135,66 @@ void LayoutTestController::clearAllApplicationCaches()
     [WebApplicationCache deleteAllApplicationCaches];
 }
 
+void LayoutTestController::syncLocalStorage()
+{
+    [[WebStorageManager sharedWebStorageManager] syncLocalStorage];
+}
+
+void LayoutTestController::observeStorageTrackerNotifications(unsigned number)
+{
+    [storageDelegate logNotifications:number controller:this];
+}
+
+void LayoutTestController::clearApplicationCacheForOrigin(JSStringRef url)
+{
+    RetainPtr<CFStringRef> urlCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, url));
+
+    WebSecurityOrigin *origin = [[WebSecurityOrigin alloc] initWithURL:[NSURL URLWithString:(NSString *)urlCF.get()]];
+    [WebApplicationCache deleteCacheForOrigin:origin];
+    [origin release];
+}
+
+JSValueRef originsArrayToJS(JSContextRef context, NSArray* origins)
+{
+    NSUInteger count = [origins count];
+
+    JSValueRef jsOriginsArray[count];
+    for (NSUInteger i = 0; i < count; i++) {
+        NSString *origin = [[origins objectAtIndex:i] databaseIdentifier];
+        JSRetainPtr<JSStringRef> originJS(Adopt, JSStringCreateWithCFString((CFStringRef)origin));
+        jsOriginsArray[i] = JSValueMakeString(context, originJS.get());
+    }
+
+    return JSObjectMakeArray(context, count, jsOriginsArray, NULL);
+}
+
+JSValueRef LayoutTestController::originsWithApplicationCache(JSContextRef context)
+{
+    return originsArrayToJS(context, [WebApplicationCache originsWithCache]);
+}
+
 void LayoutTestController::clearAllDatabases()
 {
     [[WebDatabaseManager sharedWebDatabaseManager] deleteAllDatabases];
+}
+
+void LayoutTestController::deleteAllLocalStorage()
+{
+    [[WebStorageManager sharedWebStorageManager] deleteAllOrigins];
+}
+
+JSValueRef LayoutTestController::originsWithLocalStorage(JSContextRef context)
+{
+    return originsArrayToJS(context, [[WebStorageManager sharedWebStorageManager] origins]);
+}
+
+void LayoutTestController::deleteLocalStorageForOrigin(JSStringRef URL)
+{
+    RetainPtr<CFStringRef> urlCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, URL));
+    
+    WebSecurityOrigin *origin = [[WebSecurityOrigin alloc] initWithURL:[NSURL URLWithString:(NSString *)urlCF.get()]];
+    [[WebStorageManager sharedWebStorageManager] deleteOrigin:origin];
+    [origin release];
 }
 
 void LayoutTestController::clearBackForwardList()
@@ -254,6 +313,11 @@ int LayoutTestController::numberOfPages(float pageWidthInPixels, float pageHeigh
     return [mainFrame numberOfPages:pageWidthInPixels:pageHeightInPixels];
 }
 
+int LayoutTestController::numberOfPendingGeolocationPermissionRequests()
+{
+    return [[[mainFrame webView] UIDelegate] numberOfPendingGeolocationPermissionRequests];
+}
+
 size_t LayoutTestController::webHistoryItemCount()
 {
     return [[[WebHistory optionalSharedHistory] allItems] count];
@@ -318,6 +382,15 @@ void LayoutTestController::setApplicationCacheOriginQuota(unsigned long long quo
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
 {
     [[[mainFrame webView] preferences] setAuthorAndUserStylesEnabled:flag];
+}
+
+void LayoutTestController::setAutofilled(JSContextRef context, JSValueRef nodeObject, bool autofilled)
+{
+    DOMElement *element = [DOMElement _DOMElementFromJSContext:context value:nodeObject];
+    if (!element || ![element isKindOfClass:[DOMHTMLInputElement class]])
+        return;
+
+    [(DOMHTMLInputElement *)element _setAutofilled:autofilled];
 }
 
 void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permissive)
@@ -484,7 +557,7 @@ void LayoutTestController::setValueForUser(JSContextRef context, JSValueRef node
     DOMElement *element = [DOMElement _DOMElementFromJSContext:context value:nodeObject];
     if (!element || ![element isKindOfClass:[DOMHTMLInputElement class]])
         return;
-    
+
     RetainPtr<CFStringRef> valueCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, value));
     [(DOMHTMLInputElement *)element _setValueForUser:(NSString *)valueCF.get()];
 }
@@ -926,8 +999,8 @@ static NSString *SynchronousLoaderRunLoopMode = @"DumpRenderTreeSynchronousLoade
 - (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
 {
     if ([challenge previousFailureCount] == 0) {
-        NSURLCredential *credential = [[NSURLCredential alloc]  initWithUser:m_username password:m_password persistence:NSURLCredentialPersistenceForSession];
-        [[challenge sender] useCredential:credential forAuthenticationChallenge:challenge];
+        RetainPtr<NSURLCredential> credential(AdoptNS, [[NSURLCredential alloc]  initWithUser:m_username password:m_password persistence:NSURLCredentialPersistenceForSession]);
+        [[challenge sender] useCredential:credential.get() forAuthenticationChallenge:challenge];
         return;
     }
     [[challenge sender] cancelAuthenticationChallenge:challenge];
@@ -977,9 +1050,9 @@ void LayoutTestController::authenticateSession(JSStringRef url, JSStringRef user
     RetainPtr<CFStringRef> usernameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, username));
     RetainPtr<CFStringRef> passwordCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, password));
 
-    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:(NSString *)urlStringCF.get()]];
+    RetainPtr<NSURLRequest> request(AdoptNS, [[NSURLRequest alloc] initWithURL:[NSURL URLWithString:(NSString *)urlStringCF.get()]]);
 
-    [SynchronousLoader makeRequest:request withUsername:(NSString *)usernameCF.get() password:(NSString *)passwordCF.get()];
+    [SynchronousLoader makeRequest:request.get() withUsername:(NSString *)usernameCF.get() password:(NSString *)passwordCF.get()];
 #endif
 }
 
@@ -1004,6 +1077,12 @@ bool LayoutTestController::hasSpellingMarker(int from, int length)
 {
     return [mainFrame hasSpellingMarker:from length:length];
 }
+
+bool LayoutTestController::hasGrammarMarker(int from, int length)
+{
+    return [mainFrame hasGrammarMarker:from length:length];
+}
+
 void LayoutTestController::dumpConfigurationForViewport(int /*deviceDPI*/, int /*deviceWidth*/, int /*deviceHeight*/, int /*availableWidth*/, int /*availableHeight*/)
 {
 

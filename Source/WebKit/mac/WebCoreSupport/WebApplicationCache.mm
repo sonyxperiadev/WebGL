@@ -26,7 +26,12 @@
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #import "WebApplicationCache.h"
+
+#import "WebSecurityOriginInternal.h"
+#import <WebCore/ApplicationCache.h>
 #import <WebCore/ApplicationCacheStorage.h>
+#import <WebCore/SecurityOrigin.h>
+#import <wtf/RetainPtr.h>
 
 using namespace WebCore;
 
@@ -56,6 +61,27 @@ using namespace WebCore;
 + (void)deleteAllApplicationCaches
 {
     cacheStorage().deleteAllEntries();
+}
+
++ (void)deleteCacheForOrigin:(WebSecurityOrigin *)origin
+{
+    ApplicationCache::deleteCacheForOrigin([origin _core]);
+}
+
++ (NSArray *)originsWithCache
+{
+    HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash> coreOrigins;
+    cacheStorage().getOriginsWithCache(coreOrigins);
+    
+    NSMutableArray *webOrigins = [[[NSMutableArray alloc] initWithCapacity:coreOrigins.size()] autorelease];
+    
+    HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash>::const_iterator end = coreOrigins.end();
+    for (HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash>::const_iterator it = coreOrigins.begin(); it != end; ++it) {
+        RetainPtr<WebSecurityOrigin> webOrigin(AdoptNS, [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:(*it).get()]);
+        [webOrigins addObject:webOrigin.get()];
+    }
+    
+    return webOrigins;
 }
 
 @end

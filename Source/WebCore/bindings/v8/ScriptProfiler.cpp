@@ -32,9 +32,11 @@
 #include "ScriptProfiler.h"
 
 #include "InspectorValues.h"
+#include "RetainedDOMInfo.h"
+#include "V8Binding.h"
+#include "V8Node.h"
 
 #include <v8-profiler.h>
-#include <V8Binding.h>
 
 namespace WebCore {
 
@@ -51,6 +53,14 @@ PassRefPtr<ScriptProfile> ScriptProfiler::stop(ScriptState* state, const String&
         v8::CpuProfiler::StopProfiling(v8String(title), state->context()->GetSecurityToken()) :
         v8::CpuProfiler::StopProfiling(v8String(title));
     return profile ? ScriptProfile::create(profile) : 0;
+}
+
+void ScriptProfiler::collectGarbage()
+{
+    // NOTE : There is currently no direct way to collect memory from the v8 C++ API
+    // but notifying low-memory forces a mark-compact, which is exactly what we want
+    // in this case.
+    v8::V8::LowMemoryNotification();
 }
 
 namespace {
@@ -89,5 +99,20 @@ PassRefPtr<ScriptHeapSnapshot> ScriptProfiler::takeHeapSnapshot(const String& ti
         snapshot = v8::HeapProfiler::TakeSnapshot(v8String(title), v8::HeapSnapshot::kAggregated);
     return snapshot ? ScriptHeapSnapshot::create(snapshot) : 0;
 }
+
+static v8::RetainedObjectInfo* retainedDOMInfo(uint16_t classId, v8::Handle<v8::Value> wrapper)
+{
+    ASSERT(classId == v8DOMSubtreeClassId);
+    if (!wrapper->IsObject())
+        return 0;
+    Node* node = V8Node::toNative(wrapper.As<v8::Object>());
+    return node ? new RetainedDOMInfo(node) : 0;
+}
+
+void ScriptProfiler::initialize()
+{
+    v8::HeapProfiler::DefineWrapperClass(v8DOMSubtreeClassId, &retainedDOMInfo);
+}
+
 
 } // namespace WebCore

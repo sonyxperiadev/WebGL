@@ -64,21 +64,38 @@ void WebContext::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     RetainPtr<CFStringRef> cfURLCachePath(AdoptCF, wkCopyFoundationCacheDirectory());
     parameters.cfURLCachePath = String(cfURLCachePath.get());
-    // Remove the ending '/' (necessary to have CFNetwork find the Cache file).
+    // Remove the ending '\' (necessary to have CFNetwork find the Cache file).
     ASSERT(parameters.cfURLCachePath.length());
-    if (parameters.cfURLCachePath[parameters.cfURLCachePath.length() - 1] == '/')
+    if (parameters.cfURLCachePath[parameters.cfURLCachePath.length() - 1] == '\\')
         parameters.cfURLCachePath.remove(parameters.cfURLCachePath.length() - 1);
 
 #if USE(CFURLSTORAGESESSIONS)
     parameters.uiProcessBundleIdentifier = String(reinterpret_cast<CFStringRef>(CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle(), kCFBundleIdentifierKey)));
 #endif // USE(CFURLSTORAGESESSIONS)
 
+    parameters.initialHTTPCookieAcceptPolicy = m_initialHTTPCookieAcceptPolicy;
+
 #endif // USE(CFNETWORK)
+}
+
+void WebContext::platformInvalidateContext()
+{
 }
 
 String WebContext::platformDefaultDatabaseDirectory() const
 {
     return WebCore::pathByAppendingComponent(WebCore::localUserSpecificStorageDirectory(), "Databases");
+}
+
+String WebContext::platformDefaultIconDatabasePath() const
+{
+    // IconDatabase should be disabled by default on Windows, and should therefore have no default path.
+    return String();
+}
+
+String WebContext::platformDefaultLocalStorageDirectory() const
+{
+    return WebCore::pathByAppendingComponent(WebCore::localUserSpecificStorageDirectory(), "LocalStorage");
 }
 
 } // namespace WebKit

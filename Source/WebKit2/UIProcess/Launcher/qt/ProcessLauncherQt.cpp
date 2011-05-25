@@ -75,18 +75,22 @@ protected:
 void QtWebProcess::setupChildProcess()
 {
 #if defined Q_OS_LINUX
+#ifndef NDEBUG
+    if (getenv("QT_WEBKIT_KEEP_ALIVE_WEB_PROCESS"))
+        return;
+#endif
     prctl(PR_SET_PDEATHSIG, SIGKILL);
 #endif
 }
 
 void ProcessLauncher::launchProcess()
 {
-    QString applicationPath = "%1 %2";
+    QString applicationPath = QLatin1String("%1 %2");
 
-    if (QFile::exists(QCoreApplication::applicationDirPath() + "/QtWebProcess")) {
-        applicationPath = applicationPath.arg(QCoreApplication::applicationDirPath() + "/QtWebProcess");
+    if (QFile::exists(QCoreApplication::applicationDirPath() + QLatin1String("/QtWebProcess"))) {
+        applicationPath = applicationPath.arg(QCoreApplication::applicationDirPath() + QLatin1String("/QtWebProcess"));
     } else {
-        applicationPath = applicationPath.arg("QtWebProcess");
+        applicationPath = applicationPath.arg(QLatin1String("QtWebProcess"));
     }
 
     int sockets[2];

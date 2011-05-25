@@ -91,7 +91,6 @@ namespace JSC {
 
     class RegisterFile {
         WTF_MAKE_NONCOPYABLE(RegisterFile);
-        friend class JIT;
     public:
         enum CallFrameHeaderEntry {
             CallFrameHeaderSize = 6,
@@ -114,6 +113,8 @@ namespace JSC {
 
         RegisterFile(JSGlobalData&, size_t capacity = defaultCapacity, size_t maxGlobals = defaultMaxGlobals);
         ~RegisterFile();
+        
+        void gatherConservativeRoots(ConservativeRoots&);
 
         Register* start() const { return m_start; }
         Register* end() const { return m_end; }
@@ -135,6 +136,11 @@ namespace JSC {
         static void initializeThreading();
 
         static Finalizer* globalObjectCollectedNotifier();
+
+        Register* const * addressOfEnd() const
+        {
+            return &m_end;
+        }
 
     private:
         void releaseExcessCapacity();

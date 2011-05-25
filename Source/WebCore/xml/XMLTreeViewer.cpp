@@ -14,7 +14,7 @@
  * distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY GOOGLE INC. AND ITS CONTRIBUTORS
- * “AS IS” AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
  * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL GOOGLE INC.
  * OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
@@ -33,6 +33,7 @@
 
 
 #include "Base64.h"
+#include "Element.h"
 #include "Document.h"
 #include "Frame.h"
 #include "HTMLNames.h"
@@ -88,7 +89,7 @@ bool XMLTreeViewer::hasNoStyleInformation() const
 
 void XMLTreeViewer::transformDocumentToTreeView()
 {
-    String sheetString(reinterpret_cast<char*>(XMLViewer_xsl), sizeof(XMLViewer_xsl));
+    String sheetString(reinterpret_cast<const char*>(XMLViewer_xsl), sizeof(XMLViewer_xsl));
     RefPtr<XSLStyleSheet> styleSheet = XSLStyleSheet::createForXMLTreeViewer(m_document, sheetString);
 
     RefPtr<XSLTProcessor> processor = XSLTProcessor::create();
@@ -104,9 +105,16 @@ void XMLTreeViewer::transformDocumentToTreeView()
     // FIXME: We should introduce error handling
     if (processor->transformToString(m_document, resultMIMEType, newSource, resultEncoding))
         processor->createDocumentFromSource(newSource, resultEncoding, resultMIMEType, m_document, frame);
+
+    // Adding source xml for dealing with namespaces and CDATA issues and for extensions use.
+    Element* sourceXmlElement = frame->document()->getElementById(AtomicString("source-xml"));
+    if (sourceXmlElement)
+        m_document->cloneChildNodes(sourceXmlElement);
+
     // New document should have been loaded in frame. Tell it to use view source styles.
     frame->document()->setUsesViewSourceStyles(true);
     frame->document()->styleSelectorChanged(RecalcStyleImmediately);
+
 }
 
 } // namespace WebCore

@@ -43,13 +43,14 @@ static BOOL isForcingPreviewUpdate;
 
 @implementation WKPrintingView
 
-- (id)initWithFrameProxy:(WebFrameProxy*)frame
+- (id)initWithFrameProxy:(WebKit::WebFrameProxy*)frame view:(NSView *)wkView
 {
     self = [super init]; // No frame rect to pass to NSView.
     if (!self)
         return nil;
 
     _webFrame = frame;
+    _wkView = wkView;
 
     return self;
 }
@@ -59,6 +60,19 @@ static BOOL isForcingPreviewUpdate;
     return YES;
 }
 
+- (void)_setAutodisplay:(BOOL)newState
+{
+    if (!newState && [[_wkView.get() window] isAutodisplay])
+        [_wkView.get() displayIfNeeded];
+    
+    [[_wkView.get() window] setAutodisplay:newState];
+
+    // For some reason, painting doesn't happen for a long time without this call, <rdar://problem/8975229>.
+    if (newState)
+        [_wkView.get() displayIfNeeded];
+}
+
+
 - (void)_suspendAutodisplay
 {
     // A drawRect: call on WKView causes a switch to screen mode, which is slow due to relayout, and we want to avoid that.
@@ -67,7 +81,7 @@ static BOOL isForcingPreviewUpdate;
         [_autodisplayResumeTimer invalidate];
         _autodisplayResumeTimer = nil;
     } else
-        _webFrame->page()->setAutodisplay(false);
+        [self _setAutodisplay:NO];
 }
 
 - (void)_delayedResumeAutodisplayTimerFired
@@ -75,7 +89,7 @@ static BOOL isForcingPreviewUpdate;
     ASSERT(isMainThread());
     
     _autodisplayResumeTimer = nil;
-    _webFrame->page()->setAutodisplay(true);
+    [self _setAutodisplay:YES];
 }
 
 - (void)_delayedResumeAutodisplay
@@ -200,11 +214,12 @@ static void pageDidDrawToPDF(WKDataRef dataRef, WKErrorRef, void* untypedContext
                 pair<HashMap<WebCore::IntRect, Vector<uint8_t> >::iterator, bool> entry = view->_pagePreviews.add(iter->second, Vector<uint8_t>());
                 entry.first->second.append(data->bytes(), data->size());
             }
-            bool receivedResponseToLatestRequest = view->_latestExpectedPreviewCallback == context->callbackID;
-            view->_latestExpectedPreviewCallback = 0;
             view->_expectedPreviewCallbacks.remove(context->callbackID);
-            if (receivedResponseToLatestRequest)
+            bool receivedResponseToLatestRequest = view->_latestExpectedPreviewCallback == context->callbackID;
+            if (receivedResponseToLatestRequest) {
+                view->_latestExpectedPreviewCallback = 0;
                 [view _updatePreview];
+            }
         }
     }
 }
@@ -263,6 +278,12 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
 
         view->_printingPageRects = pageRects;
         view->_totalScaleFactorForPrinting = totalScaleFactorForPrinting;
+
+        // Sanitize a response coming from the Web process.
+        if (view->_printingPageRects.isEmpty())
+            view->_printingPageRects.append(IntRect(0, 0, 1, 1));
+        if (view->_totalScaleFactorForPrinting <= 0)
+            view->_totalScaleFactorForPrinting = 1;
 
         const IntRect& lastPrintingPageRect = view->_printingPageRects[view->_printingPageRects.size() - 1];
         NSRect newFrameSize = NSMakeRect(0, 0, 
@@ -329,6 +350,11 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
     ASSERT(!_isPrintingFromSecondaryThread || !isMainThread());
     if (!isMainThread())
         _isPrintingFromSecondaryThread = YES;
+
+    if (!_webFrame->page()) {
+        *range = NSMakeRange(1, NSIntegerMax);
+        return YES;
+    }
 
     [self _suspendAutodisplay];
     
@@ -524,9 +550,20 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
     ASSERT(_printOperation == [NSPrintOperation currentOperation]);
     if (![self _hasPageRects]) {
         LOG(View, "-[WKPrintingView %p rectForPage:%d] - data is not yet available", self, (int)page);
+        if (!_webFrame->page()) {
+            // We may have not told AppKit how many pages there are, so it will try to print until a null rect is returned.
+            return NSMakeRect(0, 0, 0, 0);
+        }
         // We must be still calculating the page range.
         ASSERT(_expectedComputedPagesCallback);
         return NSMakeRect(0, 0, 1, 1);
+    }
+
+    // If Web process crashes while computing page rects, we never tell AppKit how many pages there are.
+    // Returning a null rect prevents selecting non-existent pages in preview dialog.
+    if (static_cast<unsigned>(page) > _printingPageRects.size()) {
+        ASSERT(!_webFrame->page());
+        return NSMakeRect(0, 0, 0, 0);
     }
 
     IntRect rect = _printingPageRects[page - 1];

@@ -82,11 +82,17 @@ RenderListBox::RenderListBox(Element* element)
     , m_optionsWidth(0)
     , m_indexOffset(0)
 {
+    if (Page* page = frame()->page()) {
+        m_page = page;
+        m_page->addScrollableArea(this);
+    }
 }
 
 RenderListBox::~RenderListBox()
 {
     setHasVerticalScrollbar(false);
+    if (m_page)
+        m_page->removeScrollableArea(this);
 }
 
 void RenderListBox::updateFromElement()
@@ -316,6 +322,25 @@ void RenderListBox::paintScrollbar(PaintInfo& paintInfo, int tx, int ty)
     }
 }
 
+static IntSize itemOffsetForAlignment(TextRun textRun, RenderStyle* itemStyle, Font itemFont, IntRect itemBoudingBox)
+{
+    ETextAlign actualAlignment = itemStyle->textAlign();
+    // FIXME: Firefox doesn't respect JUSTIFY. Should we?
+    if (actualAlignment == TAAUTO || actualAlignment == JUSTIFY)
+      actualAlignment = itemStyle->isLeftToRightDirection() ? LEFT : RIGHT;
+
+    IntSize offset = IntSize(0, itemFont.fontMetrics().ascent());
+    if (actualAlignment == RIGHT || actualAlignment == WEBKIT_RIGHT) {
+        float textWidth = itemFont.width(textRun);
+        offset.setWidth(itemBoudingBox.width() - textWidth - optionsSpacingHorizontal);
+    } else if (actualAlignment == CENTER || actualAlignment == WEBKIT_CENTER) {
+        float textWidth = itemFont.width(textRun);
+        offset.setWidth((itemBoudingBox.width() - textWidth) / 2);
+    } else
+        offset.setWidth(optionsSpacingHorizontal);
+    return offset;
+}
+
 void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, int listIndex)
 {
     SelectElement* select = toSelectElement(static_cast<Element*>(node()));
@@ -323,19 +348,18 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
     Element* element = listItems[listIndex];
     OptionElement* optionElement = toOptionElement(element);
 
+    RenderStyle* itemStyle = element->renderStyle();
+    if (!itemStyle)
+        itemStyle = style();
+
+    if (itemStyle->visibility() == HIDDEN)
+        return;
+
     String itemText;
     if (optionElement)
         itemText = optionElement->textIndentedToRespectGroupLabel();
     else if (OptionGroupElement* optionGroupElement = toOptionGroupElement(element))
-        itemText = optionGroupElement->groupLabelText();      
-
-    // Determine where the item text should be placed
-    IntRect r = itemBoundingBoxRect(tx, ty, listIndex);
-    r.move(optionsSpacingHorizontal, style()->fontMetrics().ascent());
-
-    RenderStyle* itemStyle = element->renderStyle();
-    if (!itemStyle)
-        itemStyle = style();
+        itemText = optionGroupElement->groupLabelText();
     
     Color textColor = element->renderStyle() ? element->renderStyle()->visitedDependentColor(CSSPropertyColor) : style()->visitedDependentColor(CSSPropertyColor);
     if (optionElement && optionElement->selected()) {
@@ -349,17 +373,19 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
     ColorSpace colorSpace = itemStyle->colorSpace();
     paintInfo.context->setFillColor(textColor, colorSpace);
 
+    unsigned length = itemText.length();
+    const UChar* string = itemText.characters();
+    TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, !itemStyle->isLeftToRightDirection(), itemStyle->unicodeBidi() == Override);
     Font itemFont = style()->font();
+    IntRect r = itemBoundingBoxRect(tx, ty, listIndex);
+    r.move(itemOffsetForAlignment(textRun, itemStyle, itemFont, r));
+
     if (isOptionGroupElement(element)) {
         FontDescription d = itemFont.fontDescription();
         d.setWeight(d.bolderWeight());
         itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
         itemFont.update(document()->styleSelector()->fontSelector());
     }
-
-    unsigned length = itemText.length();
-    const UChar* string = itemText.characters();
-    TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, !itemStyle->isLeftToRightDirection(), itemStyle->unicodeBidi() == Override);
 
     // Draw the item text
     if (itemStyle->visibility() != HIDDEN)
@@ -745,6 +771,14 @@ IntPoint RenderListBox::currentMousePosition() const
     if (!view)
         return IntPoint();
     return view->frameView()->currentMousePosition();
+}
+
+bool RenderListBox::shouldSuspendScrollAnimations() const
+{
+    RenderView* view = this->view();
+    if (!view)
+        return true;
+    return view->frameView()->shouldSuspendScrollAnimations();
 }
 
 PassRefPtr<Scrollbar> RenderListBox::createScrollbar()

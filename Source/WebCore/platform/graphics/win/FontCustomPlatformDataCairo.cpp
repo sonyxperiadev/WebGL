@@ -23,7 +23,10 @@
 
 #include "SharedBuffer.h"
 #include "FontPlatformData.h"
+
+#include <cairo-win32.h>
 #include <wtf/RetainPtr.h>
+
 
 namespace WebCore {
 
@@ -32,7 +35,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
    cairo_font_face_destroy(m_fontFace);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, FontWidthVariant)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, TextOrientation, FontWidthVariant)
 {
     return FontPlatformData(m_fontFace, size, bold, italic);
 }

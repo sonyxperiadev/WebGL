@@ -52,6 +52,11 @@ LOCAL_SRC_FILES += \
 	bindings/v8/IsolatedWorld.cpp \
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \
+<<<<<<< HEAD
+=======
+	bindings/v8/RetainedDOMInfo.cpp \
+	bindings/v8/RuntimeEnabledFeatures.cpp \
+>>>>>>> webkit.org at r82507
 	bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScopedDOMDataStore.cpp \
 	bindings/v8/ScriptCachedFrameData.cpp \
@@ -182,6 +187,11 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8StorageCustom.cpp \
 	bindings/v8/custom/V8StyleSheetCustom.cpp \
 	bindings/v8/custom/V8StyleSheetListCustom.cpp \
+<<<<<<< HEAD
+=======
+	bindings/v8/custom/V8TreeWalkerCustom.cpp \
+	bindings/v8/custom/V8WebKitAnimationCustom.cpp \
+>>>>>>> webkit.org at r82507
 	bindings/v8/custom/V8WebKitCSSMatrixConstructor.cpp \
 	bindings/v8/custom/V8WebKitPointConstructor.cpp \
 	bindings/v8/custom/V8WorkerContextCustom.cpp \
@@ -193,7 +203,7 @@ LOCAL_SRC_FILES += \
 
 LOCAL_SRC_FILES += \
 	bridge/jni/JNIUtility.cpp \
-	bridge/jni/JavaMethod.cpp \
+	bridge/jni/JavaMethodJobject.cpp \
 	bridge/jni/JobjectWrapper.cpp \
 	bridge/jni/v8/JNIUtilityPrivate.cpp \
 	bridge/jni/v8/JavaClassV8.cpp \

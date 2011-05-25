@@ -311,6 +311,16 @@ bool WKPreferencesGetAcceleratedDrawingEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->acceleratedDrawingEnabled();
 }
 
+void WKPreferencesSetCanvasUsesAcceleratedDrawing(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setCanvasUsesAcceleratedDrawing(flag);
+}
+
+bool WKPreferencesGetCanvasUsesAcceleratedDrawing(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->canvasUsesAcceleratedDrawing();
+}
+
 void WKPreferencesSetAcceleratedCompositingEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setAcceleratedCompositingEnabled(flag);
@@ -479,4 +489,44 @@ void WKPreferencesSetJavaScriptCanAccessClipboard(WKPreferencesRef preferencesRe
 bool WKPreferencesGetJavaScriptCanAccessClipboard(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->javaScriptCanAccessClipboard();
+}
+
+void WKPreferencesSetFullScreenEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setFullScreenEnabled(enabled);
+}
+
+bool WKPreferencesGetFullScreenEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->fullScreenEnabled();
+}
+
+void WKPreferencesSetWebSecurityEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setWebSecurityEnabled(enabled);
+}
+
+bool WKPreferencesGetWebSecurityEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->webSecurityEnabled();
+}
+
+void WKPreferencesSetUniversalAccessFromFileURLsAllowed(WKPreferencesRef preferencesRef, bool allowed)
+{
+    toImpl(preferencesRef)->setAllowUniversalAccessFromFileURLs(allowed);
+}
+
+bool WKPreferencesGetUniversalAccessFromFileURLsAllowed(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->allowUniversalAccessFromFileURLs();
+}
+
+void WKPreferencesSetFileAccessFromFileURLsAllowed(WKPreferencesRef preferencesRef, bool allowed)
+{
+    toImpl(preferencesRef)->setAllowFileAccessFromFileURLs(allowed);
+}
+
+bool WKPreferencesGetFileAccessFromFileURLsAllowed(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->allowFileAccessFromFileURLs();
 }

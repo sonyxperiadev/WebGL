@@ -42,6 +42,11 @@ isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../..
 
 contains(QT_CONFIG, embedded):CONFIG += embedded
 
+win32*:!win32-msvc* {
+    # Make sure OpenGL libs are after the webcore lib so MinGW can resolve symbols
+    contains(DEFINES, ENABLE_WEBGL=1)|contains(CONFIG, texmap): LIBS += $$QMAKE_LIBS_OPENGL
+}
+
 moduleFile=$$PWD/qt_webkit_version.pri
 isEmpty(QT_BUILD_TREE):include($$moduleFile)
 VERSION = $${QT_WEBKIT_MAJOR_VERSION}.$${QT_WEBKIT_MINOR_VERSION}.$${QT_WEBKIT_PATCH_VERSION}
@@ -81,6 +86,7 @@ CONFIG(QTDIR_build) {
     DESTDIR = $$OUTPUT_DIR/lib
     symbian: TARGET =$$TARGET$${QT_LIBINFIX}
 }
+
 
 symbian {
     TARGET.EPOCALLOWDLLDATA=1
@@ -215,6 +221,15 @@ contains(DEFINES, ENABLE_VIDEO=1) {
     }
 }
 
+contains(DEFINES, ENABLE_ICONDATABASE=1) {
+    HEADERS += \
+        $$SOURCE_DIR/WebCore/loader/icon/IconDatabaseClient.h \
+        $$PWD/WebCoreSupport/IconDatabaseClientQt.h
+
+    SOURCES += \
+        $$PWD/WebCoreSupport/IconDatabaseClientQt.cpp
+}
+
 contains(DEFINES, ENABLE_DEVICE_ORIENTATION=1) {
     HEADERS += \
         $$PWD/WebCoreSupport/DeviceMotionClientQt.h \
@@ -236,6 +251,10 @@ contains(DEFINES, ENABLE_GEOLOCATION=1) {
         $$PWD/WebCoreSupport/GeolocationClientQt.h
      SOURCES += \
         $$PWD/WebCoreSupport/GeolocationClientQt.cpp
+}
+
+contains(CONFIG, texmap) {
+    DEFINES += WTF_USE_TEXTURE_MAPPER=1
 }
 
 !symbian-abld:!symbian-sbsv2 {

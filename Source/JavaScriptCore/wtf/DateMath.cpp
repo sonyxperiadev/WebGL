@@ -75,6 +75,9 @@
 #include "Assertions.h"
 #include "ASCIICType.h"
 #include "CurrentTime.h"
+#if USE(JSC)
+#include "JSObject.h"
+#endif
 #include "MathExtras.h"
 #if USE(JSC)
 #include "ScopeChain.h"
@@ -924,8 +927,10 @@ static double parseDateFromNullTerminatedCharacters(const char* dateString, bool
         }
     }
     
-    // The year may be after the time but before the time zone.
-    if (year <= 0) {
+    // The year may be after the time but before the time zone, but don't
+    // confuse a time zone specificed as an offset from UTC (e.g. +0100) with a
+    // four-digit year.
+    if (year <= 0 && *dateString != '+' && *dateString != '-') {
        if (!parseLong(dateString, &newPosStr, 10, &year))
           year = 0;
        dateString = newPosStr;

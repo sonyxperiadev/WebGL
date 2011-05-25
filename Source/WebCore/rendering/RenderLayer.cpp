@@ -178,9 +178,13 @@ RenderLayer::RenderLayer(RenderBoxModelObject* renderer)
     , m_hasCompositingDescendant(false)
     , m_mustOverlapCompositedLayers(false)
 #endif
+<<<<<<< HEAD
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     , m_hasOverflowScroll(false)
 #endif
+=======
+    , m_containsDirtyOverlayScrollbars(false)
+>>>>>>> webkit.org at r82507
     , m_marquee(0)
     , m_staticInlinePosition(0)
     , m_staticBlockPosition(0)
@@ -194,6 +198,13 @@ RenderLayer::RenderLayer(RenderBoxModelObject* renderer)
         m_visibleContentStatusDirty = false;
         m_hasVisibleContent = renderer->style()->visibility() == VISIBLE;
     }
+
+    if (Frame* frame = renderer->frame()) {
+        if (Page* page = frame->page()) {
+            m_page = page;
+            m_page->addScrollableArea(this);
+        }
+    }
 }
 
 RenderLayer::~RenderLayer()
@@ -202,6 +213,9 @@ RenderLayer::~RenderLayer()
         if (Frame* frame = renderer()->frame())
             frame->eventHandler()->resizeLayerDestroyed();
     }
+
+    if (m_page)
+        m_page->removeScrollableArea(this);
 
     destroyScrollbar(HorizontalScrollbar);
     destroyScrollbar(VerticalScrollbar);
@@ -268,19 +282,6 @@ bool RenderLayer::canRender3DTransforms() const
 
 void RenderLayer::updateLayerPositions(UpdateLayerPositionsFlags flags, IntPoint* cachedOffset)
 {
-    if (flags & DoFullRepaint) {
-        renderer()->repaint();
-#if USE(ACCELERATED_COMPOSITING)
-        flags &= ~CheckForRepaint;
-        // We need the full repaint to propagate to child layers if we are hardware compositing.
-        if (!compositor()->inCompositingMode())
-            flags &= ~DoFullRepaint;
-#else
-        flags &= ~(CheckForRepaint | DoFullRepaint);
-#endif
-    }
-    
-
     updateLayerPosition(); // For relpositioned layers or non-positioned layers,
                            // we need to keep in sync, since we may have shifted relative
                            // to our parent layer.
@@ -1121,6 +1122,7 @@ void RenderLayer::removeOnlyThisLayer()
         RenderLayer* next = current->nextSibling();
         removeChild(current);
         parent->addChild(current, nextSib);
+        current->setNeedsFullRepaint();
         current->updateLayerPositions(); // Depends on hasLayer() already being false for proper layout.
         current = next;
     }
@@ -1806,6 +1808,19 @@ int RenderLayer::visibleWidth() const
     return m_width;
 }
 
+bool RenderLayer::shouldSuspendScrollAnimations() const
+{
+    RenderView* view = renderer()->view();
+    if (!view)
+        return true;
+    return view->frameView()->shouldSuspendScrollAnimations();
+}
+
+IntPoint RenderLayer::currentMousePosition() const
+{
+    return renderer()->frame() ? renderer()->frame()->eventHandler()->currentMousePosition() : IntPoint();
+}
+
 IntSize RenderLayer::scrollbarOffset(const Scrollbar* scrollbar) const
 {
     RenderBox* box = renderBox();
@@ -1915,16 +1930,16 @@ void RenderLayer::setHasVerticalScrollbar(bool hasScrollbar)
 #endif
 }
 
-int RenderLayer::verticalScrollbarWidth() const
+int RenderLayer::verticalScrollbarWidth(OverlayScrollbarSizeRelevancy relevancy) const
 {
-    if (!m_vBar || m_vBar->isOverlayScrollbar())
+    if (!m_vBar || (m_vBar->isOverlayScrollbar() && relevancy == IgnoreOverlayScrollbarSize))
         return 0;
     return m_vBar->width();
 }
 
-int RenderLayer::horizontalScrollbarHeight() const
+int RenderLayer::horizontalScrollbarHeight(OverlayScrollbarSizeRelevancy relevancy) const
 {
-    if (!m_hBar || m_hBar->isOverlayScrollbar())
+    if (!m_hBar || (m_hBar->isOverlayScrollbar() && relevancy == IgnoreOverlayScrollbarSize))
         return 0;
     return m_hBar->height();
 }
@@ -2214,16 +2229,36 @@ void RenderLayer::updateScrollInfoAfterLayout()
 #endif
 }
 
-void RenderLayer::paintOverflowControls(GraphicsContext* context, int tx, int ty, const IntRect& damageRect)
+void RenderLayer::paintOverflowControls(GraphicsContext* context, int tx, int ty, const IntRect& damageRect, bool paintingOverlayControls)
 {
     // Don't do anything if we have no overflow.
     if (!renderer()->hasOverflowClip())
         return;
-    
+
+    // Overlay scrollbars paint in a second pass through the layer tree so that they will paint
+    // on top of everything else. If this is the normal painting pass, paintingOverlayControls
+    // will be false, and we should just tell the root layer that there are overlay scrollbars
+    // that need to be painted. That will cause the second pass through the layer tree to run,
+    // and we'll paint the scrollbars then. In the meantime, cache tx and ty so that the 
+    // second pass doesn't need to re-enter the RenderTree to get it right.
+    if (hasOverlayScrollbars() && !paintingOverlayControls) {
+        RenderLayer* rootLayer = renderer()->view()->layer();
+        rootLayer->setContainsDirtyOverlayScrollbars(true);
+        m_cachedOverlayScrollbarOffset = IntPoint(tx, ty);
+        return;
+    }
+
+    int offsetX = tx;
+    int offsetY = ty;
+    if (paintingOverlayControls) {
+        offsetX = m_cachedOverlayScrollbarOffset.x();
+        offsetY = m_cachedOverlayScrollbarOffset.y();
+    }
+
     // Move the scrollbar widgets if necessary.  We normally move and resize widgets during layout, but sometimes
     // widgets can move without layout occurring (most notably when you scroll a document that
     // contains fixed positioned elements).
-    positionOverflowControls(tx, ty);
+    positionOverflowControls(offsetX, offsetY);
 
     // Now that we're sure the scrollbars are in the right place, paint them.
     if (m_hBar)
@@ -2233,10 +2268,10 @@ void RenderLayer::paintOverflowControls(GraphicsContext* context, int tx, int ty
 
     // We fill our scroll corner with white if we have a scrollbar that doesn't run all the way up to the
     // edge of the box.
-    paintScrollCorner(context, tx, ty, damageRect);
+    paintScrollCorner(context, offsetX, offsetY, damageRect);
     
     // Paint our resizer last, since it sits on top of the scroll corner.
-    paintResizer(context, tx, ty, damageRect);
+    paintResizer(context, offsetX, offsetY, damageRect);
 }
 
 void RenderLayer::paintScrollCorner(GraphicsContext* context, int tx, int ty, const IntRect& damageRect)
@@ -2258,8 +2293,11 @@ void RenderLayer::paintScrollCorner(GraphicsContext* context, int tx, int ty, co
         m_scrollCorner->paintIntoRect(context, tx, ty, absRect);
         return;
     }
-    
-    context->fillRect(absRect, Color::white, box->style()->colorSpace());
+
+    // We don't want to paint white if we have overlay scrollbars, since we need
+    // to see what is behind it.
+    if (!hasOverlayScrollbars())
+        context->fillRect(absRect, Color::white, box->style()->colorSpace());
 }
 
 void RenderLayer::paintResizer(GraphicsContext* context, int tx, int ty, const IntRect& damageRect)
@@ -2374,6 +2412,15 @@ void RenderLayer::paint(GraphicsContext* p, const IntRect& damageRect, PaintBeha
     OverlapTestRequestMap::iterator end = overlapTestRequests.end();
     for (OverlapTestRequestMap::iterator it = overlapTestRequests.begin(); it != end; ++it)
         it->first->setOverlapTestResult(false);
+}
+
+void RenderLayer::paintOverlayScrollbars(GraphicsContext* p, const IntRect& damageRect, PaintBehavior paintBehavior, RenderObject *paintingRoot)
+{
+    if (!m_containsDirtyOverlayScrollbars)
+        return;
+    paintLayer(this, p, damageRect, paintBehavior, paintingRoot, 0, PaintLayerHaveTransparency | PaintLayerTemporaryClipRects 
+               | PaintLayerPaintingOverlayScrollbars);
+    m_containsDirtyOverlayScrollbars = false;
 }
 
 static void setClip(GraphicsContext* p, const IntRect& paintDirtyRect, const IntRect& clipRect)
@@ -2526,9 +2573,11 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
     if (overlapTestRequests && isSelfPaintingLayer())
         performOverlapTests(*overlapTestRequests, rootLayer, this);
 
+    bool paintingOverlayScrollbars = paintFlags & PaintLayerPaintingOverlayScrollbars;
+
     // We want to paint our layer, but only if we intersect the damage rect.
     bool shouldPaint = intersectsDamageRect(layerBounds, damageRect, rootLayer) && m_hasVisibleContent && isSelfPaintingLayer();
-    if (shouldPaint && !selectionOnly && !damageRect.isEmpty()) {
+    if (shouldPaint && !selectionOnly && !damageRect.isEmpty() && !paintingOverlayScrollbars) {
         // Begin transparency layers lazily now that we know we have to paint something.
         if (haveTransparency)
             beginTransparencyLayers(p, rootLayer, paintBehavior);
@@ -2549,7 +2598,7 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
     paintList(m_negZOrderList, rootLayer, p, paintDirtyRect, paintBehavior, paintingRoot, overlapTestRequests, localPaintFlags);
 
     // Now establish the appropriate clip and paint our child RenderObjects.
-    if (shouldPaint && !clipRectToApply.isEmpty()) {
+    if (shouldPaint && !clipRectToApply.isEmpty() && !paintingOverlayScrollbars) {
         // Begin transparency layers lazily now that we know we have to paint something.
         if (haveTransparency)
             beginTransparencyLayers(p, rootLayer, paintBehavior);
@@ -2574,7 +2623,7 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
         restoreClip(p, paintDirtyRect, clipRectToApply);
     }
     
-    if (!outlineRect.isEmpty() && isSelfPaintingLayer()) {
+    if (!outlineRect.isEmpty() && isSelfPaintingLayer() && !paintingOverlayScrollbars) {
         // Paint our own outline
         PaintInfo paintInfo(p, outlineRect, PaintPhaseSelfOutline, false, paintingRootForRenderer, 0);
         setClip(p, paintDirtyRect, outlineRect);
@@ -2588,7 +2637,7 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
     // Now walk the sorted list of children with positive z-indices.
     paintList(m_posZOrderList, rootLayer, p, paintDirtyRect, paintBehavior, paintingRoot, overlapTestRequests, localPaintFlags);
         
-    if (renderer()->hasMask() && shouldPaint && !selectionOnly && !damageRect.isEmpty()) {
+    if (renderer()->hasMask() && shouldPaint && !selectionOnly && !damageRect.isEmpty() && !paintingOverlayScrollbars) {
         setClip(p, paintDirtyRect, damageRect);
 
         // Paint the mask.
@@ -2596,6 +2645,12 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
         renderer()->paint(paintInfo, tx, ty);
         
         // Restore the clip.
+        restoreClip(p, paintDirtyRect, damageRect);
+    }
+
+    if (paintingOverlayScrollbars) {
+        setClip(p, paintDirtyRect, damageRect);
+        paintOverflowControls(p, tx, ty, damageRect, true);
         restoreClip(p, paintDirtyRect, damageRect);
     }
 

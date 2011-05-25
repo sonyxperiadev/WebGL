@@ -29,10 +29,12 @@
 
 #if ENABLE(JAVA_BRIDGE)
 
-#include "JavaMethod.h"
 #include "JNIUtilityPrivate.h"
 #include "JavaClassV8.h"
+#include "JavaFieldV8.h"
+#include "JavaMethod.h"
 
+#include <wtf/OwnArrayPtr.h>
 #include <wtf/text/CString.h>
 
 using namespace JSC::Bindings;
@@ -68,88 +70,21 @@ JavaClass* JavaInstance::getClass() const
     return m_class;
 }
 
-bool JavaInstance::invokeMethod(const char* methodName, const NPVariant* args, int count, NPVariant* resultValue)
+JavaValue JavaInstance::invokeMethod(const JavaMethod* method, JavaValue* args)
 {
-    VOID_TO_NPVARIANT(*resultValue);
+    ASSERT(getClass()->methodsNamed(method->name().utf8().data()).find(method) != notFound);
+    unsigned int numParams = method->numParameters();
+    OwnArrayPtr<jvalue> jvalueArgs = adoptArrayPtr(new jvalue[numParams]);
+    for (unsigned int i = 0; i < numParams; ++i)
+        jvalueArgs[i] = javaValueToJvalue(args[i]);
+    jvalue result = callJNIMethod(javaInstance(), method->returnType(), method->name().utf8().data(), method->signature(), jvalueArgs.get());
+    return jvalueToJavaValue(result, method->returnType());
+}
 
-    MethodList methodList = getClass()->methodsNamed(methodName);
-
-    size_t numMethods = methodList.size();
-
-    // Try to find a good match for the overloaded method.  The
-    // fundamental problem is that JavaScript doesn't have the
-    // notion of method overloading and Java does.  We could
-    // get a bit more sophisticated and attempt to does some
-    // type checking as we as checking the number of parameters.
-    JavaMethod* aMethod;
-    JavaMethod* method = 0;
-    for (size_t methodIndex = 0; methodIndex < numMethods; methodIndex++) {
-        aMethod = methodList[methodIndex];
-        if (aMethod->numParameters() == count) {
-            method = aMethod;
-            break;
-        }
-    }
-    if (!method)
-        return false;
-
-    const JavaMethod* jMethod = static_cast<const JavaMethod*>(method);
-
-    jvalue* jArgs = 0;
-    if (count > 0)
-        jArgs = static_cast<jvalue*>(malloc(count * sizeof(jvalue)));
-
-    for (int i = 0; i < count; i++)
-        jArgs[i] = convertNPVariantToJValue(args[i], jMethod->parameterAt(i));
-
-    jvalue result;
-
-    // The following code can be conditionally removed once we have a Tiger update that
-    // contains the new Java plugin.  It is needed for builds prior to Tiger.
-    {
-        jobject obj = javaInstance();
-        switch (jMethod->JNIReturnType()) {
-        case void_type:
-            callJNIMethodIDA<void>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case object_type:
-            result.l = callJNIMethodIDA<jobject>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case boolean_type:
-            result.z = callJNIMethodIDA<jboolean>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case byte_type:
-            result.b = callJNIMethodIDA<jbyte>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case char_type:
-            result.c = callJNIMethodIDA<jchar>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case short_type:
-            result.s = callJNIMethodIDA<jshort>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case int_type:
-            result.i = callJNIMethodIDA<jint>(obj, jMethod->methodID(obj), jArgs);
-            break;
-
-        case long_type:
-            result.j = callJNIMethodIDA<jlong>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case float_type:
-            result.f = callJNIMethodIDA<jfloat>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case double_type:
-            result.d = callJNIMethodIDA<jdouble>(obj, jMethod->methodID(obj), jArgs);
-            break;
-        case invalid_type:
-        default:
-            break;
-        }
-    }
-
-    convertJValueToNPVariant(result, jMethod->JNIReturnType(), jMethod->returnType(), resultValue);
-    free(jArgs);
-
-    return true;
+JavaValue JavaInstance::getField(const JavaField* field)
+{
+    ASSERT(getClass()->fieldNamed(field->name().utf8()) == field);
+    return jvalueToJavaValue(getJNIField(javaInstance(), field->type(), field->name().utf8(), field->typeClassName()), field->type());
 }
 
 #endif // ENABLE(JAVA_BRIDGE)

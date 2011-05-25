@@ -113,7 +113,7 @@ static inline Color blendFunc(const AnimationBase* anim, const Color& from, cons
 
 static inline Length blendFunc(const AnimationBase*, const Length& from, const Length& to, double progress)
 {  
-    return to.blend(from, progress);
+    return to.blend(from, narrowPrecisionToFloat(progress));
 }
 
 static inline LengthSize blendFunc(const AnimationBase* anim, const LengthSize& from, const LengthSize& to, double progress)
@@ -798,18 +798,11 @@ AnimationBase::AnimationBase(const Animation* transition, RenderObject* renderer
     , m_isAccelerated(false)
     , m_transformFunctionListValid(false)
     , m_nextIterationDuration(-1)
-    , m_next(0)
 {
     // Compute the total duration
     m_totalDuration = -1;
     if (m_animation->iterationCount() > 0)
         m_totalDuration = m_animation->duration() * m_animation->iterationCount();
-}
-
-AnimationBase::~AnimationBase()
-{
-    m_compAnim->animationController()->removeFromStyleAvailableWaitList(this);
-    m_compAnim->animationController()->removeFromStartTimeResponseWaitList(this);
 }
 
 bool AnimationBase::propertiesEqual(int prop, const RenderStyle* a, const RenderStyle* b)
@@ -936,7 +929,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
     // If we get AnimationStateInputRestartAnimation then we force a new animation, regardless of state.
     if (input == AnimationStateInputMakeNew) {
         if (m_animState == AnimationStateStartWaitStyleAvailable)
-            m_compAnim->animationController()->removeFromStyleAvailableWaitList(this);
+            m_compAnim->animationController()->removeFromAnimationsWaitingForStyle(this);
         m_animState = AnimationStateNew;
         m_startTime = 0;
         m_pauseTime = -1;
@@ -948,7 +941,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
 
     if (input == AnimationStateInputRestartAnimation) {
         if (m_animState == AnimationStateStartWaitStyleAvailable)
-            m_compAnim->animationController()->removeFromStyleAvailableWaitList(this);
+            m_compAnim->animationController()->removeFromAnimationsWaitingForStyle(this);
         m_animState = AnimationStateNew;
         m_startTime = 0;
         m_pauseTime = -1;
@@ -963,7 +956,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
 
     if (input == AnimationStateInputEndAnimation) {
         if (m_animState == AnimationStateStartWaitStyleAvailable)
-            m_compAnim->animationController()->removeFromStyleAvailableWaitList(this);
+            m_compAnim->animationController()->removeFromAnimationsWaitingForStyle(this);
         m_animState = AnimationStateDone;
         endAnimation();
         return;
@@ -1003,7 +996,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
                 ASSERT(param >= 0);
                 // Start timer has fired, tell the animation to start and wait for it to respond with start time
                 m_animState = AnimationStateStartWaitStyleAvailable;
-                m_compAnim->animationController()->addToStyleAvailableWaitList(this);
+                m_compAnim->animationController()->addToAnimationsWaitingForStyle(this);
 
                 // Trigger a render so we can start the animation
                 if (m_object)
@@ -1038,7 +1031,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
                         timeOffset = -m_animation->delay();
                     bool started = startAnimation(timeOffset);
 
-                    m_compAnim->animationController()->addToStartTimeResponseWaitList(this, started);
+                    m_compAnim->animationController()->addToAnimationsWaitingForStartTimeResponse(this, started);
                     m_isAccelerated = started;
                 }
             } else {
@@ -1072,7 +1065,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
             } else {
                 // We are pausing while waiting for a start response. Cancel the animation and wait. When 
                 // we unpause, we will act as though the start timer just fired
-                m_pauseTime = -1;
+                m_pauseTime = beginAnimationUpdateTime();
                 pauseAnimation(beginAnimationUpdateTime() - m_startTime);
                 m_animState = AnimationStatePausedWaitResponse;
             }
@@ -1167,7 +1160,7 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
                         m_isAccelerated = true;
                     } else {
                         bool started = startAnimation(beginAnimationUpdateTime() - m_startTime);
-                        m_compAnim->animationController()->addToStartTimeResponseWaitList(this, started);
+                        m_compAnim->animationController()->addToAnimationsWaitingForStartTimeResponse(this, started);
                         m_isAccelerated = started;
                     }
                 }
@@ -1397,5 +1390,21 @@ double AnimationBase::getElapsedTime() const
 
     return beginAnimationUpdateTime() - m_startTime;
 }
-    
+
+void AnimationBase::setElapsedTime(double time)
+{
+    // FIXME: implement this method
+    UNUSED_PARAM(time);
+}
+
+void AnimationBase::play()
+{
+    // FIXME: implement this method
+}
+
+void AnimationBase::pause()
+{
+    // FIXME: implement this method
+}
+
 } // namespace WebCore

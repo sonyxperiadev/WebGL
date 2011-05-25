@@ -41,6 +41,7 @@ namespace WebCore {
 class DOMWrapperWorld;
 class Frame;
 class GraphicsContext;
+class InjectedScriptManager;
 class InspectorAgent;
 class InspectorBackendDispatcher;
 class InspectorClient;
@@ -102,12 +103,14 @@ public:
 private:
     friend class PostWorkerNotificationToFrontendTask;
 
+    OwnPtr<InjectedScriptManager> m_injectedScriptManager;
     OwnPtr<InspectorAgent> m_inspectorAgent;
     OwnPtr<InspectorBackendDispatcher> m_inspectorBackendDispatcher;
     OwnPtr<InspectorFrontendClient> m_inspectorFrontendClient;
     OwnPtr<InspectorFrontend> m_inspectorFrontend;
     InspectorClient* m_inspectorClient;
     bool m_openingFrontend;
+    bool m_startUserInitiatedDebuggingWhenFrontedIsConnected;
 };
 
 }

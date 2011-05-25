@@ -1,3 +1,263 @@
+2011-03-29  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Remove unnecessary ewk_view_viewport_attributes_set() invocation
+        https://bugs.webkit.org/show_bug.cgi?id=57222
+
+        WebCore sends viewport signal whenever viewport is changed by Page::updateViewportArguments().
+        Thus, we don't need to call ewk_view_viewport_attributes_set() with dummy viewport data
+        anymore.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchDidCommitLoad):
+
+2011-03-27  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        Fix agentOS() in FrameLoaderClientEfl
+        https://bugs.webkit.org/show_bug.cgi?id=57177
+
+        Replace old PLATFORM macro with OS and CPU.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::agentOS):
+
+2011-03-27  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [EFL] Use an appropriate user agent string
+        https://bugs.webkit.org/show_bug.cgi?id=57176
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::composeUserAgent):
+
+2011-03-25  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        REGRESSION (r70748): latest nightly builds kills AC_QuickTime.js
+        https://bugs.webkit.org/show_bug.cgi?id=49016
+
+        Update objectContentType() implementation to handle the
+        shouldPreferPlugInsForImages flag.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::objectContentType):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2011-03-24  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add sound / mute button to MediaControl UI
+        https://bugs.webkit.org/show_bug.cgi?id=56726
+
+        Add sound / mute button to MediaControl UI.
+
+        * DefaultTheme/default.edc:
+        * DefaultTheme/widget/mediacontrol/mutebutton/mute_button.edc: Added.
+        * DefaultTheme/widget/mediacontrol/mutebutton/mutebutton.png: Added.
+        * DefaultTheme/widget/mediacontrol/mutebutton/unmutebutton.png: Added.
+
+2011-03-24  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81916 and r81917.
+        http://trac.webkit.org/changeset/81916
+        http://trac.webkit.org/changeset/81917
+        https://bugs.webkit.org/show_bug.cgi?id=57071
+
+        broke a test on platforms that do not have QuickTime installed
+        (Requested by estes on #webkit).
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::objectContentType):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2011-03-24  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r70748): latest nightly builds kills AC_QuickTime.js
+        https://bugs.webkit.org/show_bug.cgi?id=49016
+
+        Update objectContentType() implementation to handle the
+        shouldPreferPlugInsForImages flag.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::objectContentType):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2011-03-23  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change IconDatabase opening to allow for arbitrary filenames
+        https://bugs.webkit.org/show_bug.cgi?id=56977
+
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_icon_database_path_set):
+
+2011-03-23  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add play / pause button to media control
+        https://bugs.webkit.org/show_bug.cgi?id=55463
+
+        Add play|pause button to media control.
+
+        * DefaultTheme/default.edc:
+        * DefaultTheme/widget/mediacontrol/playpausebutton/pausebutton.png: Added.
+        * DefaultTheme/widget/mediacontrol/playpausebutton/playbutton.png: Added.
+        * DefaultTheme/widget/mediacontrol/playpausebutton/playpause_button.edc: Added.
+
+2011-03-22  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Change return values with better one in ewk_setting's functions
+        https://bugs.webkit.org/show_bug.cgi?id=56819
+
+        In ewk_settings_cache_directory_path_set_xxx, they return false value
+        when soup is disabled. It is better to use EINA_SAFETY_ON_TRUE_RETURN_XXX.
+
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_proxy_uri_get):
+        (ewk_settings_cache_directory_path_set):
+        (ewk_settings_cache_directory_path_get):
+
+2011-03-22  Grzegorz Czajkowski  <g.czajkowski@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        Add void to function without parameters
+        https://bugs.webkit.org/show_bug.cgi?id=56821
+
+        * ewk/ewk_cookies.cpp:
+        (ewk_cookies_clear):
+        (ewk_cookies_policy_get):
+        * ewk/ewk_cookies.h:
+        * ewk/ewk_private.h:
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_web_database_default_quota_get):
+        (ewk_settings_web_database_path_get):
+        (ewk_settings_proxy_uri_get):
+        (ewk_settings_default_user_agent_get):
+        * ewk/ewk_settings.h:
+        * ewk/ewk_view.cpp:
+        (ewk_view_dpi_get):
+
+2011-03-17  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=56425
+        More groundwork for WebKit2 IconDatabase
+
+        Update already-used function names:
+        * ewk/ewk_history.cpp:
+        (ewk_history_item_icon_surface_get):
+        (ewk_history_item_icon_object_add):
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_icon_database_icon_surface_get):
+        (ewk_settings_icon_database_icon_object_add):
+
+2011-03-16  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Viewport no longer allows an auto value for "user-scalable"
+        https://bugs.webkit.org/show_bug.cgi?id=55416
+
+        Make the default value for userScalable be true.
+
+        * ewk/ewk_view.cpp:
+        (ewk_view_viewport_attributes_get):
+
+2011-03-14  Brady Eidson  <beidson@apple.com>
+
+        Try to fix the EFL build-bustage that their EWS bot did not see, but their core-builder did.  (sigh)
+
+        * ewk/ewk_history.cpp:
+        (ewk_history_item_icon_surface_get):
+        (ewk_history_item_icon_object_add):
+
+2011-03-14  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        https://bugs.webkit.org/show_bug.cgi?id=56320
+        Remove HistoryItem::icon() and the WebCore dependency on "IconDatabaseBase::defaultIcon()"
+
+        * ewk/ewk_history.cpp:
+        (ewk_history_item_icon_surface_get): Use IconDatabase directly.
+
+2011-03-14  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Move cache_directory api
+        https://bugs.webkit.org/show_bug.cgi?id=52139
+
+        Move cache directory related apis from ewk_view to ewk_settings because
+        those are not related to ewk_view.
+
+        * ewk/ewk_main.cpp:
+        (_ewk_init_body):
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_cache_directory_path_set):
+        (ewk_settings_cache_directory_path_get):
+        * ewk/ewk_settings.h:
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+        (_ewk_view_priv_del):
+        * ewk/ewk_view.h:
+
+2011-03-12  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Unreviewed build fix.
+
+        [EFL] Fix build break because of several reason.
+        https://bugs.webkit.org/show_bug.cgi?id=56244
+
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_icon_database_path_set):
+
+2011-03-10  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Limit touch events when only page required touch events.
+        https://bugs.webkit.org/show_bug.cgi?id=54857
+
+        Block touch events when ChromeClient::needTouchEvents got false.
+
+        * WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::needTouchEvents):
+        * WebCoreSupport/ChromeClientEfl.h:
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_feed_touch_event):
+        * ewk/ewk_private.h:
+        * ewk/ewk_view.cpp:
+        (ewk_view_need_touch_events_set):
+        (ewk_view_need_touch_events_get):
+
+2011-03-08  Grzegorz Czajkowski  <g.czajkowski@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Doxygen documentation for ewk_window_features and ewk_context_menu
+        https://bugs.webkit.org/show_bug.cgi?id=55026
+
+        * ewk/ewk_contextmenu.cpp:
+        (ewk_context_menu_item_select): returns EINA_FALSE when CONTEXT_MENU is disabled
+        * ewk/ewk_contextmenu.h:
+        * ewk/ewk_window_features.cpp:
+        * ewk/ewk_window_features.h:
+
 2011-03-07  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Anders Carlsson.

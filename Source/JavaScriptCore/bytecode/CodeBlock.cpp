@@ -364,7 +364,7 @@ void CodeBlock::dump(ExecState* exec) const
         unsigned registerIndex = m_numVars;
         size_t i = 0;
         do {
-            printf("   k%u = %s\n", registerIndex, valueToSourceString(exec, m_constantRegisters[i].jsValue()).utf8().data());
+            printf("   k%u = %s\n", registerIndex, valueToSourceString(exec, m_constantRegisters[i].get()).utf8().data());
             ++i;
             ++registerIndex;
         } while (i < m_constantRegisters.size());
@@ -731,7 +731,7 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         case op_resolve_global_dynamic: {
             int r0 = (++it)->u.operand;
             int id0 = (++it)->u.operand;
-            JSValue scope = JSValue((++it)->u.jsCell);
+            JSValue scope = JSValue((++it)->u.jsCell.get());
             ++it;
             int depth = (++it)->u.operand;
             printf("[%4d] resolve_global_dynamic\t %s, %s, %s, %d\n", location, registerName(exec, r0).data(), valueToSourceString(exec, scope).utf8().data(), idName(id0, m_identifiers[id0]).data(), depth);
@@ -1360,13 +1360,13 @@ void CodeBlock::dumpStatistics()
 }
 
 CodeBlock::CodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, JSGlobalObject *globalObject, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset, SymbolTable* symTab, bool isConstructor)
-    : m_globalObject(globalObject)
+    : m_globalObject(globalObject->globalData(), ownerExecutable, globalObject)
     , m_heap(&m_globalObject->globalData().heap)
     , m_numCalleeRegisters(0)
     , m_numVars(0)
     , m_numParameters(0)
     , m_isConstructor(isConstructor)
-    , m_ownerExecutable(ownerExecutable)
+    , m_ownerExecutable(globalObject->globalData(), ownerExecutable, ownerExecutable)
     , m_globalData(0)
 #ifndef NDEBUG
     , m_instructionCount(0)
@@ -1406,12 +1406,6 @@ CodeBlock::~CodeBlock()
     for (size_t size = m_structureStubInfos.size(), i = 0; i < size; ++i)
         m_structureStubInfos[i].deref();
 
-    for (size_t size = m_callLinkInfos.size(), i = 0; i < size; ++i) {
-        CallLinkInfo* callLinkInfo = &m_callLinkInfos[i];
-        if (callLinkInfo->isLinked())
-            callLinkInfo->callee->removeCaller(callLinkInfo);
-    }
-
     for (size_t size = m_methodCallLinkInfos.size(), i = 0; i < size; ++i) {
         if (Structure* structure = m_methodCallLinkInfos[i].cachedStructure) {
             structure->deref();
@@ -1421,29 +1415,12 @@ CodeBlock::~CodeBlock()
         }
     }
 
-#if ENABLE(JIT_OPTIMIZE_CALL)
-    unlinkCallers();
-#endif
-
 #endif // ENABLE(JIT)
 
 #if DUMP_CODE_BLOCK_STATISTICS
     liveCodeBlockSet.remove(this);
 #endif
 }
-
-#if ENABLE(JIT_OPTIMIZE_CALL)
-void CodeBlock::unlinkCallers()
-{
-    size_t size = m_linkedCallerList.size();
-    for (size_t i = 0; i < size; ++i) {
-        CallLinkInfo* currentCaller = m_linkedCallerList[i];
-        JIT::unlinkCallOrConstruct(currentCaller);
-        currentCaller->setUnlinked();
-    }
-    m_linkedCallerList.clear();
-}
-#endif
 
 void CodeBlock::derefStructures(Instruction* vPC) const
 {
@@ -1460,13 +1437,11 @@ void CodeBlock::derefStructures(Instruction* vPC) const
     }
     if (vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_chain) || vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_getter_chain) || vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_custom_chain)) {
         vPC[4].u.structure->deref();
-        vPC[5].u.structureChain->deref();
         return;
     }
     if (vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id_transition)) {
         vPC[4].u.structure->deref();
         vPC[5].u.structure->deref();
-        vPC[6].u.structureChain->deref();
         return;
     }
     if (vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id_replace)) {
@@ -1509,13 +1484,11 @@ void CodeBlock::refStructures(Instruction* vPC) const
     }
     if (vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_chain) || vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_getter_chain) || vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_custom_chain)) {
         vPC[4].u.structure->ref();
-        vPC[5].u.structureChain->ref();
         return;
     }
     if (vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id_transition)) {
         vPC[4].u.structure->ref();
         vPC[5].u.structure->ref();
-        vPC[6].u.structureChain->ref();
         return;
     }
     if (vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id_replace)) {
@@ -1527,14 +1500,43 @@ void CodeBlock::refStructures(Instruction* vPC) const
     ASSERT(vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id) || vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id) || vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_generic) || vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id_generic));
 }
 
+void EvalCodeCache::markAggregate(MarkStack& markStack)
+{
+    EvalCacheMap::iterator end = m_cacheMap.end();
+    for (EvalCacheMap::iterator ptr = m_cacheMap.begin(); ptr != end; ++ptr)
+        markStack.append(&ptr->second);
+}
+
 void CodeBlock::markAggregate(MarkStack& markStack)
 {
-    for (size_t i = 0; i < m_constantRegisters.size(); ++i)
-        markStack.deprecatedAppend(&m_constantRegisters[i]);
+    markStack.append(&m_globalObject);
+    markStack.append(&m_ownerExecutable);
+    if (m_rareData)
+        m_rareData->m_evalCodeCache.markAggregate(markStack);
+    markStack.appendValues(m_constantRegisters.data(), m_constantRegisters.size());
     for (size_t i = 0; i < m_functionExprs.size(); ++i)
-        m_functionExprs[i]->markAggregate(markStack);
+        markStack.append(&m_functionExprs[i]);
     for (size_t i = 0; i < m_functionDecls.size(); ++i)
-        m_functionDecls[i]->markAggregate(markStack);
+        markStack.append(&m_functionDecls[i]);
+#if ENABLE(JIT_OPTIMIZE_CALL)
+    for (unsigned i = 0; i < numberOfCallLinkInfos(); ++i)
+        if (callLinkInfo(i).isLinked())
+            markStack.append(&callLinkInfo(i).callee);
+#endif
+#if ENABLE(INTERPRETER)
+    Interpreter* interpreter = m_globalData->interpreter;
+    for (size_t size = m_propertyAccessInstructions.size(), i = 0; i < size; ++i) {
+        Instruction* vPC = &m_instructions[m_propertyAccessInstructions[i]];
+        if (vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_chain) || vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_getter_chain) || vPC[0].u.opcode == interpreter->getOpcode(op_get_by_id_custom_chain))
+            markStack.append(&vPC[5].u.structureChain);
+        else if (vPC[0].u.opcode == interpreter->getOpcode(op_put_by_id_transition))
+            markStack.append(&vPC[6].u.structureChain);
+    }
+#endif
+#if ENABLE(JIT)
+    for (size_t size = m_structureStubInfos.size(), i = 0; i < size; ++i)
+        m_structureStubInfos[i].markAggregate(markStack);
+#endif
 }
 
 HandlerInfo* CodeBlock::handlerForBytecodeOffset(unsigned bytecodeOffset)
@@ -1671,7 +1673,6 @@ void CodeBlock::shrinkToFit()
     m_structureStubInfos.shrinkToFit();
     m_globalResolveInfos.shrinkToFit();
     m_callLinkInfos.shrinkToFit();
-    m_linkedCallerList.shrinkToFit();
 #endif
 
     m_identifiers.shrinkToFit();

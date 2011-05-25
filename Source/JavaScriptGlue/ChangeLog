@@ -1,3 +1,137 @@
+2011-03-25  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        instanceof Array test fails when using iframes
+        https://bugs.webkit.org/show_bug.cgi?id=17250
+
+        Up date for new toObject api
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::toPrimitive):
+        (UserObjectImp::toBoolean):
+        (UserObjectImp::toNumber):
+        (UserObjectImp::toString):
+
+2011-03-26  Adam Barth  <abarth@webkit.org>
+
+        Remove the JavaScriptGlue GYP build.  We're not going to use GYP for
+        JavaScriptGlue because JavaScriptGlue is used only by one port.
+
+        * gyp: Removed.
+        * gyp/JavaScriptGlue.gyp: Removed.
+        * gyp/JavaScriptGlue.gypi: Removed.
+        * gyp/remove-headers-if-needed.sh: Removed.
+        * gyp/run-if-exists.sh: Removed.
+        * gyp/update-info-plist.sh: Removed.
+
+2011-03-22  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Make it possible to build JavaScriptCore and WebCore gyp builds outside of Source
+        https://bugs.webkit.org/show_bug.cgi?id=56867
+
+        This should make it possible to build the gyp-generated JavaScriptGlue.xcodeproj
+        from a JavaScriptGlue directory outside of Source.
+
+        * gyp/JavaScriptGlue.gyp:
+        * gyp/run-if-exists.sh: Added.
+        * gyp/update-info-plist.sh: Added.
+
+2011-03-22  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Production configuration in GYP isn&apos;t set up correctly
+        https://bugs.webkit.org/show_bug.cgi?id=56786
+
+        Update JavaScriptGlue.gyp with information mined from
+        JavaScriptGlue.xcodeproj.
+
+        * gyp/JavaScriptGlue.gyp:
+        * gyp/JavaScriptGlue.gypi:
+
+2011-03-21  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        GYP build should not have include paths that point within the source tree
+        https://bugs.webkit.org/show_bug.cgi?id=56788
+
+        Turns out we don't need these include paths anymore now that we have
+        header maps working properly.
+
+        * gyp/JavaScriptGlue.gyp:
+
+2011-03-20  Bill Budge  <bbudge@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Rename ThreadSafeShared to ThreadSafeRefCounted
+        https://bugs.webkit.org/show_bug.cgi?id=56714
+
+        No new tests. Exposes no new functionality.§
+
+        * ForwardingHeaders/wtf/ThreadSafeRefCounted.h: Copied from ForwardingHeaders/wtf/ThreadSafeShared.h.
+        * ForwardingHeaders/wtf/ThreadSafeShared.h: Removed.
+        * gyp/JavaScriptGlue.gypi:
+
+2011-03-17  Jeff Miller  <jeffm@apple.com>
+
+        Use a consistent set of file patterns in the svn:ignore property for all .xcodeproj directories, specifically:
+        
+        *.mode*
+        *.pbxuser
+        *.perspective*
+        project.xcworkspace
+        xcuserdata
+
+        * JavaScriptGlue.xcodeproj: Modified property svn:ignore.
+
+2011-03-15  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make Structure creation require a JSGlobalData
+        https://bugs.webkit.org/show_bug.cgi?id=56438
+
+        Mechanical change to make all structure creation pass a JSGlobalData&.
+
+        * JSRun.cpp:
+        (JSGlueGlobalObject::JSGlueGlobalObject):
+        (JSRun::JSRun):
+        * JSRun.h:
+        * JSUtils.cpp:
+        (getThreadGlobalObject):
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2011-03-15  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Reviewed by Darin Adler.
+
+        Introduce WTF_USE_EXPORT_MACROS, which will allow us to put shared library import/export
+        info into the headers rather than in export symbol definition files, but disable it on 
+        all platforms initially so we can deal with port build issues one port at a time.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=27551
+
+        * config.h:
+
+2011-03-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Rolled back in 80277 and 80280 with event handler layout test failures fixed.
+        https://bugs.webkit.org/show_bug.cgi?id=55653        
+
+        The failures were caused by a last minute typo: assigning to currentEvent
+        instead of m_currentEvent.
+
+        * JSRun.cpp:
+        * JSRun.h:
+
 2011-03-04  Adam Barth  <abarth@webkit.org>
 
         Reviewed by Dimitri Glazkov.

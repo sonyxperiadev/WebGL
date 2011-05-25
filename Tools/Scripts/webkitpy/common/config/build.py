@@ -33,17 +33,18 @@ def _should_file_trigger_build(target_platform, file):
     # precendence over later ones.
 
     # FIXME: The patterns below have only been verified to be correct on
-    # Windows. We should implement this for other platforms and start using
-    # it for their bots. Someone familiar with each platform will have to
-    # figure out what the right set of directories/patterns is for that
-    # platform.
-    assert(target_platform == "win")
+    # the platforms listed below. We should implement this for other platforms
+    # and start using it for their bots. Someone familiar with each platform
+    # will have to figure out what the right set of directories/patterns is for
+    # that platform.
+    assert(target_platform in ("mac-leopard", "mac-snowleopard", "win"))
 
     directories = [
         # Directories that shouldn't trigger builds on any bots.
+        ("Examples", []),
         ("PerformanceTests", []),
         ("Source/WebCore/manual-tests", []),
-        ("Examples", []),
+        ("Tools/BuildSlaveSupport/build.webkit.org-config/public_html", []),
         ("Websites", []),
         ("android", []),
         ("brew", []),
@@ -53,14 +54,13 @@ def _should_file_trigger_build(target_platform, file):
         ("opengl", []),
         ("opentype", []),
         ("openvg", []),
-        ("wx", []),
         ("wince", []),
+        ("wx", []),
 
         # Directories that should trigger builds on only some bots.
         ("Source/JavaScriptGlue", ["mac"]),
-        ("LayoutTests/platform/mac", ["mac", "win"]),
-        ("LayoutTests/platform/mac-snowleopard", ["mac-snowleopard", "win"]),
         ("Source/WebCore/image-decoders", ["chromium"]),
+        ("LayoutTests/platform/mac", ["mac", "win"]),
         ("cairo", ["gtk", "wincairo"]),
         ("cf", ["chromium-mac", "mac", "qt", "win"]),
         ("chromium", ["chromium"]),
@@ -72,7 +72,7 @@ def _should_file_trigger_build(target_platform, file):
         ("gtk", ["gtk"]),
         ("mac", ["chromium-mac", "mac"]),
         ("mac-leopard", ["mac-leopard"]),
-        ("mac-snowleopard", ["mac-snowleopard"]),
+        ("mac-snowleopard", ["mac", "win"]),
         ("mac-wk2", ["mac-snowleopard", "win"]),
         ("objc", ["mac"]),
         ("qt", ["qt"]),

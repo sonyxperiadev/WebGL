@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #import "TextChecker.h"
 #import "TextCheckerState.h"
 #import "WKAPICast.h"
+#import "WKFullScreenWindowController.h"
 #import "WKPrintingView.h"
 #import "WKStringCF.h"
 #import "WKTextInputWindowController.h"
@@ -49,6 +50,7 @@
 #import "WKViewPrivate.h"
 #import "WebContext.h"
 #import "WebEventFactory.h"
+#import "WebFullScreenManagerProxy.h"
 #import "WebPage.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
@@ -57,6 +59,7 @@
 #import <WebCore/ColorMac.h>
 #import <WebCore/DragController.h>
 #import <WebCore/DragData.h>
+#import <WebCore/LocalizedStrings.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/KeyboardEvent.h>
@@ -66,15 +69,14 @@
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
 
-// FIXME (WebKit2) <rdar://problem/8728860> WebKit2 needs to be localized
-#define UI_STRING(__str, __desc) [NSString stringWithUTF8String:__str]
-
-@interface NSApplication (Details)
+@interface NSApplication (WebNSApplicationDetails)
 - (void)speakString:(NSString *)string;
+- (void)_setCurrentEvent:(NSEvent *)event;
 @end
 
-@interface NSWindow (Details)
+@interface NSWindow (WebNSWindowDetails)
 - (NSRect)_growBoxRect;
+- (id)_growBoxOwner;
 - (void)_setShowOpaqueGrowBoxForOwner:(id)owner;
 - (BOOL)_updateGrowBoxForWindowFrameChange;
 @end
@@ -108,11 +110,6 @@ typedef HashMap<String, ValidationVector> ValidationMap;
 
     RetainPtr<NSView> _layerHostingView;
 
-    // FIXME: Remove _oldLayerHostingView.
-#if USE(ACCELERATED_COMPOSITING)
-    NSView *_oldLayerHostingView;
-#endif
-
     RetainPtr<id> _remoteAccessibilityChild;
     
     // For asynchronous validation.
@@ -124,7 +121,8 @@ typedef HashMap<String, ValidationVector> ValidationMap;
     // We keep here the event when resending it to
     // the application to distinguish the case of a new event from one 
     // that has been already sent to WebCore.
-    NSEvent *_keyDownEventBeingResent;
+    RetainPtr<NSEvent> _keyDownEventBeingResent;
+    bool _isInInterpretKeyEvents;
     Vector<KeypressCommand> _commandsList;
 
     NSSize _resizeScrollOffset;
@@ -145,6 +143,13 @@ typedef HashMap<String, ValidationVector> ValidationMap;
 #if ENABLE(GESTURE_EVENTS)
     id _endGestureMonitor;
 #endif
+    
+#if ENABLE(FULLSCREEN_API)
+    RetainPtr<WKFullScreenWindowController> _fullScreenWindowController;
+#endif
+
+    BOOL _hasSpellCheckerDocumentTag;
+    NSInteger _spellCheckerDocumentTag;
 }
 @end
 
@@ -157,12 +162,6 @@ typedef HashMap<String, ValidationVector> ValidationMap;
 @end
 
 @implementation WKView
-
-// FIXME: Remove this once we no longer want to be able to go back to the old drawing area.
-static bool useNewDrawingArea()
-{
-    return true;
-}
 
 - (id)initWithFrame:(NSRect)frame
 {
@@ -223,6 +222,9 @@ static bool useNewDrawingArea()
     _data->_pageClient = PageClientImpl::create(self);
     _data->_page = toImpl(contextRef)->createWebPage(_data->_pageClient.get(), toImpl(pageGroupRef));
     _data->_page->initializeWebPage();
+#if ENABLE(FULLSCREEN_API)
+    _data->_page->fullScreenManager()->setWebView(self);
+#endif
     _data->_mouseDownEvent = nil;
     _data->_ignoringMouseDraggedEvents = NO;
 
@@ -238,6 +240,7 @@ static bool useNewDrawingArea()
     _data->_page->close();
 
     [_data release];
+    _data = nil;
 
     WebContext::statistics().wkViewCount--;
 
@@ -496,6 +499,8 @@ WEBCORE_COMMAND(yankAndSelect)
 
 #undef WEBCORE_COMMAND
 
+// This method is needed to support Mac OS X services.
+
 - (BOOL)writeSelectionToPasteboard:(NSPasteboard *)pasteboard types:(NSArray *)types
 {
     Vector<String> pasteboardTypes;
@@ -504,6 +509,8 @@ WEBCORE_COMMAND(yankAndSelect)
         pasteboardTypes.append([types objectAtIndex:i]);
     return _data->_page->writeSelectionToPasteboard([pasteboard name], pasteboardTypes);
 }
+
+// This method is needed to support Mac OS X services.
 
 - (id)validRequestorForSendType:(NSString *)sendType returnType:(NSString *)returnType
 {
@@ -518,6 +525,13 @@ WEBCORE_COMMAND(yankAndSelect)
     if (isValidSendType && isValidReturnType)
         return self;
     return [[self nextResponder] validRequestorForSendType:sendType returnType:returnType];
+}
+
+// This method is needed to support Mac OS X services.
+
+- (BOOL)readSelectionFromPasteboard:(NSPasteboard *)pasteboard 
+{
+    return _data->_page->readSelectionFromPasteboard([pasteboard name]);
 }
 
 /*
@@ -589,12 +603,8 @@ static void validateCommandCallback(WKStringRef commandName, bool isEnabled, int
     SEL action = [item action];
 
     if (action == @selector(showGuessPanel:)) {
-        if (NSMenuItem *menuItem = ::menuItem(item)) {
-            BOOL panelShowing = [[[NSSpellChecker sharedSpellChecker] spellingPanel] isVisible];
-            [menuItem setTitle:panelShowing
-                ? UI_STRING("Hide Spelling and Grammar", "menu item title")
-                : UI_STRING("Show Spelling and Grammar", "menu item title")];
-        }
+        if (NSMenuItem *menuItem = ::menuItem(item))
+            [menuItem setTitle:contextMenuItemTagShowSpellingPanel([[[NSSpellChecker sharedSpellChecker] spellingPanel] isVisible])];
         return _data->_page->selectionState().isContentEditable;
     }
 
@@ -621,12 +631,8 @@ static void validateCommandCallback(WKStringRef commandName, bool isEnabled, int
     }
 
     if (action == @selector(orderFrontSubstitutionsPanel:)) {
-        if (NSMenuItem *menuItem = ::menuItem(item)) {
-            BOOL panelShowing = [[[NSSpellChecker sharedSpellChecker] substitutionsPanel] isVisible];
-            [menuItem setTitle:panelShowing
-                ? UI_STRING("Hide Substitutions", "menu item title")
-                : UI_STRING("Show Substitutions", "menu item title")];
-        }
+        if (NSMenuItem *menuItem = ::menuItem(item))
+            [menuItem setTitle:contextMenuItemTagShowSubstitutions([[[NSSpellChecker sharedSpellChecker] substitutionsPanel] isVisible])];
         return _data->_page->selectionState().isContentEditable;
     }
 
@@ -1010,6 +1016,12 @@ static const short kIOHIDEventTypeScroll = 6;
 
 - (void)doCommandBySelector:(SEL)selector
 {
+    LOG(TextInput, "doCommandBySelector:\"%s\"", sel_getName(selector));
+
+    if (!_data->_isInInterpretKeyEvents) {
+        [super doCommandBySelector:selector];
+        return;
+    }
     if (selector != @selector(noop:))
         _data->_commandsList.append(KeypressCommand(commandNameForSelector(selector)));
 }
@@ -1034,9 +1046,13 @@ static const short kIOHIDEventTypeScroll = 6;
             isFromInputMethod = YES;
     } else
         text = string;
-    
+
     String eventText = text;
     
+    // We'd need a different code path here if we wanted to be able to handle this
+    // outside of interpretKeyEvents.
+    ASSERT(_data->_isInInterpretKeyEvents);
+
     if (!isFromInputMethod)
         _data->_commandsList.append(KeypressCommand("insertText", text));
     else {
@@ -1085,9 +1101,6 @@ static const short kIOHIDEventTypeScroll = 6;
     // But don't do it if we have already handled the event.
     // Pressing Esc results in a fake event being sent - don't pass it to WebCore.
     if (!eventWasSentToWebCore && event == [NSApp currentEvent] && self == [[self window] firstResponder]) {
-        [_data->_keyDownEventBeingResent release];
-        _data->_keyDownEventBeingResent = nil;
-        
         _data->_page->handleKeyboardEvent(NativeWebKeyboardEvent(event, self));
         return YES;
     }
@@ -1102,6 +1115,11 @@ static const short kIOHIDEventTypeScroll = 6;
 
 - (void)keyDown:(NSEvent *)theEvent
 {
+    // There's a chance that responding to this event will run a nested event loop, and
+    // fetching a new event might release the old one. Retaining and then autoreleasing
+    // the current event prevents that from causing a problem inside WebKit or AppKit code.
+    [[theEvent retain] autorelease];
+
     if (_data->_pluginComplexTextInputIdentifier) {
         // Try feeding the keyboard event directly to the plug-in.
         NSString *string = nil;
@@ -1120,8 +1138,6 @@ static const short kIOHIDEventTypeScroll = 6;
     // there is no range selection).
     // If this is the case we should ignore the key down.
     if (_data->_keyDownEventBeingResent == theEvent) {
-        [_data->_keyDownEventBeingResent release];
-        _data->_keyDownEventBeingResent = nil;
         [super keyDown:theEvent];
         return;
     }
@@ -1129,7 +1145,7 @@ static const short kIOHIDEventTypeScroll = 6;
 }
 
 - (NSTextInputContext *)inputContext {
-    if (_data->_pluginComplexTextInputIdentifier)
+    if (_data->_pluginComplexTextInputIdentifier && !_data->_isInInterpretKeyEvents)
         return [[WKTextInputWindowController sharedTextInputWindowController] inputContext];
 
     return [super inputContext];
@@ -1153,7 +1169,11 @@ static const short kIOHIDEventTypeScroll = 6;
 - (void)unmarkText
 {
     LOG(TextInput, "unmarkText");
-    
+
+    // We'd need a different code path here if we wanted to be able to handle this
+    // outside of interpretKeyEvents.
+    ASSERT(_data->_isInInterpretKeyEvents);
+
     _data->_commandsList.append(KeypressCommand("unmarkText"));
 }
 
@@ -1208,6 +1228,10 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
         extractUnderlines(string, _data->_underlines);
     }
     
+    // We'd need a different code path here if we wanted to be able to handle this
+    // outside of interpretKeyEvents.
+    ASSERT(_data->_isInInterpretKeyEvents);
+
     _data->_commandsList.append(KeypressCommand("setMarkedText", text));
     _data->_selectionStart = newSelRange.location;
     _data->_selectionEnd = NSMaxRange(newSelRange);
@@ -1418,10 +1442,15 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 
 - (void)viewWillMoveToWindow:(NSWindow *)window
 {
-    if (window != [self window]) {
-        [self removeWindowObservers];
-        [self addWindowObserversForWindow:window];
-    }
+    NSWindow *currentWindow = [self window];
+    if (window == currentWindow)
+        return;
+    
+    [self removeWindowObservers];
+    [self addWindowObserversForWindow:window];
+    
+    if ([currentWindow _growBoxOwner] == self)
+        [currentWindow _setShowOpaqueGrowBoxForOwner:nil];
 }
 
 - (void)viewDidMoveToWindow
@@ -1438,7 +1467,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
         // Initialize remote accessibility when the window connection has been established.
 #if !defined(BUILDING_ON_SNOW_LEOPARD)
         NSData *remoteElementToken = WKAXRemoteTokenForElement(self);
-        NSData *remoteWindowToken = WKAXRemoteTokenForElement([self window]);
+        NSData *remoteWindowToken = WKAXRemoteTokenForElement([self accessibilityAttributeValue:NSAccessibilityWindowAttribute]);
         CoreIPC::DataReference elementToken = CoreIPC::DataReference(reinterpret_cast<const uint8_t*>([remoteElementToken bytes]), [remoteElementToken length]);
         CoreIPC::DataReference windowToken = CoreIPC::DataReference(reinterpret_cast<const uint8_t*>([remoteWindowToken bytes]), [remoteWindowToken length]);
         _data->_page->registerUIProcessAccessibilityTokens(elementToken, windowToken);
@@ -1453,6 +1482,9 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
             [NSEvent removeMonitor:_data->_endGestureMonitor];
             _data->_endGestureMonitor = nil;
         }
+#endif
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+        WKHideWordDefinitionWindow();
 #endif
     }
 }
@@ -1510,37 +1542,25 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
 {
     LOG(View, "drawRect: x:%g, y:%g, width:%g, height:%g", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
     _data->_page->endPrinting();
-    if (useNewDrawingArea()) {
-        CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
+    CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
 
-        if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(_data->_page->drawingArea())) {
-            const NSRect *rectsBeingDrawn;
-            NSInteger numRectsBeingDrawn;
-            [self getRectsBeingDrawn:&rectsBeingDrawn count:&numRectsBeingDrawn];
-            for (NSInteger i = 0; i < numRectsBeingDrawn; ++i) {
-                Region unpaintedRegion;
-                IntRect rect = enclosingIntRect(rectsBeingDrawn[i]);
-                drawingArea->paint(context, rect, unpaintedRegion);
+    if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(_data->_page->drawingArea())) {
+        const NSRect *rectsBeingDrawn;
+        NSInteger numRectsBeingDrawn;
+        [self getRectsBeingDrawn:&rectsBeingDrawn count:&numRectsBeingDrawn];
+        for (NSInteger i = 0; i < numRectsBeingDrawn; ++i) {
+            Region unpaintedRegion;
+            IntRect rect = enclosingIntRect(rectsBeingDrawn[i]);
+            drawingArea->paint(context, rect, unpaintedRegion);
 
-                Vector<IntRect> unpaintedRects = unpaintedRegion.rects();
-                for (size_t i = 0; i < unpaintedRects.size(); ++i)
-                    drawPageBackground(context, _data->_page.get(), unpaintedRects[i]);
-            }
-        } else 
-            drawPageBackground(context, _data->_page.get(), enclosingIntRect(rect));
+            Vector<IntRect> unpaintedRects = unpaintedRegion.rects();
+            for (size_t i = 0; i < unpaintedRects.size(); ++i)
+                drawPageBackground(context, _data->_page.get(), unpaintedRects[i]);
+        }
+    } else 
+        drawPageBackground(context, _data->_page.get(), enclosingIntRect(rect));
 
-        _data->_page->didDraw();
-        return;
-    }
-
-    if (_data->_page->isValid() && _data->_page->drawingArea()) {
-        CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
-        _data->_page->drawingArea()->paint(IntRect(rect), context);
-        _data->_page->didDraw();
-    } else if (_data->_page->drawsBackground()) {
-        [_data->_page->drawsTransparentBackground() ? [NSColor clearColor] : [NSColor whiteColor] set];
-        NSRectFill(rect);
-    }
+    _data->_page->didDraw();
 }
 
 - (BOOL)isOpaque
@@ -1567,6 +1587,9 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
 
 - (id)accessibilityFocusedUIElement
 {
+    if (_data->_pdfViewController)
+        return NSAccessibilityUnignoredDescendant(_data->_pdfViewController->pdfView());
+
     return _data->_remoteAccessibilityChild.get();
 }
 
@@ -1577,15 +1600,25 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
 
 - (id)accessibilityHitTest:(NSPoint)point
 {
+    if (_data->_pdfViewController)
+        return [_data->_pdfViewController->pdfView() accessibilityHitTest:point];
+    
     return _data->_remoteAccessibilityChild.get();
 }
 
 - (id)accessibilityAttributeValue:(NSString*)attribute
 {
     if ([attribute isEqualToString:NSAccessibilityChildrenAttribute]) {
-        if (!_data->_remoteAccessibilityChild)
+
+        id child = nil;
+        if (_data->_pdfViewController)
+            child = NSAccessibilityUnignoredDescendant(_data->_pdfViewController->pdfView());
+        else if (_data->_remoteAccessibilityChild)
+            child = _data->_remoteAccessibilityChild.get();
+        
+        if (!child)
             return nil;
-        return [NSArray arrayWithObject:_data->_remoteAccessibilityChild.get()];
+        return [NSArray arrayWithObject:child];
     }
     if ([attribute isEqualToString:NSAccessibilityRoleAttribute])
         return NSAccessibilityGroupRole;
@@ -1605,10 +1638,6 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
     if (hitView && _data && hitView == _data->_layerHostingView)
         hitView = self;
 
-#if USE(ACCELERATED_COMPOSITING)
-    if (hitView && _data && hitView == _data->_oldLayerHostingView)
-        hitView = self;
-#endif
     return hitView;
 }
 
@@ -1634,7 +1663,7 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
             return 0;
         return _data->_pdfViewController->makePrintOperation(printInfo);
     } else {
-        RetainPtr<WKPrintingView> printingView(AdoptNS, [[WKPrintingView alloc] initWithFrameProxy:toImpl(frameRef)]);
+        RetainPtr<WKPrintingView> printingView(AdoptNS, [[WKPrintingView alloc] initWithFrameProxy:toImpl(frameRef) view:self]);
         // NSPrintOperation takes ownership of the view.
         NSPrintOperation *printOperation = [NSPrintOperation printOperationWithView:printingView.get()];
         [printOperation setCanSpawnSeparateThread:YES];
@@ -1649,10 +1678,7 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
 
 - (PassOwnPtr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy
 {
-    if (useNewDrawingArea())
-        return DrawingAreaProxyImpl::create(_data->_page.get());
-
-    return ChunkedUpdateDrawingAreaProxy::create(self, _data->_page.get());
+    return DrawingAreaProxyImpl::create(_data->_page.get());
 }
 
 - (BOOL)_isFocused
@@ -1708,21 +1734,33 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
     }
 }
 
-- (void)_setEventBeingResent:(NSEvent *)event
+- (void)_resendKeyDownEvent:(NSEvent *)event
 {
-    _data->_keyDownEventBeingResent = [event retain];
+    ASSERT(!_data->_keyDownEventBeingResent);
+    _data->_keyDownEventBeingResent = event;
+    [NSApp _setCurrentEvent:event];
+    [NSApp sendEvent:event];
+
+    _data->_keyDownEventBeingResent = nullptr;
 }
 
 - (Vector<KeypressCommand>&)_interceptKeyEvent:(NSEvent *)theEvent 
 {
+    ASSERT(!_data->_isInInterpretKeyEvents);
+
+    _data->_isInInterpretKeyEvents = true;
     _data->_commandsList.clear();
-    // interpretKeyEvents will trigger one or more calls to doCommandBySelector or setText
+
+    // Calling interpretKeyEvents will trigger one or more calls to doCommandBySelector and insertText
     // that will populate the commandsList vector.
     [self interpretKeyEvents:[NSArray arrayWithObject:theEvent]];
+
+    _data->_isInInterpretKeyEvents = false;
+
     return _data->_commandsList;
 }
 
-- (void)_getTextInputState:(unsigned)start selectionEnd:(unsigned)end underlines:(Vector<WebCore::CompositionUnderline>&)lines
+- (void)_getTextInputState:(unsigned)start selectionEnd:(unsigned)end underlines:(Vector<CompositionUnderline>&)lines
 {
     start = _data->_selectionStart;
     end = _data->_selectionEnd;
@@ -1771,20 +1809,23 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
 
 - (void)removeTrackingRect:(NSTrackingRectTag)tag
 {
+    if (!_data)
+        return;
+
     if (tag == 0)
         return;
     
-    if (_data && (tag == TRACKING_RECT_TAG)) {
+    if (tag == TRACKING_RECT_TAG) {
         _data->_trackingRectOwner = nil;
         return;
     }
     
-    if (_data && (tag == _data->_lastToolTipTag)) {
+    if (tag == _data->_lastToolTipTag) {
         [super removeTrackingRect:tag];
         _data->_lastToolTipTag = 0;
         return;
     }
-    
+
     // If any other tracking rect is being removed, we don't know how it was created
     // and it's possible there's a leak involved (see 3500217)
     ASSERT_NOT_REACHED();
@@ -2001,6 +2042,17 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
     [self _updateGrowBoxForWindowFrameChange];
 }
 
+#if ENABLE(FULLSCREEN_API)
+- (WKFullScreenWindowController*)fullScreenWindowController
+{
+    if (!_data->_fullScreenWindowController) {
+        _data->_fullScreenWindowController.adoptNS([[WKFullScreenWindowController alloc] init]);
+        [_data->_fullScreenWindowController.get() setWebView:self];
+    }
+    return _data->_fullScreenWindowController.get();
+}
+#endif
+
 @end
 
 @implementation WKView (Private)
@@ -2031,6 +2083,20 @@ static void drawPageBackground(CGContextRef context, WebPageProxy* page, const I
     thePoint = [self convertPoint:thePoint fromView:nil];
 
     _data->_page->performDictionaryLookupAtLocation(FloatPoint(thePoint.x, thePoint.y));
+}
+
+- (NSInteger)spellCheckerDocumentTag
+{
+    if (!_data->_hasSpellCheckerDocumentTag) {
+        _data->_spellCheckerDocumentTag = [NSSpellChecker uniqueSpellDocumentTag];
+        _data->_hasSpellCheckerDocumentTag = YES;
+    }
+    return _data->_spellCheckerDocumentTag;
+}
+
+- (void)handleCorrectionPanelResult:(NSString*)result
+{
+    _data->_page->handleCorrectionPanelResult(result);
 }
 
 @end

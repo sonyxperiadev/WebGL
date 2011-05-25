@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "LayoutTestController.h"
 
 #include "InjectedBundle.h"
@@ -299,6 +300,11 @@ void LayoutTestController::setCanOpenWindows(bool)
 void LayoutTestController::setXSSAuditorEnabled(bool enabled)
 {
     WKBundleOverrideXSSAuditorEnabledForTestRunner(InjectedBundle::shared().bundle(), InjectedBundle::shared().pageGroup(), true);
+}
+
+void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
+{
+    WKBundleOverrideAllowUniversalAccessFromFileURLsForTestRunner(InjectedBundle::shared().bundle(), InjectedBundle::shared().pageGroup(), enabled);
 }
 
 unsigned LayoutTestController::windowCount()

@@ -96,21 +96,17 @@ namespace JSC {
 #if ENABLE(JIT)
     struct CallLinkInfo {
         CallLinkInfo()
-            : callee(0)
-            , position(0)
-            , hasSeenShouldRepatch(0)
+            : hasSeenShouldRepatch(false)
         {
         }
 
         CodeLocationNearCall callReturnLocation;
         CodeLocationDataLabelPtr hotPathBegin;
         CodeLocationNearCall hotPathOther;
-        CodeBlock* ownerCodeBlock;
-        CodeBlock* callee;
-        unsigned position : 31;
-        unsigned hasSeenShouldRepatch : 1;
+        WriteBarrier<JSFunction> callee;
+        bool hasSeenShouldRepatch;
         
-        void setUnlinked() { callee = 0; }
+        void setUnlinked() { callee.clear(); }
         bool isLinked() { return callee; }
 
         bool seenOnce()
@@ -183,7 +179,7 @@ namespace JSC {
         unsigned bytecodeOffset;
     };
 
-    // valueAtPosition helpers for the binaryChop algorithm below.
+    // valueAtPosition helpers for the binarySearch algorithm.
 
     inline void* getStructureStubInfoReturnLocation(StructureStubInfo* structureStubInfo)
     {
@@ -204,42 +200,6 @@ namespace JSC {
     {
         return pc->callReturnOffset;
     }
-
-    // Binary chop algorithm, calls valueAtPosition on pre-sorted elements in array,
-    // compares result with key (KeyTypes should be comparable with '--', '<', '>').
-    // Optimized for cases where the array contains the key, checked by assertions.
-    template<typename ArrayType, typename KeyType, KeyType(*valueAtPosition)(ArrayType*)>
-    inline ArrayType* binaryChop(ArrayType* array, size_t size, KeyType key)
-    {
-        // The array must contain at least one element (pre-condition, array does conatin key).
-        // If the array only contains one element, no need to do the comparison.
-        while (size > 1) {
-            // Pick an element to check, half way through the array, and read the value.
-            int pos = (size - 1) >> 1;
-            KeyType val = valueAtPosition(&array[pos]);
-            
-            // If the key matches, success!
-            if (val == key)
-                return &array[pos];
-            // The item we are looking for is smaller than the item being check; reduce the value of 'size',
-            // chopping off the right hand half of the array.
-            else if (key < val)
-                size = pos;
-            // Discard all values in the left hand half of the array, up to and including the item at pos.
-            else {
-                size -= (pos + 1);
-                array += (pos + 1);
-            }
-
-            // 'size' should never reach zero.
-            ASSERT(size);
-        }
-        
-        // If we reach this point we've chopped down to one element, no need to check it matches
-        ASSERT(size == 1);
-        ASSERT(key == valueAtPosition(&array[0]));
-        return &array[0];
-    }
 #endif
 
     class CodeBlock {
@@ -248,7 +208,7 @@ namespace JSC {
     protected:
         CodeBlock(ScriptExecutable* ownerExecutable, CodeType, JSGlobalObject*, PassRefPtr<SourceProvider>, unsigned sourceOffset, SymbolTable* symbolTable, bool isConstructor);
 
-        DeprecatedPtr<JSGlobalObject> m_globalObject;
+        WriteBarrier<JSGlobalObject> m_globalObject;
         Heap* m_heap;
 
     public:
@@ -257,9 +217,6 @@ namespace JSC {
         void markAggregate(MarkStack&);
         void refStructures(Instruction* vPC) const;
         void derefStructures(Instruction* vPC) const;
-#if ENABLE(JIT_OPTIMIZE_CALL)
-        void unlinkCallers();
-#endif
 
         static void dumpStatistics();
 
@@ -292,38 +249,20 @@ namespace JSC {
         void expressionRangeForBytecodeOffset(unsigned bytecodeOffset, int& divot, int& startOffset, int& endOffset);
 
 #if ENABLE(JIT)
-        void addCaller(CallLinkInfo* caller)
-        {
-            caller->callee = this;
-            caller->position = m_linkedCallerList.size();
-            m_linkedCallerList.append(caller);
-        }
-
-        void removeCaller(CallLinkInfo* caller)
-        {
-            unsigned pos = caller->position;
-            unsigned lastPos = m_linkedCallerList.size() - 1;
-
-            if (pos != lastPos) {
-                m_linkedCallerList[pos] = m_linkedCallerList[lastPos];
-                m_linkedCallerList[pos]->position = pos;
-            }
-            m_linkedCallerList.shrink(lastPos);
-        }
 
         StructureStubInfo& getStubInfo(ReturnAddressPtr returnAddress)
         {
-            return *(binaryChop<StructureStubInfo, void*, getStructureStubInfoReturnLocation>(m_structureStubInfos.begin(), m_structureStubInfos.size(), returnAddress.value()));
+            return *(binarySearch<StructureStubInfo, void*, getStructureStubInfoReturnLocation>(m_structureStubInfos.begin(), m_structureStubInfos.size(), returnAddress.value()));
         }
 
         CallLinkInfo& getCallLinkInfo(ReturnAddressPtr returnAddress)
         {
-            return *(binaryChop<CallLinkInfo, void*, getCallLinkInfoReturnLocation>(m_callLinkInfos.begin(), m_callLinkInfos.size(), returnAddress.value()));
+            return *(binarySearch<CallLinkInfo, void*, getCallLinkInfoReturnLocation>(m_callLinkInfos.begin(), m_callLinkInfos.size(), returnAddress.value()));
         }
 
         MethodCallLinkInfo& getMethodCallLinkInfo(ReturnAddressPtr returnAddress)
         {
-            return *(binaryChop<MethodCallLinkInfo, void*, getMethodCallLinkInfoReturnLocation>(m_methodCallLinkInfos.begin(), m_methodCallLinkInfos.size(), returnAddress.value()));
+            return *(binarySearch<MethodCallLinkInfo, void*, getMethodCallLinkInfoReturnLocation>(m_methodCallLinkInfos.begin(), m_methodCallLinkInfos.size(), returnAddress.value()));
         }
 
         unsigned bytecodeOffset(ReturnAddressPtr returnAddress)
@@ -333,7 +272,7 @@ namespace JSC {
             Vector<CallReturnOffsetToBytecodeOffset>& callIndices = m_rareData->m_callReturnIndexVector;
             if (!callIndices.size())
                 return 1;
-            return binaryChop<CallReturnOffsetToBytecodeOffset, unsigned, getCallReturnOffset>(callIndices.begin(), callIndices.size(), getJITCode().offsetOf(returnAddress.value()))->bytecodeOffset;
+            return binarySearch<CallReturnOffsetToBytecodeOffset, unsigned, getCallReturnOffset>(callIndices.begin(), callIndices.size(), getJITCode().offsetOf(returnAddress.value()))->bytecodeOffset;
         }
 #endif
 #if ENABLE(INTERPRETER)
@@ -359,7 +298,7 @@ namespace JSC {
         ExecutablePool* executablePool() { return getJITCode().getExecutablePool(); }
 #endif
 
-        ScriptExecutable* ownerExecutable() const { return m_ownerExecutable; }
+        ScriptExecutable* ownerExecutable() const { return m_ownerExecutable.get(); }
 
         void setGlobalData(JSGlobalData* globalData) { m_globalData = globalData; }
 
@@ -451,6 +390,8 @@ namespace JSC {
 
         bool hasExpressionInfo() { return m_rareData && m_rareData->m_expressionInfo.size(); }
         bool hasLineInfo() { return m_rareData && m_rareData->m_lineInfo.size(); }
+        //  We only generate exception handling info if the user is debugging
+        // (and may want line number info), or if the function contains exception handler.
         bool needsCallReturnIndices()
         {
             return m_rareData &&
@@ -472,18 +413,34 @@ namespace JSC {
         Identifier& identifier(int index) { return m_identifiers[index]; }
 
         size_t numberOfConstantRegisters() const { return m_constantRegisters.size(); }
-        void addConstantRegister(const Register& r) { return m_constantRegisters.append(r); }
-        Register& constantRegister(int index) { return m_constantRegisters[index - FirstConstantRegisterIndex]; }
+        void addConstant(JSValue v)
+        {
+            m_constantRegisters.append(WriteBarrier<Unknown>());
+            m_constantRegisters.last().set(m_globalObject->globalData(), m_ownerExecutable.get(), v);
+        }
+        WriteBarrier<Unknown>& constantRegister(int index) { return m_constantRegisters[index - FirstConstantRegisterIndex]; }
         ALWAYS_INLINE bool isConstantRegisterIndex(int index) const { return index >= FirstConstantRegisterIndex; }
-        ALWAYS_INLINE JSValue getConstant(int index) const { return m_constantRegisters[index - FirstConstantRegisterIndex].jsValue(); }
+        ALWAYS_INLINE JSValue getConstant(int index) const { return m_constantRegisters[index - FirstConstantRegisterIndex].get(); }
 
-        unsigned addFunctionDecl(NonNullPassRefPtr<FunctionExecutable> n) { unsigned size = m_functionDecls.size(); m_functionDecls.append(n); return size; }
+        unsigned addFunctionDecl(FunctionExecutable* n)
+        {
+            unsigned size = m_functionDecls.size();
+            m_functionDecls.append(WriteBarrier<FunctionExecutable>());
+            m_functionDecls.last().set(m_globalObject->globalData(), m_ownerExecutable.get(), n);
+            return size;
+        }
         FunctionExecutable* functionDecl(int index) { return m_functionDecls[index].get(); }
         int numberOfFunctionDecls() { return m_functionDecls.size(); }
-        unsigned addFunctionExpr(NonNullPassRefPtr<FunctionExecutable> n) { unsigned size = m_functionExprs.size(); m_functionExprs.append(n); return size; }
+        unsigned addFunctionExpr(FunctionExecutable* n)
+        {
+            unsigned size = m_functionExprs.size();
+            m_functionExprs.append(WriteBarrier<FunctionExecutable>());
+            m_functionExprs.last().set(m_globalObject->globalData(), m_ownerExecutable.get(), n);
+            return size;
+        }
         FunctionExecutable* functionExpr(int index) { return m_functionExprs[index].get(); }
 
-        unsigned addRegExp(RegExp* r) { createRareDataIfNecessary(); unsigned size = m_rareData->m_regexps.size(); m_rareData->m_regexps.append(r); return size; }
+        unsigned addRegExp(PassRefPtr<RegExp> r) { createRareDataIfNecessary(); unsigned size = m_rareData->m_regexps.size(); m_rareData->m_regexps.append(r); return size; }
         RegExp* regexp(int index) const { ASSERT(m_rareData); return m_rareData->m_regexps[index].get(); }
 
         JSGlobalObject* globalObject() { return m_globalObject.get(); }
@@ -536,7 +493,7 @@ namespace JSC {
                 m_rareData = adoptPtr(new RareData);
         }
 
-        ScriptExecutable* m_ownerExecutable;
+        WriteBarrier<ScriptExecutable> m_ownerExecutable;
         JSGlobalData* m_globalData;
 
         Vector<Instruction> m_instructions;
@@ -567,16 +524,16 @@ namespace JSC {
         Vector<GlobalResolveInfo> m_globalResolveInfos;
         Vector<CallLinkInfo> m_callLinkInfos;
         Vector<MethodCallLinkInfo> m_methodCallLinkInfos;
-        Vector<CallLinkInfo*> m_linkedCallerList;
 #endif
 
         Vector<unsigned> m_jumpTargets;
 
         // Constant Pool
         Vector<Identifier> m_identifiers;
-        Vector<Register> m_constantRegisters;
-        Vector<RefPtr<FunctionExecutable> > m_functionDecls;
-        Vector<RefPtr<FunctionExecutable> > m_functionExprs;
+        COMPILE_ASSERT(sizeof(Register) == sizeof(WriteBarrier<Unknown>), Register_must_be_same_size_as_WriteBarrier_Unknown);
+        Vector<WriteBarrier<Unknown> > m_constantRegisters;
+        Vector<WriteBarrier<FunctionExecutable> > m_functionDecls;
+        Vector<WriteBarrier<FunctionExecutable> > m_functionExprs;
 
         SymbolTable* m_symbolTable;
 
@@ -617,12 +574,6 @@ namespace JSC {
         GlobalCodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, JSGlobalObject* globalObject, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset)
             : CodeBlock(ownerExecutable, codeType, globalObject, sourceProvider, sourceOffset, &m_unsharedSymbolTable, false)
         {
-            m_heap->codeBlocks().add(this);
-        }
-
-        ~GlobalCodeBlock()
-        {
-            m_heap->codeBlocks().remove(this);
         }
 
     private:
@@ -680,7 +631,7 @@ namespace JSC {
     {
         CodeBlock* codeBlock = this->codeBlock();
         if (codeBlock->isConstantRegisterIndex(index))
-            return codeBlock->constantRegister(index);
+            return *reinterpret_cast<Register*>(&codeBlock->constantRegister(index));
         return this[index];
     }
 

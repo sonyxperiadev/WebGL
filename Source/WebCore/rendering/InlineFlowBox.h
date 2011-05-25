@@ -45,6 +45,7 @@ public:
         , m_nextLineBox(0)
         , m_includeLogicalLeftEdge(false)
         , m_includeLogicalRightEdge(false)
+        , m_descendantsHaveSameLineHeightAndBaseline(true)
 #ifndef NDEBUG
         , m_hasBadChildList(false)
 #endif
@@ -55,6 +56,7 @@ public:
         // text children must not apply.  This change also means that gaps will exist between image bullet list items.  Even when the list bullet
         // is an image, the line is still considered to be immune from the quirk.
         m_hasTextChildren = obj->style()->display() == LIST_ITEM;
+        m_hasTextDescendants = m_hasTextChildren;
     }
 
 #ifndef NDEBUG
@@ -73,6 +75,9 @@ public:
     
     InlineBox* firstLeafChild() const;
     InlineBox* lastLeafChild() const;
+
+    typedef void (*CustomInlineBoxRangeReverse)(void* userData, Vector<InlineBox*>::iterator first, Vector<InlineBox*>::iterator last);
+    void collectLeafBoxesInLogicalOrder(Vector<InlineBox*>&, CustomInlineBoxRangeReverse customReverseImplementation = 0, void* userData = 0) const;
 
     virtual void setConstructed()
     {
@@ -154,11 +159,11 @@ public:
     }
 
     // Helper functions used during line construction and placement.
-    void determineSpacingForFlowBoxes(bool lastLine, RenderObject* endObject);
+    void determineSpacingForFlowBoxes(bool lastLine, RenderObject* endObject, RenderObject* logicallyLastRunRenderer);
     int getFlowSpacingLogicalWidth();
     bool onEndChain(RenderObject* endObject);
     float placeBoxesInInlineDirection(float logicalLeft, bool& needsWordSpacing, GlyphOverflowAndFallbackFontsMap&);
-    void computeLogicalBoxHeights(int& maxPositionTop, int& maxPositionBottom,
+    void computeLogicalBoxHeights(RootInlineBox*, int& maxPositionTop, int& maxPositionBottom,
                                   int& maxAscent, int& maxDescent, bool& setMaxAscent, bool& setMaxDescent,
                                   bool strictMode, GlyphOverflowAndFallbackFontsMap&, FontBaseline, VerticalPositionCache&);
     void adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent,
@@ -181,6 +186,7 @@ public:
     virtual float placeEllipsisBox(bool ltr, float blockLeftEdge, float blockRightEdge, float ellipsisWidth, bool&);
 
     bool hasTextChildren() const { return m_hasTextChildren; }
+    bool hasTextDescendants() const { return m_hasTextDescendants; }
 
     void checkConsistency() const;
     void setHasBadChildList();
@@ -226,6 +232,14 @@ public:
     void setLayoutOverflow(const IntRect&);
     void setVisualOverflow(const IntRect&);
 
+    bool descendantsHaveSameLineHeightAndBaseline() const { return m_descendantsHaveSameLineHeightAndBaseline; }
+    void clearDescendantsHaveSameLineHeightAndBaseline()
+    { 
+        m_descendantsHaveSameLineHeightAndBaseline = false;
+        if (parent() && parent()->descendantsHaveSameLineHeightAndBaseline())
+            parent()->clearDescendantsHaveSameLineHeightAndBaseline();
+    }
+
 private:
     void addBoxShadowVisualOverflow(IntRect& logicalVisualOverflow);
     void addTextBoxVisualOverflow(const InlineTextBox*, GlyphOverflowAndFallbackFontsMap&, IntRect& logicalVisualOverflow);
@@ -245,6 +259,8 @@ protected:
     bool m_includeLogicalLeftEdge : 1;
     bool m_includeLogicalRightEdge : 1;
     bool m_hasTextChildren : 1;
+    bool m_hasTextDescendants : 1;
+    bool m_descendantsHaveSameLineHeightAndBaseline : 1;
 
 #ifndef NDEBUG
     bool m_hasBadChildList;

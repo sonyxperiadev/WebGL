@@ -239,11 +239,15 @@ void SVGUseElement::fillAttributeToPropertyTypeMap()
     attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
 }
 
-static void updateContainerSize(SVGUseElement* useElement, SVGElementInstance* targetInstance)
+static void updateContainerSize(SVGElementInstance* targetInstance)
 {
     // Depth-first used to write the method in early exit style, no particular other reason.
     for (SVGElementInstance* instance = targetInstance->firstChild(); instance; instance = instance->nextSibling())
-        updateContainerSize(useElement, instance);
+        updateContainerSize(instance);
+
+    SVGUseElement* useElement = targetInstance->directUseElement();
+    if (!useElement)
+        return;
 
     SVGElement* correspondingElement = targetInstance->correspondingElement();
     ASSERT(correspondingElement);
@@ -281,7 +285,8 @@ void SVGUseElement::updateContainerSizes()
         return;
 
     // Update whole subtree, scanning for shadow container elements, that correspond to <svg>/<symbol> tags
-    updateContainerSize(this, m_targetElementInstance.get());
+    ASSERT(m_targetElementInstance->directUseElement() == this);
+    updateContainerSize(m_targetElementInstance.get());
 
     if (RenderObject* object = renderer())
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(object);
@@ -380,6 +385,9 @@ void dumpInstanceTree(unsigned int& depth, String& text, SVGElementInstance* tar
     SVGElement* shadowTreeElement = targetInstance->shadowTreeElement();
     ASSERT(shadowTreeElement);
 
+    SVGUseElement* directUseElement = targetInstance->directUseElement();
+    String directUseElementName = directUseElement ? directUseElement->nodeName() : "null";
+
     String elementId = element->getIdAttribute();
     String elementNodeName = element->nodeName();
     String shadowTreeElementNodeName = shadowTreeElement->nodeName();
@@ -389,9 +397,9 @@ void dumpInstanceTree(unsigned int& depth, String& text, SVGElementInstance* tar
     for (unsigned int i = 0; i < depth; ++i)
         text += "  ";
 
-    text += String::format("SVGElementInstance this=%p, (parentNode=%s (%p), firstChild=%s (%p), correspondingElement=%s (%p), shadowTreeElement=%s (%p), id=%s)\n",
+    text += String::format("SVGElementInstance this=%p, (parentNode=%s (%p), firstChild=%s (%p), correspondingElement=%s (%p), directUseElement=%s (%p), shadowTreeElement=%s (%p), id=%s)\n",
                            targetInstance, parentNodeName.latin1().data(), element->parentNode(), firstChildNodeName.latin1().data(), element->firstChild(),
-                           elementNodeName.latin1().data(), element, shadowTreeElementNodeName.latin1().data(), shadowTreeElement, elementId.latin1().data());
+                           elementNodeName.latin1().data(), element, directUseElementName.latin1().data(), directUseElement, shadowTreeElementNodeName.latin1().data(), shadowTreeElement, elementId.latin1().data());
 
     for (unsigned int i = 0; i < depth; ++i)
         text += "  ";
@@ -533,7 +541,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     // Spec: If the 'use' element references a simple graphics element such as a 'rect', then there is only a
     // single SVGElementInstance object, and the correspondingElement attribute on this SVGElementInstance object
     // is the SVGRectElement that corresponds to the referenced 'rect' element.
-    m_targetElementInstance = SVGElementInstance::create(this, target);
+    m_targetElementInstance = SVGElementInstance::create(this, this, target);
 
     // Eventually enter recursion to build SVGElementInstance objects for the sub-tree children
     bool foundProblem = false;
@@ -550,6 +558,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     ASSERT(m_targetElementInstance);
     ASSERT(!m_targetElementInstance->shadowTreeElement());
     ASSERT(m_targetElementInstance->correspondingUseElement() == this);
+    ASSERT(m_targetElementInstance->directUseElement() == this);
     ASSERT(m_targetElementInstance->correspondingElement() == target);
 
     // Build shadow tree from instance tree
@@ -559,11 +568,11 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
 #if ENABLE(SVG) && ENABLE(SVG_USE)
     // Expand all <use> elements in the shadow tree.
     // Expand means: replace the actual <use> element by what it references.
-    expandUseElementsInShadowTree(shadowRoot, shadowRoot);
+    expandUseElementsInShadowTree(shadowRoot);
 
     // Expand all <symbol> elements in the shadow tree.
     // Expand means: replace the actual <symbol> element by the <svg> element.
-    expandSymbolElementsInShadowTree(shadowRoot, shadowRoot);
+    expandSymbolElementsInShadowTree(shadowRoot);
 #endif
 
     // Now that the shadow tree is completly expanded, we can associate
@@ -581,6 +590,16 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
 
     // Consistency checks - this is assumed in updateContainerOffset().
     ASSERT(m_targetElementInstance->shadowTreeElement()->parentNode() == shadowRoot);
+
+    // Transfer event listeners assigned to the referenced element to our shadow tree elements.
+    transferEventListenersToShadowTree(m_targetElementInstance.get());
+
+    // Update container offset/size
+    updateContainerOffsets();
+    updateContainerSizes();
+
+    // Update relative length information
+    updateRelativeLengthsInformation();
 
     // Eventually dump instance tree
 #ifdef DUMP_INSTANCE_TREE
@@ -602,23 +621,13 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
 
     fprintf(stderr, "Dumping <use> shadow tree markup:\n%s\n", markup.latin1().data());
 #endif
-
-    // Transfer event listeners assigned to the referenced element to our shadow tree elements.
-    transferEventListenersToShadowTree(m_targetElementInstance.get());
-
-    // Update container offset/size
-    updateContainerOffsets();
-    updateContainerSizes();
-
-    // Update relative length information
-    updateRelativeLengthsInformation();
 }
 
 void SVGUseElement::detachInstance()
 {
     if (!m_targetElementInstance)
         return;
-    m_targetElementInstance->clearUseElement();
+    m_targetElementInstance->clearUseElements();
     m_targetElementInstance = 0;
 }
 
@@ -722,7 +731,7 @@ void SVGUseElement::buildInstanceTree(SVGElement* target, SVGElementInstance* ta
             continue;
 
         // Create SVGElementInstance object, for both container/non-container nodes.
-        RefPtr<SVGElementInstance> instance = SVGElementInstance::create(this, element);
+        RefPtr<SVGElementInstance> instance = SVGElementInstance::create(this, 0, element);
         SVGElementInstance* instancePtr = instance.get();
         targetInstance->appendChild(instance.release());
 
@@ -735,7 +744,7 @@ void SVGUseElement::buildInstanceTree(SVGElement* target, SVGElementInstance* ta
     if (!targetHasUseTag || !newTarget)
         return;
 
-    RefPtr<SVGElementInstance> newInstance = SVGElementInstance::create(this, newTarget);
+    RefPtr<SVGElementInstance> newInstance = SVGElementInstance::create(this, static_cast<SVGUseElement*>(target), newTarget);
     SVGElementInstance* newInstancePtr = newInstance.get();
     targetInstance->appendChild(newInstance.release());
     buildInstanceTree(newTarget, newInstancePtr, foundProblem);
@@ -812,7 +821,7 @@ void SVGUseElement::buildShadowTree(SVGShadowTreeRootElement* shadowRoot, SVGEle
 }
 
 #if ENABLE(SVG) && ENABLE(SVG_USE)
-void SVGUseElement::expandUseElementsInShadowTree(SVGShadowTreeRootElement* shadowRoot, Node* element)
+void SVGUseElement::expandUseElementsInShadowTree(Node* element)
 {
     // Why expand the <use> elements in the shadow tree here, and not just
     // do this directly in buildShadowTree, if we encounter a <use> element?
@@ -860,21 +869,25 @@ void SVGUseElement::expandUseElementsInShadowTree(SVGShadowTreeRootElement* shad
         if (subtreeContainsDisallowedElement(cloneParent.get()))
             removeDisallowedElementsFromSubtree(cloneParent.get());
 
+        RefPtr<Node> replacingElement(cloneParent.get());
+
         // Replace <use> with referenced content.
         ASSERT(use->parentNode()); 
         use->parentNode()->replaceChild(cloneParent.release(), use, ec);
         ASSERT(!ec);
 
-        // Immediately stop here, and restart expanding.
-        expandUseElementsInShadowTree(shadowRoot, shadowRoot);
-        return;
+        // Expand the siblings because the *element* is replaced and we will
+        // lose the sibling chain when we are back from recursion.
+        element = replacingElement.get();
+        for (RefPtr<Node> sibling = element->nextSibling(); sibling; sibling = sibling->nextSibling())
+            expandUseElementsInShadowTree(sibling.get());
     }
 
     for (RefPtr<Node> child = element->firstChild(); child; child = child->nextSibling())
-        expandUseElementsInShadowTree(shadowRoot, child.get());
+        expandUseElementsInShadowTree(child.get());
 }
 
-void SVGUseElement::expandSymbolElementsInShadowTree(SVGShadowTreeRootElement* shadowRoot, Node* element)
+void SVGUseElement::expandSymbolElementsInShadowTree(Node* element)
 {
     if (element->hasTagName(SVGNames::symbolTag)) {
         // Spec: The referenced 'symbol' and its contents are deep-cloned into the generated tree,
@@ -904,18 +917,22 @@ void SVGUseElement::expandSymbolElementsInShadowTree(SVGShadowTreeRootElement* s
         if (subtreeContainsDisallowedElement(svgElement.get()))
             removeDisallowedElementsFromSubtree(svgElement.get());
 
+        RefPtr<Node> replacingElement(svgElement.get());
+
         // Replace <symbol> with <svg>.
         ASSERT(element->parentNode()); 
         element->parentNode()->replaceChild(svgElement.release(), element, ec);
         ASSERT(!ec);
 
-        // Immediately stop here, and restart expanding.
-        expandSymbolElementsInShadowTree(shadowRoot, shadowRoot);
-        return;
+        // Expand the siblings because the *element* is replaced and we will
+        // lose the sibling chain when we are back from recursion.
+        element = replacingElement.get();
+        for (RefPtr<Node> sibling = element->nextSibling(); sibling; sibling = sibling->nextSibling())
+            expandSymbolElementsInShadowTree(sibling.get());
     }
 
     for (RefPtr<Node> child = element->firstChild(); child; child = child->nextSibling())
-        expandSymbolElementsInShadowTree(shadowRoot, child.get());
+        expandSymbolElementsInShadowTree(child.get());
 }
 
 #endif

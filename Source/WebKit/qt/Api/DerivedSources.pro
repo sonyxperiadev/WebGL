@@ -19,7 +19,6 @@ win32-msvc* | wince* {
 } else {
     QUOTE = "\'"
     DOUBLE_ESCAPED_QUOTE = "\\\'"
-    ESCAPE = "\\"
 }
 
 qtheader_module.target = $${DESTDIR}/QtWebKit

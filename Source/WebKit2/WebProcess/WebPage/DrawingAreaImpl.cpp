@@ -64,7 +64,8 @@ DrawingAreaImpl::DrawingAreaImpl(WebPage* webPage, const WebPageCreationParamete
     , m_isWaitingForDidUpdate(false)
     , m_isPaintingSuspended(!parameters.isVisible)
     , m_alwaysUseCompositing(false)
-    , m_displayTimer(WebProcess::shared().runLoop(), this, &DrawingAreaImpl::display)
+    , m_lastDisplayTime(0)
+    , m_displayTimer(WebProcess::shared().runLoop(), this, &DrawingAreaImpl::displayTimerFired)
     , m_exitCompositingTimer(WebProcess::shared().runLoop(), this, &DrawingAreaImpl::exitAcceleratedCompositingMode)
 {
     if (webPage->corePage()->settings()->acceleratedDrawingEnabled())
@@ -89,6 +90,9 @@ void DrawingAreaImpl::setNeedsDisplay(const IntRect& rect)
         return;
     }
     
+    if (m_webPage->mainFrameHasCustomRepresentation())
+        return;
+
     m_dirtyRegion.unite(dirtyRect);
     scheduleDisplay();
 }
@@ -103,6 +107,9 @@ void DrawingAreaImpl::scroll(const IntRect& scrollRect, const IntSize& scrollOff
         m_layerTreeHost->scrollNonCompositedContents(scrollRect, scrollOffset);
         return;
     }
+
+    if (m_webPage->mainFrameHasCustomRepresentation())
+        return;
 
     if (!m_scrollRect.isEmpty() && scrollRect != m_scrollRect) {
         unsigned scrollArea = scrollRect.width() * scrollRect.height();
@@ -197,7 +204,9 @@ void DrawingAreaImpl::layerHostDidFlushLayers()
     if (!m_layerTreeHost)
         return;
 
+#if USE(ACCELERATED_COMPOSITING)
     m_webPage->send(Messages::DrawingAreaProxy::EnterAcceleratedCompositingMode(m_backingStoreStateID, m_layerTreeHost->layerTreeContext()));
+#endif
 }
 
 void DrawingAreaImpl::setRootCompositingLayer(GraphicsLayer* graphicsLayer)
@@ -291,10 +300,12 @@ void DrawingAreaImpl::sendDidUpdateBackingStoreState()
     m_shouldSendDidUpdateBackingStoreState = false;
 
     UpdateInfo updateInfo;
-    LayerTreeContext layerTreeContext;
 
     if (!m_isPaintingSuspended && !m_layerTreeHost)
         display(updateInfo);
+
+#if USE(ACCELERATED_COMPOSITING)
+    LayerTreeContext layerTreeContext;
 
     if (m_isPaintingSuspended || m_layerTreeHost) {
         updateInfo.viewSize = m_webPage->size();
@@ -311,6 +322,7 @@ void DrawingAreaImpl::sendDidUpdateBackingStoreState()
     }
 
     m_webPage->send(Messages::DrawingAreaProxy::DidUpdateBackingStoreState(m_backingStoreStateID, updateInfo, layerTreeContext));
+#endif
 }
 
 void DrawingAreaImpl::didUpdate()
@@ -322,8 +334,8 @@ void DrawingAreaImpl::didUpdate()
 
     m_isWaitingForDidUpdate = false;
 
-    // Display if needed.
-    display();
+    // Display if needed. We call displayTimerFired here since it will throttle updates to 60fps.
+    displayTimerFired();
 }
 
 void DrawingAreaImpl::suspendPainting()
@@ -391,9 +403,11 @@ void DrawingAreaImpl::exitAcceleratedCompositingMode()
     else
         display(updateInfo);
 
+#if USE(ACCELERATED_COMPOSITING)
     // Send along a complete update of the page so we can paint the contents right after we exit the
     // accelerated compositing mode, eliminiating flicker.
     m_webPage->send(Messages::DrawingAreaProxy::ExitAcceleratedCompositingMode(m_backingStoreStateID, updateInfo));
+#endif
 }
 
 void DrawingAreaImpl::exitAcceleratedCompositingModeSoon()
@@ -419,6 +433,21 @@ void DrawingAreaImpl::scheduleDisplay()
         return;
 
     m_displayTimer.startOneShot(0);
+}
+
+void DrawingAreaImpl::displayTimerFired()
+{
+    static const double minimumFrameInterval = 1.0 / 60.0;
+    
+    double timeSinceLastDisplay = currentTime() - m_lastDisplayTime;
+    double timeUntilNextDisplay = minimumFrameInterval - timeSinceLastDisplay;
+
+    if (timeUntilNextDisplay > 0) {
+        m_displayTimer.startOneShot(timeUntilNextDisplay);
+        return;
+    }
+
+    display();
 }
 
 void DrawingAreaImpl::display()
@@ -479,8 +508,11 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
     ASSERT(!m_webPage->size().isEmpty());
 
     // FIXME: It would be better if we could avoid painting altogether when there is a custom representation.
-    if (m_webPage->mainFrameHasCustomRepresentation())
+    if (m_webPage->mainFrameHasCustomRepresentation()) {
+        // ASSUMPTION: the custom representation will be painting the dirty region for us.
+        m_dirtyRegion = Region();
         return;
+    }
 
     m_webPage->layoutIfNeeded();
 
@@ -492,7 +524,7 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
     IntRect bounds = m_dirtyRegion.bounds();
     ASSERT(m_webPage->bounds().contains(bounds));
 
-    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(bounds.size());
+    RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(bounds.size(), ShareableBitmap::SupportsAlpha);
     if (!bitmap->createHandle(updateInfo.bitmapHandle))
         return;
 
@@ -527,6 +559,8 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
     // Layout can trigger more calls to setNeedsDisplay and we don't want to process them
     // until the UI process has painted the update, so we stop the timer here.
     m_displayTimer.stop();
+
+    m_lastDisplayTime = currentTime();
 }
 
 

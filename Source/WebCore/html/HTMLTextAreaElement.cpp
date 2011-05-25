@@ -295,6 +295,7 @@ void HTMLTextAreaElement::setValue(const String& value)
     setValueCommon(value);
     m_isDirty = true;
     setNeedsValidityCheck();
+    setTextAsOfLastFormControlChangeEvent(value);
 }
 
 void HTMLTextAreaElement::setNonDirtyValue(const String& value)
@@ -302,6 +303,7 @@ void HTMLTextAreaElement::setNonDirtyValue(const String& value)
     setValueCommon(value);
     m_isDirty = false;
     setNeedsValidityCheck();
+    setTextAsOfLastFormControlChangeEvent(value);
 }
 
 void HTMLTextAreaElement::setValueCommon(const String& value)
@@ -427,6 +429,13 @@ void HTMLTextAreaElement::setCols(int cols)
 void HTMLTextAreaElement::setRows(int rows)
 {
     setAttribute(rowsAttr, String::number(rows));
+}
+
+bool HTMLTextAreaElement::lastChangeWasUserEdit() const
+{
+    if (!renderer())
+        return false;
+    return toRenderTextControl(renderer())->lastChangeWasUserEdit();
 }
 
 bool HTMLTextAreaElement::shouldUseInputMethod() const

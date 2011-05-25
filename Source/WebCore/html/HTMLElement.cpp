@@ -654,44 +654,15 @@ void HTMLElement::addHTMLAlignmentToStyledElement(StyledElement* element, Attrib
 
 bool HTMLElement::supportsFocus() const
 {
-    return Element::supportsFocus() || (isContentEditable() && parentNode() && !parentNode()->isContentEditable());
+    return Element::supportsFocus() || (rendererIsEditable() && parentNode() && !parentNode()->rendererIsEditable());
 }
 
-bool HTMLElement::isContentEditable() const 
+bool HTMLElement::isContentEditable() const
 {
-    if (document()->inDesignMode())
-        return true;
-
-    // Ideally we'd call ASSERT!needsStyleRecalc()) here, but
-    // ContainerNode::setFocus() calls setNeedsStyleRecalc(), so the assertion
-    // would fire in the middle of Document::setFocusedNode().
-
-    if (!renderer()) {
-        if (parentNode())
-            return parentNode()->isContentEditable();
-        else
-            return false;
-    }
-    
-    return renderer()->style()->userModify() == READ_WRITE || renderer()->style()->userModify() == READ_WRITE_PLAINTEXT_ONLY;
+    return rendererIsEditable();
 }
 
-bool HTMLElement::isContentRichlyEditable() const
-{
-    if (document()->inDesignMode())
-        return true;
-
-    if (!renderer()) {
-        if (parentNode())
-            return parentNode()->isContentEditable();
-        else
-            return false;
-    }
-    
-    return renderer()->style()->userModify() == READ_WRITE;
-}
-
-String HTMLElement::contentEditable() const 
+String HTMLElement::contentEditable() const
 {
     const AtomicString& value = fastGetAttribute(contenteditableAttr);
 

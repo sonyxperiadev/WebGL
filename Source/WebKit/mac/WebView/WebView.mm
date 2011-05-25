@@ -97,6 +97,7 @@
 #import "WebPreferencesPrivate.h"
 #import "WebScriptDebugDelegate.h"
 #import "WebScriptWorldInternal.h"
+#import "WebStorageManagerInternal.h"
 #import "WebSystemInterface.h"
 #import "WebTextCompletionController.h"
 #import "WebTextIterator.h"
@@ -686,6 +687,10 @@ static NSString *leakMailQuirksUserScriptPath()
         [WebHistoryItem initWindowWatcherIfNecessary];
 #if ENABLE(DATABASE)
         WebKitInitializeDatabasesIfNecessary();
+#endif
+
+#if ENABLE(DOM_STORAGE)
+        WebKitInitializeStorageIfNecessary();
 #endif
         WebKitInitializeApplicationCachePathIfNecessary();
         patchMailRemoveAttributesMethod();
@@ -1491,6 +1496,8 @@ static bool fastDocumentTeardownEnabled()
     // Until we fix that, I will comment out the test (CFM)
     settings->setAcceleratedCompositingEnabled((coreVideoHas7228836Fix() || [preferences webGLEnabled] || 
         [preferences accelerated2dCanvasEnabled]) && [preferences acceleratedCompositingEnabled]);
+    settings->setAcceleratedDrawingEnabled([preferences acceleratedDrawingEnabled]);
+    settings->setCanvasUsesAcceleratedDrawing([preferences canvasUsesAcceleratedDrawing]);    
     settings->setShowDebugBorders([preferences showDebugBorders]);
     settings->setShowRepaintCounter([preferences showRepaintCounter]);
     settings->setPluginAllowedRunTime([preferences pluginAllowedRunTime]);
@@ -1511,7 +1518,10 @@ static bool fastDocumentTeardownEnabled()
     settings->setMemoryInfoEnabled([preferences memoryInfoEnabled]);
     settings->setHyperlinkAuditingEnabled([preferences hyperlinkAuditingEnabled]);
     settings->setUsePreHTML5ParserQuirks([self _needsPreHTML5ParserQuirks]);
+    settings->setUseQuickLookResourceCachingQuirks([preferences useQuickLookResourceCachingQuirks]);
     settings->setCrossOriginCheckInGetMatchedCSSRulesDisabled([self _needsUnrestrictedGetMatchedCSSRules]);
+    settings->setInteractiveFormValidationEnabled([self interactiveFormValidationEnabled]);
+    settings->setValidationMessageTimerMagnification([self validationMessageTimerMagnification]);
 
     // Application Cache Preferences are stored on the global cache storage manager, not in Settings.
     [WebApplicationCache setDefaultOriginQuota:[preferences applicationCacheDefaultOriginQuota]];
@@ -2394,6 +2404,26 @@ static inline IMP getMethod(id o, SEL s)
     }
 #endif
     return NO;
+}
+
+- (BOOL)interactiveFormValidationEnabled
+{
+    return _private->interactiveFormValidationEnabled;
+}
+
+- (void)setInteractiveFormValidationEnabled:(BOOL)enabled
+{
+    _private->interactiveFormValidationEnabled = enabled;
+}
+
+- (int)validationMessageTimerMagnification
+{
+    return _private->validationMessageTimerMagnification;
+}
+
+- (void)setValidationMessageTimerMagnification:(int)newValue
+{
+    _private->validationMessageTimerMagnification = newValue;
 }
 
 - (BOOL)_isSoftwareRenderable
@@ -5000,12 +5030,12 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (void)setEditable:(BOOL)flag
 {
-    if ([self isEditable] != flag) {
-        if (!_private->tabKeyCyclesThroughElementsChanged && _private->page)
+    if ([self isEditable] != flag && _private->page) {
+        _private->page->setEditable(flag);
+        if (!_private->tabKeyCyclesThroughElementsChanged)
             _private->page->setTabKeyCyclesThroughElements(!flag);
         Frame* mainFrame = [self _mainCoreFrame];
         if (mainFrame) {
-            mainFrame->document()->setDesignMode(flag ? WebCore::Document::on : WebCore::Document::off);
             if (flag) {
                 mainFrame->editor()->applyEditingStyleToBodyElement();
                 // If the WebView is made editable and the selection is empty, set it to something.
@@ -5018,10 +5048,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)isEditable
 {
-    Frame* mainFrame = [self _mainCoreFrame];
-    if (mainFrame)
-        return mainFrame->document()->inDesignMode();
-    return false;
+    return _private->page && _private->page->isEditable();
 }
 
 - (void)setTypingStyle:(DOMCSSStyleDeclaration *)style
@@ -5306,6 +5333,16 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 #endif
 
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+- (void)handleCorrectionPanelResult:(NSString*)result
+{
+    WebFrame *webFrame = [self _selectedOrMainFrame];
+    Frame* coreFrame = core(webFrame);
+    if (coreFrame)
+        coreFrame->editor()->handleCorrectionPanelResult(result);
+}
+#endif
+
 @end
 
 @implementation WebView (WebViewUndoableEditing)
@@ -5415,7 +5452,7 @@ FOR_EACH_RESPONDER_SELECTOR(FORWARD)
     Frame* coreFrame = core([self _selectedOrMainFrame]);
     if (!coreFrame)
         return NO;
-    return coreFrame->selection()->isAll(MayLeaveEditableContent);
+    return coreFrame->selection()->isAll(CanCrossEditingBoundary);
 }
 
 @end
@@ -5859,7 +5896,7 @@ static inline uint64_t roundUpToPowerOf2(uint64_t num)
 
     WebFrameLoadDelegateImplementationCache* cache = &_private->frameLoadDelegateImplementations;
     if (cache->didReceiveIconForFrameFunc) {
-        Image* image = iconDatabase().iconForPageURL(core(webFrame)->document()->url().string(), IntSize(16, 16));
+        Image* image = iconDatabase().synchronousIconForPageURL(core(webFrame)->document()->url().string(), IntSize(16, 16));
         if (NSImage *icon = webGetNSImage(image, NSMakeSize(16, 16)))
             CallFrameLoadDelegate(cache->didReceiveIconForFrameFunc, self, @selector(webView:didReceiveIcon:forFrame:), icon, webFrame);
     }
@@ -6120,8 +6157,11 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
 #endif
 
 #if ENABLE(FULLSCREEN_API)
-- (BOOL)_supportsFullScreenForElement:(const WebCore::Element*)element
+- (BOOL)_supportsFullScreenForElement:(const WebCore::Element*)element withKeyboard:(BOOL)withKeyboard
 {
+    if (withKeyboard)
+        return NO;
+
     if (![[WebPreferences standardPreferences] fullScreenEnabled])
         return NO;
 

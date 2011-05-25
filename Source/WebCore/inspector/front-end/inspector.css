@@ -872,6 +872,7 @@ body.platform-linux .monospace, body.platform-linux .source-code {
 
 .console-formatted-string, .console-formatted-regexp {
     color: rgb(196, 26, 22);
+    white-space: pre-wrap;
 }
 
 .console-formatted-null, .console-formatted-undefined {
@@ -1020,6 +1021,14 @@ body.platform-linux .monospace, body.platform-linux .source-code {
     left: 0;
     right: 325px;
     bottom: 0;
+}
+
+#elements-content.nowrap {
+    white-space: nowrap;
+}
+
+#elements-content > ol {
+    display: inline-block;
 }
 
 #elements-sidebar {
@@ -3926,6 +3935,10 @@ body.inactive li.selected .bubble.search-matches {
     background-color: rgb(66, 129, 235) !important;
 }
 
+.garbage-collect-status-bar-item .glyph {
+    -webkit-mask-image: url(Images/garbageCollectButtonGlyph.png);
+}
+
 .timeline-records-counter, .storage-application-cache-status, .storage-application-cache-connectivity {
     font-size: 11px;
     text-shadow: white 0 1px 0;
@@ -4441,4 +4454,8 @@ a.worker-item:hover {
     font-size: 12px;
     font-weight: bold;
     z-index: 10000;
+}
+
+.resource-view.json {
+    padding: 5px;
 }

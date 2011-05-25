@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2010-2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,13 +40,12 @@
 #include "InspectorInstrumentation.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "PageScriptDebugServer.h"
 #include "PlatformString.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "ScriptDebugServer.h"
 #include "V8Binding.h"
-#include "V8Node.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "WebDataSource.h"
@@ -73,14 +72,14 @@ namespace {
 static const char kFrontendConnectedFeatureName[] = "frontend-connected";
 static const char kInspectorStateFeatureName[] = "inspector-state";
 
-class ClientMessageLoopAdapter : public ScriptDebugServer::ClientMessageLoop {
+class ClientMessageLoopAdapter : public PageScriptDebugServer::ClientMessageLoop {
 public:
     static void ensureClientMessageLoopCreated(WebDevToolsAgentClient* client)
     {
         if (s_instance)
             return;
         s_instance = new ClientMessageLoopAdapter(client->createClientMessageLoop());
-        ScriptDebugServer::shared().setClientMessageLoop(s_instance);
+        PageScriptDebugServer::shared().setClientMessageLoop(s_instance);
     }
 
     static void inspectedViewClosed(WebViewImpl* view)
@@ -93,7 +92,7 @@ public:
     {
         // Release render thread if necessary.
         if (s_instance && s_instance->m_running)
-            ScriptDebugServer::shared().continueProgram();
+            PageScriptDebugServer::shared().continueProgram();
     }
 
 private:
@@ -187,9 +186,6 @@ void WebDevToolsAgentImpl::attach()
 
     m_debuggerAgentImpl.set(
         new DebuggerAgentImpl(m_webViewImpl, this, m_client));
-    WebCString debuggerScriptJs = m_client->debuggerScriptSource();
-    ScriptDebugServer::shared().setDebuggerScriptSource(
-        String(debuggerScriptJs.data(), debuggerScriptJs.length()));
     m_attached = true;
 }
 
@@ -230,14 +226,6 @@ void WebDevToolsAgentImpl::inspectElementAt(const WebPoint& point)
     m_webViewImpl->inspectElementAt(point);
 }
 
-void WebDevToolsAgentImpl::inspectNode(v8::Handle<v8::Value> node)
-{
-    if (!V8Node::HasInstance(node))
-        V8Proxy::setDOMException(TYPE_MISMATCH_ERR);
-    else
-        inspectorController()->inspect(V8Node::toNative(v8::Handle<v8::Object>::Cast(node)));
-}
-
 void WebDevToolsAgentImpl::setRuntimeProperty(const WebString& name, const WebString& value)
 {
     if (name == kInspectorStateFeatureName) {
@@ -258,49 +246,6 @@ Frame* WebDevToolsAgentImpl::mainFrame()
     if (Page* page = m_webViewImpl->page())
         return page->mainFrame();
     return 0;
-}
-
-
-//------- plugin resource load notifications ---------------
-void WebDevToolsAgentImpl::identifierForInitialRequest(
-    unsigned long resourceId,
-    WebFrame* webFrame,
-    const WebURLRequest& request)
-{
-    WebFrameImpl* webFrameImpl = static_cast<WebFrameImpl*>(webFrame);
-    Frame* frame = webFrameImpl->frame();
-    DocumentLoader* loader = frame->loader()->activeDocumentLoader();
-    InspectorInstrumentation::identifierForInitialRequest(frame, resourceId, loader, request.toResourceRequest());
-}
-
-void WebDevToolsAgentImpl::willSendRequest(unsigned long resourceId, WebURLRequest& request)
-{
-    if (InspectorController* ic = inspectorController()) {
-        InspectorInstrumentation::willSendRequest(mainFrame(), resourceId, request.toMutableResourceRequest(), ResourceResponse());
-        if (ic->hasFrontend() && request.reportLoadTiming())
-            request.setReportRawHeaders(true);
-    }
-}
-
-void WebDevToolsAgentImpl::didReceiveData(unsigned long resourceId, int length)
-{
-    InspectorInstrumentation::didReceiveContentLength(mainFrame(), resourceId, length);
-}
-
-void WebDevToolsAgentImpl::didReceiveResponse(unsigned long resourceId, const WebURLResponse& response)
-{
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceResponse(mainFrame(), resourceId, response.toResourceResponse());
-    InspectorInstrumentation::didReceiveResourceResponse(cookie, resourceId, 0, response.toResourceResponse());
-}
-
-void WebDevToolsAgentImpl::didFinishLoading(unsigned long resourceId)
-{
-    InspectorInstrumentation::didFinishLoading(mainFrame(), resourceId, 0);
-}
-
-void WebDevToolsAgentImpl::didFailLoading(unsigned long resourceId, const WebURLError& error)
-{
-    InspectorInstrumentation::didFailLoading(mainFrame(), resourceId, error);
 }
 
 void WebDevToolsAgentImpl::inspectorDestroyed()
@@ -374,7 +319,7 @@ void WebDevToolsAgent::debuggerPauseScript()
 
 void WebDevToolsAgent::interruptAndDispatch(MessageDescriptor* d)
 {
-    class DebuggerTask : public ScriptDebugServer::Task {
+    class DebuggerTask : public PageScriptDebugServer::Task {
     public:
         DebuggerTask(WebDevToolsAgent::MessageDescriptor* descriptor) : m_descriptor(descriptor) { }
         virtual ~DebuggerTask() { }
@@ -386,7 +331,7 @@ void WebDevToolsAgent::interruptAndDispatch(MessageDescriptor* d)
     private:
         OwnPtr<WebDevToolsAgent::MessageDescriptor> m_descriptor;
     };
-    ScriptDebugServer::interruptAndRun(new DebuggerTask(d));
+    PageScriptDebugServer::interruptAndRun(new DebuggerTask(d));
 }
 
 bool WebDevToolsAgent::shouldInterruptForMessage(const WebString& message)
@@ -395,18 +340,18 @@ bool WebDevToolsAgent::shouldInterruptForMessage(const WebString& message)
     if (!InspectorBackendDispatcher::getCommandName(message, &commandName))
         return false;
     return commandName == InspectorBackendDispatcher::Debugger_pauseCmd
-        || commandName == InspectorBackendDispatcher::Debugger_setJavaScriptBreakpointCmd
-        || commandName == InspectorBackendDispatcher::Debugger_removeJavaScriptBreakpointCmd
-        || commandName == InspectorBackendDispatcher::Debugger_activateBreakpointsCmd
-        || commandName == InspectorBackendDispatcher::Debugger_deactivateBreakpointsCmd
-        || commandName == InspectorBackendDispatcher::Inspector_startProfilingCmd
-        || commandName == InspectorBackendDispatcher::Inspector_stopProfilingCmd
+        || commandName == InspectorBackendDispatcher::Debugger_setBreakpointCmd
+        || commandName == InspectorBackendDispatcher::Debugger_setBreakpointByUrlCmd
+        || commandName == InspectorBackendDispatcher::Debugger_removeBreakpointCmd
+        || commandName == InspectorBackendDispatcher::Debugger_setBreakpointsActiveCmd
+        || commandName == InspectorBackendDispatcher::Profiler_startCmd
+        || commandName == InspectorBackendDispatcher::Profiler_stopCmd
         || commandName == InspectorBackendDispatcher::Profiler_getProfileCmd;
 }
 
 void WebDevToolsAgent::processPendingMessages()
 {
-    ScriptDebugServer::shared().runPendingTasks();
+    PageScriptDebugServer::shared().runPendingTasks();
 }
 
 void WebDevToolsAgent::setMessageLoopDispatchHandler(MessageLoopDispatchHandler handler)

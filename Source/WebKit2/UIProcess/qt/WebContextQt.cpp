@@ -47,7 +47,23 @@ void WebContext::platformInitializeWebProcess(WebProcessCreationParameters&)
     qRegisterMetaType<QProcess::ExitStatus>("QProcess::ExitStatus");
 }
 
+void WebContext::platformInvalidateContext()
+{
+}
+
 String WebContext::platformDefaultDatabaseDirectory() const
+{
+    // FIXME: Implement.
+    return "";
+}
+
+String WebContext::platformDefaultIconDatabasePath() const
+{
+    // FIXME: Implement.
+    return "";
+}
+
+String WebContext::platformDefaultLocalStorageDirectory() const
 {
     // FIXME: Implement.
     return "";

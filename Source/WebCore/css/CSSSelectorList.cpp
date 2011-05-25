@@ -87,7 +87,7 @@ void CSSSelectorList::deleteSelectors()
     if (!m_selectorArray)
         return;
 
-    // FIXME: Remove once http://webkit.org/b/53045 is fixed.
+    // FIXME: Remove once http://webkit.org/b/56124 is fixed.
     if (m_selectorArray == freedSelectorArrayMarker)
         CRASH();
 
@@ -122,9 +122,11 @@ static bool forEachTagSelector(Functor& functor, CSSSelector* selector)
     do {
         if (functor(selector))
             return true;
-        if (CSSSelector* simpleSelector = selector->simpleSelector()) {
-            if (forEachTagSelector(functor, simpleSelector))
-                return true;
+        if (CSSSelectorList* selectorList = selector->selectorList()) {
+            for (CSSSelector* subSelector = selectorList->first(); subSelector; subSelector = CSSSelectorList::next(subSelector)) {
+                if (forEachTagSelector(functor, subSelector))
+                    return true;
+            }
         }
     } while ((selector = selector->tagHistory()));
 

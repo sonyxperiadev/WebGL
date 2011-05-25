@@ -51,6 +51,7 @@
 #include "Element.h"
 #include "Event.h"
 #include "EventContext.h"
+#include "EventDispatcher.h"
 #include "EventException.h"
 #include "EventHandler.h"
 #include "EventListener.h"
@@ -106,8 +107,11 @@
 
 #if ENABLE(SVG)
 #include "SVGElementInstance.h"
-#include "SVGNames.h"
 #include "SVGUseElement.h"
+#endif
+
+#if ENABLE(WML)
+#include "WMLNames.h"
 #endif
 
 #if ENABLE(XHTMLMP)
@@ -125,8 +129,6 @@ using namespace std;
 namespace WebCore {
 
 using namespace HTMLNames;
-
-static HashSet<Node*>* gNodesDispatchingSimulatedClicks = 0;
 
 bool Node::isSupported(const String& feature, const String& version)
 {
@@ -347,6 +349,12 @@ Node::StyleChange Node::diff(const RenderStyle* s1, const RenderStyle* s2)
         }
     }
 
+    // When text-combine property has been changed, we need to prepare a separate renderer object.
+    // When text-combine is on, we use RenderCombineText, otherwise RenderText.
+    // https://bugs.webkit.org/show_bug.cgi?id=55069
+    if ((s1 && s2) && (s1->hasTextCombine() != s2->hasTextCombine()))
+        ch = Detach;
+
     return ch;
 }
 
@@ -504,6 +512,18 @@ void Node::setShadowHost(Element* host)
         clearFlag(IsShadowRootFlag);
 
     setParent(host);
+}
+
+InputElement* Node::toInputElement()
+{
+    // If one of the below ASSERTs trigger, you are calling this function
+    // directly or indirectly from a constructor or destructor of this object.
+    // Don't do this!
+    ASSERT(!(isHTMLElement() && hasTagName(inputTag)));
+#if ENABLE(WML)
+    ASSERT(!(isWMLElement() && hasTagName(WMLNames::inputTag)));
+#endif
+    return 0;
 }
 
 short Node::tabIndex() const
@@ -694,19 +714,36 @@ void Node::deprecatedParserAddChild(PassRefPtr<Node>)
 {
 }
 
-bool Node::isContentEditable() const
+bool Node::rendererIsEditable(EditableLevel editableLevel) const
 {
-    return parentOrHostNode() && parentOrHostNode()->isContentEditable();
-}
+    if (document()->inDesignMode() || (document()->frame() && document()->frame()->page() && document()->frame()->page()->isEditable()))
+        return true;
 
-bool Node::isContentRichlyEditable() const
-{
-    return parentOrHostNode() && parentOrHostNode()->isContentRichlyEditable();
+    // Ideally we'd call ASSERT(!needsStyleRecalc()) here, but
+    // ContainerNode::setFocus() calls setNeedsStyleRecalc(), so the assertion
+    // would fire in the middle of Document::setFocusedNode().
+
+    for (const Node* node = this; node; node = node->parentNode()) {
+        if ((node->isHTMLElement() || node->isDocumentNode()) && node->renderer()) {
+            switch (node->renderer()->style()->userModify()) {
+            case READ_ONLY:
+                return false;
+            case READ_WRITE:
+                return true;
+            case READ_WRITE_PLAINTEXT_ONLY:
+                return editableLevel != RichlyEditable;
+            }
+            ASSERT_NOT_REACHED();
+            return false;
+        }
+    }
+
+    return false;
 }
 
 bool Node::shouldUseInputMethod() const
 {
-    return isContentEditable();
+    return rendererIsEditable();
 }
 
 RenderBox* Node::renderBox() const
@@ -764,9 +801,15 @@ bool Node::hasNonEmptyBoundingBox() const
 
 void Node::setDocumentRecursively(Document* document)
 {
-    // FIXME: To match Gecko, we should do this for nodes that are already in the document as well.
-    if (this->document() == document || this->inDocument())
+    if (this->document() == document)
         return;
+
+    // If an element is moved from a document and then eventually back again the collection cache for
+    // that element may contain stale data as changes made to it will have updated the DOMTreeVersion
+    // of the document it was moved to. By increasing the DOMTreeVersion of the donating document here
+    // we ensure that the collection cache will be invalidated as needed when the element is moved back.
+    if (this->document())
+        this->document()->incDOMTreeVersion();
 
     for (Node* node = this; node; node = node->traverseNextNode(this)) {
         node->setDocument(document);
@@ -1147,37 +1190,25 @@ bool Node::canReplaceChild(Node* newChild, Node*)
 
 static void checkAcceptChild(Node* newParent, Node* newChild, ExceptionCode& ec)
 {
-    // Perform error checking as required by spec for adding a new child. Used by replaceChild().
-    
     // Not mentioned in spec: throw NOT_FOUND_ERR if newChild is null
     if (!newChild) {
         ec = NOT_FOUND_ERR;
         return;
     }
     
-    // NO_MODIFICATION_ALLOWED_ERR: Raised if this node is readonly
     if (newParent->isReadOnlyNode()) {
         ec = NO_MODIFICATION_ALLOWED_ERR;
         return;
     }
-    
-    // WRONG_DOCUMENT_ERR: Raised if newChild was created from a different document than the one that
-    // created this node.
-    // We assume that if newChild is a DocumentFragment, all children are created from the same document
-    // as the fragment itself (otherwise they could not have been added as children)
-    if (newChild->document() != newParent->document() && newChild->inDocument()) {
-        // but if the child is not in a document yet then loosen the
-        // restriction, so that e.g. creating an element with the Option()
-        // constructor and then adding it to a different document works,
-        // as it does in Mozilla and Mac IE.
-        ec = WRONG_DOCUMENT_ERR;
+
+    if (newChild->inDocument() && newChild->nodeType() == Node::DOCUMENT_TYPE_NODE) {
+        ec = HIERARCHY_REQUEST_ERR;
         return;
     }
-    
+
     // HIERARCHY_REQUEST_ERR: Raised if this node is of a type that does not allow children of the type of the
     // newChild node, or if the node to append is one of this node's ancestors.
 
-    // check for ancestor/same node
     if (newChild == newParent || newParent->isDescendantOf(newChild)) {
         ec = HIERARCHY_REQUEST_ERR;
         return;
@@ -1186,6 +1217,11 @@ static void checkAcceptChild(Node* newParent, Node* newChild, ExceptionCode& ec)
 
 void Node::checkReplaceChild(Node* newChild, Node* oldChild, ExceptionCode& ec)
 {
+    if (!oldChild) {
+        ec = NOT_FOUND_ERR;
+        return;
+    }
+
     checkAcceptChild(this, newChild, ec);
     if (ec)
         return;
@@ -1481,7 +1517,7 @@ int Node::maxCharacterOffset() const
 // is obviously misplaced.
 bool Node::canStartSelection() const
 {
-    if (isContentEditable())
+    if (rendererIsEditable())
         return true;
 
     if (renderer()) {
@@ -1559,7 +1595,7 @@ Element *Node::enclosingBlockFlowElement() const
 Element* Node::rootEditableElement() const
 {
     Element* result = 0;
-    for (Node* n = const_cast<Node*>(this); n && n->isContentEditable(); n = n->parentNode()) {
+    for (Node* n = const_cast<Node*>(this); n && n->rendererIsEditable(); n = n->parentNode()) {
         if (n->isElementNode())
             result = static_cast<Element*>(n);
         if (n->hasTagName(bodyTag))
@@ -2638,200 +2674,14 @@ void Node::handleLocalEvents(Event* event)
     fireEventListeners(event);
 }
 
-static inline EventTarget* eventTargetRespectingSVGTargetRules(Node* referenceNode)
-{
-    ASSERT(referenceNode);
-
-#if ENABLE(SVG)
-    if (!referenceNode->isSVGElement())
-        return referenceNode;
-
-    // Spec: The event handling for the non-exposed tree works as if the referenced element had been textually included
-    // as a deeply cloned child of the 'use' element, except that events are dispatched to the SVGElementInstance objects
-    for (Node* n = referenceNode; n; n = n->parentNode()) {
-        if (!n->isShadowRoot() || !n->isSVGElement())
-            continue;
-
-        Element* shadowTreeParentElement = n->shadowHost();
-        ASSERT(shadowTreeParentElement->hasTagName(SVGNames::useTag));
-
-        if (SVGElementInstance* instance = static_cast<SVGUseElement*>(shadowTreeParentElement)->instanceForShadowTreeElement(referenceNode))
-            return instance;
-    }
-#endif
-
-    return referenceNode;
-}
-
-void Node::getEventAncestors(Vector<EventContext>& ancestors, EventTarget* originalTarget, EventDispatchBehavior behavior)
-{
-    if (!inDocument())
-        return;
-
-    EventTarget* target = originalTarget;
-    Node* ancestor = this;
-    bool shouldSkipNextAncestor = false;
-    while (true) {
-        if (ancestor->isShadowRoot()) {
-            if (behavior == StayInsideShadowDOM)
-                return;
-            ancestor = ancestor->shadowHost();
-            if (!shouldSkipNextAncestor)
-                target = ancestor;
-        } else
-            ancestor = ancestor->parentNodeGuaranteedHostFree();
-
-        if (!ancestor)
-            return;
-
-#if ENABLE(SVG)
-        // Skip SVGShadowTreeRootElement.
-        shouldSkipNextAncestor = ancestor->isSVGElement() && ancestor->isShadowRoot();
-        if (shouldSkipNextAncestor)
-            continue;
-#endif
-        // FIXME: Unroll the extra loop inside eventTargetRespectingSVGTargetRules into this loop.
-        ancestors.append(EventContext(ancestor, eventTargetRespectingSVGTargetRules(ancestor), target));
-
-    }
-}
-
-bool Node::dispatchEvent(PassRefPtr<Event> prpEvent)
-{
-    RefPtr<EventTarget> protect = this;
-    RefPtr<Event> event = prpEvent;
-
-    event->setTarget(eventTargetRespectingSVGTargetRules(this));
-
-    RefPtr<FrameView> view = document()->view();
-    return dispatchGenericEvent(event.release());
-}
-
 void Node::dispatchScopedEvent(PassRefPtr<Event> event)
 {
-    // We need to set the target here because it can go away by the time we actually fire the event.
-    event->setTarget(eventTargetRespectingSVGTargetRules(this));
-
-    ScopedEventQueue::instance()->enqueueEvent(event);
+    EventDispatcher::dispatchScopedEvent(this, event);
 }
 
-static const EventContext* topEventContext(const Vector<EventContext>& ancestors)
+bool Node::dispatchEvent(PassRefPtr<Event> event)
 {
-    return ancestors.isEmpty() ? 0 : &ancestors.last();
-}
-
-static EventDispatchBehavior determineDispatchBehavior(Event* event)
-{
-    // Per XBL 2.0 spec, mutation events should never cross shadow DOM boundary:
-    // http://dev.w3.org/2006/xbl2/#event-flow-and-targeting-across-shadow-s
-    if (event->isMutationEvent())
-        return StayInsideShadowDOM;
-
-    // WebKit never allowed selectstart event to cross the the shadow DOM boundary.
-    // Changing this breaks existing sites.
-    // See https://bugs.webkit.org/show_bug.cgi?id=52195 for details.
-    if (event->type() == eventNames().selectstartEvent)
-        return StayInsideShadowDOM;
-
-    return RetargetEvent;
-}
-
-bool Node::dispatchGenericEvent(PassRefPtr<Event> prpEvent)
-{
-    RefPtr<Event> event(prpEvent);
-
-    ASSERT(!eventDispatchForbidden());
-    ASSERT(event->target());
-    ASSERT(!event->type().isNull()); // JavaScript code can create an event with an empty name, but not null.
-
-    // Make a vector of ancestors to send the event to.
-    // If the node is not in a document just send the event to it.
-    // Be sure to ref all of nodes since event handlers could result in the last reference going away.
-    RefPtr<Node> thisNode(this);
-    RefPtr<EventTarget> originalTarget = event->target();
-    Vector<EventContext> ancestors;
-    getEventAncestors(ancestors, originalTarget.get(), determineDispatchBehavior(event.get()));
-
-    WindowEventContext windowContext(event.get(), this, topEventContext(ancestors));
-
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willDispatchEvent(document(), *event, windowContext.window(), this, ancestors);
-
-    // Give the target node a chance to do some work before DOM event handlers get a crack.
-    void* data = preDispatchEventHandler(event.get());
-    if (event->propagationStopped())
-        goto doneDispatching;
-
-    // Trigger capturing event handlers, starting at the top and working our way down.
-    event->setEventPhase(Event::CAPTURING_PHASE);
-
-    if (windowContext.handleLocalEvents(event.get()) && event->propagationStopped())
-        goto doneDispatching;
-
-    for (size_t i = ancestors.size(); i; --i) {
-        ancestors[i - 1].handleLocalEvents(event.get());
-        if (event->propagationStopped())
-            goto doneDispatching;
-    }
-
-    event->setEventPhase(Event::AT_TARGET);
-    event->setTarget(originalTarget.get());
-    event->setCurrentTarget(eventTargetRespectingSVGTargetRules(this));
-    handleLocalEvents(event.get());
-    if (event->propagationStopped())
-        goto doneDispatching;
-
-    if (event->bubbles() && !event->cancelBubble()) {
-        // Trigger bubbling event handlers, starting at the bottom and working our way up.
-        event->setEventPhase(Event::BUBBLING_PHASE);
-
-        size_t size = ancestors.size();
-        for (size_t i = 0; i < size; ++i) {
-            ancestors[i].handleLocalEvents(event.get());
-            if (event->propagationStopped() || event->cancelBubble())
-                goto doneDispatching;
-        }
-        windowContext.handleLocalEvents(event.get());
-    }
-
-doneDispatching:
-    event->setTarget(originalTarget.get());
-    event->setCurrentTarget(0);
-    event->setEventPhase(0);
-
-    // Pass the data from the preDispatchEventHandler to the postDispatchEventHandler.
-    postDispatchEventHandler(event.get(), data);
-
-    // Call default event handlers. While the DOM does have a concept of preventing
-    // default handling, the detail of which handlers are called is an internal
-    // implementation detail and not part of the DOM.
-    if (!event->defaultPrevented() && !event->defaultHandled()) {
-        // Non-bubbling events call only one default event handler, the one for the target.
-        defaultEventHandler(event.get());
-        ASSERT(!event->defaultPrevented());
-        if (event->defaultHandled())
-            goto doneWithDefault;
-        // For bubbling events, call default event handlers on the same targets in the
-        // same order as the bubbling phase.
-        if (event->bubbles()) {
-            size_t size = ancestors.size();
-            for (size_t i = 0; i < size; ++i) {
-                ancestors[i].node()->defaultEventHandler(event.get());
-                ASSERT(!event->defaultPrevented());
-                if (event->defaultHandled())
-                    goto doneWithDefault;
-            }
-        }
-    }
-
-doneWithDefault:
-
-    // Ensure that after event dispatch, the event's target object is the
-    // outermost shadow DOM boundary.
-    event->setTarget(windowContext.target());
-    event->setCurrentTarget(0);
-    InspectorInstrumentation::didDispatchEvent(cookie);
-
-    return !event->defaultPrevented();
+    return EventDispatcher::dispatchEvent(this, event);
 }
 
 void Node::dispatchSubtreeModifiedEvent()
@@ -2861,209 +2711,25 @@ void Node::dispatchUIEvent(const AtomicString& eventType, int detail, PassRefPtr
     dispatchScopedEvent(event.release());
 }
 
-bool Node::dispatchKeyEvent(const PlatformKeyboardEvent& key)
+bool Node::dispatchKeyEvent(const PlatformKeyboardEvent& event)
 {
-    RefPtr<KeyboardEvent> keyboardEvent = KeyboardEvent::create(key, document()->defaultView());
-    bool r = dispatchEvent(keyboardEvent);
-    
-    // we want to return false if default is prevented (already taken care of)
-    // or if the element is default-handled by the DOM. Otherwise we let it just
-    // let it get handled by AppKit 
-    if (keyboardEvent->defaultHandled())
-        r = false;
-    
-    return r;
+    return EventDispatcher::dispatchEvent(this, KeyboardEvent::create(event, document()->defaultView()));
 }
 
 bool Node::dispatchMouseEvent(const PlatformMouseEvent& event, const AtomicString& eventType,
     int detail, Node* relatedTarget)
 {
-    ASSERT(!eventDispatchForbidden());
-    
-    IntPoint contentsPos;
-    if (FrameView* view = document()->view())
-        contentsPos = view->windowToContents(event.pos());
-
-    short button = event.button();
-
-    ASSERT(event.eventType() == MouseEventMoved || button != NoButton);
-    
-    return dispatchMouseEvent(eventType, button, detail,
-        contentsPos.x(), contentsPos.y(), event.globalX(), event.globalY(),
-        event.ctrlKey(), event.altKey(), event.shiftKey(), event.metaKey(),
-        false, relatedTarget, 0);
-}
-
-void Node::dispatchSimulatedMouseEvent(const AtomicString& eventType,
-    PassRefPtr<Event> underlyingEvent)
-{
-    ASSERT(!eventDispatchForbidden());
-
-    bool ctrlKey = false;
-    bool altKey = false;
-    bool shiftKey = false;
-    bool metaKey = false;
-    if (UIEventWithKeyState* keyStateEvent = findEventWithKeyState(underlyingEvent.get())) {
-        ctrlKey = keyStateEvent->ctrlKey();
-        altKey = keyStateEvent->altKey();
-        shiftKey = keyStateEvent->shiftKey();
-        metaKey = keyStateEvent->metaKey();
-    }
-
-    // Like Gecko, we just pass 0 for everything when we make a fake mouse event.
-    // Internet Explorer instead gives the current mouse position and state.
-    dispatchMouseEvent(eventType, 0, 0, 0, 0, 0, 0,
-        ctrlKey, altKey, shiftKey, metaKey, true, 0, underlyingEvent);
+    return EventDispatcher::dispatchMouseEvent(this, event, eventType, detail, relatedTarget);
 }
 
 void Node::dispatchSimulatedClick(PassRefPtr<Event> event, bool sendMouseEvents, bool showPressedLook)
 {
-    if (!gNodesDispatchingSimulatedClicks)
-        gNodesDispatchingSimulatedClicks = new HashSet<Node*>;
-    else if (gNodesDispatchingSimulatedClicks->contains(this))
-        return;
-    
-    gNodesDispatchingSimulatedClicks->add(this);
-    
-    // send mousedown and mouseup before the click, if requested
-    if (sendMouseEvents)
-        dispatchSimulatedMouseEvent(eventNames().mousedownEvent, event.get());
-    setActive(true, showPressedLook);
-    if (sendMouseEvents)
-        dispatchSimulatedMouseEvent(eventNames().mouseupEvent, event.get());
-    setActive(false);
-
-    // always send click
-    dispatchSimulatedMouseEvent(eventNames().clickEvent, event);
-    
-    gNodesDispatchingSimulatedClicks->remove(this);
-}
-
-// FIXME: Once https://bugs.webkit.org/show_bug.cgi?id=52963 lands, this should
-// be greatly improved. See https://bugs.webkit.org/show_bug.cgi?id=54025.
-static Node* pullOutOfShadow(Node* node)
-{
-    Node* outermostShadowBoundary = node;
-    for (Node* n = node; n; n = n->parentOrHostNode()) {
-        if (n->isShadowRoot())
-            outermostShadowBoundary = n->parentOrHostNode();
-    }
-    return outermostShadowBoundary;
-}
-
-bool Node::dispatchMouseEvent(const AtomicString& eventType, int button, int detail,
-    int pageX, int pageY, int screenX, int screenY,
-    bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, 
-    bool isSimulated, Node* relatedTargetArg, PassRefPtr<Event> underlyingEvent)
-{
-    ASSERT(!eventDispatchForbidden());
-    if (disabled()) // Don't even send DOM events for disabled controls..
-        return true;
-    
-    if (eventType.isEmpty())
-        return false; // Shouldn't happen.
-    
-    // Dispatching the first event can easily result in this node being destroyed.
-    // Since we dispatch up to three events here, we need to make sure we're referenced
-    // so the pointer will be good for the two subsequent ones.
-    RefPtr<Node> protect(this);
-    
-    bool cancelable = eventType != eventNames().mousemoveEvent;
-    
-    bool swallowEvent = false;
-    
-    // Attempting to dispatch with a non-EventTarget relatedTarget causes the relatedTarget to be silently ignored.
-    RefPtr<Node> relatedTarget = pullOutOfShadow(relatedTargetArg);
-
-    int adjustedPageX = pageX;
-    int adjustedPageY = pageY;
-    if (Frame* frame = document()->frame()) {
-        float pageZoom = frame->pageZoomFactor();
-        if (pageZoom != 1.0f) {
-            // Adjust our pageX and pageY to account for the page zoom.
-            adjustedPageX = lroundf(pageX / pageZoom);
-            adjustedPageY = lroundf(pageY / pageZoom);
-        }
-    }
-
-    RefPtr<MouseEvent> mouseEvent = MouseEvent::create(eventType,
-        true, cancelable, document()->defaultView(),
-        detail, screenX, screenY, adjustedPageX, adjustedPageY,
-        ctrlKey, altKey, shiftKey, metaKey, button,
-        relatedTarget, 0, isSimulated);
-    mouseEvent->setUnderlyingEvent(underlyingEvent.get());
-    mouseEvent->setAbsoluteLocation(IntPoint(pageX, pageY));
-    
-    dispatchEvent(mouseEvent);
-    bool defaultHandled = mouseEvent->defaultHandled();
-    bool defaultPrevented = mouseEvent->defaultPrevented();
-    if (defaultHandled || defaultPrevented)
-        swallowEvent = true;
-    
-    // Special case: If it's a double click event, we also send the dblclick event. This is not part
-    // of the DOM specs, but is used for compatibility with the ondblclick="" attribute.  This is treated
-    // as a separate event in other DOM-compliant browsers like Firefox, and so we do the same.
-    if (eventType == eventNames().clickEvent && detail == 2) {
-        RefPtr<Event> doubleClickEvent = MouseEvent::create(eventNames().dblclickEvent,
-            true, cancelable, document()->defaultView(),
-            detail, screenX, screenY, adjustedPageX, adjustedPageY,
-            ctrlKey, altKey, shiftKey, metaKey, button,
-            relatedTarget, 0, isSimulated);
-        doubleClickEvent->setUnderlyingEvent(underlyingEvent.get());
-        if (defaultHandled)
-            doubleClickEvent->setDefaultHandled();
-        dispatchEvent(doubleClickEvent);
-        if (doubleClickEvent->defaultHandled() || doubleClickEvent->defaultPrevented())
-            swallowEvent = true;
-    }
-
-    return swallowEvent;
+    EventDispatcher::dispatchSimulatedClick(this, event, sendMouseEvents, showPressedLook);
 }
 
 void Node::dispatchWheelEvent(PlatformWheelEvent& e)
 {
-    ASSERT(!eventDispatchForbidden());
-    if (e.deltaX() == 0 && e.deltaY() == 0)
-        return;
-    
-    FrameView* view = document()->view();
-    if (!view)
-        return;
-    
-    IntPoint pos = view->windowToContents(e.pos());
-
-    int adjustedPageX = pos.x();
-    int adjustedPageY = pos.y();
-    if (Frame* frame = document()->frame()) {
-        float pageZoom = frame->pageZoomFactor();
-        if (pageZoom != 1.0f) {
-            // Adjust our pageX and pageY to account for the page zoom.
-            adjustedPageX = lroundf(pos.x() / pageZoom);
-            adjustedPageY = lroundf(pos.y() / pageZoom);
-        }
-    }
-    
-    WheelEvent::Granularity granularity;
-    switch (e.granularity()) {
-    case ScrollByPageWheelEvent:
-        granularity = WheelEvent::Page;
-        break;
-    case ScrollByPixelWheelEvent:
-    default:
-        granularity = WheelEvent::Pixel;
-        break;
-    }
-    
-    RefPtr<WheelEvent> we = WheelEvent::create(e.wheelTicksX(), e.wheelTicksY(), e.deltaX(), e.deltaY(), granularity,
-        document()->defaultView(), e.globalX(), e.globalY(), adjustedPageX, adjustedPageY,
-        e.ctrlKey(), e.altKey(), e.shiftKey(), e.metaKey());
-
-    we->setAbsoluteLocation(IntPoint(pos.x(), pos.y()));
-
-    if (!dispatchEvent(we) || we->defaultHandled())
-        e.accept();
-
-    we.release();
+    EventDispatcher::dispatchWheelEvent(this, e);
 }
 
 void Node::dispatchFocusEvent()

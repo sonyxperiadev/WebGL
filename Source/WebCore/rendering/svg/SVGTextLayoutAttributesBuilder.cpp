@@ -52,9 +52,11 @@ void SVGTextLayoutAttributesBuilder::buildLayoutAttributesForTextSubtree(RenderS
     buildOutermostLayoutScope(textRoot, atCharacter);
 
     // Propagate layout attributes to each RenderSVGInlineText object.
+    Vector<SVGTextLayoutAttributes>& allAttributes = textRoot->layoutAttributes();
+    allAttributes.clear();
     atCharacter = 0;
     lastCharacter = '\0';
-    propagateLayoutAttributes(textRoot, atCharacter, lastCharacter);
+    propagateLayoutAttributes(textRoot, allAttributes, atCharacter, lastCharacter);
 }
 
 static inline void extractFloatValuesFromSVGLengthList(SVGElement* lengthContext, const SVGLengthList& list, Vector<float>& floatValues, unsigned textContentLength)
@@ -186,7 +188,7 @@ void SVGTextLayoutAttributesBuilder::buildOutermostLayoutScope(RenderSVGText* te
     m_scopes.prepend(scope);
 }
 
-void SVGTextLayoutAttributesBuilder::propagateLayoutAttributes(RenderObject* start, unsigned& atCharacter, UChar& lastCharacter) const
+void SVGTextLayoutAttributesBuilder::propagateLayoutAttributes(RenderObject* start, Vector<SVGTextLayoutAttributes>& allAttributes, unsigned& atCharacter, UChar& lastCharacter) const
 {
     for (RenderObject* child = start->firstChild(); child; child = child->nextSibling()) { 
         if (child->isSVGInlineText()) {
@@ -195,16 +197,29 @@ void SVGTextLayoutAttributesBuilder::propagateLayoutAttributes(RenderObject* sta
             unsigned textLength = text->textLength();
             bool preserveWhiteSpace = shouldPreserveAllWhiteSpace(text->style());
 
-            SVGTextLayoutAttributes attributes;
+            SVGTextLayoutAttributes attributes(text);
             attributes.reserveCapacity(textLength);
     
             unsigned valueListPosition = atCharacter;
             unsigned metricsLength = 1;
+            SVGTextMetrics lastMetrics = SVGTextMetrics::emptyMetrics();
+
             for (unsigned textPosition = 0; textPosition < textLength; textPosition += metricsLength) {
                 const UChar& currentCharacter = characters[textPosition];
 
-                SVGTextMetrics metrics = SVGTextMetrics::measureCharacterRange(text, textPosition, 1);
-                metricsLength = metrics.length();
+                SVGTextMetrics startToCurrentMetrics = SVGTextMetrics::measureCharacterRange(text, 0, textPosition + 1);
+                SVGTextMetrics currentMetrics = SVGTextMetrics::measureCharacterRange(text, textPosition, 1);
+
+                // Frequent case for Arabic text: when measuring a single character the arabic isolated form is taken
+                // when rendering the glyph "in context" (with it's surrounding characters) it changes due to shaping.
+                // So whenever runWidthAdvance != currentMetrics.width(), we are processing a text run whose length is
+                // not equal to the sum of the individual lengths of the glyphs, when measuring them isolated.
+                float runWidthAdvance = startToCurrentMetrics.width() - lastMetrics.width();
+                if (runWidthAdvance != currentMetrics.width())
+                    currentMetrics.setWidth(runWidthAdvance);
+
+                lastMetrics = startToCurrentMetrics;
+                metricsLength = currentMetrics.length();
 
                 if (!preserveWhiteSpace && characterIsSpace(currentCharacter) && characterIsSpaceOrNull(lastCharacter)) {
                     assignEmptyLayoutAttributesForCharacter(attributes);
@@ -212,7 +227,7 @@ void SVGTextLayoutAttributesBuilder::propagateLayoutAttributes(RenderObject* sta
                     continue;
                 }
 
-                assignLayoutAttributesForCharacter(attributes, metrics, valueListPosition);
+                assignLayoutAttributesForCharacter(attributes, currentMetrics, valueListPosition);
 
                 if (metricsLength > 1) {
                     for (unsigned i = 0; i < metricsLength - 1; ++i)
@@ -225,10 +240,12 @@ void SVGTextLayoutAttributesBuilder::propagateLayoutAttributes(RenderObject* sta
 
 #if DUMP_TEXT_LAYOUT_ATTRIBUTES > 0
             fprintf(stderr, "\nDumping layout attributes for RenderSVGInlineText, renderer=%p, node=%p (atCharacter: %i)\n", text, text->node(), atCharacter);
+            fprintf(stderr, "BiDi properties: unicode-bidi=%i, block direction=%i\n", text->style()->unicodeBidi(), text->style()->direction());
             attributes.dump();
 #endif
 
             text->storeLayoutAttributes(attributes);
+            allAttributes.append(attributes);
             atCharacter = valueListPosition;
             continue;
         }
@@ -236,7 +253,7 @@ void SVGTextLayoutAttributesBuilder::propagateLayoutAttributes(RenderObject* sta
         if (!child->isSVGInline())
             continue;
 
-        propagateLayoutAttributes(child, atCharacter, lastCharacter);
+        propagateLayoutAttributes(child, allAttributes, atCharacter, lastCharacter);
     }
 }
 

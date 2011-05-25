@@ -28,12 +28,18 @@
 
 #include "WKBundleAPICast.h"
 #include "WKBundleInitialize.h"
+#include "WebCertificateInfo.h"
+#include <WebCore/ResourceHandle.h>
 #include <WebCore/SimpleFontData.h>
 
 #include <windows.h>
 #include <winbase.h>
 #include <shlobj.h>
 #include <shlwapi.h>
+
+#if USE(CFNETWORK)
+#include <WebCore/CertificateCFWin.h>
+#endif
 
 using namespace WebCore;
 
@@ -84,6 +90,29 @@ bool InjectedBundle::load(APIObject* initializationUserData)
 void InjectedBundle::activateMacFontAscentHack()
 {
     SimpleFontData::setShouldApplyMacAscentHack(true);
+}
+
+void InjectedBundle::setHostAllowsAnyHTTPSCertificate(const String& host)
+{
+#if USE(CFNETWORK)
+    ResourceHandle::setHostAllowsAnyHTTPSCertificate(host);
+#endif
+}
+
+void InjectedBundle::setClientCertificate(const String& host, const WebCertificateInfo* certificateInfo)
+{
+#if USE(CFNETWORK)
+    ASSERT(certificateInfo);
+    if (!certificateInfo)
+        return;
+    
+    const Vector<PCCERT_CONTEXT> certificateChain = certificateInfo->platformCertificateInfo().certificateChain();
+    ASSERT(certificateChain.size() == 1);
+    if (certificateChain.size() != 1)
+        return;
+    
+    ResourceHandle::setClientCertificate(host, WebCore::copyCertificateToData(certificateChain.first()).get());
+#endif
 }
 
 } // namespace WebKit

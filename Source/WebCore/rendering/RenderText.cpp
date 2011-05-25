@@ -551,6 +551,12 @@ IntRect RenderText::localCaretRect(InlineBox* inlineBox, int caretOffset, int* e
     case CENTER:
     case WEBKIT_CENTER:
         break;
+    case TASTART:
+        rightAligned = !cbStyle->isLeftToRightDirection();
+        break;
+    case TAEND:
+        rightAligned = cbStyle->isLeftToRightDirection();
+        break;
     }
 
     if (rightAligned) {
@@ -566,13 +572,13 @@ IntRect RenderText::localCaretRect(InlineBox* inlineBox, int caretOffset, int* e
 
 ALWAYS_INLINE float RenderText::widthFromCache(const Font& f, int start, int len, float xPos, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow* glyphOverflow) const
 {
-    if (style()->hasTextCombine()) {
+    if (style()->hasTextCombine() && isCombineText()) {
         const RenderCombineText* combineText = toRenderCombineText(this);
         if (combineText->isCombined())
             return combineText->combinedTextWidth(f);
     }
 
-    if (f.isFixedPitch() && !f.isSmallCaps() && m_isAllASCII) {
+    if (f.isFixedPitch() && !f.isSmallCaps() && m_isAllASCII && (!glyphOverflow || !glyphOverflow->computeBounds)) {
         float monospaceCharacterWidth = f.spaceWidth();
         float tabWidth = allowTabs() ? monospaceCharacterWidth * 8 : 0;
         float w = 0;
@@ -1247,7 +1253,7 @@ float RenderText::width(unsigned from, unsigned len, const Font& f, float xPos, 
 
     float w;
     if (&f == &style()->font()) {
-        if (!style()->preserveNewline() && !from && len == textLength()) {
+        if (!style()->preserveNewline() && !from && len == textLength() && (!glyphOverflow || !glyphOverflow->computeBounds)) {
             if (fallbackFonts) {
                 ASSERT(glyphOverflow);
                 if (preferredLogicalWidthsDirty() || !m_knownToHaveNoOverflowAndNoFallbackFonts) {
@@ -1404,6 +1410,8 @@ int RenderText::previousOffset(int current) const
     return result;
 }
 
+#if PLATFORM(MAC)
+
 #define HANGUL_CHOSEONG_START (0x1100)
 #define HANGUL_CHOSEONG_END (0x115F)
 #define HANGUL_JUNGSEONG_START (0x1160)
@@ -1428,6 +1436,14 @@ inline bool isHangulLVT(UChar32 character)
     return (character - HANGUL_SYLLABLE_START) % HANGUL_JONGSEONG_COUNT;
 }
 
+inline bool isMark(UChar32 c)
+{
+    int8_t charType = u_charType(c);
+    return charType == U_NON_SPACING_MARK || charType == U_ENCLOSING_MARK || charType == U_COMBINING_SPACING_MARK;
+}
+
+#endif
+
 int RenderText::previousOffsetForBackwardDeletion(int current) const
 {
 #if PLATFORM(MAC)
@@ -1446,7 +1462,7 @@ int RenderText::previousOffsetForBackwardDeletion(int current) const
         if ((character >= 0x0530) && (character < 0x1950))
             break;
 
-        if (u_isbase(character) && (character != 0xFF9E) && (character != 0xFF9F))
+        if (!isMark(character) && (character != 0xFF9E) && (character != 0xFF9F))
             break;
     }
 

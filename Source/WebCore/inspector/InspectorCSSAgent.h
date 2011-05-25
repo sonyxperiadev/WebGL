@@ -61,18 +61,18 @@ public:
     ~InspectorCSSAgent();
 
     void reset();
-    void getStylesForNode(ErrorString* error, long nodeId, RefPtr<InspectorValue>* result);
-    void getInlineStyleForNode(ErrorString* error, long nodeId, RefPtr<InspectorValue>* style);
-    void getComputedStyleForNode(ErrorString* error, long nodeId, RefPtr<InspectorValue>* style);
-    void getAllStyles(ErrorString* error, RefPtr<InspectorArray>* styles);
-    void getStyleSheet(ErrorString* error, const String& styleSheetId, RefPtr<InspectorValue>* result);
-    void getStyleSheetText(ErrorString* error, const String& styleSheetId, String* url, String* result);
-    void setStyleSheetText(ErrorString* error, const String& styleSheetId, const String& text, bool* success);
-    void setPropertyText(ErrorString* error, const RefPtr<InspectorObject>& styleId, long propertyIndex, const String& text, bool overwrite, RefPtr<InspectorValue>* result);
-    void toggleProperty(ErrorString* error, const RefPtr<InspectorObject>& styleId, long propertyIndex, bool disable, RefPtr<InspectorValue>* result);
-    void setRuleSelector(ErrorString* error, const RefPtr<InspectorObject>& ruleId, const String& selector, RefPtr<InspectorValue>* result);
-    void addRule(ErrorString* error, const long contextNodeId, const String& selector, RefPtr<InspectorValue>* result);
-    void getSupportedCSSProperties(ErrorString* error, RefPtr<InspectorArray>* result);
+    void getStylesForNode(ErrorString*, int nodeId, RefPtr<InspectorObject>* result);
+    void getInlineStyleForNode(ErrorString*, int nodeId, RefPtr<InspectorObject>* style);
+    void getComputedStyleForNode(ErrorString*, int nodeId, RefPtr<InspectorObject>* style);
+    void getAllStyleSheets(ErrorString*, RefPtr<InspectorArray>* styleSheetInfos);
+    void getStyleSheet(ErrorString*, const String& styleSheetId, RefPtr<InspectorObject>* result);
+    void getStyleSheetText(ErrorString*, const String& styleSheetId, String* url, String* result);
+    void setStyleSheetText(ErrorString*, const String& styleSheetId, const String& text, bool* success);
+    void setPropertyText(ErrorString*, const RefPtr<InspectorObject>& styleId, int propertyIndex, const String& text, bool overwrite, RefPtr<InspectorObject>* result);
+    void toggleProperty(ErrorString*, const RefPtr<InspectorObject>& styleId, int propertyIndex, bool disable, RefPtr<InspectorObject>* result);
+    void setRuleSelector(ErrorString*, const RefPtr<InspectorObject>& ruleId, const String& selector, RefPtr<InspectorObject>* result);
+    void addRule(ErrorString*, const int contextNodeId, const String& selector, RefPtr<InspectorObject>* result);
+    void getSupportedCSSProperties(ErrorString*, RefPtr<InspectorArray>* result);
 
 private:
     typedef HashMap<String, RefPtr<InspectorStyleSheet> > IdToInspectorStyleSheet;
@@ -83,15 +83,15 @@ private:
     static Element* inlineStyleElement(CSSStyleDeclaration*);
 
     InspectorStyleSheetForInlineStyle* asInspectorStyleSheet(Element* element);
-    Element* elementForId(long nodeId);
+    Element* elementForId(ErrorString*, int nodeId);
 
     InspectorStyleSheet* bindStyleSheet(CSSStyleSheet*);
     InspectorStyleSheet* viaInspectorStyleSheet(Document*, bool createIfAbsent);
-    InspectorStyleSheet* styleSheetForId(const String&);
+    InspectorStyleSheet* styleSheetForId(ErrorString*, const String&);
     String detectOrigin(CSSStyleSheet* pageStyleSheet, Document* ownerDocument);
 
     PassRefPtr<InspectorArray> buildArrayForRuleList(CSSRuleList* ruleList);
-    PassRefPtr<InspectorObject> buildObjectForAttributeStyles(Element* element);
+    PassRefPtr<InspectorArray> buildArrayForAttributeStyles(Element*);
 
     // InspectorDOMAgent::DOMListener interface
     virtual void didRemoveDocument(Document*);
@@ -106,9 +106,9 @@ private:
     NodeToInspectorStyleSheet m_nodeToInspectorStyleSheet;
     DocumentToViaInspectorStyleSheet m_documentToInspectorStyleSheet;
 
-    long m_lastStyleSheetId;
-    long m_lastRuleId;
-    long m_lastStyleId;
+    int m_lastStyleSheetId;
+    int m_lastRuleId;
+    int m_lastStyleId;
 };
 
 #endif

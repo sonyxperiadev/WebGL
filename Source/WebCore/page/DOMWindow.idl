@@ -195,7 +195,7 @@ module window {
         const unsigned short TEMPORARY = 0;
         const unsigned short PERSISTENT = 1;
         [EnabledAtRuntime=FileSystem] void requestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
-        [EnabledAtRuntime=FileSystem] void resolveLocalFileSystemURI(in DOMString uri, in [Callback, Optional] EntryCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+        [EnabledAtRuntime=FileSystem] void resolveLocalFileSystemURL(in DOMString url, in [Callback, Optional] EntryCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
 
         attribute [EnabledAtRuntime=FileSystem] FlagsConstructor Flags;
 #endif
@@ -491,15 +491,15 @@ module window {
         attribute CanvasGradientConstructor CanvasGradient;
         attribute CanvasRenderingContext2DConstructor CanvasRenderingContext2D;
         attribute ImageDataConstructor ImageData;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLActiveInfoConstructor WebGLActiveInfo;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLBufferConstructor WebGLBuffer;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLFramebufferConstructor WebGLFramebuffer;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLProgramConstructor WebGLProgram;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLRenderbufferConstructor WebGLRenderbuffer;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLRenderingContextConstructor WebGLRenderingContext;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLShaderConstructor WebGLShader;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLTextureConstructor WebGLTexture;
-        attribute [Conditional=WEBGL,EnabledAtRuntime] WebGLUniformLocationConstructor WebGLUniformLocation;
+        attribute [Conditional=WEBGL] WebGLActiveInfoConstructor WebGLActiveInfo;
+        attribute [Conditional=WEBGL] WebGLBufferConstructor WebGLBuffer;
+        attribute [Conditional=WEBGL] WebGLFramebufferConstructor WebGLFramebuffer;
+        attribute [Conditional=WEBGL] WebGLProgramConstructor WebGLProgram;
+        attribute [Conditional=WEBGL] WebGLRenderbufferConstructor WebGLRenderbuffer;
+        attribute [Conditional=WEBGL] WebGLRenderingContextConstructor WebGLRenderingContext;
+        attribute [Conditional=WEBGL] WebGLShaderConstructor WebGLShader;
+        attribute [Conditional=WEBGL] WebGLTextureConstructor WebGLTexture;
+        attribute [Conditional=WEBGL] WebGLUniformLocationConstructor WebGLUniformLocation;
         attribute TextMetricsConstructor TextMetrics;
 
         attribute DOMStringMapConstructor DOMStringMap;
@@ -605,6 +605,9 @@ module window {
         attribute [Conditional=VIDEO, EnabledAtRuntime] HTMLVideoElementConstructor HTMLVideoElement;
         attribute [Conditional=VIDEO, EnabledAtRuntime] MediaErrorConstructor MediaError;
         attribute [Conditional=VIDEO, EnabledAtRuntime] TimeRangesConstructor TimeRanges;
+
+        attribute WebKitAnimationConstructor WebKitAnimation;
+        attribute WebKitAnimationListConstructor WebKitAnimationList;
 
 #if defined(ENABLE_XPATH) && ENABLE_XPATH
         attribute XPathEvaluatorConstructor XPathEvaluator;
@@ -721,7 +724,7 @@ module window {
         attribute SVGSetElementConstructor SVGSetElement;
 #endif
 
-#if ENABLE_SVG_FONTS && ENABLE_SVG_FONTS
+#if defined(ENABLE_SVG_FONTS) && ENABLE_SVG_FONTS
 //      attribute SVGAltGlyphDefElementConstructor SVGAltGlyphDefElement;
         attribute SVGAltGlyphElementConstructor SVGAltGlyphElement;
 //      attribute SVGAltGlyphItemElementConstructor SVGAltGlyphItemElement;

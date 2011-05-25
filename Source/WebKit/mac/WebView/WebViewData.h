@@ -186,5 +186,8 @@ extern int pluginDatabaseClientCount;
     id<WebDeviceOrientationProvider> m_deviceOrientationProvider;
 
     RefPtr<WebCore::HistoryItem> _globalHistoryItem;
+
+    BOOL interactiveFormValidationEnabled;
+    int validationMessageTimerMagnification;
 }
 @end

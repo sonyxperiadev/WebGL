@@ -28,7 +28,7 @@
  */
 #include "config.h"
 #include "LayoutTestControllerQt.h"
-#include "../../../Source/WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.h"
+#include "DumpRenderTreeSupportQt.h"
 
 #include "DumpRenderTreeQt.h"
 #include "WorkQueue.h"
@@ -315,9 +315,12 @@ void LayoutTestController::queueLoad(const QString& url, const QString& target)
     WorkQueue::shared()->queue(new LoadItem(absoluteUrl, target, m_drt->webPage()));
 }
 
-void LayoutTestController::queueLoadHTMLString(const QString& content, const QString& baseURL)
+void LayoutTestController::queueLoadHTMLString(const QString& content, const QString& baseURL, const QString& failingURL)
 {
-    WorkQueue::shared()->queue(new LoadHTMLStringItem(content, baseURL, m_drt->webPage()));
+    if (failingURL.isEmpty())
+        WorkQueue::shared()->queue(new LoadHTMLStringItem(content, baseURL, m_drt->webPage()));
+    else
+        WorkQueue::shared()->queue(new LoadAlternateHTMLStringItem(content, baseURL, failingURL, m_drt->webPage()));
 }
 
 void LayoutTestController::queueReload()
@@ -552,11 +555,22 @@ void LayoutTestController::clearAllApplicationCaches()
     DumpRenderTreeSupportQt::clearAllApplicationCaches();
 }
 
+void LayoutTestController::clearApplicationCacheForOrigin(const QString& url)
+{
+    // FIXME: Implement to support deleting all application caches for an origin.
+}
+
 void LayoutTestController::setApplicationCacheOriginQuota(unsigned long long quota)
 {
     if (!m_topLoadingFrame)
         return;
     m_topLoadingFrame->securityOrigin().setApplicationCacheQuota(quota);
+}
+
+QStringList LayoutTestController::originsWithApplicationCache()
+{
+    // FIXME: Implement to get origins that have application caches.
+    return QStringList();
 }
 
 void LayoutTestController::setDatabaseQuota(int size)
@@ -766,6 +780,12 @@ void LayoutTestController::setGeolocationPermission(bool allow)
     DumpRenderTreeSupportQt::setMockGeolocationPermission(m_drt->webPage(), allow);
 }
 
+int LayoutTestController::numberOfPendingGeolocationPermissionRequests()
+{
+    // FIXME: Implement for Geolocation layout tests.
+    return -1;
+}
+
 void LayoutTestController::setGeolocationPermissionCommon(bool allow)
 {
      m_isGeolocationPermissionSet = true;
@@ -840,6 +860,31 @@ void LayoutTestController::addURLToRedirect(const QString& origin, const QString
 void LayoutTestController::setMinimumTimerInterval(double minimumTimerInterval)
 {
     DumpRenderTreeSupportQt::setMinimumTimerInterval(m_drt->webPage(), minimumTimerInterval);
+}
+
+void LayoutTestController::originsWithLocalStorage()
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::deleteAllLocalStorage()
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::deleteLocalStorageForOrigin(const QString& originIdentifier)
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::observeStorageTrackerNotifications(unsigned number)
+{
+    // FIXME: Implement.
+}
+
+void LayoutTestController::syncLocalStorage()
+{
+    // FIXME: Implement.
 }
 
 const unsigned LayoutTestController::maxViewWidth = 800;

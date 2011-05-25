@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2010-2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,13 +44,14 @@
 
 namespace WebCore {
 
-class InjectedScriptHost;
+class InjectedScriptManager;
 class InspectorFrontend;
+class InspectorArray;
 class InspectorObject;
 class InspectorState;
 class InspectorValue;
 class InstrumentingAgents;
-class Page;
+class ScriptDebugServer;
 
 typedef String ErrorString;
 
@@ -63,42 +64,38 @@ enum DebuggerEventType {
 class InspectorDebuggerAgent : public ScriptDebugListener {
     WTF_MAKE_NONCOPYABLE(InspectorDebuggerAgent); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<InspectorDebuggerAgent> create(InstrumentingAgents*, InspectorState*, Page*, InjectedScriptHost*);
     virtual ~InspectorDebuggerAgent();
 
-    void startUserInitiatedDebugging();
     void enable(ErrorString*) { enable(false); }
     void disable(ErrorString*) { disable(); }
     void disable();
     bool enabled();
     void restore();
     void setFrontend(InspectorFrontend*);
-    void enableDebuggerAfterShown();
     void clearFrontend();
 
     void inspectedURLChanged(const String& url);
 
     // Part of the protocol.
-    void activateBreakpoints(ErrorString* error);
-    void deactivateBreakpoints(ErrorString* error);
+    void setBreakpointsActive(ErrorString*, bool active);
 
-    void setJavaScriptBreakpoint(ErrorString* error, const String& url, int lineNumber, int columnNumber, const String& condition, bool enabled, String* breakpointId, RefPtr<InspectorArray>* locations);
-    void setJavaScriptBreakpointBySourceId(ErrorString* error, const String& sourceId, int lineNumber, int columnNumber, const String& condition, bool enabled, String* breakpointId, int* actualLineNumber, int* actualColumnNumber);
-    void removeJavaScriptBreakpoint(ErrorString* error, const String& breakpointId);
-    void continueToLocation(ErrorString* error, const String& sourceId, int lineNumber, int columnNumber);
+    void setBreakpointByUrl(ErrorString*, const String& url, int lineNumber, int columnNumber, const String& condition, bool enabled, String* breakpointId, RefPtr<InspectorArray>* locations);
+    void setBreakpoint(ErrorString*, const String& sourceId, int lineNumber, int columnNumber, const String& condition, bool enabled, String* breakpointId, int* actualLineNumber, int* actualColumnNumber);
+    void removeBreakpoint(ErrorString*, const String& breakpointId);
+    void continueToLocation(ErrorString*, const String& sourceId, int lineNumber, int columnNumber);
 
-    void editScriptSource(ErrorString* error, const String& sourceID, const String& newContent, bool* success, String* result, RefPtr<InspectorValue>* newCallFrames);
-    void getScriptSource(ErrorString* error, const String& sourceID, String* scriptSource);
+    void editScriptSource(ErrorString*, const String& sourceID, const String& newContent, String* result, RefPtr<InspectorArray>* newCallFrames);
+    void getScriptSource(ErrorString*, const String& sourceID, String* scriptSource);
     void schedulePauseOnNextStatement(DebuggerEventType type, PassRefPtr<InspectorValue> data);
     void cancelPauseOnNextStatement();
     void breakProgram(DebuggerEventType type, PassRefPtr<InspectorValue> data);
-    void pause(ErrorString* error);
-    void resume(ErrorString* error);
-    void stepOver(ErrorString* error);
-    void stepInto(ErrorString* error);
-    void stepOut(ErrorString* error);
-    void setPauseOnExceptionsState(ErrorString* error, long pauseState, long* newState);
-    void evaluateOnCallFrame(ErrorString* error, PassRefPtr<InspectorObject> callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
+    void pause(ErrorString*);
+    void resume(ErrorString*);
+    void stepOver(ErrorString*);
+    void stepInto(ErrorString*);
+    void stepOut(ErrorString*);
+    void setPauseOnExceptionsState(ErrorString*, int pauseState);
+    void evaluateOnCallFrame(ErrorString*, const String& callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result);
 
     class Listener {
     public:
@@ -108,12 +105,18 @@ public:
     };
     void setListener(Listener* listener) { m_listener = listener; }
 
-private:
-    InspectorDebuggerAgent(InstrumentingAgents*, InspectorState*, Page*, InjectedScriptHost*);
+    virtual ScriptDebugServer& scriptDebugServer() = 0;
 
+protected:
+    InspectorDebuggerAgent(InstrumentingAgents*, InspectorState*, InjectedScriptManager*);
+
+    virtual void startListeningScriptDebugServer() = 0;
+    virtual void stopListeningScriptDebugServer() = 0;
+
+private:
     void enable(bool restoringFromState);
 
-    PassRefPtr<InspectorValue> currentCallFrames();
+    PassRefPtr<InspectorArray> currentCallFrames();
 
     virtual void didParseSource(const String& sourceID, const String& url, const String& data, int lineOffset, int columnOffset, ScriptWorldType);
     virtual void failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage);
@@ -153,8 +156,7 @@ private:
 
     InstrumentingAgents* m_instrumentingAgents;
     InspectorState* m_inspectorState;
-    Page* m_inspectedPage;
-    InjectedScriptHost* m_injectedScriptHost;
+    InjectedScriptManager* m_injectedScriptManager;
     InspectorFrontend::Debugger* m_frontend;
     ScriptState* m_pausedScriptState;
     ScriptsMap m_scripts;

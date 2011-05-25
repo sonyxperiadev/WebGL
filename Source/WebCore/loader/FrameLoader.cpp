@@ -1,9 +1,10 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008 Alp Toker <alp@atoker.com>
  * Copyright (C) Research In Motion Limited 2009. All rights reserved.
+ * Copyright (C) 2011 Kris Jordan <krisjordan@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +41,7 @@
 #include "CachedPage.h"
 #include "CachedResourceLoader.h"
 #include "Chrome.h"
+#include "ContentSecurityPolicy.h"
 #include "DOMImplementation.h"
 #include "DOMWindow.h"
 #include "Document.h"
@@ -83,6 +85,7 @@
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "SchemeRegistry.h"
+#include "ScrollAnimator.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "SecurityOrigin.h"
@@ -130,9 +133,9 @@ using namespace SVGNames;
 #endif
 
 #if ENABLE(XHTMLMP)
-static const char defaultAcceptHeader[] = "application/xml,application/vnd.wap.xhtml+xml,application/xhtml+xml;profile='http://www.wapforum.org/xhtml',text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5";
+static const char defaultAcceptHeader[] = "application/vnd.wap.xhtml+xml,application/xhtml+xml;profile='http://www.wapforum.org/xhtml',text/html,application/xml;q=0.9,*/*;q=0.8";
 #else
-static const char defaultAcceptHeader[] = "application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5";
+static const char defaultAcceptHeader[] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
 #endif
 
 static double storedTimeOfLastCompletedLoad;
@@ -258,13 +261,6 @@ void FrameLoader::setDefersLoading(bool defers)
         m_frame->navigationScheduler()->startTimer();
         startCheckCompleteTimer();
     }
-
-    // This code is not logically part of load deferring, but we do not want JS code executed beneath modal
-    // windows or sheets, which is exactly when PageGroupLoadDeferrer is used.
-    if (defers)
-        m_frame->document()->suspendScheduledTasks();
-    else
-        m_frame->document()->resumeScheduledTasks();
 }
 
 bool FrameLoader::canHandleRequest(const ResourceRequest& request)
@@ -691,12 +687,13 @@ void FrameLoader::didEndDocument()
     m_isLoadingMainResource = false;
 }
 
-void FrameLoader::iconLoadDecisionAvailable()
+// Callback for the old-style synchronous IconDatabase interface.
+void FrameLoader::iconLoadDecisionReceived(IconLoadDecision iconLoadDecision)
 {
     if (!m_mayLoadIconLater)
         return;
     LOG(IconDatabase, "FrameLoader %p was told a load decision is available for its icon", this);
-    startIconLoader();
+    continueIconLoadWithDecision(iconLoadDecision);
     m_mayLoadIconLater = false;
 }
 
@@ -715,48 +712,77 @@ void FrameLoader::startIconLoader()
     if (urlString.isEmpty())
         return;
 
-    // If we're not reloading and the icon database doesn't say to load now then bail before we actually start the load
-    if (loadType() != FrameLoadTypeReload && loadType() != FrameLoadTypeReloadFromOrigin) {
-        IconLoadDecision decision = iconDatabase().loadDecisionForIconURL(urlString, m_documentLoader.get());
-        if (decision == IconLoadNo) {
-            LOG(IconDatabase, "FrameLoader::startIconLoader() - Told not to load this icon, committing iconURL %s to database for pageURL mapping", urlString.ascii().data());
-            commitIconURLToIconDatabase(url);
-            
-            // We were told not to load this icon - that means this icon is already known by the database
-            // If the icon data hasn't been read in from disk yet, kick off the read of the icon from the database to make sure someone
-            // has done it.  This is after registering for the notification so the WebView can call the appropriate delegate method.
-            // Otherwise if the icon data *is* available, notify the delegate
-            if (!iconDatabase().iconDataKnownForIconURL(urlString)) {
-                LOG(IconDatabase, "Told not to load icon %s but icon data is not yet available - registering for notification and requesting load from disk", urlString.ascii().data());
-                m_client->registerForIconNotification();
-                iconDatabase().iconForPageURL(m_frame->document()->url().string(), IntSize(0, 0));
-                iconDatabase().iconForPageURL(originalRequestURL().string(), IntSize(0, 0));
-            } else
-                m_client->dispatchDidReceiveIcon();
-                
-            return;
-        } 
-        
-        if (decision == IconLoadUnknown) {
-            // In this case, we may end up loading the icon later, but we still want to commit the icon url mapping to the database
-            // just in case we don't end up loading later - if we commit the mapping a second time after the load, that's no big deal
-            // We also tell the client to register for the notification that the icon is received now so it isn't missed in case the 
-            // icon is later read in from disk
-            LOG(IconDatabase, "FrameLoader %p might load icon %s later", this, urlString.ascii().data());
-            m_mayLoadIconLater = true;    
-            m_client->registerForIconNotification();
-            commitIconURLToIconDatabase(url);
-            return;
-        }
-    }
-
     // People who want to avoid loading images generally want to avoid loading all images.
     // Now that we've accounted for URL mapping, avoid starting the network load if images aren't set to display automatically.
     Settings* settings = m_frame->settings();
     if (settings && !settings->loadsImagesAutomatically())
         return;
 
-    // This is either a reload or the icon database said "yes, load the icon", so kick off the load!
+    // If we're reloading the page, always start the icon load now.
+    if (loadType() == FrameLoadTypeReload && loadType() == FrameLoadTypeReloadFromOrigin) {
+        continueIconLoadWithDecision(IconLoadYes);
+        return;
+    }
+
+    if (iconDatabase().supportsAsynchronousMode()) {
+        m_documentLoader->getIconLoadDecisionForIconURL(urlString);
+        // Commit the icon url mapping to the database just in case we don't end up loading later.
+        commitIconURLToIconDatabase(url);
+        return;
+    }
+    
+    IconLoadDecision decision = iconDatabase().synchronousLoadDecisionForIconURL(urlString, m_documentLoader.get());
+
+    if (decision == IconLoadUnknown) {
+        // In this case, we may end up loading the icon later, but we still want to commit the icon url mapping to the database
+        // just in case we don't end up loading later - if we commit the mapping a second time after the load, that's no big deal
+        // We also tell the client to register for the notification that the icon is received now so it isn't missed in case the 
+        // icon is later read in from disk
+        LOG(IconDatabase, "FrameLoader %p might load icon %s later", this, urlString.ascii().data());
+        m_mayLoadIconLater = true;    
+        m_client->registerForIconNotification();
+        commitIconURLToIconDatabase(url);
+        return;
+    }
+
+    continueIconLoadWithDecision(decision);
+}
+
+void FrameLoader::continueIconLoadWithDecision(IconLoadDecision iconLoadDecision)
+{
+    ASSERT(iconLoadDecision != IconLoadUnknown);
+    
+    //  FIXME (<rdar://problem/9168605>) - We should support in-memory-only private browsing icons in asynchronous icon database mode.
+    if (iconDatabase().supportsAsynchronousMode() && m_frame->page()->settings()->privateBrowsingEnabled())
+        return;
+        
+    if (iconLoadDecision == IconLoadNo) {
+        KURL url(iconURL());
+        String urlString(url.string());
+        
+        LOG(IconDatabase, "FrameLoader::startIconLoader() - Told not to load this icon, committing iconURL %s to database for pageURL mapping", urlString.ascii().data());
+        commitIconURLToIconDatabase(url);
+        
+        if (iconDatabase().supportsAsynchronousMode()) {
+            m_documentLoader->getIconDataForIconURL(urlString);
+            return;
+        }
+        
+        // We were told not to load this icon - that means this icon is already known by the database
+        // If the icon data hasn't been read in from disk yet, kick off the read of the icon from the database to make sure someone
+        // has done it. This is after registering for the notification so the WebView can call the appropriate delegate method.
+        // Otherwise if the icon data *is* available, notify the delegate
+        if (!iconDatabase().synchronousIconDataKnownForIconURL(urlString)) {
+            LOG(IconDatabase, "Told not to load icon %s but icon data is not yet available - registering for notification and requesting load from disk", urlString.ascii().data());
+            m_client->registerForIconNotification();
+            iconDatabase().synchronousIconForPageURL(m_frame->document()->url().string(), IntSize(0, 0));
+            iconDatabase().synchronousIconForPageURL(originalRequestURL().string(), IntSize(0, 0));
+        } else
+            m_client->dispatchDidReceiveIcon();
+            
+        return;
+    } 
+    
     if (!m_iconLoader)
         m_iconLoader = IconLoader::create(m_frame);
         
@@ -966,7 +992,7 @@ void FrameLoader::loadArchive(PassRefPtr<Archive> prpArchive)
 }
 #endif // ENABLE(WEB_ARCHIVE)
 
-ObjectContentType FrameLoader::defaultObjectContentType(const KURL& url, const String& mimeTypeIn)
+ObjectContentType FrameLoader::defaultObjectContentType(const KURL& url, const String& mimeTypeIn, bool shouldPreferPlugInsForImages)
 {
     String mimeType = mimeTypeIn;
     String extension = url.path().substring(url.path().reverseFind('.') + 1);
@@ -983,13 +1009,17 @@ ObjectContentType FrameLoader::defaultObjectContentType(const KURL& url, const S
     if (mimeType.isEmpty())
         return ObjectContentFrame; // Go ahead and hope that we can display the content.
 
-    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
-        return WebCore::ObjectContentImage;
-
 #if !PLATFORM(MAC) && !PLATFORM(CHROMIUM) && !PLATFORM(EFL) // Mac has no PluginDatabase, nor does Chromium or EFL
-    if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
-        return WebCore::ObjectContentNetscapePlugin;
+    bool plugInSupportsMIMEType = PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType);
+#else
+    bool plugInSupportsMIMEType = false;
 #endif
+
+    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
+        return shouldPreferPlugInsForImages && plugInSupportsMIMEType ? WebCore::ObjectContentNetscapePlugin : WebCore::ObjectContentImage;
+
+    if (plugInSupportsMIMEType)
+        return WebCore::ObjectContentNetscapePlugin;
 
     if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
         return WebCore::ObjectContentFrame;
@@ -1392,7 +1422,7 @@ void FrameLoader::load(const ResourceRequest& request, const SubstituteData& sub
     m_loadType = FrameLoadTypeStandard;
     RefPtr<DocumentLoader> loader = m_client->createDocumentLoader(request, substituteData);
     if (lockHistory && m_documentLoader)
-        loader->setClientRedirectSourceForHistory(m_documentLoader->didCreateGlobalHistoryEntry() ? m_documentLoader->urlForHistory() : m_documentLoader->clientRedirectSourceForHistory());
+        loader->setClientRedirectSourceForHistory(m_documentLoader->didCreateGlobalHistoryEntry() ? m_documentLoader->urlForHistory().string() : m_documentLoader->clientRedirectSourceForHistory());
     load(loader.get());
 }
 
@@ -1416,7 +1446,7 @@ void FrameLoader::loadWithNavigationAction(const ResourceRequest& request, const
 {
     RefPtr<DocumentLoader> loader = m_client->createDocumentLoader(request, SubstituteData());
     if (lockHistory && m_documentLoader)
-        loader->setClientRedirectSourceForHistory(m_documentLoader->didCreateGlobalHistoryEntry() ? m_documentLoader->urlForHistory() : m_documentLoader->clientRedirectSourceForHistory());
+        loader->setClientRedirectSourceForHistory(m_documentLoader->didCreateGlobalHistoryEntry() ? m_documentLoader->urlForHistory().string() : m_documentLoader->clientRedirectSourceForHistory());
 
     loader->setTriggeringAction(action);
     if (m_documentLoader)
@@ -1530,7 +1560,7 @@ bool FrameLoader::willLoadMediaElementURL(KURL& url)
     unsigned long identifier;
     ResourceError error;
     requestFromDelegate(request, identifier, error);
-    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, ResourceResponse(url, String(), -1, String(), String()), -1, error);
+    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, ResourceResponse(url, String(), -1, String(), String()), -1, -1, error);
 
     url = request.url();
 
@@ -1947,7 +1977,7 @@ void FrameLoader::commitProvisionalLoad()
             // FIXME: If we get a resource with more than 2B bytes, this code won't do the right thing.
             // However, with today's computers and networking speeds, this won't happen in practice.
             // Could be an issue with a giant local file.
-            notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, response, static_cast<int>(response.expectedContentLength()), error);
+            notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, response, static_cast<int>(response.expectedContentLength()), 0, error);
         }
         
         pageCache()->remove(history()->currentItem());
@@ -1966,6 +1996,9 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
 
     if (m_state != FrameStateProvisional)
         return;
+
+    if (m_frame->view())
+        m_frame->view()->scrollAnimator()->cancelAnimations();
 
     m_client->setCopiesOnScroll();
     history()->updateForCommit();
@@ -2178,8 +2211,11 @@ void FrameLoader::open(CachedFrameBase& cachedFrame)
     view->setWasScrolledByUser(false);
 
     // Use the current ScrollView's frame rect.
-    if (m_frame->view())
-        view->setFrameRect(m_frame->view()->frameRect());
+    if (m_frame->view()) {
+        IntRect rect = m_frame->view()->frameRect();
+        view->setFrameRect(rect);
+        view->setBoundsSize(rect.size());
+    }
     m_frame->setView(view);
     
     m_frame->setDocument(document);
@@ -2338,12 +2374,9 @@ CachePolicy FrameLoader::subresourceCachePolicy() const
             return parentCachePolicy;
     }
 
-    // FIXME: POST documents are always Reloads, but their subresources should still be Revalidate.
-    // If we bring the CachePolicy.h and ResourceRequest cache policy enums in sync with each other and
-    // remember "Revalidate" in ResourceRequests, we can remove this "POST" check and return either "Reload" 
-    // or "Revalidate" if the DocumentLoader was requested with either.
     const ResourceRequest& request(documentLoader()->request());
-    if (request.cachePolicy() == ReloadIgnoringCacheData && !equalIgnoringCase(request.httpMethod(), "post"))
+    Settings* settings = m_frame->settings();
+    if (settings && settings->useQuickLookResourceCachingQuirks() && request.cachePolicy() == ReloadIgnoringCacheData && !equalIgnoringCase(request.httpMethod(), "post"))
         return CachePolicyRevalidate;
 
     if (m_loadType == FrameLoadTypeReload)
@@ -2382,16 +2415,15 @@ void FrameLoader::checkLoadCompleteForThisFrame()
                 
             // Only reset if we aren't already going to a new provisional item.
             bool shouldReset = !history()->provisionalItem();
-            if (!(pdl->isLoadingInAPISense() && !pdl->isStopping())) {
+            if (!pdl->isLoadingInAPISense() || pdl->isStopping()) {
                 m_delegateIsHandlingProvisionalLoadError = true;
                 m_client->dispatchDidFailProvisionalLoad(error);
                 m_delegateIsHandlingProvisionalLoadError = false;
 
-                // FIXME: can stopping loading here possibly have any effect, if isLoading is false,
-                // which it must be to be in this branch of the if? And is it OK to just do a full-on
-                // stopAllLoaders instead of stopLoadingSubframes?
-                stopLoadingSubframes(ShouldNotClearProvisionalItem);
-                pdl->stopLoading();
+                ASSERT(!pdl->isLoading());
+                ASSERT(!pdl->isLoadingMainResource());
+                ASSERT(!pdl->isLoadingSubresources());
+                ASSERT(!pdl->isLoadingPlugIns());
 
                 // If we're in the middle of loading multipart data, we need to restore the document loader.
                 if (isReplacing() && !m_documentLoader.get())
@@ -2741,12 +2773,6 @@ void FrameLoader::loadPostRequest(const ResourceRequest& inRequest, const String
 {
     RefPtr<FormState> formState = prpFormState;
 
-    // When posting, use the NSURLRequestReloadIgnoringCacheData load flag.
-    // This prevents a potential bug which may cause a page with a form that uses itself
-    // as an action to be returned from the cache without submitting.
-
-    // FIXME: Where's the code that implements what the comment above says?
-
     // Previously when this method was reached, the original FrameLoadRequest had been deconstructed to build a 
     // bunch of parameters that would come in here and then be built back up to a ResourceRequest.  In case
     // any caller depends on the immutability of the original ResourceRequest, I'm rebuilding a ResourceRequest
@@ -2813,8 +2839,7 @@ unsigned long FrameLoader::loadResourceSynchronously(const ResourceRequest& requ
         }
 #endif
     }
-
-    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, response, data.size(), error);
+    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, response, data.size(), static_cast<int>(response.expectedContentLength()), error);
     return identifier;
 }
 
@@ -3007,7 +3032,7 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
     if (!m_frame->page())
         return;
 
-#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
+#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC) && ENABLE(INSPECTOR)
     if (Page* page = m_frame->page()) {
         if (page->mainFrame() == m_frame)
             m_frame->page()->inspectorController()->resume();
@@ -3107,7 +3132,7 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
     ResourceError error;
     requestFromDelegate(request, identifier, error);
     InspectorInstrumentation::markResourceAsCached(page, identifier);
-    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, resource->response(), resource->encodedSize(), error);
+    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, resource->response(), resource->encodedSize(), 0, error);
 }
 
 void FrameLoader::applyUserAgent(ResourceRequest& request)

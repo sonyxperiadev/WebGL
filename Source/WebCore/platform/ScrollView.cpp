@@ -124,7 +124,7 @@ void ScrollView::setHasVerticalScrollbar(bool hasBar)
         axObjectCache()->handleScrollbarUpdate(this);
 }
 
-#if !PLATFORM(GTK)
+#if !USE(NATIVE_GTK_MAIN_FRAME_SCROLLBAR)
 PassRefPtr<Scrollbar> ScrollView::createScrollbar(ScrollbarOrientation orientation)
 {
     return Scrollbar::createNativeScrollbar(this, orientation, RegularScrollbar);
@@ -224,7 +224,7 @@ void ScrollView::setDelegatesScrolling(bool delegatesScrolling)
     m_delegatesScrolling = delegatesScrolling;
 }
 
-#if !PLATFORM(GTK)
+#if !USE(NATIVE_GTK_MAIN_FRAME_SCROLLBAR)
 IntRect ScrollView::visibleContentRect(bool includeScrollbars) const
 {
     if (platformWidget())
@@ -357,6 +357,10 @@ void ScrollView::didCompleteRubberBand(const IntSize&) const
 {
 }
 
+void ScrollView::notifyPageThatContentAreaWillPaint() const
+{
+}
+
 void ScrollView::setScrollOffset(const IntPoint& offset)
 {
     int horizontalOffset = offset.x();
@@ -408,7 +412,7 @@ void ScrollView::setScrollPosition(const IntPoint& scrollPoint)
 
 #if ENABLE(TILED_BACKING_STORE)
     if (delegatesScrolling()) {
-        hostWindow()->delegatedScrollRequested(IntSize(scrollPoint.x(), scrollPoint.y()));
+        hostWindow()->delegatedScrollRequested(scrollPoint);
         if (!m_actualVisibleContentRect.isEmpty())
             m_actualVisibleContentRect.setLocation(scrollPoint);
         return;
@@ -439,15 +443,18 @@ bool ScrollView::logicalScroll(ScrollLogicalDirection direction, ScrollGranulari
 IntSize ScrollView::overhangAmount() const
 {
     IntSize stretch;
-    if (scrollY() < 0)
-        stretch.setHeight(scrollY());
-    else if (scrollY() > contentsHeight() - visibleContentRect().height())
-        stretch.setHeight(scrollY() - (contentsHeight() - visibleContentRect().height()));
 
-    if (scrollX() < 0)
-        stretch.setWidth(scrollX());
-    else if (scrollX() > contentsWidth() - visibleContentRect().width())
-        stretch.setWidth(scrollX() - (contentsWidth() - visibleContentRect().width()));
+    int physicalScrollY = scrollPosition().y() + m_scrollOrigin.y();
+    if (physicalScrollY < 0)
+        stretch.setHeight(physicalScrollY);
+    else if (physicalScrollY > contentsHeight() - visibleContentRect().height())
+        stretch.setHeight(physicalScrollY - (contentsHeight() - visibleContentRect().height()));
+
+    int physicalScrollX = scrollPosition().x() + m_scrollOrigin.x();
+    if (physicalScrollX < 0)
+        stretch.setWidth(physicalScrollX);
+    else if (physicalScrollX > contentsWidth() - visibleContentRect().width())
+        stretch.setWidth(physicalScrollX - (contentsWidth() - visibleContentRect().width()));
 
     return stretch;
 }
@@ -947,7 +954,7 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
     if (context->paintingDisabled() && !context->updatingControlTints())
         return;
 
-    scrollAnimator()->contentAreaWillPaint();
+    notifyPageThatContentAreaWillPaint();
     
     IntRect documentDirtyRect = rect;
     documentDirtyRect.intersect(frameRect());
@@ -1000,26 +1007,28 @@ void ScrollView::calculateOverhangAreasForPainting(IntRect& horizontalOverhangRe
     int horizontalScrollbarHeight = (horizontalScrollbar() && !horizontalScrollbar()->isOverlayScrollbar())
         ? horizontalScrollbar()->height() : 0;
 
-    if (scrollY() < 0) {
+    int physicalScrollY = scrollPosition().y() + m_scrollOrigin.y();
+    if (physicalScrollY < 0) {
         horizontalOverhangRect = frameRect();
-        horizontalOverhangRect.setHeight(-scrollY());
-    } else if (scrollY() > contentsHeight() - visibleContentRect().height()) {
-        int height = scrollY() - (contentsHeight() - visibleContentRect().height());
+        horizontalOverhangRect.setHeight(-physicalScrollY);
+    } else if (physicalScrollY > contentsHeight() - visibleContentRect().height()) {
+        int height = physicalScrollY - (contentsHeight() - visibleContentRect().height());
         horizontalOverhangRect = frameRect();
         horizontalOverhangRect.setY(frameRect().maxY() - height - horizontalScrollbarHeight);
         horizontalOverhangRect.setHeight(height);
     }
 
-    if (scrollX() < 0) {
-        verticalOverhangRect.setWidth(-scrollX());
+    int physicalScrollX = scrollPosition().x() + m_scrollOrigin.x();
+    if (physicalScrollX < 0) {
+        verticalOverhangRect.setWidth(-physicalScrollX);
         verticalOverhangRect.setHeight(frameRect().height() - horizontalOverhangRect.height());
         verticalOverhangRect.setX(frameRect().x());
         if (horizontalOverhangRect.y() == frameRect().y())
             verticalOverhangRect.setY(frameRect().y() + horizontalOverhangRect.height());
         else
             verticalOverhangRect.setY(frameRect().y());
-    } else if (scrollX() > contentsWidth() - visibleContentRect().width()) {
-        int width = scrollX() - (contentsWidth() - visibleContentRect().width());
+    } else if (physicalScrollX > contentsWidth() - visibleContentRect().width()) {
+        int width = physicalScrollX - (contentsWidth() - visibleContentRect().width());
         verticalOverhangRect.setWidth(width);
         verticalOverhangRect.setHeight(frameRect().height() - horizontalOverhangRect.height());
         verticalOverhangRect.setX(frameRect().maxX() - width - verticalScrollbarWidth);
@@ -1195,7 +1204,7 @@ void ScrollView::setScrollOrigin(const IntPoint& origin, bool updatePositionAtAl
         updateScrollbars(scrollOffset());
 }
 
-#if !PLATFORM(WX) && !PLATFORM(GTK) && !PLATFORM(EFL)
+#if !PLATFORM(WX) && !USE(NATIVE_GTK_MAIN_FRAME_SCROLLBAR) && !PLATFORM(EFL)
 
 void ScrollView::platformInit()
 {

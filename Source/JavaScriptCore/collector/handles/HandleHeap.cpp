@@ -51,11 +51,11 @@ void HandleHeap::grow()
     }
 }
 
-void HandleHeap::markStrongHandles(MarkStack& markStack)
+void HandleHeap::markStrongHandles(HeapRootMarker& heapRootMarker)
 {
     Node* end = m_strongList.end();
     for (Node* node = m_strongList.begin(); node != end; node = node->next())
-        markStack.deprecatedAppend(node->slot());
+        heapRootMarker.mark(node->slot());
 }
 
 void HandleHeap::updateAfterMark()
@@ -79,7 +79,10 @@ void HandleHeap::clearWeakPointers()
         
         JSCell* cell = value.asCell();
         ASSERT(!cell || cell->structure());
-
+        
+#if ENABLE(JSC_ZOMBIES)
+        ASSERT(!cell->isZombie());
+#endif
         if (Heap::isMarked(cell))
             continue;
         

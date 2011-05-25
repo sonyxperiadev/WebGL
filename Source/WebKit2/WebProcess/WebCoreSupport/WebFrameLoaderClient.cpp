@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -386,8 +386,10 @@ void WebFrameLoaderClient::dispatchDidStartProvisionalLoad()
     WebPage* webPage = m_frame->page();
     if (!webPage)
         return;
+
     webPage->findController().hideFindUI();
-    
+    webPage->sandboxExtensionTracker().didStartProvisionalLoad(m_frame);
+
     DocumentLoader* provisionalLoader = m_frame->coreFrame()->loader()->provisionalDocumentLoader();
     const String& url = provisionalLoader->url().string();
     RefPtr<APIObject> userData;
@@ -395,12 +397,10 @@ void WebFrameLoaderClient::dispatchDidStartProvisionalLoad()
     // Notify the bundle client.
     webPage->injectedBundleLoaderClient().didStartProvisionalLoadForFrame(webPage, m_frame, userData);
 
-    bool loadingSubstituteDataForUnreachableURL = !provisionalLoader->unreachableURL().isNull();
-
-    webPage->sandboxExtensionTracker().didStartProvisionalLoad(m_frame);
+    String unreachableURL = provisionalLoader->unreachableURL().string();
 
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidStartProvisionalLoadForFrame(m_frame->frameID(), url, loadingSubstituteDataForUnreachableURL, InjectedBundleUserMessageEncoder(userData.get())));
+    webPage->send(Messages::WebPageProxy::DidStartProvisionalLoadForFrame(m_frame->frameID(), url, unreachableURL, InjectedBundleUserMessageEncoder(userData.get())));
 }
 
 void WebFrameLoaderClient::dispatchDidReceiveTitle(const String& title)
@@ -653,7 +653,7 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFu
         (m_frame->coreFrame()->loader()->policyChecker()->*function)(PolicyUse);
         return;
     }
-
+    
     uint64_t listenerID = m_frame->setUpPolicyListener(function);
     bool receivedPolicyAction;
     uint64_t policyAction;
@@ -1086,6 +1086,11 @@ void WebFrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame*)
 
 void WebFrameLoaderClient::transitionToCommittedFromCachedFrame(CachedFrame*)
 {
+    WebPage* webPage = m_frame->page();
+    bool isMainFrame = webPage->mainFrame() == m_frame;
+    
+    const String& mimeType = m_frame->coreFrame()->loader()->documentLoader()->response().mimeType();
+    m_frameHasCustomRepresentation = isMainFrame && WebProcess::shared().shouldUseCustomRepresentationForMIMEType(mimeType);
 }
 
 void WebFrameLoaderClient::transitionToCommittedForNewPage()
@@ -1217,6 +1222,19 @@ PassRefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugIn
             parameters.names[i] = paramNames[i].lower();
     }
 
+#if PLUGIN_ARCHITECTURE(X11)
+    if (equalIgnoringCase(mimeType, "application/x-shockwave-flash")) {
+        // Currently we don't support transparency and windowed mode.
+        // Inject wmode=opaque to make Flash work in these conditions.
+        size_t wmodeIndex = parameters.names.find("wmode");
+        if (wmodeIndex == -1) {
+            parameters.names.append("wmode");
+            parameters.values.append("opaque");
+        } else if (equalIgnoringCase(parameters.values[wmodeIndex], "window"))
+            parameters.values[wmodeIndex] = "opaque";
+    }
+#endif
+
     RefPtr<Plugin> plugin = webPage->createPlugin(parameters);
     if (!plugin)
         return 0;
@@ -1237,27 +1255,58 @@ PassRefPtr<Widget> WebFrameLoaderClient::createJavaAppletWidget(const IntSize& p
     return createPlugin(pluginSize, appletElement, KURL(), paramNames, paramValues, "application/x-java-applet", false);
 }
 
-ObjectContentType WebFrameLoaderClient::objectContentType(const KURL& url, const String& mimeTypeIn)
+static bool pluginSupportsExtension(PluginData* pluginData, const String& extension)
+{
+    ASSERT(extension.lower() == extension);
+
+    for (size_t i = 0; i < pluginData->mimes().size(); ++i) {
+        const MimeClassInfo& mimeClassInfo = pluginData->mimes()[i];
+
+        if (mimeClassInfo.extensions.contains(extension))
+            return true;
+    }
+    return false;
+}
+
+ObjectContentType WebFrameLoaderClient::objectContentType(const KURL& url, const String& mimeTypeIn, bool shouldPreferPlugInsForImages)
 {
     // FIXME: This should be merged with WebCore::FrameLoader::defaultObjectContentType when the plugin code
     // is consolidated.
 
     String mimeType = mimeTypeIn;
-    if (mimeType.isEmpty())
-        mimeType = MIMETypeRegistry::getMIMETypeForExtension(url.path().substring(url.path().reverseFind('.') + 1));
+    if (mimeType.isEmpty()) {
+        String extension = url.path().substring(url.path().reverseFind('.') + 1).lower();
+
+        // Try to guess the MIME type from the extension.
+        mimeType = MIMETypeRegistry::getMIMETypeForExtension(extension);
+
+        if (mimeType.isEmpty()) {
+            // Check if there's a plug-in around that can handle the extension.
+            if (WebPage* webPage = m_frame->page()) {
+                if (PluginData* pluginData = webPage->corePage()->pluginData()) {
+                    if (pluginSupportsExtension(pluginData, extension))
+                        return ObjectContentNetscapePlugin;
+                }
+            }
+        }
+    }
 
     if (mimeType.isEmpty())
         return ObjectContentFrame;
 
-    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
-        return WebCore::ObjectContentImage;
-
+    bool plugInSupportsMIMEType = false;
     if (WebPage* webPage = m_frame->page()) {
         if (PluginData* pluginData = webPage->corePage()->pluginData()) {
             if (pluginData->supportsMimeType(mimeType))
-                return ObjectContentNetscapePlugin;
+                plugInSupportsMIMEType = true;
         }
     }
+    
+    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
+        return shouldPreferPlugInsForImages && plugInSupportsMIMEType ? ObjectContentNetscapePlugin : ObjectContentImage;
+
+    if (plugInSupportsMIMEType)
+        return ObjectContentNetscapePlugin;
 
     if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
         return ObjectContentFrame;

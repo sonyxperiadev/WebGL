@@ -51,6 +51,7 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) con
     encoder->encode(injectedBundlePathExtensionHandle);
     encoder->encode(applicationCacheDirectory);
     encoder->encode(databaseDirectory);
+    encoder->encode(localStorageDirectory);
     encoder->encode(urlSchemesRegistererdAsEmptyDocument);
     encoder->encode(urlSchemesRegisteredAsSecure);
     encoder->encode(urlSchemesForWhichDomainRelaxationIsForbidden);
@@ -60,6 +61,7 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) con
     encoder->encode(clearResourceCaches);
     encoder->encode(clearApplicationCache);
     encoder->encode(shouldAlwaysUseComplexTextCodePath);
+    encoder->encode(iconDatabaseEnabled);
     encoder->encode(languageCode);
     encoder->encode(textCheckerState);
     encoder->encode(defaultRequestTimeoutInterval);
@@ -79,6 +81,7 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) con
     encoder->encode(cfURLCachePath);
     encoder->encode(cfURLCacheDiskCapacity);
     encoder->encode(cfURLCacheMemoryCapacity);
+    encoder->encode(initialHTTPCookieAcceptPolicy);
 #endif
 }
 
@@ -91,6 +94,8 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, Web
     if (!decoder->decode(parameters.applicationCacheDirectory))
         return false;
     if (!decoder->decode(parameters.databaseDirectory))
+        return false;
+    if (!decoder->decode(parameters.localStorageDirectory))
         return false;
     if (!decoder->decode(parameters.urlSchemesRegistererdAsEmptyDocument))
         return false;
@@ -109,6 +114,8 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, Web
     if (!decoder->decode(parameters.clearApplicationCache))
         return false;
     if (!decoder->decode(parameters.shouldAlwaysUseComplexTextCodePath))
+        return false;
+    if (!decoder->decode(parameters.iconDatabaseEnabled))
         return false;
     if (!decoder->decode(parameters.languageCode))
         return false;
@@ -144,6 +151,8 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, Web
     if (!decoder->decode(parameters.cfURLCacheDiskCapacity))
         return false;
     if (!decoder->decode(parameters.cfURLCacheMemoryCapacity))
+        return false;
+    if (!decoder->decode(parameters.initialHTTPCookieAcceptPolicy))
         return false;
 #endif
 

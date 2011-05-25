@@ -1052,9 +1052,15 @@ void WebFrameImpl::dispatchWillSendRequest(WebURLRequest& request)
         0, 0, request.toMutableResourceRequest(), response);
 }
 
+// FIXME: Remove this overload when clients have been changed to pass options.
 WebURLLoader* WebFrameImpl::createAssociatedURLLoader()
 {
     return new AssociatedURLLoader(this);
+}
+
+WebURLLoader* WebFrameImpl::createAssociatedURLLoader(const WebURLLoaderOptions& options)
+{
+    return new AssociatedURLLoader(this, options);
 }
 
 void WebFrameImpl::commitDocumentData(const char* data, size_t length)
@@ -1075,11 +1081,6 @@ bool WebFrameImpl::isProcessingUserGesture() const
 bool WebFrameImpl::willSuppressOpenerInNewFrame() const
 {
     return frame()->loader()->suppressOpenerInNewFrame();
-}
-
-bool WebFrameImpl::pageDismissalEventBeingDispatched() const
-{
-    return frame()->loader()->pageDismissalEventBeingDispatched();
 }
 
 void WebFrameImpl::replaceSelection(const WebString& text)
@@ -1583,8 +1584,7 @@ void WebFrameImpl::scopeStringMatches(int identifier,
         // find an alternative.
         RefPtr<Range> resultRange(findPlainText(searchRange.get(),
                                                 searchText,
-                                                true,
-                                                options.matchCase));
+                                                options.matchCase ? 0 : CaseInsensitive));
         if (resultRange->collapsed(ec)) {
             if (!resultRange->startContainer()->isInShadowTree())
                 break;
@@ -1742,9 +1742,18 @@ WebString WebFrameImpl::contentAsMarkup() const
     return createFullMarkup(m_frame->document());
 }
 
-WebString WebFrameImpl::renderTreeAsText() const
+WebString WebFrameImpl::renderTreeAsText(bool showDebugInfo) const
 {
-    return externalRepresentation(m_frame);
+    RenderAsTextBehavior behavior = RenderAsTextBehaviorNormal;
+
+    if (showDebugInfo) {
+        behavior |= RenderAsTextShowCompositedLayers
+            | RenderAsTextShowAddresses
+            | RenderAsTextShowIDAndClass
+            | RenderAsTextShowLayerNesting;
+    }
+
+    return externalRepresentation(m_frame, behavior);
 }
 
 WebString WebFrameImpl::counterValueForElementById(const WebString& id) const
@@ -1791,7 +1800,7 @@ bool WebFrameImpl::selectionStartHasSpellingMarkerFor(int from, int length) cons
 {
     if (!m_frame)
         return false;
-    return m_frame->editor()->selectionStartHasSpellingMarkerFor(from, length);
+    return m_frame->editor()->selectionStartHasMarkerFor(DocumentMarker::Spelling, from, length);
 }
 
 bool WebFrameImpl::pauseSVGAnimation(const WebString& animationId, double time, const WebString& elementId)
@@ -1814,11 +1823,11 @@ bool WebFrameImpl::pauseSVGAnimation(const WebString& animationId, double time, 
 #endif
 }
 
-WebString WebFrameImpl::layerTreeAsText() const
+WebString WebFrameImpl::layerTreeAsText(bool showDebugInfo) const
 {
     if (!m_frame)
         return WebString();
-    return WebString(m_frame->layerTreeAsText());
+    return WebString(m_frame->layerTreeAsText(showDebugInfo));
 }
 
 // WebFrameImpl public ---------------------------------------------------------

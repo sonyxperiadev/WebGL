@@ -86,6 +86,7 @@ private:
 #if ENABLE(LINK_PREFETCH)
     void onloadTimerFired(Timer<HTMLLinkElement>*);
 #endif
+    bool checkBeforeLoadEvent();
     void process();
     static void processCallback(Node*);
 

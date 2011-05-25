@@ -141,13 +141,19 @@ FrameView::FrameView(Frame* frame)
     , m_shouldUpdateWhileOffscreen(true)
     , m_deferSetNeedsLayouts(0)
     , m_setNeedsLayoutWasDeferred(false)
-    , m_isRestoringFromBackForward(false)
     , m_scrollCorner(0)
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     , m_hasOverflowScroll(false)
 #endif
 {
     init();
+
+    if (m_frame) {
+        if (Page* page = m_frame->page()) {
+            m_page = page;
+            m_page->addScrollableArea(this);
+        }
+    }
 }
 
 PassRefPtr<FrameView> FrameView::create(Frame* frame)
@@ -187,6 +193,9 @@ FrameView::~FrameView()
     
     ASSERT(!m_scrollCorner);
     ASSERT(m_actionScheduler->isEmpty());
+
+    if (m_page)
+        m_page->removeScrollableArea(this);
 
     if (m_frame) {
         ASSERT(m_frame->view() != this || !m_frame->contentRenderer());
@@ -229,7 +238,6 @@ void FrameView::reset()
     m_isPainting = false;
     m_isVisuallyNonEmpty = false;
     m_firstVisuallyNonEmptyLayoutCallbackPending = true;
-    m_isRestoringFromBackForward = false;
     m_maintainScrollPositionAnchor = 0;
 }
 
@@ -252,6 +260,15 @@ void FrameView::resetScrollbars()
         setScrollbarModes(ScrollbarAuto, ScrollbarAuto);
     else
         setScrollbarModes(ScrollbarAlwaysOff, ScrollbarAlwaysOff);
+    setScrollbarsSuppressed(false);
+}
+
+void FrameView::resetScrollbarsAndClearContentsSize()
+{
+    resetScrollbars();
+
+    setScrollbarsSuppressed(true);
+    setContentsSize(IntSize());
     setScrollbarsSuppressed(false);
 }
 
@@ -854,12 +871,7 @@ void FrameView::layout(bool allowSubtree)
 
         if (m_firstLayout || (hMode != currentHMode || vMode != currentVMode)) {
             if (m_firstLayout) {
-                if (!m_isRestoringFromBackForward)
-                    setScrollbarsSuppressed(true);
-                else {
-                    setScrollbarsSuppressed(false);
-                    m_isRestoringFromBackForward = false;
-                }
+                setScrollbarsSuppressed(true);
 
                 m_firstLayout = false;
                 m_firstLayoutCallbackPending = true;
@@ -931,8 +943,10 @@ void FrameView::layout(bool allowSubtree)
     // Now update the positions of all layers.
     beginDeferredRepaints();
     IntPoint cachedOffset;
-    layer->updateLayerPositions((m_doFullRepaint ? RenderLayer::DoFullRepaint : 0)
-                                | RenderLayer::CheckForRepaint
+    if (m_doFullRepaint)
+        root->view()->repaint(); // FIXME: This isn't really right, since the RenderView doesn't fully encompass the visibleContentRect(). It just happens
+                                 // to work out most of the time, since first layouts and printing don't have you scrolled anywhere.
+    layer->updateLayerPositions((m_doFullRepaint ? 0 : RenderLayer::CheckForRepaint)
                                 | RenderLayer::IsCompositingUpdateRoot
                                 | RenderLayer::UpdateCompositingLayers,
                                 subtree ? 0 : &cachedOffset);
@@ -2125,6 +2139,28 @@ void FrameView::didCompleteRubberBand(const IntSize& initialOverhang) const
     return page->chrome()->client()->didCompleteRubberBandForMainFrame(initialOverhang);
 }
 
+void FrameView::scrollbarStyleChanged()
+{
+    m_frame->page()->setNeedsRecalcStyleInAllFrames();
+}
+
+bool FrameView::shouldSuspendScrollAnimations() const
+{
+    return m_frame->loader()->state() != FrameStateComplete;
+}
+
+void FrameView::notifyPageThatContentAreaWillPaint() const
+{
+    Page* page = m_frame->page();
+    const HashSet<ScrollableArea*>* scrollableAreas = page->scrollableAreaSet();
+    if (!scrollableAreas)
+        return;
+
+    HashSet<ScrollableArea*>::const_iterator end = scrollableAreas->end(); 
+    for (HashSet<ScrollableArea*>::const_iterator it = scrollableAreas->begin(); it != end; ++it)
+        (*it)->scrollAnimator()->contentAreaWillPaint();
+}
+
 #if ENABLE(DASHBOARD_SUPPORT)
 void FrameView::updateDashboardRegions()
 {
@@ -2339,8 +2375,12 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
 
     // m_nodeToDraw is used to draw only one element (and its descendants)
     RenderObject* eltRenderer = m_nodeToDraw ? m_nodeToDraw->renderer() : 0;
+    RenderLayer* rootLayer = contentRenderer->layer();
 
-    contentRenderer->layer()->paint(p, rect, m_paintBehavior, eltRenderer);
+    rootLayer->paint(p, rect, m_paintBehavior, eltRenderer);
+
+    if (rootLayer->containsDirtyOverlayScrollbars())
+        rootLayer->paintOverlayScrollbars(p, rect, m_paintBehavior, eltRenderer);
 
     m_isPainting = false;
 
@@ -2468,7 +2508,6 @@ void FrameView::forceLayoutForPagination(const FloatSize& pageSize, float maximu
             root->setLogicalWidth(flooredPageLogicalWidth);
             root->setNeedsLayoutAndPrefWidthsRecalc();
             forceLayout();
-            root->clearLayoutOverflow();
             int docLogicalHeight = root->style()->isHorizontalWritingMode() ? root->docHeight() : root->docWidth();
             int docLogicalTop = root->style()->isHorizontalWritingMode() ? root->docTop() : root->docLeft();
             int docLogicalRight = root->style()->isHorizontalWritingMode() ? root->docRight() : root->docBottom();
@@ -2478,6 +2517,7 @@ void FrameView::forceLayoutForPagination(const FloatSize& pageSize, float maximu
             IntRect overflow(clippedLogicalLeft, docLogicalTop, flooredPageLogicalWidth, docLogicalHeight);
             if (!root->style()->isHorizontalWritingMode())
                 overflow = overflow.transposedRect();
+            root->clearLayoutOverflow();
             root->addLayoutOverflow(overflow); // This is how we clip in case we overflow again.
         }
     }

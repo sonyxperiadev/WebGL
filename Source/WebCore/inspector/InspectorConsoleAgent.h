@@ -42,7 +42,7 @@ class InspectorAgent;
 class InspectorDOMAgent;
 class InspectorFrontend;
 class InspectorState;
-class InjectedScriptHost;
+class InjectedScriptManager;
 class InstrumentingAgents;
 class ResourceError;
 class ResourceResponse;
@@ -55,10 +55,11 @@ typedef String ErrorString;
 class InspectorConsoleAgent {
     WTF_MAKE_NONCOPYABLE(InspectorConsoleAgent);
 public:
-    InspectorConsoleAgent(InstrumentingAgents*, InspectorAgent*, InspectorState*, InjectedScriptHost*, InspectorDOMAgent*);
+    InspectorConsoleAgent(InstrumentingAgents*, InspectorAgent*, InspectorState*, InjectedScriptManager*, InspectorDOMAgent*);
     ~InspectorConsoleAgent();
 
-    void setConsoleMessagesEnabled(ErrorString* error, bool enabled, bool* newState);
+    void enable(ErrorString*, int* consoleMessageExpireCount);
+    void disable(ErrorString*);
     void clearConsoleMessages(ErrorString* error);
     void reset();
     void setFrontend(InspectorFrontend*);
@@ -79,20 +80,20 @@ public:
     void addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL);
 #endif
     void setMonitoringXHREnabled(ErrorString* error, bool enabled);
+    void addInspectedNode(ErrorString*, int nodeId);
 
 private:
-    void setConsoleMessagesEnabled(bool);
     void addConsoleMessage(PassOwnPtr<ConsoleMessage>);
 
     InstrumentingAgents* m_instrumentingAgents;
     InspectorAgent* m_inspectorAgent;
     InspectorState* m_inspectorState;
-    InjectedScriptHost* m_injectedScriptHost;
+    InjectedScriptManager* m_injectedScriptManager;
     InspectorDOMAgent* m_inspectorDOMAgent;
     InspectorFrontend::Console* m_frontend;
     ConsoleMessage* m_previousMessage;
     Vector<OwnPtr<ConsoleMessage> > m_consoleMessages;
-    unsigned m_expiredConsoleMessageCount;
+    int m_expiredConsoleMessageCount;
     HashMap<String, unsigned> m_counts;
     HashMap<String, double> m_times;
 };

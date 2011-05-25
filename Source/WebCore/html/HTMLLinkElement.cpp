@@ -145,6 +145,8 @@ void HTMLLinkElement::parseMappedAttribute(Attribute* attr)
 #if ENABLE(LINK_PREFETCH)
     else if (attr->name() == onloadAttr)
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
+    else if (attr->name() == onerrorAttr)
+        setAttributeEventListener(eventNames().errorEvent, createAttributeEventListener(this, attr));
 #endif
     else {
         if (attr->name() == titleAttr && m_sheet)
@@ -203,6 +205,17 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
     }
 }
 
+bool HTMLLinkElement::checkBeforeLoadEvent()
+{
+    RefPtr<Document> originalDocument = document();
+    if (!dispatchBeforeLoadEvent(m_url))
+        return false;
+    // A beforeload handler might have removed us from the document or changed the document.
+    if (!inDocument() || document() != originalDocument)
+        return false;
+    return true;
+}
+
 void HTMLLinkElement::process()
 {
     if (!inDocument() || m_isInShadowTree) {
@@ -214,8 +227,11 @@ void HTMLLinkElement::process()
 
     // IE extension: location of small icon for locationbar / bookmarks
     // We'll record this URL per document, even if we later only use it in top level frames
-    if (m_relAttribute.m_isIcon && m_url.isValid() && !m_url.isEmpty())
+    if (m_relAttribute.m_isIcon && m_url.isValid() && !m_url.isEmpty()) {
+        if (!checkBeforeLoadEvent()) 
+            return;
         document()->setIconURL(m_url.string(), type);
+    }
 
 #ifdef ANDROID_APPLE_TOUCH_ICON
     if ((m_relAttribute.m_isTouchIcon || m_relAttribute.m_isPrecomposedTouchIcon) && m_url.isValid()
@@ -235,6 +251,8 @@ void HTMLLinkElement::process()
 
 #if ENABLE(LINK_PREFETCH)
     if (m_relAttribute.m_isLinkPrefetch && m_url.isValid() && document()->frame()) {
+        if (!checkBeforeLoadEvent())
+            return;
         m_cachedLinkPrefetch = document()->cachedResourceLoader()->requestLinkPrefetch(m_url);
         if (m_cachedLinkPrefetch)
             m_cachedLinkPrefetch->addClient(this);
@@ -256,11 +274,7 @@ void HTMLLinkElement::process()
             m_cachedSheet = 0;
         }
 
-        RefPtr<Document> originalDocument = document();
-        if (!dispatchBeforeLoadEvent(m_url))
-            return;
-        // A beforeload handler might have removed us from the document or changed the document.
-        if (!inDocument() || document() != originalDocument)
+        if (!checkBeforeLoadEvent())
             return;
 
         m_loading = true;
@@ -413,16 +427,19 @@ bool HTMLLinkElement::isLoading() const
 void HTMLLinkElement::onloadTimerFired(Timer<HTMLLinkElement>* timer)
 {
     ASSERT_UNUSED(timer, timer == &m_onloadTimer);
-    dispatchEvent(Event::create(eventNames().loadEvent, false, false));
+    if (m_cachedLinkPrefetch->errorOccurred())
+        dispatchEvent(Event::create(eventNames().errorEvent, false, false));
+    else
+        dispatchEvent(Event::create(eventNames().loadEvent, false, false));
+
+    m_cachedLinkPrefetch->removeClient(this);
+    m_cachedLinkPrefetch = 0;
 }
 
 void HTMLLinkElement::notifyFinished(CachedResource* resource)
 {
     m_onloadTimer.startOneShot(0);
-    if (m_cachedLinkPrefetch.get() == resource) {
-        m_cachedLinkPrefetch->removeClient(this);
-        m_cachedLinkPrefetch = 0;
-    }
+    ASSERT(m_cachedLinkPrefetch.get() == resource);
 }
 #endif
 

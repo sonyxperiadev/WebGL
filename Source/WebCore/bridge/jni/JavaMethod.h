@@ -30,9 +30,9 @@
 #if ENABLE(JAVA_BRIDGE)
 
 #include "Bridge.h"
-#include "JNIUtility.h"
+#include "JavaType.h"
 
-#include "JavaString.h"
+#include <wtf/text/WTFString.h>
 
 namespace JSC {
 
@@ -42,29 +42,12 @@ typedef const char* RuntimeType;
 
 class JavaMethod : public Method {
 public:
-    JavaMethod(JNIEnv*, jobject aMethod);
-    ~JavaMethod();
-
-    const JavaString& name() const { return m_name; }
-    RuntimeType returnType() const { return m_returnType.utf8(); }
-    const WTF::String& parameterAt(int i) const { return m_parameters[i]; }
-    int numParameters() const { return m_parameters.size(); }
-
-    const char* signature() const;
-    JNIType JNIReturnType() const;
-
-    jmethodID methodID(jobject obj) const;
-
-    bool isStatic() const { return m_isStatic; }
-
-private:
-    Vector<WTF::String> m_parameters;
-    JavaString m_name;
-    mutable char* m_signature;
-    JavaString m_returnType;
-    JNIType m_JNIReturnType;
-    mutable jmethodID m_methodID;
-    bool m_isStatic;
+    virtual String name() const = 0;
+    virtual RuntimeType returnTypeClassName() const = 0;
+    virtual String parameterAt(int) const = 0;
+    virtual const char* signature() const = 0;
+    virtual JavaType returnType() const = 0;
+    virtual bool isStatic() const = 0;
 };
 
 } // namespace Bindings

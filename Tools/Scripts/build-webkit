@@ -3,6 +3,7 @@
 # Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Google Inc. All rights reserved.
 # Copyright (C) 2010 moiji-mobile.com All rights reserved.
+# Copyright (C) 2011 Research In Motion Limited. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -41,6 +42,7 @@ use webkitdirs;
 use webkitperl::features;
 use POSIX;
 
+sub cMakeArgsFromFeatures();
 sub checkForJavaSDK();
 sub formatBuildTime($);
 sub writeCongrats();
@@ -50,12 +52,13 @@ chdirWebKit();
 
 my $showHelp = 0;
 my $clean = 0;
+my $useGYP = 0;
 my $minimal = 0;
 my $v8 = 0;
 my $installHeaders;
 my $installLibs;
 my $prefixPath;
-my $makeArgs;
+my $makeArgs = "";
 my $noWebKit2 = 0;
 my $startTime = time();
 
@@ -87,6 +90,7 @@ my (
     $linkPrefetchSupport,
     $mathmlSupport,
     $mediaStatisticsSupport,
+    $mediaStreamSupport,
     $meterTagSupport,
     $netscapePluginSupport,
     $notificationsSupport,
@@ -202,6 +206,9 @@ my @features = (
 
     { option => "media-statistics", desc => "Toggle Media Statistics support",
       define => "ENABLE_MEDIA_STATISTICS", default => 0, value => \$mediaStatisticsSupport },
+
+    { option => "media-stream", desc => "Toggle Media Stream API support (implies Blob support, currently Chromium only)",
+      define => "ENABLE_MEDIA_STREAM", default => isChromium(), value => \$mediaStreamSupport },
 
     { option => "meter-tag", desc => "Meter Tag support",
       define => "ENABLE_METER_TAG", default => !isAppleWinWebKit(), value => \$meterTagSupport },
@@ -324,6 +331,7 @@ $svgSupport = $svgSupport || $svgAnimationSupport || $svgAsImageSupport
     || $svgDOMObjCBindingsSupport || $svgFontsSupport
     || $svgForeignObjectSupport || $svgUseSupport;
 
+$blobSupport = $blobSupport || $mediaStreamSupport;
 
 my $programName = basename($0);
 my $usage = <<EOF;
@@ -331,6 +339,8 @@ Usage: $programName [options] [options to pass to build system]
   --help                            Show this help message
   --clean                           Cleanup the build directory
   --debug                           Compile in debug mode
+  --gyp                             Use GYP-generated project files
+  --dsym                            Change debugging format to dwarf-with-dsym (Mac only)
 
   --chromium                        Build the Chromium port on Mac/Win/Linux
   --efl                             Build the EFL port
@@ -347,6 +357,7 @@ Usage: $programName [options] [options to pass to build system]
 
   --prefix=<path>                   Set installation prefix to the given path (Gtk/Efl only)
   --makeargs=<arguments>            Optional Makefile flags
+  --qmakearg=<arguments>            Optional qmake flags (Qt only, e.g. --qmakearg="CONFIG+=webkit2" to build WebKit2)
 
   --minimal                         No optional features, unless explicitly enabled.
 
@@ -355,6 +366,7 @@ EOF
 my %options = (
     'help' => \$showHelp,
     'clean' => \$clean,
+    'gyp' => \$useGYP,
     'install-headers=s' => \$installHeaders,
     'install-libs=s' => \$installLibs,
     'prefix=s' => \$prefixPath,
@@ -409,6 +421,11 @@ for my $dir (@projects, @otherDirs) {
     }
 }
 
+# Generate the generate project files from .gyp files
+if ($useGYP) {
+    system("perl", "Tools/Scripts/generate-project-files") == 0 or die "Failed to run generate-project-files";
+}
+
 my @options = ();
 
 # enable autotool options accordingly
@@ -419,7 +436,7 @@ if (isGtk()) {
     }
 
     push @options, "--prefix=" . $prefixPath if defined($prefixPath);
-    push @options, "--makeargs=" . $makeArgs if defined($makeArgs);
+    push @options, "--makeargs=" . $makeArgs if $makeArgs;
 } elsif (isAppleMacWebKit()) {
     checkForJavaSDK();
     push @options, XcodeOptions();
@@ -487,7 +504,7 @@ if (isGtk()) {
     @options = @ARGV;
     push @options, "--install-headers=" . $installHeaders if defined($installHeaders);
     push @options, "--install-libs=" . $installLibs if defined($installLibs);
-    push @options, "--makeargs=" . $makeArgs if defined($makeArgs);
+    push @options, "--makeargs=" . $makeArgs if $makeArgs;
 
     foreach (@features) {
         push @options, "DEFINES+=$_->{define}=${$_->{value}}" if ${$_->{value}} != $_->{default};
@@ -511,10 +528,7 @@ if (isInspectorFrontend()) {
 
 if (isWx()) {
     downloadWafIfNeeded();
-    @options = ();
-    if (defined($makeArgs)) {
-        @options = split(/ /, $makeArgs);
-    }
+    @options = split(/ /, $makeArgs);
     @projects = ();
     my $result = buildWafProject('.', $clean, @options);
     exit exitStatus($result) if exitStatus($result);
@@ -529,34 +543,13 @@ if (isChromium()) {
 }
 
 if (isEfl()) {
-    @options = ();
-    @projects = ();
-    foreach (@features) {
-        my $featureName = $_->{define};
-        if ($featureName) {
-            my $featureEnabled = ${$_->{value}} ? "ON" : "OFF";
-            push @options, "-D$featureName=$featureEnabled";
-        }
-    }
-    push @options, "--makeargs=" . $makeArgs if defined($makeArgs);
-    push @options, "--prefix=" . $prefixPath if defined($prefixPath);
-    my $result = buildCMakeEflProject($clean, @options);
-    exit exitStatus($result) if exitStatus($result);
+    # By default we build using all of the available CPUs.
+    $makeArgs .= ($makeArgs ? " " : "") . "-j" . numberOfCPUs() if $makeArgs !~ /-j\s*\d+/;
+    buildCMakeProjectOrExit($clean, "Efl", $prefixPath, $makeArgs, cMakeArgsFromFeatures());
 }
 
 if (isWinCE()) {
-    @options = ();
-    @projects = ();
-    foreach (@features) {
-        my $featureName = $_->{define};
-        if ($featureName) {
-            my $featureEnabled = ${$_->{value}} ? "ON" : "OFF";
-            push @options, "-D$featureName=$featureEnabled";
-        }
-    }
-    push @options, "--makeargs=" . $makeArgs if defined($makeArgs);
-    my $result = buildCMakeWinCEProject("STANDARDSDK_500 (ARMV4I)", $clean, @options);
-    exit exitStatus($result) if exitStatus($result);
+    buildCMakeProjectOrExit($clean, "WinCE", $prefixPath, $makeArgs, ("-DCMAKE_WINCE_SDK=\"STANDARDSDK_500 (ARMV4I)\"", cMakeArgsFromFeatures()));
 }
 
 # Build, and abort if the build fails.
@@ -579,7 +572,9 @@ for my $dir (@projects) {
     } elsif (isAppleMacWebKit()) {
         my @local_options = @options;
         push @local_options, XcodeCoverageSupportOptions() if $coverageSupport && $project ne "ANGLE";
-        $result = buildXCodeProject($project, $clean, @local_options, @ARGV);
+        my $useGYPProject = $useGYP && ($project =~ "WebCore|JavaScriptCore|JavaScriptGlue");
+        my $projectPath = $useGYPProject ? "gyp/$project" : $project;
+        $result = buildXCodeProject($projectPath, $clean, @local_options, @ARGV);
     } elsif (isAppleWinWebKit()) {
         if ($project eq "WebKit") {
             $result = buildVisualStudioProject("win/WebKit.vcproj/WebKit.sln", $clean);
@@ -612,6 +607,19 @@ exit if $clean;
 writeCongrats();
 
 exit 0;
+
+sub cMakeArgsFromFeatures()
+{
+    my @args;
+    foreach (@features) {
+        my $featureName = $_->{define};
+        if ($featureName) {
+            my $featureEnabled = ${$_->{value}} ? "ON" : "OFF";
+            push @args, "-D$featureName=$featureEnabled";
+        }
+    }
+    return @args;
+}
 
 sub checkForJavaSDK()
 {

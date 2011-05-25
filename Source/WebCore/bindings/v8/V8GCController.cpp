@@ -34,27 +34,20 @@
 #include "ActiveDOMObject.h"
 #include "Attr.h"
 #include "DOMDataStore.h"
-#include "Frame.h"
+#include "DOMImplementation.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
 #include "MessagePort.h"
 #include "PlatformBridge.h"
-#include "SVGElement.h"
+#include "RetainedDOMInfo.h"
+#include "RetainedObjectInfo.h"
 #include "V8Binding.h"
-#include "V8CSSCharsetRule.h"
-#include "V8CSSFontFaceRule.h"
-#include "V8CSSImportRule.h"
-#include "V8CSSMediaRule.h"
+#include "V8CSSRule.h"
 #include "V8CSSRuleList.h"
 #include "V8CSSStyleDeclaration.h"
-#include "V8CSSStyleRule.h"
-#include "V8CSSStyleSheet.h"
-#include "V8DOMMap.h"
-#include "V8HTMLLinkElement.h"
-#include "V8HTMLStyleElement.h"
+#include "V8DOMImplementation.h"
 #include "V8MessagePort.h"
-#include "V8ProcessingInstruction.h"
-#include "V8Proxy.h"
+#include "V8StyleSheet.h"
 #include "V8StyleSheetList.h"
 #include "WrapperTypeInfo.h"
 
@@ -175,19 +168,86 @@ public:
     }
 };
 
+// Implements v8::RetainedObjectInfo.
+class UnspecifiedGroup : public RetainedObjectInfo {
+public:
+    explicit UnspecifiedGroup(void* object)
+        : m_object(object)
+    {
+        ASSERT(m_object);
+    }
+    
+    virtual void Dispose() { delete this; }
+  
+    virtual bool IsEquivalent(v8::RetainedObjectInfo* other)
+    {
+        ASSERT(other);
+        return other == this || static_cast<WebCore::RetainedObjectInfo*>(other)->GetEquivalenceClass() == this->GetEquivalenceClass();
+    }
+
+    virtual intptr_t GetHash()
+    {
+        return reinterpret_cast<intptr_t>(m_object);
+    }
+    
+    virtual const char* GetLabel()
+    {
+        return "Object group";
+    }
+
+    virtual intptr_t GetEquivalenceClass()
+    {
+        return reinterpret_cast<intptr_t>(m_object);
+    }
+
+private:
+    void* m_object;
+};
+
+class GroupId {
+public:
+    GroupId() : m_type(NullType), m_groupId(0) {}
+    GroupId(Node* node) : m_type(NodeType), m_node(node) {}
+    GroupId(void* other) : m_type(OtherType), m_other(other) {}
+    bool operator!() const { return m_type == NullType; }
+    uintptr_t groupId() const { return m_groupId; }
+    RetainedObjectInfo* createRetainedObjectInfo() const
+    {
+        switch (m_type) {
+        case NullType:
+            return 0;
+        case NodeType:
+            return new RetainedDOMInfo(m_node);
+        case OtherType:
+            return new UnspecifiedGroup(m_other);
+        default:
+            return 0;
+        }
+    }
+    
+private:
+    enum Type {
+        NullType,
+        NodeType,
+        OtherType
+    };
+    Type m_type;
+    union {
+        uintptr_t m_groupId;
+        Node* m_node;
+        void* m_other;
+    };
+};
+
 class GrouperItem {
 public:
-    GrouperItem(uintptr_t groupId, v8::Persistent<v8::Object> wrapper) 
-        : m_groupId(groupId)
-        , m_wrapper(wrapper) 
-        {
-        }
-
-    uintptr_t groupId() const { return m_groupId; }
+    GrouperItem(GroupId groupId, v8::Persistent<v8::Object> wrapper) : m_groupId(groupId), m_wrapper(wrapper) {}
+    uintptr_t groupId() const { return m_groupId.groupId(); }
+    RetainedObjectInfo* createRetainedObjectInfo() const { return m_groupId.createRetainedObjectInfo(); }
     v8::Persistent<v8::Object> wrapper() const { return m_wrapper; }
 
 private:
-    uintptr_t m_groupId;
+    GroupId m_groupId;
     v8::Persistent<v8::Object> m_wrapper;
 };
 
@@ -198,215 +258,160 @@ bool operator<(const GrouperItem& a, const GrouperItem& b)
 
 typedef Vector<GrouperItem> GrouperList;
 
-void makeV8ObjectGroups(GrouperList& grouper)
+// If the node is in document, put it in the ownerDocument's object group.
+//
+// If an image element was created by JavaScript "new Image",
+// it is not in a document. However, if the load event has not
+// been fired (still onloading), it is treated as in the document.
+//
+// Otherwise, the node is put in an object group identified by the root
+// element of the tree to which it belongs.
+static GroupId calculateGroupId(Node* node)
 {
-    // Group by sorting by the group id.
-    std::sort(grouper.begin(), grouper.end());
+    if (node->inDocument() || (node->hasTagName(HTMLNames::imgTag) && !static_cast<HTMLImageElement*>(node)->haveFiredLoadEvent()))
+        return GroupId(node->document());
 
-    // FIXME Should probably work in iterators here, but indexes were easier for my simple mind.
-    for (size_t i = 0; i < grouper.size(); ) {
-        // Seek to the next key (or the end of the list).
-        size_t nextKeyIndex = grouper.size();
-        for (size_t j = i; j < grouper.size(); ++j) {
-            if (grouper[i].groupId() != grouper[j].groupId()) {
-                nextKeyIndex = j;
-                break;
-            }
-        }
-
-        ASSERT(nextKeyIndex > i);
-
-        // We only care about a group if it has more than one object. If it only
-        // has one object, it has nothing else that needs to be kept alive.
-        if (nextKeyIndex - i <= 1) {
-            i = nextKeyIndex;
-            continue;
-        }
-
-        Vector<v8::Persistent<v8::Value> > group;
-        group.reserveCapacity(nextKeyIndex - i);
-        for (; i < nextKeyIndex; ++i) {
-            v8::Persistent<v8::Value> wrapper = grouper[i].wrapper();
-            if (!wrapper.IsEmpty())
-                group.append(wrapper);
-        }
-
-        if (group.size() > 1)
-            v8::V8::AddObjectGroup(&group[0], group.size());
-
-        ASSERT(i == nextKeyIndex);
+    Node* root = node;
+    if (node->isAttributeNode()) {
+        root = static_cast<Attr*>(node)->ownerElement();
+        // If the attribute has no element, no need to put it in the group,
+        // because it'll always be a group of 1.
+        if (!root)
+            return GroupId();
+    } else {
+        while (Node* parent = root->parentNode())
+            root = parent;
     }
+
+    return GroupId(root);
 }
 
-class NodeGrouperVisitor : public DOMWrapperMap<Node>::Visitor {
-public:
-    NodeGrouperVisitor()
-    {
-        // FIXME: grouper_.reserveCapacity(node_map.size());  ?
+static GroupId calculateGroupId(StyleBase* styleBase)
+{
+    ASSERT(styleBase);
+    StyleBase* current = styleBase;
+    StyleSheet* styleSheet = 0;
+    while (true) {
+        // Special case: CSSStyleDeclarations might be either inline and in this case
+        // we need to group them with their node or regular ones.
+        if (current->isMutableStyleDeclaration()) {
+            CSSMutableStyleDeclaration* cssMutableStyleDeclaration = static_cast<CSSMutableStyleDeclaration*>(current);
+            if (cssMutableStyleDeclaration->isInlineStyleDeclaration()) {
+                ASSERT(cssMutableStyleDeclaration->parent()->isStyleSheet());
+                return calculateGroupId(cssMutableStyleDeclaration->node());
+            }
+            // Either we have no parent, or this parent is a CSSRule.
+            ASSERT(cssMutableStyleDeclaration->parent() == cssMutableStyleDeclaration->parentRule());
+        }
+
+        if (current->isStyleSheet())
+            styleSheet = static_cast<StyleSheet*>(current);
+
+        StyleBase* parent = current->parent();
+        if (!parent)
+            break;
+        current = parent;
     }
 
+    if (styleSheet) {
+        if (Node* ownerNode = styleSheet->ownerNode())
+            return calculateGroupId(ownerNode);
+        return GroupId(styleSheet);
+    }
+
+    return GroupId(current);
+}
+
+class GrouperVisitor : public DOMWrapperMap<Node>::Visitor, public DOMWrapperMap<void>::Visitor {
+public:
     void visitDOMWrapper(DOMDataStore* store, Node* node, v8::Persistent<v8::Object> wrapper)
     {
-        // If the node is in document, put it in the ownerDocument's object group.
-        //
-        // If an image element was created by JavaScript "new Image",
-        // it is not in a document. However, if the load event has not
-        // been fired (still onloading), it is treated as in the document.
-        //
-        // Otherwise, the node is put in an object group identified by the root
-        // element of the tree to which it belongs.
-        uintptr_t groupId;
-        if (node->inDocument() || (node->hasTagName(HTMLNames::imgTag) && !static_cast<HTMLImageElement*>(node)->haveFiredLoadEvent()))
-            groupId = reinterpret_cast<uintptr_t>(node->document());
-        else {
-            Node* root = node;
-            if (node->isAttributeNode()) {
-                root = static_cast<Attr*>(node)->ownerElement();
-                // If the attribute has no element, no need to put it in the group,
-                // because it'll always be a group of 1.
-                if (!root)
-                    return;
-            } else {
-                while (root->parentNode())
-                    root = root->parentNode();
-
-                // If the node is alone in its DOM tree (doesn't have a parent or any
-                // children) then the group will be filtered out later anyway.
-                if (root == node && !node->hasChildNodes() && !node->hasAttributes())
-                    return;
-            }
-            groupId = reinterpret_cast<uintptr_t>(root);
-        }
-        m_grouper.append(GrouperItem(groupId, wrapper));
-
-        // If the node is styled and there is a wrapper for the inline
-        // style declaration, we need to keep that style declaration
-        // wrapper alive as well, so we add it to the object group.
-        if (node->isStyledElement()) {
-            StyledElement* element = reinterpret_cast<StyledElement*>(node);
-            addDOMObjectToGroup(store, groupId, element->inlineStyleDecl());
-        }
-
-        if (node->isDocumentNode()) {
-            Document* document = reinterpret_cast<Document*>(node);
-            addDOMObjectToGroup(store, groupId, document->styleSheets());
-            addDOMObjectToGroup(store, groupId, document->implementation());
-        }
-
-        WrapperTypeInfo* typeInfo = V8DOMWrapper::domWrapperType(wrapper);
-
-        if (V8HTMLLinkElement::info.equals(typeInfo)) {
-            HTMLLinkElement* htmlLinkElement = static_cast<HTMLLinkElement*>(node);
-            addDOMObjectToGroup(store, groupId, htmlLinkElement->sheet());
-        }
-
-        if (V8HTMLStyleElement::info.equals(typeInfo)) {
-            HTMLStyleElement* htmlStyleElement = static_cast<HTMLStyleElement*>(node);
-            addDOMObjectToGroup(store, groupId, htmlStyleElement->sheet());
-        }
-
-        if (V8ProcessingInstruction::info.equals(typeInfo)) {
-            ProcessingInstruction* processingInstruction = static_cast<ProcessingInstruction*>(node);
-            addDOMObjectToGroup(store, groupId, processingInstruction->sheet());
-        }
-    }
-
-    void applyGrouping()
-    {
-        makeV8ObjectGroups(m_grouper);
-    }
-
-private:
-    GrouperList m_grouper;
-
-    void addDOMObjectToGroup(DOMDataStore* store, uintptr_t groupId, void* object)
-    {
-        if (!object)
+        GroupId groupId = calculateGroupId(node);
+        if (!groupId)
             return;
-        v8::Persistent<v8::Object> wrapper = store->domObjectMap().get(object);
-        if (!wrapper.IsEmpty())
-            m_grouper.append(GrouperItem(groupId, wrapper));
-    }
-};
-
-class DOMObjectGrouperVisitor : public DOMWrapperMap<void>::Visitor {
-public:
-    DOMObjectGrouperVisitor()
-    {
-    }
-
-    void startMap()
-    {
-        m_grouper.shrink(0);
-    }
-
-    void endMap()
-    {
-        makeV8ObjectGroups(m_grouper);
+        m_grouper.append(GrouperItem(groupId, wrapper));
     }
 
     void visitDOMWrapper(DOMDataStore* store, void* object, v8::Persistent<v8::Object> wrapper)
     {
         WrapperTypeInfo* typeInfo = V8DOMWrapper::domWrapperType(wrapper);
-        // FIXME: extend WrapperTypeInfo with isStyle to simplify the check below or consider
-        // adding a virtual method to WrapperTypeInfo which would know how to group objects.
-        // FIXME: check if there are other StyleBase wrappers we should care of.
-        if (V8CSSStyleSheet::info.equals(typeInfo)
-            || V8CSSStyleDeclaration::info.equals(typeInfo)
-            || V8CSSCharsetRule::info.equals(typeInfo)
-            || V8CSSFontFaceRule::info.equals(typeInfo)
-            || V8CSSStyleRule::info.equals(typeInfo)
-            || V8CSSImportRule::info.equals(typeInfo)
-            || V8CSSMediaRule::info.equals(typeInfo)) {
-            StyleBase* styleBase = static_cast<StyleBase*>(object);
 
-            // We put the whole tree of style elements into a single object group.
-            // To achieve that we group elements by the roots of their trees.
-            StyleBase* root = styleBase;
-            ASSERT(root);
-            while (true) {
-                StyleBase* parent = root->parent();
-                if (!parent)
-                    break;
-                root = parent;
-            }
-            // Group id is an address of the root.
-            uintptr_t groupId = reinterpret_cast<uintptr_t>(root);
+        if (typeInfo->isSubclass(&V8StyleSheetList::info)) {
+            StyleSheetList* styleSheetList = static_cast<StyleSheetList*>(object);
+            GroupId groupId(styleSheetList);
+            if (Document* document = styleSheetList->document())
+                groupId = GroupId(document);
             m_grouper.append(GrouperItem(groupId, wrapper));
 
-            if (V8CSSStyleDeclaration::info.equals(typeInfo)) {
-                CSSStyleDeclaration* cssStyleDeclaration = static_cast<CSSStyleDeclaration*>(styleBase);
-                if (cssStyleDeclaration->isMutableStyleDeclaration()) {
-                    CSSMutableStyleDeclaration* cssMutableStyleDeclaration = static_cast<CSSMutableStyleDeclaration*>(cssStyleDeclaration);
-                    CSSMutableStyleDeclaration::const_iterator end = cssMutableStyleDeclaration->end();
-                    for (CSSMutableStyleDeclaration::const_iterator it = cssMutableStyleDeclaration->begin(); it != end; ++it) {
-                        wrapper = store->domObjectMap().get(it->value());
-                        if (!wrapper.IsEmpty())
-                            m_grouper.append(GrouperItem(groupId, wrapper));
-                    }
+        } else if (typeInfo->isSubclass(&V8DOMImplementation::info)) {
+            DOMImplementation* domImplementation = static_cast<DOMImplementation*>(object);
+            GroupId groupId(domImplementation);
+            if (Document* document = domImplementation->ownerDocument())
+                groupId = GroupId(document);
+            m_grouper.append(GrouperItem(groupId, wrapper));
+
+        } else if (typeInfo->isSubclass(&V8StyleSheet::info) || typeInfo->isSubclass(&V8CSSRule::info)) {
+            m_grouper.append(GrouperItem(calculateGroupId(static_cast<StyleBase*>(object)), wrapper));
+
+        } else if (typeInfo->isSubclass(&V8CSSStyleDeclaration::info)) {
+            CSSStyleDeclaration* cssStyleDeclaration = static_cast<CSSStyleDeclaration*>(object);
+
+            GroupId groupId = calculateGroupId(cssStyleDeclaration);
+            m_grouper.append(GrouperItem(groupId, wrapper));
+
+        } else if (typeInfo->isSubclass(&V8CSSRuleList::info)) {
+            CSSRuleList* cssRuleList = static_cast<CSSRuleList*>(object);
+            GroupId groupId(cssRuleList);
+            StyleList* styleList = cssRuleList->styleList();
+            if (styleList)
+                groupId = calculateGroupId(styleList);
+            m_grouper.append(GrouperItem(groupId, wrapper));
+        }
+    }
+
+    void applyGrouping()
+    {
+        // Group by sorting by the group id.
+        std::sort(m_grouper.begin(), m_grouper.end());
+
+        for (size_t i = 0; i < m_grouper.size(); ) {
+            // Seek to the next key (or the end of the list).
+            size_t nextKeyIndex = m_grouper.size();
+            for (size_t j = i; j < m_grouper.size(); ++j) {
+                if (m_grouper[i].groupId() != m_grouper[j].groupId()) {
+                    nextKeyIndex = j;
+                    break;
                 }
             }
-        } else if (V8StyleSheetList::info.equals(typeInfo)) {
-            addAllItems(store, static_cast<StyleSheetList*>(object), wrapper);
-        } else if (V8CSSRuleList::info.equals(typeInfo)) {
-            addAllItems(store, static_cast<CSSRuleList*>(object), wrapper);
+
+            ASSERT(nextKeyIndex > i);
+
+            // We only care about a group if it has more than one object. If it only
+            // has one object, it has nothing else that needs to be kept alive.
+            if (nextKeyIndex - i <= 1) {
+                i = nextKeyIndex;
+                continue;
+            }
+
+            size_t rootIndex = i;
+            
+            Vector<v8::Persistent<v8::Value> > group;
+            group.reserveCapacity(nextKeyIndex - i);
+            for (; i < nextKeyIndex; ++i) {
+                v8::Persistent<v8::Value> wrapper = m_grouper[i].wrapper();
+                if (!wrapper.IsEmpty())
+                    group.append(wrapper);
+            }
+
+            if (group.size() > 1)
+                v8::V8::AddObjectGroup(&group[0], group.size(), m_grouper[rootIndex].createRetainedObjectInfo());
+
+            ASSERT(i == nextKeyIndex);
         }
     }
 
 private:
     GrouperList m_grouper;
-
-    template <class C>
-    void addAllItems(DOMDataStore* store, C* collection, v8::Persistent<v8::Object> wrapper)
-    {
-        uintptr_t groupId = reinterpret_cast<uintptr_t>(collection);
-        m_grouper.append(GrouperItem(groupId, wrapper));
-        for (unsigned i = 0; i < collection->length(); i++) {
-            wrapper = store->domObjectMap().get(collection->item(i));
-            if (!wrapper.IsEmpty())
-                m_grouper.append(GrouperItem(groupId, wrapper));
-        }
-    }
 };
 
 // Create object groups for DOM tree nodes.
@@ -425,12 +430,10 @@ void V8GCController::gcPrologue()
     visitActiveDOMObjectsInCurrentThread(&prologueVisitor);
 
     // Create object groups.
-    NodeGrouperVisitor nodeGrouperVisitor;
-    visitDOMNodesInCurrentThread(&nodeGrouperVisitor);
-    nodeGrouperVisitor.applyGrouping();
-
-    DOMObjectGrouperVisitor domObjectGrouperVisitor;
-    visitDOMObjectsInCurrentThread(&domObjectGrouperVisitor);
+    GrouperVisitor grouperVisitor;
+    visitDOMNodesInCurrentThread(&grouperVisitor);
+    visitDOMObjectsInCurrentThread(&grouperVisitor);
+    grouperVisitor.applyGrouping();
 
     // Clean single element cache for string conversions.
     lastStringImpl = 0;

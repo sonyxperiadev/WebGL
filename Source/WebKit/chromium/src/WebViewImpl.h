@@ -114,6 +114,9 @@ public:
 
     // WebView methods:
     virtual void initializeMainFrame(WebFrameClient*);
+    virtual void setDevToolsAgentClient(WebDevToolsAgentClient*);
+    virtual void setAutoFillClient(WebAutoFillClient*);
+    virtual void setSpellCheckClient(WebSpellCheckClient*);
     virtual WebSettings* settings();
     virtual WebString pageEncoding() const;
     virtual void setPageEncoding(const WebString& encoding);
@@ -154,7 +157,12 @@ public:
         WebDragOperation operation);
     virtual void dragSourceSystemDragEnded();
     virtual WebDragOperation dragTargetDragEnter(
-        const WebDragData& dragData, int identity,
+        const WebDragData&, int identity, // FIXME: remove identity from this function signature.
+        const WebPoint& clientPoint,
+        const WebPoint& screenPoint,
+        WebDragOperationsMask operationsAllowed);
+    virtual WebDragOperation dragTargetDragEnter(
+        const WebDragData&,
         const WebPoint& clientPoint,
         const WebPoint& screenPoint,
         WebDragOperationsMask operationsAllowed);
@@ -166,8 +174,6 @@ public:
     virtual void dragTargetDrop(
         const WebPoint& clientPoint,
         const WebPoint& screenPoint);
-    virtual int dragIdentity();
-    virtual bool setDropEffect(bool accept);
     virtual unsigned long createUniqueIdentifierForRequest();
     virtual void inspectElementAt(const WebPoint& point);
     virtual WebString inspectorSettings() const;
@@ -219,6 +225,11 @@ public:
     WebAutoFillClient* autoFillClient()
     {
         return m_autoFillClient;
+    }
+
+    WebSpellCheckClient* spellCheckClient()
+    {
+        return m_spellCheckClient;
     }
 
     // Returns the page object associated with this view. This may be null when
@@ -327,6 +338,7 @@ public:
 
 #if USE(ACCELERATED_COMPOSITING)
     bool allowsAcceleratedCompositing();
+    bool pageHasRTLStyle() const;
     void setRootGraphicsLayer(WebCore::PlatformLayer*);
     void setRootLayerNeedsDisplay();
     void scrollRootLayerRect(const WebCore::IntSize& scrollDelta, const WebCore::IntRect& clipRect);
@@ -361,7 +373,7 @@ private:
       DragOver
     };
 
-    WebViewImpl(WebViewClient*, WebDevToolsAgentClient*, WebAutoFillClient*);
+    WebViewImpl(WebViewClient*);
     ~WebViewImpl();
 
     // Returns true if the event was actually processed.
@@ -399,10 +411,12 @@ private:
     void doComposite();
     void doPixelReadbackToCanvas(WebCanvas*, const WebCore::IntRect&);
     void reallocateRenderer();
+    void updateLayerRendererViewport();
 #endif
 
     WebViewClient* m_client;
     WebAutoFillClient* m_autoFillClient;
+    WebSpellCheckClient* m_spellCheckClient;
 
     ChromeClientImpl m_chromeClientImpl;
     ContextMenuClientImpl m_contextMenuClientImpl;
@@ -467,22 +481,6 @@ private:
     // Represents whether or not this object should process incoming IME events.
     bool m_imeAcceptEvents;
 
-    // True while dispatching system drag and drop events to drag/drop targets
-    // within this WebView.
-    bool m_dragTargetDispatch;
-
-    // Valid when m_dragTargetDispatch is true; the identity of the drag data
-    // copied from the WebDropData object sent from the browser process.
-    int m_dragIdentity;
-
-    // Valid when m_dragTargetDispatch is true. Used to override the default
-    // browser drop effect with the effects "none" or "copy".
-    enum DragTargetDropEffect {
-        DropEffectDefault = -1,
-        DropEffectNone,
-        DropEffectCopy
-    } m_dropEffect;
-
     // The available drag operations (copy, move link...) allowed by the source.
     WebDragOperation m_operationsAllowed;
 
@@ -531,6 +529,8 @@ private:
     RefPtr<WebCore::LayerRendererChromium> m_layerRenderer;
     bool m_isAcceleratedCompositingActive;
     bool m_compositorCreationFailed;
+    // If true, the graphics context is being restored.
+    bool m_recreatingGraphicsContext;
 #endif
     static const WebInputEvent* m_currentInputEvent;
 

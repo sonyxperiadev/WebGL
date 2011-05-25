@@ -36,12 +36,10 @@ namespace JSC {
     public:
         JSONObject(JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure);
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
-
-        static void markStringifiers(MarkStack&, Stringifier*);
 
     protected:
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSObject::StructureFlags;

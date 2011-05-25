@@ -49,6 +49,7 @@ namespace WebCore {
     class FloatRect;
     class Frame;
     class Geolocation;
+    class GraphicsLayer;
     class HitTestResult;
     class IntRect;
     class NavigationAction;
@@ -143,7 +144,7 @@ namespace WebCore {
         virtual void invalidateContentsForSlowScroll(const IntRect&, bool) = 0;
         virtual void scroll(const IntSize&, const IntRect&, const IntRect&) = 0;
 #if ENABLE(TILED_BACKING_STORE)
-        virtual void delegatedScrollRequested(const IntSize&) = 0;
+        virtual void delegatedScrollRequested(const IntPoint&) = 0;
 #endif
         virtual IntPoint screenToWindow(const IntPoint&) const = 0;
         virtual IntRect windowToScreen(const IntRect&) const = 0;
@@ -263,10 +264,11 @@ namespace WebCore {
         virtual bool requiresFullscreenForVideoPlayback() { return false; } 
 
 #if ENABLE(FULLSCREEN_API)
-        virtual bool supportsFullScreenForElement(const Element*) { return false; }
+        virtual bool supportsFullScreenForElement(const Element*, bool) { return false; }
         virtual void enterFullScreenForElement(Element*) { }
         virtual void exitFullScreenForElement(Element*) { }
         virtual void fullScreenRendererChanged(RenderBox*) { }
+        virtual void setRootFullScreenLayer(GraphicsLayer*) { }
 #endif
         
 #if ENABLE(TILED_BACKING_STORE)

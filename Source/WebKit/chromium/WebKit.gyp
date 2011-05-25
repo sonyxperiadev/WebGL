@@ -44,22 +44,10 @@
                 # e.g. via build-webkit --chromium
                 'chromium_src_dir': '../../WebKit/chromium',
                 'webkit_target_type': 'static_library',
-
-                # List of DevTools source files, ordered by dependencies. It is used both
-                # for copying them to resource dir, and for generating 'devtools.html' file.
-                'devtools_files': [
-                    '<@(devtools_css_files)',
-                    '<@(devtools_js_files)',
-                ],
             },{
                 # WebKit is checked out in src/chromium/third_party/WebKit
                 'chromium_src_dir': '../../../../..',
                 'webkit_target_type': '<(library)',
-
-                'devtools_files': [
-                    '<@(devtools_css_files)',
-                    '<@(devtools_js_files)',
-                ],
             }],
         ],
         'ahem_path': '../../../Tools/DumpRenderTree/qt/fonts/AHEM____.TTF',
@@ -67,6 +55,13 @@
         # If debug_devtools is set to 1, JavaScript files for DevTools are
         # stored as is. Otherwise, a concatenated file is stored.
         'debug_devtools%': 0,
+
+        # List of DevTools source files, ordered by dependencies. It is used both
+        # for copying them to resource dir, and for generating 'devtools.html' file.
+        'devtools_files': [
+            '<@(devtools_css_files)',
+            '<@(devtools_js_files)',
+        ],
     },
     'targets': [
         {
@@ -732,67 +727,57 @@
             'sources': ['<(PRODUCT_DIR)/resources/inspector/devtools.html'],
             'actions': [{
                 'action_name': 'devtools_html',
+                'script_name': 'scripts/generate_devtools_html.py',
+                'input_page': '../../WebCore/inspector/front-end/inspector.html',
                 'inputs': [
-                    'scripts/generate_devtools_html.py',
-                    # See issue 29695: WebKit.gypi is a source file for devtools.html.
-                    'WebKit.gypi',
-                    '../../WebCore/inspector/front-end/inspector.html',
+                    '<@(_script_name)',
+                    '<@(_input_page)',
+                    '<@(devtools_files)',
                 ],
                 'outputs': ['<(PRODUCT_DIR)/resources/inspector/devtools.html'],
-                'action': ['python', '<@(_inputs)', '<@(_outputs)', '<@(debug_devtools)', '<@(devtools_files)'],
+                'action': ['python', '<@(_script_name)', '<@(_input_page)', '<@(_outputs)', '<@(debug_devtools)', '<@(devtools_files)'],
             }],
         },
         {
-            'target_name': 'concatenated_devtools_js',
+            'target_name': 'generate_devtools_grd',
             'type': 'none',
             'dependencies': [
                 'devtools_html',
-                '../../WebCore/WebCore.gyp/WebCore.gyp:inspector_protocol_sources'
             ],
-            'sources': ['<(PRODUCT_DIR)/resources/inspector/DevTools.js'],
+            'conditions': [
+                ['debug_devtools==0', {
+                    'dependencies': ['concatenated_devtools_js',
+                                     'concatenated_devtools_css'],
+                },{
+                    # If we're not concatenating devtools files, we want to
+                    # run after the original files have been copied to
+                    # <(PRODUCT_DIR)/resources/inspector.
+                    'dependencies': ['inspector_resources'],
+                }],
+            ],
             'actions': [{
-                'action_name': 'concatenate_devtools_js',
-                'script_name': 'scripts/concatenate_js_files.py',
-                'input_page': '../../WebCore/inspector/front-end/inspector.html',
+                'action_name': 'generate_devtools_grd',
+                'script_name': 'scripts/generate_devtools_grd.py',
+                'input_pages': [
+                    '<(PRODUCT_DIR)/resources/inspector/devtools.html',
+                    '<(PRODUCT_DIR)/resources/inspector/DevTools.js',
+                    '<(PRODUCT_DIR)/resources/inspector/devTools.css',
+                ],
+                'images': [
+                    '<@(webinspector_image_files)',
+                    '<@(devtools_image_files)',
+                ],
                 'inputs': [
                     '<@(_script_name)',
-                    '<@(_input_page)',
-                    '<@(webinspector_files)',
-                    '<@(devtools_files)',
-                    '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendStub.js'
+                    '<@(_input_pages)',
+                    '<@(_images)',
                 ],
                 'search_path': [
-                    '../../WebCore/inspector/front-end',
-                    'src/js',
-                    '<(SHARED_INTERMEDIATE_DIR)/webcore',
+                    '../../WebCore/inspector/front-end/Images',
+                    'src/js/Images',
                 ],
-                'outputs': ['<(PRODUCT_DIR)/resources/inspector/DevTools.js'],
-                'action': ['python', '<@(_script_name)', '<@(_input_page)', '<@(_search_path)', '<@(_outputs)'],
-            }],
-        },
-        {
-            'target_name': 'concatenated_devtools_css',
-            'type': 'none',
-            'dependencies': [
-                'devtools_html'
-            ],
-            'sources': ['<(PRODUCT_DIR)/resources/inspector/devTools.css'],
-            'actions': [{
-                'action_name': 'concatenate_devtools_css',
-                'script_name': 'scripts/concatenate_css_files.py',
-                'input_page': '../../WebCore/inspector/front-end/inspector.html',
-                'inputs': [
-                    '<@(_script_name)',
-                    '<@(_input_page)',
-                    '<@(webinspector_files)',
-                    '<@(devtools_files)'
-                ],
-                'search_path': [
-                    '../../WebCore/inspector/front-end',
-                    'src/js',
-                ],
-                'outputs': ['<(PRODUCT_DIR)/resources/inspector/devTools.css'],
-                'action': ['python', '<@(_script_name)', '<@(_input_page)', '<@(_search_path)', '<@(_outputs)'],
+                'outputs': ['<(SHARED_INTERMEDIATE_DIR)/devtools/devtools_resources.grd'],
+                'action': ['python', '<@(_script_name)', '<@(_input_pages)', '--images', '<@(_search_path)', '--output', '<@(_outputs)'],
             }],
         },
         {
@@ -832,6 +817,7 @@
                                 'tests/TransparencyWinTest.cpp',
                                 'tests/UniscribeHelperTest.cpp',
                                 'tests/WebFrameTest.cpp',
+                                'tests/WebPageSerializerTest.cpp',
                             ],
                         }],
                         ['OS=="mac"', {
@@ -1147,6 +1133,61 @@
                     'copies': [{
                         'destination': '<(PRODUCT_DIR)/DumpRenderTree.app/Contents/MacOS/',
                         'files': ['<(PRODUCT_DIR)/osmesa.so'],
+                    }],
+                },
+            ],
+        }],
+        ['debug_devtools==0', {
+            'targets': [
+                {
+                    'target_name': 'concatenated_devtools_js',
+                    'type': 'none',
+                    'dependencies': [
+                        'devtools_html',
+                        '../../WebCore/WebCore.gyp/WebCore.gyp:inspector_protocol_sources'
+                    ],
+                    'actions': [{
+                        'action_name': 'concatenate_devtools_js',
+                        'script_name': 'scripts/concatenate_js_files.py',
+                        'input_page': '../../WebCore/inspector/front-end/inspector.html',
+                        'inputs': [
+                            '<@(_script_name)',
+                            '<@(_input_page)',
+                            '<@(webinspector_files)',
+                            '<@(devtools_files)',
+                            '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendStub.js'
+                        ],
+                        'search_path': [
+                            '../../WebCore/inspector/front-end',
+                            'src/js',
+                            '<(SHARED_INTERMEDIATE_DIR)/webcore',
+                        ],
+                        'outputs': ['<(PRODUCT_DIR)/resources/inspector/DevTools.js'],
+                        'action': ['python', '<@(_script_name)', '<@(_input_page)', '<@(_search_path)', '<@(_outputs)'],
+                    }],
+                },
+                {
+                    'target_name': 'concatenated_devtools_css',
+                    'type': 'none',
+                    'dependencies': [
+                        'devtools_html'
+                    ],
+                    'actions': [{
+                        'action_name': 'concatenate_devtools_css',
+                        'script_name': 'scripts/concatenate_css_files.py',
+                        'input_page': '../../WebCore/inspector/front-end/inspector.html',
+                        'inputs': [
+                            '<@(_script_name)',
+                            '<@(_input_page)',
+                            '<@(webinspector_files)',
+                            '<@(devtools_files)'
+                        ],
+                        'search_path': [
+                            '../../WebCore/inspector/front-end',
+                            'src/js',
+                        ],
+                        'outputs': ['<(PRODUCT_DIR)/resources/inspector/devTools.css'],
+                        'action': ['python', '<@(_script_name)', '<@(_input_page)', '<@(_search_path)', '<@(_outputs)'],
                     }],
                 },
             ],

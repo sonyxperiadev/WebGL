@@ -495,7 +495,7 @@ bool AccessibilityRenderObject::isPasswordField() const
     if (ariaRoleAttribute() != UnknownRole)
         return false;
 
-    InputElement* inputElement = toInputElement(static_cast<Element*>(m_renderer->node()));
+    InputElement* inputElement = m_renderer->node()->toInputElement();
     if (!inputElement)
         return false;
 
@@ -585,10 +585,10 @@ bool AccessibilityRenderObject::isPressed() const
 bool AccessibilityRenderObject::isIndeterminate() const
 {
     ASSERT(m_renderer);
-    if (!m_renderer->node() || !m_renderer->node()->isElementNode())
+    if (!m_renderer->node())
         return false;
 
-    InputElement* inputElement = toInputElement(static_cast<Element*>(m_renderer->node()));
+    InputElement* inputElement = m_renderer->node()->toInputElement();
     if (!inputElement)
         return false;
 
@@ -598,8 +598,8 @@ bool AccessibilityRenderObject::isIndeterminate() const
 bool AccessibilityRenderObject::isNativeCheckboxOrRadio() const
 {
     Node* elementNode = node();
-    if (elementNode && elementNode->isElementNode()) {
-        InputElement* input = toInputElement(static_cast<Element*>(elementNode));
+    if (elementNode) {
+        InputElement* input = elementNode->toInputElement();
         if (input)
             return input->isCheckbox() || input->isRadioButton();
     }
@@ -610,11 +610,11 @@ bool AccessibilityRenderObject::isNativeCheckboxOrRadio() const
 bool AccessibilityRenderObject::isChecked() const
 {
     ASSERT(m_renderer);
-    if (!m_renderer->node() || !m_renderer->node()->isElementNode())
+    if (!m_renderer->node())
         return false;
 
     // First test for native checkedness semantics
-    InputElement* inputElement = toInputElement(static_cast<Element*>(m_renderer->node()));
+    InputElement* inputElement = m_renderer->node()->toInputElement();
     if (inputElement)
         return inputElement->isChecked();
 
@@ -661,10 +661,10 @@ bool AccessibilityRenderObject::isReadOnly() const
             return true;
         
         HTMLElement* body = document->body();
-        if (body && body->isContentEditable())
+        if (body && body->rendererIsEditable())
             return false;
 
-        return !document->inDesignMode();
+        return !document->rendererIsEditable();
     }
 
     if (m_renderer->isBoxModelObject()) {
@@ -675,7 +675,7 @@ bool AccessibilityRenderObject::isReadOnly() const
             return static_cast<HTMLTextAreaElement*>(box->node())->readOnly();
     }
 
-    return !m_renderer->node() || !m_renderer->node()->isContentEditable();
+    return !m_renderer->node() || !m_renderer->node()->rendererIsEditable();
 }
 
 bool AccessibilityRenderObject::isOffScreen() const
@@ -1829,7 +1829,7 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
         return false;
     
     // Anything that is content editable should not be ignored.
-    // However, one cannot just call node->isContentEditable() since that will ask if its parents
+    // However, one cannot just call node->rendererIsEditable() since that will ask if its parents
     // are also editable. Only the top level content editable region should be exposed.
     if (node && node->isElementNode()) {
         Element* element = static_cast<Element*>(node);
@@ -1837,6 +1837,10 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
         if (equalIgnoringCase(contentEditable, "true"))
             return false;
     }
+    
+    // List items play an important role in defining the structure of lists. They should not be ignored.
+    if (roleValue() == ListItemRole)
+        return false;
     
     // if this element has aria attributes on it, it should not be ignored.
     if (supportsARIAAttributes())
@@ -2401,8 +2405,8 @@ VisiblePositionRange AccessibilityRenderObject::visiblePositionRange() const
     if (!node)
         return VisiblePositionRange();
 
-    VisiblePosition startPos = firstDeepEditingPositionForNode(node);
-    VisiblePosition endPos = lastDeepEditingPositionForNode(node);
+    VisiblePosition startPos = firstPositionInOrBeforeNode(node);
+    VisiblePosition endPos = lastPositionInOrAfterNode(node);
 
     // the VisiblePositions are equal for nodes like buttons, so adjust for that
     // FIXME: Really?  [button, 0] and [button, 1] are distinct (before and after the button)
@@ -3083,9 +3087,24 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
 #if PLATFORM(GTK)
     if (m_renderer->isHR())
         return SplitterRole;
+
+    if (node && node->hasTagName(pTag))
+        return ParagraphRole;
+
+    if (node && node->hasTagName(labelTag))
+        return LabelRole;
+
+    if (node && node->hasTagName(divTag))
+        return DivRole;
+
+    if (node && node->hasTagName(formTag))
+        return FormRole;
+#else
+    if (node && node->hasTagName(labelTag))
+        return GroupRole;
 #endif
 
-    if (m_renderer->isBlockFlow() || (node && node->hasTagName(labelTag)))
+    if (m_renderer->isBlockFlow())
         return GroupRole;
     
     // If the element does not have role, but it has ARIA attributes, accessibility should fallback to exposing it as a group.

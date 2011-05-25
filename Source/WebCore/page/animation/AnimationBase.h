@@ -51,7 +51,7 @@ class AnimationBase : public RefCounted<AnimationBase> {
 
 public:
     AnimationBase(const Animation* transition, RenderObject* renderer, CompositeAnimation* compAnim);
-    virtual ~AnimationBase();
+    virtual ~AnimationBase() { }
 
     RenderObject* renderer() const { return m_object; }
     void clearRenderer() { m_object = 0; }
@@ -163,13 +163,16 @@ public:
     
     // Freeze the animation; used by DumpRenderTree.
     void freezeAtTime(double t);
+
+    // Play and pause API
+    void play();
+    void pause();
     
     double beginAnimationUpdateTime() const;
     
     double getElapsedTime() const;
-    
-    AnimationBase* next() const { return m_next; }
-    void setNext(AnimationBase* animation) { m_next = animation; }
+    // Setting the elapsed time will adjust the start time and possibly pause time.
+    void setElapsedTime(double);
     
     void styleAvailable() 
     {
@@ -182,7 +185,9 @@ public:
 #endif
 
     static HashSet<int> animatableShorthandsAffectingProperty(int property);
-    
+
+    const Animation* animation() const { return m_animation.get(); }
+
 protected:
     virtual void overrideAnimations() { }
     virtual void resumeOverriddenAnimations() { }
@@ -229,8 +234,6 @@ protected:
     bool m_isAccelerated;
     bool m_transformFunctionListValid;
     double m_totalDuration, m_nextIterationDuration;
-    
-    AnimationBase* m_next;
     
 private:
     static void ensurePropertyMap();

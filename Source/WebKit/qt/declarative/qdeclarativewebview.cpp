@@ -517,13 +517,12 @@ void QDeclarativeWebView::geometryChanged(const QRectF& newGeometry, const QRect
             }
         }
 
-        html: "<script>console.log(\"This is in WebKit!\"); window.qml.qmlCall();</script>"
+        html: "<script>window.qml.qmlCall();</script>"
     }
     \endqml
 
     The output of the example will be:
     \code
-    This is in WebKit!
     This call is in QML!
     \endcode
 
@@ -772,7 +771,6 @@ void QDeclarativeWebView::setPage(QWebPage* page)
     page->mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
     connect(page->mainFrame(), SIGNAL(urlChanged(QUrl)), this, SLOT(pageUrlChanged()));
     connect(page->mainFrame(), SIGNAL(titleChanged(QString)), this, SIGNAL(titleChanged(QString)));
-    connect(page->mainFrame(), SIGNAL(titleChanged(QString)), this, SIGNAL(iconChanged()));
     connect(page->mainFrame(), SIGNAL(iconChanged()), this, SIGNAL(iconChanged()));
     connect(page->mainFrame(), SIGNAL(initialLayoutCompleted()), this, SLOT(initialLayout()));
     connect(page->mainFrame(), SIGNAL(contentsSizeChanged(QSize)), this, SIGNAL(contentsSizeChanged(QSize)));
@@ -982,6 +980,29 @@ void QDeclarativeWebView::setContentsScale(qreal scale)
     updateDeclarativeWebViewSize();
     emit contentsScaleChanged();
 }
+
+#if QT_VERSION >= 0x040703
+/*!
+    \qmlproperty color WebView::backgroundColor
+    \since QtWebKit 1.1
+    This property holds the background color of the view.
+*/
+
+QColor QDeclarativeWebView::backgroundColor() const
+{
+    return d->view->palette().base().color();
+}
+
+void QDeclarativeWebView::setBackgroundColor(const QColor& color)
+{
+    QPalette palette = d->view->palette();
+    if (palette.base().color() == color)
+        return;
+    palette.setBrush(QPalette::Base, color);
+    d->view->setPalette(palette);
+    emit backgroundColorChanged();
+}
+#endif
 
 /*!
     Returns the area of the largest element at position (\a x,\a y) that is no larger

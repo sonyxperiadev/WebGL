@@ -71,6 +71,7 @@ public:
     float size() const { return m_size; }
 
     FontOrientation orientation() const { return Horizontal; } // FIXME: Implement.
+    void setOrientation(FontOrientation) { } // FIXME: Implement.
 
     unsigned hash() const
     { 
@@ -105,7 +106,7 @@ private:
         HFONT hfont() const { return m_hfont; }
         unsigned hash() const
         {
-            return WTF::StringHasher::createBlobHash<sizeof(HFONT)>(&m_hfont);
+            return StringHasher::hashMemory<sizeof(HFONT)>(&m_hfont);
         }
 
         bool operator==(const RefCountedHFONT& other) const

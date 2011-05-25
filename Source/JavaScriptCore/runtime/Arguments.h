@@ -92,9 +92,9 @@ namespace JSC {
             d->registers = &activation->registerAt(0);
         }
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype) 
+        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype) 
         { 
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); 
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); 
         }
 
     protected:
@@ -237,19 +237,17 @@ namespace JSC {
     // This JSActivation function is defined here so it can get at Arguments::setRegisters.
     inline void JSActivation::copyRegisters(JSGlobalData& globalData)
     {
-        ASSERT(!d()->registerArray);
+        ASSERT(!m_registerArray);
 
-        size_t numParametersMinusThis = d()->functionExecutable->parameterCount();
-        size_t numVars = d()->functionExecutable->capturedVariableCount();
-        size_t numLocals = numVars + numParametersMinusThis;
+        size_t numLocals = m_numCapturedVars + m_numParametersMinusThis;
 
         if (!numLocals)
             return;
 
-        int registerOffset = numParametersMinusThis + RegisterFile::CallFrameHeaderSize;
+        int registerOffset = m_numParametersMinusThis + RegisterFile::CallFrameHeaderSize;
         size_t registerArraySize = numLocals + RegisterFile::CallFrameHeaderSize;
 
-        OwnArrayPtr<WriteBarrier<Unknown> > registerArray = copyRegisterArray(globalData, d()->registers - registerOffset, registerArraySize);
+        OwnArrayPtr<WriteBarrier<Unknown> > registerArray = copyRegisterArray(globalData, m_registers - registerOffset, registerArraySize);
         WriteBarrier<Unknown>* registers = registerArray.get() + registerOffset;
         setRegisters(registers, registerArray.release());
     }

@@ -55,7 +55,9 @@
 #include "RenderWidget.h"
 #include "Settings.h"
 #include "TextIterator.h"
+#include "WebKitAnimationList.h"
 #include "XMLNames.h"
+#include "htmlediting.h"
 #include <wtf/text/CString.h>
 
 #if ENABLE(SVG)
@@ -1199,6 +1201,15 @@ bool Element::childTypeAllowed(NodeType type)
     return false;
 }
 
+static void checkForEmptyStyleChange(Element* element, RenderStyle* style)
+{
+    if (!style)
+        return;
+
+    if (style->affectedByEmpty() && (!style->emptyState() || element->hasChildNodes()))
+        element->setNeedsStyleRecalc();
+}
+
 static void checkForSiblingStyleChanges(Element* e, RenderStyle* style, bool finishedParsingCallback,
                                         Node* beforeChange, Node* afterChange, int childCountDelta)
 {
@@ -1275,17 +1286,18 @@ static void checkForSiblingStyleChanges(Element* e, RenderStyle* style, bool fin
         e->setNeedsStyleRecalc();
     
     // :empty selector.
-    if (style->affectedByEmpty() && (!style->emptyState() || e->hasChildNodes()))
-        e->setNeedsStyleRecalc();
+    checkForEmptyStyleChange(e, style);
 }
 
 void Element::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     ContainerNode::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-    if (!changedByParser)
+    if (changedByParser)
+        checkForEmptyStyleChange(this, renderStyle());
+    else
         checkForSiblingStyleChanges(this, renderStyle(), false, beforeChange, afterChange, childCountDelta);
 }
-    
+
 void Element::beginParsingChildren()
 {
     clearIsParsingChildrenFinished();
@@ -1413,10 +1425,8 @@ PassRefPtr<Attr> Element::removeAttributeNode(Attr* attr, ExceptionCode& ec)
         ec = NOT_FOUND_ERR;
         return 0;
     }
-    if (document() != attr->document()) {
-        ec = WRONG_DOCUMENT_ERR;
-        return 0;
-    }
+
+    ASSERT(document() == attr->document());
 
     NamedNodeMap* attrs = attributes(true);
     if (!attrs)
@@ -1508,6 +1518,9 @@ CSSStyleDeclaration *Element::style()
 
 void Element::focus(bool restorePreviousSelection)
 {
+    if (!inDocument())
+        return;
+
     Document* doc = document();
     if (doc->focusedNode() == this)
         return;
@@ -1558,7 +1571,7 @@ void Element::updateFocusAppearance(bool /*restorePreviousSelection*/)
             return;
 
         // FIXME: We should restore the previous selection if there is one.
-        VisibleSelection newSelection = VisibleSelection(firstPositionInNode(this), DOWNSTREAM);
+        VisibleSelection newSelection = VisibleSelection(firstPositionInOrBeforeNode(this), DOWNSTREAM);
         
         if (frame->selection()->shouldChangeSelection(newSelection)) {
             frame->selection()->setSelection(newSelection);
@@ -1889,6 +1902,19 @@ bool Element::isSpellCheckingEnabled() const
     }
 
     return true;
+}
+
+PassRefPtr<WebKitAnimationList> Element::webkitGetAnimations() const
+{
+    if (!renderer())
+        return 0;
+
+    AnimationController* animController = renderer()->animation();
+
+    if (!animController)
+        return 0;
+    
+    return animController->animationsForRenderer(renderer());
 }
 
 } // namespace WebCore

@@ -695,7 +695,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     if (m_state.fillPattern)
         applyFillPattern();
 
-    bool drawOwnShadow = hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
+    bool drawOwnShadow = !isAcceleratedContext() && hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
     if (drawOwnShadow) {
         float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
         // Turn off CG shadows.
@@ -724,7 +724,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
     if (oldFillColor != color || oldColorSpace != colorSpace)
         setCGFillColor(context, color, colorSpace);
 
-    bool drawOwnShadow = hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
+    bool drawOwnShadow = !isAcceleratedContext() && hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
     if (drawOwnShadow) {
         float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
         // Turn off CG shadows.
@@ -759,7 +759,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     Path path;
     path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
 
-    bool drawOwnShadow = hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
+    bool drawOwnShadow = !isAcceleratedContext() && hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
     if (drawOwnShadow) {
         float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
 
@@ -803,7 +803,7 @@ void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const Rounded
     setFillColor(color, colorSpace);
 
     // fillRectWithRoundedHole() assumes that the edges of rect are clipped out, so we only care about shadows cast around inside the hole.
-    bool drawOwnShadow = hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms;
+    bool drawOwnShadow = !isAcceleratedContext() && hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms;
     if (drawOwnShadow) {
         float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
 
@@ -929,14 +929,16 @@ void GraphicsContext::setPlatformShadow(const FloatSize& offset, float blur, con
 
         CGFloat smallEigenvalue = narrowPrecisionToCGFloat(sqrt(0.5 * ((A + D) - sqrt(4 * B * C + (A - D) * (A - D)))));
 
-        // Extreme "blur" values can make text drawing crash or take crazy long times, so clamp
-        blurRadius = min(blur * smallEigenvalue, narrowPrecisionToCGFloat(1000.0));
+        blurRadius = blur * smallEigenvalue;
 
         CGSize offsetInBaseSpace = CGSizeApplyAffineTransform(offset, userToBaseCTM);
 
         xOffset = offsetInBaseSpace.width;
         yOffset = offsetInBaseSpace.height;
     }
+
+    // Extreme "blur" values can make text drawing crash or take crazy long times, so clamp
+    blurRadius = min(blurRadius, narrowPrecisionToCGFloat(1000.0));
 
     // Work around <rdar://problem/5539388> by ensuring that the offsets will get truncated
     // to the desired integer.
@@ -1343,14 +1345,30 @@ void GraphicsContext::setAllowsFontSmoothing(bool allowsFontSmoothing)
 #endif
 }
 
-void GraphicsContext::setIsCALayerContext(bool)
+void GraphicsContext::setIsCALayerContext(bool isLayerContext)
 {
-    m_data->m_isCALayerContext = true;
+    if (isLayerContext)
+        m_data->m_contextFlags |= IsLayerCGContext;
+    else
+        m_data->m_contextFlags &= ~IsLayerCGContext;
 }
 
 bool GraphicsContext::isCALayerContext() const
 {
-    return m_data->m_isCALayerContext;
+    return m_data->m_contextFlags & IsLayerCGContext;
+}
+
+void GraphicsContext::setIsAcceleratedContext(bool isAccelerated)
+{
+    if (isAccelerated)
+        m_data->m_contextFlags |= IsAcceleratedCGContext;
+    else
+        m_data->m_contextFlags &= ~IsAcceleratedCGContext;
+}
+
+bool GraphicsContext::isAcceleratedContext() const
+{
+    return m_data->m_contextFlags & IsAcceleratedCGContext;
 }
 
 void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)

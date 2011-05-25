@@ -29,11 +29,18 @@
 
 #import "MediaPlayerPrivateQTKit.h"
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#include "ApplicationCacheHost.h"
+#include "ApplicationCacheResource.h"
+#include "DocumentLoader.h"
+#endif
+
 #ifdef BUILDING_ON_TIGER
 #import "AutodrainedPool.h"
 #endif
 
 #import "BlockExceptions.h"
+#import "DocumentLoader.h"
 #import "FrameView.h"
 #import "GraphicsContext.h"
 #import "KURL.h"
@@ -83,6 +90,7 @@ SOFT_LINK_POINTER(QTKit, QTMediaTypeText, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMediaTypeVideo, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieAskUnresolvedDataRefsAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieLoopsAttribute, NSString *)
+SOFT_LINK_POINTER(QTKit, QTMovieDataAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieDataSizeAttribute, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieDidEndNotification, NSString *)
 SOFT_LINK_POINTER(QTKit, QTMovieHasVideoAttribute, NSString *)
@@ -120,6 +128,7 @@ SOFT_LINK_POINTER(QTKit, QTMovieApertureModeAttribute, NSString *)
 #define QTMediaTypeVideo getQTMediaTypeVideo()
 #define QTMovieAskUnresolvedDataRefsAttribute getQTMovieAskUnresolvedDataRefsAttribute()
 #define QTMovieLoopsAttribute getQTMovieLoopsAttribute()
+#define QTMovieDataAttribute getQTMovieDataAttribute()
 #define QTMovieDataSizeAttribute getQTMovieDataSizeAttribute()
 #define QTMovieDidEndNotification getQTMovieDidEndNotification()
 #define QTMovieHasVideoAttribute getQTMovieHasVideoAttribute()
@@ -241,21 +250,26 @@ MediaPlayerPrivateQTKit::~MediaPlayerPrivateQTKit()
     [m_objcObserver.get() disconnect];
 }
 
+NSMutableDictionary* MediaPlayerPrivateQTKit::commonMovieAttributes() 
+{
+    return [NSMutableDictionary dictionaryWithObjectsAndKeys:
+            [NSNumber numberWithBool:m_player->preservesPitch()], QTMovieRateChangesPreservePitchAttribute,
+            [NSNumber numberWithBool:YES], QTMoviePreventExternalURLLinksAttribute,
+            [NSNumber numberWithBool:YES], QTSecurityPolicyNoCrossSiteAttribute,
+            [NSNumber numberWithBool:NO], QTMovieAskUnresolvedDataRefsAttribute,
+            [NSNumber numberWithBool:NO], QTMovieLoopsAttribute,
+            [NSNumber numberWithBool:!m_privateBrowsing], @"QTMovieAllowPersistentCacheAttribute",
+#ifndef BUILDING_ON_TIGER
+            QTMovieApertureModeClean, QTMovieApertureModeAttribute,
+#endif
+            nil];
+}
+
 void MediaPlayerPrivateQTKit::createQTMovie(const String& url)
 {
     NSURL *cocoaURL = KURL(ParsedURLString, url);
-    NSMutableDictionary *movieAttributes = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                       cocoaURL, QTMovieURLAttribute,
-                       [NSNumber numberWithBool:m_player->preservesPitch()], QTMovieRateChangesPreservePitchAttribute,
-                       [NSNumber numberWithBool:YES], QTMoviePreventExternalURLLinksAttribute,
-                       [NSNumber numberWithBool:YES], QTSecurityPolicyNoCrossSiteAttribute,
-                       [NSNumber numberWithBool:NO], QTMovieAskUnresolvedDataRefsAttribute,
-                       [NSNumber numberWithBool:NO], QTMovieLoopsAttribute,
-                       [NSNumber numberWithBool:!m_privateBrowsing], @"QTMovieAllowPersistentCacheAttribute",
-#ifndef BUILDING_ON_TIGER
-                       QTMovieApertureModeClean, QTMovieApertureModeAttribute,
-#endif
-                       nil];
+    NSMutableDictionary *movieAttributes = commonMovieAttributes();    
+    [movieAttributes setValue:cocoaURL forKey:QTMovieURLAttribute];
 
 #if !defined(BUILDING_ON_LEOPARD)
     CFDictionaryRef proxySettings = CFNetworkCopySystemProxySettings();
@@ -289,6 +303,33 @@ void MediaPlayerPrivateQTKit::createQTMovie(const String& url)
 #endif
     
     createQTMovie(cocoaURL, movieAttributes);
+}
+
+void MediaPlayerPrivateQTKit::createQTMovie(ApplicationCacheResource* resource)
+{
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    ASSERT(resource);
+
+    NSMutableDictionary *movieAttributes = commonMovieAttributes();    
+    [movieAttributes setObject:[NSNumber numberWithBool:YES] forKey:@"QTMovieOpenForPlaybackAttribute"];
+    
+    // ApplicationCacheResources can supply either a data pointer, or a path to a locally cached 
+    // flat file.  We would prefer the path over the data, but QTKit can handle either:
+    String localPath = resource->path();
+    NSURL* cocoaURL = !localPath.isEmpty() ? [NSURL fileURLWithPath:localPath isDirectory:NO] : nil;
+    if (cocoaURL)
+        [movieAttributes setValue:cocoaURL forKey:QTMovieURLAttribute];
+    else {
+        NSData* movieData = resource->data()->createNSData();
+        [movieAttributes setValue:movieData forKey:QTMovieDataAttribute];
+        [movieData release];
+    }
+    
+    createQTMovie(cocoaURL, movieAttributes);
+    
+#else
+    ASSERT_NOT_REACHED();
+#endif
 }
 
 static void disableComponentsOnce()
@@ -658,6 +699,14 @@ void MediaPlayerPrivateQTKit::loadInternal(const String& url)
     
     [m_objcObserver.get() setDelayCallbacks:YES];
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    Frame* frame = m_player->frameView() ? m_player->frameView()->frame() : NULL;
+    ApplicationCacheHost* cacheHost = frame ? frame->loader()->documentLoader()->applicationCacheHost() : NULL;
+    ApplicationCacheResource* resource = NULL;
+    if (cacheHost && cacheHost->shouldLoadResourceFromApplicationCache(ResourceRequest(url), resource) && resource)
+        createQTMovie(resource);
+    else
+#endif    
     createQTMovie(url);
 
     [m_objcObserver.get() loadStateChanged:nil];
@@ -827,8 +876,19 @@ IntSize MediaPlayerPrivateQTKit::naturalSize() const
     //    dimensions, aspect ratio, clean aperture, resolution, and so forth, as defined for the 
     //    format used by the resource
     
-    NSSize naturalSize = [[m_qtMovie.get() attributeForKey:QTMovieNaturalSizeAttribute] sizeValue];
-    return IntSize(naturalSize.width * m_scaleFactor.width(), naturalSize.height * m_scaleFactor.height());
+    FloatSize naturalSize([[m_qtMovie.get() attributeForKey:QTMovieNaturalSizeAttribute] sizeValue]);
+    if (naturalSize.isEmpty() && m_isStreaming) {
+        // HTTP Live Streams will occasionally return {0,0} natural sizes while scrubbing.
+        // Work around this problem (<rdar://problem/9078563>) by returning the last valid 
+        // cached natural size:
+        naturalSize = m_cachedNaturalSize;
+    } else {
+        // Unfortunately, due to another QTKit bug (<rdar://problem/9082071>) we won't get a sizeChanged
+        // event when this happens, so we must cache the last valid naturalSize here:
+        m_cachedNaturalSize = naturalSize;
+    }
+        
+    return IntSize(naturalSize.width() * m_scaleFactor.width(), naturalSize.height() * m_scaleFactor.height());
 }
 
 bool MediaPlayerPrivateQTKit::hasVideo() const

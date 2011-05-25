@@ -231,32 +231,37 @@ class BuildBotTest(unittest.TestCase):
             {'name': u'SnowLeopard Intel Release (WebKit2 Tests)', },
             {'name': u'SnowLeopard Intel Leaks', },
             {'name': u'Windows Release (Build)', },
-            {'name': u'Windows Release (Tests)', },
+            {'name': u'Windows 7 Release (Tests)', },
             {'name': u'Windows Debug (Build)', },
-            {'name': u'Windows Debug (Tests)', },
+            {'name': u'Windows XP Debug (Tests)', },
+            {'name': u'Windows 7 Release (WebKit2 Tests)', },
             {'name': u'GTK Linux 32-bit Release', },
             {'name': u'GTK Linux 32-bit Debug', },
             {'name': u'GTK Linux 64-bit Debug', },
-            {'name': u'GTK Linux 64-bit Release', },
             {'name': u'Qt Linux Release', },
             {'name': u'Qt Linux Release minimal', },
             {'name': u'Qt Linux ARMv7 Release', },
             {'name': u'Qt Windows 32-bit Release', },
             {'name': u'Qt Windows 32-bit Debug', },
-            {'name': u'Chromium Linux Release', },
-            {'name': u'Chromium Mac Release', },
             {'name': u'Chromium Win Release', },
-            {'name': u'Chromium Linux Release (Tests)', },
-            {'name': u'Chromium Mac Release (Tests)', },
+            {'name': u'Chromium Mac Release', },
+            {'name': u'Chromium Linux Release', },
             {'name': u'Chromium Win Release (Tests)', },
+            {'name': u'Chromium Mac Release (Tests)', },
+            {'name': u'Chromium Linux Release (Tests)', },
             {'name': u'New run-webkit-tests', },
+            {'name': u'WinCairo Debug (Build)', },
+            {'name': u'WinCE Release (Build)', },
+            {'name': u'EFL Linux Release (Build)', },
         ]
         name_regexps = [
             "SnowLeopard.*Build",
             "SnowLeopard.*\(Test",
             "SnowLeopard.*\(WebKit2 Test",
-            "Leopard.*Release",
+            "Leopard.*",
             "Windows.*Build",
+            "Windows.*\(Test",
+            "WinCairo",
             "WinCE",
             "EFL",
             "GTK.*32",
@@ -267,11 +272,15 @@ class BuildBotTest(unittest.TestCase):
         expected_builders = [
             {'name': u'Leopard Intel Release (Build)', },
             {'name': u'Leopard Intel Release (Tests)', },
+            {'name': u'Leopard Intel Debug (Build)', },
+            {'name': u'Leopard Intel Debug (Tests)', },
             {'name': u'SnowLeopard Intel Release (Build)', },
             {'name': u'SnowLeopard Intel Release (Tests)', },
             {'name': u'SnowLeopard Intel Release (WebKit2 Tests)', },
             {'name': u'Windows Release (Build)', },
+            {'name': u'Windows 7 Release (Tests)', },
             {'name': u'Windows Debug (Build)', },
+            {'name': u'Windows XP Debug (Tests)', },
             {'name': u'GTK Linux 32-bit Release', },
             {'name': u'GTK Linux 32-bit Debug', },
             {'name': u'GTK Linux 64-bit Debug', },
@@ -280,9 +289,12 @@ class BuildBotTest(unittest.TestCase):
             {'name': u'Qt Linux ARMv7 Release', },
             {'name': u'Qt Windows 32-bit Release', },
             {'name': u'Qt Windows 32-bit Debug', },
-            {'name': u'Chromium Linux Release', },
-            {'name': u'Chromium Mac Release', },
             {'name': u'Chromium Win Release', },
+            {'name': u'Chromium Mac Release', },
+            {'name': u'Chromium Linux Release', },
+            {'name': u'WinCairo Debug (Build)', },
+            {'name': u'WinCE Release (Build)', },
+            {'name': u'EFL Linux Release (Build)', },
         ]
 
         # This test should probably be updated if the default regexp list changes
@@ -409,6 +421,33 @@ class BuildBotTest(unittest.TestCase):
             return self._fake_builds_at_index(0)
         buildbot._latest_builds_from_builders = mock_builds_from_builders
         self.assertEqual(buildbot.last_green_revision(), 1)
+
+    def _fetch_build(self, build_number):
+        if build_number == 5:
+            return "correct build"
+        return "wrong build"
+
+    def _fetch_revision_to_build_map(self):
+        return {'r5': 5, 'r2': 2, 'r3': 3}
+
+    def test_latest_cached_build(self):
+        b = Builder('builder', BuildBot())
+        b._fetch_build = self._fetch_build
+        b._fetch_revision_to_build_map = self._fetch_revision_to_build_map
+        self.assertEquals("correct build", b.latest_cached_build())
+
+    def results_url(self):
+        return "some-url"
+
+    def test_results_zip_url(self):
+        b = Build(None, 123, 123, False)
+        b.results_url = self.results_url
+        self.assertEquals("some-url.zip", b.results_zip_url())
+
+    def test_results(self):
+        builder = Builder('builder', BuildBot())
+        b = Build(builder, 123, 123, True)
+        self.assertTrue(b.results())
 
 
 if __name__ == '__main__':

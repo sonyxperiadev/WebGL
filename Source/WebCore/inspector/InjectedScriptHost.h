@@ -43,6 +43,11 @@ namespace WebCore {
 
 class Database;
 class InjectedScript;
+class InspectorAgent;
+class InspectorConsoleAgent;
+class InspectorDOMStorageAgent;
+class InspectorDatabaseAgent;
+class InspectorDebuggerAgent;
 class InspectorFrontend;
 class InspectorObject;
 class Node;
@@ -53,62 +58,80 @@ class Storage;
 class InjectedScriptHost : public RefCounted<InjectedScriptHost>
 {
 public:
-    static PassRefPtr<InjectedScriptHost> create(InspectorAgent* inspectorAgent)
+    static PassRefPtr<InjectedScriptHost> create();
+    ~InjectedScriptHost();
+
+    void init(InspectorAgent* inspectorAgent
+            , InspectorConsoleAgent* consoleAgent
+#if ENABLE(DATABASE)
+            , InspectorDatabaseAgent* databaseAgent
+#endif
+#if ENABLE(DOM_STORAGE)
+            , InspectorDOMStorageAgent* domStorageAgent
+#endif
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+            , InspectorDebuggerAgent* debuggerAgent
+#endif
+        )
     {
-        return adoptRef(new InjectedScriptHost(inspectorAgent));
+        m_inspectorAgent = inspectorAgent;
+        m_consoleAgent = consoleAgent;
+#if ENABLE(DATABASE)
+        m_databaseAgent = databaseAgent;
+#endif
+#if ENABLE(DOM_STORAGE)
+        m_domStorageAgent = domStorageAgent;
+#endif
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+        m_debuggerAgent = debuggerAgent;
+#endif
     }
+    void setFrontend(InspectorFrontend* frontend) { m_frontend = frontend; }
+    void clearFrontend() { m_frontend = 0; }
 
     static Node* scriptValueAsNode(ScriptValue);
     static ScriptValue nodeAsScriptValue(ScriptState*, Node*);
 
-    ~InjectedScriptHost();
-
-    InspectorAgent* inspectorAgent() { return m_inspectorAgent; }
-    void disconnectController() { m_inspectorAgent = 0; }
-
-    void inspectImpl(PassRefPtr<InspectorValue> objectId, PassRefPtr<InspectorValue> hints);
-    void clearConsoleMessages();
+    void disconnect();
 
     void addInspectedNode(Node*);
     void clearInspectedNodes();
 
+    void inspectImpl(PassRefPtr<InspectorValue> objectToInspect, PassRefPtr<InspectorValue> hints);
+    void clearConsoleMessages();
     void copyText(const String& text);
-    Node* inspectedNode(unsigned long num);
-
+    Node* inspectedNode(unsigned int num);
 #if ENABLE(DATABASE)
-    long databaseIdImpl(Database*);
+    int databaseIdImpl(Database*);
 #endif
 #if ENABLE(DOM_STORAGE)
-    long storageIdImpl(Storage*);
+    int storageIdImpl(Storage*);
 #endif
 #if ENABLE(WORKERS)
     long nextWorkerId();
     void didCreateWorker(long id, const String& url, bool isSharedWorker);
     void didDestroyWorker(long id);
 #endif
-
-    pair<long, ScriptObject> injectScript(const String& source, ScriptState*);
-    InjectedScript injectedScriptFor(ScriptState*);
-    InjectedScript injectedScriptForId(long);
-    InjectedScript injectedScriptForObjectId(InspectorObject* objectId);
-    InjectedScript injectedScriptForMainFrame();
-    void discardInjectedScripts();
-    void releaseObjectGroup(long injectedScriptId, const String& objectGroup);
-
-    static bool canAccessInspectedWindow(ScriptState*);
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    InspectorDebuggerAgent* debuggerAgent() { return m_debuggerAgent; }
+#endif
 
 private:
-    InjectedScriptHost(InspectorAgent*);
-    InspectorFrontend* frontend();
-    String injectedScriptSource();
-    ScriptObject createInjectedScript(const String& source, ScriptState* scriptState, long id);
-    void discardInjectedScript(ScriptState*);
+    InjectedScriptHost();
 
     InspectorAgent* m_inspectorAgent;
-    long m_nextInjectedScriptId;
+    InspectorConsoleAgent* m_consoleAgent;
+#if ENABLE(DATABASE)
+    InspectorDatabaseAgent* m_databaseAgent;
+#endif
+#if ENABLE(DOM_STORAGE)
+    InspectorDOMStorageAgent* m_domStorageAgent;
+#endif
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    InspectorDebuggerAgent* m_debuggerAgent;
+#endif
+    InspectorFrontend* m_frontend;
     long m_lastWorkerId;
-    typedef HashMap<long, InjectedScript> IdToInjectedScriptMap;
-    IdToInjectedScriptMap m_idToInjectedScript;
     Vector<RefPtr<Node> > m_inspectedNodes;
 };
 

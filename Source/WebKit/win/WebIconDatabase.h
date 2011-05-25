@@ -28,12 +28,9 @@
 
 #include "WebKit.h"
 
-#pragma warning(push, 0)
 #include <WebCore/IconDatabaseClient.h>
 #include <WebCore/IntSize.h>
 #include <WebCore/IntSizeHash.h>
-#pragma warning(pop)
-
 #include <wtf/Vector.h>
 #include <wtf/Threading.h>
 
@@ -107,8 +104,12 @@ public:
         /* [retval][out] */ BOOL* result);
 
     // IconDatabaseClient
-    virtual void dispatchDidRemoveAllIcons();
-    virtual void dispatchDidAddIconForPageURL(const WTF::String&);
+    virtual bool performImport();
+    virtual void didRemoveAllIcons();
+    virtual void didImportIconURLForPageURL(const WTF::String&);
+    virtual void didImportIconDataForPageURL(const WTF::String&);
+    virtual void didChangeIconForPageURL(const WTF::String&);
+    virtual void didFinishURLImport();
 
     static BSTR iconDatabaseDidAddIconNotification();
     static BSTR iconDatabaseDidRemoveAllIconsNotification();

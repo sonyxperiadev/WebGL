@@ -303,7 +303,7 @@ void RenderBoxModelObject::styleWillChange(StyleDifference diff, const RenderSty
                 repaint();
         }
         
-        if (diff == StyleDifferenceLayout) {
+        if (diff == StyleDifferenceLayout || diff == StyleDifferenceSimplifiedLayout) {
             // When a layout hint happens, we go ahead and do a repaint of the layer, since the layer could
             // end up being destroyed.
             if (hasLayer()) {
@@ -346,8 +346,10 @@ void RenderBoxModelObject::styleDidChange(StyleDifference diff, const RenderStyl
             m_layer = new (renderArena()) RenderLayer(this);
             setHasLayer(true);
             m_layer->insertOnlyThisLayer();
-            if (parent() && !needsLayout() && containingBlock())
+            if (parent() && !needsLayout() && containingBlock()) {
+                m_layer->setNeedsFullRepaint();
                 m_layer->updateLayerPositions();
+            }
         }
     } else if (layer() && layer()->parent()) {
         setHasTransform(false); // Either a transform wasn't specified or the object doesn't support transforms, so just null out the bit.
@@ -371,6 +373,7 @@ void RenderBoxModelObject::updateBoxModelInfoFromStyle()
     setHasBoxDecorations(hasBackground() || style()->hasBorder() || style()->hasAppearance() || style()->boxShadow());
     setInline(style()->isDisplayInlineType());
     setRelPositioned(style()->position() == RelativePosition);
+    setHorizontalWritingMode(style()->isHorizontalWritingMode());
 }
 
 int RenderBoxModelObject::relativePositionOffsetX() const

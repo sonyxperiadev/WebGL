@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
@@ -35,6 +35,7 @@
 #include "FrameLoaderStateMachine.h"
 #include "FrameLoaderTypes.h"
 #include "HistoryController.h"
+#include "IconDatabaseBase.h"
 #include "PolicyChecker.h"
 #include "ResourceLoadNotifier.h"
 #include "SubframeLoader.h"
@@ -289,12 +290,12 @@ public:
 
     FrameLoaderStateMachine* stateMachine() const { return &m_stateMachine; }
 
-    void iconLoadDecisionAvailable();
+    void startIconLoader();
+    void iconLoadDecisionReceived(IconLoadDecision);
+    void continueIconLoadWithDecision(IconLoadDecision);
 
     bool shouldAllowNavigation(Frame* targetFrame) const;
     Frame* findFrameForNavigation(const AtomicString& name);
-
-    void startIconLoader();
 
     void applyUserAgent(ResourceRequest& request);
 
@@ -322,7 +323,7 @@ public:
     
     bool suppressOpenerInNewFrame() const { return m_suppressOpenerInNewFrame; }
 
-    static ObjectContentType defaultObjectContentType(const KURL& url, const String& mimeType);
+    static ObjectContentType defaultObjectContentType(const KURL&, const String& mimeType, bool shouldPreferPlugInsForImages);
 
     void clear(bool clearWindowProperties = true, bool clearScriptObjects = true, bool clearFrameView = true);
 

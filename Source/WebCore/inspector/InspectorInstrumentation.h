@@ -48,6 +48,7 @@ class EventContext;
 class DocumentLoader;
 class HitTestResult;
 class InspectorAgent;
+class InspectorPageAgent;
 class InspectorResourceAgent;
 class InspectorTimelineAgent;
 class KURL;
@@ -110,15 +111,14 @@ public:
     static void didRecalculateStyle(const InspectorInstrumentationCookie&);
 
     static void applyUserAgentOverride(Frame*, String*);
-    static void identifierForInitialRequest(Frame*, unsigned long identifier, DocumentLoader*, const ResourceRequest&);
-    static void willSendRequest(Frame*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
+    static void willSendRequest(Frame*, unsigned long identifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     static void markResourceAsCached(Page*, unsigned long identifier);
     static void didLoadResourceFromMemoryCache(Page*, DocumentLoader*, const CachedResource*);
     static InspectorInstrumentationCookie willReceiveResourceData(Frame*, unsigned long identifier);
     static void didReceiveResourceData(const InspectorInstrumentationCookie&);
     static InspectorInstrumentationCookie willReceiveResourceResponse(Frame*, unsigned long identifier, const ResourceResponse&);
     static void didReceiveResourceResponse(const InspectorInstrumentationCookie&, unsigned long identifier, DocumentLoader*, const ResourceResponse&);
-    static void didReceiveContentLength(Frame*, unsigned long identifier, int lengthReceived);
+    static void didReceiveContentLength(Frame*, unsigned long identifier, int dataLength, int lengthReceived);
     static void didFinishLoading(Frame*, unsigned long identifier, double finishTime);
     static void didFailLoading(Frame*, unsigned long identifier, const ResourceError&);
     static void resourceRetrievedByXMLHttpRequest(ScriptExecutionContext*, unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
@@ -227,15 +227,14 @@ private:
     static void didRecalculateStyleImpl(const InspectorInstrumentationCookie&);
 
     static void applyUserAgentOverrideImpl(InspectorAgent*, String*);
-    static void identifierForInitialRequestImpl(InspectorAgent*, unsigned long identifier, DocumentLoader*, const ResourceRequest&);
-    static void willSendRequestImpl(InspectorAgent*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
+    static void willSendRequestImpl(InspectorAgent*, unsigned long identifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     static void markResourceAsCachedImpl(InspectorAgent*, unsigned long identifier);
     static void didLoadResourceFromMemoryCacheImpl(InspectorAgent*, DocumentLoader*, const CachedResource*);
     static InspectorInstrumentationCookie willReceiveResourceDataImpl(InspectorAgent*, unsigned long identifier);
     static void didReceiveResourceDataImpl(const InspectorInstrumentationCookie&);
     static InspectorInstrumentationCookie willReceiveResourceResponseImpl(InspectorAgent*, unsigned long identifier, const ResourceResponse&);
     static void didReceiveResourceResponseImpl(const InspectorInstrumentationCookie&, unsigned long identifier, DocumentLoader*, const ResourceResponse&);
-    static void didReceiveContentLengthImpl(InspectorAgent*, unsigned long identifier, int lengthReceived);
+    static void didReceiveContentLengthImpl(InspectorAgent*, unsigned long identifier, int dataLength, int lengthReceived);
     static void didFinishLoadingImpl(InspectorAgent*, unsigned long identifier, double finishTime);
     static void didFailLoadingImpl(InspectorAgent*, unsigned long identifier, const ResourceError&);
     static void resourceRetrievedByXMLHttpRequestImpl(InspectorAgent*, unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
@@ -301,6 +300,7 @@ private:
     static InspectorTimelineAgent* retrieveTimelineAgent(InspectorAgent*);
     static InspectorTimelineAgent* retrieveTimelineAgent(const InspectorInstrumentationCookie&);
     static InspectorResourceAgent* retrieveResourceAgent(InspectorAgent*);
+    static InspectorPageAgent* retrievePageAgent(InspectorAgent*);
 
     static HashMap<Page*, InspectorAgent*>& inspectorAgents();
     static int s_frontendCounter;
@@ -601,17 +601,6 @@ inline void InspectorInstrumentation::didRecalculateStyle(const InspectorInstrum
 #endif
 }
 
-inline void InspectorInstrumentation::identifierForInitialRequest(Frame* frame, unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
-{
-#if ENABLE(INSPECTOR)
-    // This notification should be procecessed even in cases there is no frontend.
-    if (!frame)
-        return;
-    if (InspectorAgent* ic = inspectorAgentForPage(frame->page()))
-        identifierForInitialRequestImpl(ic, identifier, loader, request);
-#endif
-}
-
 inline void InspectorInstrumentation::applyUserAgentOverride(Frame* frame, String* userAgent)
 {
 #if ENABLE(INSPECTOR)
@@ -620,11 +609,11 @@ inline void InspectorInstrumentation::applyUserAgentOverride(Frame* frame, Strin
 #endif
 }
 
-inline void InspectorInstrumentation::willSendRequest(Frame* frame, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
+inline void InspectorInstrumentation::willSendRequest(Frame* frame, unsigned long identifier, DocumentLoader* loader, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
 #if ENABLE(INSPECTOR)
     if (InspectorAgent* ic = inspectorAgentWithFrontendForFrame(frame))
-        willSendRequestImpl(ic, identifier, request, redirectResponse);
+        willSendRequestImpl(ic, identifier, loader, request, redirectResponse);
 #endif
 }
 
@@ -671,16 +660,16 @@ inline InspectorInstrumentationCookie InspectorInstrumentation::willReceiveResou
 inline void InspectorInstrumentation::didReceiveResourceResponse(const InspectorInstrumentationCookie& cookie, unsigned long identifier, DocumentLoader* loader, const ResourceResponse& response)
 {
 #if ENABLE(INSPECTOR)
-    if (hasFrontends() && cookie.first)
-        didReceiveResourceResponseImpl(cookie, identifier, loader, response);
+    // Call this unconditionally so that we're able to log to console with no front-end attached.
+    didReceiveResourceResponseImpl(cookie, identifier, loader, response);
 #endif
 }
 
-inline void InspectorInstrumentation::didReceiveContentLength(Frame* frame, unsigned long identifier, int lengthReceived)
+inline void InspectorInstrumentation::didReceiveContentLength(Frame* frame, unsigned long identifier, int dataLength, int lengthReceived)
 {
 #if ENABLE(INSPECTOR)
     if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForFrame(frame))
-        didReceiveContentLengthImpl(inspectorAgent, identifier, lengthReceived);
+        didReceiveContentLengthImpl(inspectorAgent, identifier, dataLength, lengthReceived);
 #endif
 }
 
@@ -695,7 +684,7 @@ inline void InspectorInstrumentation::didFinishLoading(Frame* frame, unsigned lo
 inline void InspectorInstrumentation::didFailLoading(Frame* frame, unsigned long identifier, const ResourceError& error)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForFrame(frame))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(frame))
         didFailLoadingImpl(inspectorAgent, identifier, error);
 #endif
 }

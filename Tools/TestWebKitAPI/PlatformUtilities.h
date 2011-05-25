@@ -43,6 +43,7 @@ WKContextRef createContextForInjectedBundleTest(const std::string&, WKTypeRef us
 WKStringRef createInjectedBundlePath();
 WKURLRef createURLForResource(const char* resource, const char* extension);
 WKURLRef URLForNonExistentResource();
+WKRetainPtr<WKStringRef> MIMETypeForWKURLResponse(WKURLResponseRef);
 
 bool isKeyDown(WKNativeEventPtr);
 

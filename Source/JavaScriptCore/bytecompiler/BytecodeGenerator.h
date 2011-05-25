@@ -291,7 +291,7 @@ namespace JSC {
         RegisterID* emitLazyNewFunction(RegisterID* dst, FunctionBodyNode* body);
         RegisterID* emitNewFunctionInternal(RegisterID* dst, unsigned index, bool shouldNullCheck);
         RegisterID* emitNewFunctionExpression(RegisterID* dst, FuncExprNode* func);
-        RegisterID* emitNewRegExp(RegisterID* dst, RegExp* regExp);
+        RegisterID* emitNewRegExp(RegisterID* dst, PassRefPtr<RegExp> regExp);
 
         RegisterID* emitMove(RegisterID* dst, RegisterID* src);
 
@@ -396,12 +396,6 @@ namespace JSC {
 
         CodeType codeType() const { return m_codeType; }
 
-        void setRegeneratingForExceptionInfo(CodeBlock* originalCodeBlock)
-        {
-            m_regeneratingForExceptionInfo = true;
-            m_codeBlockBeingRegeneratedFrom = originalCodeBlock;
-        }
-
         bool shouldEmitProfileHooks() { return m_shouldEmitProfileHooks; }
         
         bool isStrictMode() const { return m_codeBlock->isStrictMode(); }
@@ -481,14 +475,14 @@ namespace JSC {
 
         unsigned addConstant(const Identifier&);
         RegisterID* addConstantValue(JSValue);
-        unsigned addRegExp(RegExp*);
+        unsigned addRegExp(PassRefPtr<RegExp>);
 
-        PassRefPtr<FunctionExecutable> makeFunction(ExecState* exec, FunctionBodyNode* body)
+        FunctionExecutable* makeFunction(ExecState* exec, FunctionBodyNode* body)
         {
             return FunctionExecutable::create(exec, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->isStrictMode(), body->lineNo(), body->lastLine());
         }
 
-        PassRefPtr<FunctionExecutable> makeFunction(JSGlobalData* globalData, FunctionBodyNode* body)
+        FunctionExecutable* makeFunction(JSGlobalData* globalData, FunctionBodyNode* body)
         {
             return FunctionExecutable::create(globalData, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->isStrictMode(), body->lineNo(), body->lastLine());
         }
@@ -577,8 +571,6 @@ namespace JSC {
         StackBounds m_stack;
 
         bool m_usesExceptions;
-        bool m_regeneratingForExceptionInfo;
-        CodeBlock* m_codeBlockBeingRegeneratedFrom;
         bool m_expressionTooDeep;
     };
 

@@ -38,18 +38,19 @@ class PluginLayerChromium : public LayerChromium {
 public:
     static PassRefPtr<PluginLayerChromium> create(GraphicsLayerChromium* owner = 0);
     virtual bool drawsContent() const { return true; }
-    virtual void updateContentsIfDirty();
-    virtual void draw();
-    
+
+    virtual PassRefPtr<CCLayerImpl> createCCLayerImpl();
+
     void setTextureId(unsigned textureId);
-        
-    typedef ProgramBinding<VertexShaderPosTex, FragmentShaderRGBATexFlipAlpha> Program;
+    unsigned textureId() const { return m_textureId; }
+
+    virtual void pushPropertiesTo(CCLayerImpl*);
 
 protected:
     virtual const char* layerTypeAsString() const { return "PluginLayer"; }
 
 private:
-    PluginLayerChromium(GraphicsLayerChromium* owner);
+    explicit PluginLayerChromium(GraphicsLayerChromium* owner);
     unsigned m_textureId;
 };
 

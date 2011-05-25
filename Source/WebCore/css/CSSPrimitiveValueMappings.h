@@ -39,6 +39,7 @@
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
 #include "TextDirection.h"
+#include "TextOrientation.h"
 #include "TextRenderingMode.h"
 #include "ThemeTypes.h"
 
@@ -1616,30 +1617,36 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ETextAlign e)
     , m_hasCachedCSSText(false)
 {
     switch (e) {
-        case TAAUTO:
-            m_value.ident = CSSValueWebkitAuto;
-            break;
-        case LEFT:
-            m_value.ident = CSSValueLeft;
-            break;
-        case RIGHT:
-            m_value.ident = CSSValueRight;
-            break;
-        case CENTER:
-            m_value.ident = CSSValueCenter;
-            break;
-        case JUSTIFY:
-            m_value.ident = CSSValueJustify;
-            break;
-        case WEBKIT_LEFT:
-            m_value.ident = CSSValueWebkitLeft;
-            break;
-        case WEBKIT_RIGHT:
-            m_value.ident = CSSValueWebkitRight;
-            break;
-        case WEBKIT_CENTER:
-            m_value.ident = CSSValueWebkitCenter;
-            break;
+    case TAAUTO:
+        m_value.ident = CSSValueWebkitAuto;
+        break;
+    case TASTART:
+        m_value.ident = CSSValueStart;
+        break;
+    case TAEND:
+        m_value.ident = CSSValueEnd;
+        break;
+    case LEFT:
+        m_value.ident = CSSValueLeft;
+        break;
+    case RIGHT:
+        m_value.ident = CSSValueRight;
+        break;
+    case CENTER:
+        m_value.ident = CSSValueCenter;
+        break;
+    case JUSTIFY:
+        m_value.ident = CSSValueJustify;
+        break;
+    case WEBKIT_LEFT:
+        m_value.ident = CSSValueWebkitLeft;
+        break;
+    case WEBKIT_RIGHT:
+        m_value.ident = CSSValueWebkitRight;
+        break;
+    case WEBKIT_CENTER:
+        m_value.ident = CSSValueWebkitCenter;
+        break;
     }
 }
 
@@ -1647,9 +1654,9 @@ template<> inline CSSPrimitiveValue::operator ETextAlign() const
 {
     switch (m_value.ident) {
         case CSSValueStart:
+            return TASTART;
         case CSSValueEnd:
-            ASSERT_NOT_REACHED(); // Depends on direction, thus should be handled by the caller.
-            return LEFT;
+            return TAEND;
         default:
             return static_cast<ETextAlign>(m_value.ident - CSSValueWebkitAuto);
     }
@@ -1734,30 +1741,34 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EUnicodeBidi e)
     , m_hasCachedCSSText(false)
 {
     switch (e) {
-        case UBNormal:
-            m_value.ident = CSSValueNormal;
-            break;
-        case Embed:
-            m_value.ident = CSSValueEmbed;
-            break;
-        case Override:
-            m_value.ident = CSSValueBidiOverride;
-            break;
+    case UBNormal:
+        m_value.ident = CSSValueNormal;
+        break;
+    case Embed:
+        m_value.ident = CSSValueEmbed;
+        break;
+    case Override:
+        m_value.ident = CSSValueBidiOverride;
+        break;
+    case Isolate:
+        m_value.ident = CSSValueWebkitIsolate;
     }
 }
 
 template<> inline CSSPrimitiveValue::operator EUnicodeBidi() const
 {
     switch (m_value.ident) {
-        case CSSValueNormal:
-            return UBNormal; 
-        case CSSValueEmbed:
-            return Embed; 
-        case CSSValueBidiOverride:
-            return Override;
-        default:
-            ASSERT_NOT_REACHED();
-            return UBNormal;
+    case CSSValueNormal:
+        return UBNormal;
+    case CSSValueEmbed:
+        return Embed;
+    case CSSValueBidiOverride:
+        return Override;
+    case CSSValueWebkitIsolate:
+        return Isolate;
+    default:
+        ASSERT_NOT_REACHED();
+        return UBNormal;
     }
 }
 
@@ -2174,6 +2185,33 @@ template<> inline CSSPrimitiveValue::operator TextEmphasisMark() const
     default:
         ASSERT_NOT_REACHED();
         return TextEmphasisMarkNone;
+    }
+}
+
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextOrientation e)
+    : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
+{
+    switch (e) {
+    case TextOrientationVerticalRight:
+        m_value.ident = CSSValueVerticalRight;
+        break;
+    case TextOrientationUpright:
+        m_value.ident = CSSValueUpright;
+        break;
+    }
+}
+
+template<> inline CSSPrimitiveValue::operator TextOrientation() const
+{
+    switch (m_value.ident) {
+    case CSSValueVerticalRight:
+        return TextOrientationVerticalRight;
+    case CSSValueUpright:
+        return TextOrientationUpright;
+    default:
+        ASSERT_NOT_REACHED();
+        return TextOrientationVerticalRight;
     }
 }
 

@@ -38,6 +38,10 @@
 #import "FrameLoaderClient.h"
 #import "HitTestResult.h"
 #import "HTMLAnchorElement.h"
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#import "HTMLConverter.h"
+#endif
+#import "htmlediting.h"
 #import "HTMLNames.h"
 #import "Image.h"
 #import "KURL.h"
@@ -144,9 +148,30 @@ void Pasteboard::writeSelection(NSPasteboard* pasteboard, NSArray* pasteboardTyp
         Pasteboard::generalPasteboard(); // Initializes pasteboard types.
     ASSERT(selectedRange);
     
+    // If the selection is at the beginning of content inside an anchor tag
+    // we move the selection start to include the anchor.
+    // This way the attributed string will contain the url attribute as well.
+    // See <rdar://problem/9084267>.
+    ExceptionCode ec;
+    Node* commonAncestor = selectedRange->commonAncestorContainer(ec);
+    ASSERT(commonAncestor);
+    Node* enclosingAnchor = enclosingNodeWithTag(firstPositionInNode(commonAncestor), HTMLNames::aTag);
+    if (enclosingAnchor && comparePositions(firstPositionInOrBeforeNode(selectedRange->startPosition().anchorNode()), selectedRange->startPosition()) >= 0)
+        selectedRange->setStart(enclosingAnchor, 0, ec);
+
     // Using different API for WebKit and WebKit2.
-    // FIXME - We need to have a way to create the NSAttributedString for WebKit2 that doesn't require accessing the WebFrame.
-    NSAttributedString *attributedString = (frame->view()->platformWidget()) ? [[[NSAttributedString alloc] _initWithDOMRange:kit(selectedRange)] autorelease] : [[[NSAttributedString alloc] initWithString:selectedRange->text()] autorelease];
+    NSAttributedString *attributedString = nil;
+    if (frame->view()->platformWidget())
+        attributedString = [[[NSAttributedString alloc] _initWithDOMRange:kit(selectedRange)] autorelease];
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+    else {
+        // In WebKit2 we are using a different way to create the NSAttributedString from the DOMrange that doesn't require access to the WebView.
+        RetainPtr<WebHTMLConverter> converter = [[WebHTMLConverter alloc] initWithDOMRange:kit(selectedRange)];
+        if (converter)
+            attributedString = [converter.get() attributedString];
+    }
+#endif
+
 #ifdef BUILDING_ON_TIGER
     // 4930197: Mail overrides [WebHTMLView pasteboardTypesForSelection] in order to add another type to the pasteboard
     // after WebKit does.  On Tiger we must call this function so that Mail code will be executed, meaning that 

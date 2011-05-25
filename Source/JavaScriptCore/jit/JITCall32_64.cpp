@@ -49,10 +49,10 @@ namespace JSC {
 void JIT::compileOpCallInitializeCallFrame()
 {
     // regT0 holds callee, regT1 holds argCount
-    store32(regT1, Address(callFrameRegister, RegisterFile::ArgumentCount * static_cast<int>(sizeof(Register))));
     loadPtr(Address(regT0, OBJECT_OFFSETOF(JSFunction, m_scopeChain)), regT3); // scopeChain
-    storePtr(regT0, Address(callFrameRegister, RegisterFile::Callee * static_cast<int>(sizeof(Register)))); // callee
-    storePtr(regT3, Address(callFrameRegister, RegisterFile::ScopeChain * static_cast<int>(sizeof(Register)))); // scopeChain
+    emitPutIntToCallFrameHeader(regT1, RegisterFile::ArgumentCount);
+    emitPutCellToCallFrameHeader(regT0, RegisterFile::Callee);
+    emitPutCellToCallFrameHeader(regT3, RegisterFile::ScopeChain);
 }
 
 void JIT::emit_op_call_put_result(Instruction* instruction)
@@ -72,12 +72,13 @@ void JIT::compileOpCallVarargs(Instruction* instruction)
     addPtr(Imm32(registerOffset), regT2, regT3); // registerOffset
 
     emitJumpSlowCaseIfNotJSCell(callee, regT1);
-    addSlowCase(branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsFunctionVPtr)));
+    addSlowCase(branchPtr(NotEqual, Address(regT0), TrustedImmPtr(m_globalData->jsFunctionVPtr)));
 
     // Speculatively roll the callframe, assuming argCount will match the arity.
-    mul32(Imm32(sizeof(Register)), regT3, regT3);
+    mul32(TrustedImm32(sizeof(Register)), regT3, regT3);
     addPtr(callFrameRegister, regT3);
-    storePtr(callFrameRegister, Address(regT3, RegisterFile::CallerFrame * static_cast<int>(sizeof(Register))));
+    store32(TrustedImm32(JSValue::CellTag), tagFor(RegisterFile::CallerFrame, regT3));
+    storePtr(callFrameRegister, payloadFor(RegisterFile::CallerFrame, regT3));
     move(regT3, callFrameRegister);
 
     move(regT2, regT1); // argCount
@@ -121,9 +122,9 @@ void JIT::emit_op_ret_object_or_this(Instruction* currentInstruction)
     unsigned thisReg = currentInstruction[2].u.operand;
 
     emitLoad(result, regT1, regT0);
-    Jump notJSCell = branch32(NotEqual, regT1, Imm32(JSValue::CellTag));
-    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
-    Jump notObject = branch8(NotEqual, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo) + OBJECT_OFFSETOF(TypeInfo, m_type)), Imm32(ObjectType));
+    Jump notJSCell = branch32(NotEqual, regT1, TrustedImm32(JSValue::CellTag));
+    loadPtr(Address(regT0, JSCell::structureOffset()), regT2);
+    Jump notObject = branch8(NotEqual, Address(regT2, Structure::typeInfoTypeOffset()), TrustedImm32(ObjectType));
 
     emitGetFromCallFrameHeaderPtr(RegisterFile::ReturnPC, regT2);
     emitGetFromCallFrameHeaderPtr(RegisterFile::CallerFrame, callFrameRegister);
@@ -199,18 +200,19 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned)
         stubCall.addArgument(JIT::Imm32(registerOffset));
         stubCall.addArgument(JIT::Imm32(argCount));
         stubCall.call();
-        wasEval = branch32(NotEqual, regT1, Imm32(JSValue::EmptyValueTag));
+        wasEval = branch32(NotEqual, regT1, TrustedImm32(JSValue::EmptyValueTag));
     }
 
     emitLoad(callee, regT1, regT0);
 
     emitJumpSlowCaseIfNotJSCell(callee, regT1);
-    addSlowCase(branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsFunctionVPtr)));
+    addSlowCase(branchPtr(NotEqual, Address(regT0), TrustedImmPtr(m_globalData->jsFunctionVPtr)));
 
     // Speculatively roll the callframe, assuming argCount will match the arity.
-    storePtr(callFrameRegister, Address(callFrameRegister, (RegisterFile::CallerFrame + registerOffset) * static_cast<int>(sizeof(Register))));
+    store32(TrustedImm32(JSValue::CellTag), tagFor(RegisterFile::CallerFrame + registerOffset, callFrameRegister));
+    storePtr(callFrameRegister, payloadFor(RegisterFile::CallerFrame + registerOffset, callFrameRegister));
     addPtr(Imm32(registerOffset * static_cast<int>(sizeof(Register))), callFrameRegister);
-    move(Imm32(argCount), regT1);
+    move(TrustedImm32(argCount), regT1);
 
     emitNakedCall(opcodeID == op_construct ? m_globalData->jitStubs->ctiVirtualConstruct() : m_globalData->jitStubs->ctiVirtualCall());
 
@@ -255,7 +257,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
         stubCall.addArgument(JIT::Imm32(registerOffset));
         stubCall.addArgument(JIT::Imm32(argCount));
         stubCall.call();
-        wasEval = branch32(NotEqual, regT1, Imm32(JSValue::EmptyValueTag));
+        wasEval = branch32(NotEqual, regT1, TrustedImm32(JSValue::EmptyValueTag));
     }
 
     emitLoad(callee, regT1, regT0);
@@ -264,7 +266,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
 
     BEGIN_UNINTERRUPTED_SEQUENCE(sequenceOpCall);
 
-    Jump jumpToSlow = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, ImmPtr(0));
+    Jump jumpToSlow = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, TrustedImmPtr(0));
 
     END_UNINTERRUPTED_SEQUENCE(sequenceOpCall);
 
@@ -272,7 +274,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     ASSERT_JIT_OFFSET(differenceBetween(addressOfLinkedFunctionCheck, jumpToSlow), patchOffsetOpCallCompareToJump);
     m_callStructureStubCompilationInfo[callLinkInfoIndex].hotPathBegin = addressOfLinkedFunctionCheck;
 
-    addSlowCase(branch32(NotEqual, regT1, Imm32(JSValue::CellTag)));
+    addSlowCase(branch32(NotEqual, regT1, TrustedImm32(JSValue::CellTag)));
 
     // The following is the fast case, only used whan a callee can be linked.
 
@@ -280,10 +282,12 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     // Note that this omits to set up RegisterFile::CodeBlock, which is set in the callee
     loadPtr(Address(regT0, OBJECT_OFFSETOF(JSFunction, m_scopeChain)), regT2);
 
-    store32(Imm32(argCount), Address(callFrameRegister, (registerOffset + RegisterFile::ArgumentCount) * static_cast<int>(sizeof(Register))));
-    storePtr(callFrameRegister, Address(callFrameRegister, (registerOffset + RegisterFile::CallerFrame) * static_cast<int>(sizeof(Register))));
+    store32(TrustedImm32(JSValue::Int32Tag), tagFor(registerOffset + RegisterFile::ArgumentCount));
+    store32(Imm32(argCount), payloadFor(registerOffset + RegisterFile::ArgumentCount));
+    storePtr(callFrameRegister, payloadFor(RegisterFile::CallerFrame + registerOffset, callFrameRegister));
     emitStore(registerOffset + RegisterFile::Callee, regT1, regT0);
-    storePtr(regT2, Address(callFrameRegister, (registerOffset + RegisterFile::ScopeChain) * static_cast<int>(sizeof(Register))));
+    store32(TrustedImm32(JSValue::CellTag), tagFor(registerOffset + RegisterFile::ScopeChain));
+    store32(regT2, payloadFor(registerOffset + RegisterFile::ScopeChain));
     addPtr(Imm32(registerOffset * sizeof(Register)), callFrameRegister);
 
     // Call to the callee
@@ -305,11 +309,12 @@ void JIT::compileOpCallSlowCase(Instruction* instruction, Vector<SlowCaseEntry>:
     linkSlowCase(iter);
 
     // Fast check for JS function.
-    Jump callLinkFailNotObject = branch32(NotEqual, regT1, Imm32(JSValue::CellTag));
-    Jump callLinkFailNotJSFunction = branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsFunctionVPtr));
+    Jump callLinkFailNotObject = branch32(NotEqual, regT1, TrustedImm32(JSValue::CellTag));
+    Jump callLinkFailNotJSFunction = branchPtr(NotEqual, Address(regT0), TrustedImmPtr(m_globalData->jsFunctionVPtr));
 
     // Speculatively roll the callframe, assuming argCount will match the arity.
-    storePtr(callFrameRegister, Address(callFrameRegister, (RegisterFile::CallerFrame + registerOffset) * static_cast<int>(sizeof(Register))));
+    store32(TrustedImm32(JSValue::CellTag), tagFor(RegisterFile::CallerFrame + registerOffset, callFrameRegister));
+    storePtr(callFrameRegister, payloadFor(RegisterFile::CallerFrame + registerOffset, callFrameRegister));
     addPtr(Imm32(registerOffset * static_cast<int>(sizeof(Register))), callFrameRegister);
     move(Imm32(argCount), regT1);
 

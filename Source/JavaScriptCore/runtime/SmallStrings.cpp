@@ -33,8 +33,6 @@
 
 namespace JSC {
 
-static const unsigned numCharactersToStore = 0x100;
-
 static inline bool isMarked(JSCell* string)
 {
     return string && Heap::isMarked(string);
@@ -45,17 +43,22 @@ class SmallStringsStorage {
 public:
     SmallStringsStorage();
 
-    StringImpl* rep(unsigned char character) { return m_reps[character].get(); }
+    StringImpl* rep(unsigned char character)
+    {
+        return m_reps[character].get();
+    }
 
 private:
-    RefPtr<StringImpl> m_reps[numCharactersToStore];
+    static const unsigned singleCharacterStringCount = maxSingleCharacterString + 1;
+
+    RefPtr<StringImpl> m_reps[singleCharacterStringCount];
 };
 
 SmallStringsStorage::SmallStringsStorage()
 {
     UChar* characterBuffer = 0;
-    RefPtr<StringImpl> baseString = StringImpl::createUninitialized(numCharactersToStore, characterBuffer);
-    for (unsigned i = 0; i < numCharactersToStore; ++i) {
+    RefPtr<StringImpl> baseString = StringImpl::createUninitialized(singleCharacterStringCount, characterBuffer);
+    for (unsigned i = 0; i < singleCharacterStringCount; ++i) {
         characterBuffer[i] = i;
         m_reps[i] = StringImpl::create(baseString, i, 1);
     }
@@ -63,7 +66,7 @@ SmallStringsStorage::SmallStringsStorage()
 
 SmallStrings::SmallStrings()
 {
-    COMPILE_ASSERT(numCharactersToStore == sizeof(m_singleCharacterStrings) / sizeof(m_singleCharacterStrings[0]), IsNumCharactersConstInSyncWithClassUsage);
+    COMPILE_ASSERT(singleCharacterStringCount == sizeof(m_singleCharacterStrings) / sizeof(m_singleCharacterStrings[0]), IsNumCharactersConstInSyncWithClassUsage);
     clear();
 }
 
@@ -71,7 +74,7 @@ SmallStrings::~SmallStrings()
 {
 }
 
-void SmallStrings::markChildren(MarkStack& markStack)
+void SmallStrings::markChildren(HeapRootMarker& heapRootMarker)
 {
     /*
        Our hypothesis is that small strings are very common. So, we cache them
@@ -83,9 +86,9 @@ void SmallStrings::markChildren(MarkStack& markStack)
        so, it's probably reasonable to mark the rest. If not, we clear the cache.
      */
 
-    bool isAnyStringMarked = isMarked(m_emptyString.get());
-    for (unsigned i = 0; i < numCharactersToStore && !isAnyStringMarked; ++i)
-        isAnyStringMarked = isMarked(m_singleCharacterStrings[i].get());
+    bool isAnyStringMarked = isMarked(m_emptyString);
+    for (unsigned i = 0; i < singleCharacterStringCount && !isAnyStringMarked; ++i)
+        isAnyStringMarked = isMarked(m_singleCharacterStrings[i]);
     
     if (!isAnyStringMarked) {
         clear();
@@ -93,17 +96,17 @@ void SmallStrings::markChildren(MarkStack& markStack)
     }
     
     if (m_emptyString)
-        markStack.append(&m_emptyString);
-    for (unsigned i = 0; i < numCharactersToStore; ++i) {
+        heapRootMarker.mark(&m_emptyString);
+    for (unsigned i = 0; i < singleCharacterStringCount; ++i) {
         if (m_singleCharacterStrings[i])
-            markStack.append(&m_singleCharacterStrings[i]);
+            heapRootMarker.mark(&m_singleCharacterStrings[i]);
     }
 }
 
 void SmallStrings::clear()
 {
     m_emptyString = 0;
-    for (unsigned i = 0; i < numCharactersToStore; ++i)
+    for (unsigned i = 0; i < singleCharacterStringCount; ++i)
         m_singleCharacterStrings[i] = 0;
 }
 
@@ -112,7 +115,7 @@ unsigned SmallStrings::count() const
     unsigned count = 0;
     if (m_emptyString)
         ++count;
-    for (unsigned i = 0; i < numCharactersToStore; ++i) {
+    for (unsigned i = 0; i < singleCharacterStringCount; ++i) {
         if (m_singleCharacterStrings[i])
             ++count;
     }

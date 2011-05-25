@@ -34,6 +34,8 @@
 #include "FrameView.h"
 #include "GCController.h"
 #include "GraphicsContext.h"
+#include "HTMLInputElement.h"
+#include "InputElement.h"
 #include "JSDOMWindow.h"
 #include "JSDocument.h"
 #include "JSElement.h"
@@ -96,11 +98,6 @@ void DumpRenderTreeSupportGtk::setLinksIncludedInFocusChain(bool enabled)
 bool DumpRenderTreeSupportGtk::linksIncludedInFocusChain()
 {
     return s_linksIncludedInTabChain;
-}
-
-void DumpRenderTreeSupportGtk::setIconDatabaseEnabled(bool enabled)
-{
-    WebKit::setIconDatabaseEnabled(enabled);
 }
 
 void DumpRenderTreeSupportGtk::setSelectTrailingWhitespaceEnabled(bool enabled)
@@ -629,7 +626,7 @@ void DumpRenderTreeSupportGtk::dumpConfigurationForViewport(WebKitWebView* webVi
     ViewportArguments arguments = webView->priv->corePage->mainFrame()->document()->viewportArguments();
     ViewportAttributes attrs = computeViewportAttributes(arguments, /* default layout width for non-mobile pages */ 980, deviceWidth, deviceHeight, deviceDPI, IntSize(availableWidth, availableHeight));
 
-    fprintf(stdout, "viewport size %dx%d scale %f with limits [%f, %f]\n", attrs.layoutSize.width(), attrs.layoutSize.height(), attrs.initialScale, attrs.minimumScale, attrs.maximumScale);
+    fprintf(stdout, "viewport size %dx%d scale %f with limits [%f, %f] and userScalable %f\n", attrs.layoutSize.width(), attrs.layoutSize.height(), attrs.initialScale, attrs.minimumScale, attrs.maximumScale, attrs.userScalable);
 }
 
 void DumpRenderTreeSupportGtk::clearOpener(WebKitWebFrame* frame)
@@ -652,7 +649,7 @@ bool DumpRenderTreeSupportGtk::webkitWebFrameSelectionHasSpellingMarker(WebKitWe
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), FALSE);
 
-    return core(frame)->editor()->selectionStartHasSpellingMarkerFor(from, length);
+    return core(frame)->editor()->selectionStartHasMarkerFor(DocumentMarker::Spelling, from, length);
 }
 
 bool DumpRenderTreeSupportGtk::findString(WebKitWebView* webView, const gchar* targetString, WebKitFindOptions findOptions)
@@ -668,4 +665,33 @@ double DumpRenderTreeSupportGtk::defaultMinimumTimerInterval()
 void DumpRenderTreeSupportGtk::setMinimumTimerInterval(WebKitWebView* webView, double interval)
 {
     core(webView)->settings()->setMinDOMTimerInterval(interval);
+}
+
+void DumpRenderTreeSupportGtk::setAutofilled(JSContextRef context, JSValueRef nodeObject, bool autofilled)
+{
+    JSC::ExecState* exec = toJS(context);
+    Element* element = toElement(toJS(exec, nodeObject));
+    if (!element)
+        return;
+    InputElement* inputElement = element->toInputElement();
+    if (!inputElement)
+        return;
+
+    static_cast<HTMLInputElement*>(inputElement)->setAutofilled(autofilled);
+}
+
+void DumpRenderTreeSupportGtk::setValueForUser(JSContextRef context, JSValueRef nodeObject, JSStringRef value)
+{
+    JSC::ExecState* exec = toJS(context);
+    Element* element = toElement(toJS(exec, nodeObject));
+    if (!element)
+        return;
+    InputElement* inputElement = element->toInputElement();
+    if (!inputElement)
+        return;
+
+    size_t bufferSize = JSStringGetMaximumUTF8CStringSize(value);
+    GOwnPtr<gchar> valueBuffer(static_cast<gchar*>(g_malloc(bufferSize)));
+    JSStringGetUTF8CString(value, valueBuffer.get(), bufferSize);
+    inputElement->setValueForUser(String::fromUTF8(valueBuffer.get()));
 }

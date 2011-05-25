@@ -99,7 +99,7 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 
 %}
 
-%expect 51
+%expect 55
 
 %nonassoc LOWEST_PREC
 
@@ -183,13 +183,18 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 %token <number> HERTZ
 %token <number> KHERTZ
 %token <string> DIMEN
+%token <string> INVALIDDIMEN
 %token <number> PERCENTAGE
 %token <number> FLOATTOKEN
 %token <number> INTEGER
 
 %token <string> URI
 %token <string> FUNCTION
+%token <string> ANYFUNCTION
 %token <string> NOTFUNCTION
+%token <string> CALCFUNCTION
+%token <string> MINFUNCTION
+%token <string> MAXFUNCTION
 
 %token <string> UNICODERANGE
 
@@ -247,6 +252,7 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 %type <selector> simple_selector
 %type <selector> selector
 %type <selectorList> selector_list
+%type <selectorList> simple_selector_list
 %type <selector> selector_with_trailing_whitespace
 %type <selector> class
 %type <selector> attrib
@@ -270,6 +276,14 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 %type <value> term
 %type <value> unary_term
 %type <value> function
+%type <value> calc_func_term
+%type <character> calc_func_operator
+%type <valueList> calc_func_expr
+%type <valueList> calc_func_expr_list
+%type <valueList> calc_func_paren_expr
+%type <value> calc_function
+%type <string> min_or_max
+%type <value> min_or_max_function
 
 %type <string> element_name
 %type <string> attr_name
@@ -921,6 +935,28 @@ simple_selector:
     }
   ;
 
+simple_selector_list:
+    simple_selector %prec UNIMPORTANT_TOK {
+        if ($1) {
+            CSSParser* p = static_cast<CSSParser*>(parser);
+            $$ = p->createFloatingSelectorVector();
+            $$->append(p->sinkFloatingSelector($1));
+        } else
+            $$ = 0
+    }
+    | simple_selector_list maybe_space ',' maybe_space simple_selector %prec UNIMPORTANT_TOK {
+        if ($1 && $5) {
+            CSSParser* p = static_cast<CSSParser*>(parser);
+            $$ = $1;
+            $$->append(p->sinkFloatingSelector($5));
+        } else
+            $$ = 0;
+    }
+    | simple_selector_list error {
+        $$ = 0;
+    }
+  ;
+
 element_name:
     IDENT {
         CSSParserString& str = $1;
@@ -1102,6 +1138,25 @@ pseudo:
         // FIXME: This call is needed to force selector to compute the pseudoType early enough.
         $$->pseudoType();
     }
+    // use by :-webkit-any.
+    // FIXME: should we support generic selectors here or just simple_selectors?
+    // Use simple_selector_list for now to match -moz-any.
+    // See http://lists.w3.org/Archives/Public/www-style/2010Sep/0566.html for some
+    // related discussion with respect to :not.
+    | ':' ANYFUNCTION maybe_space simple_selector_list maybe_space ')' {
+        if ($4) {
+            CSSParser *p = static_cast<CSSParser*>(parser);
+            $$ = p->createFloatingSelector();
+            $$->setMatch(CSSSelector::PseudoClass);
+            $$->adoptSelectorVector(*p->sinkFloatingSelectorVector($4));
+            $2.lower();
+            $$->setValue($2);
+            CSSSelector::PseudoType type = $$->pseudoType();
+            if (type != CSSSelector::PseudoAny)
+                $$ = 0;
+        } else
+            $$ = 0;
+    }
     // used by :nth-*(ax+b)
     | ':' FUNCTION maybe_space NTH maybe_space ')' {
         CSSParser *p = static_cast<CSSParser*>(parser);
@@ -1151,7 +1206,11 @@ pseudo:
             CSSParser* p = static_cast<CSSParser*>(parser);
             $$ = p->createFloatingSelector();
             $$->setMatch(CSSSelector::PseudoClass);
-            $$->setSimpleSelector(p->sinkFloatingSelector($4)->releaseSelector());
+
+            Vector<OwnPtr<CSSParserSelector> > selectorVector;
+            selectorVector.append(p->sinkFloatingSelector($4));
+            $$->adoptSelectorVector(selectorVector);
+
             $2.lower();
             $$->setValue($2);
         }
@@ -1361,6 +1420,12 @@ term:
   | function {
       $$ = $1;
   }
+  | calc_function {
+      $$ = $1;
+  }
+  | min_or_max_function {
+      $$ = $1;
+  }
   | '%' maybe_space { /* Handle width: %; */
       $$.id = 0; $$.unit = 0;
   }
@@ -1417,6 +1482,143 @@ function:
         $$.function = f;
   }
   ;
+ 
+calc_func_term:
+  unary_term { $$ = $1; }
+  | unary_operator unary_term { $$ = $2; $$.fValue *= $1; }
+  ;
+
+calc_func_operator:
+    '+' WHITESPACE {
+        $$ = '+';
+    }
+    | '-' WHITESPACE {
+        $$ = '-';
+    }
+    | '*' maybe_space {
+        $$ = '*';
+    }
+    | '/' maybe_space {
+        $$ = '/';
+    }
+    | IDENT maybe_space {
+        if (equalIgnoringCase("mod", $1.characters, $1.length))
+            $$ = '%';
+        else
+            $$ = 0;
+    }
+  ;
+
+calc_func_paren_expr:
+    '(' maybe_space calc_func_expr maybe_space ')' maybe_space {
+        if ($3) {
+            $$ = $3;
+            CSSParserValue v;
+            v.id = 0;
+            v.unit = CSSParserValue::Operator;
+            v.iValue = '(';
+            $$->insertValueAt(0, v);
+            v.iValue = ')';
+            $$->addValue(v);
+        }
+    }
+
+calc_func_expr:
+    calc_func_term maybe_space {
+        CSSParser* p = static_cast<CSSParser*>(parser);
+        $$ = p->createFloatingValueList();
+        $$->addValue(p->sinkFloatingValue($1));
+    }
+    | calc_func_expr calc_func_operator calc_func_term {
+        CSSParser* p = static_cast<CSSParser*>(parser);
+        if ($1 && $2) {
+            $$ = $1;
+            CSSParserValue v;
+            v.id = 0;
+            v.unit = CSSParserValue::Operator;
+            v.iValue = $2;
+            $$->addValue(v);
+            $$->addValue(p->sinkFloatingValue($3));
+        } else
+            $$ = 0;
+
+    }
+    | calc_func_expr calc_func_operator calc_func_paren_expr {
+        if ($1 && $2 && $3) {
+            $$ = $1;
+            CSSParserValue v;
+            v.id = 0;
+            v.unit = CSSParserValue::Operator;
+            v.iValue = $2;
+            $$->addValue(v);
+            $$->extend(*($3));
+        } else 
+            $$ = 0;
+    }
+    | calc_func_paren_expr
+    | calc_func_expr error {
+        $$ = 0;
+    }
+  ;
+
+calc_func_expr_list:
+    calc_func_expr  {
+        $$ = $1;
+    }    
+    | calc_func_expr_list ',' maybe_space calc_func_expr {
+        if ($1 && $4) {
+            $$ = $1;
+            CSSParserValue v;
+            v.id = 0;
+            v.unit = CSSParserValue::Operator;
+            v.iValue = ',';
+            $$->addValue(v);
+            $$->extend(*($4));
+        } else
+            $$ = 0;
+    }
+    
+
+calc_function:
+    CALCFUNCTION maybe_space calc_func_expr ')' maybe_space {
+        CSSParser* p = static_cast<CSSParser*>(parser);
+        CSSParserFunction* f = p->createFloatingFunction();
+        f->name = $1;
+        f->args = p->sinkFloatingValueList($3);
+        $$.id = 0;
+        $$.unit = CSSParserValue::Function;
+        $$.function = f;
+    }
+    | CALCFUNCTION maybe_space error {
+        YYERROR;
+    }
+    ;
+
+
+min_or_max:
+    MINFUNCTION {
+        $$ = $1;
+    }
+    | MAXFUNCTION {
+        $$ = $1;
+    }
+    ;
+
+min_or_max_function:
+    min_or_max maybe_space calc_func_expr_list ')' maybe_space {
+        CSSParser* p = static_cast<CSSParser*>(parser);
+        CSSParserFunction* f = p->createFloatingFunction();
+        f->name = $1;
+        f->args = p->sinkFloatingValueList($3);
+        $$.id = 0;
+        $$.unit = CSSParserValue::Function;
+        $$.function = f;
+    } 
+    | min_or_max maybe_space error {
+        YYERROR;
+    }
+    ;
+
 /*
  * There is a constraint on the color that it must
  * have either 3 or 6 hex-digits (i.e., [0-9a-fA-F])

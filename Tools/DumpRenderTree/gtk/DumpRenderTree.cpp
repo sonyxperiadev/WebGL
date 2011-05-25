@@ -2,7 +2,7 @@
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008 Alp Toker <alp@nuanti.com>
  * Copyright (C) 2009 Jan Alonzo <jmalonzo@gmail.com>
- * Copyright (C) 2010 Igalia S.L.
+ * Copyright (C) 2010, 2011 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -137,9 +137,13 @@ static void initializeGtkFontSettings(const char* testURL)
     GtkSettings* settings = gtk_settings_get_default();
     if (!settings)
         return;
-    g_object_set(settings, "gtk-xft-antialias", 1,
+    g_object_set(settings,
+                 "gtk-xft-dpi", 98304, // This is 96 * 1024 or 96 DPI according to the GTK+ docs.
+                 "gtk-xft-antialias", 1,
                  "gtk-xft-hinting", 0,
-                 "gtk-font-name", "Liberation Sans 16", NULL);
+                 "gtk-font-name", "Liberation Sans 12",
+                 NULL);
+    gdk_screen_set_resolution(gdk_screen_get_default(), 96.0);
 
     // One test needs subpixel anti-aliasing turned on, but generally we
     // want all text in other tests to use to grayscale anti-aliasing.
@@ -419,8 +423,8 @@ static void resetDefaultsToConsistentValues()
                  "sans-serif-font-family", "Helvetica",
                  "cursive-font-family", "cursive",
                  "fantasy-font-family", "fantasy",
-                 "default-font-size", 16,
-                 "default-monospace-font-size", 13,
+                 "default-font-size", 12,
+                 "default-monospace-font-size", 10,
                  "minimum-font-size", 0,
                  "enable-caret-browsing", FALSE,
                  "enable-page-cache", FALSE,
@@ -458,7 +462,7 @@ static void resetDefaultsToConsistentValues()
     setlocale(LC_ALL, "");
 
     DumpRenderTreeSupportGtk::setLinksIncludedInFocusChain(true);
-    DumpRenderTreeSupportGtk::setIconDatabaseEnabled(false);
+    webkit_icon_database_set_path(webkit_get_icon_database(), 0);
     DumpRenderTreeSupportGtk::setSelectTrailingWhitespaceEnabled(false);
 
     if (axController)
@@ -583,8 +587,6 @@ void dump()
 
 static void setDefaultsToConsistentStateValuesForTesting()
 {
-    gdk_screen_set_resolution(gdk_screen_get_default(), 72.0);
-
     resetDefaultsToConsistentValues();
 
     /* Disable the default auth dialog for testing */
@@ -598,6 +600,26 @@ static void setDefaultsToConsistentStateValuesForTesting()
     gchar* databaseDirectory = g_build_filename(g_get_user_data_dir(), "gtkwebkitdrt", "databases", NULL);
     webkit_set_web_database_directory_path(databaseDirectory);
     g_free(databaseDirectory);
+
+#if defined(GTK_API_VERSION_2)
+    gtk_rc_parse_string("style \"nix_scrollbar_spacing\"                    "
+                        "{                                                  "
+                        "    GtkScrolledWindow::scrollbar-spacing = 0       "
+                        "}                                                  "
+                        "class \"GtkWidget\" style \"nix_scrollbar_spacing\"");
+
+#else
+    GtkCssProvider* cssProvider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(cssProvider,
+                                    " * {                                       "
+                                    "   -GtkScrolledWindow-scrollbar-spacing: 0;"
+                                    "}                                          ",
+                                    -1, 0);
+    gtk_style_context_add_provider_for_screen(gdk_display_get_default_screen(gdk_display_get_default()),
+                                              GTK_STYLE_PROVIDER(cssProvider),
+                                              GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(cssProvider);
+#endif
 }
 
 static void sendPixelResultsEOF()
@@ -1027,6 +1049,17 @@ static void frameCreatedCallback(WebKitWebView* webView, WebKitWebFrame* webFram
 static void willSendRequestCallback(WebKitWebView* webView, WebKitWebFrame*, WebKitWebResource*, WebKitNetworkRequest* request, WebKitNetworkResponse*)
 {
     SoupMessage* soupMessage = webkit_network_request_get_message(request);
+    SoupURI* uri = soup_uri_new(webkit_network_request_get_uri(request));
+
+    if (SOUP_URI_VALID_FOR_HTTP(uri) && g_strcmp0(uri->host, "127.0.0.1")
+        && g_strcmp0(uri->host, "255.255.255.255")
+        && g_ascii_strncasecmp(uri->host, "localhost", 9)) {
+        printf("Blocked access to external URL %s\n", soup_uri_to_string(uri, FALSE));
+        soup_uri_free(uri);
+        return;
+    }
+    soup_uri_free(uri);
+
 
     if (soupMessage) {
         const set<string>& clearHeaders = gLayoutTestController->willSendRequestClearHeaders();

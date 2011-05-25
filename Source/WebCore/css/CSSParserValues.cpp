@@ -25,6 +25,7 @@
 #include "CSSFunctionValue.h"
 #include "CSSQuirkPrimitiveValue.h"
 #include "CSSSelector.h"
+#include "CSSSelectorList.h"
 
 namespace WebCore {
         
@@ -43,10 +44,21 @@ void CSSParserValueList::addValue(const CSSParserValue& v)
 {
     m_values.append(v);
 }
-    
+
+void CSSParserValueList::insertValueAt(unsigned i, const CSSParserValue& v)
+{
+    m_values.insert(i, v);
+}
+
 void CSSParserValueList::deleteValueAt(unsigned i)
 { 
     m_values.remove(i);
+}
+
+void CSSParserValueList::extend(CSSParserValueList& valueList)
+{
+    for (unsigned int i = 0; i < valueList.size(); ++i)
+        m_values.append(*(valueList.valueAt(i)));
 }
 
 PassRefPtr<CSSValue> CSSParserValue::createCSSValue()
@@ -96,5 +108,11 @@ CSSParserSelector::~CSSParserSelector()
     deleteAllValues(toDelete);
 }
 
+void CSSParserSelector::adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& selectorVector)
+{
+    CSSSelectorList* selectorList = fastNew<CSSSelectorList>();
+    selectorList->adoptSelectorVector(selectorVector);
+    m_selector->setSelectorList(adoptPtr(selectorList));
+}
 }
 

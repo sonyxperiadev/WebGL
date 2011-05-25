@@ -48,11 +48,17 @@ WebInspector.RemoteObject.fromLocalObject = function(value)
 
 WebInspector.RemoteObject.resolveNode = function(node, callback)
 {
-    function mycallback(object)
+    function mycallback(error, object)
     {
-        callback(object ? WebInspector.RemoteObject.fromPayload(object) : null);
+        if (!callback)
+            return;
+
+        if (error || !object)
+            callback(null);
+        else
+            callback(WebInspector.RemoteObject.fromPayload(object));
     }
-    DOMAgent.resolveNode(node.id, "dom-selection", mycallback);
+    DOMAgent.resolveNode(node.id, mycallback);
 }
 
 WebInspector.RemoteObject.fromPayload = function(payload)
@@ -112,8 +118,10 @@ WebInspector.RemoteObject.prototype = {
             callback([]);
             return;
         }
-        function remoteObjectBinder(properties)
+        function remoteObjectBinder(error, properties)
         {
+            if (error)
+                return;
             for (var i = 0; properties && i < properties.length; ++i)
                 properties[i].value = WebInspector.RemoteObject.fromPayload(properties[i].value);
             callback(properties);
@@ -124,7 +132,7 @@ WebInspector.RemoteObject.prototype = {
     setPropertyValue: function(name, value, callback)
     {
         if (!this._objectId) {
-            callback(false);
+            callback("Can't get a property of non-object.");
             return;
         }
         RuntimeAgent.setPropertyValue(this._objectId, name, value, callback);
@@ -141,6 +149,11 @@ WebInspector.RemoteObject.prototype = {
     evaluate: function(expression, callback)
     {
         RuntimeAgent.evaluateOn(this._objectId, expression, callback);
+    },
+
+    release: function()
+    {
+        RuntimeAgent.releaseObject(this._objectId);
     }
 }
 
@@ -164,15 +177,50 @@ WebInspector.LocalJSONObject = function(value)
 WebInspector.LocalJSONObject.prototype = {
     get description()
     {
+        if (this._cachedDescription)
+            return this._cachedDescription;
+
         var type = this.type;
+
         switch (type) {
             case "array":
-                return "[" + this._value.length + "]";
+                function formatArrayItem(property)
+                {
+                    return property.value.description;
+                }
+                this._cachedDescription = this._concatenate("[", "]", formatArrayItem);
+                break;
             case "object":
-                return this.hasChildren ? "{...}" : "{ }";
+                function formatObjectItem(property)
+                {
+                    return property.name + ":" + property.value.description;
+                }
+                this._cachedDescription = this._concatenate("{", "}", formatObjectItem);
+                break;
             default:
-                return JSON.stringify(this._value);
+                this._cachedDescription = String(this._value);
         }
+        return this._cachedDescription;
+    },
+
+    _concatenate: function(prefix, suffix, formatProperty)
+    {
+        const previewChars = 100;
+
+        var buffer = prefix;
+        var children = this._children();
+        for (var i = 0; i < children.length; ++i) {
+            var itemDescription = formatProperty(children[i]);
+            if (buffer.length + itemDescription.length > previewChars) {
+                buffer += ",\u2026";
+                break;
+            }
+            if (i)
+                buffer += ", ";
+            buffer += itemDescription;
+        }
+        buffer += suffix;
+        return buffer;
     },
 
     get type()
@@ -196,11 +244,18 @@ WebInspector.LocalJSONObject.prototype = {
 
     getProperties: function(ignoreHasOwnProperty, abbreviate, callback)
     {
+        callback(this._children());
+    },
+
+    _children: function()
+    {
         function buildProperty(propName)
         {
             return new WebInspector.RemoteObjectProperty(propName, new WebInspector.LocalJSONObject(this._value[propName]));
         }
-        callback(Object.keys(this._value).map(buildProperty.bind(this)));
+        if (!this._cachedChildren)
+            this._cachedChildren = Object.keys(this._value).map(buildProperty.bind(this));
+        return this._cachedChildren;
     },
 
     isError: function()

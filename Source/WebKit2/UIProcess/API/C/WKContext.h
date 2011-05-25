@@ -39,6 +39,12 @@ enum {
 };
 typedef uint32_t WKCacheModel;
 
+enum {
+    kWKAllResourceCaches = 0,
+    kWKInMemoryResourceCachesOnly = 1
+};
+typedef uint32_t WKResourceCachesToClear;
+
 // Injected Bundle Client
 typedef void (*WKContextDidReceiveMessageFromInjectedBundleCallback)(WKContextRef page, WKStringRef messageName, WKTypeRef messageBody, const void *clientInfo);
 typedef void (*WKContextDidReceiveSynchronousMessageFromInjectedBundleCallback)(WKContextRef page, WKStringRef messageName, WKTypeRef messageBody, WKTypeRef* returnData, const void *clientInfo);
@@ -71,6 +77,7 @@ typedef struct WKContextHistoryClient WKContextHistoryClient;
 
 // Download Client
 typedef void (*WKContextDownloadDidStartCallback)(WKContextRef context, WKDownloadRef download, const void *clientInfo);
+typedef void (*WKContextDownloadDidReceiveAuthenticationChallengeCallback)(WKContextRef context, WKDownloadRef download, WKAuthenticationChallengeRef authenticationChallenge, const void *clientInfo);
 typedef void (*WKContextDownloadDidReceiveResponseCallback)(WKContextRef context, WKDownloadRef download, WKURLResponseRef response, const void *clientInfo);
 typedef void (*WKContextDownloadDidReceiveDataCallback)(WKContextRef context, WKDownloadRef download, uint64_t length, const void *clientInfo);
 typedef bool (*WKContextDownloadShouldDecodeSourceDataOfMIMETypeCallback)(WKContextRef context, WKDownloadRef download, WKStringRef mimeType, const void *clientInfo);
@@ -85,6 +92,7 @@ struct WKContextDownloadClient {
     int                                                                 version;
     const void *                                                        clientInfo;
     WKContextDownloadDidStartCallback                                   didStart;
+    WKContextDownloadDidReceiveAuthenticationChallengeCallback          didReceiveAuthenticationChallenge;
     WKContextDownloadDidReceiveResponseCallback                         didReceiveResponse;
     WKContextDownloadDidReceiveDataCallback                             didReceiveData;
     WKContextDownloadShouldDecodeSourceDataOfMIMETypeCallback           shouldDecodeSourceDataOfMIMEType;
@@ -117,7 +125,7 @@ WK_EXPORT void WKContextAddVisitedLink(WKContextRef context, WKStringRef visited
 WK_EXPORT void WKContextSetCacheModel(WKContextRef context, WKCacheModel cacheModel);
 WK_EXPORT WKCacheModel WKContextGetCacheModel(WKContextRef context);
 
-WK_EXPORT void WKContextClearResourceCaches(WKContextRef context);
+WK_EXPORT void WKContextClearResourceCaches(WKContextRef context, WKResourceCachesToClear cachesToClear);
 WK_EXPORT void WKContextClearApplicationCache(WKContextRef context);
 
 WK_EXPORT void WKContextStartMemorySampler(WKContextRef context, WKDoubleRef interval);
@@ -127,7 +135,9 @@ WK_EXPORT WKApplicationCacheManagerRef WKContextGetApplicationCacheManager(WKCon
 WK_EXPORT WKCookieManagerRef WKContextGetCookieManager(WKContextRef context);
 WK_EXPORT WKDatabaseManagerRef WKContextGetDatabaseManager(WKContextRef context);
 WK_EXPORT WKGeolocationManagerRef WKContextGetGeolocationManager(WKContextRef context);
+WK_EXPORT WKIconDatabaseRef WKContextGetIconDatabase(WKContextRef context);
 WK_EXPORT WKKeyValueStorageManagerRef WKContextGetKeyValueStorageManager(WKContextRef context);
+WK_EXPORT WKMediaCacheManagerRef WKContextGetMediaCacheManager(WKContextRef context);
 WK_EXPORT WKPluginSiteDataManagerRef WKContextGetPluginSiteDataManager(WKContextRef context);
 WK_EXPORT WKResourceCacheManagerRef WKContextGetResourceCacheManager(WKContextRef context);
 

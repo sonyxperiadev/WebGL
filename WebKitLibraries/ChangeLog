@@ -1,3 +1,137 @@
+2011-03-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Rubber stamped by Adam Roben.
+
+        Remove unnecessary NDEBUG define.
+
+        * win/tools/vsprops/production.vsprops:
+
+2011-03-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Update Windows production build logic for new production configurations
+        https://bugs.webkit.org/show_bug.cgi?id=57494
+
+        * win/tools/vsprops/common.vsprops:
+        * win/tools/vsprops/production.vsprops: Added.
+
+2011-03-29  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed build change to activate MathML for WinCairo.
+
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops: Enable MathML.
+
+2011-03-29  Jessie Berlin  <jberlin@apple.com>
+
+        Update the WebKitSystemInterface libraries for changes in the implementation.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2011-03-28  Jeff Miller  <jeffm@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Include certificate when sending a WebCore::ResourceError to UI process on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=57195
+
+        Rename wkGetSSLPeerCertificateData() to wkGetSSLPeerCertificateDataBytePtr(), since it returns a void*, and
+        implement wkGetSSLPeerCertificateData() to return a CFDataRef.  Add wkSetSSLPeerCertificateData() so
+        WebCore::ResourceError can set the certificate in the user info dictionary.
+
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+        * win/lib/WebKitSystemInterface.lib:
+
+2011-03-28  Jeff Miller  <jeffm@apple.com>
+
+        Rubber-stamped by Adam Roben.
+
+        Remove WebKitSystemInterface_debug.lib, it hasn't been used for a few months now.
+
+        * win/lib/WebKitSystemInterface_debug.lib: Removed.
+
+2011-03-25  Brent Fulgham  <bfulgham@webkit.org>
+
+        Kick the build machines after r81977.
+
+        * win/tools/vsprops/common.vsprops:
+
+2011-03-22  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81683.
+        http://trac.webkit.org/changeset/81683
+        https://bugs.webkit.org/show_bug.cgi?id=56872
+
+        Crashing in some tests (Requested by weinig on #webkit).
+
+        * win/lib/WebKitSystemInterface.lib:
+
+2011-03-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Going to certain pages causes a download of "st.html" or "jsp.html" (news.yahoo.com, etc.)
+        <rdar://problem/9139245>
+
+        "Windows edition".
+
+        * win/lib/WebKitSystemInterface.lib:
+
+2011-03-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Brady Eidson.
+
+        Going to certain pages causes a download of "st.html" or "jsp.html" (news.yahoo.com, etc.)
+        <rdar://problem/9139245>
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2011-03-17  Anders Carlsson  <andersca@apple.com>
+
+        Add WKWindowWillOrderOffScreenNotification.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2011-03-14  Pratik Solanki  <psolanki@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        I checked in Intel-only version of these files in r80975. This fixes that by building all
+        the correct slices - i386/x86_64/ppc for SnowLeopard and i386/x86_64/ppc/ppc64 for Leopard.
+
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2011-03-13  Pratik Solanki  <psolanki@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        Make adjustMIMETypeIfNecessary use CFNetwork directly
+        https://bugs.webkit.org/show_bug.cgi?id=55912
+
+        Add new WKSI functions needed to implement adjustMIMETypeIfNecessary.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2011-03-09  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Use the Cookie Storage from the Private Browsing Storage Session directly
+        https://bugs.webkit.org/show_bug.cgi?id=55986
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * win/include/WebKitSystemInterface/WebKitSystemInterface.h:
+        * win/lib/WebKitSystemInterface.lib:
+
 2011-03-07  Steve Falkenburg  <sfalken@apple.com>
 
         Bump version.

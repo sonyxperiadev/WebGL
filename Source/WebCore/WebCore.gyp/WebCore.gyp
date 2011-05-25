@@ -305,8 +305,39 @@
   },
   'targets': [
     {
+      'target_name': 'inspector_idl',
+      'type': 'none',
+      'actions': [
+        {
+          'action_name': 'generateInspectorProtocolIDL',
+          'inputs': [
+            '../inspector/generate-inspector-idl',
+            '../inspector/Inspector.json',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/webcore/Inspector.idl',
+          ],
+          'variables': {
+            'generator_include_dirs': [
+            ],
+          },
+          'action': [
+            'python',
+            '../inspector/generate-inspector-idl',
+            '-o',
+            '<@(_outputs)',
+            '<@(_inputs)'
+          ],
+          'message': 'Generating Inspector protocol sources from Inspector.idl',
+        },
+      ]
+    },
+    {
       'target_name': 'inspector_protocol_sources',
       'type': 'none',
+      'dependencies': [
+        'inspector_idl'
+      ],
       'actions': [
         {
           'action_name': 'generateInspectorProtocolSources',
@@ -319,7 +350,7 @@
             '../bindings/scripts/CodeGenerator.pm',
             '../bindings/scripts/IDLParser.pm',
             '../bindings/scripts/IDLStructure.pm',
-            '../inspector/Inspector.idl',
+            '<(SHARED_INTERMEDIATE_DIR)/webcore/Inspector.idl',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendDispatcher.cpp',
@@ -335,7 +366,7 @@
           'action': [
             'python',
             'scripts/rule_binding.py',
-            '../inspector/Inspector.idl',
+            '<(SHARED_INTERMEDIATE_DIR)/webcore/Inspector.idl',
             '<(SHARED_INTERMEDIATE_DIR)/webcore',
             '<(SHARED_INTERMEDIATE_DIR)/webkit',
             '--',
@@ -365,10 +396,33 @@
             'perl',
             '../inspector/xxd.pl',
             'InjectedScriptSource_js',
-            '../inspector/InjectedScriptSource.js',
-            '<(SHARED_INTERMEDIATE_DIR)/webkit/InjectedScriptSource.h'
+            '<@(_inputs)',
+            '<@(_outputs)'
           ],
           'message': 'Generating InjectedScriptSource.h from InjectedScriptSource.js',
+        },
+      ]
+    },
+    {
+      'target_name': 'debugger_script_source',
+      'type': 'none',
+      'actions': [
+        {
+          'action_name': 'generateDebuggerScriptSource',
+          'inputs': [
+            '../bindings/v8/DebuggerScript.js',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/DebuggerScriptSource.h',
+          ],
+          'action': [
+            'perl',
+            '../inspector/xxd.pl',
+            'DebuggerScriptSource_js',
+            '<@(_inputs)',
+            '<@(_outputs)'
+          ],
+          'message': 'Generating DebuggerScriptSource.h from DebuggerScript.js',
         },
       ]
     },
@@ -783,6 +837,7 @@
         'webcore_bindings_sources',
         'inspector_protocol_sources',
         'injected_script_source',
+        'debugger_script_source',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:yarr',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
@@ -1121,12 +1176,15 @@
         'webcore_prerequisites',
       ],
       'sources': [
+        '<@(webcore_privateheader_files)',
         '<@(webcore_files)',
       ],
       'sources/': [
         # Start by excluding everything then include html files only.
         ['exclude', '.*'],
         ['include', 'html/'],
+
+        ['exclude', 'AllInOne\\.cpp$'],
       ],
     },
     {
@@ -1136,6 +1194,7 @@
         'webcore_prerequisites',
       ],
       'sources': [
+        '<@(webcore_privateheader_files)',
         '<@(webcore_files)',
       ],
       'sources/': [
@@ -1148,7 +1207,8 @@
         ['include', 'rendering/style/SVG'],
         ['include', 'rendering/RenderSVG'],
         ['include', 'rendering/SVG'],
-        ['exclude', 'svg/SVGAllInOne\\.cpp$'],
+
+        ['exclude', 'AllInOne\\.cpp$'],
       ],
     },
     {
@@ -1161,38 +1221,32 @@
       # if this hard dependency could be split off the rest.
       'hard_dependency': 1,
       'sources': [
+        '<@(webcore_privateheader_files)',
         '<@(webcore_files)',
 
         # For WebCoreSystemInterface, Mac-only.
         '../../WebKit/mac/WebCoreSupport/WebSystemInterface.mm',
       ],
       'sources/': [
-        # Start by excluding everything then include platform files only.
         ['exclude', '.*'],
         ['include', 'platform/'],
 
-        # Exclude things that don't apply to the Chromium platform on the basis
-        # of their enclosing directories and tags at the ends of their
-        # filenames.
-        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|fftw|gtk|haiku|linux|mac|mkl|opentype|posix|qt|soup|svg|symbian|win|wince|wx)/'],
-        ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
-
-        # A few things can't be excluded by patterns.  List them individually.
+        # FIXME: Figure out how to store these patterns in a variable.
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|fftw|gstreamer|gtk|haiku|linux|mac|mkl|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
+        ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|JSC|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|WinCE|Wx)\\.(cpp|mm?)$'],
 
         ['include', 'platform/graphics/opentype/OpenTypeSanitizer\\.cpp$'],
 
-        # Exclude some DB-related files.
-        ['exclude', 'platform/sql/SQLiteFileSystem\\.cpp$'],
-
-        # Use platform/MIMETypeRegistryChromium.cpp instead.
-        ['exclude', 'platform/MIMETypeRegistry\\.cpp$'],
-
-        # Theme.cpp is used only if we're using USE_NEW_THEME. We are not for
-        # Windows and Linux. We manually include Theme.cpp for the Mac below.
-        ['exclude', 'platform/Theme\\.cpp$'],
-
-        # Use LinkHashChromium.cpp instead
         ['exclude', 'platform/LinkHash\\.cpp$'],
+        ['exclude', 'platform/MIMETypeRegistry\\.cpp$'],
+        ['exclude', 'platform/Theme\\.cpp$'],
+        ['exclude', 'platform/graphics/ANGLEWebKitBridge\\.(cpp|h)$'],
+        ['exclude', 'platform/image-encoders/JPEGImageEncoder\\.(cpp|h)$'],
+        ['exclude', 'platform/image-encoders/PNGImageEncoder\\.(cpp|h)$'],
+        ['exclude', 'platform/network/ResourceHandle\\.cpp$'],
+        ['exclude', 'platform/sql/SQLiteFileSystem\\.cpp$'],
+        ['exclude', 'platform/text/LocalizedNumberNone\\.cpp$'],
+        ['exclude', 'platform/text/TextEncodingDetectorNone\\.cpp$'],
 
         ['include', 'thirdparty/glu/libtess/'],
       ],
@@ -1309,6 +1363,12 @@
             # Again, Skia is not used on Mac.
             ['exclude', 'platform/chromium/DragImageChromiumSkia\\.cpp$'],
           ],
+        },{ # OS!="mac"
+          'sources/': [
+            # FIXME: We will eventually compile this too, but for now it's
+            # only used on mac.
+            ['exclude', 'platform/graphics/FontPlatformData\\.cpp$']
+          ],
         }],
         ['OS!="linux" and OS!="freebsd"', {
           'sources/': [
@@ -1332,7 +1392,10 @@
 
             # The Chromium Win currently uses GlyphPageTreeNodeChromiumWin.cpp from
             # platform/graphics/chromium, included by regex above, instead.
-            ['exclude', 'platform/graphics/skia/GlyphPageTreeNodeSkia\\.cpp$']
+            ['exclude', 'platform/graphics/skia/GlyphPageTreeNodeSkia\\.cpp$'],
+
+            # SystemInfo.cpp is useful and we don't want to copy it.
+            ['include', 'platform/win/SystemInfo\\.cpp$'],
           ],
         }],
         ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
@@ -1354,18 +1417,18 @@
         'webcore_prerequisites',
       ],
       'sources': [
+        '<@(webcore_privateheader_files)',
         '<@(webcore_files)',
       ],
       'sources/': [
-        # Start by excluding everything then include rendering files only.
         ['exclude', '.*'],
         ['include', 'rendering/'],
 
-        # Exclude things that don't apply to the Chromium platform on the basis
-        # of their enclosing directories and tags at the ends of their
-        # filenames.
-        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|gtk|haiku|html|linux|mac|opentype|platform|posix|qt|soup|svg|symbian|win|wince|wx)/'],
-        ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
+        # FIXME: Figure out how to store these patterns in a variable.
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|fftw|gstreamer|gtk|haiku|linux|mac|mkl|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
+        ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|JSC|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|WinCE|Wx)\\.(cpp|mm?)$'],
+
+        ['exclude', 'AllInOne\\.cpp$'],
 
         # Exclude most of SVG except css and javascript bindings.
         ['exclude', 'rendering/style/SVG[^/]+.(cpp|h)$'],
@@ -1415,75 +1478,64 @@
       # if this hard dependency could be split off the rest.
       'hard_dependency': 1,
       'sources': [
+        '<@(webcore_privateheader_files)',
         '<@(webcore_files)',
       ],
       'sources/': [
-        # Exclude JSC custom bindings.
-        ['exclude', 'bindings/cpp'],
-        ['exclude', 'bindings/gobject'],
-        ['exclude', 'bindings/js'],
-        ['exclude', 'bindings/objc'],
+        ['exclude', 'html/'],
+        ['exclude', 'platform/'],
+        ['exclude', 'rendering/'],
 
-        # Fortunately, many things can be excluded by using broad patterns.
+        # Exclude most of bindings, except of the V8-related parts.
+        ['exclude', 'bindings/[^/]+/'],
+        ['include', 'bindings/generic/'],
+        ['include', 'bindings/v8/'],
 
-        # Exclude things that don't apply to the Chromium platform on the basis
-        # of their enclosing directories and tags at the ends of their
-        # filenames.
-        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|gtk|haiku|html|linux|mac|opentype|platform|posix|qt|rendering|soup|svg|symbian|win|wince|wx)/'],
-        ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
+        # Exclude most of bridge, except for the V8-related parts.
+        ['exclude', 'bridge/'],
+        ['include', 'bridge/jni/'],
+        ['exclude', 'bridge/jni/[^/]+_jsobject\\.mm$'],
+        ['exclude', 'bridge/jni/[^/]+_objc\\.mm$'],
+        ['exclude', 'bridge/jni/jsc/'],
 
-        # JSC-only.
+        # FIXME: Figure out how to store these patterns in a variable.
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|fftw|gstreamer|gtk|haiku|linux|mac|mkl|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
+        ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|JSC|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|WinCE|Wx)\\.(cpp|mm?)$'],
+
+        ['exclude', 'AllInOne\\.cpp$'],
+
+        ['exclude', 'dom/StaticStringList\\.cpp$'],
+        ['exclude', 'dom/default/PlatformMessagePortChannel\\.(cpp|h)$'],
+        ['exclude', 'fileapi/LocalFileSystem\\.cpp$'],
+        ['exclude', 'inspector/InspectorFrontendClientLocal\\.cpp$'],
         ['exclude', 'inspector/JavaScript[^/]*\\.cpp$'],
-
-        # ENABLE_OFFLINE_WEB_APPLICATIONS, exclude most of webcore's impl
+        ['exclude', 'loader/UserStyleSheetLoader\\.cpp$'],
         ['exclude', 'loader/appcache/'],
-        ['include', 'loader/appcache/ApplicationCacheHost\.h$'],
-        ['include', 'loader/appcache/DOMApplicationCache\.(h|cpp)$'],
-
-        # Exclude some DB-related files.
-        ['exclude', 'storage/DatabaseTracker\\.cpp$'],
-        ['exclude', 'storage/DatabaseTrackerClient\\.h$'],
-        ['exclude', 'storage/OriginQuotaManager\\.(cpp|h)$'],
-        ['exclude', 'storage/OriginUsageRecord\\.(cpp|h)$'],
-        ['exclude', 'storage/SQLTransactionClient\\.cpp$'],
-
-        # Don't build StorageNamespace.  We have our own implementation.
-        ['exclude', 'storage/StorageNamespace\\.cpp$'],
-
-        # Don't build StorageEventDispatcher.  We have our own implementation.
-        ['exclude', 'storage/StorageEventDispatcher\\.cpp$'],
-
-        # Don't build IDBFactoryBackendInterface.  We have our own implementation.
-        ['exclude', 'storage/IDBFactoryBackendInterface\\.cpp$'],
-
-        # Don't build IDBKeyPathBackendImpl.  We have our own implementation.
-        ['exclude', 'storage/IDBKeyPathBackendImpl\\.cpp$'],
-
-        # Don't build files needed for WebArchive support, since we disable
-        # this feature.
-        ['exclude', 'loader/archive/cf/LegacyWebArchive\\.cpp$'],
-        ['exclude', 'loader/archive/cf/LegacyWebArchiveMac\\.mm$'],
         ['exclude', 'loader/archive/ArchiveFactory\\.cpp$'],
-
-        # Use loader/icon/IconDatabaseNone.cpp instead.
+        ['exclude', 'loader/archive/cf/LegacyWebArchiveMac\\.mm$'],
+        ['exclude', 'loader/archive/cf/LegacyWebArchive\\.cpp$'],
         ['exclude', 'loader/icon/IconDatabase\\.cpp$'],
-
-        # Exclude some, but not all, of plugins.
+        ['exclude', 'plugins/PluginDataNone\\.cpp$'],
         ['exclude', 'plugins/PluginDatabase\\.cpp$'],
         ['exclude', 'plugins/PluginMainThreadScheduler\\.cpp$'],
+        ['exclude', 'plugins/PluginPackageNone\\.cpp$'],
         ['exclude', 'plugins/PluginPackage\\.cpp$'],
         ['exclude', 'plugins/PluginStream\\.cpp$'],
         ['exclude', 'plugins/PluginView\\.cpp$'],
         ['exclude', 'plugins/npapi\\.cpp$'],
+        ['exclude', 'storage/DatabaseTrackerClient\\.h$'],
+        ['exclude', 'storage/DatabaseTracker\\.cpp$'],
+        ['exclude', 'storage/IDBFactoryBackendInterface\\.cpp$'],
+        ['exclude', 'storage/IDBKeyPathBackendImpl\\.cpp$'],
+        ['exclude', 'storage/OriginQuotaManager\\.(cpp|h)$'],
+        ['exclude', 'storage/OriginUsageRecord\\.(cpp|h)$'],
+        ['exclude', 'storage/SQLTransactionClient\\.cpp$'],
+        ['exclude', 'storage/StorageEventDispatcher\\.cpp$'],
+        ['exclude', 'storage/StorageNamespace\\.cpp$'],
+        ['exclude', 'workers/DefaultSharedWorkerRepository\\.(cpp|h)$'],
 
-        # FIXME: I don't know exactly why these are excluded.  It would
-        # be nice to provide more explicit comments.  Some of these do actually
-        # compile.
-        ['exclude', 'dom/StaticStringList\\.cpp$'],
-        ['exclude', 'loader/UserStyleSheetLoader\\.cpp$'],
-
-        # We use a multi-process version from the WebKit API.
-        ['exclude', 'dom/default/PlatformMessagePortChannel\\.(cpp|h)$'],
+        ['include', 'loader/appcache/ApplicationCacheHost\.h$'],
+        ['include', 'loader/appcache/DOMApplicationCache\.(cpp|h)$'],
       ],
       'link_settings': {
         'mac_bundle_resources': [

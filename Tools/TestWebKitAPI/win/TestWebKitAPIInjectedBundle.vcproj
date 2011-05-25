@@ -198,7 +198,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Release_LTCG|Win32"
+			Name="Production|Win32"
 			ConfigurationType="2"
 			InheritedPropertySheets="..\Configurations\TestWebKitAPIRelease.vsprops;..\Configurations\TestWebKitAPIInjectedBundleCommon.vsprops"
 			CharacterSet="1"
@@ -399,6 +399,10 @@
 			<Filter
 				Name="WebKit2"
 				>
+				<File
+					RelativePath="..\Tests\WebKit2\CanHandleRequest_Bundle.cpp"
+					>
+				</File>
 				<File
 					RelativePath="..\Tests\WebKit2\DocumentStartUserScriptAlertCrash_Bundle.cpp"
 					>

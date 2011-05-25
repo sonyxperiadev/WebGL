@@ -54,6 +54,7 @@ namespace WebKit {
     macro(NeedsSiteSpecificQuirks, needsSiteSpecificQuirks, Bool, bool, false) \
     macro(AcceleratedCompositingEnabled, acceleratedCompositingEnabled, Bool, bool, true) \
     macro(AcceleratedDrawingEnabled, acceleratedDrawingEnabled, Bool, bool, false) \
+    macro(CanvasUsesAcceleratedDrawing, canvasUsesAcceleratedDrawing, Bool, bool, true) \
     macro(CompositingBordersVisible, compositingBordersVisible, Bool, bool, false) \
     macro(CompositingRepaintCountersVisible, compositingRepaintCountersVisible, Bool, bool, false) \
     macro(WebGLEnabled, webGLEnabled, Bool, bool, false) \
@@ -68,6 +69,10 @@ namespace WebKit {
     macro(DOMPasteAllowed, domPasteAllowed, Bool, bool, false) \
     macro(JavaScriptCanAccessClipboard, javaScriptCanAccessClipboard, Bool, bool, false) \
     macro(ShouldPrintBackgrounds, shouldPrintBackgrounds, Bool, bool, false) \
+    macro(FullScreenEnabled, fullScreenEnabled, Bool, bool, true) \
+    macro(WebSecurityEnabled, webSecurityEnabled, Bool, bool, true) \
+    macro(AllowUniversalAccessFromFileURLs, allowUniversalAccessFromFileURLs, Bool, bool, false) \
+    macro(AllowFileAccessFromFileURLs, allowFileAccessFromFileURLs, Bool, bool, false) \
     \
 
 #define FOR_EACH_WEBKIT_DOUBLE_PREFERENCE(macro) \
@@ -163,6 +168,7 @@ struct WebPreferencesStore {
     double getDoubleValueForKey(const String& key) const;
 
     static void overrideXSSAuditorEnabledForTestRunner(bool);
+    static void overrideAllowUniversalAccessFromFileURLsForTestRunner(bool);
     static void removeTestRunnerOverrides();
 
     HashMap<String, String> m_stringValues;

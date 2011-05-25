@@ -35,6 +35,7 @@
 #include "InlineTextBox.h"
 #include "PrintContext.h"
 #include "RenderBR.h"
+#include "RenderDetailsMarker.h"
 #include "RenderFileUploadControl.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
@@ -45,6 +46,7 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "SelectionController.h"
+#include <wtf/HexNumber.h>
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -209,11 +211,11 @@ String quoteAndEscapeNonPrintables(const String& s)
             if (c >= 0x20 && c < 0x7F)
                 result.append(c);
             else {
-                unsigned u = c;
-                String hex = String::format("\\x{%X}", u);
-                unsigned len = hex.length();
-                for (unsigned i = 0; i < len; ++i)
-                    result.append(hex[i]);
+                result.append('\\');
+                result.append('x');
+                result.append('{');
+                appendUnsignedAsHex(c, result); 
+                result.append('}');
             }
         }
     }
@@ -372,6 +374,24 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
         ts << " [r=" << c.row() << " c=" << c.col() << " rs=" << c.rowSpan() << " cs=" << c.colSpan() << "]";
     }
 
+    if (o.isDetailsMarker()) {
+        ts << ": ";
+        switch (toRenderDetailsMarker(&o)->orientation()) {
+        case RenderDetailsMarker::Left:
+            ts << "left";
+            break;
+        case RenderDetailsMarker::Right:
+            ts << "right";
+            break;
+        case RenderDetailsMarker::Up:
+            ts << "up";
+            break;
+        case RenderDetailsMarker::Down:
+            ts << "down";
+            break;
+        }
+    }
+
     if (o.isListMarker()) {
         String text = toRenderListMarker(&o)->text();
         if (!text.isEmpty()) {
@@ -487,8 +507,10 @@ static void writeTextRun(TextStream& ts, const RenderText& o, const InlineTextBo
             ts << " override";
     }
     ts << ": "
-        << quoteAndEscapeNonPrintables(String(o.text()).substring(run.start(), run.len()))
-        << "\n";
+        << quoteAndEscapeNonPrintables(String(o.text()).substring(run.start(), run.len()));
+    if (run.hasHyphen())
+        ts << " + hyphen string " << quoteAndEscapeNonPrintables(o.style()->hyphenString());
+    ts << "\n";
 }
 
 void write(TextStream& ts, const RenderObject& o, int indent, RenderAsTextBehavior behavior)

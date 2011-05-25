@@ -35,7 +35,6 @@
 
 #include "WebDevToolsAgentPrivate.h"
 
-#include <v8.h>
 #include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 
@@ -76,17 +75,9 @@ public:
     virtual void didNavigate();
     virtual void dispatchOnInspectorBackend(const WebString& message);
     virtual void inspectElementAt(const WebPoint& point);
-    virtual void inspectNode(v8::Handle<v8::Value> node);
     virtual void evaluateInWebInspector(long callId, const WebString& script);
     virtual void setRuntimeProperty(const WebString& name, const WebString& value);
     virtual void setTimelineProfilingEnabled(bool enable);
-
-    virtual void identifierForInitialRequest(unsigned long, WebFrame*, const WebURLRequest&);
-    virtual void willSendRequest(unsigned long, WebURLRequest&);
-    virtual void didReceiveData(unsigned long, int length);
-    virtual void didReceiveResponse(unsigned long, const WebURLResponse&);
-    virtual void didFinishLoading(unsigned long);
-    virtual void didFailLoading(unsigned long, const WebURLError&);
 
     // InspectorClient implementation.
     virtual void inspectorDestroyed();

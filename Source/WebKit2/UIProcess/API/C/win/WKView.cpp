@@ -72,6 +72,11 @@ void WKViewSetInitialFocus(WKViewRef viewRef, bool forward)
     toImpl(viewRef)->setInitialFocus(forward);
 }
 
+void WKViewSetScrollOffsetOnNextResize(WKViewRef viewRef, WKSize scrollOffset)
+{
+    toImpl(viewRef)->setScrollOffsetOnNextResize(toIntSize(scrollOffset));
+}
+
 void WKViewSetFindIndicatorCallback(WKViewRef viewRef, WKViewFindIndicatorCallback callback, void* context)
 {
     toImpl(viewRef)->setFindIndicatorCallback(callback, context);
@@ -80,4 +85,21 @@ void WKViewSetFindIndicatorCallback(WKViewRef viewRef, WKViewFindIndicatorCallba
 WKViewFindIndicatorCallback WKViewGetFindIndicatorCallback(WKViewRef viewRef, void** context)
 {    
     return toImpl(viewRef)->getFindIndicatorCallback(context);
+}
+
+void WKViewSetViewUndoClient(WKViewRef viewRef, const WKViewUndoClient* wkClient)
+{
+    if (wkClient && wkClient->version)
+        return;
+    toImpl(viewRef)->initializeUndoClient(wkClient);
+}
+
+void WKViewReapplyEditCommand(WKViewRef viewRef, WKEditCommandRef command)
+{
+    toImpl(viewRef)->reapplyEditCommand(toImpl(command));
+}
+
+void WKViewUnapplyEditCommand(WKViewRef viewRef, WKEditCommandRef command)
+{
+    toImpl(viewRef)->unapplyEditCommand(toImpl(command));
 }

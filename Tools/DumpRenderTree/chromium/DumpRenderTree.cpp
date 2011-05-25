@@ -43,7 +43,8 @@ static const char optionDumpAllPixels[] = "--dump-all-pixels";
 static const char optionNotree[] = "--notree";
 static const char optionPixelTests[] = "--pixel-tests";
 static const char optionThreaded[] = "--threaded";
-static const char optionTree[] = "--tree";
+static const char optionDebugRenderTree[] = "--debug-render-tree";
+static const char optionDebugLayerTree[] = "--debug-layer-tree";
 
 static const char optionPixelTestsWithName[] = "--pixel-tests=";
 static const char optionTestShell[] = "--test-shell";
@@ -53,6 +54,7 @@ static const char optionCheckLayoutTestSystemDeps[] = "--check-layout-test-sys-d
 
 static const char optionHardwareAcceleratedGL[] = "--enable-hardware-gpu";
 static const char optionEnableAcceleratedCompositing[] = "--enable-accelerated-compositing";
+static const char optionForceCompositingMode[] = "--force-compositing-mode";
 static const char optionEnableAccelerated2DCanvas[] = "--enable-accelerated-2d-canvas";
 
 static const char optionStressOpt[] = "--stress-opt";
@@ -131,6 +133,7 @@ int main(int argc, char* argv[])
     bool allowExternalPages = false;
     bool startupDialog = false;
     bool acceleratedCompositingEnabled = false;
+    bool forceCompositingMode = false;
     bool accelerated2DCanvasEnabled = false;
     bool stressOpt = false;
     bool stressDeopt = false;
@@ -148,7 +151,11 @@ int main(int argc, char* argv[])
         else if (!argument.find(optionPixelTestsWithName)) {
             params.dumpPixels = true;
             params.pixelFileName = argument.substr(strlen(optionPixelTestsWithName));
-        } else if (argument == optionTestShell) {
+        } else if (argument == optionDebugRenderTree)
+            params.debugRenderTree = true;
+        else if (argument == optionDebugLayerTree)
+            params.debugLayerTree = true;
+        else if (argument == optionTestShell) {
             testShellMode = true;
             serverMode = true;
         } else if (argument == optionAllowExternalPages)
@@ -161,6 +168,8 @@ int main(int argc, char* argv[])
             hardwareAcceleratedGL = true;
         else if (argument == optionEnableAcceleratedCompositing)
             acceleratedCompositingEnabled = true;
+        else if (argument == optionForceCompositingMode)
+            forceCompositingMode = true;
         else if (argument == optionEnableAccelerated2DCanvas)
             accelerated2DCanvasEnabled = true;
         else if (argument == optionStressOpt)
@@ -194,6 +203,7 @@ int main(int argc, char* argv[])
         TestShell shell(testShellMode);
         shell.setAllowExternalPages(allowExternalPages);
         shell.setAcceleratedCompositingEnabled(acceleratedCompositingEnabled);
+        shell.setForceCompositingMode(forceCompositingMode);
         shell.setAccelerated2dCanvasEnabled(accelerated2DCanvasEnabled);
         shell.setJavaScriptFlags(javaScriptFlags);
         shell.setStressOpt(stressOpt);

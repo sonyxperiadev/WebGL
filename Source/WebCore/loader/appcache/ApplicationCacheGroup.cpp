@@ -474,9 +474,8 @@ PassRefPtr<ResourceHandle> ApplicationCacheGroup::createResourceHandle(const KUR
     // Because willSendRequest only gets called during redirects, we initialize
     // the identifier and the first willSendRequest here.
     m_currentResourceIdentifier = m_frame->page()->progress()->createUniqueIdentifier();
-    InspectorInstrumentation::identifierForInitialRequest(m_frame, m_currentResourceIdentifier, m_frame->loader()->documentLoader(), handle->firstRequest());
     ResourceResponse redirectResponse = ResourceResponse();
-    InspectorInstrumentation::willSendRequest(m_frame, m_currentResourceIdentifier, request, redirectResponse);
+    InspectorInstrumentation::willSendRequest(m_frame, m_currentResourceIdentifier, m_frame->loader()->documentLoader(), request, redirectResponse);
 #endif
     return handle;
 }
@@ -512,7 +511,7 @@ void ApplicationCacheGroup::didReceiveResponse(ResourceHandle* handle, const Res
     if (m_newestCache && response.httpStatusCode() == 304) { // Not modified.
         ApplicationCacheResource* newestCachedResource = m_newestCache->resourceForURL(url);
         if (newestCachedResource) {
-            m_cacheBeingUpdated->addResource(ApplicationCacheResource::create(url, newestCachedResource->response(), type, newestCachedResource->data()));
+            m_cacheBeingUpdated->addResource(ApplicationCacheResource::create(url, newestCachedResource->response(), type, newestCachedResource->data(), newestCachedResource->path()));
             m_pendingEntries.remove(m_currentHandle->firstRequest().url());
             m_currentHandle->cancel();
             m_currentHandle = 0;
@@ -540,7 +539,7 @@ void ApplicationCacheGroup::didReceiveResponse(ResourceHandle* handle, const Res
             ASSERT(m_newestCache);
             ApplicationCacheResource* newestCachedResource = m_newestCache->resourceForURL(handle->firstRequest().url());
             ASSERT(newestCachedResource);
-            m_cacheBeingUpdated->addResource(ApplicationCacheResource::create(url, newestCachedResource->response(), type, newestCachedResource->data()));
+            m_cacheBeingUpdated->addResource(ApplicationCacheResource::create(url, newestCachedResource->response(), type, newestCachedResource->data(), newestCachedResource->path()));
             m_pendingEntries.remove(m_currentHandle->firstRequest().url());
             m_currentHandle->cancel();
             m_currentHandle = 0;
@@ -555,8 +554,10 @@ void ApplicationCacheGroup::didReceiveResponse(ResourceHandle* handle, const Res
 
 void ApplicationCacheGroup::didReceiveData(ResourceHandle* handle, const char* data, int length, int lengthReceived)
 {
+    UNUSED_PARAM(lengthReceived);
+
 #if ENABLE(INSPECTOR)
-    InspectorInstrumentation::didReceiveContentLength(m_frame, m_currentResourceIdentifier, lengthReceived);
+    InspectorInstrumentation::didReceiveContentLength(m_frame, m_currentResourceIdentifier, length, 0);
 #endif
 
     if (handle == m_manifestHandle) {
@@ -642,7 +643,7 @@ void ApplicationCacheGroup::didFail(ResourceHandle* handle, const ResourceError&
         ASSERT(m_newestCache);
         ApplicationCacheResource* newestCachedResource = m_newestCache->resourceForURL(url);
         ASSERT(newestCachedResource);
-        m_cacheBeingUpdated->addResource(ApplicationCacheResource::create(url, newestCachedResource->response(), type, newestCachedResource->data()));
+        m_cacheBeingUpdated->addResource(ApplicationCacheResource::create(url, newestCachedResource->response(), type, newestCachedResource->data(), newestCachedResource->path()));
         // Load the next resource, if any.
         startLoadingEntry();
     }
@@ -866,7 +867,7 @@ void ApplicationCacheGroup::checkIfLoadIsComplete()
         }
 
         ApplicationCacheStorage::FailureReason failureReason;
-        RefPtr<ApplicationCache> oldNewestCache = (m_newestCache == m_cacheBeingUpdated) ? 0 : m_newestCache;
+        RefPtr<ApplicationCache> oldNewestCache = (m_newestCache == m_cacheBeingUpdated) ? RefPtr<ApplicationCache>() : m_newestCache;
         setNewestCache(m_cacheBeingUpdated.release());
         if (cacheStorage().storeNewestCache(this, oldNewestCache.get(), failureReason)) {
             // New cache stored, now remove the old cache.

@@ -62,6 +62,7 @@ LayerChromium::LayerChromium(GraphicsLayerChromium* owner)
     : m_owner(owner)
     , m_contentsDirty(false)
     , m_maskLayer(0)
+    , m_ccLayerImpl(0)
     , m_superlayer(0)
 #ifndef NDEBUG
     , m_debugID(s_nextLayerDebugID++)
@@ -77,7 +78,7 @@ LayerChromium::LayerChromium(GraphicsLayerChromium* owner)
     , m_opaque(true)
     , m_geometryFlipped(false)
     , m_needsDisplayOnBoundsChange(false)
-    , m_ccLayerImpl(CCLayerImpl::create(this))
+    , m_doubleSided(true)
     , m_replicaLayer(0)
 {
 }
@@ -94,7 +95,8 @@ LayerChromium::~LayerChromium()
 
 void LayerChromium::cleanupResources()
 {
-    m_ccLayerImpl->cleanupResources();
+    if (m_ccLayerImpl)
+        m_ccLayerImpl->cleanupResources();
 }
 
 void LayerChromium::setLayerRenderer(LayerRendererChromium* renderer)
@@ -105,8 +107,7 @@ void LayerChromium::setLayerRenderer(LayerRendererChromium* renderer)
         cleanupResources();
         setNeedsDisplay();
     }
-
-    m_ccLayerImpl->setLayerRenderer(renderer);
+    m_layerRenderer = renderer;
 }
 
 void LayerChromium::setNeedsCommit()
@@ -188,7 +189,7 @@ void LayerChromium::setBounds(const IntSize& size)
 
     bool firstResize = !bounds().width() && !bounds().height() && size.width() && size.height();
 
-    m_ccLayerImpl->setBounds(size);
+    m_bounds = size;
 
     if (firstResize)
         setNeedsDisplay(FloatRect(0, 0, bounds().width(), bounds().height()));
@@ -240,7 +241,6 @@ LayerChromium* LayerChromium::superlayer() const
 void LayerChromium::setName(const String& name)
 {
     m_name = name;
-    m_ccLayerImpl->setName(name);
 }
 
 void LayerChromium::setNeedsDisplay(const FloatRect& dirtyRect)
@@ -288,6 +288,29 @@ void LayerChromium::toGLMatrix(float* flattened, const TransformationMatrix& m)
     flattened[15] = m.m44();
 }
 
+void LayerChromium::pushPropertiesTo(CCLayerImpl* layer)
+{
+    layer->setAnchorPoint(m_anchorPoint);
+    layer->setAnchorPointZ(m_anchorPointZ);
+    layer->setBounds(m_bounds);
+    layer->setDebugBorderColor(m_debugBorderColor);
+    layer->setDebugBorderWidth(m_debugBorderWidth);
+    layer->setDoubleSided(m_doubleSided);
+    layer->setLayerRenderer(m_layerRenderer.get());
+    layer->setMasksToBounds(m_masksToBounds);
+    layer->setName(m_name);
+    layer->setOpacity(m_opacity);
+    layer->setPosition(m_position);
+    layer->setPreserves3D(preserves3D());
+    layer->setSublayerTransform(m_sublayerTransform);
+    layer->setTransform(m_transform);
+
+    if (maskLayer())
+        maskLayer()->pushPropertiesTo(layer->maskLayer());
+    if (replicaLayer())
+        replicaLayer()->pushPropertiesTo(layer->replicaLayer());
+}
+
 GraphicsContext3D* LayerChromium::layerRendererContext() const
 {
     ASSERT(layerRenderer());
@@ -316,31 +339,6 @@ void LayerChromium::drawTexturedQuad(GraphicsContext3D* context, const Transform
     GLC(context, context->drawElements(GraphicsContext3D::TRIANGLES, 6, GraphicsContext3D::UNSIGNED_SHORT, 0));
 }
 
-
-
-// Returns true if any of the layer's descendants has drawable content.
-bool LayerChromium::descendantsDrawContent()
-{
-    const Vector<RefPtr<LayerChromium> >& sublayers = getSublayers();
-    for (size_t i = 0; i < sublayers.size(); ++i)
-        if (sublayers[i]->descendantsDrawContentRecursive())
-            return true;
-    return false;
-}
-
-// Returns true if either this layer or one of its descendants has drawable content.
-bool LayerChromium::descendantsDrawContentRecursive()
-{
-    if (drawsContent())
-        return true;
-
-    const Vector<RefPtr<LayerChromium> >& sublayers = getSublayers();
-    for (size_t i = 0; i < sublayers.size(); ++i)
-        if (sublayers[i]->descendantsDrawContentRecursive())
-            return true;
-    return false;
-}
-
 String LayerChromium::layerTreeAsText() const
 {
     TextStream ts;
@@ -359,7 +357,8 @@ void LayerChromium::dumpLayer(TextStream& ts, int indent) const
     writeIndent(ts, indent);
     ts << layerTypeAsString() << "(" << m_name << ")\n";
     dumpLayerProperties(ts, indent+2);
-    m_ccLayerImpl->dumpLayerProperties(ts, indent+2);
+    if (m_ccLayerImpl)
+        m_ccLayerImpl->dumpLayerProperties(ts, indent+2);
     if (m_replicaLayer) {
         writeIndent(ts, indent+2);
         ts << "Replica:\n";
@@ -385,48 +384,38 @@ void LayerChromium::dumpLayerProperties(TextStream& ts, int indent) const
 
 }
 
-// Begin calls that forward to the CCLayerImpl.
-// ==============================================
-// These exists just for debugging (via drawDebugBorder()).
-void LayerChromium::setBorderColor(const Color& color)
+PassRefPtr<CCLayerImpl> LayerChromium::createCCLayerImpl()
 {
-    m_ccLayerImpl->setDebugBorderColor(color);
-    setNeedsCommit();
+    return CCLayerImpl::create(this);
 }
 
-Color LayerChromium::borderColor() const
+void LayerChromium::createCCLayerImplIfNeeded()
 {
-    return m_ccLayerImpl->debugBorderColor();
+    if (!m_ccLayerImpl)
+        m_ccLayerImpl = createCCLayerImpl();
+}
+
+CCLayerImpl* LayerChromium::ccLayerImpl()
+{
+    return m_ccLayerImpl.get();
+}
+
+void LayerChromium::setBorderColor(const Color& color)
+{
+    m_debugBorderColor = color;
+    setNeedsCommit();
 }
 
 void LayerChromium::setBorderWidth(float width)
 {
-    m_ccLayerImpl->setDebugBorderWidth(width);
+    m_debugBorderWidth = width;
     setNeedsCommit();
-}
-
-float LayerChromium::borderWidth() const
-{
-    return m_ccLayerImpl->debugBorderWidth();
 }
 
 LayerRendererChromium* LayerChromium::layerRenderer() const
 {
-    return m_ccLayerImpl->layerRenderer();
+    return m_layerRenderer.get();
 }
-
-void LayerChromium::setDoubleSided(bool doubleSided)
-{
-    m_ccLayerImpl->setDoubleSided(doubleSided);
-    setNeedsCommit();
-}
-
-const IntSize& LayerChromium::bounds() const
-{
-    return m_ccLayerImpl->bounds();
-}
-// ==============================================
-// End calls that forward to the CCLayerImpl.
 
 }
 #endif // USE(ACCELERATED_COMPOSITING)

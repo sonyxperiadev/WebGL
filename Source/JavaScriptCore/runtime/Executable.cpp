@@ -33,6 +33,11 @@
 #include "UStringBuilder.h"
 #include "Vector.h"
 
+#if ENABLE(DFG_JIT)
+#include "DFGByteCodeParser.h"
+#include "DFGJITCompiler.h"
+#endif
+
 namespace JSC {
 
 NativeExecutable::~NativeExecutable()
@@ -44,7 +49,7 @@ VPtrHackExecutable::~VPtrHackExecutable()
 }
 
 EvalExecutable::EvalExecutable(ExecState* exec, const SourceCode& source, bool inStrictContext)
-    : ScriptExecutable(exec, source, inStrictContext)
+    : ScriptExecutable(exec->globalData().evalExecutableStructure.get(), exec, source, inStrictContext)
 {
 }
 
@@ -53,7 +58,7 @@ EvalExecutable::~EvalExecutable()
 }
 
 ProgramExecutable::ProgramExecutable(ExecState* exec, const SourceCode& source)
-    : ScriptExecutable(exec, source, false)
+    : ScriptExecutable(exec->globalData().programExecutableStructure.get(), exec, source, false)
 {
 }
 
@@ -62,7 +67,7 @@ ProgramExecutable::~ProgramExecutable()
 }
 
 FunctionExecutable::FunctionExecutable(JSGlobalData* globalData, const Identifier& name, const SourceCode& source, bool forceUsesArguments, FunctionParameters* parameters, bool inStrictContext, int firstLine, int lastLine)
-    : ScriptExecutable(globalData, source, inStrictContext)
+    : ScriptExecutable(globalData->functionExecutableStructure.get(), globalData, source, inStrictContext)
     , m_numCapturedVariables(0)
     , m_forceUsesArguments(forceUsesArguments)
     , m_parameters(parameters)
@@ -74,7 +79,7 @@ FunctionExecutable::FunctionExecutable(JSGlobalData* globalData, const Identifie
 }
 
 FunctionExecutable::FunctionExecutable(ExecState* exec, const Identifier& name, const SourceCode& source, bool forceUsesArguments, FunctionParameters* parameters, bool inStrictContext, int firstLine, int lastLine)
-    : ScriptExecutable(exec, source, inStrictContext)
+    : ScriptExecutable(exec->globalData().functionExecutableStructure.get(), exec, source, inStrictContext)
     , m_numCapturedVariables(0)
     , m_forceUsesArguments(forceUsesArguments)
     , m_parameters(parameters)
@@ -85,9 +90,6 @@ FunctionExecutable::FunctionExecutable(ExecState* exec, const Identifier& name, 
     m_lastLine = lastLine;
 }
 
-FunctionExecutable::~FunctionExecutable()
-{
-}
 
 JSObject* EvalExecutable::compileInternal(ExecState* exec, ScopeChainNode* scopeChainNode)
 {
@@ -125,6 +127,13 @@ JSObject* EvalExecutable::compileInternal(ExecState* exec, ScopeChainNode* scope
 #endif
 
     return 0;
+}
+
+void EvalExecutable::markChildren(MarkStack& markStack)
+{
+    ScriptExecutable::markChildren(markStack);
+    if (m_evalCodeBlock)
+        m_evalCodeBlock->markAggregate(markStack);
 }
 
 JSObject* ProgramExecutable::checkSyntax(ExecState* exec)
@@ -178,6 +187,41 @@ JSObject* ProgramExecutable::compileInternal(ExecState* exec, ScopeChainNode* sc
    return 0;
 }
 
+#if ENABLE(JIT)
+static bool tryDFGCompile(JSGlobalData* globalData, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr& jitCodeWithArityCheck)
+{
+#if ENABLE(DFG_JIT)
+#if ENABLE(DFG_JIT_RESTRICTIONS)
+    // FIXME: No flow control yet supported, don't bother scanning the bytecode if there are any jump targets.
+    // FIXME: temporarily disable property accesses until we fix regressions.
+    if (codeBlock->numberOfJumpTargets() || codeBlock->numberOfStructureStubInfos())
+        return false;
+#endif
+
+    DFG::Graph dfg;
+    if (!parse(dfg, globalData, codeBlock))
+        return false;
+
+    DFG::JITCompiler dataFlowJIT(globalData, dfg, codeBlock);
+    dataFlowJIT.compileFunction(jitCode, jitCodeWithArityCheck);
+    return true;
+#else
+    UNUSED_PARAM(globalData);
+    UNUSED_PARAM(codeBlock);
+    UNUSED_PARAM(jitCode);
+    UNUSED_PARAM(jitCodeWithArityCheck);
+    return false;
+#endif
+}
+#endif
+
+void ProgramExecutable::markChildren(MarkStack& markStack)
+{
+    ScriptExecutable::markChildren(markStack);
+    if (m_programCodeBlock)
+        m_programCodeBlock->markAggregate(markStack);
+}
+
 JSObject* FunctionExecutable::compileForCallInternal(ExecState* exec, ScopeChainNode* scopeChainNode)
 {
     JSObject* exception = 0;
@@ -212,7 +256,10 @@ JSObject* FunctionExecutable::compileForCallInternal(ExecState* exec, ScopeChain
 
 #if ENABLE(JIT)
     if (exec->globalData().canUseJIT()) {
-        m_jitCodeForCall = JIT::compile(scopeChainNode->globalData, m_codeBlockForCall.get(), &m_jitCodeForCallWithArityCheck);
+        bool dfgCompiled = tryDFGCompile(&exec->globalData(), m_codeBlockForCall.get(), m_jitCodeForCall, m_jitCodeForCallWithArityCheck);
+        if (!dfgCompiled)
+            m_jitCodeForCall = JIT::compile(scopeChainNode->globalData, m_codeBlockForCall.get(), &m_jitCodeForCallWithArityCheck);
+
 #if !ENABLE(OPCODE_SAMPLING)
         if (!BytecodeGenerator::dumpsGeneratedCode())
             m_codeBlockForCall->discardBytecode();
@@ -268,8 +315,9 @@ JSObject* FunctionExecutable::compileForConstructInternal(ExecState* exec, Scope
     return 0;
 }
 
-void FunctionExecutable::markAggregate(MarkStack& markStack)
+void FunctionExecutable::markChildren(MarkStack& markStack)
 {
+    ScriptExecutable::markChildren(markStack);
     if (m_codeBlockForCall)
         m_codeBlockForCall->markAggregate(markStack);
     if (m_codeBlockForConstruct)
@@ -288,7 +336,7 @@ void FunctionExecutable::discardCode()
 #endif
 }
 
-PassRefPtr<FunctionExecutable> FunctionExecutable::fromGlobalCode(const Identifier& functionName, ExecState* exec, Debugger* debugger, const SourceCode& source, JSObject** exception)
+FunctionExecutable* FunctionExecutable::fromGlobalCode(const Identifier& functionName, ExecState* exec, Debugger* debugger, const SourceCode& source, JSObject** exception)
 {
     JSGlobalObject* lexicalGlobalObject = exec->lexicalGlobalObject();
     RefPtr<ProgramNode> program = exec->globalData().parser->parse<ProgramNode>(lexicalGlobalObject, debugger, exec, source, 0, JSParseNormal, exception);

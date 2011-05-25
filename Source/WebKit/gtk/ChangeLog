@@ -1,3 +1,337 @@
+2011-03-30  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Dirk Schulze.
+
+        [Cairo] Better separate the concerns of GraphicsContextCairo
+        https://bugs.webkit.org/show_bug.cgi?id=55150
+
+        Add a PlatformContextCairo which right now stores the cairo_t* for a
+        GraphicsContextCairo. Later patches will move logic for tracking ContextShadow
+        and image masking layers into this PlatformContextCairo class.
+
+        * webkit/webkitwebframe.cpp:
+        (draw_page_callback):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_expose_event):
+        (webkit_web_view_draw):
+
+2011-03-29  Philippe Normand  <pnormand@igalia.com>
+
+        Unreviewed, disable an assert in testwebview due to
+        https://bugs.webkit.org/show_bug.cgi?id=57315
+
+        * tests/testwebview.c:
+
+2011-03-28  Adele Peterson  <adele@apple.com>
+
+        Build fix.
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::webkitWebFrameSelectionHasSpellingMarker):
+
+2011-03-28  Sergio Villar Senin  <svillar@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Fullscreen tests failing after r82084
+        https://bugs.webkit.org/show_bug.cgi?id=57219
+
+        Added the withKeyboard parameter to supportsFullScreenForElement
+        method in ChromeClient. Fullscreen will be disabled for keyboard
+        access by default.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::supportsFullScreenForElement):
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2011-03-25  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        REGRESSION (r70748): latest nightly builds kills AC_QuickTime.js
+        https://bugs.webkit.org/show_bug.cgi?id=49016
+
+        Update objectContentType() implementation to handle the
+        shouldPreferPlugInsForImages flag.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::objectContentType):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2011-03-25  Priit Laes  <plaes@plaes.org>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] [PATCH] Avoid critical warning when free-ing list of plugins
+        https://bugs.webkit.org/show_bug.cgi?id=57025
+
+        * webkit/webkitwebplugindatabase.cpp:
+        (webkit_web_plugin_database_plugins_list_free):
+        Use regular check and return instead of g_return_if_fail.
+
+2011-03-24  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81916 and r81917.
+        http://trac.webkit.org/changeset/81916
+        http://trac.webkit.org/changeset/81917
+        https://bugs.webkit.org/show_bug.cgi?id=57071
+
+        broke a test on platforms that do not have QuickTime installed
+        (Requested by estes on #webkit).
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::objectContentType):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2011-03-24  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r70748): latest nightly builds kills AC_QuickTime.js
+        https://bugs.webkit.org/show_bug.cgi?id=49016
+
+        Update objectContentType() implementation to handle the
+        shouldPreferPlugInsForImages flag.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::objectContentType):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2011-03-23  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change IconDatabase opening to allow for arbitrary filenames
+        https://bugs.webkit.org/show_bug.cgi?id=56977
+
+        * webkit/webkiticondatabase.cpp:
+        (webkit_icon_database_set_path):
+
+2011-03-22  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Rubber-stamped by Xan Lopez.
+
+        Applications that include WebKit headers fail to build when using strict warnings
+        because the signature for webkit_application_cache_get_maximum_size is missing a
+        'void' to make it explicit it takes no arguments.
+
+        * webkit/webkitapplicationcache.h:
+
+2011-03-21  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] 1.3.13 release bump
+        https://bugs.webkit.org/show_bug.cgi?id=56795
+
+        Version bump for 1.3.13 and updated NEWS file with release notes.
+
+        * NEWS:
+
+2011-03-21  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        REGRESSION (r79953): Can't type in MS Outlook 2011
+        https://bugs.webkit.org/show_bug.cgi?id=56665
+
+        r79953 removed the WebView level editablity which is persistent no matter whether
+        underlying document itself is changed and editability gets lost. The resolution is to
+        set this WebView editable value to WebCore. This avoids the callback from WebCore to
+        WebKit which was the main goal in r79953 to improve performance.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_editable):
+        (webkit_web_view_set_editable):
+
+2011-03-21  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] [Stable] AtkHypertext exposes wrong offsets for links placed inside <span> nodes
+        https://bugs.webkit.org/show_bug.cgi?id=56737
+
+        * tests/testatk.c:
+        (testWebkitAtkHypertextAndHyperlinks): Updated unit test to also
+        check offsets for hyperlinks inside <span> nodes.
+
+2011-03-18  David Keijser  <keijser@gmail.com> and Xan Lopez <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] On-demand event-listeners for DOM event signals
+        https://bugs.webkit.org/show_bug.cgi?id=49649
+
+        * tests/testdomdomwindow.c: update unit tests for new APIs.
+        (load_event_callback): ditto.
+        (test_dom_domview_signals): ditto.
+        (load_status_callback): ditto.
+
+2011-03-17  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=56425
+        More groundwork for WebKit2 IconDatabase
+
+        Update already-used function names:
+        * webkit/webkiticondatabase.cpp:
+        (webkit_icon_database_get_icon_uri):
+        (webkit_icon_database_get_icon_pixbuf):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_icon_uri):
+
+2011-03-16  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Viewport no longer allows an auto value for "user-scalable"
+        https://bugs.webkit.org/show_bug.cgi?id=55416
+
+        Make the default value for userScalable be true.
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::dumpConfigurationForViewport): update test output to include userScalable.
+        * webkit/webkitviewportattributes.cpp:
+        (webkitViewportAttributesRecompute):
+
+2011-03-15  Ilya Sherman  <isherman@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Autofilled form elements are assigned fixed background color but not text color
+        https://bugs.webkit.org/show_bug.cgi?id=48382
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::setAutofilled): Added.
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2011-03-14  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Possible leaks after splitting TextCheckerClientEnchant.
+        https://bugs.webkit.org/show_bug.cgi?id=55989
+
+        Convert gchar* to GOwnPtr<gchar> and refactor the code.
+
+        * WebCoreSupport/TextCheckerClientEnchant.cpp:
+        (WebKit::TextCheckerClientEnchant::checkSpellingOfString):
+
+2011-03-11  Marco Peereboom  <marco@peereboom.us>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Provide a knob to enable/disable DNS prefetching.
+        DNS prefetching is enabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=55973
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2011-03-08  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] close-web-view emitted on disposed WebView
+        https://bugs.webkit.org/show_bug.cgi?id=55932
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (ChromeClient::chromeDestroyed): Remove the closeSoonTimer glib
+        source before destruction of the ChromeClient.
+
+2011-03-11  Roland Steiner  <rolandsteiner@chromium.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Bug 55570 - Remove dependency of dom/InputElement.cpp on html/ and wml/
+        https://bugs.webkit.org/show_bug.cgi?id=55570
+
+        Add a virtual function toInputElement() to Node that has a default
+        implementation of returning 0.
+        For HTMLInputElement and WMLInputElement (which derive from InputElement)
+        override this to return the object.
+        Change all calling sites of the old toInputElement to use the new member
+        function. This also allows us to save some casts.
+
+        No new tests (refactoring).
+
+        * src/WebInputElement.cpp:
+        (WebKit::toWebInputElement):
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::setValueForUser):
+
+2011-03-10  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] unittests/testapplicationcache crashes
+        https://bugs.webkit.org/show_bug.cgi?id=56083
+
+        Removed the webkit_application_cache_get_database_directory_path
+        API as the underlying ApplicationCacheStorage doesn't allow
+        setting the cache path multiple times.
+
+        * tests/testapplicationcache.c:
+        (main):
+        * webkit/webkitapplicationcache.cpp:
+        (webkit_application_cache_get_database_directory_path):
+        * webkit/webkitapplicationcache.h:
+        * webkit/webkitglobals.cpp:
+        (webkitInit):
+
+2011-03-09  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Mihai Parparita.
+
+        Unify Windows version checks.
+        https://bugs.webkit.org/show_bug.cgi?id=55979
+
+        * webkit/webkitwebsettings.cpp:
+        (webkitOSVersion):
+
+2011-03-08  Christian Dywan  <christian@lanedo.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] provide an API to control the IconDatabase
+        https://bugs.webkit.org/show_bug.cgi?id=32510
+
+        * GNUmakefile.am:
+        * WebCoreSupport/FrameLoaderClientGtk.cpp: Emit signals on
+            the icon database for new icons.
+        * webkit/webkit.h:
+        * webkit/webkitdefines.h:
+        * webkit/webkitglobals.cpp:
+        * webkit/webkitglobals.h: Add a function to obtain the global
+            icon database.
+        * webkit/webkiticondatabase.cpp:
+        * webkit/webkiticondatabase.h: Implement public icon database
+            object with methods for obtaining icon URLs, pixbufs, clearing
+            waiting for new icons.
+        * webkit/webkitwebview.cpp:
+        * webkit/webkitwebview.h: Add a method to obtain an icon pixbuf
+            for the web view.
+2011-03-08  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Add layoutTestController.setValueForUser() after r80412
+        https://bugs.webkit.org/show_bug.cgi?id=55862
+
+        Add setValueForUser method to DumpRenderTreeSupportGTK.
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::setValueForUser):
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
 2011-03-07  Sam Weinig  <sam@webkit.org>
 
         Reviewed by Anders Carlsson.

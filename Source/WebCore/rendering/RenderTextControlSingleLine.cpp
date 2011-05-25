@@ -1111,7 +1111,7 @@ PassRefPtr<Scrollbar> RenderTextControlSingleLine::createScrollbar(ScrollableAre
 
 InputElement* RenderTextControlSingleLine::inputElement() const
 {
-    return toInputElement(static_cast<Element*>(node()));
+    return node()->toInputElement();
 }
 
 int RenderTextControlSingleLine::textBlockInsetLeft() const

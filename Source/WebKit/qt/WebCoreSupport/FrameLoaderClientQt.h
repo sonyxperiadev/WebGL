@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
  *
@@ -211,7 +211,7 @@ public:
 
     virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
-    virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
+    virtual ObjectContentType objectContentType(const KURL&, const String& mimeTypeIn, bool shouldPreferPlugInsForImages);
     virtual String overrideMediaType() const;
 
     virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*);
@@ -239,6 +239,8 @@ public:
 
     virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext();
 
+    const KURL& lastRequestedUrl() const { return m_lastRequestedUrl; }
+
     static bool dumpFrameLoaderCallbacks;
     static bool dumpUserGestureInFrameLoaderCallbacks;
     static bool dumpResourceLoadCallbacks;
@@ -252,6 +254,9 @@ public:
     static bool deferMainResourceDataLoad;
     static bool dumpHistoryCallbacks;
     static QMap<QString, QString> URLsToRedirect;
+
+private slots:
+    void onIconLoadedForPageURL(const QString&);
 
 private:
     Frame *m_frame;
@@ -267,6 +272,7 @@ private:
     // See finishedLoading().
     bool m_hasRepresentation;
 
+    KURL m_lastRequestedUrl;
     ResourceError m_loadError;
 };
 

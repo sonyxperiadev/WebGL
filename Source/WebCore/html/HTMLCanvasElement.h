@@ -47,6 +47,7 @@ class CanvasRenderingContext;
 class GraphicsContext;
 class HTMLCanvasElement;
 class Image;
+class ImageData;
 class ImageBuffer;
 class IntSize;
 
@@ -105,6 +106,9 @@ public:
     ImageBuffer* buffer() const;
     Image* copiedImage() const;
     void clearCopiedImage();
+    PassRefPtr<ImageData> getImageData();
+    void makePresentationCopy();
+    void clearPresentationCopy();
 
     IntRect convertLogicalToDevice(const FloatRect&) const;
     IntSize convertLogicalToDevice(const FloatSize&) const;
@@ -175,6 +179,7 @@ private:
     mutable bool m_hasCreatedImageBuffer;
     mutable OwnPtr<ImageBuffer> m_imageBuffer;
     
+    mutable RefPtr<Image> m_presentedImage;
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).
 };
 

@@ -361,7 +361,12 @@ GEN := \
     $(intermediates)/bindings/V8Navigator.h \
     $(intermediates)/bindings/V8PositionError.h \
     $(intermediates)/bindings/V8Screen.h \
+<<<<<<< HEAD
     $(intermediates)/bindings/V8SpeechInputEvent.h \
+=======
+    $(intermediates)/bindings/V8WebKitAnimation.h \
+    $(intermediates)/bindings/V8WebKitAnimationList.h \
+>>>>>>> webkit.org at r82507
     $(intermediates)/bindings/V8WebKitPoint.h \
     $(intermediates)/bindings/V8WorkerNavigator.h
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)

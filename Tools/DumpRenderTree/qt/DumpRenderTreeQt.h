@@ -40,7 +40,7 @@
 #include <QSslError>
 #endif
 
-#include "../../../Source/WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.h"
+#include "DumpRenderTreeSupportQt.h"
 #include <qgraphicsview.h>
 #include <qgraphicswebview.h>
 #include <qwebframe.h>
@@ -105,6 +105,8 @@ public:
     static void initializeFonts();
 #endif
     void processArgsLine(const QStringList&);
+    void setRedirectOutputFileName(const QString& fileName) { m_redirectOutputFileName = fileName; }
+    void setRedirectErrorFileName(const QString& fileName) { m_redirectErrorFileName = fileName; }
 
 public Q_SLOTS:
     void initJSObjects();
@@ -160,6 +162,8 @@ private:
     bool m_standAloneMode;
     bool m_graphicsBased;
     QString m_persistentStoragePath;
+    QString m_redirectOutputFileName;
+    QString m_redirectErrorFileName;
 };
 
 class NetworkAccessManager : public QNetworkAccessManager {

@@ -27,6 +27,10 @@ mac {
     LIBS_PRIVATE += -framework AppKit
 }
 
+win* {
+    LIBS += -ladvapi32
+}
+
 wince* {
     LIBS += mmtimer.lib
 }

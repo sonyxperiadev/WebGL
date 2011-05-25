@@ -52,7 +52,7 @@ static bool isTableRow(const Node* node)
 static bool isTableCellEmpty(Node* cell)
 {
     ASSERT(isTableCell(cell));
-    return VisiblePosition(firstDeepEditingPositionForNode(cell)) == VisiblePosition(lastDeepEditingPositionForNode(cell));
+    return VisiblePosition(firstPositionInNode(cell)) == VisiblePosition(lastPositionInNode(cell));
 }
 
 static bool isTableRowEmpty(Node* row)
@@ -72,6 +72,7 @@ DeleteSelectionCommand::DeleteSelectionCommand(Document *document, bool smartDel
       m_hasSelectionToDelete(false), 
       m_smartDelete(smartDelete), 
       m_mergeBlocksAfterDelete(mergeBlocksAfterDelete),
+      m_needPlaceholder(false),
       m_replace(replace),
       m_expandForSpecialElements(expandForSpecialElements),
       m_pruneStartBlockIfNecessary(false),
@@ -88,6 +89,7 @@ DeleteSelectionCommand::DeleteSelectionCommand(const VisibleSelection& selection
       m_hasSelectionToDelete(true), 
       m_smartDelete(smartDelete), 
       m_mergeBlocksAfterDelete(mergeBlocksAfterDelete),
+      m_needPlaceholder(false),
       m_replace(replace),
       m_expandForSpecialElements(expandForSpecialElements),
       m_pruneStartBlockIfNecessary(false),
@@ -188,8 +190,8 @@ void DeleteSelectionCommand::initializePositionData()
     // Don't move content out of a table cell.
     // If the cell is non-editable, enclosingNodeOfType won't return it by default, so
     // tell that function that we don't care if it returns non-editable nodes.
-    Node* startCell = enclosingNodeOfType(m_upstreamStart, &isTableCell, false);
-    Node* endCell = enclosingNodeOfType(m_downstreamEnd, &isTableCell, false);
+    Node* startCell = enclosingNodeOfType(m_upstreamStart, &isTableCell, CanCrossEditingBoundary);
+    Node* endCell = enclosingNodeOfType(m_downstreamEnd, &isTableCell, CanCrossEditingBoundary);
     // FIXME: This isn't right.  A borderless table with two rows and a single column would appear as two paragraphs.
     if (endCell && endCell != startCell)
         m_mergeBlocksAfterDelete = false;
@@ -262,8 +264,8 @@ void DeleteSelectionCommand::initializePositionData()
     // like the one below, since editing functions should obviously accept editing positions.
     // FIXME: Passing false to enclosingNodeOfType tells it that it's OK to return a non-editable
     // node.  This was done to match existing behavior, but it seems wrong.
-    m_startBlock = enclosingNodeOfType(m_downstreamStart.parentAnchoredEquivalent(), &isBlock, false);
-    m_endBlock = enclosingNodeOfType(m_upstreamEnd.parentAnchoredEquivalent(), &isBlock, false);
+    m_startBlock = enclosingNodeOfType(m_downstreamStart.parentAnchoredEquivalent(), &isBlock, CanCrossEditingBoundary);
+    m_endBlock = enclosingNodeOfType(m_upstreamEnd.parentAnchoredEquivalent(), &isBlock, CanCrossEditingBoundary);
 }
 
 void DeleteSelectionCommand::saveTypingStyleState()
@@ -284,7 +286,7 @@ void DeleteSelectionCommand::saveTypingStyleState()
 
     // If we're deleting into a Mail blockquote, save the style at end() instead of start()
     // We'll use this later in computeTypingStyleAfterDelete if we end up outside of a Mail blockquote
-    if (nearestMailBlockquote(m_selectionToDelete.start().deprecatedNode()))
+    if (enclosingNodeOfType(m_selectionToDelete.start(), isMailBlockquote))
         m_deleteIntoBlockquoteStyle = EditingStyle::create(m_selectionToDelete.end());
     else
         m_deleteIntoBlockquoteStyle = 0;
@@ -340,7 +342,7 @@ void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node)
         
     if (m_startRoot != m_endRoot && !(node->isDescendantOf(m_startRoot.get()) && node->isDescendantOf(m_endRoot.get()))) {
         // If a node is not in both the start and end editable roots, remove it only if its inside an editable region.
-        if (!node->parentNode()->isContentEditable()) {
+        if (!node->parentNode()->rendererIsEditable()) {
             // Don't remove non-editable atomic nodes.
             if (!node->firstChild())
                 return;
@@ -378,9 +380,9 @@ void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node)
         return;
     }
     
-    if (node == m_startBlock && !isEndOfBlock(VisiblePosition(firstDeepEditingPositionForNode(m_startBlock.get())).previous()))
+    if (node == m_startBlock && !isEndOfBlock(VisiblePosition(firstPositionInNode(m_startBlock.get())).previous()))
         m_needPlaceholder = true;
-    else if (node == m_endBlock && !isStartOfBlock(VisiblePosition(lastDeepEditingPositionForNode(m_startBlock.get())).next()))
+    else if (node == m_endBlock && !isStartOfBlock(VisiblePosition(lastPositionInNode(m_startBlock.get())).next()))
         m_needPlaceholder = true;
     
     // FIXME: Update the endpoints of the range being deleted.
@@ -592,7 +594,7 @@ void DeleteSelectionCommand::mergeParagraphs()
     }
     
     // We need to merge into m_upstreamStart's block, but it's been emptied out and collapsed by deletion.
-    if (!mergeDestination.deepEquivalent().deprecatedNode() || !mergeDestination.deepEquivalent().deprecatedNode()->isDescendantOf(m_upstreamStart.deprecatedNode()->enclosingBlockFlowElement()) || m_startsAtEmptyLine) {
+    if (!mergeDestination.deepEquivalent().deprecatedNode() || !mergeDestination.deepEquivalent().deprecatedNode()->isDescendantOf(enclosingBlock(m_upstreamStart.containerNode())) || m_startsAtEmptyLine) {
         insertNodeAt(createBreakElement(document()).get(), m_upstreamStart);
         mergeDestination = VisiblePosition(m_upstreamStart);
     }
@@ -687,7 +689,7 @@ void DeleteSelectionCommand::calculateTypingStyleAfterDelete()
     // has completed.
     
     // If we deleted into a blockquote, but are now no longer in a blockquote, use the alternate typing style
-    if (m_deleteIntoBlockquoteStyle && !nearestMailBlockquote(m_endingPosition.deprecatedNode()))
+    if (m_deleteIntoBlockquoteStyle && !enclosingNodeOfType(m_endingPosition, isMailBlockquote, CanCrossEditingBoundary))
         m_typingStyle = m_deleteIntoBlockquoteStyle;
     m_deleteIntoBlockquoteStyle = 0;
 

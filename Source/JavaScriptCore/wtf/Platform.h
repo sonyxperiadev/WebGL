@@ -114,6 +114,11 @@
 #define WTF_COMPILER_INTEL 1
 #endif
 
+/* COMPILER(SUNCC) */
+#if defined(__SUNPRO_CC) || defined(__SUNPRO_C)
+#define WTF_COMPILER_SUNCC 1
+#endif
+
 /* ==== CPU() - the target CPU architecture ==== */
 
 /* This also defines CPU(BIG_ENDIAN) or CPU(MIDDLE_ENDIAN) or neither, as appropriate. */
@@ -565,7 +570,11 @@
 #define WTF_USE_MERSENNE_TWISTER_19937 1
 #endif
 
-#if (PLATFORM(GTK) || PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && OS(DARWIN) && !ENABLE(SINGLE_THREADED))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
+#if PLATFORM(QT) && OS(UNIX) && !OS(SYMBIAN) && !OS(DARWIN)
+#define WTF_USE_PTHREAD_BASED_QT 1
+#endif
+
+#if (PLATFORM(GTK) || PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && (OS(DARWIN) || USE(PTHREAD_BASED_QT)) && !ENABLE(SINGLE_THREADED))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
 #define ENABLE_JSC_MULTIPLE_THREADS 1
 #endif
 
@@ -596,10 +605,6 @@
 /* The GTK+ Unicode backend is configurable */
 #else
 #define WTF_USE_ICU_UNICODE 1
-#endif
-
-#if !PLATFORM(CHROMIUM) /* Chromium controls this macro with a gyp define */
-#define WTF_USE_BUILTIN_UTF8_CODEC 1
 #endif
 
 #if PLATFORM(MAC) && !PLATFORM(IOS)
@@ -963,6 +968,10 @@
 #define ENABLE_GEOLOCATION 0
 #endif
 
+#if !defined(ENABLE_GESTURE_RECOGNIZER)
+#define ENABLE_GESTURE_RECOGNIZER 0
+#endif
+
 #if !defined(ENABLE_NOTIFICATIONS)
 #define ENABLE_NOTIFICATIONS 0
 #endif
@@ -1020,6 +1029,13 @@
     && (OS(DARWIN) || !COMPILER(GCC) || GCC_VERSION_AT_LEAST(4, 1, 0)) \
     && !OS(WINCE)
 #define ENABLE_JIT 1
+#endif
+
+/* Currently only implemented for JSVALUE64, only tested on PLATFORM(MAC) */
+#if ENABLE(JIT) && USE(JSVALUE64) && PLATFORM(MAC)
+#define ENABLE_DFG_JIT 1
+/* Enabled with restrictions to circumvent known performance regressions. */
+#define ENABLE_DFG_JIT_RESTRICTIONS 1
 #endif
 
 /* Ensure that either the JIT or the interpreter has been enabled. */
@@ -1145,6 +1161,10 @@
 #define WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK 1
 #endif
 
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#define WTF_USE_AVFOUNDATION 1
+#endif
+
 #if COMPILER(GCC)
 #define WARN_UNUSED_RETURN __attribute__ ((warn_unused_result))
 #else
@@ -1183,5 +1203,11 @@
 #if ENABLE(GLIB_SUPPORT)
 #include "GTypedefs.h"
 #endif
+
+/* FIXME: This define won't be needed once #27551 is fully landed. However, 
+   since most ports try to support sub-project independence, adding new headers
+   to WTF causes many ports to break, and so this way we can address the build
+   breakages one port at a time. */
+#define WTF_USE_EXPORT_MACROS 0
 
 #endif /* WTF_Platform_h */

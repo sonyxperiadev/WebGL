@@ -38,20 +38,22 @@ namespace WebKit {
 class NPIdentifierData;
 class NPRemoteObjectMap;
 class NPVariantData;
+class Plugin;
 
 class NPObjectMessageReceiver {
     WTF_MAKE_NONCOPYABLE(NPObjectMessageReceiver);
 
 public:
-    static PassOwnPtr<NPObjectMessageReceiver> create(NPRemoteObjectMap* npRemoteObjectMap, uint64_t npObjectID, NPObject* npObject);
+    static PassOwnPtr<NPObjectMessageReceiver> create(NPRemoteObjectMap*, Plugin*, uint64_t npObjectID, NPObject*);
     ~NPObjectMessageReceiver();
 
     CoreIPC::SyncReplyMode didReceiveSyncNPObjectMessageReceiverMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
 
+    Plugin* plugin() const { return m_plugin; }
     NPObject* npObject() const { return m_npObject; }
     
 private:
-    NPObjectMessageReceiver(NPRemoteObjectMap* npRemoteObjectMap, uint64_t npObjectID, NPObject* npObject);
+    NPObjectMessageReceiver(NPRemoteObjectMap*, Plugin*, uint64_t npObjectID, NPObject*);
 
     // Message handlers.
     void deallocate();
@@ -66,9 +68,9 @@ private:
     void construct(const Vector<NPVariantData>& argumentsData, bool& returnValue, NPVariantData& resultData);
 
     NPRemoteObjectMap* m_npRemoteObjectMap;
+    Plugin* m_plugin;
     uint64_t m_npObjectID;
     NPObject* m_npObject;
-    bool m_shouldReleaseObjectWhenInvalidating;
 };
     
 } // namespace WebKit

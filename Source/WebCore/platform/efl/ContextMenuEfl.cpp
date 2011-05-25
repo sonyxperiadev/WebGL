@@ -2,7 +2,7 @@
  *  Copyright (C) 2007 Holger Hans Peter Freyther
  *  Copyright (C) 2008 INdT - Instituto Nokia de Tecnologia
  *  Copyright (C) 2009-2010 ProFUSION embedded systems
- *  Copyright (C) 2009-2010 Samsung Electronics
+ *  Copyright (C) 2011 Samsung Electronics
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -26,14 +26,10 @@
 
 namespace WebCore {
 
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
 ContextMenu::ContextMenu(void* menu)
 {
     getContextMenuItems(menu, m_items);
-}
-
-ContextMenu::ContextMenu()
-{
-    notImplemented();
 }
 
 void ContextMenu::getContextMenuItems(void* menu, Vector<ContextMenuItem>& items)
@@ -51,5 +47,11 @@ void* ContextMenu::nativeMenu() const
 {
     return createNativeMenuFromItems(m_items);
 }
+#else
+ContextMenu::ContextMenu()
+{
+    notImplemented();
+}
+#endif
 
 }

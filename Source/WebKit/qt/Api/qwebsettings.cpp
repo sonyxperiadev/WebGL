@@ -28,6 +28,9 @@
 #include "MemoryCache.h"
 #include "CrossOriginPreflightResultCache.h"
 #include "FontCache.h"
+#if ENABLE(ICONDATABASE)
+#include "IconDatabaseClientQt.h"
+#endif
 #include "Page.h"
 #include "PageCache.h"
 #include "Settings.h"
@@ -477,25 +480,16 @@ QWebSettings::QWebSettings()
     d->fontFamilies.insert(QWebSettings::StandardFont, defaultFont.defaultFamily());
     d->fontFamilies.insert(QWebSettings::SerifFont, defaultFont.defaultFamily());
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
     defaultFont.setStyleHint(QFont::Fantasy);
     d->fontFamilies.insert(QWebSettings::FantasyFont, defaultFont.defaultFamily());
 
     defaultFont.setStyleHint(QFont::Cursive);
     d->fontFamilies.insert(QWebSettings::CursiveFont, defaultFont.defaultFamily());
-#else
-    d->fontFamilies.insert(QWebSettings::FantasyFont, defaultFont.defaultFamily());
-    d->fontFamilies.insert(QWebSettings::CursiveFont, defaultFont.defaultFamily());
-#endif
 
     defaultFont.setStyleHint(QFont::SansSerif);
     d->fontFamilies.insert(QWebSettings::SansSerifFont, defaultFont.defaultFamily());
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
     defaultFont.setStyleHint(QFont::Monospace);
-#else
-    defaultFont.setStyleHint(QFont::TypeWriter);
-#endif
     d->fontFamilies.insert(QWebSettings::FixedFont, defaultFont.defaultFamily());
 
     d->attributes.insert(QWebSettings::AutoLoadImages, true);
@@ -645,13 +639,18 @@ QString QWebSettings::defaultTextEncoding() const
 */
 void QWebSettings::setIconDatabasePath(const QString& path)
 {
-    WebCore::iconDatabase().delayDatabaseCleanup();
+#if ENABLE(ICONDATABASE)
+    // Make sure that IconDatabaseClientQt is instantiated.
+    WebCore::IconDatabaseClientQt::instance();
+#endif
+
+    WebCore::IconDatabase::delayDatabaseCleanup();
 
     if (!path.isEmpty()) {
         WebCore::iconDatabase().setEnabled(true);
         QFileInfo info(path);
         if (info.isDir() && info.isWritable())
-            WebCore::iconDatabase().open(path);
+            WebCore::iconDatabase().open(path, WebCore::IconDatabase::defaultDatabaseFilename());
     } else {
         WebCore::iconDatabase().setEnabled(false);
         WebCore::iconDatabase().close();
@@ -693,7 +692,7 @@ void QWebSettings::clearIconDatabase()
 */
 QIcon QWebSettings::iconForUrl(const QUrl& url)
 {
-    WebCore::Image* image = WebCore::iconDatabase().iconForPageURL(WebCore::KURL(url).string(),
+    WebCore::Image* image = WebCore::iconDatabase().synchronousIconForPageURL(WebCore::KURL(url).string(),
                                 WebCore::IntSize(16, 16));
     if (!image)
         return QPixmap();

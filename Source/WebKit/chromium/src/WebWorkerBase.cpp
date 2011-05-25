@@ -65,7 +65,7 @@ namespace {
 
 // This class is used to route the result of the WebWorkerBase::allowDatabase
 // call back to the worker context.
-class AllowDatabaseMainThreadBridge : public ThreadSafeShared<AllowDatabaseMainThreadBridge> {
+class AllowDatabaseMainThreadBridge : public ThreadSafeRefCounted<AllowDatabaseMainThreadBridge> {
 public:
     static PassRefPtr<AllowDatabaseMainThreadBridge> create(WebWorkerBase* worker, const WTF::String& mode, WebCommonWorkerClient* commonClient, WebFrame* frame, const WTF::String& name, const WTF::String& displayName, unsigned long estimatedSize)
     {
@@ -170,7 +170,7 @@ void WebWorkerBase::initializeLoader(const WebURL& url)
     // loading requests from the worker context to the rest of WebKit and Chromium
     // infrastructure.
     ASSERT(!m_webView);
-    m_webView = WebView::create(0, 0, 0);
+    m_webView = WebView::create(0);
     m_webView->settings()->setOfflineWebApplicationCacheEnabled(WebRuntimeFeatures::isApplicationCacheEnabled());
     m_webView->initializeMainFrame(this);
 
@@ -237,7 +237,7 @@ bool WebWorkerBase::allowDatabase(WebFrame*, const WebString& name, const WebStr
 }
 
 #if ENABLE(FILE_SYSTEM)
-void WebWorkerBase::openFileSystemForWorker(WebFileSystem::Type type, long long size, WebFileSystemCallbacks* callbacks, bool synchronous)
+void WebWorkerBase::openFileSystemForWorker(WebFileSystem::Type type, long long size, bool create, WebFileSystemCallbacks* callbacks, bool synchronous)
 {
     WorkerRunLoop& runLoop = m_workerThread->runLoop();
     WorkerScriptController* controller = WorkerScriptController::controllerForContext();
@@ -248,7 +248,7 @@ void WebWorkerBase::openFileSystemForWorker(WebFileSystem::Type type, long long 
     mode.append(String::number(runLoop.createUniqueId()));
 
     RefPtr<WorkerFileSystemCallbacksBridge> bridge = WorkerFileSystemCallbacksBridge::create(this, workerContext, callbacks);
-    bridge->postOpenFileSystemToMainThread(commonClient(), type, size, mode);
+    bridge->postOpenFileSystemToMainThread(commonClient(), type, size, create, mode);
 
     if (synchronous) {
         if (runLoop.runInMode(workerContext, mode) == MessageQueueTerminated)

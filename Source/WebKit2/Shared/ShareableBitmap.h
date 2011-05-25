@@ -33,6 +33,10 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
+#if PLATFORM(CG)
+#include <wtf/RetainPtr.h>
+#endif
+
 namespace WebCore {
     class GraphicsContext;
 }
@@ -41,20 +45,43 @@ namespace WebKit {
     
 class ShareableBitmap : public RefCounted<ShareableBitmap> {
 public:
+    enum Flag {
+        SupportsAlpha = 1 << 0,
+    };
+    typedef unsigned Flags;
+
+    class Handle {
+        WTF_MAKE_NONCOPYABLE(Handle);
+    public:
+        Handle();
+
+        bool isNull() const { return m_handle.isNull(); }
+
+        void encode(CoreIPC::ArgumentEncoder*) const;
+        static bool decode(CoreIPC::ArgumentDecoder*, Handle&);
+
+    private:
+        friend class ShareableBitmap;
+
+        mutable SharedMemory::Handle m_handle;
+        WebCore::IntSize m_size;
+        Flags m_flags;
+    };
+
     // Create a shareable bitmap that uses malloced memory.
-    static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&);
+    static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&, Flags);
 
     // Create a shareable bitmap whose backing memory can be shared with another process.
-    static PassRefPtr<ShareableBitmap> createShareable(const WebCore::IntSize&);
+    static PassRefPtr<ShareableBitmap> createShareable(const WebCore::IntSize&, Flags);
 
     // Create a shareable bitmap from an already existing shared memory block.
-    static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&, PassRefPtr<SharedMemory>);
+    static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&, Flags, PassRefPtr<SharedMemory>);
 
-    // Create a shareable bitmap from a shared memory handle.
-    static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&, const SharedMemory::Handle&);
+    // Create a shareable bitmap from a handle.
+    static PassRefPtr<ShareableBitmap> create(const Handle&);
 
-    // Create a shared memory handle.
-    bool createHandle(SharedMemory::Handle&);
+    // Create a handle.
+    bool createHandle(Handle&);
 
     ~ShareableBitmap();
 
@@ -71,18 +98,31 @@ public:
 
     bool isBackedBySharedMemory() const { return m_sharedMemory; }
 
+#if PLATFORM(CG)
+    // This creates a copied CGImageRef (most likely a copy-on-write) of the shareable bitmap.
+    RetainPtr<CGImageRef> makeCGImageCopy();
+
+    // This creates a CGImageRef that directly references the shared bitmap data.
+    // This is only safe to use when we know that the contents of the shareable bitmap won't change.
+    RetainPtr<CGImageRef> makeCGImage();
+#endif
+
 private:
-    ShareableBitmap(const WebCore::IntSize&, void*);
-    ShareableBitmap(const WebCore::IntSize&, PassRefPtr<SharedMemory>);
+    ShareableBitmap(const WebCore::IntSize&, Flags, void*);
+    ShareableBitmap(const WebCore::IntSize&, Flags, PassRefPtr<SharedMemory>);
 
     static size_t numBytesForSize(const WebCore::IntSize& size) { return size.width() * size.height() * 4; }
 
-    static void releaseData(void* typelessBitmap, void* typelessData);
-    
+#if PLATFORM(CG)
+    static void releaseBitmapContextData(void* typelessBitmap, void* typelessData);
+    static void releaseDataProviderData(void* typelessBitmap, const void* typelessData, size_t);
+#endif
+
     void* data() const;
     size_t sizeInBytes() const { return numBytesForSize(m_size); }
 
     WebCore::IntSize m_size;
+    Flags m_flags;
 
     // If the shareable bitmap is backed by shared memory, this points to the shared memory object.
     RefPtr<SharedMemory> m_sharedMemory;

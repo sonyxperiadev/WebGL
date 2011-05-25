@@ -101,7 +101,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	css/WebKitCSSTransformValue.cpp \
 	\
 	dom/ActiveDOMObject.cpp \
-	dom/AsyncScriptRunner.cpp \
 	dom/Attr.cpp \
 	dom/Attribute.cpp \
 	dom/BeforeTextInsertedEvent.cpp \
@@ -122,8 +121,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/CustomEvent.cpp \
 	dom/DOMImplementation.cpp \
 	dom/DOMStringList.cpp \
+<<<<<<< HEAD
 	dom/DOMStringMap.cpp \
 	dom/DatasetDOMStringMap.cpp \
+=======
+	dom/DataTransferItem.cpp \
+>>>>>>> webkit.org at r82507
 	dom/DecodedDataDocumentParser.cpp \
 	dom/DeviceMotionController.cpp \
 	dom/DeviceMotionData.cpp \
@@ -141,6 +144,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ErrorEvent.cpp \
 	dom/Event.cpp \
 	dom/EventContext.cpp \
+	dom/EventDispatcher.cpp \
 	dom/EventNames.cpp \
 	dom/EventTarget.cpp \
 	dom/EventQueue.cpp \
@@ -183,11 +187,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ScriptableDocumentParser.cpp \
 	dom/ScriptElement.cpp \
 	dom/ScriptExecutionContext.cpp \
+	dom/ScriptRunner.cpp \
 	dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/SpaceSplitString.cpp \
 	dom/StaticHashSetNodeList.cpp \
 	dom/StaticNodeList.cpp \
+	dom/StringCallback.cpp \
 	dom/StyleElement.cpp \
 	dom/StyledElement.cpp \
 	dom/TagNodeList.cpp \
@@ -460,6 +466,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/cache/MemoryCache.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
+<<<<<<< HEAD
+=======
+	loader/icon/IconDatabaseBase.cpp \
+	loader/icon/IconFetcher.cpp \
+>>>>>>> webkit.org at r82507
 	loader/icon/IconLoader.cpp \
 	loader/icon/IconRecord.cpp \
 	loader/icon/PageURLRecord.cpp \
@@ -507,6 +518,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/SpeechInputResult.cpp \
 	page/SuspendableTimer.cpp \
 	page/UserContentURLPattern.cpp \
+	page/WebKitAnimation.cpp \
+	page/WebKitAnimationList.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
 	\
@@ -523,7 +536,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/ContentType.cpp \
 	platform/ContextMenuItem.cpp \
 	platform/CrossThreadCopier.cpp \
+<<<<<<< HEAD
 	platform/Cursor.cpp \
+=======
+	platform/DefaultLocalizationStrategy.cpp \
+>>>>>>> webkit.org at r82507
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
 	platform/FileChooser.cpp \

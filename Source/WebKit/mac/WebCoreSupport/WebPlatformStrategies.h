@@ -80,7 +80,7 @@ private:
     virtual WTF::String contextMenuItemTagIgnoreSpelling();
     virtual WTF::String contextMenuItemTagLearnSpelling();
     virtual WTF::String contextMenuItemTagSearchWeb();
-    virtual WTF::String contextMenuItemTagLookUpInDictionary();
+    virtual WTF::String contextMenuItemTagLookUpInDictionary(const WTF::String& selectedString);
     virtual WTF::String contextMenuItemTagOpenLink();
     virtual WTF::String contextMenuItemTagIgnoreGrammar();
     virtual WTF::String contextMenuItemTagSpellingMenu();
@@ -153,6 +153,10 @@ private:
     virtual WTF::String crashedPluginText();
     virtual WTF::String multipleFileUploadText(unsigned numberOfFiles);
     virtual WTF::String unknownFileSizeText();
+    virtual WTF::String keygenMenuItem512();
+    virtual WTF::String keygenMenuItem1024();
+    virtual WTF::String keygenMenuItem2048();
+    virtual WTF::String keygenKeychainItemName(const WTF::String& host);
     virtual WTF::String imageTitle(const WTF::String& filename, const WebCore::IntSize& size);
     virtual WTF::String mediaElementLoadingStateText();
     virtual WTF::String mediaElementLiveBroadcastStateText();

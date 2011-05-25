@@ -66,7 +66,7 @@ struct WebFileSystemEntry;
 //  --> Bridge::didXxxOnWorkerThread is called on WorkerThread
 //      This calls the original callbacks (m_callbacksOnWorkerThread) and
 //      releases a self-reference to the bridge.
-class WorkerFileSystemCallbacksBridge : public ThreadSafeShared<WorkerFileSystemCallbacksBridge>, public WebCore::WorkerContext::Observer {
+class WorkerFileSystemCallbacksBridge : public ThreadSafeRefCounted<WorkerFileSystemCallbacksBridge>, public WebCore::WorkerContext::Observer {
 public:
     ~WorkerFileSystemCallbacksBridge();
 
@@ -84,7 +84,7 @@ public:
     }
 
     // Methods that create an instance and post an initial request task to the main thread. They must be called on the worker thread.
-    void postOpenFileSystemToMainThread(WebCommonWorkerClient*, WebFileSystem::Type, long long size, const String& mode);
+    void postOpenFileSystemToMainThread(WebCommonWorkerClient*, WebFileSystem::Type, long long size, bool create, const String& mode);
     void postMoveToMainThread(WebFileSystem*, const String& srcPath, const String& destPath, const String& mode);
     void postCopyToMainThread(WebFileSystem*, const String& srcPath, const String& destPath, const String& mode);
     void postRemoveToMainThread(WebFileSystem*, const String& path, const String& mode);
@@ -107,7 +107,7 @@ private:
     WorkerFileSystemCallbacksBridge(WebWorkerBase*, WebCore::ScriptExecutionContext*, WebFileSystemCallbacks*);
 
     // Methods that are to be called on the main thread.
-    static void openFileSystemOnMainThread(WebCore::ScriptExecutionContext*, WebCommonWorkerClient*, WebFileSystem::Type, long long size, WorkerFileSystemCallbacksBridge*, const String& mode);
+    static void openFileSystemOnMainThread(WebCore::ScriptExecutionContext*, WebCommonWorkerClient*, WebFileSystem::Type, long long size, bool create, WorkerFileSystemCallbacksBridge*, const String& mode);
     static void moveOnMainThread(WebCore::ScriptExecutionContext*, WebFileSystem*, const String& srcPath, const String& destPath, WorkerFileSystemCallbacksBridge*, const String& mode);
     static void copyOnMainThread(WebCore::ScriptExecutionContext*, WebFileSystem*, const String& srcPath, const String& destPath, WorkerFileSystemCallbacksBridge*, const String& mode);
     static void removeOnMainThread(WebCore::ScriptExecutionContext*, WebFileSystem*, const String& path, WorkerFileSystemCallbacksBridge*, const String& mode);
@@ -138,7 +138,7 @@ private:
     void dispatchTaskToMainThread(PassOwnPtr<WebCore::ScriptExecutionContext::Task>);
     void mayPostTaskToWorker(PassOwnPtr<WebCore::ScriptExecutionContext::Task>, const String& mode);
 
-    // m_selfRef keeps a reference to itself until a task is created for the worker thread (at which point the task holds the reference).
+    // m_selfRef keeps a reference to itself while there's a pending callback on the main thread.
     RefPtr<WorkerFileSystemCallbacksBridge> m_selfRef;
 
     Mutex m_mutex;

@@ -29,6 +29,7 @@
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
+    class CSSSelectorList;
 
     // this class represents a selector for a StyleRule
     class CSSSelector {
@@ -129,6 +130,7 @@ namespace WebCore {
             PseudoNthLastOfType,
             PseudoLink,
             PseudoVisited,
+            PseudoAny,
             PseudoAnyLink,
             PseudoAutofill,
             PseudoHover,
@@ -247,13 +249,13 @@ namespace WebCore {
         const AtomicString& value() const { return *reinterpret_cast<const AtomicString*>(m_hasRareData ? &m_data.m_rareData->m_value : &m_data.m_value); }
         const QualifiedName& attribute() const;
         const AtomicString& argument() const { return m_hasRareData ? m_data.m_rareData->m_argument : nullAtom; }
-        CSSSelector* simpleSelector() const { return m_hasRareData ? m_data.m_rareData->m_simpleSelector.get() : 0; }
+        CSSSelectorList* selectorList() const { return m_hasRareData ? m_data.m_rareData->m_selectorList.get() : 0; }
         
         void setTag(const QualifiedName& value) { m_tag = value; }
         void setValue(const AtomicString&);
         void setAttribute(const QualifiedName&);
         void setArgument(const AtomicString&);
-        void setSimpleSelector(PassOwnPtr<CSSSelector>);
+        void setSelectorList(PassOwnPtr<CSSSelectorList>);
         
         bool parseNth();
         bool matchNth(int count);
@@ -284,7 +286,7 @@ namespace WebCore {
         bool m_isLastInTagHistory     : 1;
         bool m_hasRareData            : 1;
         bool m_isForPage              : 1;
-        // FIXME: Remove once http://webkit.org/b/53045 is fixed.
+        // FIXME: Remove once http://webkit.org/b/56124 is fixed.
         bool m_deleted                : 1;
 
         unsigned specificityForOneSelector() const;
@@ -294,19 +296,8 @@ namespace WebCore {
         struct RareData {
             WTF_MAKE_NONCOPYABLE(RareData); WTF_MAKE_FAST_ALLOCATED;
         public:
-            RareData(PassRefPtr<AtomicStringImpl> value)
-                : m_value(value.leakRef())
-                , m_a(0)
-                , m_b(0)
-                , m_attribute(anyQName())
-                , m_argument(nullAtom)
-            {
-            }
-            ~RareData()
-            {
-                if (m_value)
-                    m_value->deref();
-            }
+            RareData(PassRefPtr<AtomicStringImpl> value);
+            ~RareData();
 
             bool parseNth();
             bool matchNth(int count);
@@ -314,9 +305,9 @@ namespace WebCore {
             AtomicStringImpl* m_value; // Plain pointer to keep things uniform with the union.
             int m_a; // Used for :nth-*
             int m_b; // Used for :nth-*
-            OwnPtr<CSSSelector> m_simpleSelector; // Used for :not.
             QualifiedName m_attribute; // used for attribute selector
             AtomicString m_argument; // Used for :contains, :lang and :nth-*
+            OwnPtr<CSSSelectorList> m_selectorList; // Used for :-webkit-any and :not
         };
         void createRareData();
         

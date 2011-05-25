@@ -36,8 +36,25 @@ public:
         // The plug-in wants the call to getprogame() to return "WebKitPluginHost".
         // Adobe Flash Will not handle key down events otherwise.
         PrognameShouldBeWebKitPluginHost,
+
         // Supports receiving a paint event, even when using CoreAnimation rendering.
         SupportsSnapshotting,
+
+        // Make the plug-in transparent if it has a "background" attribute set.
+        // Microsoft Silverlight doesn't opt into transparency using NPN_SetValue and
+        // NPPVpluginTransparentBool, so we'll always force if the plug-in has a "background"
+        // attribute specified, regardless of it's value.
+        // FIXME: We could get more fancy here and check for specific values that we know are
+        // transparent.
+        MakeTransparentIfBackgroundAttributeExists,
+
+#ifndef NP_NO_QUICKDRAW
+        // Allow the plug-in to use the QuickDraw drawing model, since wek now that the plug-in
+        // will never paint or receive events. Used by the AppleConnect plug-in.
+        AllowHalfBakedQuickDrawSupport,
+#endif
+
+        // X11 specific quirks:
 #elif PLUGIN_ARCHITECTURE(X11)
         // Flash and npwrapper ask the browser about which GTK version does it use
         // and refuse to load and work if it is not GTK 2 so we need to fake it in

@@ -63,6 +63,7 @@ void InitWebCoreSystemInterface(void)
     INIT(GetHTTPPipeliningPriority);
     INIT(GetMIMETypeForExtension);
     INIT(GetNSURLResponseLastModifiedDate);
+    INIT(SignedPublicKeyAndChallengeString);
     INIT(GetPreferredExtensionForMIMEType);
     INIT(GetWheelEventDeltas);
     INIT(HitTestMediaUIPart);
@@ -128,6 +129,7 @@ void InitWebCoreSystemInterface(void)
     INIT(MakeScrollbarPainter);
     INIT(ScrollbarPainterSetDelegate);
     INIT(ScrollbarPainterPaint);
+    INIT(ScrollbarPainterForceFlashScrollers);
     INIT(ScrollbarThickness);
     INIT(ScrollbarMinimumThumbLength);
     INIT(ScrollbarMinimumTotalLengthNeededForThumb);
@@ -168,11 +170,17 @@ void InitWebCoreSystemInterface(void)
     INIT(UnregisterUniqueIdForElement);
     INIT(CreatePrivateStorageSession);
     INIT(CopyRequestWithStorageSession);
-    INIT(CreatePrivateInMemoryHTTPCookieStorage);
+    INIT(CopyHTTPCookieStorage);
     INIT(GetHTTPCookieAcceptPolicy);
     INIT(HTTPCookiesForURL);
     INIT(SetHTTPCookiesForURL);
     INIT(DeleteHTTPCookie);
+
+    INIT(GetCFURLResponseMIMEType);
+    INIT(GetCFURLResponseURL);
+    INIT(GetCFURLResponseHTTPResponse);
+    INIT(CopyCFURLResponseSuggestedFilename);
+    INIT(SetCFURLResponseMIMEType);
 
     didInit = true;
 }

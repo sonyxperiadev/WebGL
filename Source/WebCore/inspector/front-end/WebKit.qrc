@@ -32,6 +32,7 @@
     <file>DataGrid.js</file>
     <file>DebuggerModel.js</file>
     <file>DebuggerPresentationModel.js</file>
+    <file>SourceFile.js</file>
     <file>DOMAgent.js</file>
     <file>DOMStorage.js</file>
     <file>DOMStorageItemsView.js</file>
@@ -77,6 +78,7 @@
     <file>Resource.js</file>
     <file>ResourceCategory.js</file>
     <file>ResourceCookiesView.js</file>
+    <file>ResourceJSONView.js</file>
     <file>ResourceHeadersView.js</file>
     <file>ResourceTimingView.js</file>
     <file>ResourceTreeModel.js</file>
@@ -174,6 +176,7 @@
     <file>Images/focusButtonGlyph.png</file>
     <file>Images/forward.png</file>
     <file>Images/frame.png</file>
+    <file>Images/garbageCollectButtonGlyph.png</file>
     <file>Images/gearButtonGlyph.png</file>
     <file>Images/glossyHeader.png</file>
     <file>Images/glossyHeaderPressed.png</file>
@@ -285,6 +288,5 @@
     <file>Images/warningMediumIcon.png</file>
     <file>Images/warningOrangeDot.png</file>
     <file>Images/warningsErrors.png</file>
-    <file alias="DebuggerScript.js">../../bindings/v8/DebuggerScript.js</file>
 </qresource>
 </RCC>

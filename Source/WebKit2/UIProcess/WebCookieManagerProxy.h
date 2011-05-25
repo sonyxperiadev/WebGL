@@ -43,8 +43,10 @@ namespace CoreIPC {
 namespace WebKit {
 
 class WebContext;
+class WebProcessProxy;
 
 typedef GenericCallback<WKArrayRef> ArrayCallback;
+typedef GenericCallback<WKHTTPCookieAcceptPolicy, HTTPCookieAcceptPolicy> HTTPCookieAcceptPolicyCallback;
 
 class WebCookieManagerProxy : public APIObject {
 public:
@@ -62,10 +64,15 @@ public:
     void deleteCookiesForHostname(const String& hostname);
     void deleteAllCookies();
 
+    void setHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
+    void getHTTPCookieAcceptPolicy(PassRefPtr<HTTPCookieAcceptPolicyCallback>);
+
     void startObservingCookieChanges();
     void stopObservingCookieChanges();
 
     void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+
+    bool shouldTerminate(WebProcessProxy*) const;
 
 private:
     WebCookieManagerProxy(WebContext*);
@@ -73,13 +80,19 @@ private:
     virtual Type type() const { return APIType; }
 
     void didGetHostnamesWithCookies(const Vector<String>&, uint64_t callbackID);
+    void didGetHTTPCookieAcceptPolicy(uint32_t policy, uint64_t callbackID);
 
     void cookiesDidChange();
     
     void didReceiveWebCookieManagerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 
+#if PLATFORM(MAC)
+    void persistHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
+#endif
+
     WebContext* m_webContext;
     HashMap<uint64_t, RefPtr<ArrayCallback> > m_arrayCallbacks;
+    HashMap<uint64_t, RefPtr<HTTPCookieAcceptPolicyCallback> > m_httpCookieAcceptPolicyCallbacks;
 
     WebCookieManagerProxyClient m_client;
 };

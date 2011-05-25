@@ -32,6 +32,7 @@
 #include "StorageAreaImpl.h"
 #include "StorageMap.h"
 #include "StorageSyncManager.h"
+#include "StorageTracker.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringHash.h>
 
@@ -165,6 +166,32 @@ void StorageNamespaceImpl::clear(Page* page)
 void StorageNamespaceImpl::unlock()
 {
     // Because there's a single event loop per-process, this is a no-op.
+}
+
+void StorageNamespaceImpl::clearOriginForDeletion(SecurityOrigin* origin)
+{
+    ASSERT(isMainThread());
+
+    RefPtr<StorageAreaImpl> storageArea = m_storageAreaMap.get(origin);
+    if (storageArea)
+        storageArea->clearForOriginDeletion();
+}
+
+void StorageNamespaceImpl::clearAllOriginsForDeletion()
+{
+    ASSERT(isMainThread());
+
+    StorageAreaMap::iterator end = m_storageAreaMap.end();
+    for (StorageAreaMap::iterator it = m_storageAreaMap.begin(); it != end; ++it)
+        it->second->clearForOriginDeletion();
+}
+    
+void StorageNamespaceImpl::sync()
+{
+    ASSERT(isMainThread());
+    StorageAreaMap::iterator end = m_storageAreaMap.end();
+    for (StorageAreaMap::iterator it = m_storageAreaMap.begin(); it != end; ++it)
+        it->second->sync();
 }
 
 } // namespace WebCore

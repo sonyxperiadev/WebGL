@@ -52,6 +52,7 @@ WebProcessConnection::WebProcessConnection(CoreIPC::Connection::Identifier conne
     m_connection = CoreIPC::Connection::createServerConnection(connectionIdentifier, this, RunLoop::main());
     m_npRemoteObjectMap = NPRemoteObjectMap::create(m_connection.get());
 
+    m_connection->setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(true);
     m_connection->open();
 }
 
@@ -70,7 +71,7 @@ void WebProcessConnection::destroyPluginControllerProxy(PluginControllerProxy* p
     pluginController->destroy();
 }
 
-void WebProcessConnection::removePluginControllerProxy(PluginControllerProxy* pluginController)
+void WebProcessConnection::removePluginControllerProxy(PluginControllerProxy* pluginController, Plugin* plugin)
 {
     {
         ASSERT(m_pluginControllers.contains(pluginController->pluginInstanceID()));
@@ -78,12 +79,14 @@ void WebProcessConnection::removePluginControllerProxy(PluginControllerProxy* pl
         OwnPtr<PluginControllerProxy> pluginControllerOwnPtr = adoptPtr(m_pluginControllers.take(pluginController->pluginInstanceID()));
         ASSERT(pluginControllerOwnPtr == pluginController);
     }
-    
+
+    // Invalidate all objects related to this plug-in.
+    if (plugin)
+        m_npRemoteObjectMap->pluginDestroyed(plugin);
+
     if (!m_pluginControllers.isEmpty())
         return;
 
-    // Invalidate our remote object map.
-    m_npRemoteObjectMap->invalidate();
     m_npRemoteObjectMap = nullptr;
 
     // The last plug-in went away, close this connection.
@@ -167,13 +170,10 @@ void WebProcessConnection::createPlugin(uint64_t pluginInstanceID, const Plugin:
     // Now try to initialize the plug-in.
     result = pluginControllerProxyPtr->initialize(parameters);
 
-    if (result) {
-        remoteLayerClientID = pluginControllerProxyPtr->remoteLayerClientID();
+    if (!result)
         return;
-    }
 
-    // We failed to initialize, remove the plug-in controller. This could cause us to be deleted.
-    removePluginControllerProxy(pluginControllerProxyPtr);
+    remoteLayerClientID = pluginControllerProxyPtr->remoteLayerClientID();
 }
 
 } // namespace WebKit

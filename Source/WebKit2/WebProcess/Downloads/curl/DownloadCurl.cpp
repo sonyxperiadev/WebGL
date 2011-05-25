@@ -58,7 +58,17 @@ void Download::didDecideDestination(const String& destination, bool allowOverwri
     notImplemented();
 }
 
-void Download::platformDidFinish()
+void Download::receivedCredential(const AuthenticationChallenge& authenticationChallenge, const Credential& credential)
+{
+    notImplemented();
+}
+
+void Download::receivedRequestToContinueWithoutCredential(const AuthenticationChallenge& authenticationChallenge)
+{
+    notImplemented();
+}
+
+void Download::receivedCancellation(const AuthenticationChallenge& authenticationChallenge)
 {
     notImplemented();
 }

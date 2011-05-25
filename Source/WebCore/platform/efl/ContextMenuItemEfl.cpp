@@ -3,7 +3,7 @@
  * Copyright (C) 2007 Staikos Computing Services Inc. <info@staikos.net>
  * Copyright (C) 2008 INdT - Instituto Nokia de Tecnologia
  * Copyright (C) 2009-2010 ProFUSION embedded systems
- * Copyright (C) 2009-2010 Samsung Electronics
+ * Copyright (C) 2011 Samsung Electronics
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +34,13 @@
 
 namespace WebCore {
 
-ContextMenuItem::ContextMenuItem(void* const&)
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+void* ContextMenuItem::nativeMenuItem() const
 {
     notImplemented();
+    return 0;
 }
-
+#else
 ContextMenuItem::ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, ContextMenu*)
 {
     notImplemented();
@@ -47,12 +49,6 @@ ContextMenuItem::ContextMenuItem(ContextMenuItemType, ContextMenuAction, const S
 ContextMenuItem::~ContextMenuItem()
 {
     notImplemented();
-}
-
-void* ContextMenuItem::nativeMenuItem() const
-{
-    notImplemented();
-    return 0;
 }
 
 ContextMenuItemType ContextMenuItem::type() const
@@ -98,5 +94,5 @@ void ContextMenuItem::setSubMenu(ContextMenu*)
 {
     notImplemented();
 }
-
+#endif
 }

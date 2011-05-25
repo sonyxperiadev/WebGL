@@ -77,7 +77,6 @@
 #include "PageGroup.h"
 #include "PageGroupLoadDeferrer.h"
 #include "Pasteboard.h"
-#include "PlatformBridge.h"
 #include "PlatformContextSkia.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
@@ -93,6 +92,7 @@
 #include "Settings.h"
 #include "SpeechInputClientImpl.h"
 #include "Timer.h"
+#include "TraceEvent.h"
 #include "TypingCommand.h"
 #include "UserGestureIndicator.h"
 #include "Vector.h"
@@ -126,6 +126,7 @@
 #include <wtf/RefPtr.h>
 
 #if PLATFORM(CG)
+#include <CoreGraphics/CGBitmapContext.h>
 #include <CoreGraphics/CGContext.h>
 #endif
 
@@ -211,13 +212,13 @@ static bool shouldUseExternalPopupMenus = false;
 
 // WebView ----------------------------------------------------------------
 
-WebView* WebView::create(WebViewClient* client, WebDevToolsAgentClient* devToolsClient, WebAutoFillClient* autoFillClient)
+WebView* WebView::create(WebViewClient* client)
 {
     // Keep runtime flag for device motion turned off until it's implemented.
     WebRuntimeFeatures::enableDeviceMotion(false);
 
     // Pass the WebViewImpl's self-reference to the caller.
-    return adoptRef(new WebViewImpl(client, devToolsClient, autoFillClient)).leakRef();
+    return adoptRef(new WebViewImpl(client)).leakRef();
 }
 
 void WebView::setUseExternalPopupMenus(bool useExternalPopupMenus)
@@ -269,9 +270,28 @@ void WebViewImpl::initializeMainFrame(WebFrameClient* frameClient)
     SecurityOrigin::setLocalLoadPolicy(SecurityOrigin::AllowLocalLoadsForLocalOnly);
 }
 
-WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devToolsClient, WebAutoFillClient* autoFillClient)
+void WebViewImpl::setDevToolsAgentClient(WebDevToolsAgentClient* devToolsClient) 
+{
+    if (devToolsClient)
+        m_devToolsAgent = new WebDevToolsAgentImpl(this, devToolsClient);
+    else
+        m_devToolsAgent.clear();
+}
+
+void WebViewImpl::setAutoFillClient(WebAutoFillClient* autoFillClient)
+{
+    m_autoFillClient = autoFillClient;
+}
+
+void WebViewImpl::setSpellCheckClient(WebSpellCheckClient* spellCheckClient)
+{
+    m_spellCheckClient = spellCheckClient;
+}
+
+WebViewImpl::WebViewImpl(WebViewClient* client)
     : m_client(client)
-    , m_autoFillClient(autoFillClient)
+    , m_autoFillClient(0)
+    , m_spellCheckClient(0)
     , m_chromeClientImpl(this)
     , m_contextMenuClientImpl(this)
     , m_dragClientImpl(this)
@@ -290,9 +310,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     , m_suppressNextKeypressEvent(false)
     , m_initialNavigationPolicy(WebNavigationPolicyIgnore)
     , m_imeAcceptEvents(true)
-    , m_dragTargetDispatch(false)
-    , m_dragIdentity(0)
-    , m_dropEffect(DropEffectDefault)
     , m_operationsAllowed(WebDragOperationNone)
     , m_dragOperation(WebDragOperationNone)
     , m_autoFillPopupShowing(false)
@@ -305,6 +322,7 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     , m_layerRenderer(0)
     , m_isAcceleratedCompositingActive(false)
     , m_compositorCreationFailed(false)
+    , m_recreatingGraphicsContext(false)
 #endif
 #if ENABLE(INPUT_SPEECH)
     , m_speechInputClient(SpeechInputClientImpl::create(client))
@@ -320,9 +338,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
 
     // set to impossible point so we always get the first mouse pos
     m_lastMousePosition = WebPoint(-1, -1);
-
-    if (devToolsClient)
-        m_devToolsAgent = new WebDevToolsAgentImpl(this, devToolsClient);
 
     Page::PageClients pageClients;
     pageClients.chromeClient = &m_chromeClientImpl;
@@ -962,13 +977,14 @@ void WebViewImpl::resize(const WebSize& newSize)
     }
 
     if (m_client) {
-        WebRect damagedRect(0, 0, m_size.width, m_size.height);
         if (isAcceleratedCompositingActive()) {
 #if USE(ACCELERATED_COMPOSITING)
-            invalidateRootLayerRect(damagedRect);
+            updateLayerRendererViewport();
 #endif
-        } else
+        } else {
+            WebRect damagedRect(0, 0, m_size.width, m_size.height);
             m_client->didInvalidateRect(damagedRect);
+        }
     }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -993,6 +1009,12 @@ void WebViewImpl::animate()
 
 void WebViewImpl::layout()
 {
+#if USE(ACCELERATED_COMPOSITING)
+    // FIXME: RTL style not supported by the compositor yet.
+    if (isAcceleratedCompositingActive() && pageHasRTLStyle())
+        setIsAcceleratedCompositingActive(false);
+#endif
+
     WebFrameImpl* webframe = mainFrameImpl();
     if (webframe) {
         // In order for our child HWNDs (NativeWindowWidgets) to update properly,
@@ -1057,7 +1079,7 @@ void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect)
         if (canvas) {
             // Clip rect to the confines of the rootLayerTexture.
             IntRect resizeRect(rect);
-            resizeRect.intersect(IntRect(IntPoint(), m_layerRenderer->visibleRectSize()));
+            resizeRect.intersect(IntRect(IntPoint(), m_layerRenderer->viewportSize()));
             doPixelReadbackToCanvas(canvas, resizeRect);
         }
 #endif
@@ -1081,6 +1103,14 @@ void WebViewImpl::themeChanged()
 void WebViewImpl::composite(bool finish)
 {
 #if USE(ACCELERATED_COMPOSITING)
+    TRACE_EVENT("WebViewImpl::composite", this, 0);
+    if (m_recreatingGraphicsContext) {
+        // reallocateRenderer will request a repaint whether or not it succeeded
+        // in creating a new context.
+        reallocateRenderer();
+        m_recreatingGraphicsContext = false;
+        return;
+    }
     doComposite();
 
     // Finish if requested.
@@ -1091,8 +1121,16 @@ void WebViewImpl::composite(bool finish)
     m_layerRenderer->present();
 
     GraphicsContext3D* context = m_layerRenderer->context();
-    if (context->getExtensions()->getGraphicsResetStatusARB() != GraphicsContext3D::NO_ERROR)
-        reallocateRenderer();
+    if (context->getExtensions()->getGraphicsResetStatusARB() != GraphicsContext3D::NO_ERROR) {
+        // Trying to recover the context right here will not work if GPU process
+        // died. This is because GpuChannelHost::OnErrorMessage will only be
+        // called at the next iteration of the message loop, reverting our
+        // recovery attempts here. Instead, we detach the root layer from the
+        // renderer, recreate the renderer at the next message loop iteration
+        // and request a repaint yet again.
+        m_recreatingGraphicsContext = true;
+        setRootLayerNeedsDisplay();
+    }
 #endif
 }
 
@@ -1235,7 +1273,7 @@ void WebViewImpl::setFocus(bool enable)
                 Element* element = static_cast<Element*>(focusedNode);
                 if (element->isTextFormControl())
                     element->updateFocusAppearance(true);
-                else if (focusedNode->isContentEditable()) {
+                else if (focusedNode->rendererIsEditable()) {
                     // updateFocusAppearance() selects all the text of
                     // contentseditable DIVs. So we set the selection explicitly
                     // instead. Note that this has the side effect of moving the
@@ -1297,7 +1335,7 @@ bool WebViewImpl::setComposition(
     PassRefPtr<Range> range = editor->compositionRange();
     if (range) {
         const Node* node = range->startContainer();
-        if (!node || !node->isContentEditable())
+        if (!node || !node->rendererIsEditable())
             return false;
     }
 
@@ -1346,7 +1384,7 @@ bool WebViewImpl::confirmComposition(const WebString& text)
     PassRefPtr<Range> range = editor->compositionRange();
     if (range) {
         const Node* node = range->startContainer();
-        if (!node || !node->isContentEditable())
+        if (!node || !node->rendererIsEditable())
             return false;
     }
 
@@ -1755,7 +1793,7 @@ void WebViewImpl::dragSourceSystemDragEnded()
 }
 
 WebDragOperation WebViewImpl::dragTargetDragEnter(
-    const WebDragData& webDragData, int identity,
+    const WebDragData& webDragData, int identity, // FIXME: remove identity from this function signature.
     const WebPoint& clientPoint,
     const WebPoint& screenPoint,
     WebDragOperationsMask operationsAllowed)
@@ -1763,7 +1801,21 @@ WebDragOperation WebViewImpl::dragTargetDragEnter(
     ASSERT(!m_currentDragData.get());
 
     m_currentDragData = webDragData;
-    m_dragIdentity = identity;
+    UNUSED_PARAM(identity);
+    m_operationsAllowed = operationsAllowed;
+
+    return dragTargetDragEnterOrOver(clientPoint, screenPoint, DragEnter);
+}
+
+WebDragOperation WebViewImpl::dragTargetDragEnter(
+    const WebDragData& webDragData,
+    const WebPoint& clientPoint,
+    const WebPoint& screenPoint,
+    WebDragOperationsMask operationsAllowed)
+{
+    ASSERT(!m_currentDragData.get());
+
+    m_currentDragData = webDragData;
     m_operationsAllowed = operationsAllowed;
 
     return dragTargetDragEnterOrOver(clientPoint, screenPoint, DragEnter);
@@ -1789,14 +1841,12 @@ void WebViewImpl::dragTargetDragLeave()
         IntPoint(),
         static_cast<DragOperation>(m_operationsAllowed));
 
-    m_dragTargetDispatch = true;
     m_page->dragController()->dragExited(&dragData);
-    m_dragTargetDispatch = false;
 
-    m_currentDragData = 0;
-    m_dropEffect = DropEffectDefault;
+    // FIXME: why is the drag scroll timer not stopped here?
+
     m_dragOperation = WebDragOperationNone;
-    m_dragIdentity = 0;
+    m_currentDragData = 0;
 }
 
 void WebViewImpl::dragTargetDrop(const WebPoint& clientPoint,
@@ -1822,22 +1872,12 @@ void WebViewImpl::dragTargetDrop(const WebPoint& clientPoint,
         screenPoint,
         static_cast<DragOperation>(m_operationsAllowed));
 
-    m_dragTargetDispatch = true;
     m_page->dragController()->performDrag(&dragData);
-    m_dragTargetDispatch = false;
 
-    m_currentDragData = 0;
-    m_dropEffect = DropEffectDefault;
     m_dragOperation = WebDragOperationNone;
-    m_dragIdentity = 0;
-    m_dragScrollTimer->stop();
-}
+    m_currentDragData = 0;
 
-int WebViewImpl::dragIdentity()
-{
-    if (m_dragTargetDispatch)
-        return m_dragIdentity;
-    return 0;
+    m_dragScrollTimer->stop();
 }
 
 WebDragOperation WebViewImpl::dragTargetDragEnterOrOver(const WebPoint& clientPoint, const WebPoint& screenPoint, DragAction dragAction)
@@ -1850,26 +1890,22 @@ WebDragOperation WebViewImpl::dragTargetDragEnterOrOver(const WebPoint& clientPo
         screenPoint,
         static_cast<DragOperation>(m_operationsAllowed));
 
-    m_dropEffect = DropEffectDefault;
-    m_dragTargetDispatch = true;
-    DragOperation effect = dragAction == DragEnter ? m_page->dragController()->dragEntered(&dragData)
-                                                   : m_page->dragController()->dragUpdated(&dragData);
-    // Mask the operation against the drag source's allowed operations.
-    if (!(effect & dragData.draggingSourceOperationMask()))
-        effect = DragOperationNone;
-    m_dragTargetDispatch = false;
+    DragOperation dropEffect;
+    if (dragAction == DragEnter)
+        dropEffect = m_page->dragController()->dragEntered(&dragData);
+    else
+        dropEffect = m_page->dragController()->dragUpdated(&dragData);
 
-    if (m_dropEffect != DropEffectDefault) {
-        m_dragOperation = (m_dropEffect != DropEffectNone) ? WebDragOperationCopy
-                                                           : WebDragOperationNone;
-    } else
-        m_dragOperation = static_cast<WebDragOperation>(effect);
+    // Mask the drop effect operation against the drag source's allowed operations.
+    if (!(dropEffect & dragData.draggingSourceOperationMask()))
+        dropEffect = DragOperationNone;
+
+     m_dragOperation = static_cast<WebDragOperation>(dropEffect);
 
     if (dragAction == DragOver)
         m_dragScrollTimer->triggerScroll(mainFrameImpl()->frameView(), clientPoint);
     else
         m_dragScrollTimer->stop();
-
 
     return m_dragOperation;
 }
@@ -2009,15 +2045,6 @@ void WebViewImpl::performCustomContextMenuAction(unsigned action)
 }
 
 // WebView --------------------------------------------------------------------
-
-bool WebViewImpl::setDropEffect(bool accept)
-{
-    if (m_dragTargetDispatch) {
-        m_dropEffect = accept ? DropEffectCopy : DropEffectNone;
-        return true;
-    }
-    return false;
-}
 
 void WebViewImpl::setIsTransparent(bool isTransparent)
 {
@@ -2258,9 +2285,26 @@ bool WebViewImpl::allowsAcceleratedCompositing()
     return !m_compositorCreationFailed;
 }
 
+bool WebViewImpl::pageHasRTLStyle() const
+{
+    if (!page())
+        return false;
+    Document* document = page()->mainFrame()->document();
+    if (!document)
+        return false;
+    RenderView* renderView = document->renderView();
+    if (!renderView)
+        return false;
+    RenderStyle* style = renderView->style();
+    if (!style)
+        return false;
+    return (style->direction() == RTL);
+}
+
 void WebViewImpl::setRootGraphicsLayer(WebCore::PlatformLayer* layer)
 {
-    setIsAcceleratedCompositingActive(layer ? true : false);
+    // FIXME: RTL style not supported by the compositor yet.
+    setIsAcceleratedCompositingActive(layer && !pageHasRTLStyle() ? true : false);
     if (m_layerRenderer)
         m_layerRenderer->setRootLayer(layer);
 
@@ -2279,6 +2323,7 @@ void WebViewImpl::setRootLayerNeedsDisplay()
 
 void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect& clipRect)
 {
+    updateLayerRendererViewport();
     setRootLayerNeedsDisplay();
 }
 
@@ -2290,60 +2335,18 @@ void WebViewImpl::invalidateRootLayerRect(const IntRect& rect)
         return;
 
     FrameView* view = page()->mainFrame()->view();
-    IntRect contentRect = view->visibleContentRect(false);
-    IntRect visibleRect = view->visibleContentRect(true);
-
     IntRect dirtyRect = view->windowToContents(rect);
-    m_layerRenderer->invalidateRootLayerRect(dirtyRect, visibleRect, contentRect);
+    updateLayerRendererViewport();
+    m_layerRenderer->invalidateRootLayerRect(dirtyRect);
     setRootLayerNeedsDisplay();
 }
 
-
-void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
-{
-    PlatformBridge::histogramEnumeration("GPU.setIsAcceleratedCompositingActive", active * 2 + m_isAcceleratedCompositingActive, 4);
-
-    if (m_isAcceleratedCompositingActive == active)
-        return;
-
-    if (!active) {
-        m_isAcceleratedCompositingActive = false;
-        if (m_layerRenderer)
-            m_layerRenderer->finish(); // finish all GL rendering before we hide the window?
-        m_client->didActivateAcceleratedCompositing(false);
-    } else if (m_layerRenderer) {
-        m_isAcceleratedCompositingActive = true;
-        m_layerRenderer->resizeOnscreenContent(WebCore::IntSize(std::max(1, m_size.width),
-                                                                std::max(1, m_size.height)));
-
-        m_client->didActivateAcceleratedCompositing(true);
-    } else {
-        RefPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
-        if (!context) {
-            context = GraphicsContext3D::create(getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
-            if (context)
-                context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
-        }
-        m_layerRenderer = LayerRendererChromium::create(context.release());
-        if (m_layerRenderer) {
-            m_client->didActivateAcceleratedCompositing(true);
-            m_isAcceleratedCompositingActive = true;
-            m_compositorCreationFailed = false;
-        } else {
-            m_isAcceleratedCompositingActive = false;
-            m_client->didActivateAcceleratedCompositing(false);
-            m_compositorCreationFailed = true;
-        }
-    }
-    if (page())
-        page()->mainFrame()->view()->setClipsRepaints(!m_isAcceleratedCompositingActive);
-}
-
-class WebViewImplTilePaintInterface : public TilePaintInterface {
+class WebViewImplContentPainter : public TilePaintInterface {
+    WTF_MAKE_NONCOPYABLE(WebViewImplContentPainter);
 public:
-    explicit WebViewImplTilePaintInterface(WebViewImpl* webViewImpl)
-        : m_webViewImpl(webViewImpl)
+    static PassOwnPtr<WebViewImplContentPainter*> create(WebViewImpl* webViewImpl)
     {
+        return adoptPtr(new WebViewImplContentPainter(webViewImpl));
     }
 
     virtual void paint(GraphicsContext& context, const IntRect& contentRect)
@@ -2356,15 +2359,20 @@ public:
     }
 
 private:
+    explicit WebViewImplContentPainter(WebViewImpl* webViewImpl)
+        : m_webViewImpl(webViewImpl)
+    {
+    }
+
     WebViewImpl* m_webViewImpl;
 };
 
-
-class WebViewImplScrollbarPaintInterface : public TilePaintInterface {
+class WebViewImplScrollbarPainter : public TilePaintInterface {
+    WTF_MAKE_NONCOPYABLE(WebViewImplScrollbarPainter);
 public:
-    explicit WebViewImplScrollbarPaintInterface(WebViewImpl* webViewImpl)
-        : m_webViewImpl(webViewImpl)
+    static PassOwnPtr<WebViewImplScrollbarPainter> create(WebViewImpl* webViewImpl)
     {
+        return adoptPtr(new WebViewImplScrollbarPainter(webViewImpl));
     }
 
     virtual void paint(GraphicsContext& context, const IntRect& contentRect)
@@ -2380,54 +2388,119 @@ public:
     }
 
 private:
+    explicit WebViewImplScrollbarPainter(WebViewImpl* webViewImpl)
+        : m_webViewImpl(webViewImpl)
+    {
+    }
+
     WebViewImpl* m_webViewImpl;
 };
 
+void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
+{
+    PlatformBridge::histogramEnumeration("GPU.setIsAcceleratedCompositingActive", active * 2 + m_isAcceleratedCompositingActive, 4);
+
+    if (m_isAcceleratedCompositingActive == active)
+        return;
+
+    if (!active) {
+        m_isAcceleratedCompositingActive = false;
+        // We need to finish all GL rendering before sending
+        // didActivateAcceleratedCompositing(false) to prevent
+        // flickering when compositing turns off.
+        if (m_layerRenderer)
+            m_layerRenderer->finish();
+        m_client->didActivateAcceleratedCompositing(false);
+    } else if (m_layerRenderer) {
+        m_isAcceleratedCompositingActive = true;
+        m_layerRenderer->resizeOnscreenContent(WebCore::IntSize(std::max(1, m_size.width),
+                                                                std::max(1, m_size.height)));
+
+        m_client->didActivateAcceleratedCompositing(true);
+    } else {
+        RefPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
+        if (!context) {
+            context = GraphicsContext3D::create(getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+            if (context)
+                context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
+        }
+
+        m_layerRenderer = LayerRendererChromium::create(context.release(), WebViewImplContentPainter::create(this), WebViewImplScrollbarPainter::create(this));
+        if (m_layerRenderer) {
+            m_client->didActivateAcceleratedCompositing(true);
+            m_isAcceleratedCompositingActive = true;
+            m_compositorCreationFailed = false;
+        } else {
+            m_isAcceleratedCompositingActive = false;
+            m_client->didActivateAcceleratedCompositing(false);
+            m_compositorCreationFailed = true;
+        }
+    }
+    if (page())
+        page()->mainFrame()->view()->setClipsRepaints(!m_isAcceleratedCompositingActive);
+}
+
 void WebViewImpl::doComposite()
 {
+    ASSERT(m_layerRenderer);
+    if (!m_layerRenderer) {
+        setIsAcceleratedCompositingActive(false);
+        return;
+    }
+
     ASSERT(isAcceleratedCompositingActive());
     if (!page())
         return;
 
-    FrameView* view = page()->mainFrame()->view();
-
-    // The visibleRect includes scrollbars whereas the contentRect doesn't.
-    IntRect visibleRect = view->visibleContentRect(true);
-    IntRect contentRect = view->visibleContentRect(false);
-    IntPoint scroll(view->scrollX(), view->scrollY());
-
-    WebViewImplTilePaintInterface tilePaint(this);
-
-    WebViewImplScrollbarPaintInterface scrollbarPaint(this);
     m_layerRenderer->setCompositeOffscreen(settings()->compositeToTextureEnabled());
 
     CCHeadsUpDisplay* hud = m_layerRenderer->headsUpDisplay();
     hud->setShowFPSCounter(settings()->showFPSCounter());
     hud->setShowPlatformLayerTree(settings()->showPlatformLayerTree());
 
-    m_layerRenderer->updateAndDrawLayers(visibleRect, contentRect, scroll, tilePaint, scrollbarPaint);
-
-    if (m_layerRenderer->isCompositingOffscreen())
-        m_layerRenderer->copyOffscreenTextureToDisplay();
+    m_layerRenderer->updateAndDrawLayers();
 }
 
 void WebViewImpl::reallocateRenderer()
 {
-    GraphicsContext3D* context = m_layerRenderer->context();
-    RefPtr<GraphicsContext3D> newContext = GraphicsContext3D::create(context->getContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+    RefPtr<GraphicsContext3D> newContext = GraphicsContext3D::create(
+            getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
     // GraphicsContext3D::create might fail and return 0, in that case LayerRendererChromium::create will also return 0.
-    RefPtr<LayerRendererChromium> layerRenderer = LayerRendererChromium::create(newContext);
+    RefPtr<LayerRendererChromium> layerRenderer = LayerRendererChromium::create(newContext, WebViewImplContentPainter::create(this), WebViewImplScrollbarPainter::create(this));
 
     // Reattach the root layer.  Child layers will get reattached as a side effect of updateLayersRecursive.
-    if (layerRenderer)
+    if (layerRenderer) {
         m_layerRenderer->transferRootLayer(layerRenderer.get());
-    m_layerRenderer = layerRenderer;
-
-    // Enable or disable accelerated compositing and request a refresh.
-    setRootGraphicsLayer(m_layerRenderer ? m_layerRenderer->rootLayer() : 0);
+        m_layerRenderer = layerRenderer;
+        // FIXME: In MacOS newContext->reshape method needs to be called to
+        // allocate IOSurfaces. All calls to create a context followed by
+        // reshape should really be extracted into one function; it is not
+        // immediately obvious that GraphicsContext3D object will not
+        // function properly until its reshape method is called.
+        newContext->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
+        setRootGraphicsLayer(m_layerRenderer->rootLayer());
+        // Forces ViewHostMsg_DidActivateAcceleratedCompositing to be sent so
+        // that the browser process can reacquire surfaces.
+        m_client->didActivateAcceleratedCompositing(true);
+    } else
+        setRootGraphicsLayer(0);
 }
 #endif
 
+void WebViewImpl::updateLayerRendererViewport()
+{
+    ASSERT(m_layerRenderer);
+
+    if (!page())
+        return;
+
+    FrameView* view = page()->mainFrame()->view();
+    IntRect contentRect = view->visibleContentRect(false);
+    IntRect visibleRect = view->visibleContentRect(true);
+    IntPoint scroll(view->scrollX(), view->scrollY());
+
+    m_layerRenderer->setViewport(visibleRect, contentRect, scroll);
+}
 
 WebGraphicsContext3D* WebViewImpl::graphicsContext3D()
 {

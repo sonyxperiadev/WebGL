@@ -49,7 +49,7 @@ namespace WebCore {
     public:
         void updateDocument();
 
-        DOMWindow* impl() const { return d()->impl.get(); }
+        DOMWindow* impl() const { return m_impl.get(); }
         virtual ScriptExecutionContext* scriptExecutionContext() const;
 
         // Called just before removing this window from the JSDOMWindowShell.
@@ -57,9 +57,9 @@ namespace WebCore {
 
         static const JSC::ClassInfo s_info;
 
-        static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)
+        static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
         {
-            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+            return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
         virtual JSC::ExecState* globalExec();
@@ -82,19 +82,11 @@ namespace WebCore {
         static JSC::JSGlobalData* commonJSGlobalData();
 
     private:
-        struct JSDOMWindowBaseData : public JSDOMGlobalObjectData {
-            JSDOMWindowBaseData(PassRefPtr<DOMWindow> window, JSDOMWindowShell* shell);
-
-            RefPtr<DOMWindow> impl;
-            JSDOMWindowShell* shell;
-        };
+        RefPtr<DOMWindow> m_impl;
+        JSDOMWindowShell* m_shell;
 
         bool allowsAccessFromPrivate(const JSC::JSGlobalObject*) const;
         String crossDomainAccessErrorMessage(const JSC::JSGlobalObject*) const;
-        
-        static void destroyJSDOMWindowBaseData(void*);
-
-        JSDOMWindowBaseData* d() const { return static_cast<JSDOMWindowBaseData*>(JSC::JSVariableObject::d); }
     };
 
     // Returns a JSDOMWindow or jsNull()

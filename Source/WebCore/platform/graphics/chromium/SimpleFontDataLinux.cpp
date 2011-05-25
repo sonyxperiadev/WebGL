@@ -113,13 +113,13 @@ void SimpleFontData::platformInit()
     m_fontMetrics.setXHeight(xHeight);
     m_fontMetrics.setLineSpacing(lroundf(ascent) + lroundf(descent) + lroundf(lineGap));
 
-    if (m_orientation == Vertical) {
+    if (platformData().orientation() == Vertical && !isTextOrientationFallback()) {
         static const uint32_t vheaTag = SkSetFourByteTag('v', 'h', 'e', 'a');
         static const uint32_t vorgTag = SkSetFourByteTag('V', 'O', 'R', 'G');
         size_t vheaSize = SkFontHost::GetTableSize(fontID, vheaTag);
         size_t vorgSize = SkFontHost::GetTableSize(fontID, vorgTag);
-        if ((vheaSize <= 0) && (vorgSize <= 0))
-            m_orientation = Horizontal;
+        if ((vheaSize > 0) || (vorgSize > 0))
+            m_hasVerticalGlyphs = true;
     }
 
     // In WebKit/WebCore/platform/graphics/SimpleFontData.cpp, m_spaceWidth is

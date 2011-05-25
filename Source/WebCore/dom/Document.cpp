@@ -7,7 +7,6 @@
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
- * Copyright (C) Research In Motion, Limited 2010-2011.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,7 +29,6 @@
 
 #include "AXObjectCache.h"
 #include "AnimationController.h"
-#include "AsyncScriptRunner.h"
 #include "Attr.h"
 #include "Attribute.h"
 #include "CDATASection.h"
@@ -44,6 +42,7 @@
 #include "ChromeClient.h"
 #include "Comment.h"
 #include "Console.h"
+#include "ContentSecurityPolicy.h"
 #include "CookieJar.h"
 #include "CustomEvent.h"
 #include "DateComponents.h"
@@ -120,6 +119,7 @@
 #include "RegisteredEventListener.h"
 #include "RenderArena.h"
 #include "RenderLayer.h"
+#include "RenderLayerBacking.h"
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
@@ -128,6 +128,7 @@
 #include "ScriptController.h"
 #include "ScriptElement.h"
 #include "ScriptEventListener.h"
+#include "ScriptRunner.h"
 #include "SecurityOrigin.h"
 #include "SegmentedString.h"
 #include "SelectionController.h"
@@ -333,7 +334,7 @@ static Widget* widgetForNode(Node* focusedNode)
 static bool acceptsEditingFocus(Node* node)
 {
     ASSERT(node);
-    ASSERT(node->isContentEditable());
+    ASSERT(node->rendererIsEditable());
 
     Node* root = node->rootEditableElement();
     Frame* frame = node->document()->frame();
@@ -358,7 +359,7 @@ static bool disableRangeMutation(Page* page)
 
 static HashSet<Document*>* documentsThatNeedStyleRecalc = 0;
 
-class DocumentWeakReference : public ThreadSafeShared<DocumentWeakReference> {
+class DocumentWeakReference : public ThreadSafeRefCounted<DocumentWeakReference> {
 public:
     static PassRefPtr<DocumentWeakReference> create(Document* document)
     {
@@ -387,14 +388,20 @@ private:
     Document* m_document;
 };
 
+uint64_t Document::s_globalTreeVersion = 0;
+
 Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     : ContainerNode(0)
     , m_compatibilityMode(NoQuirksMode)
     , m_compatibilityModeLocked(false)
+<<<<<<< HEAD
     , m_domTreeVersion(0)
 #ifdef ANDROID_STYLE_VERSION
     , m_styleVersion(0)
 #endif
+=======
+    , m_domTreeVersion(++s_globalTreeVersion)
+>>>>>>> webkit.org at r82507
     , m_styleSheets(StyleSheetList::create(this))
     , m_readyState(Complete)
     , m_styleRecalcTimer(this, &Document::styleRecalcTimerFired)
@@ -410,7 +417,7 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_startTime(currentTime())
     , m_overMinimumLayoutThreshold(false)
     , m_extraLayoutDelay(0)
-    , m_asyncScriptRunner(AsyncScriptRunner::create(this))
+    , m_scriptRunner(ScriptRunner::create(this))
     , m_xmlVersion("1.0")
     , m_xmlStandalone(false)
     , m_savedRenderer(0)
@@ -454,7 +461,6 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_writingModeSetOnDocumentElement(false)
     , m_writeRecursionIsTooDeep(false)
     , m_writeRecursionDepth(0)
-    , m_pendingTasksTimer(this, &Document::pendingTasksTimerFired)
 {
     m_document = this;
 
@@ -563,6 +569,11 @@ void Document::removedLastRef()
 
         m_cssCanvasElements.clear();
 
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+        // FIXME: consider using ActiveDOMObject.
+        m_scriptedAnimationController = 0;
+#endif
+
 #ifndef NDEBUG
         m_inRemovedLastRefFunction = false;
 #endif
@@ -584,7 +595,7 @@ Document::~Document()
     ASSERT(m_ranges.isEmpty());
     ASSERT(!m_styleRecalcTimer.isActive());
 
-    m_asyncScriptRunner.clear();
+    m_scriptRunner.clear();
 
     removeAllEventListeners();
 
@@ -1345,43 +1356,51 @@ static inline String canonicalizedTitle(Document* document, const String& title)
     return String::adopt(buffer);
 }
 
-void Document::updateTitle()
+void Document::updateTitle(const String& title)
 {
+    if (m_rawTitle == title)
+        return;
+
+    m_rawTitle = title;
     m_title = canonicalizedTitle(this, m_rawTitle);
     if (Frame* f = frame())
         f->loader()->setTitle(m_title);
 }
 
-void Document::setTitle(const String& title, Element* titleElement)
+void Document::setTitle(const String& title)
 {
-    if (!titleElement) {
-        // Title set by JavaScript -- overrides any title elements.
-        m_titleSetExplicitly = true;
-        if (!isHTMLDocument())
-            m_titleElement = 0;
-        else if (!m_titleElement) {
-            if (HTMLElement* headElement = head()) {
-                m_titleElement = createElement(titleTag, false);
-                ExceptionCode ec = 0;
-                headElement->appendChild(m_titleElement, ec);
-                ASSERT(!ec);
-            }
+    // Title set by JavaScript -- overrides any title elements.
+    m_titleSetExplicitly = true;
+    if (!isHTMLDocument())
+        m_titleElement = 0;
+    else if (!m_titleElement) {
+        if (HTMLElement* headElement = head()) {
+            m_titleElement = createElement(titleTag, false);
+            ExceptionCode ec = 0;
+            headElement->appendChild(m_titleElement, ec);
+            ASSERT(!ec);
         }
-    } else if (titleElement != m_titleElement) {
+    }
+
+    updateTitle(title);
+
+    if (m_titleElement) {
+        ASSERT(m_titleElement->hasTagName(titleTag));
+        if (m_titleElement->hasTagName(titleTag))
+            static_cast<HTMLTitleElement*>(m_titleElement.get())->setText(m_title);
+    }
+}
+
+void Document::setTitleElement(const String& title, Element* titleElement)
+{
+    if (titleElement != m_titleElement) {
         if (m_titleElement || m_titleSetExplicitly)
             // Only allow the first title element to change the title -- others have no effect.
             return;
         m_titleElement = titleElement;
     }
 
-    if (m_rawTitle == title)
-        return;
-
-    m_rawTitle = title;
-    updateTitle();
-
-    if (m_titleSetExplicitly && m_titleElement && m_titleElement->hasTagName(titleTag) && !titleElement)
-        static_cast<HTMLTitleElement*>(m_titleElement.get())->setText(m_title);
+    updateTitle(title);
 }
 
 void Document::removeTitle(Element* titleElement)
@@ -1397,15 +1416,13 @@ void Document::removeTitle(Element* titleElement)
         for (Node* e = headElement->firstChild(); e; e = e->nextSibling())
             if (e->hasTagName(titleTag)) {
                 HTMLTitleElement* titleElement = static_cast<HTMLTitleElement*>(e);
-                setTitle(titleElement->text(), titleElement);
+                setTitleElement(titleElement->text(), titleElement);
                 break;
             }
     }
 
-    if (!m_titleElement && !m_rawTitle.isEmpty()) {
-        m_rawTitle = "";
-        updateTitle();
-    }
+    if (!m_titleElement)
+        updateTitle("");
 }
 
 String Document::nodeName() const
@@ -1793,7 +1810,12 @@ void Document::detach()
 
     clearAXObjectCache();
     stopActiveDOMObjects();
-    
+
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    // FIXME: consider using ActiveDOMObject.
+    m_scriptedAnimationController = 0;
+#endif
+
     RenderObject* render = renderer();
 
     // Send out documentWillBecomeInactive() notifications to registered elements,
@@ -3994,7 +4016,7 @@ void Document::setInPageCache(bool flag)
         ASSERT(!m_savedRenderer);
         m_savedRenderer = renderer();
         if (FrameView* v = view())
-            v->resetScrollbars();
+            v->resetScrollbarsAndClearContentsSize();
         m_styleRecalcTimer.stop();
     } else {
         ASSERT(!renderer() || renderer() == m_savedRenderer);
@@ -4486,7 +4508,7 @@ void FormElementKey::deref() const
 
 unsigned FormElementKeyHash::hash(const FormElementKey& key)
 {
-    return WTF::StringHasher::createBlobHash<sizeof(FormElementKey)>(&key);
+    return StringHasher::hashMemory<sizeof(FormElementKey)>(&key);
 }
 
 void Document::setIconURL(const String& iconURL, const String& type)
@@ -4551,7 +4573,7 @@ void Document::initSecurityContext()
     // loading URL with a fresh content security policy.
     m_cookieURL = m_url;
     ScriptExecutionContext::setSecurityOrigin(SecurityOrigin::create(m_url, m_frame->loader()->sandboxFlags()));
-    m_contentSecurityPolicy = ContentSecurityPolicy::create();
+    m_contentSecurityPolicy = ContentSecurityPolicy::create(securityOrigin());
 
     if (SecurityOrigin::allowSubstituteDataAccessToLocal()) {
         // If this document was loaded with substituteData, then the document can
@@ -4780,59 +4802,22 @@ public:
     OwnPtr<ScriptExecutionContext::Task> task;
 };
 
-void Document::didReceiveTask(void* untypedContext)
+static void performTask(void* ctx)
 {
     ASSERT(isMainThread());
 
-    OwnPtr<PerformTaskContext> context = adoptPtr(static_cast<PerformTaskContext*>(untypedContext));
+    PerformTaskContext* context = reinterpret_cast<PerformTaskContext*>(ctx);
     ASSERT(context);
 
-    Document* document = context->documentReference->document();
-    if (!document)
-        return;
+    if (Document* document = context->documentReference->document())
+        context->task->performTask(document);
 
-    Page* page = document->page();
-    if ((page && page->defersLoading()) || !document->m_pendingTasks.isEmpty()) {
-        document->m_pendingTasks.append(context->task.release());
-        return;
-    }
-
-    context->task->performTask(document);
+    delete context;
 }
 
 void Document::postTask(PassOwnPtr<Task> task)
 {
-    callOnMainThread(didReceiveTask, new PerformTaskContext(m_weakReference, task));
-}
-
-void Document::pendingTasksTimerFired(Timer<Document>*)
-{
-    while (!m_pendingTasks.isEmpty()) {
-        OwnPtr<Task> task = m_pendingTasks[0].release();
-        m_pendingTasks.remove(0);
-        task->performTask(this);
-    }
-}
-
-void Document::suspendScheduledTasks()
-{
-    suspendScriptedAnimationControllerCallbacks();
-    suspendActiveDOMObjects(ActiveDOMObject::WillShowDialog);
-    asyncScriptRunner()->suspend();
-    m_pendingTasksTimer.stop();
-    if (m_parser)
-        m_parser->suspendScheduledTasks();
-}
-
-void Document::resumeScheduledTasks()
-{
-    if (m_parser)
-        m_parser->resumeScheduledTasks();
-    if (!m_pendingTasks.isEmpty())
-        m_pendingTasksTimer.startOneShot(0);
-    asyncScriptRunner()->resume();
-    resumeActiveDOMObjects();
-    resumeScriptedAnimationControllerCallbacks();
+    callOnMainThread(performTask, new PerformTaskContext(m_weakReference, task));
 }
 
 void Document::suspendScriptedAnimationControllerCallbacks()
@@ -4947,6 +4932,20 @@ bool Document::isXHTMLMPDocument() const
 #endif
 
 #if ENABLE(FULLSCREEN_API)
+bool Document::fullScreenIsAllowedForElement(Element* element) const
+{
+    ASSERT(element);
+    while (HTMLFrameOwnerElement* ownerElement = element->document()->ownerElement()) {
+        if (!ownerElement->hasTagName(frameTag) && !ownerElement->hasTagName(iframeTag))
+            continue;
+
+        if (!static_cast<HTMLFrameElementBase*>(ownerElement)->allowFullScreen())
+            return false;
+        element = ownerElement;
+    }
+    return true;
+}
+
 void Document::webkitRequestFullScreenForElement(Element* element, unsigned short flags)
 {
     if (!page() || !page()->settings()->fullScreenEnabled())
@@ -4955,7 +4954,13 @@ void Document::webkitRequestFullScreenForElement(Element* element, unsigned shor
     if (!element)
         element = documentElement();
     
-    if (!page()->chrome()->client()->supportsFullScreenForElement(element))
+    if (!fullScreenIsAllowedForElement(element))
+        return;
+    
+    if (!ScriptController::processingUserGesture())
+        return;
+    
+    if (!page()->chrome()->client()->supportsFullScreenForElement(element, flags & Element::ALLOW_KEYBOARD_INPUT))
         return;
     
     m_areKeysEnabledInFullScreen = flags & Element::ALLOW_KEYBOARD_INPUT;
@@ -4983,23 +4988,40 @@ void Document::webkitWillEnterFullScreenForElement(Element* element)
 
     recalcStyle(Force);
     
-    if (m_fullScreenRenderer)
+    if (m_fullScreenRenderer) {
         m_fullScreenRenderer->setAnimating(true);
+#if USE(ACCELERATED_COMPOSITING)
+        view()->updateCompositingLayers();
+        ASSERT(m_fullScreenRenderer->layer()->backing());
+        page()->chrome()->client()->setRootFullScreenLayer(m_fullScreenRenderer->layer()->backing()->graphicsLayer());
+#endif
+    }
 }
     
 void Document::webkitDidEnterFullScreenForElement(Element*)
 {
-    if (m_fullScreenRenderer)
+    if (m_fullScreenRenderer) {
         m_fullScreenRenderer->setAnimating(false);
+#if USE(ACCELERATED_COMPOSITING)
+        view()->updateCompositingLayers();
+        ASSERT(!m_fullScreenRenderer->layer()->backing());
+        page()->chrome()->client()->setRootFullScreenLayer(0);
+#endif
+    }
     m_fullScreenChangeDelayTimer.startOneShot(0);
 }
 
 void Document::webkitWillExitFullScreenForElement(Element*)
 {
-    if (m_fullScreenRenderer)
+    if (m_fullScreenRenderer) {
         m_fullScreenRenderer->setAnimating(true);
-
-    recalcStyle(Force);
+        m_fullScreenRenderer->setAnimating(true);
+#if USE(ACCELERATED_COMPOSITING)
+        view()->updateCompositingLayers();
+        ASSERT(m_fullScreenRenderer->layer()->backing());
+        page()->chrome()->client()->setRootFullScreenLayer(m_fullScreenRenderer->layer()->backing()->graphicsLayer());
+#endif
+    }
 }
 
 void Document::webkitDidExitFullScreenForElement(Element*)
@@ -5014,6 +5036,9 @@ void Document::webkitDidExitFullScreenForElement(Element*)
         m_fullScreenElement->detach();
     
     setFullScreenRenderer(0);
+#if USE(ACCELERATED_COMPOSITING)
+    page()->chrome()->client()->setRootFullScreenLayer(0);
+#endif
     recalcStyle(Force);
     
     m_fullScreenChangeDelayTimer.startOneShot(0);
@@ -5021,6 +5046,11 @@ void Document::webkitDidExitFullScreenForElement(Element*)
     
 void Document::setFullScreenRenderer(RenderFullScreen* renderer)
 {
+    if (renderer == m_fullScreenRenderer)
+        return;
+
+    if (m_fullScreenRenderer)
+        m_fullScreenRenderer->destroy();
     m_fullScreenRenderer = renderer;
     
     // This notification can come in after the page has been destroyed.
@@ -5041,6 +5071,7 @@ void Document::setFullScreenRendererSize(const IntSize& size)
         newStyle->setTop(Length(0, WebCore::Fixed));
         newStyle->setLeft(Length(0, WebCore::Fixed));
         m_fullScreenRenderer->setStyle(newStyle);
+        updateLayout();
     }
 }
     

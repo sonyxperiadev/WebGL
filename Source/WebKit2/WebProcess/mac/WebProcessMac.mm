@@ -28,6 +28,7 @@
 
 #import "FullKeyboardAccessWatcher.h"
 #import "SandboxExtension.h"
+#import "WebPage.h"
 #import "WebProcessCreationParameters.h"
 #import <WebCore/MemoryCache.h>
 #import <WebCore/PageCache.h>
@@ -37,6 +38,8 @@
 #import <mach/host_info.h>
 #import <mach/mach.h>
 #import <mach/mach_error.h>
+#import <objc/runtime.h>
+#import <WebCore/LocalizedStrings.h>
 
 #if ENABLE(WEB_PROCESS_SANDBOX)
 #import <sandbox.h>
@@ -106,8 +109,10 @@ void WebProcess::platformSetCacheModel(CacheModel cacheModel)
     [nsurlCache setDiskCapacity:max<unsigned long>(urlCacheDiskCapacity, [nsurlCache diskCapacity])]; // Don't shrink a big disk cache, since that would cause churn.
 }
 
-void WebProcess::platformClearResourceCaches()
+void WebProcess::platformClearResourceCaches(ResourceCachesToClear cachesToClear)
 {
+    if (cachesToClear == InMemoryResourceCachesOnly)
+        return;
     [[NSURLCache sharedURLCache] removeAllCachedResponses];
 }
 
@@ -152,6 +157,7 @@ static void initializeSandbox(const WebProcessCreationParameters& parameters)
     appendSandboxParameterConfPath(sandboxParameters, "DARWIN_USER_TEMP_DIR", _CS_DARWIN_USER_TEMP_DIR);
     appendSandboxParameterConfPath(sandboxParameters, "DARWIN_USER_CACHE_DIR", _CS_DARWIN_USER_CACHE_DIR);
     appendSandboxParameterPath(sandboxParameters, "WEBKIT_DATABASE_DIR", [(NSString *)parameters.databaseDirectory fileSystemRepresentation]);
+    appendSandboxParameterPath(sandboxParameters, "WEBKIT_LOCALSTORAGE_DIR", [(NSString *)parameters.localStorageDirectory fileSystemRepresentation]);
     appendSandboxParameterPath(sandboxParameters, "NSURL_CACHE_DIR", parameters.nsURLCachePath.data());
     appendSandboxParameterPath(sandboxParameters, "UI_PROCESS_BUNDLE_RESOURCE_DIR", parameters.uiProcessBundleResourcePath.data());
     sandboxParameters.append(static_cast<const char*>(0));
@@ -171,13 +177,23 @@ static void initializeSandbox(const WebProcessCreationParameters& parameters)
 #endif
 }
 
+static id NSApplicationAccessibilityFocusedUIElement(NSApplication*, SEL)
+{
+    WebPage* page = WebProcess::shared().focusedWebPage();
+    if (!page || !page->accessibilityRemoteObject())
+        return 0;
+
+    return [page->accessibilityRemoteObject() accessibilityFocusedUIElement];
+}
+    
 void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters& parameters, CoreIPC::ArgumentDecoder*)
 {
+    [[NSFileManager defaultManager] changeCurrentDirectoryPath:[[NSBundle mainBundle] bundlePath]];
+
     initializeSandbox(parameters);
 
     if (!parameters.parentProcessName.isNull()) {
-        // FIXME (WebKit2) <rdar://problem/8728860> WebKit2 needs to be localized
-        NSString *applicationName = [NSString stringWithFormat:@"%@ Web Content", (NSString *)parameters.parentProcessName];
+        NSString *applicationName = [NSString stringWithFormat:UI_STRING("%@ Web Content", "Visible name of the web process. The argument is the application name."), (NSString *)parameters.parentProcessName];
         WKSetVisibleApplicationName((CFStringRef)applicationName);
     }
 
@@ -191,6 +207,11 @@ void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters
     }
 
     m_compositingRenderServerPort = parameters.acceleratedCompositingPort.port();
+
+    // rdar://9118639 accessibilityFocusedUIElement in NSApplication defaults to use the keyWindow. Since there's
+    // no window in WK2, NSApplication needs to use the focused page's focused element.
+    Method methodToPatch = class_getInstanceMethod([NSApplication class], @selector(accessibilityFocusedUIElement));
+    method_setImplementation(methodToPatch, (IMP)NSApplicationAccessibilityFocusedUIElement);
 }
 
 void WebProcess::platformTerminate()

@@ -131,6 +131,8 @@ DOM_CLASSES = \
     CustomEvent \
     DataGridColumn \
     DataGridColumnList \
+    DataTransferItem \
+    DataTransferItems \
     DedicatedWorkerContext \
     DOMApplicationCache \
     DOMCoreException \
@@ -150,6 +152,8 @@ DOM_CLASSES = \
     DOMTokenList \
     DOMURL \
     DOMWindow \
+    DataTransferItem \
+    DataTransferItems \
     Database \
     DatabaseCallback \
     DatabaseSync \
@@ -347,6 +351,7 @@ DOM_CLASSES = \
     SQLTransactionSyncCallback \
     Storage \
     StorageEvent \
+    StringCallback \
     SVGAElement \
     SVGAltGlyphElement \
     SVGAngle \
@@ -493,6 +498,7 @@ DOM_CLASSES = \
     SVGZoomAndPan \
     SVGZoomEvent \
     Screen \
+    StringCallback \
     StyleMedia \
     StyleSheet \
     StyleSheetList \
@@ -506,7 +512,9 @@ DOM_CLASSES = \
     TreeWalker \
     UIEvent \
     ValidityState \
+    WebKitAnimation \
     WebKitAnimationEvent \
+    WebKitAnimationList \
     WebKitCSSKeyframeRule \
     WebKitCSSKeyframesRule \
     WebKitCSSMatrix \
@@ -569,7 +577,6 @@ all : \
     MathMLNames.cpp \
     XPathGrammar.cpp \
     tokenizer.cpp \
-    HeaderDetection.h \
 #
 
 # --------
@@ -730,7 +737,7 @@ ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
 endif
 
 ifeq ($(findstring ENABLE_FULLSCREEN_API,$(FEATURE_DEFINES)), ENABLE_FULLSCREEN_API)
-    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/fullscreen.css
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/fullscreen.css $(WebCore)/css/fullscreenQuickTime.css
 endif
 
 UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
@@ -881,6 +888,9 @@ JS%.h : %.idl $(JS_BINDINGS_SCRIPTS)
 
 # Inspector interfaces generator
 
+Inspector.idl : Inspector.json inspector/generate-inspector-idl
+	python $(WebCore)/inspector/generate-inspector-idl -o Inspector.idl $(WebCore)/inspector/Inspector.json
+
 all : InspectorFrontend.h
 
 INSPECTOR_GENERATOR_SCRIPTS = $(GENERATE_SCRIPTS) inspector/CodeGeneratorInspector.pm
@@ -949,21 +959,3 @@ DOM%.h : %.idl $(DOM_BINDINGS_SCRIPTS) bindings/objc/PublicDOMInterfaces.h
 # --------
 
 endif # MACOS
-
-# ------------------------
-
-# header detection
-
-ifeq ($(OS),MACOS)
-
-HeaderDetection.h : DerivedSources.make /System/Library/CoreServices/SystemVersion.plist
-	rm -f $@
-	echo "/* This is a generated file. Do not edit. */" > $@
-	if [ -f $(SDKROOT)/System/Library/Frameworks/AppKit.framework/PrivateHeaders/NSScrollerImpPair_Private.h ]; then echo "#define USE_WK_SCROLLBAR_PAINTER_AND_CONTROLLER 1" >> $@; else echo >> $@; fi
-
-else
-
-HeaderDetection.h :
-	echo > $@
-
-endif

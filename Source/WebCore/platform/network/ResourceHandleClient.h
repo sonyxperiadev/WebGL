@@ -59,7 +59,7 @@ namespace WebCore {
     enum CacheStoragePolicy {
         StorageAllowed,
         StorageAllowedInMemoryOnly,
-        StorageNotAllowed,
+        StorageNotAllowed
     };
     
     class ResourceHandleClient {
@@ -77,6 +77,11 @@ namespace WebCore {
         virtual void didFail(ResourceHandle*, const ResourceError&) { }
         virtual void wasBlocked(ResourceHandle*) { }
         virtual void cannotShowURL(ResourceHandle*) { }
+
+#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+        virtual bool supportsDataArray() { return false; }
+        virtual void didReceiveDataArray(ResourceHandle*, CFArrayRef) { }
+#endif
 
         virtual void willCacheResponse(ResourceHandle*, CacheStoragePolicy&) { }
 

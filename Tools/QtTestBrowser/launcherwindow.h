@@ -61,13 +61,13 @@
 #include <qx11info_x11.h>
 #endif
 
+#include "DumpRenderTreeSupportQt.h"
 #include "mainwindow.h"
 #include "urlloader.h"
 #include "utils.h"
 #include "webinspector.h"
 #include "webpage.h"
 #include "webview.h"
-#include "../../Source/WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.h"
 
 #ifdef Q_WS_MAEMO_5
 #include <X11/Xatom.h>
@@ -100,6 +100,10 @@ public:
 #if defined(QT_CONFIGURED_WITH_OPENGL)
         , useQGLWidgetViewport(false)
 #endif
+#if defined(Q_WS_X11)
+        , useTestFonts(false)
+#endif
+        , printLoadedUrls(false)
     {
     }
 
@@ -119,6 +123,10 @@ public:
 #if defined(QT_CONFIGURED_WITH_OPENGL)
     bool useQGLWidgetViewport;
 #endif
+#if defined(Q_WS_X11)
+    bool useTestFonts;
+#endif
+    bool printLoadedUrls;
     QUrl inspectorUrl;
     quint16 remoteInspectorPort;
 };
@@ -185,6 +193,8 @@ protected slots:
     void selectElements();
     void showFPS(bool enable);
     void showUserAgentDialog();
+
+    void printURL(const QUrl&);
 
 public slots:
     LauncherWindow* newWindow();

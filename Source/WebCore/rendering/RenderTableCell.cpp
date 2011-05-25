@@ -52,6 +52,7 @@ RenderTableCell::RenderTableCell(Node* node)
     , m_column(-1)
     , m_rowSpan(1)
     , m_columnSpan(1)
+    , m_cellWidthChanged(false)
     , m_intrinsicPaddingBefore(0)
     , m_intrinsicPaddingAfter(0)
 {
@@ -174,7 +175,7 @@ void RenderTableCell::layout()
 int RenderTableCell::paddingTop(bool includeIntrinsicPadding) const
 {
     int result = RenderBlock::paddingTop();
-    if (!includeIntrinsicPadding || !style()->isHorizontalWritingMode())
+    if (!includeIntrinsicPadding || !isHorizontalWritingMode())
         return result;
     return result + (style()->writingMode() == TopToBottomWritingMode ? intrinsicPaddingBefore() : intrinsicPaddingAfter());
 }
@@ -182,7 +183,7 @@ int RenderTableCell::paddingTop(bool includeIntrinsicPadding) const
 int RenderTableCell::paddingBottom(bool includeIntrinsicPadding) const
 {
     int result = RenderBlock::paddingBottom();
-    if (!includeIntrinsicPadding || !style()->isHorizontalWritingMode())
+    if (!includeIntrinsicPadding || !isHorizontalWritingMode())
         return result;
     return result + (style()->writingMode() == TopToBottomWritingMode ? intrinsicPaddingAfter() : intrinsicPaddingBefore());
 }
@@ -190,7 +191,7 @@ int RenderTableCell::paddingBottom(bool includeIntrinsicPadding) const
 int RenderTableCell::paddingLeft(bool includeIntrinsicPadding) const
 {
     int result = RenderBlock::paddingLeft();
-    if (!includeIntrinsicPadding || style()->isHorizontalWritingMode())
+    if (!includeIntrinsicPadding || isHorizontalWritingMode())
         return result;
     return result + (style()->writingMode() == LeftToRightWritingMode ? intrinsicPaddingBefore() : intrinsicPaddingAfter());
     
@@ -199,7 +200,7 @@ int RenderTableCell::paddingLeft(bool includeIntrinsicPadding) const
 int RenderTableCell::paddingRight(bool includeIntrinsicPadding) const
 {   
     int result = RenderBlock::paddingRight();
-    if (!includeIntrinsicPadding || style()->isHorizontalWritingMode())
+    if (!includeIntrinsicPadding || isHorizontalWritingMode())
         return result;
     return result + (style()->writingMode() == LeftToRightWritingMode ? intrinsicPaddingAfter() : intrinsicPaddingBefore());
 }
@@ -224,6 +225,12 @@ void RenderTableCell::setOverrideSize(int size)
 {
     clearIntrinsicPadding();
     RenderBlock::setOverrideSize(size);
+}
+    
+void RenderTableCell::setOverrideSizeFromRowHeight(int rowHeight)
+{
+    clearIntrinsicPadding();
+    RenderBlock::setOverrideSize(max(0, rowHeight - borderBefore() - paddingBefore() - borderAfter() - paddingAfter()));
 }
 
 IntSize RenderTableCell::offsetFromContainer(RenderObject* o, const IntPoint& point) const
@@ -1049,8 +1056,8 @@ void RenderTableCell::scrollbarsChanged(bool horizontalScrollbarChanged, bool ve
         return; // Not sure if we should be doing something when a scrollbar goes away or not.
     
     // We only care if the scrollbar that affects our intrinsic padding has been added.
-    if ((style()->isHorizontalWritingMode() && !horizontalScrollbarChanged) ||
-        (!style()->isHorizontalWritingMode() && !verticalScrollbarChanged))
+    if ((isHorizontalWritingMode() && !horizontalScrollbarChanged) ||
+        (!isHorizontalWritingMode() && !verticalScrollbarChanged))
         return;
 
     // Shrink our intrinsic padding as much as possible to accommodate the scrollbar.

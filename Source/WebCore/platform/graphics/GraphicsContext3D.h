@@ -51,8 +51,8 @@
 @class CALayer;
 @class WebGLLayer;
 #else
-typedef void* CALayer;
-typedef void* WebGLLayer;
+class CALayer;
+class WebGLLayer;
 #endif
 #elif PLATFORM(QT)
 QT_BEGIN_NAMESPACE
@@ -420,6 +420,7 @@ public:
             , antialias(true)
             , premultipliedAlpha(true)
             , canRecoverFromContextLoss(true)
+            , preserveDrawingBuffer(false)
         {
         }
 
@@ -429,6 +430,7 @@ public:
         bool antialias;
         bool premultipliedAlpha;
         bool canRecoverFromContextLoss;
+        bool preserveDrawingBuffer;
     };
 
     enum RenderStyle {
@@ -449,8 +451,8 @@ public:
 
 #if PLATFORM(MAC)
     PlatformGraphicsContext3D platformGraphicsContext3D() const { return m_contextObj; }
-    Platform3DObject platformTexture() const { return m_texture; }
-    CALayer* platformLayer() const { return static_cast<CALayer*>(m_webGLLayer.get()); }
+    Platform3DObject platformTexture() const { return m_compositorTexture; }
+    CALayer* platformLayer() const { return reinterpret_cast<CALayer*>(m_webGLLayer.get()); }
 #elif PLATFORM(CHROMIUM)
     PlatformGraphicsContext3D platformGraphicsContext3D() const;
     Platform3DObject platformTexture() const;
@@ -461,7 +463,7 @@ public:
     PlatformGraphicsContext3D platformGraphicsContext3D();
     Platform3DObject platformTexture() const;
 #if USE(ACCELERATED_COMPOSITING)
-    PlatformLayer* platformLayer() const { return 0; }
+    PlatformLayer* platformLayer() const;
 #endif
 #else
     PlatformGraphicsContext3D platformGraphicsContext3D() const { return NullPlatformGraphicsContext3D; }
@@ -756,10 +758,14 @@ public:
                        int canvasWidth, int canvasHeight, CGContextRef context);
 #endif
 
+    void markContextChanged();
+    void markLayerComposited();
+    bool layerComposited() const;
+
     void paintRenderingResultsToCanvas(CanvasRenderingContext* context);
+    PassRefPtr<ImageData> paintRenderingResultsToImageData();
 
 #if PLATFORM(QT)
-    void paint(QPainter* painter, const QRect& rect) const;
     bool paintsIntoCanvasBuffer() const { return true; }
 #elif PLATFORM(CHROMIUM)
     bool paintsIntoCanvasBuffer() const;
@@ -859,6 +865,10 @@ public:
     // could not be honored based on the capabilities of the OpenGL
     // implementation.
     void validateAttributes();
+
+    // Read rendering results into a pixel array with the same format as the
+    // backbuffer.
+    void readRenderingResults(unsigned char* pixels, int pixelsSize);
 #endif
 
     int m_currentWidth, m_currentHeight;
@@ -881,12 +891,16 @@ public:
 
     CGLContextObj m_contextObj;
     RetainPtr<WebGLLayer> m_webGLLayer;
-    GC3Duint m_texture;
+    GC3Duint m_texture, m_compositorTexture;
     GC3Duint m_fbo;
     GC3Duint m_depthStencilBuffer;
+    bool m_layerComposited;
+    GC3Duint m_internalColorFormat;
 
-    // For tracking which FBO is bound
+    // For tracking which FBO/texture is bound
     GC3Duint m_boundFBO;
+    GC3Denum m_activeTexture;
+    GC3Duint m_boundTexture0;
 
     // For multisampling
     GC3Duint m_multisampleFBO;

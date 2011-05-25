@@ -75,7 +75,7 @@ namespace WebCore {
     String contextMenuItemTagIgnoreSpelling();
     String contextMenuItemTagLearnSpelling();
     String contextMenuItemTagSearchWeb();
-    String contextMenuItemTagLookUpInDictionary();
+    String contextMenuItemTagLookUpInDictionary(const String& selectedString);
     String contextMenuItemTagOpenLink();
     String contextMenuItemTagIgnoreGrammar();
     String contextMenuItemTagSpellingMenu();
@@ -163,6 +163,13 @@ namespace WebCore {
     String allFilesText();
 #endif
 
+#if PLATFORM(MAC)
+    String keygenMenuItem512();
+    String keygenMenuItem1024();
+    String keygenMenuItem2048();
+    String keygenKeychainItemName(const String& host);
+#endif
+
     String imageTitle(const String& filename, const IntSize& size);
 
     String mediaElementLoadingStateText();
@@ -187,9 +194,11 @@ namespace WebCore {
     String validationMessageRangeOverflowText(const String& maximum);
     String validationMessageStepMismatchText(const String& base, const String& step);
 
-#if PLATFORM(MAC)
+
+#define UI_STRING(string, description) WebCore::localizedString(string)
+#define UI_STRING_KEY(string, key, description) WebCore::localizedString(key)
+
     String localizedString(const char* key);
-#endif
 
 } // namespace WebCore
 

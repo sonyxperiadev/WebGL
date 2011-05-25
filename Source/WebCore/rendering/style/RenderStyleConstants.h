@@ -51,6 +51,7 @@ enum StyleDifference {
     StyleDifferenceRepaint,
     StyleDifferenceRepaintLayer,
     StyleDifferenceLayoutPositionedMovementOnly,
+    StyleDifferenceSimplifiedLayout,
     StyleDifferenceLayout
 };
 
@@ -120,7 +121,7 @@ enum ETableLayout {
 };
 
 enum EUnicodeBidi {
-    UBNormal, Embed, Override
+    UBNormal, Embed, Override, Isolate
 };
 
 // CSS Text Layout Module Level 3: Vertical writing support
@@ -318,7 +319,7 @@ enum EWhiteSpace {
 };
 
 enum ETextAlign {
-    TAAUTO, LEFT, RIGHT, CENTER, JUSTIFY, WEBKIT_LEFT, WEBKIT_RIGHT, WEBKIT_CENTER
+    TAAUTO, LEFT, RIGHT, CENTER, JUSTIFY, WEBKIT_LEFT, WEBKIT_RIGHT, WEBKIT_CENTER, TASTART, TAEND,
 };
 
 enum ETextTransform {
