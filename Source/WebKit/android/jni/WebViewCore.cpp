@@ -569,11 +569,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         DBG_SET_LOG("!m_mainFrame->document()");
         return;
     }
-    // If there is a pending style recalculation, just return.
-    if (m_mainFrame->document()->isPendingStyleRecalc()) {
-        LOGW("recordPictureSet: pending style recalc, ignoring.");
-        return;
-    }
     if (m_addInval.isEmpty()) {
         DBG_SET_LOG("m_addInval.isEmpty()");
         return;
@@ -918,6 +913,11 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
 BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
     DBG_SET_LOG("start");
+    // If there is a pending style recalculation, just return.
+    if (m_mainFrame->document()->isPendingStyleRecalc()) {
+        DBG_SET_LOGD("recordContent: pending style recalc, ignoring.");
+        return 0;
+    }
     float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
     m_progressDone = progress <= 0.0f || progress >= 1.0f;
     recordPictureSet(&m_content);
