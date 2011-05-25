@@ -320,7 +320,7 @@ void FrameLoaderClientWx::dispatchDidFinishDocumentLoad()
     if (m_webView) {
         wxWebViewLoadEvent wkEvent(m_webView);
         wkEvent.SetState(wxWEBVIEW_LOAD_DOC_COMPLETED);
-        wkEvent.SetURL(m_frame->loader()->url().string());
+        wkEvent.SetURL(m_frame->document()->url().string());
         m_webView->GetEventHandler()->ProcessEvent(wkEvent);
     }
 }
@@ -394,7 +394,7 @@ void FrameLoaderClientWx::postProgressFinishedNotification()
     if (m_webView) {
         wxWebViewLoadEvent wkEvent(m_webView);
         wkEvent.SetState(wxWEBVIEW_LOAD_DL_COMPLETED);
-        wkEvent.SetURL(m_frame->loader()->url().string());
+        wkEvent.SetURL(m_frame->document()->url().string());
         m_webView->GetEventHandler()->ProcessEvent(wkEvent);
     }
 }
@@ -434,8 +434,7 @@ void FrameLoaderClientWx::finishedLoading(DocumentLoader* loader)
 {
     if (!m_pluginView) {
         if (m_firstData) {
-            FrameLoader* fl = loader->frameLoader();
-            fl->writer()->setEncoding(m_response.textEncodingName(), false);
+            loader->writer()->setEncoding(m_response.textEncodingName(), false);
             m_firstData = false;
         }
     } else {
@@ -595,7 +594,7 @@ void FrameLoaderClientWx::didDisplayInsecureContent()
     notImplemented();
 }
 
-void FrameLoaderClientWx::didRunInsecureContent(WebCore::SecurityOrigin*)
+void FrameLoaderClientWx::didRunInsecureContent(WebCore::SecurityOrigin*, const KURL&)
 {
     notImplemented();
 }
@@ -850,7 +849,7 @@ PassRefPtr<Frame> FrameLoaderClientWx::createFrame(const KURL& url, const String
     if (!childFrame->page())
         return 0;
 
-    childFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
+    m_frame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
     
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())

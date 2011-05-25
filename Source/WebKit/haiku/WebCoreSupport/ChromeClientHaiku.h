@@ -133,6 +133,7 @@ namespace WebCore {
 #endif
 
         virtual bool selectItemWritingDirectionIsNatural();
+        virtual bool selectItemAlignmentFollowsMenuWritingDirection();
         virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
         virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
 
@@ -157,8 +158,6 @@ namespace WebCore {
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*);
-
-        virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks();
     };
 
 } // namespace WebCore

@@ -1709,10 +1709,6 @@ WebInspector.StylePropertyTreeElement.prototype = {
 
     editingEnded: function(context)
     {
-        if (this._prompt) {
-            this._prompt.removeFromElement();
-            delete this._prompt;
-        }
         this.hasChildren = context.hasChildren;
         if (context.expanded)
             this.expand();
@@ -1727,6 +1723,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
 
     editingCancelled: function(element, context)
     {
+        this._removePrompt();
         if ("originalPropertyText" in this)
             this.applyStyleText(this.originalPropertyText, true);
         else {
@@ -1742,6 +1739,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
 
     editingCommitted: function(element, userInput, previousContent, context, moveDirection)
     {
+        this._removePrompt();
         this.editingEnded(context);
         var isEditingName = context.isEditingName;
 
@@ -1839,6 +1837,15 @@ WebInspector.StylePropertyTreeElement.prototype = {
         }
     },
 
+    _removePrompt: function()
+    {
+        // BUG 53242. This cannot go into editingEnded(), as it should always happen first for any editing outcome.
+        if (this._prompt) {
+            this._prompt.removeFromElement();
+            delete this._prompt;
+        }
+    },
+
     _hasBeenAppliedToPageViaUpDown: function()
     {
         // New properties applied via up/down have an originalPropertyText and will be deleted later
@@ -1922,16 +1929,34 @@ WebInspector.StylesSidebarPane.CSSPropertyPrompt.prototype = {
         var reverse = event.keyIdentifier === "Up";
         if (this.autoCompleteElement)
             this.complete(false, reverse); // Accept the current suggestion, if any.
+        else {
+            // Select the word suffix to affect it when computing the subsequent suggestion.
+            this._selectCurrentWordSuffix();
+        }
+
         this.complete(false, reverse); // Actually increment/decrement the suggestion.
         event.handled = true;
+    },
+
+    _selectCurrentWordSuffix: function()
+    {
+        var selection = window.getSelection();
+        if (!selection.rangeCount)
+            return;
+
+        var selectionRange = selection.getRangeAt(0);
+        if (!selectionRange.commonAncestorContainer.isDescendant(this.element))
+            return;
+        var wordSuffixRange = selectionRange.startContainer.rangeOfWord(selectionRange.startOffset, WebInspector.StylesSidebarPane.StyleValueDelimiters, this.element, "forward");
+        if (!wordSuffixRange.toString())
+            return;
+        selection.removeAllRanges();
+        selection.addRange(wordSuffixRange);
     },
 
     _buildPropertyCompletions: function(wordRange, bestMatchOnly, completionsReadyCallback)
     {
         var prefix = wordRange.toString().toLowerCase();
-        if (!prefix.length)
-            return;
-
         var results;
         if (bestMatchOnly) {
             results = [];

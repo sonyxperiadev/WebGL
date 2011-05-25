@@ -28,6 +28,7 @@
 
 #include "DecodedDataDocumentParser.h"
 #include "HTMLInputStream.h"
+#include "HTMLSourceTracker.h"
 #include "HTMLToken.h"
 #include "HTMLTokenizer.h"
 #include "HTMLViewSourceDocument.h"
@@ -69,8 +70,8 @@ private:
     void updateTokenizerState();
 
     HTMLInputStream m_input;
-    SegmentedString m_source;
     HTMLToken m_token;
+    HTMLSourceTracker m_sourceTracker;
     OwnPtr<HTMLTokenizer> m_tokenizer;
 };
 

@@ -34,7 +34,6 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityObject.h"
-#include "CharacterNames.h"
 #include "Console.h"
 #include "Cursor.h"
 #include "DatabaseTracker.h"
@@ -70,6 +69,7 @@
 #include "WebFileChooserCompletionImpl.h"
 #include "WebFrameClient.h"
 #include "WebFrameImpl.h"
+#include "WebIconLoadingCompletionImpl.h"
 #include "WebInputEvent.h"
 #include "WebKit.h"
 #include "WebNode.h"
@@ -86,6 +86,7 @@
 #include "WebWindowFeatures.h"
 #include "WindowFeatures.h"
 #include "WrappedResourceRequest.h"
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace WebCore;
 
@@ -501,6 +502,13 @@ IntRect ChromeClientImpl::windowResizerRect() const
     return result;
 }
 
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+void ChromeClientImpl::registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title)
+{
+    notImplemented();
+}
+#endif
+
 void ChromeClientImpl::invalidateWindow(const IntRect&, bool)
 {
     notImplemented();
@@ -669,9 +677,13 @@ void ChromeClientImpl::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileCh
     chooserCompletion->didChooseFile(WebVector<WebString>());
 }
 
-void ChromeClientImpl::chooseIconForFiles(const Vector<WTF::String>&, WebCore::FileChooser*)
+void ChromeClientImpl::chooseIconForFiles(const Vector<String>& filenames, FileChooser* fileChooser)
 {
-    notImplemented();
+    if (!m_webView->client())
+        return;
+    WebIconLoadingCompletionImpl* iconCompletion = new WebIconLoadingCompletionImpl(fileChooser);
+    if (!m_webView->client()->queryIconForFiles(filenames, iconCompletion))
+        iconCompletion->didLoadIcon(WebData());
 }
 
 void ChromeClientImpl::popupOpened(PopupContainer* popupContainer,
@@ -732,24 +744,29 @@ void ChromeClientImpl::getPopupMenuInfo(PopupContainer* popupContainer,
 {
     const Vector<PopupItem*>& inputItems = popupContainer->popupData();
 
-    WebVector<WebPopupMenuInfo::Item> outputItems(inputItems.size());
+    WebVector<WebMenuItemInfo> outputItems(inputItems.size());
 
     for (size_t i = 0; i < inputItems.size(); ++i) {
         const PopupItem& inputItem = *inputItems[i];
-        WebPopupMenuInfo::Item& outputItem = outputItems[i];
+        WebMenuItemInfo& outputItem = outputItems[i];
 
         outputItem.label = inputItem.label;
         outputItem.enabled = inputItem.enabled;
+        if (inputItem.textDirection == WebCore::RTL)
+            outputItem.textDirection = WebTextDirectionRightToLeft;
+        else
+            outputItem.textDirection = WebTextDirectionLeftToRight;
+        outputItem.hasTextDirectionOverride = inputItem.hasTextDirectionOverride;
 
         switch (inputItem.type) {
         case PopupItem::TypeOption:
-            outputItem.type = WebPopupMenuInfo::Item::Option;
+            outputItem.type = WebMenuItemInfo::Option;
             break;
         case PopupItem::TypeGroup:
-            outputItem.type = WebPopupMenuInfo::Item::Group;
+            outputItem.type = WebMenuItemInfo::Group;
             break;
         case PopupItem::TypeSeparator:
-            outputItem.type = WebPopupMenuInfo::Item::Separator;
+            outputItem.type = WebMenuItemInfo::Separator;
             break;
         default:
             ASSERT_NOT_REACHED();
@@ -846,6 +863,11 @@ void ChromeClientImpl::exitFullscreenForNode(WebCore::Node* node)
 bool ChromeClientImpl::selectItemWritingDirectionIsNatural()
 {
     return false;
+}
+
+bool ChromeClientImpl::selectItemAlignmentFollowsMenuWritingDirection()
+{
+    return true;
 }
 
 PassRefPtr<PopupMenu> ChromeClientImpl::createPopupMenu(PopupMenuClient* client) const

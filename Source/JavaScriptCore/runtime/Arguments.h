@@ -37,7 +37,7 @@ namespace JSC {
         WTF_MAKE_NONCOPYABLE(ArgumentsData); WTF_MAKE_FAST_ALLOCATED;
     public:
         ArgumentsData() { }
-        JSActivation* activation;
+        WriteBarrier<JSActivation> activation;
 
         unsigned numParameters;
         ptrdiff_t firstParameterIndex;
@@ -50,7 +50,7 @@ namespace JSC {
         OwnArrayPtr<bool> deletedArguments;
         Register extraArgumentsFixedBuffer[4];
 
-        JSFunction* callee;
+        WriteBarrier<JSFunction> callee;
         bool overrodeLength : 1;
         bool overrodeCallee : 1;
         bool overrodeCaller : 1;
@@ -86,9 +86,9 @@ namespace JSC {
         void copyToRegisters(ExecState* exec, Register* buffer, uint32_t maxSize);
         void copyRegisters();
         bool isTornOff() const { return d->registerArray; }
-        void setActivation(JSActivation* activation)
+        void setActivation(JSGlobalData& globalData, JSActivation* activation)
         {
-            d->activation = activation;
+            d->activation.set(globalData, this, activation);
             d->registers = &activation->registerAt(0);
         }
 
@@ -107,7 +107,7 @@ namespace JSC {
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
         virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
-        virtual void put(ExecState*, unsigned propertyName, JSValue, PutPropertySlot&);
+        virtual void put(ExecState*, unsigned propertyName, JSValue);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
         virtual bool deleteProperty(ExecState*, unsigned propertyName);
         void createStrictModeCallerIfNecessary(ExecState*);
@@ -158,7 +158,6 @@ namespace JSC {
         d->firstParameterIndex = firstParameterIndex;
         d->numArguments = numArguments;
 
-        d->activation = 0;
         d->registers = callFrame->registers();
 
         Register* extraArguments;
@@ -176,7 +175,7 @@ namespace JSC {
 
         d->extraArguments = extraArguments;
 
-        d->callee = callee;
+        d->callee.set(callFrame->globalData(), this, callee);
         d->overrodeLength = false;
         d->overrodeCallee = false;
         d->overrodeCaller = false;
@@ -195,7 +194,6 @@ namespace JSC {
 
         d->numParameters = 0;
         d->numArguments = numArguments;
-        d->activation = 0;
 
         Register* extraArguments;
         if (numArguments > sizeof(d->extraArgumentsFixedBuffer) / sizeof(Register))
@@ -209,7 +207,7 @@ namespace JSC {
 
         d->extraArguments = extraArguments;
 
-        d->callee = asFunction(callFrame->callee());
+        d->callee.set(callFrame->globalData(), this, asFunction(callFrame->callee()));
         d->overrodeLength = false;
         d->overrodeCallee = false;
         d->overrodeCaller = false;
@@ -228,10 +226,10 @@ namespace JSC {
         int registerOffset = d->numParameters + RegisterFile::CallFrameHeaderSize;
         size_t registerArraySize = d->numParameters;
 
-        Register* registerArray = new Register[registerArraySize];
-        memcpy(registerArray, d->registers - registerOffset, registerArraySize * sizeof(Register));
-        d->registerArray.set(registerArray);
-        d->registers = registerArray + registerOffset;
+        OwnArrayPtr<Register> registerArray = adoptArrayPtr(new Register[registerArraySize]);
+        memcpy(registerArray.get(), d->registers - registerOffset, registerArraySize * sizeof(Register));
+        d->registers = registerArray.get() + registerOffset;
+        d->registerArray = registerArray.release();
     }
 
     // This JSActivation function is defined here so it can get at Arguments::setRegisters.
@@ -249,8 +247,9 @@ namespace JSC {
         int registerOffset = numParametersMinusThis + RegisterFile::CallFrameHeaderSize;
         size_t registerArraySize = numLocals + RegisterFile::CallFrameHeaderSize;
 
-        Register* registerArray = copyRegisterArray(d()->registers - registerOffset, registerArraySize);
-        setRegisters(registerArray + registerOffset, registerArray);
+        OwnArrayPtr<Register> registerArray = copyRegisterArray(d()->registers - registerOffset, registerArraySize);
+        Register* registers = registerArray.get() + registerOffset;
+        setRegisters(registers, registerArray.release());
     }
 
 } // namespace JSC

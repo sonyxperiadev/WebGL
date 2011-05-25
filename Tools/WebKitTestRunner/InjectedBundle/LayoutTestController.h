@@ -126,6 +126,16 @@ public:
     void evaluateScriptInIsolatedWorld(JSContextRef, unsigned worldID, JSStringRef script);
     static unsigned worldIDForWorld(WKBundleScriptWorldRef);
 
+    void showWebInspector();
+    void closeWebInspector();
+    void evaluateInWebInspector(long callId, JSStringRef script);
+    void setTimelineProfilingEnabled(bool);
+
+    void setPOSIXLocale(JSStringRef);
+
+    bool willSendRequestReturnsNull() { return m_willSendRequestReturnsNull; }
+    void setWillSendRequestReturnsNull(bool f) { m_willSendRequestReturnsNull = f; }
+
 private:
     static const double waitToDumpWatchdogTimerInterval;
 
@@ -147,6 +157,8 @@ private:
     bool m_waitToDump; // True if waitUntilDone() has been called, but notifyDone() has not yet been called.
     bool m_testRepaint;
     bool m_testRepaintSweepHorizontally;
+
+    bool m_willSendRequestReturnsNull;
 
     PlatformTimerRef m_waitToDumpWatchdogTimer;
 };

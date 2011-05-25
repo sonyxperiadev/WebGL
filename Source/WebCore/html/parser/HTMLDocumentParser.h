@@ -30,10 +30,12 @@
 #include "FragmentScriptingPermission.h"
 #include "HTMLInputStream.h"
 #include "HTMLScriptRunnerHost.h"
+#include "HTMLSourceTracker.h"
 #include "HTMLToken.h"
 #include "ScriptableDocumentParser.h"
 #include "SegmentedString.h"
 #include "Timer.h"
+#include "XSSFilter.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
@@ -71,8 +73,11 @@ public:
     static bool usePreHTML5ParserQuirks(Document*);
 
     HTMLTokenizer* tokenizer() const { return m_tokenizer.get(); }
+    String sourceForToken(const HTMLToken&);
 
     virtual TextPosition0 textPosition() const;
+    virtual int lineNumber() const;
+
     virtual void suspendScheduledTasks();
     virtual void resumeScheduledTasks();
 
@@ -97,7 +102,6 @@ private:
     virtual bool isWaitingForScripts() const;
     virtual bool isExecutingScript() const;
     virtual void executeScriptsWaitingForStylesheets();
-    virtual int lineNumber() const;
 
     // HTMLScriptRunnerHost
     virtual void watchForLoad(CachedResource*);
@@ -141,6 +145,8 @@ private:
     OwnPtr<HTMLTreeBuilder> m_treeBuilder;
     OwnPtr<HTMLPreloadScanner> m_preloadScanner;
     OwnPtr<HTMLParserScheduler> m_parserScheduler;
+    HTMLSourceTracker m_sourceTracker;
+    XSSFilter m_xssFilter;
 
     bool m_endWasDelayed;
     unsigned m_writeNestingLevel;

@@ -70,6 +70,13 @@ void SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(Attribute* attr)
         return SVGStyledElement::parseMappedAttribute(attr);
 }
 
+bool SVGFilterPrimitiveStandardAttributes::setFilterEffectAttribute(FilterEffect*, const QualifiedName&)
+{
+    // When all filters support this method, it will be changed to a pure virtual method.
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
 void SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledElement::svgAttributeChanged(attrName);
@@ -143,6 +150,17 @@ void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(bool primitiveB
                                height().value(this));
 
     filterEffect->setEffectBoundaries(effectBBox);
+}
+
+void SVGFilterPrimitiveStandardAttributes::fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap& attributeToPropertyTypeMap)
+{
+    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    
+    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::widthAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::heightAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::resultAttr, AnimatedString);
 }
 
 RenderObject* SVGFilterPrimitiveStandardAttributes::createRenderer(RenderArena* arena, RenderStyle*)

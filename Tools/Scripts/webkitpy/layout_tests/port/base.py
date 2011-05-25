@@ -121,14 +121,17 @@ class Port(object):
         # certainly won't be available, so it's a good test to keep us
         # from erroring out later.
         self._pretty_patch_available = self._filesystem.exists(self._pretty_patch_path)
-        self.set_option_default('configuration', None)
-        if self._options.configuration is None:
+        if not hasattr(self._options, 'configuration') or self._options.configuration is None:
             self._options.configuration = self.default_configuration()
+        self._test_configuration = None
 
     def default_child_processes(self):
         """Return the number of DumpRenderTree instances to use for this
         port."""
         return self._executive.cpu_count()
+
+    def default_worker_model(self):
+        return 'old-threads'
 
     def baseline_path(self):
         """Return the absolute path to the directory to store new baselines
@@ -315,7 +318,7 @@ class Port(object):
         path = self.expected_filename(test, '.checksum')
         if not self.path_exists(path):
             return None
-        return self._filesystem.read_text_file(path)
+        return self._filesystem.read_binary_file(path)
 
     def expected_image(self, test):
         """Returns the image we expect the test to produce."""
@@ -393,7 +396,7 @@ class Port(object):
         driver = self.create_driver(0)
         return driver.cmd_line()
 
-    def update_baseline(self, path, data, encoding):
+    def update_baseline(self, path, data):
         """Updates the baseline for a test.
 
         Args:
@@ -401,14 +404,8 @@ class Port(object):
               the test. This function is used to update either generic or
               platform-specific baselines, but we can't infer which here.
             data: contents of the baseline.
-            encoding: file encoding to use for the baseline.
         """
-        # FIXME: remove the encoding parameter in favor of text/binary
-        # functions.
-        if encoding is None:
-            self._filesystem.write_binary_file(path, data)
-        else:
-            self._filesystem.write_text_file(path, data)
+        self._filesystem.write_binary_file(path, data)
 
     def uri_to_test_name(self, uri):
         """Return the base layout test name for a given URI.
@@ -465,6 +462,15 @@ class Port(object):
         may be different (e.g., 'win-xp' instead of 'chromium-win-xp'."""
         return self._name
 
+    def graphics_type(self):
+        """Returns whether the port uses accelerated graphics ('gpu') or not
+        ('cpu')."""
+        return 'cpu'
+
+    def real_name(self):
+        """Returns the actual name of the port, not the delegate's."""
+        return self.name()
+
     def get_option(self, name, default_value=None):
         # FIXME: Eventually we should not have to do a test for
         # hasattr(), and we should be able to just do
@@ -496,8 +502,15 @@ class Port(object):
         """Relative unix-style path for a filename under the LayoutTests
         directory. Filenames outside the LayoutTests directory should raise
         an error."""
+        # FIXME: On Windows, does this return test_names with forward slashes,
+        # or windows-style relative paths?
         assert filename.startswith(self.layout_tests_dir()), "%s did not start with %s" % (filename, self.layout_tests_dir())
         return filename[len(self.layout_tests_dir()) + 1:]
+
+    def abspath_for_test(self, test_name):
+        """Returns the full path to the file for a given test name. This is the
+        inverse of relative_test_filename()."""
+        return self._filesystem.normpath(self._filesystem.join(self.layout_tests_dir(), test_name))
 
     def results_directory(self):
         """Absolute path to the place to store the test results."""
@@ -577,12 +590,25 @@ class Port(object):
         if self._http_lock:
             self._http_lock.cleanup_http_lock()
 
+    #
+    # TEST EXPECTATION-RELATED METHODS
+    #
+
+    def test_configuration(self):
+        """Returns the current TestConfiguration for the port."""
+        if not self._test_configuration:
+            self._test_configuration = TestConfiguration(self)
+        return self._test_configuration
+
+    def all_test_configurations(self):
+        return self.test_configuration().all_test_configurations()
+
     def test_expectations(self):
         """Returns the test expectations for this port.
 
         Basically this string should contain the equivalent of a
         test_expectations file. See test_expectations.py for more details."""
-        raise NotImplementedError('Port.test_expectations')
+        return self._filesystem.read_text_file(self.path_to_test_expectations_file())
 
     def test_expectations_overrides(self):
         """Returns an optional set of overrides for the test_expectations.
@@ -592,18 +618,6 @@ class Port(object):
         temporarily override the "upstream" expectations until the port can
         sync up the two repos."""
         return None
-
-    def test_base_platform_names(self):
-        """Return a list of the 'base' platforms on your port. The base
-        platforms represent different architectures, operating systems,
-        or implementations (as opposed to different versions of a single
-        platform). For example, 'mac' and 'win' might be different base
-        platforms, wherease 'mac-tiger' and 'mac-leopard' might be
-        different platforms. This routine is used by the rebaselining tool
-        and the dashboards, and the strings correspond to the identifiers
-        in your test expectations (*not* necessarily the platform names
-        themselves)."""
-        raise NotImplementedError('Port.base_test_platforms')
 
     def test_platform_name(self):
         """Returns the string that corresponds to the given platform name
@@ -810,6 +824,48 @@ class Port(object):
                                      platform)
 
 
+class DriverInput(object):
+    """Holds the input parameters for a driver."""
+
+    def __init__(self, filename, timeout, image_hash):
+        """Initializes a DriverInput object.
+
+        Args:
+          filename: Full path to the test.
+          timeout: Timeout in msecs the driver should use while running the test
+          image_hash: A image checksum which is used to avoid doing an image dump if
+                     the checksums match.
+        """
+        self.filename = filename
+        self.timeout = timeout
+        self.image_hash = image_hash
+
+
+class DriverOutput(object):
+    """Groups information about a output from driver for easy passing of data."""
+
+    def __init__(self, text, image, image_hash,
+                 crash=False, test_time=None, timeout=False, error=''):
+        """Initializes a TestOutput object.
+
+        Args:
+          text: a text output
+          image: an image output
+          image_hash: a string containing the checksum of the image
+          crash: a boolean indicating whether the driver crashed on the test
+          test_time: a time which the test has taken
+          timeout: a boolean indicating whehter the test timed out
+          error: any unexpected or additional (or error) text output
+        """
+        self.text = text
+        self.image = image
+        self.image_hash = image_hash
+        self.crash = crash
+        self.test_time = test_time
+        self.timeout = timeout
+        self.error = error
+
+
 class Driver:
     """Abstract interface for the DumpRenderTree interface."""
 
@@ -824,7 +880,7 @@ class Driver:
         """
         raise NotImplementedError('Driver.__init__')
 
-    def run_test(self, test_input):
+    def run_test(self, driver_input):
         """Run a single test and return the results.
 
         Note that it is okay if a test times out or crashes and leaves
@@ -832,9 +888,9 @@ class Driver:
         are responsible for cleaning up and ensuring things are okay.
 
         Args:
-          test_input: a TestInput object
+          driver_input: a DriverInput object
 
-        Returns a TestOutput object.
+        Returns a DriverOutput object.
         """
         raise NotImplementedError('Driver.run_test')
 
@@ -863,3 +919,68 @@ class Driver:
 
     def stop(self):
         raise NotImplementedError('Driver.stop')
+
+
+class TestConfiguration(object):
+    def __init__(self, port=None, os=None, version=None, architecture=None,
+                 build_type=None, graphics_type=None):
+
+        # FIXME: We can get the O/S and version from test_platform_name()
+        # and version() for now, but those should go away and be cleaned up
+        # with more generic methods like operation_system() and os_version()
+        # or something. Note that we need to strip the leading '-' off the
+        # version string if it is present.
+        if port:
+            port_version = port.version()
+        self.os = os or port.test_platform_name().replace(port_version, '')
+        self.version = version or port_version[1:]
+        self.architecture = architecture or 'x86'
+        self.build_type = build_type or port._options.configuration.lower()
+        self.graphics_type = graphics_type or port.graphics_type()
+
+    def items(self):
+        return self.__dict__.items()
+
+    def keys(self):
+        return self.__dict__.keys()
+
+    def __str__(self):
+        return ("<%(os)s, %(version)s, %(build_type)s, %(graphics_type)s>" %
+                self.__dict__)
+
+    def __repr__(self):
+        return "TestConfig(os='%(os)s', version='%(version)s', architecture='%(architecture)s', build_type='%(build_type)s', graphics_type='%(graphics_type)s')" % self.__dict__
+
+    def values(self):
+        """Returns the configuration values of this instance as a tuple."""
+        return self.__dict__.values()
+
+    def all_test_configurations(self):
+        """Returns a sequence of the TestConfigurations the port supports."""
+        # By default, we assume we want to test every graphics type in
+        # every configuration on every system.
+        test_configurations = []
+        for system in self.all_systems():
+            for build_type in self.all_build_types():
+                for graphics_type in self.all_graphics_types():
+                    test_configurations.append(TestConfiguration(
+                        os=system[0],
+                        version=system[1],
+                        architecture=system[2],
+                        build_type=build_type,
+                        graphics_type=graphics_type))
+        return test_configurations
+
+    def all_systems(self):
+        return (('mac', 'leopard', 'x86'),
+                ('mac', 'snowleopard', 'x86'),
+                ('win', 'xp', 'x86'),
+                ('win', 'vista', 'x86'),
+                ('win', 'win7', 'x86'),
+                ('linux', 'hardy', 'x86'))
+
+    def all_build_types(self):
+        return ('debug', 'release')
+
+    def all_graphics_types(self):
+        return ('cpu', 'gpu')

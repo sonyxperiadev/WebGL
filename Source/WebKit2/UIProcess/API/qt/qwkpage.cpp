@@ -18,6 +18,7 @@
  *
  */
 
+#include "config.h"
 #include "qwkpage.h"
 #include "qwkpage_p.h"
 
@@ -89,6 +90,7 @@ QWKPagePrivate::QWKPagePrivate(QWKPage* qq, QWKContext* c)
     , preferences(0)
     , createNewPageFn(0)
     , backingStoreType(QGraphicsWKView::Simple)
+    , isConnectedToEngine(true)
 {
     memset(actions, 0, sizeof(actions));
     page = context->d->context->createWebPage(this, 0);
@@ -183,6 +185,16 @@ bool QWKPagePrivate::isViewInWindow()
     return true;
 }
 
+void QWKPagePrivate::enterAcceleratedCompositingMode(const LayerTreeContext&)
+{
+    // FIXME: Implement.
+}
+
+void QWKPagePrivate::exitAcceleratedCompositingMode()
+{
+    // FIXME: Implement.
+}
+
 void QWKPagePrivate::pageDidRequestScroll(const IntSize& delta)
 {
     emit q->scrollRequested(delta.width(), delta.height());
@@ -220,7 +232,7 @@ void QWKPagePrivate::selectionChanged(bool, bool, bool, bool)
 {
 }
 
-void QWKPagePrivate::didNotHandleKeyEvent(const NativeWebKeyboardEvent&)
+void QWKPagePrivate::doneWithKeyEvent(const NativeWebKeyboardEvent&, bool)
 {
 }
 
@@ -391,6 +403,15 @@ void QWKPagePrivate::didRelaunchProcess()
     QGraphicsWKView* wkView = static_cast<QGraphicsWKView*>(view);
     if (wkView)
         q->setViewportSize(wkView->size().toSize());
+
+    isConnectedToEngine = true;
+    emit q->engineConnectionChanged(true);
+}
+
+void QWKPagePrivate::processDidCrash()
+{
+    isConnectedToEngine = false;
+    emit q->engineConnectionChanged(false);
 }
 
 QWKPage::QWKPage(QWKContext* context)
@@ -459,7 +480,8 @@ QWKPage::QWKPage(QWKContext* context)
         0,  /* drawHeader */
         0,  /* drawFooter */
         0,  /* printFrame */
-        0   /* runModal */
+        0,  /* runModal */
+        0   /* didCompleteRubberBandForMainFrame */
     };
     WKPageSetPageUIClient(pageRef(), &uiClient);
 }
@@ -622,7 +644,7 @@ QString QWKPage::title() const
 void QWKPage::setViewportSize(const QSize& size)
 {
     if (d->page->drawingArea())
-        d->page->drawingArea()->setSize(IntSize(size));
+        d->page->drawingArea()->setSize(IntSize(size), IntSize());
 }
 
 qreal QWKPage::textZoomFactor() const
@@ -773,6 +795,11 @@ void QWKPage::findZoomableAreaForPoint(const QPoint& point)
 void QWKPagePrivate::didFindZoomableArea(const IntRect& area)
 {
     emit q->zoomableAreaFound(QRect(area));
+}
+
+bool QWKPage::isConnectedToEngine() const
+{
+    return d->isConnectedToEngine;
 }
 
 #include "moc_qwkpage.cpp"

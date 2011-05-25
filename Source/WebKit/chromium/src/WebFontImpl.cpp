@@ -34,7 +34,7 @@
 #include "Font.h"
 #include "FontDescription.h"
 #include "GraphicsContext.h"
-#include "PlatformContextSkia.h"
+#include "painting/GraphicsContextBuilder.h"
 #include "TextRun.h"
 #include "WebFloatPoint.h"
 #include "WebFloatRect.h"
@@ -64,27 +64,27 @@ WebFontDescription WebFontImpl::fontDescription() const
 
 int WebFontImpl::ascent() const
 {
-    return m_font.ascent();
+    return m_font.fontMetrics().ascent();
 }
 
 int WebFontImpl::descent() const
 {
-    return m_font.descent();
+    return m_font.fontMetrics().descent();
 }
 
 int WebFontImpl::height() const
 {
-    return m_font.height();
+    return m_font.fontMetrics().height();
 }
 
 int WebFontImpl::lineSpacing() const
 {
-    return m_font.lineSpacing();
+    return m_font.fontMetrics().lineSpacing();
 }
 
 float WebFontImpl::xHeight() const
 {
-    return m_font.xHeight();
+    return m_font.fontMetrics().xHeight();
 }
 
 void WebFontImpl::drawText(WebCanvas* canvas, const WebTextRun& run, const WebFloatPoint& leftBaseline,
@@ -94,15 +94,9 @@ void WebFontImpl::drawText(WebCanvas* canvas, const WebTextRun& run, const WebFl
     // FIXME hook canvasIsOpaque up to the platform-specific indicators for
     // whether subpixel AA can be used for this draw. On Windows, this is
     // PlatformContextSkia::setDrawingToImageBuffer.
-#if WEBKIT_USING_CG
-    GraphicsContext gc(canvas);
-#elif WEBKIT_USING_SKIA
-    PlatformContextSkia context(canvas);
-    // PlatformGraphicsContext is actually a pointer to PlatformContextSkia.
-    GraphicsContext gc(reinterpret_cast<PlatformGraphicsContext*>(&context));
-#else
-    notImplemented();
-#endif
+
+    GraphicsContextBuilder builder(canvas);
+    GraphicsContext& gc = builder.context();
 
     gc.save();
     gc.setFillColor(color, ColorSpaceDeviceRGB);

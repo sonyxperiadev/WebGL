@@ -356,7 +356,7 @@ sub productDir
 sub jscProductDir
 {
     my $productDir = productDir();
-    $productDir .= "/Source/JavaScriptCore" if isQt();
+    $productDir .= "/JavaScriptCore" if isQt();
     $productDir .= "/$configuration" if (isQt() && isWindows());
     $productDir .= "/Programs" if (isGtk() || isEfl());
 
@@ -1009,14 +1009,18 @@ sub checkRequiredSystemConfig
 {
     if (isDarwin()) {
         chomp(my $productVersion = `sw_vers -productVersion`);
-        if ($productVersion lt "10.4") {
+        if (eval "v$productVersion" lt v10.4) {
             print "*************************************************************\n";
             print "Mac OS X Version 10.4.0 or later is required to build WebKit.\n";
             print "You have " . $productVersion . ", thus the build will most likely fail.\n";
             print "*************************************************************\n";
         }
-        my $xcodeVersion = `xcodebuild -version`;
-        if ($xcodeVersion !~ /DevToolsCore-(\d+)/ || $1 < 747) {
+        my $xcodebuildVersionOutput = `xcodebuild -version`;
+        my $devToolsCoreVersion = ($xcodebuildVersionOutput =~ /DevToolsCore-(\d+)/) ? $1 : undef;
+        my $xcodeVersion = ($xcodebuildVersionOutput =~ /Xcode ([0-9](\.[0-9]+)*)/) ? $1 : undef;
+        if (!$devToolsCoreVersion && !$xcodeVersion
+            || $devToolsCoreVersion && $devToolsCoreVersion < 747
+            || $xcodeVersion && eval "v$xcodeVersion" lt v2.3) {
             print "*************************************************************\n";
             print "Xcode Version 2.3 or later is required to build WebKit.\n";
             print "You have an earlier version of Xcode, thus the build will\n";
@@ -1501,7 +1505,7 @@ sub buildCMakeProject($@)
             push @buildArgs, "-DCMAKE_BUILD_TYPE=Release";
         }
 
-        push @buildArgs, sourceDir();
+        push @buildArgs, sourceDir() . "/Source";
 
         $dir = File::Spec->catfile($dir, $config);
         File::Path::mkpath($dir);
@@ -1571,6 +1575,13 @@ sub buildQMakeProject($@)
     push @buildArgs, "INSTALL_HEADERS=" . $installHeaders if defined($installHeaders);
     push @buildArgs, "INSTALL_LIBS=" . $installLibs if defined($installLibs);
     my $dir = File::Spec->canonpath(productDir());
+
+
+    # On Symbian qmake needs to run in the same directory where the pro file is located.
+    if (isSymbian()) {
+        $dir = $sourceDir . "/Source";
+    }
+
     File::Path::mkpath($dir);
     chdir $dir or die "Failed to cd into " . $dir . "\n";
 
@@ -1580,7 +1591,7 @@ sub buildQMakeProject($@)
 
     my @dsQmakeArgs = @buildArgs;
     push @dsQmakeArgs, "-r";
-    push @dsQmakeArgs, sourceDir() . "/DerivedSources.pro";
+    push @dsQmakeArgs, sourceDir() . "/Source/DerivedSources.pro";
     push @dsQmakeArgs, "-o Makefile.DerivedSources";
     print "Calling '$qmakebin @dsQmakeArgs' in " . $dir . "\n\n";
     my $result = system "$qmakebin @dsQmakeArgs";
@@ -1588,18 +1599,29 @@ sub buildQMakeProject($@)
         die "Failed while running $qmakebin to generate derived sources!\n";
     }
 
-    my $dsMakefile = "Makefile.DerivedSources";
-
-    # Iterate over different source directories manually to workaround a problem with qmake+extraTargets+s60
-    my @subdirs = ("Source/JavaScriptCore", "Source/WebCore", "Source/WebKit/qt/Api");
+    # FIXME: Iterate over different source directories manually to workaround a problem with qmake+extraTargets+s60
+    # To avoid overwriting of Makefile.DerivedSources in the root dir use Makefile.DerivedSources.Tools for Tools
+    my @subdirs = ("JavaScriptCore", "WebCore", "WebKit/qt/Api");
     if (grep { $_ eq "CONFIG+=webkit2"} @buildArgs) {
-        push @subdirs, "Source/WebKit2";
-        push @subdirs, "Tools/WebKitTestRunner";
-        push @subdirs, "Tools/MiniBrowser";
+        push @subdirs, "WebKit2";
+        if ( -e sourceDir() ."/Tools/DerivedSources.pro" ) {
+            @dsQmakeArgs = @buildArgs;
+            push @dsQmakeArgs, "-r";
+            push @dsQmakeArgs, sourceDir() . "/Tools/DerivedSources.pro";
+            push @dsQmakeArgs, "-o Makefile.DerivedSources.Tools";
+            print "Calling '$qmakebin @dsQmakeArgs' in " . $dir . "\n\n";
+            my $result = system "$qmakebin @dsQmakeArgs";
+            if ($result ne 0) {
+                die "Failed while running $qmakebin to generate derived sources for Tools!\n";
+            }
+            push @subdirs, "MiniBrowser";
+            push @subdirs, "WebKitTestRunner";
+        }
     }
 
     for my $subdir (@subdirs) {
-        print "Calling '$make $makeargs -f $dsMakefile generated_files' in " . $dir . "/$subdir\n\n";
+        my $dsMakefile = "Makefile.DerivedSources";
+        print "Calling '$make $makeargs -C $subdir -f $dsMakefile generated_files' in " . $dir . "/$subdir\n\n";
         if ($make eq "nmake") {
             my $subdirWindows = $subdir;
             $subdirWindows =~ s:/:\\:g;
@@ -1626,8 +1648,7 @@ sub buildQMakeProject($@)
         }
     }
 
-    push @buildArgs, sourceDir() . "/WebKit.pro";
-
+    push @buildArgs, sourceDir() . "/Source/WebKit.pro";
     print "Calling '$qmakebin @buildArgs' in " . $dir . "\n\n";
     print "Installation headers directory: $installHeaders\n" if(defined($installHeaders));
     print "Installation libraries directory: $installLibs\n" if(defined($installLibs));
@@ -1637,8 +1658,24 @@ sub buildQMakeProject($@)
        die "Failed to setup build environment using $qmakebin!\n";
     }
 
+    $buildArgs[-1] = sourceDir() . "/Tools/Tools.pro";
+    my $makefile = "Makefile.Tools";
+
+    # On Symbian qmake needs to run in the same directory where the pro file is located.
+    if (isSymbian()) {
+        $dir = $sourceDir . "/Tools";
+        chdir $dir or die "Failed to cd into " . $dir . "\n";
+        $makefile = "bld.inf";
+    }
+
+    print "Calling '$qmakebin @buildArgs -o $makefile' in " . $dir . "\n\n";
+    $result = system "$qmakebin @buildArgs -o $makefile";
+    if ($result ne 0) {
+       die "Failed to setup build environment using $qmakebin!\n";
+    }
+
     # Manually create makefiles for the examples so we don't build by default
-    my $examplesDir = $dir . "/Source/WebKit/qt/examples";
+    my $examplesDir = $dir . "/WebKit/qt/examples";
     File::Path::mkpath($examplesDir);
     $buildArgs[-1] = sourceDir() . "/Source/WebKit/qt/examples/examples.pro";
     chdir $examplesDir or die;
@@ -1647,9 +1684,16 @@ sub buildQMakeProject($@)
     die "Failed to create makefiles for the examples!\n" if $result ne 0;
     chdir $dir or die;
 
+    my $makeTools = "echo No Makefile for Tools. Skipping make";
+
+    if (-e "$dir/$makefile") {
+        $makeTools = "$make $makeargs -f $makefile";
+    }
+
     if ($clean) {
       print "Calling '$make $makeargs distclean' in " . $dir . "\n\n";
       $result = system "$make $makeargs distclean";
+      $result = $result || system "$makeTools distclean";
     } elsif (isSymbian()) {
       print "\n\nWebKit is now configured for building, but you have to make\n";
       print "a choice about the target yourself. To start the build run:\n\n";
@@ -1657,6 +1701,7 @@ sub buildQMakeProject($@)
     } else {
       print "Calling '$make $makeargs' in " . $dir . "\n\n";
       $result = system "$make $makeargs";
+      $result = $result || system "$makeTools";
     }
 
     chdir ".." or die;

@@ -40,10 +40,9 @@ BINDING_C_INCLUDES := \
 	$(JAVASCRIPTCORE_PATH)/parser \
 	$(JAVASCRIPTCORE_PATH)/jit \
 	$(JAVASCRIPTCORE_PATH)/interpreter \
-	$(JAVASCRIPTCORE_PATH)/pcre \
 	$(JAVASCRIPTCORE_PATH)/profiler \
 	$(JAVASCRIPTCORE_PATH)/runtime \
-	$(JAVASCRIPTCORE_PATH)/wrec \
+	$(JAVASCRIPTCORE_PATH)/yarr \
 	$(JAVASCRIPTCORE_PATH)/ForwardingHeaders \
 	\
 	$(WEBCORE_INTERMEDIATES_PATH)/bindings/js \
@@ -152,6 +151,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSLazyEventListener.cpp \
 	bindings/js/JSLocationCustom.cpp \
 	bindings/js/JSMainThreadExecState.cpp \
+	bindings/js/JSMemoryInfoCustom.cpp \
 	bindings/js/JSMessageChannelCustom.cpp \
 	bindings/js/JSMessageEventCustom.cpp \
 	bindings/js/JSMessagePortCustom.cpp \

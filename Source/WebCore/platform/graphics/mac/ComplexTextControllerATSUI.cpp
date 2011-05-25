@@ -25,10 +25,10 @@
 
 #if USE(ATSUI)
 
-#include "CharacterNames.h"
 #include "Font.h"
 #include "ShapeArabic.h"
 #include "TextRun.h"
+#include <wtf/unicode/CharacterNames.h>
 
 #ifdef __LP64__
 // ATSUTextInserted() is SPI in 64-bit.
@@ -146,6 +146,7 @@ ComplexTextController::ComplexTextRun::ComplexTextRun(ATSUTextLayout atsuTextLay
     , m_characters(characters)
     , m_stringLocation(stringLocation)
     , m_stringLength(stringLength)
+    , m_indexEnd(stringLength)
     , m_directionalOverride(directionalOverride)
     , m_isMonotonic(true)
 {

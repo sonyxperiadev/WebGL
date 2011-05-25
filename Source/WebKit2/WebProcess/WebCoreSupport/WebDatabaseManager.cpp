@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebDatabaseManager.h"
 
 #include "Connection.h"
@@ -45,9 +46,13 @@ WebDatabaseManager& WebDatabaseManager::shared()
     return shared;
 }
 
+void WebDatabaseManager::initialize(const String& databaseDirectory)
+{
+    DatabaseTracker::initializeTracker(databaseDirectory);
+}
+
 WebDatabaseManager::WebDatabaseManager()
 {
-    DatabaseTracker::initializeTracker(databaseDirectory());
     DatabaseTracker::tracker().setClient(this);
 }
 

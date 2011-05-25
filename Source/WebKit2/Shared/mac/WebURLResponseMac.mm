@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "WebURLResponse.h"
+#import "config.h"
+#import "WebURLResponse.h"
 
 namespace WebKit {
 

@@ -103,8 +103,8 @@ WidgetRenderingContext::WidgetRenderingContext(GraphicsContext* graphicsContext,
         width = (1 + (width >> 5)) << 5;
         height = (1 + (height >> 5)) << 5;
 
-        gScratchBuffer = gdk_pixmap_new(0, width, height, gdk_colormap_get_visual(theme->m_themeParts.colormap)->depth);
-        gdk_drawable_set_colormap(gScratchBuffer, theme->m_themeParts.colormap);
+        gScratchBuffer = gdk_pixmap_new(0, width, height, gdk_colormap_get_visual(theme->m_colormap)->depth);
+        gdk_drawable_set_colormap(gScratchBuffer, theme->m_colormap);
     }
     m_target = gScratchBuffer;
 
@@ -143,19 +143,19 @@ WidgetRenderingContext::~WidgetRenderingContext()
     scheduleScratchBufferPurge();
 }
 
-bool WidgetRenderingContext::paintMozillaWidget(GtkThemeWidgetType type, GtkWidgetState* state, int flags, GtkTextDirection textDirection)
-{
-    // Sometimes moz_gtk_widget_paint modifies the clipping rectangle, so we must use a copy.
-    GdkRectangle clipRect = m_paintRect;
-    m_hadError = moz_gtk_widget_paint(type, m_target, &clipRect, &m_paintRect,
-        state, flags, textDirection) != MOZ_GTK_SUCCESS;
-    return !m_hadError;
-}
-
 void WidgetRenderingContext::gtkPaintBox(const IntRect& rect, GtkWidget* widget, GtkStateType stateType, GtkShadowType shadowType, const gchar* detail)
 {
     GdkRectangle paintRect = { m_paintRect.x + rect.x(), m_paintRect.y + rect.y(), rect.width(), rect.height() };
-    gtk_paint_box(gtk_widget_get_style(widget), m_target, stateType, shadowType, &m_paintRect,
+
+    // Some widgets also need their allocation adjusted to account for extra space.
+    // Right now only scrollbar buttons have significant allocations.
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(widget, &allocation);
+    allocation.x += m_paintRect.x;
+    allocation.y += m_paintRect.y;
+    gtk_widget_set_allocation(widget, &allocation);
+
+    gtk_paint_box(gtk_widget_get_style(widget), m_target, stateType, shadowType, &paintRect,
                   widget, detail, paintRect.x, paintRect.y, paintRect.width, paintRect.height);
 }
 

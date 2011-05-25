@@ -321,7 +321,7 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
     m_viewImpl->gButtonMutex.unlock();
     if (invalidate && cachedCursor && cursorIsOnButton) {
         const WebCore::IntRect& b = cachedCursor->bounds(cachedFrame);
-        viewInvalidateRect(b.x(), b.y(), b.right(), b.bottom());
+        viewInvalidateRect(b.x(), b.y(), b.maxX(), b.maxY());
     }
 }
 
@@ -335,7 +335,7 @@ void scrollRectOnScreen(const IntRect& rect)
     calcOurContentVisibleRect(&visible);
     int dx = 0;
     int left = rect.x();
-    int right = rect.right();
+    int right = rect.maxX();
     if (left < visible.fLeft) {
         dx = left - visible.fLeft;
     // Only scroll right if the entire width can fit on screen.
@@ -344,7 +344,7 @@ void scrollRectOnScreen(const IntRect& rect)
     }
     int dy = 0;
     int top = rect.y();
-    int bottom = rect.bottom();
+    int bottom = rect.maxY();
     if (top < visible.fTop) {
         dy = top - visible.fTop;
     // Only scroll down if the entire height can fit on screen
@@ -649,9 +649,9 @@ void fixCursor()
         return;
     if (abs(bounds.y() - newBounds.y()) > 4)
         return;
-    if (abs(bounds.right() - newBounds.right()) > 4)
+    if (abs(bounds.maxX() - newBounds.maxX()) > 4)
         return;
-    if (abs(bounds.bottom() - newBounds.bottom()) > 4)
+    if (abs(bounds.maxY() - newBounds.maxY()) > 4)
         return;
     DBG_NAV_LOGD("node=%p frame=%p x=%d y=%d bounds=(%d,%d,w=%d,h=%d)",
         node, frame, x, y, bounds.x(), bounds.y(), bounds.width(),
@@ -882,12 +882,12 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     } else {
         int docHeight = root->documentHeight();
         int docWidth = root->documentWidth();
-        if (visibleRect.bottom() + dy > docHeight)
-            dy = docHeight - visibleRect.bottom();
+        if (visibleRect.maxY() + dy > docHeight)
+            dy = docHeight - visibleRect.maxY();
         else if (visibleRect.y() + dy < 0)
             dy = -visibleRect.y();
-        if (visibleRect.right() + dx > docWidth)
-            dx = docWidth - visibleRect.right();
+        if (visibleRect.maxX() + dx > docWidth)
+            dx = docWidth - visibleRect.maxX();
         else if (visibleRect.x() < 0)
             dx = -visibleRect.x();
         result = direction == CachedFrame::LEFT ? dx >= 0 :
@@ -1345,7 +1345,7 @@ void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue.object(env).get(), m_javaGlue.m_postInvalidateDelayed,
-        delay, bounds.x(), bounds.y(), bounds.right(), bounds.bottom());
+        delay, bounds.x(), bounds.y(), bounds.maxX(), bounds.maxY());
     checkException(env);
 }
 
@@ -1520,8 +1520,8 @@ class GLDrawFunctor : Functor {
             }
             info->dirtyLeft = finalInval.x();
             info->dirtyTop = finalInval.y();
-            info->dirtyRight = finalInval.right();
-            info->dirtyBottom = finalInval.bottom();
+            info->dirtyRight = finalInval.maxX();
+            info->dirtyBottom = finalInval.maxY();
         }
         // return 1 if invalidation needed, 0 otherwise
         return retVal ? 1 : 0;
@@ -1557,7 +1557,7 @@ static jobject nativeCacheHitNodeBounds(JNIEnv *env, jobject obj)
     jclass rectClass = env->FindClass("android/graphics/Rect");
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
-        bounds.y(), bounds.right(), bounds.bottom());
+        bounds.y(), bounds.maxX(), bounds.maxY());
     env->DeleteLocalRef(rectClass);
     return rect;
 }
@@ -1692,7 +1692,7 @@ static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)
     jclass rectClass = env->FindClass("android/graphics/Rect");
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
-        bounds.y(), bounds.right(), bounds.bottom());
+        bounds.y(), bounds.maxX(), bounds.maxY());
     env->DeleteLocalRef(rectClass);
     return rect;
 }
@@ -1930,7 +1930,7 @@ static jobject nativeFocusCandidateNodeBounds(JNIEnv *env, jobject obj)
     const CachedNode* node = getFocusCandidate(env, obj, &frame);
     WebCore::IntRect bounds = node ? node->bounds(frame)
         : WebCore::IntRect(0, 0, 0, 0);
-    return createJavaRect(env, bounds.x(), bounds.y(), bounds.right(), bounds.bottom());
+    return createJavaRect(env, bounds.x(), bounds.y(), bounds.maxX(), bounds.maxY());
 }
 
 static jobject nativeFocusCandidatePaddingRect(JNIEnv *env, jobject obj)
@@ -1998,7 +1998,7 @@ static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
     jclass rectClass = env->FindClass("android/graphics/Rect");
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
-        bounds.y(), bounds.right(), bounds.bottom());
+        bounds.y(), bounds.maxX(), bounds.maxY());
     env->DeleteLocalRef(rectClass);
     return rect;
 }
@@ -2169,7 +2169,7 @@ static jobject nativeGetCursorRingBounds(JNIEnv *env, jobject obj)
     WebCore::IntRect webRect;
     view->cursorRingBounds(&webRect);
     jobject rect = env->NewObject(rectClass, init, webRect.x(),
-        webRect.y(), webRect.right(), webRect.bottom());
+        webRect.y(), webRect.maxX(), webRect.maxY());
     env->DeleteLocalRef(rectClass);
     return rect;
 }

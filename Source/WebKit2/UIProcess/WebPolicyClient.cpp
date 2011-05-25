@@ -23,39 +23,46 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebPolicyClient.h"
 
 #include "WKAPICast.h"
-#include <wtf/text/WTFString.h>
+#include "WebURLRequest.h"
 
 using namespace WebCore;
 
 namespace WebKit {
 
-bool WebPolicyClient::decidePolicyForNavigationAction(WebPageProxy* page, NavigationType type, WebEvent::Modifiers modifiers, WebMouseEvent::Button mouseButton, const String& url, WebFrameProxy* frame, WebFramePolicyListenerProxy* listener)
+bool WebPolicyClient::decidePolicyForNavigationAction(WebPageProxy* page, WebFrameProxy* frame, NavigationType type, WebEvent::Modifiers modifiers, WebMouseEvent::Button mouseButton, const ResourceRequest& resourceRequest, WebFramePolicyListenerProxy* listener, APIObject* userData)
 {
     if (!m_client.decidePolicyForNavigationAction)
         return false;
 
-    m_client.decidePolicyForNavigationAction(toAPI(page), toAPI(type), toAPI(modifiers), toAPI(mouseButton), toURLRef(url.impl()), toAPI(frame), toAPI(listener), m_client.clientInfo);
+    RefPtr<WebURLRequest> request = WebURLRequest::create(resourceRequest);
+
+    m_client.decidePolicyForNavigationAction(toAPI(page), toAPI(frame), toAPI(type), toAPI(modifiers), toAPI(mouseButton), toAPI(request.get()), toAPI(listener), toAPI(userData), m_client.clientInfo);
     return true;
 }
 
-bool WebPolicyClient::decidePolicyForNewWindowAction(WebPageProxy* page, NavigationType type, WebEvent::Modifiers modifiers, WebMouseEvent::Button mouseButton, const String& url, WebFrameProxy* frame, WebFramePolicyListenerProxy* listener)
+bool WebPolicyClient::decidePolicyForNewWindowAction(WebPageProxy* page, WebFrameProxy* frame, NavigationType type, WebEvent::Modifiers modifiers, WebMouseEvent::Button mouseButton, const ResourceRequest& resourceRequest, const String& frameName, WebFramePolicyListenerProxy* listener, APIObject* userData)
 {
     if (!m_client.decidePolicyForNewWindowAction)
         return false;
 
-    m_client.decidePolicyForNewWindowAction(toAPI(page), toAPI(type), toAPI(modifiers), toAPI(mouseButton), toURLRef(url.impl()), toAPI(frame), toAPI(listener), m_client.clientInfo);
+    RefPtr<WebURLRequest> request = WebURLRequest::create(resourceRequest);
+
+    m_client.decidePolicyForNewWindowAction(toAPI(page), toAPI(frame), toAPI(type), toAPI(modifiers), toAPI(mouseButton), toAPI(request.get()), toAPI(frameName.impl()), toAPI(listener), toAPI(userData), m_client.clientInfo);
     return true;
 }
 
-bool WebPolicyClient::decidePolicyForMIMEType(WebPageProxy* page, const String& MIMEType, const String& url, WebFrameProxy* frame, WebFramePolicyListenerProxy* listener)
+bool WebPolicyClient::decidePolicyForMIMEType(WebPageProxy* page, WebFrameProxy* frame, const String& MIMEType, const ResourceRequest& resourceRequest, WebFramePolicyListenerProxy* listener, APIObject* userData)
 {
     if (!m_client.decidePolicyForMIMEType)
         return false;
 
-    m_client.decidePolicyForMIMEType(toAPI(page), toAPI(MIMEType.impl()), toURLRef(url.impl()), toAPI(frame), toAPI(listener), m_client.clientInfo);
+    RefPtr<WebURLRequest> request = WebURLRequest::create(resourceRequest);
+
+    m_client.decidePolicyForMIMEType(toAPI(page), toAPI(frame), toAPI(MIMEType.impl()), toAPI(request.get()), toAPI(listener), toAPI(userData), m_client.clientInfo);
     return true;
 }
 

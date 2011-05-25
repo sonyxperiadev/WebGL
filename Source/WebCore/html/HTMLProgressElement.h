@@ -50,6 +50,9 @@ private:
     virtual void parseMappedAttribute(Attribute*);
 
     virtual void attach();
+
+    void didElementStateChange();
+    void createShadowSubtreeIfNeeded();
 };
 
 } // namespace

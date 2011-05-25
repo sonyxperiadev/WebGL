@@ -27,7 +27,8 @@
 #define MarkStack_h
 
 #include "JSValue.h"
-#include <wtf/HashSet.h>
+#include "WriteBarrier.h"
+#include <wtf/Vector.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OSAllocator.h>
 
@@ -49,17 +50,23 @@ namespace JSC {
 #endif
         {
         }
-
-        ALWAYS_INLINE void append(JSValue);
-        void append(JSCell*);
         
-        ALWAYS_INLINE void appendValues(Register* values, size_t count, MarkSetProperties properties = NoNullValues)
+        void deprecatedAppend(JSValue*);
+        void deprecatedAppend(JSCell**);
+        void deprecatedAppend(Register*);
+        template <typename T> void append(WriteBarrierBase<T>*);
+        template <typename T> void append(DeprecatedPtr<T>*);
+        
+        ALWAYS_INLINE void deprecatedAppendValues(Register* registers, size_t count, MarkSetProperties properties = NoNullValues)
         {
-            appendValues(reinterpret_cast<JSValue*>(values), count, properties);
+            JSValue* values = reinterpret_cast<JSValue*>(registers);
+            if (count)
+                m_markSets.append(MarkSet(values, values + count, properties));
         }
 
-        ALWAYS_INLINE void appendValues(JSValue* values, size_t count, MarkSetProperties properties = NoNullValues)
+        void appendValues(WriteBarrierBase<Unknown>* barriers, size_t count, MarkSetProperties properties = NoNullValues)
         {
+            JSValue* values = barriers->slot();
             if (count)
                 m_markSets.append(MarkSet(values, values + count, properties));
         }
@@ -74,6 +81,8 @@ namespace JSC {
         }
 
     private:
+        void internalAppend(JSCell*);
+        void internalAppend(JSValue);
         void markChildren(JSCell*);
 
         struct MarkSet {
@@ -188,19 +197,6 @@ namespace JSC {
 #endif
     };
     
-    class ConservativeSet {
-    public:
-        void add(JSCell* cell) { m_set.add(cell); }
-        void mark(MarkStack& markStack)
-        {
-            HashSet<JSCell*>::iterator end = m_set.end();
-            for (HashSet<JSCell*>::iterator it = m_set.begin(); it != end; ++it)
-                markStack.append(*it);
-        }
-
-    private:
-        HashSet<JSCell*> m_set;
-    };
 }
 
 #endif

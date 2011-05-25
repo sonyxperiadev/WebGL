@@ -56,6 +56,7 @@
 #include "RenderScrollbarPart.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "ScrollAnimator.h"
 #include "Settings.h"
 #include "TextResourceDecoder.h"
 #include <wtf/CurrentTime.h>
@@ -443,7 +444,8 @@ void FrameView::setContentsSize(const IntSize& size)
     m_deferSetNeedsLayouts++;
 
     ScrollView::setContentsSize(size);
-
+    scrollAnimator()->contentsResized();
+    
     Page* page = frame() ? frame()->page() : 0;
     if (!page)
         return;
@@ -465,7 +467,7 @@ void FrameView::adjustViewSize()
 
     IntSize size = IntSize(root->docWidth(), root->docHeight());
 
-    ScrollView::setScrollOrigin(IntPoint(-root->docLeft(), -root->docTop()), size == contentsSize());
+    ScrollView::setScrollOrigin(IntPoint(-root->docLeft(), -root->docTop()), !m_frame->document()->printing(), size == contentsSize());
     
     setContentsSize(size);
 }
@@ -714,6 +716,7 @@ void FrameView::didMoveOnscreen()
     RenderView* view = m_frame->contentRenderer();
     if (view)
         view->didMoveOnscreen();
+    scrollAnimator()->contentAreaDidShow();
 }
 
 void FrameView::willMoveOffscreen()
@@ -721,6 +724,7 @@ void FrameView::willMoveOffscreen()
     RenderView* view = m_frame->contentRenderer();
     if (view)
         view->willMoveOffscreen();
+    scrollAnimator()->contentAreaDidHide();
 }
 
 RenderObject* FrameView::layoutRoot(bool onlyDuringLayout) const
@@ -732,6 +736,20 @@ void FrameView::layout(bool allowSubtree)
 {
     if (m_inLayout)
         return;
+
+    bool inSubframeLayoutWithFrameFlattening = parent() && m_frame->settings() && m_frame->settings()->frameFlatteningEnabled();
+
+    if (inSubframeLayoutWithFrameFlattening) {
+        if (parent()->isFrameView()) {
+            FrameView* parentView =   static_cast<FrameView*>(parent());
+            if (!parentView->m_nestedLayoutCount) {
+                while (parentView->parent() && parentView->parent()->isFrameView())
+                    parentView = static_cast<FrameView*>(parentView->parent());
+                parentView->layout(allowSubtree);
+                return;
+            }
+        }
+    }
 
     m_layoutTimer.stop();
     m_delayedLayout = false;
@@ -765,7 +783,7 @@ void FrameView::layout(bool allowSubtree)
 
     m_layoutSchedulingEnabled = false;
 
-    if (!m_nestedLayoutCount && !m_inSynchronousPostLayout && m_hasPendingPostLayoutTasks) {
+    if (!m_nestedLayoutCount && !m_inSynchronousPostLayout && m_hasPendingPostLayoutTasks && !inSubframeLayoutWithFrameFlattening) {
         // This is a new top-level layout. If there are any remaining tasks from the previous
         // layout, finish them now.
         m_inSynchronousPostLayout = true;
@@ -908,9 +926,6 @@ void FrameView::layout(bool allowSubtree)
     }
     m_layoutRoot = 0;
 
-    m_frame->selection()->setCaretRectNeedsUpdate();
-    m_frame->selection()->updateAppearance();
-   
     m_layoutSchedulingEnabled = true;
 
     if (!subtree && !toRenderView(root)->printing())
@@ -953,14 +968,14 @@ void FrameView::layout(bool allowSubtree)
                              layoutHeight() < contentsHeight());
 
     if (!m_hasPendingPostLayoutTasks) {
-        if (!m_inSynchronousPostLayout) {
+        if (!m_inSynchronousPostLayout && !inSubframeLayoutWithFrameFlattening) {
             m_inSynchronousPostLayout = true;
             // Calls resumeScheduledEvents()
             performPostLayoutTasks();
             m_inSynchronousPostLayout = false;
         }
 
-        if (!m_hasPendingPostLayoutTasks && (needsLayout() || m_inSynchronousPostLayout)) {
+        if (!m_hasPendingPostLayoutTasks && (needsLayout() || m_inSynchronousPostLayout || inSubframeLayoutWithFrameFlattening)) {
             // If we need layout or are already in a synchronous call to postLayoutTasks(), 
             // defer widget updates and event dispatch until after we return. postLayoutTasks()
             // can make us need to update again, and we can get stuck in a nasty cycle unless
@@ -1142,6 +1157,11 @@ void FrameView::updatePositionedObjects()
 }
 #endif
 
+IntPoint FrameView::currentMousePosition() const
+{
+    return m_frame ? m_frame->eventHandler()->currentMousePosition() : IntPoint();
+}
+
 bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
     const size_t fixedObjectThreshold = 5;
@@ -1165,8 +1185,8 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
             continue;
         IntRect updateRect = renderBox->layer()->repaintRectIncludingDescendants();
         updateRect = contentsToWindow(updateRect);
-
-        updateRect.intersect(rectToScroll);
+        if (clipsRepaints())
+            updateRect.intersect(rectToScroll);
         if (!updateRect.isEmpty()) {
             if (subRectToUpdate.size() >= fixedObjectThreshold) {
                 updateInvalidatedSubRect = false;
@@ -1188,7 +1208,8 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
             IntRect scrolledRect = updateRect;
             scrolledRect.move(scrollDelta);
             updateRect.unite(scrolledRect);
-            updateRect.intersect(rectToScroll);
+            if (clipsRepaints())
+                updateRect.intersect(rectToScroll);
             hostWindow()->invalidateContentsAndWindow(updateRect, false);
         }
         return true;
@@ -1462,6 +1483,12 @@ void FrameView::repaintContentRectangle(const IntRect& r, bool immediate)
     ScrollView::repaintContentRectangle(r, immediate);
 }
 
+void FrameView::contentsResized()
+{
+    scrollAnimator()->contentsResized();
+    setNeedsLayout();
+}
+
 void FrameView::visibleContentsResized()
 {
     // We check to make sure the view is attached to a frame() as this method can
@@ -1727,10 +1754,10 @@ void FrameView::unscheduleRelayout()
 }
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-void FrameView::serviceScriptedAnimations()
+void FrameView::serviceScriptedAnimations(DOMTimeStamp time)
 {
     for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext())
-        frame->document()->serviceScriptedAnimations();
+        frame->document()->serviceScriptedAnimations(time);
 }
 #endif
 
@@ -1854,11 +1881,11 @@ void FrameView::updateWidget(RenderEmbeddedObject* object)
     // FIXME: This could turn into a real virtual dispatch if we defined
     // updateWidget(bool) on HTMLElement.
     if (ownerElement->hasTagName(objectTag) || ownerElement->hasTagName(embedTag))
-        static_cast<HTMLPlugInImageElement*>(ownerElement)->updateWidget(false);
+        static_cast<HTMLPlugInImageElement*>(ownerElement)->updateWidget(CreateAnyWidgetType);
     // FIXME: It is not clear that Media elements need or want this updateWidget() call.
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     else if (ownerElement->hasTagName(videoTag) || ownerElement->hasTagName(audioTag))
-        static_cast<HTMLMediaElement*>(ownerElement)->updateWidget(false);
+        static_cast<HTMLMediaElement*>(ownerElement)->updateWidget(CreateAnyWidgetType);
 #endif
     else
         ASSERT_NOT_REACHED();
@@ -1896,10 +1923,22 @@ bool FrameView::updateWidgets()
     
     return m_widgetUpdateSet->isEmpty();
 }
-    
+
+void FrameView::flushAnyPendingPostLayoutTasks()
+{
+    if (!m_hasPendingPostLayoutTasks)
+        return;
+
+    m_postLayoutTasksTimer.stop();
+    performPostLayoutTasks();
+}
+
 void FrameView::performPostLayoutTasks()
 {
     m_hasPendingPostLayoutTasks = false;
+
+    m_frame->selection()->setCaretRectNeedsUpdate();
+    m_frame->selection()->updateAppearance();
 
     if (m_firstLayoutCallbackPending) {
         m_firstLayoutCallbackPending = false;
@@ -2063,6 +2102,14 @@ IntRect FrameView::windowResizerRect() const
     return page->chrome()->windowResizerRect();
 }
 
+void FrameView::didCompleteRubberBand(const IntSize& initialOverhang) const
+{
+    Page* page = m_frame->page();
+    if (page->mainFrame() != m_frame)
+        return;
+    return page->chrome()->client()->didCompleteRubberBandForMainFrame(initialOverhang);
+}
+
 #if ENABLE(DASHBOARD_SUPPORT)
 void FrameView::updateDashboardRegions()
 {
@@ -2169,7 +2216,7 @@ void FrameView::updateControlTints()
     // to define when controls get the tint and to call this function when that changes.
     
     // Optimize the common case where we bring a window to the front while it's still empty.
-    if (!m_frame || m_frame->loader()->url().isEmpty())
+    if (!m_frame || m_frame->document()->url().isEmpty())
         return;
 
     if ((m_frame->contentRenderer() && m_frame->contentRenderer()->theme()->supportsControlTints()) || hasCustomScrollbars())  {
@@ -2305,6 +2352,23 @@ void FrameView::setNodeToDraw(Node* node)
     m_nodeToDraw = node;
 }
 
+void FrameView::paintOverhangAreas(GraphicsContext* context, const IntRect& horizontalOverhangArea, const IntRect& verticalOverhangArea, const IntRect& dirtyRect)
+{
+    if (context->paintingDisabled())
+        return;
+
+    if (m_frame->document()->printing())
+        return;
+
+    Page* page = m_frame->page();
+    if (page->mainFrame() == m_frame) {
+        if (page->chrome()->client()->paintCustomOverhangArea(context, horizontalOverhangArea, verticalOverhangArea, dirtyRect))
+            return;
+    }
+
+    return ScrollView::paintOverhangAreas(context, horizontalOverhangArea, verticalOverhangArea, dirtyRect);
+}
+
 void FrameView::updateLayoutAndStyleIfNeededRecursive()
 {
     // We have to crawl our entire tree looking for any FrameViews that need
@@ -2353,27 +2417,38 @@ void FrameView::forceLayoutForPagination(const FloatSize& pageSize, float maximu
     // the state of things before and after the layout
     RenderView *root = toRenderView(m_frame->document()->renderer());
     if (root) {
-        int pageW = ceilf(pageSize.width());
-        root->setWidth(pageW);
-        root->setPageLogicalHeight(pageSize.height());
+        float pageLogicalWidth = root->style()->isHorizontalWritingMode() ? pageSize.width() : pageSize.height();
+        float pageLogicalHeight = root->style()->isHorizontalWritingMode() ? pageSize.height() : pageSize.width();
+
+        int flooredPageLogicalWidth = static_cast<int>(pageLogicalWidth);
+        root->setLogicalWidth(flooredPageLogicalWidth);
+        root->setPageLogicalHeight(pageLogicalHeight);
         root->setNeedsLayoutAndPrefWidthsRecalc();
         forceLayout();
-
+        
         // If we don't fit in the given page width, we'll lay out again. If we don't fit in the
         // page width when shrunk, we will lay out at maximum shrink and clip extra content.
         // FIXME: We are assuming a shrink-to-fit printing implementation.  A cropping
         // implementation should not do this!
-        int docWidth = root->docWidth();
-        if (docWidth > pageSize.width()) {
-            pageW = std::min<int>(docWidth, ceilf(pageSize.width() * maximumShrinkFactor));
-            if (pageSize.height())
-                root->setPageLogicalHeight(pageW / pageSize.width() * pageSize.height());
-            root->setWidth(pageW);
+        int docLogicalWidth = root->style()->isHorizontalWritingMode() ? root->docWidth() : root->docHeight();
+        if (docLogicalWidth > pageLogicalWidth) {
+            flooredPageLogicalWidth = std::min<int>(docLogicalWidth, pageLogicalWidth * maximumShrinkFactor);
+            if (pageLogicalHeight)
+                root->setPageLogicalHeight(flooredPageLogicalWidth / pageSize.width() * pageSize.height());
+            root->setLogicalWidth(flooredPageLogicalWidth);
             root->setNeedsLayoutAndPrefWidthsRecalc();
             forceLayout();
-            int docHeight = root->docHeight();
             root->clearLayoutOverflow();
-            root->addLayoutOverflow(IntRect(0, 0, pageW, docHeight)); // This is how we clip in case we overflow again.
+            int docLogicalHeight = root->style()->isHorizontalWritingMode() ? root->docHeight() : root->docWidth();
+            int docLogicalTop = root->style()->isHorizontalWritingMode() ? root->docTop() : root->docLeft();
+            int docLogicalRight = root->style()->isHorizontalWritingMode() ? root->docRight() : root->docBottom();
+            int clippedLogicalLeft = 0;
+            if (!root->style()->isLeftToRightDirection())
+                clippedLogicalLeft = docLogicalRight - flooredPageLogicalWidth;
+            IntRect overflow(clippedLogicalLeft, docLogicalTop, flooredPageLogicalWidth, docLogicalHeight);
+            if (!root->style()->isHorizontalWritingMode())
+                overflow = overflow.transposedRect();
+            root->addLayoutOverflow(overflow); // This is how we clip in case we overflow again.
         }
     }
 
@@ -2388,7 +2463,7 @@ void FrameView::adjustPageHeightDeprecated(float *newBottom, float oldTop, float
         // Use a context with painting disabled.
         GraphicsContext context((PlatformGraphicsContext*)0);
         root->setTruncatedAt((int)floorf(oldBottom));
-        IntRect dirtyRect(0, (int)floorf(oldTop), root->rightLayoutOverflow(), (int)ceilf(oldBottom - oldTop));
+        IntRect dirtyRect(0, (int)floorf(oldTop), root->maxXLayoutOverflow(), (int)ceilf(oldBottom - oldTop));
         root->setPrintRect(dirtyRect);
         root->layer()->paint(&context, dirtyRect);
         *newBottom = root->bestTruncatedAt();

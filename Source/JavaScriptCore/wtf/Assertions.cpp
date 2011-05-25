@@ -54,6 +54,12 @@
 #include <wtf/Vector.h>
 #endif
 
+#if PLATFORM(MAC)
+#include <cxxabi.h>
+#include <dlfcn.h>
+#include <execinfo.h>
+#endif
+
 extern "C" {
 
 #if PLATFORM(BREWMP)
@@ -101,7 +107,8 @@ static void vprintf_stderr_common(const char* format, va_list args)
         free(buffer);
         CFRelease(str);
         CFRelease(cfFormat);
-    } else
+        return;
+    }
 #elif PLATFORM(BREWMP)
     // When str is 0, the return value is the number of bytes needed
     // to accept the result including null termination.
@@ -164,10 +171,13 @@ static void printf_stderr_common(const char* format, ...)
 
 static void printCallSite(const char* file, int line, const char* function)
 {
-#if OS(WIN) && !OS(WINCE) && defined _DEBUG
+#if OS(WINDOWS) && !OS(WINCE) && defined(_DEBUG)
     _CrtDbgReport(_CRT_WARN, file, line, NULL, "%s\n", function);
 #else
-    printf_stderr_common("(%s:%d %s)\n", file, line, function);
+    // By using this format, which matches the format used by MSVC for compiler errors, developers
+    // using Visual Studio can double-click the file/line number in the Output Window to have the
+    // editor navigate to that line of code. It seems fine for other developers, too.
+    printf_stderr_common("%s(%d) : %s\n", file, line, function);
 #endif
 }
 
@@ -195,6 +205,34 @@ void WTFReportArgumentAssertionFailure(const char* file, int line, const char* f
 {
     printf_stderr_common("ARGUMENT BAD: %s, %s\n", argName, assertion);
     printCallSite(file, line, function);
+}
+
+void WTFReportBacktrace()
+{
+#if PLATFORM(MAC) && !defined(NDEBUG)
+    static const int maxFrames = 32;
+    void* samples[maxFrames];
+    int frames = backtrace(samples, maxFrames);
+
+    for (int i = 1; i < frames; ++i) {
+        void* pointer = samples[i];
+
+        // Try to get a symbol name from the dynamic linker.
+        Dl_info info;
+        if (dladdr(pointer, &info) && info.dli_sname) {
+            const char* mangledName = info.dli_sname;
+
+            // Assume c++ & try to demangle the name.
+            char* demangledName = abi::__cxa_demangle(mangledName, 0, 0, 0);
+            if (demangledName) {
+                fprintf(stderr, " -> %s\n", demangledName);
+                free(demangledName);
+            } else
+                fprintf(stderr, " -> %s\n", mangledName);
+        } else
+            fprintf(stderr, " -> %p\n", pointer);
+    }
+#endif
 }
 
 void WTFReportFatalError(const char* file, int line, const char* function, const char* format, ...)

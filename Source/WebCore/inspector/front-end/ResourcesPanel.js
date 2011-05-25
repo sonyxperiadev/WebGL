@@ -56,12 +56,6 @@ WebInspector.ResourcesPanel = function(database)
     this.applicationCacheListTreeElement = new WebInspector.StorageCategoryTreeElement(this, WebInspector.UIString("Application Cache"), "ApplicationCache", "application-cache-storage-tree-item");
     this.sidebarTree.appendChild(this.applicationCacheListTreeElement);
 
-    if (Preferences.fileSystemEnabled) {
-        this.fileSystemListTreeElement = new WebInspector.StorageCategoryTreeElement(this, WebInspector.UIString("File System"), "FileSystem", "file-system-storage-tree-item");
-        this.sidebarTree.appendChild(this.fileSystemListTreeElement);
-        this.fileSystemListTreeElement.expand();
-    }
-
     this.storageViews = document.createElement("div");
     this.storageViews.id = "storage-views";
     this.storageViews.className = "diff-container";
@@ -102,9 +96,19 @@ WebInspector.ResourcesPanel.prototype = {
     {
         WebInspector.Panel.prototype.show.call(this);
 
-        if (this.visibleView instanceof WebInspector.ResourceView)
+        if (this.visibleView && this.visibleView.resource)
             this._showResourceView(this.visibleView.resource);
 
+        this._initDefaultSelection();
+    },
+
+    loadEventFired: function()
+    {
+        this._initDefaultSelection();
+    },
+
+    _initDefaultSelection: function()
+    {
         if (this._initializedDefaultSelection)
             return;
 
@@ -119,17 +123,14 @@ WebInspector.ResourcesPanel.prototype = {
                 }
             }
         }
-        this._initDefaultSelection();
-    },
 
-    _initDefaultSelection: function()
-    {
         if (WebInspector.mainResource && this.resourcesListTreeElement && this.resourcesListTreeElement.expanded)
             this.showResource(WebInspector.mainResource);
     },
 
     reset: function()
     {
+        delete this._initializedDefaultSelection;
         this._origins = {};
         this._domains = {};
         for (var i = 0; i < this._databases.length; ++i) {
@@ -147,7 +148,6 @@ WebInspector.ResourcesPanel.prototype = {
         this._domStorage = [];
 
         this._cookieViews = {};
-        this._fileSystemView = null;
         
         this._applicationCacheView = null;
         delete this._cachedApplicationCacheViewStatus;
@@ -157,8 +157,6 @@ WebInspector.ResourcesPanel.prototype = {
         this.sessionStorageListTreeElement.removeChildren();
         this.cookieListTreeElement.removeChildren();
         this.applicationCacheListTreeElement.removeChildren();
-        if (Preferences.fileSystemEnabled)
-            this.fileSystemListTreeElement.removeChildren();
         this.storageViews.removeChildren();
 
         this.storageViewStatusBarItemsContainer.removeChildren();
@@ -170,6 +168,7 @@ WebInspector.ResourcesPanel.prototype = {
     clear: function()
     {
         this.resourcesListTreeElement.removeChildren();
+        this._treeElementForFrameId = {};
         this.reset();
     },
 
@@ -291,16 +290,6 @@ WebInspector.ResourcesPanel.prototype = {
             var applicationCacheTreeElement = new WebInspector.ApplicationCacheTreeElement(this, domain);
             this.applicationCacheListTreeElement.appendChild(applicationCacheTreeElement);
         }
-
-        if (Preferences.fileSystemEnabled) {
-            // FIXME: This should match the SecurityOrigin::toString(), add a test for this.
-            var securityOrigin = parsedURL.scheme + "://" + parsedURL.host + (parsedURL.port ? (":" + parsedURL.port) : "");
-            if (!this._origins[securityOrigin]) {
-                this._origins[securityOrigin] = true;
-                var fileSystemTreeElement = new WebInspector.FileSystemTreeElement(this, securityOrigin);
-                this.fileSystemListTreeElement.appendChild(fileSystemTreeElement);
-            }
-        }
     },
 
     addDOMStorage: function(domStorage)
@@ -338,12 +327,12 @@ WebInspector.ResourcesPanel.prototype = {
 
     canShowSourceLine: function(url, line)
     {
-        return !!WebInspector.resourceTreeModel.resourceForURL(url);
+        return !!WebInspector.resourceForURL(url);
     },
 
     showSourceLine: function(url, line)
     {
-        var resource = WebInspector.resourceTreeModel.resourceForURL(url);
+        var resource = WebInspector.resourceForURL(url);
         if (resource.type === WebInspector.Resource.Type.XHR) {
             // Show XHRs in the network panel only.
             if (WebInspector.panels.network && WebInspector.panels.network.canShowSourceLine(url, line)) {
@@ -352,7 +341,7 @@ WebInspector.ResourcesPanel.prototype = {
             }
             return;
         }
-        this.showResource(WebInspector.resourceTreeModel.resourceForURL(url), line);
+        this.showResource(WebInspector.resourceForURL(url), line);
     },
 
     showResource: function(resource, line)
@@ -378,7 +367,7 @@ WebInspector.ResourcesPanel.prototype = {
         var view = WebInspector.ResourceView.resourceViewForResource(resource);
 
         // Consider rendering diff markup here.
-        if (resource.baseRevision && view instanceof WebInspector.SourceView) {
+        if (resource.baseRevision && view instanceof WebInspector.SourceFrame) {
             function callback(baseContent)
             {
                 if (baseContent)
@@ -413,7 +402,7 @@ WebInspector.ResourcesPanel.prototype = {
             } else
                 offset = i - right[i].row;
         }
-        view.sourceFrame.markDiff(diffData);
+        view.markDiff(diffData);
     },
 
     showDatabase: function(database, tableName)
@@ -481,12 +470,6 @@ WebInspector.ResourcesPanel.prototype = {
             this._applicationCacheView.updateStatus(this._cachedApplicationCacheViewStatus);
     },
 
-    showFileSystem: function(treeElement, origin)
-    {
-        this._fileSystemView = new WebInspector.FileSystemView(treeElement, origin);
-        this._innerShowView(this._fileSystemView);
-    },
-    
     showCategoryView: function(categoryName)
     {
         if (!this._categoryView)
@@ -635,24 +618,6 @@ WebInspector.ResourcesPanel.prototype = {
             this._applicationCacheView.updateStatus(status);
     },
 
-    updateFileSystemPath: function(root, type, origin)
-    {
-        if (this._fileSystemView && this._fileSystemView === this.visibleView)
-            this._fileSystemView.updateFileSystemPath(root, type, origin);  
-    },
-  
-    updateFileSystemError: function(type, origin)
-    {
-        if (this._fileSystemView && this._fileSystemView === this.visibleView)
-            this._fileSystemView.updateFileSystemError(type, origin);  
-    },
-    
-    setFileSystemDisabled: function()
-    {
-        if (this._fileSystemView && this._fileSystemView === this.visibleView)
-            this._fileSystemView.setFileSystemDisabled();  
-    },
-
     updateNetworkState: function(isNowOnline)
     {
         if (this._applicationCacheView && this._applicationCacheView === this.visibleView)
@@ -690,7 +655,7 @@ WebInspector.ResourcesPanel.prototype = {
         var views = [];
 
         const visibleView = this.visibleView;
-        if (visibleView instanceof WebInspector.ResourceView && visibleView.performSearch)
+        if (visibleView.performSearch)
             views.push(visibleView);
 
         function callback(resourceTreeElement)
@@ -1076,7 +1041,7 @@ WebInspector.FrameResourceTreeElement.prototype = {
 
     _errorsWarningsUpdated: function()
     {
-        // FIXME: move to the Script/SourceView.
+        // FIXME: move to the SourceFrame.
         if (!this._resource.warnings && !this._resource.errors) {
             var view = WebInspector.ResourceView.existingResourceViewForResource(this._resource);
             if (view && view.clearMessages)
@@ -1275,27 +1240,6 @@ WebInspector.ResourceRevisionTreeElement.prototype = {
 
 WebInspector.ResourceRevisionTreeElement.prototype.__proto__ = WebInspector.BaseStorageTreeElement.prototype;
 
-WebInspector.FileSystemTreeElement = function(storagePanel, origin)
-{
-    WebInspector.BaseStorageTreeElement.call(this, storagePanel, null, origin, "file-system-storage-tree-item");
-    this._origin = origin;
-}
-
-WebInspector.FileSystemTreeElement.prototype = {
-    get itemURL()
-    {
-        return "file-system://" + encodeURI(this._origin);
-    },
-
-    onselect: function()
-    {
-        WebInspector.BaseStorageTreeElement.prototype.onselect.call(this);
-        this._storagePanel.showFileSystem(this, this._origin);
-    }
-}
- 
-WebInspector.FileSystemTreeElement.prototype.__proto__ = WebInspector.BaseStorageTreeElement.prototype;
- 
 WebInspector.StorageCategoryView = function()
 {
     WebInspector.View.call(this);

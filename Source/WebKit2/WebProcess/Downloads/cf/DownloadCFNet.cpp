@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,12 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "Download.h"
 
 #include "DataReference.h"
 #include "NotImplemented.h"
 
 #pragma warning(push, 0)
+#include <WebCore/DownloadBundle.h>
 #include <WebCore/LoaderRunLoopCF.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceHandle.h>
@@ -52,7 +54,7 @@ static void didCreateDestinationCallback(CFURLDownloadRef download, CFURLRef pat
 static void didFinishCallback(CFURLDownloadRef download, const void* clientInfo);
 static void didFailCallback(CFURLDownloadRef download, CFErrorRef error, const void* clientInfo);
 
-void Download::start(WebPage* initiatingWebPage)
+void Download::start(WebPage*)
 {
     ASSERT(!m_download);
 
@@ -70,7 +72,7 @@ void Download::start(WebPage* initiatingWebPage)
     CFURLDownloadScheduleDownloadWithRunLoop(m_download.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
 }
 
-void Download::startWithHandle(WebPage* initiatingPage, ResourceHandle* handle, const ResourceRequest& initialRequest, const ResourceResponse& response)
+void Download::startWithHandle(WebPage*, ResourceHandle* handle, const ResourceRequest& initialRequest, const ResourceResponse& response)
 {
     ASSERT(!m_download);
 
@@ -98,12 +100,38 @@ void Download::startWithHandle(WebPage* initiatingPage, ResourceHandle* handle, 
 
 void Download::cancel()
 {
-    notImplemented();
+    ASSERT(m_download);
+    if (!m_download)
+        return;
+
+    CFURLDownloadSetDeletesUponFailure(m_download.get(), false);
+    CFURLDownloadCancel(m_download.get());
+
+    RetainPtr<CFDataRef> resumeData(AdoptCF, CFURLDownloadCopyResumeData(m_download.get()));
+    if (resumeData)
+        DownloadBundle::appendResumeData(resumeData.get(), m_bundlePath);
+
+    didCancel(CoreIPC::DataReference());
 }
 
 void Download::platformInvalidate()
 {
     m_download = nullptr;
+}
+
+void Download::didDecideDestination(const String& destination, bool allowOverwrite)
+{
+    ASSERT(!destination.isEmpty());
+    if (destination.isEmpty())
+        return;
+
+    m_allowOverwrite = allowOverwrite;
+    m_destination = destination;
+    m_bundlePath = destination + DownloadBundle::fileExtension();
+
+    RetainPtr<CFStringRef> bundlePath(AdoptCF, CFStringCreateWithCharactersNoCopy(0, reinterpret_cast<const UniChar*>(m_bundlePath.characters()), m_bundlePath.length(), kCFAllocatorNull));
+    RetainPtr<CFURLRef> bundlePathURL(AdoptCF, CFURLCreateWithFileSystemPath(0, bundlePath.get(), kCFURLWindowsPathStyle, false));
+    CFURLDownloadSetDestination(m_download.get(), bundlePathURL.get(), allowOverwrite);
 }
 
 // CFURLDownload Callbacks ----------------------------------------------------------------
@@ -136,7 +164,7 @@ void didReceiveResponseCallback(CFURLDownloadRef, CFURLResponseRef response, con
 }
 
 void willResumeWithResponseCallback(CFURLDownloadRef, CFURLResponseRef response, UInt64 startingByte, const void* clientInfo)
-{ 
+{
     // FIXME: implement.
     notImplemented();
 }
@@ -151,24 +179,20 @@ Boolean shouldDecodeDataOfMIMETypeCallback(CFURLDownloadRef, CFStringRef encodin
     return downloadFromClientInfo(clientInfo)->shouldDecodeSourceDataOfMIMEType(encodingType);
 }
 
-void decideDestinationWithSuggestedObjectNameCallback(CFURLDownloadRef cfURLDownloadRef, CFStringRef objectName, const void* clientInfo)
+void decideDestinationWithSuggestedObjectNameCallback(CFURLDownloadRef, CFStringRef objectName, const void* clientInfo)
 { 
     Download* download = downloadFromClientInfo(clientInfo);
     bool allowOverwrite;
-    String destination = download->decideDestinationWithSuggestedFilename(objectName, allowOverwrite);
-    if (destination.isNull())
-        return;
-
-    RetainPtr<CFStringRef> cfPath(AdoptCF, CFStringCreateWithCharactersNoCopy(0, reinterpret_cast<const UniChar*>(destination.characters()), destination.length(), kCFAllocatorNull));
-    RetainPtr<CFURLRef> pathURL(AdoptCF, CFURLCreateWithFileSystemPath(0, cfPath.get(), kCFURLWindowsPathStyle, false));
-    CFURLDownloadSetDestination(cfURLDownloadRef, pathURL.get(), allowOverwrite);
+    download->decideDestinationWithSuggestedFilename(objectName, allowOverwrite);
 }
 
-void didCreateDestinationCallback(CFURLDownloadRef, CFURLRef url, const void* clientInfo)
-{ 
-    RetainPtr<CFStringRef> path(AdoptCF, CFURLCopyFileSystemPath(url, kCFURLWindowsPathStyle));
-    String result(path.get());
-    downloadFromClientInfo(clientInfo)->didCreateDestination(result);
+void didCreateDestinationCallback(CFURLDownloadRef, CFURLRef, const void* clientInfo)
+{
+    // The concept of the ".download bundle" is internal to the Download, so we try to hide its
+    // existence by reporting the final destination was created, when in reality the bundle was created.
+
+    Download* download = downloadFromClientInfo(clientInfo);
+    download->didCreateDestination(download->destination());
 }
 
 void didFinishCallback(CFURLDownloadRef, const void* clientInfo)

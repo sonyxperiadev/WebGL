@@ -347,6 +347,7 @@ GEN := \
     $(intermediates)/bindings/V8Connection.h \
     $(intermediates)/bindings/V8Console.h \
     $(intermediates)/bindings/V8Coordinates.h \
+    $(intermediates)/bindings/V8Crypto.h \
     $(intermediates)/bindings/V8DOMSelection.h \
     $(intermediates)/bindings/V8DOMWindow.h \
     $(intermediates)/bindings/V8EventSource.h \

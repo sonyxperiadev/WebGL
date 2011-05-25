@@ -39,7 +39,6 @@
 #include "InspectorInstrumentation.h"
 #include "NestingLevelIncrementer.h"
 #include "Settings.h"
-#include "XSSAuditor.h"
 #include <wtf/CurrentTime.h>
 
 #ifdef ANDROID_INSTRUMENT
@@ -85,6 +84,7 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument* document, bool reportErrors
     , m_scriptRunner(HTMLScriptRunner::create(document, this))
     , m_treeBuilder(HTMLTreeBuilder::create(this, document, reportErrors, usePreHTML5ParserQuirks(document)))
     , m_parserScheduler(HTMLParserScheduler::create(this))
+    , m_xssFilter(this)
     , m_endWasDelayed(false)
     , m_writeNestingLevel(0)
 {
@@ -96,6 +96,7 @@ HTMLDocumentParser::HTMLDocumentParser(DocumentFragment* fragment, Element* cont
     : ScriptableDocumentParser(fragment->document())
     , m_tokenizer(HTMLTokenizer::create(usePreHTML5ParserQuirks(fragment->document())))
     , m_treeBuilder(HTMLTreeBuilder::create(this, fragment, contextElement, scriptingPermission, usePreHTML5ParserQuirks(fragment->document())))
+    , m_xssFilter(this)
     , m_endWasDelayed(false)
     , m_writeNestingLevel(0)
 {
@@ -230,8 +231,13 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
         if (!m_treeBuilder->isParsingFragment()
             && document()->frame() && document()->frame()->navigationScheduler()->locationChangePending())
             break;
+
+        m_sourceTracker.start(m_input, m_token);
         if (!m_tokenizer->nextToken(m_input.current(), m_token))
             break;
+        m_sourceTracker.end(m_input, m_token);
+
+        m_xssFilter.filterToken(m_token);
 
         m_treeBuilder->constructTreeFromToken(m_token);
         m_token.clear();
@@ -274,7 +280,12 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
 
 bool HTMLDocumentParser::hasInsertionPoint()
 {
-    return m_input.hasInsertionPoint();
+    // FIXME: The wasCreatedByScript() branch here might not be fully correct.
+    //        Our model of the EOF character differs slightly from the one in
+    //        the spec because our treatment is uniform between network-sourced
+    //        and script-sourced input streams whereas the spec treats them
+    //        differently.
+    return m_input.hasInsertionPoint() || (wasCreatedByScript() && !m_input.haveSeenEndOfFile());
 }
 
 void HTMLDocumentParser::insert(const SegmentedString& source)
@@ -414,6 +425,11 @@ bool HTMLDocumentParser::inScriptExecution() const
     return m_scriptRunner->isExecutingScript();
 }
 
+String HTMLDocumentParser::sourceForToken(const HTMLToken& token)
+{
+    return m_sourceTracker.sourceForToken(token);
+}
+
 int HTMLDocumentParser::lineNumber() const
 {
     return m_tokenizer->lineNumber();
@@ -460,9 +476,7 @@ void HTMLDocumentParser::stopWatchingForLoad(CachedResource* cachedScript)
 
 bool HTMLDocumentParser::shouldLoadExternalScriptFromSrc(const AtomicString& srcValue)
 {
-    if (!xssAuditor())
-        return true;
-    return xssAuditor()->canLoadExternalScriptFromSrc(srcValue);
+    return document()->contentSecurityPolicy()->canLoadExternalScriptFromSrc(srcValue);
 }
 
 void HTMLDocumentParser::notifyFinished(CachedResource* cachedResource)

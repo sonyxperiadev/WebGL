@@ -42,7 +42,6 @@
 #include "SimpleFontData.h"
 #include "TextRun.h"
 #include "WebCoreInstanceHandle.h"
-#include <tchar.h>
 #include <windows.h>
 #include <windowsx.h>
 #if OS(WINCE)
@@ -64,7 +63,7 @@ static const int maxPopupHeight = 320;
 const int optionSpacingMiddle = 1;
 const int popupWindowBorderWidth = 1;
 
-static LPCTSTR kPopupWindowClassName = _T("PopupWindowClass");
+static LPCWSTR kPopupWindowClassName = L"PopupWindowClass";
 
 // This is used from within our custom message pump when we want to send a
 // message to the web view and not have our message stolen and sent to
@@ -121,7 +120,7 @@ void PopupMenuWin::disconnectClient()
     m_popupClient = 0;
 }
 
-LPCTSTR PopupMenuWin::popupClassName()
+LPCWSTR PopupMenuWin::popupClassName()
 {
     return kPopupWindowClassName;
 }
@@ -145,7 +144,7 @@ void PopupMenuWin::show(const IntRect& r, FrameView* view, int index)
 
         DWORD exStyle = WS_EX_LTRREADING;
 
-        m_popup = ::CreateWindowEx(exStyle, kPopupWindowClassName, _T("PopupMenu"),
+        m_popup = ::CreateWindowExW(exStyle, kPopupWindowClassName, L"PopupMenu",
             WS_POPUP | WS_BORDER,
             m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height(),
             hostWindow, 0, WebCore::instanceHandle(), this);
@@ -306,7 +305,7 @@ void PopupMenuWin::calculatePositionAndSize(const IntRect& r, FrameView* v)
 
     // First, determine the popup's height
     int itemCount = client()->listSize();
-    m_itemHeight = client()->menuStyle().font().height() + optionSpacingMiddle;
+    m_itemHeight = client()->menuStyle().font().fontMetrics().height() + optionSpacingMiddle;
     int naturalHeight = m_itemHeight * itemCount;
     int popupHeight = min(maxPopupHeight, naturalHeight);
     // The popup should show an integral number of items (i.e. no partial items should be visible)
@@ -347,13 +346,13 @@ void PopupMenuWin::calculatePositionAndSize(const IntRect& r, FrameView* v)
     // Always left-align items in the popup.  This matches popup menus on the mac.
     int popupX = rScreenCoords.x() + client()->clientInsetLeft();
 
-    IntRect popupRect(popupX, rScreenCoords.bottom(), popupWidth, popupHeight);
+    IntRect popupRect(popupX, rScreenCoords.maxY(), popupWidth, popupHeight);
 
     // The popup needs to stay within the bounds of the screen and not overlap any toolbars
     FloatRect screen = screenAvailableRect(v);
 
     // Check that we don't go off the screen vertically
-    if (popupRect.bottom() > screen.height()) {
+    if (popupRect.maxY() > screen.height()) {
         // The popup will go off the screen, so try placing it above the client
         if (rScreenCoords.y() - popupRect.height() < 0) {
             // The popup won't fit above, either, so place it whereever's bigger and resize it to fit
@@ -602,7 +601,7 @@ void PopupMenuWin::paint(const IntRect& damageRect, HDC hdc)
     IntRect listRect = damageRect;
     listRect.move(IntSize(0, m_scrollOffset * m_itemHeight));
 
-    for (int y = listRect.y(); y < listRect.bottom(); y += m_itemHeight) {
+    for (int y = listRect.y(); y < listRect.maxY(); y += m_itemHeight) {
         int index = y / m_itemHeight;
 
         Color optionBackgroundColor, optionTextColor;
@@ -632,7 +631,7 @@ void PopupMenuWin::paint(const IntRect& damageRect, HDC hdc)
             
         unsigned length = itemText.length();
         const UChar* string = itemText.characters();
-        TextRun textRun(string, length, false, 0, 0, itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft);
+        TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft);
 
         context.setFillColor(optionTextColor, ColorSpaceDeviceRGB);
         
@@ -649,7 +648,7 @@ void PopupMenuWin::paint(const IntRect& damageRect, HDC hdc)
             int textX = max(0, client()->clientPaddingLeft() - client()->clientInsetLeft());
             if (RenderTheme::defaultTheme()->popupOptionSupportsTextIndent() && itemStyle.textDirection() == LTR)
                 textX += itemStyle.textIndent().calcMinValue(itemRect.width());
-            int textY = itemRect.y() + itemFont.ascent() + (itemRect.height() - itemFont.height()) / 2;
+            int textY = itemRect.y() + itemFont.fontMetrics().ascent() + (itemRect.height() - itemFont.fontMetrics().height()) / 2;
             context.drawBidiText(itemFont, textRun, IntPoint(textX, textY));
         }
     }

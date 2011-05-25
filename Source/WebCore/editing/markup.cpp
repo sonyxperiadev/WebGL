@@ -27,7 +27,6 @@
 #include "markup.h"
 
 #include "CDATASection.h"
-#include "CharacterNames.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPrimitiveValue.h"
@@ -56,6 +55,7 @@
 #include "htmlediting.h"
 #include "visible_units.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace std;
 
@@ -124,7 +124,7 @@ public:
     }
 
     Node* serializeNodes(Node* startNode, Node* pastEnd);
-    void appendString(const String& s) { return MarkupAccumulator::appendString(s); }
+    virtual void appendString(const String& s) { return MarkupAccumulator::appendString(s); }
     void wrapWithNode(Node*, bool convertBlocksToInlines = false, RangeFullySelectsNode = DoesFullySelectNode);
     void wrapWithStyleNode(CSSStyleDeclaration*, Document*, bool isBlock = false);
     String takeResults();
@@ -184,7 +184,8 @@ String StyledMarkupAccumulator::takeResults()
 
     concatenateMarkup(result);
 
-    return String::adopt(result);
+    // We remove '\0' characters because they are not visibly rendered to the user.
+    return String::adopt(result).replace(0, "");
 }
 
 void StyledMarkupAccumulator::appendText(Vector<UChar>& out, Text* text)
@@ -194,7 +195,7 @@ void StyledMarkupAccumulator::appendText(Vector<UChar>& out, Text* text)
         return;
     }
 
-    bool useRenderedText = !enclosingNodeWithTag(Position(text, 0), selectTag);
+    bool useRenderedText = !enclosingNodeWithTag(firstPositionInNode(text), selectTag);
     String content = useRenderedText ? renderedText(text, m_range) : stringValueForRange(text, m_range);
     Vector<UChar> buffer;
     appendCharactersReplacingEntities(buffer, content.characters(), content.length(), EntityMaskInPCDATA);
@@ -267,7 +268,7 @@ void StyledMarkupAccumulator::appendElement(Vector<UChar>& out, Element* element
     }
 
     if (element->isHTMLElement() && (shouldAnnotate() || addDisplayInline)) {
-        RefPtr<CSSMutableStyleDeclaration> style = static_cast<HTMLElement*>(element)->getInlineStyleDecl()->copy();
+        RefPtr<CSSMutableStyleDeclaration> style = toHTMLElement(element)->getInlineStyleDecl()->copy();
         if (shouldAnnotate()) {
             RefPtr<CSSMutableStyleDeclaration> styleFromMatchedRules = styleFromMatchedRulesForElement(const_cast<Element*>(element));
             // Styles from the inline style declaration, held in the variable "style", take precedence 
@@ -337,7 +338,7 @@ Node* StyledMarkupAccumulator::serializeNodes(Node* startNode, Node* pastEnd)
             // Don't write out empty block containers that aren't fully selected.
             continue;
 
-        if (!n->renderer() && !enclosingNodeWithTag(Position(n, 0), selectTag)) {
+        if (!n->renderer() && !enclosingNodeWithTag(firstPositionInOrBeforeNode(n), selectTag)) {
             next = n->traverseNextSibling();
             // Don't skip over pastEnd.
             if (pastEnd && pastEnd->isDescendantOf(n))
@@ -495,7 +496,7 @@ static Node* highestAncestorToWrapMarkup(const Range* range, Node* fullySelected
 
     Node* checkAncestor = specialCommonAncestor ? specialCommonAncestor : commonAncestor;
     if (checkAncestor->renderer()) {
-        Node* newSpecialCommonAncestor = highestEnclosingNodeOfType(Position(checkAncestor, 0), &isElementPresentational);
+        Node* newSpecialCommonAncestor = highestEnclosingNodeOfType(firstPositionInNode(checkAncestor), &isElementPresentational);
         if (newSpecialCommonAncestor)
             specialCommonAncestor = newSpecialCommonAncestor;
     }
@@ -509,7 +510,7 @@ static Node* highestAncestorToWrapMarkup(const Range* range, Node* fullySelected
     if (!specialCommonAncestor && isTabSpanNode(commonAncestor))
         specialCommonAncestor = commonAncestor;
 
-    if (Node *enclosingAnchor = enclosingNodeWithTag(Position(specialCommonAncestor ? specialCommonAncestor : commonAncestor, 0), aTag))
+    if (Node *enclosingAnchor = enclosingNodeWithTag(firstPositionInNode(specialCommonAncestor ? specialCommonAncestor : commonAncestor), aTag))
         specialCommonAncestor = enclosingAnchor;
 
     if (shouldAnnotate == AnnotateForInterchange && fullySelectedRoot) {
@@ -579,7 +580,7 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
         }
     }
 
-    Node* body = enclosingNodeWithTag(Position(commonAncestor, 0), bodyTag);
+    Node* body = enclosingNodeWithTag(firstPositionInNode(commonAncestor), bodyTag);
     Node* fullySelectedRoot = 0;
     // FIXME: Do this for all fully selected blocks, not just the body.
     if (body && areRangesEqual(VisibleSelection::selectionFromContentsOfNode(body).toNormalizedRange().get(), range))

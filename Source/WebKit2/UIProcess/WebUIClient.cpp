@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebUIClient.h"
 
 #include "ImmutableDictionary.h"
@@ -324,6 +325,14 @@ void WebUIClient::runModal(WebPageProxy* page)
         return;
 
     m_client.runModal(toAPI(page), m_client.clientInfo);
+}
+
+void WebUIClient::didCompleteRubberBandForMainFrame(WebPageProxy* page, const IntSize& initialOverhang)
+{
+    if (!m_client.runModal)
+        return;
+
+    m_client.didCompleteRubberBandForMainFrame(toAPI(page), toAPI(initialOverhang), m_client.clientInfo);
 }
 
 } // namespace WebKit

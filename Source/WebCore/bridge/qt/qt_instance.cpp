@@ -34,6 +34,7 @@
 #include <qhash.h>
 #include <qmetaobject.h>
 #include <qmetatype.h>
+#include <qwebelement.h>
 
 namespace JSC {
 namespace Bindings {
@@ -82,9 +83,10 @@ QtInstance::QtInstance(QObject* o, PassRefPtr<RootObject> rootObject, QScriptEng
     , m_class(0)
     , m_object(o)
     , m_hashkey(o)
-    , m_defaultMethod(0)
     , m_ownership(ownership)
 {
+    // This is a good place to register Qt metatypes that are in the QtWebKit module, as this is class will initialize if we have a QObject bridge.
+    qRegisterMetaType<QWebElement>();
 }
 
 QtInstance::~QtInstance()
@@ -148,12 +150,12 @@ void QtInstance::put(JSObject* object, ExecState* exec, const Identifier& proper
 
 void QtInstance::removeCachedMethod(JSObject* method)
 {
-    if (m_defaultMethod == method)
-        m_defaultMethod = 0;
+    if (m_defaultMethod.get() == method)
+        m_defaultMethod.clear();
 
-    for (QHash<QByteArray, JSObject*>::Iterator it = m_methods.begin(),
+    for (QHash<QByteArray, DeprecatedPtr<JSObject> >::Iterator it = m_methods.begin(),
         end = m_methods.end(); it != end; ++it)
-        if (it.value() == method) {
+        if (it.value().get() == method) {
             m_methods.erase(it);
             return;
         }
@@ -188,10 +190,10 @@ RuntimeObject* QtInstance::newRuntimeObject(ExecState* exec)
 void QtInstance::markAggregate(MarkStack& markStack)
 {
     if (m_defaultMethod)
-        markStack.append(m_defaultMethod);
-    foreach (JSObject* val, m_methods.values()) {
+        markStack.append(&m_defaultMethod);
+    foreach (DeprecatedPtr<JSObject> val, m_methods.values()) {
         if (val)
-            markStack.append(val);
+            markStack.append(&val);
     }
 }
 

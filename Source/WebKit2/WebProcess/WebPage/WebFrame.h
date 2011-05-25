@@ -89,6 +89,11 @@ public:
     JSValueRef computedStyleIncludingVisitedInfo(JSObjectRef element);
     JSGlobalContextRef jsContext();
     JSGlobalContextRef jsContextForWorld(InjectedBundleScriptWorld*);
+    WebCore::IntRect contentBounds() const;
+    WebCore::IntRect visibleContentBounds() const;
+    WebCore::IntRect visibleContentBoundsExcludingScrollbars() const;
+    WebCore::IntSize scrollOffset() const;
+    bool getDocumentBackgroundColor(double* red, double* green, double* blue, double* alpha);
 
     static WebFrame* frameForContext(JSContextRef);
 
@@ -110,6 +115,7 @@ public:
 
     String provisionalURL() const;
     String suggestedFilenameForResourceWithURL(const WebCore::KURL&) const;
+    String mimeTypeForResourceWithURL(const WebCore::KURL&) const;
 
     // Simple listener class used by plug-ins to know when frames finish or fail loading.
     class LoadListener {

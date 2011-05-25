@@ -31,12 +31,12 @@
 #include "HostWindow.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
+#include "ScrollAnimator.h"
 #include "Scrollbar.h"
 #include "ScrollbarTheme.h"
 #include <wtf/StdLibExtras.h>
 
-
-using std::max;
+using namespace std;
 
 namespace WebCore {
 
@@ -92,8 +92,10 @@ void ScrollView::setHasHorizontalScrollbar(bool hasBar)
     if (hasBar && !m_horizontalScrollbar) {
         m_horizontalScrollbar = createScrollbar(HorizontalScrollbar);
         addChild(m_horizontalScrollbar.get());
+        ScrollableArea::didAddHorizontalScrollbar(m_horizontalScrollbar.get());
         m_horizontalScrollbar->styleChanged();
     } else if (!hasBar && m_horizontalScrollbar) {
+        ScrollableArea::willRemoveHorizontalScrollbar(m_horizontalScrollbar.get());
         removeChild(m_horizontalScrollbar.get());
         m_horizontalScrollbar = 0;
     }
@@ -110,8 +112,10 @@ void ScrollView::setHasVerticalScrollbar(bool hasBar)
     if (hasBar && !m_verticalScrollbar) {
         m_verticalScrollbar = createScrollbar(VerticalScrollbar);
         addChild(m_verticalScrollbar.get());
+        ScrollableArea::didAddVerticalScrollbar(m_verticalScrollbar.get());
         m_verticalScrollbar->styleChanged();
     } else if (!hasBar && m_verticalScrollbar) {
+        ScrollableArea::willRemoveVerticalScrollbar(m_verticalScrollbar.get());
         removeChild(m_verticalScrollbar.get());
         m_verticalScrollbar = 0;
     }
@@ -344,16 +348,49 @@ IntPoint ScrollView::adjustScrollPositionWithinRange(const IntPoint& scrollPoint
     return newScrollPosition;
 }
 
+int ScrollView::scrollXForFixedPosition() const
+{
+    int x = scrollX();
+    if (x < 0)
+        x = 0;
+    else if (x > contentsWidth() - visibleContentRect().width())
+        x = contentsWidth() - visibleContentRect().width();
+    return x;
+}
+
+int ScrollView::scrollYForFixedPosition() const
+{
+    int y = scrollY();
+    if (y < 0)
+        y = 0;
+    else if (y > contentsHeight() - visibleContentRect().height())
+        y = contentsHeight() - visibleContentRect().height();
+    return y;
+}
+
+IntSize ScrollView::scrollOffsetForFixedPosition() const
+{
+    return IntSize(scrollXForFixedPosition(), scrollYForFixedPosition());
+}
+
 int ScrollView::scrollSize(ScrollbarOrientation orientation) const
 {
     Scrollbar* scrollbar = ((orientation == HorizontalScrollbar) ? m_horizontalScrollbar : m_verticalScrollbar).get();
     return scrollbar ? (scrollbar->totalSize() - scrollbar->visibleSize()) : 0;
 }
 
+void ScrollView::didCompleteRubberBand(const IntSize&) const
+{
+}
+
 void ScrollView::setScrollOffset(const IntPoint& offset)
 {
-    int horizontalOffset = std::max(std::min(offset.x(), contentsWidth() - visibleWidth()), 0);
-    int verticalOffset = std::max(std::min(offset.y(), contentsHeight() - visibleHeight()), 0);
+    int horizontalOffset = offset.x();
+    int verticalOffset = offset.y();
+    if (constrainsScrollingToContentEdge()) {
+        horizontalOffset = max(min(horizontalOffset, contentsWidth() - visibleWidth()), 0);
+        verticalOffset = max(min(verticalOffset, contentsHeight() - visibleHeight()), 0);
+    }
 
     IntSize newOffset = m_scrollOffset;
     newOffset.setWidth(horizontalOffset - m_scrollOrigin.x());
@@ -423,6 +460,22 @@ bool ScrollView::scroll(ScrollDirection direction, ScrollGranularity granularity
 bool ScrollView::logicalScroll(ScrollLogicalDirection direction, ScrollGranularity granularity)
 {
     return scroll(logicalToPhysical(direction, isVerticalDocument(), isFlippedDocument()), granularity);
+}
+
+IntSize ScrollView::overhangAmount() const
+{
+    IntSize stretch;
+    if (scrollY() < 0)
+        stretch.setHeight(scrollY());
+    else if (scrollY() > contentsHeight() - visibleContentRect().height())
+        stretch.setHeight(scrollY() - (contentsHeight() - visibleContentRect().height()));
+
+    if (scrollX() < 0)
+        stretch.setWidth(scrollX());
+    else if (scrollX() > contentsWidth() - visibleContentRect().width())
+        stretch.setWidth(scrollX() - (contentsWidth() - visibleContentRect().width()));
+
+    return stretch;
 }
 
 void ScrollView::windowResizerRectChanged()
@@ -528,7 +581,7 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
 
     m_inUpdateScrollbars = true;
 
-    IntPoint scrollPoint = adjustScrollPositionWithinRange(IntPoint(desiredOffset.width(), desiredOffset.height()));
+    IntPoint scrollPoint = adjustScrollPositionWithinRange(IntPoint(desiredOffset));
     IntSize scroll(scrollPoint.x(), scrollPoint.y());
 
     if (m_horizontalScrollbar) {
@@ -580,6 +633,12 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
 
     ScrollableArea::scrollToOffsetWithoutAnimation(FloatPoint(scroll.width() + m_scrollOrigin.x(), scroll.height() + m_scrollOrigin.y()));
 
+    // Make sure the scrollbar offsets are up to date.
+    if (m_horizontalScrollbar)
+        m_horizontalScrollbar->offsetDidChange();
+    if (m_verticalScrollbar)
+        m_verticalScrollbar->offsetDidChange();
+
     m_inUpdateScrollbars = false;
 }
 
@@ -594,6 +653,14 @@ void ScrollView::scrollContents(const IntSize& scrollDelta)
     // with the clip rect every time to keep it smooth.
     IntRect clipRect = windowClipRect();
     IntRect scrollViewRect = convertToContainingWindow(IntRect(0, 0, visibleWidth(), visibleHeight()));
+    if (ScrollbarTheme::nativeTheme()->usesOverlayScrollbars()) {
+        int verticalScrollbarWidth = verticalScrollbar() ? verticalScrollbar()->width() : 0;
+        int horizontalScrollbarHeight = horizontalScrollbar() ? horizontalScrollbar()->height() : 0;
+
+        scrollViewRect.setWidth(scrollViewRect.width() - verticalScrollbarWidth);
+        scrollViewRect.setHeight(scrollViewRect.height() - horizontalScrollbarHeight);
+    }
+    
     IntRect updateRect = clipRect;
     updateRect.intersect(scrollViewRect);
 
@@ -761,32 +828,18 @@ void ScrollView::wheelEvent(PlatformWheelEvent& e)
         return;
     }
 
-    // Accept the event if we have a scrollbar in that direction and can still
-    // scroll any further.
-    float deltaX = m_horizontalScrollbar ? e.deltaX() : 0;
-    float deltaY = m_verticalScrollbar ? e.deltaY() : 0;
-    
-    IntSize maxForwardScrollDelta = maximumScrollPosition() - scrollPosition();
-    IntSize maxBackwardScrollDelta = scrollPosition() - minimumScrollPosition();
-    if ((deltaX < 0 && maxForwardScrollDelta.width() > 0)
-        || (deltaX > 0 && maxBackwardScrollDelta.width() >0)
-        || (deltaY < 0 && maxForwardScrollDelta.height() > 0)
-        || (deltaY > 0 && maxBackwardScrollDelta.height() > 0)) {
-        e.accept();
-        if (e.granularity() == ScrollByPageWheelEvent) {
-            ASSERT(!e.deltaX());
-            bool negative = deltaY < 0;
-            deltaY = max(max(static_cast<float>(visibleHeight()) * Scrollbar::minFractionToStepWhenPaging(), static_cast<float>(visibleHeight() - Scrollbar::maxOverlapBetweenPages())), 1.0f);
-            if (negative)
-                deltaY = -deltaY;
-        }
-
-        if (deltaY)
-            ScrollableArea::scroll(ScrollUp, ScrollByPixel, deltaY);
-        if (deltaX)
-            ScrollableArea::scroll(ScrollLeft, ScrollByPixel, deltaX);
-    }
+    ScrollableArea::handleWheelEvent(e);
 }
+
+#if ENABLE(GESTURE_EVENTS)
+void ScrollView::gestureEvent(const PlatformGestureEvent& gestureEvent)
+{
+    if (platformWidget())
+        return;
+
+    ScrollableArea::handleGestureEvent(gestureEvent);
+}
+#endif
 
 void ScrollView::setFrameRect(const IntRect& newRect)
 {
@@ -898,6 +951,8 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
     if (context->paintingDisabled() && !context->updatingControlTints())
         return;
 
+    scrollAnimator()->contentAreaWillPaint();
+    
     IntRect documentDirtyRect = rect;
     documentDirtyRect.intersect(frameRect());
 
@@ -917,6 +972,13 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
 
     context->restore();
 
+    IntRect horizontalOverhangRect;
+    IntRect verticalOverhangRect;
+    calculateOverhangAreasForPainting(horizontalOverhangRect, verticalOverhangRect);
+
+    if (rect.intersects(horizontalOverhangRect) || rect.intersects(verticalOverhangRect))
+        paintOverhangAreas(context, horizontalOverhangRect, verticalOverhangRect, rect);
+
     // Now paint the scrollbars.
     if (!m_scrollbarsSuppressed && (m_horizontalScrollbar || m_verticalScrollbar)) {
         context->save();
@@ -933,6 +995,55 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
     // Paint the panScroll Icon
     if (m_drawPanScrollIcon)
         paintPanScrollIcon(context);
+}
+
+void ScrollView::calculateOverhangAreasForPainting(IntRect& horizontalOverhangRect, IntRect& verticalOverhangRect)
+{
+    bool hasOverlayScrollbars = ScrollbarTheme::nativeTheme()->usesOverlayScrollbars();
+    int verticalScrollbarWidth = (verticalScrollbar() && !hasOverlayScrollbars) ? verticalScrollbar()->width() : 0;
+    int horizontalScrollbarHeight = (horizontalScrollbar() && !hasOverlayScrollbars) ? horizontalScrollbar()->height() : 0;
+
+    if (scrollY() < 0) {
+        horizontalOverhangRect = frameRect();
+        horizontalOverhangRect.setHeight(-scrollY());
+    } else if (scrollY() > contentsHeight() - visibleContentRect().height()) {
+        int height = scrollY() - (contentsHeight() - visibleContentRect().height());
+        horizontalOverhangRect = frameRect();
+        horizontalOverhangRect.setY(frameRect().maxY() - height - horizontalScrollbarHeight);
+        horizontalOverhangRect.setHeight(height);
+    }
+
+    if (scrollX() < 0) {
+        verticalOverhangRect.setWidth(-scrollX());
+        verticalOverhangRect.setHeight(frameRect().height() - horizontalOverhangRect.height());
+        verticalOverhangRect.setX(frameRect().x());
+        if (horizontalOverhangRect.y() == frameRect().y())
+            verticalOverhangRect.setY(frameRect().y() + horizontalOverhangRect.height());
+        else
+            verticalOverhangRect.setY(frameRect().y());
+    } else if (scrollX() > contentsWidth() - visibleContentRect().width()) {
+        int width = scrollX() - (contentsWidth() - visibleContentRect().width());
+        verticalOverhangRect.setWidth(width);
+        verticalOverhangRect.setHeight(frameRect().height() - horizontalOverhangRect.height());
+        verticalOverhangRect.setX(frameRect().maxX() - width - verticalScrollbarWidth);
+        if (horizontalOverhangRect.y() == frameRect().y())
+            verticalOverhangRect.setY(frameRect().y() + horizontalOverhangRect.height());
+        else
+            verticalOverhangRect.setY(frameRect().y());
+    }
+}
+
+void ScrollView::paintOverhangAreas(GraphicsContext* context, const IntRect& horizontalOverhangRect, const IntRect& verticalOverhangRect, const IntRect&)
+{
+    // FIXME: This should be checking the dirty rect.
+
+    context->setFillColor(Color::white, ColorSpaceDeviceRGB);
+    if (!horizontalOverhangRect.isEmpty())
+        context->fillRect(horizontalOverhangRect);
+
+    context->setFillColor(Color::white, ColorSpaceDeviceRGB);
+    if (!verticalOverhangRect.isEmpty())
+        context->fillRect(verticalOverhangRect);
 }
 
 bool ScrollView::isPointInScrollbarCorner(const IntPoint& windowPoint)
@@ -1070,7 +1181,7 @@ void ScrollView::removePanScrollIcon()
     hostWindow()->invalidateContentsAndWindow(IntRect(m_panScrollIconPoint, IntSize(panIconSizeLength, panIconSizeLength)), true /*immediate*/);
 }
 
-void ScrollView::setScrollOrigin(const IntPoint& origin, bool updatePosition)
+void ScrollView::setScrollOrigin(const IntPoint& origin, bool updatePositionAtAll, bool updatePositionSynchronously)
 {
     if (m_scrollOrigin == origin)
         return;
@@ -1078,12 +1189,12 @@ void ScrollView::setScrollOrigin(const IntPoint& origin, bool updatePosition)
     m_scrollOrigin = origin;
 
     if (platformWidget()) {
-        platformSetScrollOrigin(origin, updatePosition);
+        platformSetScrollOrigin(origin, updatePositionAtAll, updatePositionSynchronously);
         return;
     }
     
     // Update if the scroll origin changes, since our position will be different if the content size did not change.
-    if (updatePosition)
+    if (updatePositionAtAll && updatePositionSynchronously)
         updateScrollbars(scrollOffset());
 }
 
@@ -1117,7 +1228,7 @@ void ScrollView::platformSetScrollbarsSuppressed(bool)
 {
 }
 
-void ScrollView::platformSetScrollOrigin(const IntPoint&, bool updatePosition)
+void ScrollView::platformSetScrollOrigin(const IntPoint&, bool updatePositionAtAll, bool updatePositionSynchronously)
 {
 }
 

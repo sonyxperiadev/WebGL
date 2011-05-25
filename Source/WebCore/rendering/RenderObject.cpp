@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2004 Allan Sandfeld Jensen (kde@carewolf.com)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
@@ -31,6 +31,7 @@
 #include "CSSStyleSelector.h"
 #include "Chrome.h"
 #include "ContentData.h"
+#include "CursorList.h"
 #include "DashArray.h"
 #include "EditingBoundary.h"
 #include "FloatQuad.h"
@@ -319,7 +320,6 @@ void RenderObject::addChild(RenderObject* newChild, RenderObject* beforeChild)
         // Just add it...
         children->insertChildNode(this, newChild, beforeChild);
     }
-    RenderCounter::rendererSubtreeAttached(newChild); 
     if (newChild->isText() && newChild->style()->textTransform() == CAPITALIZE) {
         RefPtr<StringImpl> textToTransform = toRenderText(newChild)->originalText();
         if (textToTransform)
@@ -1381,11 +1381,11 @@ bool RenderObject::repaintAfterLayoutIfNeeded(RenderBoxModelObject* repaintConta
     else if (deltaLeft < 0)
         repaintUsingContainer(repaintContainer, IntRect(newBounds.x(), newBounds.y(), -deltaLeft, newBounds.height()));
 
-    int deltaRight = newBounds.right() - oldBounds.right();
+    int deltaRight = newBounds.maxX() - oldBounds.maxX();
     if (deltaRight > 0)
-        repaintUsingContainer(repaintContainer, IntRect(oldBounds.right(), newBounds.y(), deltaRight, newBounds.height()));
+        repaintUsingContainer(repaintContainer, IntRect(oldBounds.maxX(), newBounds.y(), deltaRight, newBounds.height()));
     else if (deltaRight < 0)
-        repaintUsingContainer(repaintContainer, IntRect(newBounds.right(), oldBounds.y(), -deltaRight, oldBounds.height()));
+        repaintUsingContainer(repaintContainer, IntRect(newBounds.maxX(), oldBounds.y(), -deltaRight, oldBounds.height()));
 
     int deltaTop = newBounds.y() - oldBounds.y();
     if (deltaTop > 0)
@@ -1393,11 +1393,11 @@ bool RenderObject::repaintAfterLayoutIfNeeded(RenderBoxModelObject* repaintConta
     else if (deltaTop < 0)
         repaintUsingContainer(repaintContainer, IntRect(newBounds.x(), newBounds.y(), newBounds.width(), -deltaTop));
 
-    int deltaBottom = newBounds.bottom() - oldBounds.bottom();
+    int deltaBottom = newBounds.maxY() - oldBounds.maxY();
     if (deltaBottom > 0)
-        repaintUsingContainer(repaintContainer, IntRect(newBounds.x(), oldBounds.bottom(), newBounds.width(), deltaBottom));
+        repaintUsingContainer(repaintContainer, IntRect(newBounds.x(), oldBounds.maxY(), newBounds.width(), deltaBottom));
     else if (deltaBottom < 0)
-        repaintUsingContainer(repaintContainer, IntRect(oldBounds.x(), newBounds.bottom(), oldBounds.width(), -deltaBottom));
+        repaintUsingContainer(repaintContainer, IntRect(oldBounds.x(), newBounds.maxY(), oldBounds.width(), -deltaBottom));
 
     if (newOutlineBox == oldOutlineBox)
         return false;
@@ -1419,7 +1419,7 @@ bool RenderObject::repaintAfterLayoutIfNeeded(RenderBoxModelObject* repaintConta
             newOutlineBox.y(),
             width + borderWidth,
             max(newOutlineBox.height(), oldOutlineBox.height()));
-        int right = min(newBounds.right(), oldBounds.right());
+        int right = min(newBounds.maxX(), oldBounds.maxX());
         if (rightRect.x() < right) {
             rightRect.setWidth(min(rightRect.width(), right - rightRect.x()));
             repaintUsingContainer(repaintContainer, rightRect);
@@ -1435,10 +1435,10 @@ bool RenderObject::repaintAfterLayoutIfNeeded(RenderBoxModelObject* repaintConta
         int boxHeight = isBox() ? toRenderBox(this)->height() : 0;
         int borderHeight = max(-outlineStyle->outlineOffset(), max(borderBottom, max(style()->borderBottomLeftRadius().height().calcValue(boxHeight), style()->borderBottomRightRadius().height().calcValue(boxHeight)))) + max(ow, shadowBottom);
         IntRect bottomRect(newOutlineBox.x(),
-            min(newOutlineBox.bottom(), oldOutlineBox.bottom()) - borderHeight,
+            min(newOutlineBox.maxY(), oldOutlineBox.maxY()) - borderHeight,
             max(newOutlineBox.width(), oldOutlineBox.width()),
             height + borderHeight);
-        int bottom = min(newBounds.bottom(), oldBounds.bottom());
+        int bottom = min(newBounds.maxY(), oldBounds.maxY());
         if (bottomRect.y() < bottom) {
             bottomRect.setHeight(min(bottomRect.height(), bottom - bottomRect.y()));
             repaintUsingContainer(repaintContainer, bottomRect);
@@ -1863,6 +1863,17 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle* newS
     }
 }
 
+static bool areNonIdenticalCursorListsEqual(const RenderStyle* a, const RenderStyle* b)
+{
+    ASSERT(a->cursors() != b->cursors());
+    return a->cursors() && b->cursors() && *a->cursors() == *b->cursors();
+}
+
+static inline bool areCursorsEqual(const RenderStyle* a, const RenderStyle* b)
+{
+    return a->cursor() == b->cursor() && (a->cursors() == b->cursors() || areNonIdenticalCursorListsEqual(a, b));
+}
+
 void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     if (s_affectsParentBlock)
@@ -1888,6 +1899,11 @@ void RenderObject::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
 
     // Don't check for repaint here; we need to wait until the layer has been
     // updated by subclasses before we know if we have to repaint (in setStyle()).
+
+    if (oldStyle && !areCursorsEqual(oldStyle, style())) {
+        if (Frame* frame = this->frame())
+            frame->eventHandler()->dispatchFakeMouseMoveEventSoon();
+    }
 }
 
 void RenderObject::updateFillImages(const FillLayer* oldLayers, const FillLayer* newLayers)
@@ -1950,6 +1966,10 @@ void RenderObject::mapLocalToContainer(RenderBoxModelObject* repaintContainer, b
     if (!o)
         return;
 
+    IntPoint centerPoint = roundedIntPoint(transformState.mappedPoint());
+    if (o->isBox() && o->style()->isFlippedBlocksWritingMode())
+        transformState.move(toRenderBox(o)->flipForWritingModeIncludingColumns(roundedIntPoint(transformState.mappedPoint())) - centerPoint);
+
     IntSize columnOffset;
     o->adjustForColumns(columnOffset, roundedIntPoint(transformState.mappedPoint()));
     if (!columnOffset.isZero())
@@ -1989,7 +2009,7 @@ void RenderObject::getTransformFromContainer(const RenderObject* containerObject
     transform.translate(offsetInContainer.width(), offsetInContainer.height());
     RenderLayer* layer;
     if (hasLayer() && (layer = toRenderBoxModelObject(this)->layer()) && layer->transform())
-        transform.multLeft(layer->currentTransform());
+        transform.multiply(layer->currentTransform());
     
 #if ENABLE(3D_RENDERING)
     if (containerObject && containerObject->hasLayer() && containerObject->style()->hasPerspective()) {
@@ -2001,7 +2021,7 @@ void RenderObject::getTransformFromContainer(const RenderObject* containerObject
         perspectiveMatrix.applyPerspective(containerObject->style()->perspective());
         
         transform.translateRight3d(-perspectiveOrigin.x(), -perspectiveOrigin.y(), 0);
-        transform.multiply(perspectiveMatrix);
+        transform = perspectiveMatrix * transform;
         transform.translateRight3d(perspectiveOrigin.x(), perspectiveOrigin.y(), 0);
     }
 #else
@@ -2157,9 +2177,6 @@ void RenderObject::destroy()
     if (frame() && frame()->eventHandler()->autoscrollRenderer() == this)
         frame()->eventHandler()->stopAutoscrollTimer(true);
 
-    if (m_hasCounterNodeMap)
-        RenderCounter::destroyCounterNodes(this);
-
     if (AXObjectCache::accessibilityEnabled()) {
         document()->axObjectCache()->childrenChanged(this->parent());
         document()->axObjectCache()->remove(this);
@@ -2171,6 +2188,14 @@ void RenderObject::destroy()
     // in this function changes, be sure to fix RenderWidget::destroy() as well.
 
     remove();
+
+    // If this renderer had a parent, remove should have destroyed any counters
+    // attached to this renderer and marked the affected other counters for
+    // reevaluation. This apparently redundant check is here for the case when
+    // this renderer had no parent at the time remove() was called.
+
+    if (m_hasCounterNodeMap)
+        RenderCounter::destroyCounterNodes(this);
 
     // FIXME: Would like to do this in RenderBoxModelObject, but the timing is so complicated that this can't easily
     // be moved into RenderBoxModelObject::destroy.

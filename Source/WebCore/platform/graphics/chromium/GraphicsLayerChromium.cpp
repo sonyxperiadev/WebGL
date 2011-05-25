@@ -263,6 +263,17 @@ void GraphicsLayerChromium::setContentsOpaque(bool opaque)
     updateContentsOpaque();
 }
 
+void GraphicsLayerChromium::setMaskLayer(GraphicsLayer* maskLayer)
+{
+    if (maskLayer == m_maskLayer)
+        return;
+
+    GraphicsLayer::setMaskLayer(maskLayer);
+
+    LayerChromium* maskLayerChromium = m_maskLayer ? m_maskLayer->platformLayer() : 0;
+    m_layer->setMaskLayer(maskLayerChromium);
+}
+
 void GraphicsLayerChromium::setBackfaceVisibility(bool visible)
 {
     if (m_backfaceVisibility == visible)
@@ -282,6 +293,15 @@ void GraphicsLayerChromium::setOpacity(float opacity)
     GraphicsLayer::setOpacity(clampedOpacity);
     primaryLayer()->setOpacity(opacity);
 }
+
+void GraphicsLayerChromium::setReplicatedByLayer(GraphicsLayer* layer)
+{
+    GraphicsLayerChromium* layerChromium = static_cast<GraphicsLayerChromium*>(layer);
+    GraphicsLayer::setReplicatedByLayer(layer);
+    LayerChromium* replicaLayer = layerChromium ? layerChromium->primaryLayer() : 0;
+    primaryLayer()->setReplicaLayer(replicaLayer);
+}
+
 
 void GraphicsLayerChromium::setContentsNeedsDisplay()
 {
@@ -494,6 +514,7 @@ void GraphicsLayerChromium::updateAnchorPoint()
 {
     primaryLayer()->setAnchorPoint(FloatPoint(m_anchorPoint.x(), m_anchorPoint.y()));
     primaryLayer()->setAnchorPointZ(m_anchorPoint.z());
+
     updateLayerPosition();
 }
 

@@ -26,7 +26,6 @@
 #include "config.h"
 #include "htmlediting.h"
 
-#include "CharacterNames.h"
 #include "Document.h"
 #include "EditingText.h"
 #include "HTMLBRElement.h"
@@ -46,6 +45,7 @@
 #include "VisiblePosition.h"
 #include "visible_units.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/unicode/CharacterNames.h>
 
 #if ENABLE(WML)
 #include "WMLNames.h"
@@ -356,25 +356,27 @@ int lastOffsetForEditing(const Node* node)
 
 String stringWithRebalancedWhitespace(const String& string, bool startIsStartOfParagraph, bool endIsEndOfParagraph)
 {
-    DEFINE_STATIC_LOCAL(String, twoSpaces, ("  "));
-    DEFINE_STATIC_LOCAL(String, nbsp, ("\xa0"));
-    DEFINE_STATIC_LOCAL(String, pattern, (" \xa0"));
+    Vector<UChar> rebalancedString;
+    append(rebalancedString, string);
 
-    String rebalancedString = string;
+    bool previousCharacterWasSpace = false;
+    for (size_t i = 0; i < rebalancedString.size(); i++) {
+        if (!isWhitespace(rebalancedString[i])) {
+            previousCharacterWasSpace = false;
+            continue;
+        }
 
-    rebalancedString.replace(noBreakSpace, ' ');
-    rebalancedString.replace('\n', ' ');
-    rebalancedString.replace('\t', ' ');
-    
-    rebalancedString.replace(twoSpaces, pattern);
-    
-    if (startIsStartOfParagraph && rebalancedString[0] == ' ')
-        rebalancedString.replace(0, 1, nbsp);
-    int end = rebalancedString.length() - 1;
-    if (endIsEndOfParagraph && rebalancedString[end] == ' ')
-        rebalancedString.replace(end, 1, nbsp);    
+        if (previousCharacterWasSpace || (!i && startIsStartOfParagraph) || (i + 1 == rebalancedString.size() && endIsEndOfParagraph)) {
+            rebalancedString[i] = noBreakSpace;
+            previousCharacterWasSpace = false;
+        } else {
+            rebalancedString[i] = ' ';
+            previousCharacterWasSpace = true;
+        }
+            
+    }
 
-    return rebalancedString;
+    return String::adopt(rebalancedString);
 }
 
 bool isTableStructureNode(const Node *node)
@@ -660,7 +662,7 @@ HTMLElement* enclosingList(Node* node)
     
     for (ContainerNode* n = node->parentNode(); n; n = n->parentNode()) {
         if (n->hasTagName(ulTag) || n->hasTagName(olTag))
-            return static_cast<HTMLElement*>(n);
+            return toHTMLElement(n);
         if (n == root)
             return 0;
     }
@@ -668,7 +670,7 @@ HTMLElement* enclosingList(Node* node)
     return 0;
 }
 
-HTMLElement* enclosingListChild(Node *node)
+Node* enclosingListChild(Node *node)
 {
     if (!node)
         return 0;
@@ -679,7 +681,7 @@ HTMLElement* enclosingListChild(Node *node)
     // FIXME: This function is inappropriately named if it starts with node instead of node->parentNode()
     for (Node* n = node; n && n->parentNode(); n = n->parentNode()) {
         if (n->hasTagName(liTag) || isListElement(n->parentNode()))
-            return static_cast<HTMLElement*>(n);
+            return n;
         if (n == root || isTableCell(n))
             return 0;
     }
@@ -692,7 +694,7 @@ static HTMLElement* embeddedSublist(Node* listItem)
     // Check the DOM so that we'll find collapsed sublists without renderers.
     for (Node* n = listItem->firstChild(); n; n = n->nextSibling()) {
         if (isListElement(n))
-            return static_cast<HTMLElement*>(n);
+            return toHTMLElement(n);
     }
     
     return 0;
@@ -703,7 +705,7 @@ static Node* appendedSublist(Node* listItem)
     // Check the DOM so that we'll find collapsed sublists without renderers.
     for (Node* n = listItem->nextSibling(); n; n = n->nextSibling()) {
         if (isListElement(n))
-            return static_cast<HTMLElement*>(n);
+            return toHTMLElement(n);
         if (isListItem(listItem))
             return 0;
     }

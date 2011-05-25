@@ -213,7 +213,12 @@ audio::-webkit-media-controls-fullscreen-button {
 }
 
 video::-webkit-media-controls-fullscreen-button {
-    display: none;
+    top: 0px;
+    right: 0px;
+    width: 12px;
+    height: 12px;
+    padding: 6px;
+    margin: 5px 5px 5px 3px;
 }
 
 audio::-webkit-media-controls-rewind-button {
@@ -240,3 +245,11 @@ video::-webkit-media-controls-toggle-closed-captions-button {
     display: none;
 }
 
+::-webkit-media-controls-mute-button,
+::-webkit-media-controls-play-button,
+::-webkit-media-controls-timeline,
+::-webkit-media-controls-volume-slider,
+::-webkit-media-controls-fullscreen-button
+{
+    box-sizing: content-box !important;
+}

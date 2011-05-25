@@ -168,7 +168,7 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
 
     if (!wrapInAnonymousSection) {
         // If the next renderer is actually wrapped in an anonymous table section, we need to go up and find that.
-        while (beforeChild && !beforeChild->isTableSection() && !beforeChild->isTableCol() && beforeChild->style()->display() != TABLE_CAPTION)
+        while (beforeChild && beforeChild->parent() != this)
             beforeChild = beforeChild->parent();
 
         RenderBox::addChild(child, beforeChild);
@@ -419,7 +419,7 @@ void RenderTable::layout()
     while (section) {
         if (!sectionMoved && section->logicalTop() != logicalHeight()) {
             sectionMoved = true;
-            movedSectionLogicalTop = min(logicalHeight(), section->logicalTop()) + (style()->isHorizontalWritingMode() ? section->topVisualOverflow() : section->leftVisualOverflow());
+            movedSectionLogicalTop = min(logicalHeight(), section->logicalTop()) + (style()->isHorizontalWritingMode() ? section->minYVisualOverflow() : section->minXVisualOverflow());
         }
         section->setLogicalLocation(sectionLogicalLeft, logicalHeight());
 
@@ -453,15 +453,15 @@ void RenderTable::layout()
     statePusher.pop();
 
     if (view()->layoutState()->pageLogicalHeight())
-        setPageLogicalOffset(view()->layoutState()->pageLogicalOffset(y()));
+        setPageLogicalOffset(view()->layoutState()->pageLogicalOffset(logicalTop()));
 
     bool didFullRepaint = repainter.repaintAfterLayout();
     // Repaint with our new bounds if they are different from our old bounds.
     if (!didFullRepaint && sectionMoved) {
         if (style()->isHorizontalWritingMode())
-            repaintRectangle(IntRect(leftVisualOverflow(), movedSectionLogicalTop, rightVisualOverflow() - leftVisualOverflow(), bottomVisualOverflow() - movedSectionLogicalTop));
+            repaintRectangle(IntRect(minXVisualOverflow(), movedSectionLogicalTop, maxXVisualOverflow() - minXVisualOverflow(), maxYVisualOverflow() - movedSectionLogicalTop));
         else
-            repaintRectangle(IntRect(movedSectionLogicalTop, topVisualOverflow(), rightVisualOverflow() - movedSectionLogicalTop, bottomVisualOverflow() - topVisualOverflow()));
+            repaintRectangle(IntRect(movedSectionLogicalTop, minYVisualOverflow(), maxXVisualOverflow() - movedSectionLogicalTop, maxYVisualOverflow() - minYVisualOverflow()));
     }
 
     setNeedsLayout(false);
@@ -513,9 +513,9 @@ void RenderTable::paint(PaintInfo& paintInfo, int tx, int ty)
     PaintPhase paintPhase = paintInfo.phase;
 
     int os = 2 * maximalOutlineSize(paintPhase);
-    if (ty + topVisualOverflow() >= paintInfo.rect.bottom() + os || ty + bottomVisualOverflow() <= paintInfo.rect.y() - os)
+    if (ty + minYVisualOverflow() >= paintInfo.rect.maxY() + os || ty + maxYVisualOverflow() <= paintInfo.rect.y() - os)
         return;
-    if (tx + leftVisualOverflow() >= paintInfo.rect.right() + os || tx + rightVisualOverflow() <= paintInfo.rect.x() - os)
+    if (tx + minXVisualOverflow() >= paintInfo.rect.maxX() + os || tx + maxXVisualOverflow() <= paintInfo.rect.x() - os)
         return;
 
     bool pushedClip = pushContentsClip(paintInfo, tx, ty);    
@@ -1184,6 +1184,8 @@ int RenderTable::firstLineBoxBaseline() const
 {
     if (isWritingModeRoot())
         return -1;
+
+    recalcSectionsIfNeeded();
 
     RenderTableSection* firstNonEmptySection = m_head ? m_head : (m_firstBody ? m_firstBody : m_foot);
     if (firstNonEmptySection && !firstNonEmptySection->numRows())

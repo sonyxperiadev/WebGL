@@ -25,9 +25,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
-
 #include "Float32Array.h"
 
 namespace WebCore {
@@ -52,16 +49,14 @@ Float32Array::Float32Array(PassRefPtr<ArrayBuffer> buffer, unsigned byteOffset, 
 {
 }
 
-PassRefPtr<Float32Array> Float32Array::slice(int start) const
+PassRefPtr<Float32Array> Float32Array::subarray(int start) const
 {
-    return slice(start, length());
+    return subarray(start, length());
 }
 
-PassRefPtr<Float32Array> Float32Array::slice(int start, int end) const
+PassRefPtr<Float32Array> Float32Array::subarray(int start, int end) const
 {
-    return sliceImpl<Float32Array>(start, end);
+    return subarrayImpl<Float32Array>(start, end);
 }
 
 }
-
-#endif // ENABLE(3D_CANVAS) || ENABLE(BLOB)

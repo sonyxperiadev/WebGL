@@ -176,6 +176,11 @@ namespace WebCore {
             , shouldSmoothFonts(true)
             , paintingDisabled(false)
             , shadowsIgnoreTransforms(false)
+#if PLATFORM(CG)
+            // Core Graphics incorrectly renders shadows with radius > 8px (<rdar://problem/8103442>),
+            // but we need to preserve this buggy behavior for canvas and -webkit-box-shadow.
+            , shadowsUseLegacyRadius(false)
+#endif
         {
         }
 
@@ -212,6 +217,9 @@ namespace WebCore {
         bool shouldSmoothFonts : 1;
         bool paintingDisabled : 1;
         bool shadowsIgnoreTransforms : 1;
+#if PLATFORM(CG)
+        bool shadowsUseLegacyRadius : 1;
+#endif
     };
 
     class GraphicsContext {
@@ -320,6 +328,7 @@ namespace WebCore {
         void fillRect(const FloatRect&, Generator&);
         void fillRoundedRect(const IntRect&, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color&, ColorSpace);
         void fillRoundedRect(const RoundedIntRect&, const Color&, ColorSpace);
+        void fillRectWithRoundedHole(const IntRect&, const RoundedIntRect& roundedHoleRect, const Color&, ColorSpace);
 
         void clearRect(const FloatRect&);
 
@@ -355,6 +364,8 @@ namespace WebCore {
         void clipPath(const Path&, WindRule);
         void clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias = true);
         void clipToImageBuffer(ImageBuffer*, const FloatRect&);
+        
+        IntRect clipBounds() const;
 
         TextDrawingModeFlags textDrawingMode() const;
         void setTextDrawingMode(TextDrawingModeFlags);
@@ -385,6 +396,10 @@ namespace WebCore {
 
         bool hasShadow() const;
         void setShadow(const FloatSize&, float blur, const Color&, ColorSpace);
+        // Legacy shadow blur radius is used for canvas, and -webkit-box-shadow.
+        // It has different treatment of radii > 8px.
+        void setLegacyShadow(const FloatSize&, float blur, const Color&, ColorSpace);
+
         bool getShadow(FloatSize&, float&, Color&, ColorSpace&) const;
         void clearShadow();
 
@@ -404,16 +419,11 @@ namespace WebCore {
         void setCompositeOperation(CompositeOperator);
         CompositeOperator compositeOperation() const;
 
-#if PLATFORM(SKIA)
-        void beginPath();
-        void addPath(const Path&);
-#endif
-
         void clip(const Path&);
 
         // This clip function is used only by <canvas> code. It allows
         // implementations to handle clipping on the canvas differently since
-        // the disipline is different.
+        // the discipline is different.
         void canvasClip(const Path&);
         void clipOut(const Path&);
 
@@ -500,7 +510,6 @@ namespace WebCore {
         bool inTransparencyLayer() const;
         void pushTransparencyLayerInternal(const QRect &rect, qreal opacity, QPixmap& alphaMask);
         void takeOwnershipOfPlatformContext();
-        static QPainter::CompositionMode toQtCompositionMode(CompositeOperator op);
 #endif
 
 #if PLATFORM(QT) || PLATFORM(CAIRO)

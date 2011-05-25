@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WKURLRequest.h"
 
 #include "WKAPICast.h"
@@ -40,4 +41,9 @@ WKTypeID WKURLRequestGetTypeID()
 WKURLRequestRef WKURLRequestCreateWithWKURL(WKURLRef url)
 {
     return toAPI(WebURLRequest::create(KURL(KURL(), toImpl(url)->string())).leakRef());
+}
+
+WKURLRef WKURLRequestCopyURL(WKURLRequestRef requestRef)
+{
+    return toCopiedURLAPI(toImpl(requestRef)->url());
 }

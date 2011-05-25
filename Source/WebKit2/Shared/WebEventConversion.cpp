@@ -23,10 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebEventConversion.h"
 
 #include "WebEvent.h"
-#include <WebCore/IntPoint.h>
 
 namespace WebKit {
 
@@ -112,6 +112,8 @@ public:
         m_metaKey = webEvent.metaKey();
 #if PLATFORM(MAC)
         m_phase = static_cast<WebCore::PlatformWheelEventPhase>(webEvent.phase());
+        m_hasPreciseScrollingDeltas = webEvent.hasPreciseScrollingDeltas();
+        m_timestamp = webEvent.timestamp();
 #endif
     }
 };
@@ -165,6 +167,34 @@ WebCore::PlatformKeyboardEvent platform(const WebKeyboardEvent& webEvent)
 {
     return WebKit2PlatformKeyboardEvent(webEvent);
 }
+
+#if ENABLE(GESTURE_EVENTS)
+class WebKit2PlatformGestureEvent : public WebCore::PlatformGestureEvent {
+public:
+    WebKit2PlatformGestureEvent(const WebGestureEvent& webEvent)
+    {
+        switch (webEvent.type()) {
+        case WebEvent::GestureScrollBegin:
+            m_type = PlatformGestureEvent::ScrollBeginType;
+            break;
+        case WebEvent::GestureScrollEnd:
+            m_type = PlatformGestureEvent::ScrollEndType;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+        }
+
+        m_position = webEvent.position();
+        m_globalPosition = webEvent.globalPosition();
+        m_timestamp = webEvent.timestamp();
+    }
+};
+
+WebCore::PlatformGestureEvent platform(const WebGestureEvent& webEvent)
+{
+    return WebKit2PlatformGestureEvent(webEvent);
+}
+#endif
 
 #if ENABLE(TOUCH_EVENTS)
 class WebKit2PlatformTouchPoint : public WebCore::PlatformTouchPoint {

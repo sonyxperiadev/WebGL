@@ -49,7 +49,7 @@ static const unsigned maxSelectItems = 10000;
 HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
     : HTMLFormControlElementWithState(tagName, document, form)
 {
-    ASSERT(hasTagName(selectTag) || hasTagName(keygenTag));
+    ASSERT(hasTagName(selectTag));
 }
 
 PassRefPtr<HTMLSelectElement> HTMLSelectElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
@@ -206,7 +206,7 @@ void HTMLSelectElement::remove(HTMLOptionElement* option)
     option->remove(ec);
 }
 
-String HTMLSelectElement::value()
+String HTMLSelectElement::value() const
 {
     const Vector<Element*>& items = listItems();
     for (unsigned i = 0; i < items.size(); i++) {
@@ -464,7 +464,7 @@ void HTMLSelectElement::setOption(unsigned index, HTMLOptionElement* option, Exc
         setLength(index, ec);
         // replace an existing entry ?
     } else if (diff < 0) {
-        before = static_cast<HTMLElement*>(options()->item(index+1));
+        before = toHTMLElement(options()->item(index+1));
         remove(index);
     }
     // finally add the new element
@@ -486,7 +486,7 @@ void HTMLSelectElement::setLength(unsigned newLen, ExceptionCode& ec)
         do {
             RefPtr<Element> option = document()->createElement(optionTag, false);
             ASSERT(option);
-            add(static_cast<HTMLElement*>(option.get()), 0, ec);
+            add(toHTMLElement(option.get()), 0, ec);
             if (ec)
                 break;
         } while (++diff);

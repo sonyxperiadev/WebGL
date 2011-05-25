@@ -3,7 +3,7 @@
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008 Nuanti Ltd.
  * Copyright (C) 2009 Jan Michael Alonzo <jmalonzo@gmail.com>
- * Copyright (C) 2009 Collabora Ltd.
+ * Copyright (C) 2009,2011 Collabora Ltd.
  * Copyright (C) 2010 Joone Hur <joone@kldp.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -230,7 +230,6 @@ void LayoutTestController::setAcceptsEditing(bool acceptsEditing)
 
 void LayoutTestController::setAlwaysAcceptCookies(bool alwaysAcceptCookies)
 {
-#ifdef HAVE_LIBSOUP_2_29_90
     SoupSession* session = webkit_get_default_session();
     SoupCookieJar* jar = reinterpret_cast<SoupCookieJar*>(soup_session_get_feature(session, SOUP_TYPE_COOKIE_JAR));
 
@@ -251,7 +250,6 @@ void LayoutTestController::setAlwaysAcceptCookies(bool alwaysAcceptCookies)
         policy = SOUP_COOKIE_JAR_ACCEPT_NO_THIRD_PARTY;
 
     g_object_set(G_OBJECT(jar), SOUP_COOKIE_JAR_ACCEPT_POLICY, policy, NULL);
-#endif
 }
 
 void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permissive)
@@ -492,9 +490,9 @@ void LayoutTestController::addMockSpeechInputResult(JSStringRef result, double c
     // See https://bugs.webkit.org/show_bug.cgi?id=39485.
 }
 
-void LayoutTestController::setIconDatabaseEnabled(bool flag)
+void LayoutTestController::setIconDatabaseEnabled(bool enabled)
 {
-    // FIXME: implement
+    DumpRenderTreeSupportGtk::setIconDatabaseEnabled(enabled);
 }
 
 void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
@@ -546,10 +544,42 @@ void LayoutTestController::execCommand(JSStringRef name, JSStringRef value)
     g_free(cValue);
 }
 
-bool LayoutTestController::findString(JSContextRef /* context */, JSStringRef /* target */, JSObjectRef /* optionsArray */)
+bool LayoutTestController::findString(JSContextRef context, JSStringRef target, JSObjectRef optionsArray)
 {
-    // FIXME: Implement
-    return false;
+    WebKitFindOptions findOptions = 0;
+    WebKitWebView* webView = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(webView);
+
+    JSRetainPtr<JSStringRef> lengthPropertyName(Adopt, JSStringCreateWithUTF8CString("length"));
+    JSValueRef lengthValue = JSObjectGetProperty(context, optionsArray, lengthPropertyName.get(), 0); 
+    if (!JSValueIsNumber(context, lengthValue))
+        return false;
+
+    GOwnPtr<gchar> targetString(JSStringCopyUTF8CString(target));
+
+    size_t length = static_cast<size_t>(JSValueToNumber(context, lengthValue, 0));
+    for (size_t i = 0; i < length; ++i) {
+        JSValueRef value = JSObjectGetPropertyAtIndex(context, optionsArray, i, 0); 
+        if (!JSValueIsString(context, value))
+            continue;
+    
+        JSRetainPtr<JSStringRef> optionName(Adopt, JSValueToStringCopy(context, value, 0));
+
+        if (JSStringIsEqualToUTF8CString(optionName.get(), "CaseInsensitive"))
+            findOptions |= WebKit::WebFindOptionsCaseInsensitive;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "AtWordStarts"))
+            findOptions |= WebKit::WebFindOptionsAtWordStarts;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "TreatMedialCapitalAsWordStart"))
+            findOptions |= WebKit::WebFindOptionsTreatMedialCapitalAsWordStart;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "Backwards"))
+            findOptions |= WebKit::WebFindOptionsBackwards;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "WrapAround"))
+            findOptions |= WebKit::WebFindOptionsWrapAround;
+        else if (JSStringIsEqualToUTF8CString(optionName.get(), "StartInSelection"))
+            findOptions |= WebKit::WebFindOptionsStartInSelection;
+    }   
+
+    return DumpRenderTreeSupportGtk::findString(webView, targetString.get(), findOptions); 
 }
 
 bool LayoutTestController::isCommandEnabled(JSStringRef name)
@@ -565,10 +595,20 @@ bool LayoutTestController::isCommandEnabled(JSStringRef name)
 
 void LayoutTestController::setCacheModel(int cacheModel)
 {
-    if (!cacheModel) // WebCacheModelDocumentViewer
-        webkit_set_cache_model(WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER); 
-    else 
-        webkit_set_cache_model(WEBKIT_CACHE_MODEL_WEB_BROWSER); 
+    // These constants are derived from the Mac cache model enum in Source/WebKit/mac/WebView/WebPreferences.h.
+    switch (cacheModel) {
+    case 0:
+        webkit_set_cache_model(WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER);
+        break;
+    case 1:
+        webkit_set_cache_model(WEBKIT_CACHE_MODEL_DOCUMENT_BROWSER);
+        break;
+    case 3:
+        webkit_set_cache_model(WEBKIT_CACHE_MODEL_DOCUMENT_BROWSER);
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
 }
 
 void LayoutTestController::setPersistentUserStyleSheetLocation(JSStringRef jsURL)

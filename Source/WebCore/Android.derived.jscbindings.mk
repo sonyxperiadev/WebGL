@@ -361,6 +361,7 @@ GEN := \
     $(intermediates)/page/JSConnection.h \
     $(intermediates)/page/JSConsole.h \
     $(intermediates)/page/JSCoordinates.h \
+    $(intermediates)/page/JSCrypto.h \
     $(intermediates)/page/JSDOMSelection.h \
     $(intermediates)/page/JSDOMWindow.h \
     $(intermediates)/page/JSEventSource.h \

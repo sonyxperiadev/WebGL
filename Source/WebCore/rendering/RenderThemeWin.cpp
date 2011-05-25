@@ -27,6 +27,7 @@
 #include "Frame.h"
 #include "GraphicsContext.h"
 #include "LocalWindowsContext.h"
+#include "PaintInfo.h"
 #include "RenderSlider.h"
 #include "Settings.h"
 #include "SoftLinking.h"
@@ -694,7 +695,7 @@ bool RenderThemeWin::paintInnerSpinButton(RenderObject* o, const PaintInfo& i, c
     IntRect upRect(r);
     upRect.setHeight(r.height() / 2);
     IntRect downRect(r);
-    downRect.setY(upRect.bottom());
+    downRect.setY(upRect.maxY());
     downRect.setHeight(r.height() - upRect.height());
     drawControl(i.context, o, spinButtonTheme(), getThemeData(o, SpinButtonUp), upRect);
     drawControl(i.context, o, spinButtonTheme(), getThemeData(o, SpinButtonDown), downRect);
@@ -769,7 +770,7 @@ void RenderThemeWin::adjustMenuListButtonStyle(CSSStyleSelector* selector, Rende
     style->setHeight(Length(Auto));
 
     // Calculate our min-height
-    int minHeight = style->font().height();
+    int minHeight = style->fontMetrics().height();
     minHeight = max(minHeight, dropDownBoxMinHeight);
 
     style->setMinHeight(Length(minHeight, Fixed));
@@ -788,7 +789,7 @@ bool RenderThemeWin::paintMenuListButton(RenderObject* o, const PaintInfo& i, co
     IntRect buttonRect(r);
     buttonRect.inflate(-borderThickness);
     if (o->style()->direction() == LTR)
-        buttonRect.setX(buttonRect.right() - dropDownButtonWidth);
+        buttonRect.setX(buttonRect.maxX() - dropDownButtonWidth);
     buttonRect.setWidth(dropDownButtonWidth);
 
     if (isRunningOnVistaOrLater()) {

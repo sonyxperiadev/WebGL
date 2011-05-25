@@ -146,7 +146,10 @@ void ComplexTextController::reset(unsigned offset)
 // TextRun has been reached.
 bool ComplexTextController::nextScriptRun()
 {
-    if (!hb_utf16_script_run_next(&m_numCodePoints, &m_item.item, m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
+    // Ensure we're not pointing at the small caps buffer.
+    m_item.string = m_run.characters();
+
+    if (!hb_utf16_script_run_next(0, &m_item.item, m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
         return false;
 
     // It is actually wrong to consider script runs at all in this code.
@@ -184,11 +187,33 @@ float ComplexTextController::widthOfFullRun()
 
 void ComplexTextController::setupFontForScriptRun()
 {
-    const FontData* fontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false).fontData;
+    FontDataVariant fontDataVariant = AutoVariant;
+    // Determine if this script run needs to be converted to small caps.
+    // nextScriptRun() will always send us a run of the same case, because a
+    // case change while in small-caps mode always results in different
+    // FontData, so we only need to check the first character's case.
+    if (m_font->isSmallCaps() && u_islower(m_item.string[m_item.item.pos])) {
+        m_smallCapsString = String(m_run.data(m_item.item.pos), m_item.item.length);
+        m_smallCapsString.makeUpper();
+        m_item.string = m_smallCapsString.characters();
+        m_item.item.pos = 0;
+        fontDataVariant = SmallCapsVariant;
+    }
+    const FontData* fontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false, fontDataVariant).fontData;
     const FontPlatformData& platformData = fontData->fontDataForCharacter(' ')->platformData();
     m_item.face = platformData.harfbuzzFace();
     void* opaquePlatformData = const_cast<FontPlatformData*>(&platformData);
     m_item.font->userData = opaquePlatformData;
+
+    int size = platformData.size();
+    m_item.font->x_ppem = size;
+    m_item.font->y_ppem = size;
+    // x_ and y_scale are the conversion factors from font design space (fEmSize) to 1/64th of device pixels in 16.16 format.
+    const int devicePixelFraction = 64;
+    const int multiplyFor16Dot16 = 1 << 16;
+    int scale = devicePixelFraction * size * multiplyFor16Dot16 / platformData.emSizeInFontUnits();
+    m_item.font->x_scale = scale;
+    m_item.font->y_scale = scale;
 }
 
 HB_FontRec* ComplexTextController::allocHarfbuzzFont()
@@ -197,13 +222,6 @@ HB_FontRec* ComplexTextController::allocHarfbuzzFont()
     memset(font, 0, sizeof(HB_FontRec));
     font->klass = &harfbuzzSkiaClass;
     font->userData = 0;
-    // The values which harfbuzzSkiaClass returns are already scaled to
-    // pixel units, so we just set all these to one to disable further
-    // scaling.
-    font->x_ppem = 1;
-    font->y_ppem = 1;
-    font->x_scale = 1;
-    font->y_scale = 1;
 
     return font;
 }
@@ -369,7 +387,7 @@ const TextRun& ComplexTextController::getNormalizedTextRun(const TextRun& origin
         sourceText = normalizedString.getBuffer();
     }
 
-    normalizedBuffer.set(new UChar[normalizedBufferLength + 1]);
+    normalizedBuffer = adoptArrayPtr(new UChar[normalizedBufferLength + 1]);
 
     normalizeSpacesAndMirrorChars(sourceText, originalRun.rtl(), normalizedBuffer.get(), normalizedBufferLength);
 

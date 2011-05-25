@@ -1,5 +1,5 @@
 
-include(../../common.pri)
+include(../common.pri)
 include(features.pri)
 
 CONFIG(standalone_package) {
@@ -308,6 +308,7 @@ IDL_BINDINGS += \
     page/BarInfo.idl \
     page/Console.idl \
     page/Coordinates.idl \
+    page/Crypto.idl \
     page/DOMSelection.idl \
     page/DOMWindow.idl \
     page/EventSource.idl \

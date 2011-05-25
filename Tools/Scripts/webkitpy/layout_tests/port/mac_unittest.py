@@ -35,23 +35,31 @@ import port_testcase
 
 
 class MacTest(port_testcase.PortTestCase):
-    def make_port(self, options=port_testcase.mock_options):
+    def make_port(self, port_name=None, options=port_testcase.mock_options):
         if sys.platform != 'darwin':
             return None
-        port_obj = mac.MacPort(options=options)
+        port_obj = mac.MacPort(port_name=port_name, options=options)
         port_obj._options.results_directory = port_obj.results_directory()
         port_obj._options.configuration = 'Release'
         return port_obj
 
-    def test_skipped_file_paths(self):
-        port = self.make_port()
+    def assert_skipped_files_for_version(self, port_name, expected_paths):
+        port = self.make_port(port_name)
         if not port:
             return
         skipped_paths = port._skipped_file_paths()
         # FIXME: _skipped_file_paths should return WebKit-relative paths.
         # So to make it unit testable, we strip the WebKit directory from the path.
         relative_paths = [path[len(port.path_from_webkit_base()):] for path in skipped_paths]
-        self.assertEqual(relative_paths, ['LayoutTests/platform/mac-leopard/Skipped', 'LayoutTests/platform/mac/Skipped'])
+        self.assertEqual(relative_paths, expected_paths)
+
+    def test_skipped_file_paths(self):
+        self.assert_skipped_files_for_version('mac',
+            ['/LayoutTests/platform/mac/Skipped'])
+        self.assert_skipped_files_for_version('mac-snowleopard',
+            ['/LayoutTests/platform/mac-snowleopard/Skipped', '/LayoutTests/platform/mac/Skipped'])
+        self.assert_skipped_files_for_version('mac-leopard',
+            ['/LayoutTests/platform/mac-leopard/Skipped', '/LayoutTests/platform/mac/Skipped'])
 
     example_skipped_file = u"""
 # <rdar://problem/5647952> fast/events/mouseout-on-window.html needs mac DRT to issue mouse out events
@@ -69,12 +77,11 @@ svg/batik/text/smallFonts.svg
         "svg/batik/text/smallFonts.svg",
     ]
 
-    def test_skipped_file_paths(self):
+    def test_tests_from_skipped_file_contents(self):
         port = self.make_port()
         if not port:
             return
-        skipped_file = StringIO.StringIO(self.example_skipped_file)
-        self.assertEqual(port._tests_from_skipped_file(skipped_file), self.example_skipped_tests)
+        self.assertEqual(port._tests_from_skipped_file_contents(self.example_skipped_file), self.example_skipped_tests)
 
 
 if __name__ == '__main__':

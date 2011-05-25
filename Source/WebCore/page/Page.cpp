@@ -83,10 +83,6 @@
 #include "StorageNamespace.h"
 #endif
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-#include "ScriptDebugServer.h"
-#endif
-
 #if ENABLE(WML)
 #include "WMLPageState.h"
 #endif
@@ -197,10 +193,6 @@ Page::Page(const PageClients& pageClients)
         m_pluginHalter.set(new PluginHalter(pageClients.pluginHalterClient));
         m_pluginHalter->setPluginAllowedRunTime(m_settings->pluginAllowedRunTime());
     }
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    ScriptDebugServer::shared().pageCreated(this);
-#endif
 
 #ifndef NDEBUG
     pageCounter.increment();
@@ -365,7 +357,7 @@ void Page::goToItem(HistoryItem* item, FrameLoadType type)
 
 #if ENABLE(DATABASE)
         // If we're navigating the history via a fragment on the same document, then we do not want to stop databases.
-        const KURL& currentURL = m_mainFrame->loader()->url();
+        const KURL& currentURL = m_mainFrame->document()->url();
         const KURL& newURL = item->url();
     
         if (newURL.hasFragmentIdentifier() && equalIgnoringFragmentIdentifier(currentURL, newURL))

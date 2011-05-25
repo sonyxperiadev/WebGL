@@ -86,7 +86,7 @@ using namespace WebCore;
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<HashCountedSet<const char*> > counts(JSDOMWindow::commonJSGlobalData()->heap.protectedObjectTypeCounts());
+    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonJSGlobalData()->heap.protectedObjectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->second; ++i)
@@ -101,7 +101,7 @@ using namespace WebCore;
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<HashCountedSet<const char*> > counts(JSDOMWindow::commonJSGlobalData()->heap.objectTypeCounts());
+    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonJSGlobalData()->heap.objectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->second; ++i)
@@ -197,15 +197,16 @@ using namespace WebCore;
     WTF::FastMallocStatistics fastMallocStatistics = WTF::fastMallocStatistics();
     
     JSLock lock(SilenceAssertionsOnly);
-    MarkedSpace::Statistics heapMemoryStats = heapStatistics(JSDOMWindow::commonJSGlobalData());
+    size_t heapSize = JSDOMWindow::commonJSGlobalData()->heap.size();
+    size_t heapFree = JSDOMWindow::commonJSGlobalData()->heap.capacity() - heapSize;
     GlobalMemoryStatistics globalMemoryStats = globalMemoryStatistics();
     
     return [NSDictionary dictionaryWithObjectsAndKeys:
                 [NSNumber numberWithInt:fastMallocStatistics.reservedVMBytes], @"FastMallocReservedVMBytes",
                 [NSNumber numberWithInt:fastMallocStatistics.committedVMBytes], @"FastMallocCommittedVMBytes",
                 [NSNumber numberWithInt:fastMallocStatistics.freeListBytes], @"FastMallocFreeListBytes",
-                [NSNumber numberWithInt:heapMemoryStats.size], @"JavaScriptHeapSize",
-                [NSNumber numberWithInt:heapMemoryStats.free], @"JavaScriptFreeSize",
+                [NSNumber numberWithInt:heapSize], @"JavaScriptHeapSize",
+                [NSNumber numberWithInt:heapFree], @"JavaScriptFreeSize",
                 [NSNumber numberWithUnsignedInt:(unsigned int)globalMemoryStats.stackBytes], @"JavaScriptStackSize",
                 [NSNumber numberWithUnsignedInt:(unsigned int)globalMemoryStats.JITBytes], @"JavaScriptJITSize",
             nil];

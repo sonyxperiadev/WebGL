@@ -229,7 +229,7 @@ void GLWebViewState::inval(const IntRect& rect)
                  rect.x(), rect.y(), rect.right(), rect.bottom());
         }
     } else {
-        m_invalidateRegion.op(rect.x(), rect.y(), rect.right(), rect.bottom(), SkRegion::kUnion_Op);
+        m_invalidateRegion.op(rect.x(), rect.y(), rect.maxX(), rect.maxY(), SkRegion::kUnion_Op);
     }
 }
 

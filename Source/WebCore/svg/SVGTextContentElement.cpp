@@ -221,6 +221,14 @@ void SVGTextContentElement::svgAttributeChanged(const QualifiedName& attrName)
     // FIXME: also handle attribute changes for lengthAdjust and textLength
 }
 
+void SVGTextContentElement::fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap& attributeToPropertyTypeMap)
+{
+    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+
+    attributeToPropertyTypeMap.set(SVGNames::textLengthAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::lengthAdjustAttr, AnimatedEnumeration);
+}
+
 bool SVGTextContentElement::isKnownAttribute(const QualifiedName& attrName)
 {
     return attrName.matches(SVGNames::lengthAdjustAttr)
@@ -232,7 +240,10 @@ bool SVGTextContentElement::isKnownAttribute(const QualifiedName& attrName)
 
 bool SVGTextContentElement::selfHasRelativeLengths() const
 {
-    return textLength().isRelative();
+    // Any element of the <text> subtree is advertized as using relative lengths.
+    // On any window size change, we have to relayout the text subtree, as the
+    // effective 'on-screen' font size may change.
+    return true;
 }
 
 SVGTextContentElement* SVGTextContentElement::elementFromRenderer(RenderObject* renderer)

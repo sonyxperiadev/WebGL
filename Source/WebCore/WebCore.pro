@@ -79,12 +79,12 @@ symbian: {
 }
 
 isEmpty(OUTPUT_DIR): OUTPUT_DIR = ..
-include($$PWD/../../WebKit.pri)
+include($$PWD/../WebKit.pri)
 
 TEMPLATE = lib
 TARGET = QtWebKit
 
-contains(QT_CONFIG, embedded):CONFIG += embedded
+contains(QT_CONFIG, qpa):CONFIG += embedded
 
 CONFIG(standalone_package) {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = $$PWD/generated
@@ -114,9 +114,7 @@ moduleFile=$$PWD/../WebKit/qt/qt_webkit_version.pri
 isEmpty(QT_BUILD_TREE):include($$moduleFile)
 VERSION = $${QT_WEBKIT_MAJOR_VERSION}.$${QT_WEBKIT_MINOR_VERSION}.$${QT_WEBKIT_PATCH_VERSION}
 
-unix {
-    QMAKE_PKGCONFIG_REQUIRES = QtCore QtGui QtNetwork
-}
+unix|win32-g++*:QMAKE_PKGCONFIG_REQUIRES = QtCore QtGui QtNetwork
 
 unix:!mac:*-g++*:QMAKE_CXXFLAGS += -ffunction-sections -fdata-sections 
 unix:!mac:*-g++*:QMAKE_LFLAGS += -Wl,--gc-sections
@@ -339,7 +337,7 @@ SOURCES += \
     bindings/generic/RuntimeEnabledFeatures.cpp
 
 v8 {
-    include($$PWD/../JavaScriptCore/pcre/pcre.pri)
+    include($$PWD/../JavaScriptCore/yarr/yarr.pri)
     include($$PWD/../JavaScriptCore/wtf/wtf.pri)
 
     SOURCES += \
@@ -508,6 +506,7 @@ v8 {
         bindings/js/DOMObjectHashTableMap.cpp \
         bindings/js/DOMWrapperWorld.cpp \
         bindings/js/GCController.cpp \
+        bindings/js/JSArrayBufferCustom.cpp \
         bindings/js/JSAttrCustom.cpp \
         bindings/js/JSCDATASectionCustom.cpp \
         bindings/js/JSCSSFontFaceRuleCustom.cpp \
@@ -542,6 +541,7 @@ v8 {
         bindings/js/JSDOMWrapper.cpp \
         bindings/js/JSDataGridColumnListCustom.cpp \
         bindings/js/JSDataGridDataSource.cpp \
+        bindings/js/JSDataViewCustom.cpp \
         bindings/js/JSDebugWrapperSet.cpp \
         bindings/js/JSDesktopNotificationsCustom.cpp \
         bindings/js/JSDeviceMotionEventCustom.cpp \
@@ -555,6 +555,7 @@ v8 {
         bindings/js/JSEventTarget.cpp \
         bindings/js/JSExceptionBase.cpp \
         bindings/js/JSFileReaderCustom.cpp \
+        bindings/js/JSFloat32ArrayCustom.cpp \
         bindings/js/JSGeolocationCustom.cpp \
         bindings/js/JSHTMLAllCollectionCustom.cpp \
         bindings/js/JSHTMLAppletElementCustom.cpp \
@@ -579,9 +580,13 @@ v8 {
         bindings/js/JSImageDataCustom.cpp \
         bindings/js/JSInjectedScriptHostCustom.cpp \
         bindings/js/JSInspectorFrontendHostCustom.cpp \
+        bindings/js/JSInt16ArrayCustom.cpp \
+        bindings/js/JSInt32ArrayCustom.cpp \
+        bindings/js/JSInt8ArrayCustom.cpp \
         bindings/js/JSLazyEventListener.cpp \
         bindings/js/JSLocationCustom.cpp \
         bindings/js/JSMainThreadExecState.cpp \
+        bindings/js/JSMemoryInfoCustom.cpp \
         bindings/js/JSMessageChannelCustom.cpp \
         bindings/js/JSMessageEventCustom.cpp \
         bindings/js/JSMessagePortCustom.cpp \
@@ -603,6 +608,9 @@ v8 {
         bindings/js/JSTouchCustom.cpp \
         bindings/js/JSTouchListCustom.cpp \
         bindings/js/JSTreeWalkerCustom.cpp \
+        bindings/js/JSUint16ArrayCustom.cpp \
+        bindings/js/JSUint32ArrayCustom.cpp \
+        bindings/js/JSUint8ArrayCustom.cpp \
         bindings/js/JSWebKitCSSKeyframeRuleCustom.cpp \
         bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp \
         bindings/js/JSWebKitCSSMatrixCustom.cpp \
@@ -730,6 +738,7 @@ SOURCES += \
     dom/Document.cpp \
     dom/DocumentFragment.cpp \
     dom/DocumentMarkerController.cpp \
+    dom/DocumentOrderedMap.cpp \
     dom/DocumentParser.cpp \
     dom/DocumentType.cpp \
     dom/DOMImplementation.cpp \
@@ -1015,12 +1024,22 @@ SOURCES += \
     html/ValidationMessage.cpp \
     html/ValidityState.cpp \
     html/WeekInputType.cpp \
+    html/canvas/ArrayBuffer.cpp \
+    html/canvas/ArrayBufferView.cpp \
     html/canvas/CanvasGradient.cpp \
     html/canvas/CanvasPattern.cpp \
     html/canvas/CanvasPixelArray.cpp \
     html/canvas/CanvasRenderingContext.cpp \
     html/canvas/CanvasRenderingContext2D.cpp \
     html/canvas/CanvasStyle.cpp \
+    html/canvas/DataView.cpp \
+    html/canvas/Float32Array.cpp \
+    html/canvas/Int16Array.cpp \
+    html/canvas/Int32Array.cpp \
+    html/canvas/Int8Array.cpp \
+    html/canvas/Uint16Array.cpp \
+    html/canvas/Uint32Array.cpp \
+    html/canvas/Uint8Array.cpp \
     html/parser/CSSPreloadScanner.cpp \
     html/parser/HTMLConstructionSite.cpp \
     html/parser/HTMLDocumentParser.cpp \
@@ -1033,15 +1052,19 @@ SOURCES += \
     html/parser/HTMLParserScheduler.cpp \
     html/parser/HTMLPreloadScanner.cpp \
     html/parser/HTMLScriptRunner.cpp \
+    html/parser/HTMLSourceTracker.cpp \
     html/parser/HTMLTokenizer.cpp \
     html/parser/HTMLTreeBuilder.cpp \
     html/parser/HTMLViewSourceParser.cpp \
     html/parser/TextDocumentParser.cpp \
     html/parser/TextViewSourceParser.cpp \
+    html/parser/XSSFilter.cpp \
+    html/shadow/MediaControls.cpp \
     html/shadow/SliderThumbElement.cpp \
     inspector/ConsoleMessage.cpp \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
+    inspector/InspectorAgent.cpp \
     inspector/InspectorApplicationCacheAgent.cpp \
     inspector/InspectorBrowserDebuggerAgent.cpp \
     inspector/InspectorCSSAgent.cpp \
@@ -1054,24 +1077,20 @@ SOURCES += \
     inspector/InspectorDOMAgent.cpp \
     inspector/InspectorDOMStorageAgent.cpp \
     inspector/InspectorDOMStorageResource.cpp \
-    inspector/InspectorFileSystemAgent.cpp \
     inspector/InspectorFrontendClientLocal.cpp \
     inspector/InspectorFrontendHost.cpp \
     inspector/InspectorInstrumentation.cpp \
     inspector/InspectorProfilerAgent.cpp \
     inspector/InspectorResourceAgent.cpp \
     inspector/InspectorRuntimeAgent.cpp \
-    inspector/InspectorSettings.cpp \
     inspector/InspectorState.cpp \
     inspector/InspectorStyleSheet.cpp \
     inspector/InspectorTimelineAgent.cpp \
     inspector/InspectorValues.cpp \
     inspector/ScriptArguments.cpp \
-    inspector/ScriptBreakpoint.cpp \
     inspector/ScriptCallFrame.cpp \
     inspector/ScriptCallStack.cpp \
     inspector/TimelineRecordFactory.cpp \
-    loader/archive/ArchiveFactory.cpp \
     loader/archive/ArchiveResource.cpp \
     loader/archive/ArchiveResourceCollection.cpp \
     loader/cache/MemoryCache.cpp \
@@ -1125,12 +1144,12 @@ SOURCES += \
     page/BarInfo.cpp \
     page/Chrome.cpp \
     page/Console.cpp \
+    page/ContentSecurityPolicy.cpp \
     page/ContextMenuController.cpp \
+    page/Crypto.cpp \
     page/DOMSelection.cpp \
     page/DOMTimer.cpp \
     page/DOMWindow.cpp \
-    page/Navigator.cpp \
-    page/NavigatorBase.cpp \
     page/DragController.cpp \
     page/EventHandler.cpp \
     page/EventSource.cpp \
@@ -1146,6 +1165,8 @@ SOURCES += \
     page/Location.cpp \
     page/MemoryInfo.cpp \
     page/MouseEventWithHitTestResults.cpp \
+    page/Navigator.cpp \
+    page/NavigatorBase.cpp \
     page/OriginAccessEntry.cpp \
     page/Page.cpp \
     page/PageGroup.cpp \
@@ -1155,14 +1176,13 @@ SOURCES += \
     page/PerformanceTiming.cpp \
     page/PluginHalter.cpp \
     page/PrintContext.cpp \
-    page/SecurityOrigin.cpp \
     page/Screen.cpp \
+    page/SecurityOrigin.cpp \
     page/Settings.cpp \
     page/SpatialNavigation.cpp \
     page/SuspendableTimer.cpp \
     page/UserContentURLPattern.cpp \
     page/WindowFeatures.cpp \
-    page/XSSAuditor.cpp \
     plugins/PluginData.cpp \
     plugins/DOMPluginArray.cpp \
     plugins/DOMPlugin.cpp \
@@ -1175,6 +1195,7 @@ SOURCES += \
     platform/text/Base64.cpp \
     platform/text/BidiContext.cpp \
     platform/text/Hyphenation.cpp \
+    platform/text/LocalizedNumberNone.cpp \
     platform/ContentType.cpp \
     platform/CrossThreadCopier.cpp \
     platform/DeprecatedPtrListImpl.cpp \
@@ -1268,6 +1289,7 @@ SOURCES += \
     platform/text/TextCodecLatin1.cpp \
     platform/text/TextCodecUserDefined.cpp \
     platform/text/TextCodecUTF16.cpp \
+    platform/text/TextCodecUTF8.cpp \
     platform/text/TextEncoding.cpp \
     platform/text/TextEncodingDetectorNone.cpp \
     platform/text/TextEncodingRegistry.cpp \
@@ -1281,6 +1303,7 @@ SOURCES += \
     platform/Widget.cpp \
     platform/PlatformStrategies.cpp \
     platform/LocalizedStrings.cpp \
+    plugins/IFrameShimSupport.cpp \
     plugins/PluginDatabase.cpp \
     plugins/PluginDebug.cpp \
     plugins/PluginPackage.cpp \
@@ -1305,6 +1328,7 @@ SOURCES += \
     rendering/RenderBoxModelObject.cpp \
     rendering/RenderBR.cpp \
     rendering/RenderButton.cpp \
+    rendering/RenderCombineText.cpp \
     rendering/RenderCounter.cpp \
     rendering/RenderDataGrid.cpp \
     rendering/RenderDetails.cpp \
@@ -1492,15 +1516,14 @@ v8 {
         bindings/js/GCController.h \
         bindings/js/DOMObjectHashTableMap.h \
         bindings/js/DOMWrapperWorld.h \
-        bindings/js/JSCallbackData.h \
+        bindings/js/JSArrayBufferViewHelper.h \
         bindings/js/JSAudioConstructor.h \
         bindings/js/JSCSSStyleDeclarationCustom.h \
+        bindings/js/JSCallbackData.h \
         bindings/js/JSCustomPositionCallback.h \
         bindings/js/JSCustomPositionErrorCallback.h \
         bindings/js/JSCustomVoidCallback.h \
         bindings/js/JSCustomXPathNSResolver.h \
-        bindings/js/JSDataGridDataSource.h \
-        bindings/js/JSDebugWrapperSet.h \
         bindings/js/JSDOMBinding.h \
         bindings/js/JSDOMGlobalObject.h \
         bindings/js/JSDOMStringMapCustom.h \
@@ -1508,15 +1531,17 @@ v8 {
         bindings/js/JSDOMWindowCustom.h \
         bindings/js/JSDOMWindowShell.h \
         bindings/js/JSDOMWrapper.h \
+        bindings/js/JSDataGridDataSource.h \
+        bindings/js/JSDebugWrapperSet.h \
         bindings/js/JSErrorHandler.h \
         bindings/js/JSEventListener.h \
         bindings/js/JSEventTarget.h \
-        bindings/js/JSHistoryCustom.h \
         bindings/js/JSHTMLAppletElementCustom.h \
         bindings/js/JSHTMLEmbedElementCustom.h \
         bindings/js/JSHTMLInputElementCustom.h \
         bindings/js/JSHTMLObjectElementCustom.h \
         bindings/js/JSHTMLSelectElementCustom.h \
+        bindings/js/JSHistoryCustom.h \
         bindings/js/JSImageConstructor.h \
         bindings/js/JSLazyEventListener.h \
         bindings/js/JSLocationCustom.h \
@@ -1660,6 +1685,7 @@ HEADERS += \
     dom/DocumentFragment.h \
     dom/DocumentMarker.h \
     dom/DocumentMarkerController.h \
+    dom/DocumentOrderedMap.h \
     dom/DocumentType.h \
     dom/DOMImplementation.h \
     dom/DOMStringList.h \
@@ -1805,12 +1831,22 @@ HEADERS += \
     history/HistoryItem.h \
     history/PageCache.h \
     html/AsyncImageResizer.h \
+    html/canvas/ArrayBuffer.h \
+    html/canvas/ArrayBufferView.h \
     html/canvas/CanvasGradient.h \
     html/canvas/CanvasPattern.h \
     html/canvas/CanvasPixelArray.h \
     html/canvas/CanvasRenderingContext.h \
     html/canvas/CanvasRenderingContext2D.h \
     html/canvas/CanvasStyle.h \
+    html/canvas/DataView.h \
+    html/canvas/Float32Array.h \
+    html/canvas/Int16Array.h \
+    html/canvas/Int32Array.h \
+    html/canvas/Int8Array.h \
+    html/canvas/Uint16Array.h \
+    html/canvas/Uint32Array.h \
+    html/canvas/Uint8Array.h \
     html/ClassList.h \
     html/CollectionCache.h \
     html/DataGridColumn.h \
@@ -1937,20 +1973,23 @@ HEADERS += \
     html/parser/HTMLTokenizer.h \
     html/parser/HTMLTreeBuilder.h \
     html/parser/HTMLViewSourceParser.h \
+    html/parser/XSSFilter.h \
     inspector/ConsoleMessage.h \
     inspector/InjectedScript.h \
     inspector/InjectedScriptHost.h \
+    inspector/InspectorAgent.h \
     inspector/InspectorApplicationCacheAgent.h \
     inspector/InspectorBrowserDebuggerAgent.h \
     inspector/InspectorConsoleAgent.h \
+    inspector/InspectorConsoleInstrumentation.h \
     inspector/InspectorController.h \
     inspector/InspectorCSSAgent.h \
     inspector/InspectorDatabaseAgent.h \
+    inspector/InspectorDatabaseInstrumentation.h \
     inspector/InspectorDatabaseResource.h \
     inspector/InspectorDebuggerAgent.h \
     inspector/InspectorDOMStorageAgent.h \
     inspector/InspectorDOMStorageResource.h \
-    inspector/InspectorFileSystemAgent.h \
     inspector/InspectorFrontendClient.h \
     inspector/InspectorFrontendClientLocal.h \
     inspector/InspectorFrontendHost.h \
@@ -1958,7 +1997,6 @@ HEADERS += \
     inspector/InspectorProfilerAgent.h \
     inspector/InspectorResourceAgent.h \
     inspector/InspectorRuntimeAgent.h \
-    inspector/InspectorSettings.h \
     inspector/InspectorState.h \
     inspector/InspectorStyleSheet.h \
     inspector/InspectorTimelineAgent.h \
@@ -1971,7 +2009,6 @@ HEADERS += \
     loader/appcache/ApplicationCacheStorage.h \
     loader/appcache/DOMApplicationCache.h \
     loader/appcache/ManifestParser.h \
-    loader/archive/ArchiveFactory.h \
     loader/archive/ArchiveResourceCollection.h \
     loader/archive/ArchiveResource.h \
     loader/cache/CachedCSSStyleSheet.h \
@@ -2065,7 +2102,6 @@ HEADERS += \
     page/SpeechInputResultList.h \
     page/WindowFeatures.h \
     page/WorkerNavigator.h \
-    page/XSSAuditor.h \
     platform/animation/Animation.h \
     platform/animation/AnimationList.h \
     platform/Arena.h \
@@ -2117,6 +2153,7 @@ HEADERS += \
     platform/graphics/FontData.h \
     platform/graphics/FontDescription.h \
     platform/graphics/FontFamily.h \
+    platform/graphics/FontMetrics.h \
     platform/graphics/Font.h \
     platform/graphics/GeneratedImage.h \
     platform/graphics/Gradient.h \
@@ -2217,6 +2254,7 @@ HEADERS += \
     platform/text/TextCodecLatin1.h \
     platform/text/TextCodecUserDefined.h \
     platform/text/TextCodecUTF16.h \
+    platform/text/TextCodecUTF8.h \
     platform/text/TextEncoding.h \
     platform/text/TextEncodingRegistry.h \
     platform/text/TextStream.h \
@@ -2235,6 +2273,7 @@ HEADERS += \
     plugins/PluginData.h \
     plugins/PluginDebug.h \
     plugins/DOMPlugin.h \
+    plugins/IFrameShimSupport.h \
     plugins/PluginMainThreadScheduler.h \
     plugins/PluginPackage.h \
     plugins/PluginStream.h \
@@ -2271,6 +2310,7 @@ HEADERS += \
     rendering/RenderBoxModelObject.h \
     rendering/RenderBR.h \
     rendering/RenderButton.h \
+    rendering/RenderCombineText.h \
     rendering/RenderCounter.h \
     rendering/RenderDataGrid.h \
     rendering/RenderDetails.h \
@@ -2663,6 +2703,7 @@ HEADERS += \
     $$PWD/../WebKit/qt/Api/qwebplugindatabase_p.h \
     $$PWD/../WebKit/qt/WebCoreSupport/InspectorServerQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/ChromeClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.h \
@@ -2839,22 +2880,26 @@ contains (CONFIG, text_breaking_with_icu) {
     LIBS += -licuuc
 }
 
+symbian {
+    SOURCES += \
+        plugins/symbian/PluginDatabaseSymbian.cpp \
+        plugins/symbian/PluginPackageSymbian.cpp
+
+    LIBS += -lefsrv
+}
+
 contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
 
     SOURCES += plugins/npapi.cpp
 
     symbian {
         SOURCES += \
-        plugins/symbian/PluginPackageSymbian.cpp \
-        plugins/symbian/PluginDatabaseSymbian.cpp \
         plugins/symbian/PluginViewSymbian.cpp \
         plugins/symbian/PluginContainerSymbian.cpp
 
         HEADERS += \
         plugins/symbian/PluginContainerSymbian.h \
         plugins/symbian/npinterface.h
-
-        LIBS += -lefsrv
 
     } else {
 
@@ -3264,11 +3309,13 @@ contains(DEFINES, ENABLE_VIDEO=1) {
      } else:contains(MOBILITY_CONFIG, multimedia) {
         HEADERS += \ 
             platform/graphics/qt/MediaPlayerPrivateQt.h \
-            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoQt.h
+            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoQt.h \
+            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoWidget.h
 
         SOURCES += \
             platform/graphics/qt/MediaPlayerPrivateQt.cpp \
-            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoQt.cpp
+            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoQt.cpp \
+            $$PWD/../WebKit/qt/WebCoreSupport/FullScreenVideoWidget.cpp
 
         CONFIG *= mobility
         MOBILITY += multimedia
@@ -3334,6 +3381,7 @@ contains(DEFINES, ENABLE_XSLT=1) {
 
 contains(DEFINES, ENABLE_FILTERS=1) {
     SOURCES += \
+        platform/graphics/filters/DistantLightSource.cpp \
         platform/graphics/filters/FEBlend.cpp \
         platform/graphics/filters/FEColorMatrix.cpp \
         platform/graphics/filters/FEComponentTransfer.cpp \
@@ -3352,6 +3400,8 @@ contains(DEFINES, ENABLE_FILTERS=1) {
         platform/graphics/filters/FETurbulence.cpp \
         platform/graphics/filters/FilterEffect.cpp \
         platform/graphics/filters/LightSource.cpp \
+        platform/graphics/filters/PointLightSource.cpp \
+        platform/graphics/filters/SpotLightSource.cpp \
         platform/graphics/filters/SourceAlpha.cpp \
         platform/graphics/filters/SourceGraphic.cpp
 }
@@ -3751,50 +3801,7 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1) {
     }
 }
 
-contains(DEFINES, ENABLE_BLOB=1) | contains(DEFINES, ENABLE_3D_CANVAS=1) {
-    !v8 {
-        HEADERS += \
-            bindings/js/JSArrayBufferViewHelper.h
-    }
-
-    HEADERS += \
-        html/canvas/ArrayBuffer.h \
-        html/canvas/ArrayBufferView.h \
-        html/canvas/DataView.h \
-        html/canvas/Int8Array.h \
-        html/canvas/Float32Array.h \
-        html/canvas/Int32Array.h \
-        html/canvas/Int16Array.h \
-        html/canvas/Uint8Array.h \
-        html/canvas/Uint32Array.h \
-        html/canvas/Uint16Array.h
-
-    !v8 {
-        SOURCES += \
-            bindings/js/JSArrayBufferCustom.cpp \
-            bindings/js/JSDataViewCustom.cpp \
-            bindings/js/JSInt8ArrayCustom.cpp \
-            bindings/js/JSFloat32ArrayCustom.cpp \
-            bindings/js/JSInt32ArrayCustom.cpp \
-            bindings/js/JSInt16ArrayCustom.cpp \
-            bindings/js/JSUint8ArrayCustom.cpp \
-            bindings/js/JSUint32ArrayCustom.cpp \
-            bindings/js/JSUint16ArrayCustom.cpp
-    }
-    SOURCES += \
-        html/canvas/ArrayBuffer.cpp \
-        html/canvas/ArrayBufferView.cpp \
-        html/canvas/DataView.cpp \
-        html/canvas/Int8Array.cpp \
-        html/canvas/Float32Array.cpp \
-        html/canvas/Int32Array.cpp \
-        html/canvas/Int16Array.cpp \
-        html/canvas/Uint8Array.cpp \
-        html/canvas/Uint32Array.cpp \
-        html/canvas/Uint16Array.cpp
-    }
-
-contains(DEFINES, ENABLE_3D_CANVAS=1) {
+contains(DEFINES, ENABLE_WEBGL=1) {
     tobe|!tobe: QT += opengl
 
     HEADERS += \

@@ -357,11 +357,10 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame:
     view->updateLayoutAndStyleIfNeededRecursive();
 
     if (layer & QWebFrame::ContentsLayer) {
-        painter->save();
         for (int i = 0; i < vector.size(); ++i) {
             const QRect& clipRect = vector.at(i);
 
-            QRect intersectedRect = clipRect.intersected(view->frameRect());
+            QRect rect = clipRect.intersected(view->frameRect());
 
             context->save();
             painter->setClipRect(clipRect, Qt::IntersectClip);
@@ -372,7 +371,6 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame:
             int scrollX = view->scrollX();
             int scrollY = view->scrollY();
 
-            QRect rect = intersectedRect;
             context->translate(x, y);
             rect.translate(-x, -y);
             context->translate(-scrollX, -scrollY);
@@ -383,7 +381,6 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame:
 
             context->restore();
         }
-        painter->restore();
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
         renderCompositedLayers(context, IntRect(clip.boundingRect()));
 #endif
@@ -403,15 +400,13 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame:
             if (layer & QWebFrame::ScrollBarLayer
                 && !view->scrollbarsSuppressed()
                 && (view->horizontalScrollbar() || view->verticalScrollbar())) {
-                context->save();
-
                 QRect rect = intersectedRect;
                 context->translate(x, y);
                 rect.translate(-x, -y);
 
                 view->paintScrollbars(context, rect);
 
-                context->restore();
+                context->translate(-x, -y);
             }
 
 #if ENABLE(PAN_SCROLLING)
@@ -754,14 +749,14 @@ static inline QUrl ensureAbsoluteUrl(const QUrl &url)
 void QWebFrame::setUrl(const QUrl &url)
 {
     const QUrl absolute = ensureAbsoluteUrl(url);
-    d->frame->loader()->writer()->begin(absolute);
-    d->frame->loader()->writer()->end();
+    d->frame->loader()->activeDocumentLoader()->writer()->begin(absolute);
+    d->frame->loader()->activeDocumentLoader()->writer()->end();
     load(absolute);
 }
 
 QUrl QWebFrame::url() const
 {
-    return d->frame->loader()->url();
+    return d->frame->document()->url();
 }
 
 /*!
@@ -817,7 +812,7 @@ QUrl QWebFrame::baseUrl() const
 
 QIcon QWebFrame::icon() const
 {
-    return QWebSettings::iconForUrl(d->frame->loader()->url());
+    return QWebSettings::iconForUrl(d->frame->document()->url());
 }
 
 /*!
@@ -1309,7 +1304,7 @@ QPoint QWebFrame::pos() const
     if (!d->frame->view())
         return QPoint();
 
-    return d->frame->view()->frameRect().topLeft();
+    return d->frame->view()->frameRect().location();
 }
 
 /*!

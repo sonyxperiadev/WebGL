@@ -1,4 +1,4 @@
-# Copyright (C) 2010 Apple Inc. All rights reserved.
+# Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -29,16 +29,22 @@ messages -> WebPage {
     SetDrawsBackground(bool drawsBackground)
     SetDrawsTransparentBackground(bool drawsTransparentBackground)
 
+    ViewWillStartLiveResize()
+    ViewWillEndLiveResize()
+
     KeyEvent(WebKit::WebKeyboardEvent event)
     MouseEvent(WebKit::WebMouseEvent event)
     WheelEvent(WebKit::WebWheelEvent event)
+#if ENABLE(GESTURE_EVENTS)
+    GestureEvent(WebKit::WebGestureEvent event)
+#endif
 #if ENABLE(TOUCH_EVENTS)
     TouchEvent(WebKit::WebTouchEvent event)
 #endif
 
-    GoBack(uint64_t backForwardItemID)
-    GoForward(uint64_t backForwardItemID)
-    GoToBackForwardItem(uint64_t backForwardItemID)
+    GoBack(uint64_t backForwardItemID, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
+    GoForward(uint64_t backForwardItemID, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
+    GoToBackForwardItem(uint64_t backForwardItemID, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
     LoadHTMLString(WTF::String htmlString, WTF::String baseURL)
     LoadAlternateHTMLString(WTF::String htmlString, WTF::String baseURL, WTF::String unreachableURL); 
     LoadPlainTextString(WTF::String string)
@@ -49,7 +55,7 @@ messages -> WebPage {
 
     StopLoadingFrame(uint64_t frameID)
     
-    RestoreSessionAndNavigateToCurrentItem(WebKit::SessionState state)
+    RestoreSessionAndNavigateToCurrentItem(WebKit::SessionState state, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
 
     DidRemoveBackForwardItem(uint64_t backForwardItemID)
 
@@ -64,6 +70,9 @@ messages -> WebPage {
     GetSourceForFrame(uint64_t frameID, uint64_t callbackID)
     GetWebArchiveOfFrame(uint64_t frameID, uint64_t callbackID)
     RunJavaScriptInMainFrame(WTF::String script, uint64_t callbackID)
+
+    # FIXME: This should be a drawing area message.
+    ForceRepaint(uint64_t callbackID)
 
     PreferencesDidChange(WebKit::WebPreferencesStore store)
 
@@ -100,7 +109,12 @@ messages -> WebPage {
     CountStringMatches(WTF::String string, uint32_t findOptions, unsigned maxMatchCount)
 
     # Drag and drop.
+#if PLATFORM(WIN)
+    PerformDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, HashMap<UINT,Vector<String>> dataMap, uint32_t flags)
+#endif
+#if !PLATFORM(WIN)
     PerformDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, WTF::String dragStorageName, uint32_t flags)
+#endif
     DragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t operation)
 
     # Popup menu.
@@ -113,6 +127,9 @@ messages -> WebPage {
     # Open panel.
     DidChooseFilesForOpenPanel(Vector<WTF::String> fileURLs)
     DidCancelForOpenPanel()
+#if ENABLE(WEB_PROCESS_SANDBOX)
+    ExtendSandboxForFileFromOpenPanel(WebKit::SandboxExtension::Handle sandboxExtensionHandle)
+#endif
 
     # Spelling and grammar.
     AdvanceToNextMisspelling(bool startBeforeSelection)
@@ -133,11 +150,12 @@ messages -> WebPage {
     SetWindowResizerSize(WebCore::IntSize intersectsView)
 
     # Printing.
-    BeginPrinting(uint64_t frameID, WebKit::PrintInfo printInfo);
+    BeginPrinting(uint64_t frameID, WebKit::PrintInfo printInfo)
     EndPrinting();
-    ComputePagesForPrinting(uint64_t frameID, WebKit::PrintInfo printInfo) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting)
+    ComputePagesForPrinting(uint64_t frameID, WebKit::PrintInfo printInfo, uint64_t callbackID)
 #if PLATFORM(MAC)
-    DrawRectToPDF(uint64_t frameID, WebCore::IntRect rect) -> (Vector<uint8_t> pdfData)
+    DrawRectToPDF(uint64_t frameID, WebCore::IntRect rect, uint64_t callbackID)
+    DrawPagesToPDF(uint64_t frameID, uint32_t first, uint32_t count, uint64_t callbackID)
 #endif
 
     // FIXME: This a dummy message, to avoid breaking the build for platforms that don't require
@@ -153,7 +171,7 @@ messages -> WebPage {
     GetMarkedRange() -> (uint64_t location, uint64_t length)
     CharacterIndexForPoint(WebCore::IntPoint point) -> (uint64_t result)
     FirstRectForCharacterRange(uint64_t location, uint64_t length) -> (WebCore::IntRect resultRect)
-    SendAccessibilityPresenterToken(CoreIPC::DataReference token)
+    RegisterUIProcessAccessibilityTokens(CoreIPC::DataReference elemenToken, CoreIPC::DataReference windowToken)
 #endif
 #if PLATFORM(WIN)
     ConfirmComposition(WTF::String compositionString)

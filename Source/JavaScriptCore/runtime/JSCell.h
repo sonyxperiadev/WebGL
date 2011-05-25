@@ -64,6 +64,7 @@ namespace JSC {
         friend class JSZombie;
         friend class JSGlobalData;
         friend class MarkedSpace;
+        friend class MarkedBlock;
 
     private:
         explicit JSCell(Structure*);
@@ -336,22 +337,50 @@ namespace JSC {
     {
         return isCell() ? asCell()->toThisObject(exec) : toThisObjectSlowCase(exec);
     }
+    
+    template <typename T> void MarkStack::append(DeprecatedPtr<T>* slot)
+    {
+        internalAppend(slot->get());
+    }
+    
+    template <typename T> void MarkStack::append(WriteBarrierBase<T>* slot)
+    {
+        internalAppend(slot->get());
+    }
 
-    ALWAYS_INLINE void MarkStack::append(JSCell* cell)
+    ALWAYS_INLINE void MarkStack::internalAppend(JSCell* cell)
     {
         ASSERT(!m_isCheckingForDefaultMarkViolation);
         ASSERT(cell);
-        if (Heap::checkMarkCell(cell))
+        if (Heap::testAndSetMarked(cell))
             return;
         if (cell->structure()->typeInfo().type() >= CompoundType)
             m_values.append(cell);
     }
 
-    ALWAYS_INLINE void MarkStack::append(JSValue value)
+    ALWAYS_INLINE void MarkStack::deprecatedAppend(JSCell** value)
+    {
+        ASSERT(value);
+        internalAppend(*value);
+    }
+
+    ALWAYS_INLINE void MarkStack::deprecatedAppend(JSValue* value)
+    {
+        ASSERT(value);
+        internalAppend(*value);
+    }
+    
+    ALWAYS_INLINE void MarkStack::deprecatedAppend(Register* value)
+    {
+        ASSERT(value);
+        internalAppend(value->jsValue());
+    }
+
+    ALWAYS_INLINE void MarkStack::internalAppend(JSValue value)
     {
         ASSERT(value);
         if (value.isCell())
-            append(value.asCell());
+            internalAppend(value.asCell());
     }
 
     inline Heap* Heap::heap(JSValue v)
@@ -363,7 +392,7 @@ namespace JSC {
 
     inline Heap* Heap::heap(JSCell* c)
     {
-        return MarkedSpace::cellBlock(c)->heap;
+        return MarkedSpace::heap(c);
     }
     
 #if ENABLE(JSC_ZOMBIES)
@@ -372,6 +401,23 @@ namespace JSC {
         return isCell() && asCell() && asCell()->isZombie();
     }
 #endif
+
+    inline void* MarkedBlock::allocate(size_t& nextCell)
+    {
+        do {
+            ASSERT(nextCell < CELLS_PER_BLOCK);
+            if (!marked.testAndSet(nextCell)) { // Always false for the last cell in the block
+                JSCell* cell = reinterpret_cast<JSCell*>(&cells[nextCell++]);
+                cell->~JSCell();
+                return cell;
+            }
+            nextCell = marked.nextPossiblyUnset(nextCell);
+        } while (nextCell != CELLS_PER_BLOCK);
+        
+        nextCell = 0;
+        return 0;
+    }
+
 } // namespace JSC
 
 #endif // JSCell_h

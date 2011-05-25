@@ -118,7 +118,7 @@ void IDBObjectStoreBackendImpl::getInternal(ScriptExecutionContext*, PassRefPtr<
     ASSERT((key->type() == IDBKey::DateType) != query.isColumnNull(1));
     ASSERT((key->type() == IDBKey::NumberType) != query.isColumnNull(2));
 
-    callbacks->onSuccess(SerializedScriptValue::createFromWire(query.getColumnText(3)));
+    callbacks->onSuccess(SerializedScriptValue::createFromWire(query.getColumnBlobAsString(3)));
     ASSERT(query.step() != SQLResultRow);
 }
 
@@ -142,7 +142,7 @@ static bool putObjectStoreData(SQLiteDatabase& db, IDBKey* key, SerializedScript
     if (query.prepare() != SQLResultOk)
         return false;
     key->bindWithNulls(query, 1);
-    query.bindText(4, value->toWireString());
+    query.bindBlob(4, value->toWireString());
     if (dataRowId != IDBDatabaseBackendImpl::InvalidId)
         query.bindInt64(5, dataRowId);
     else
@@ -179,7 +179,7 @@ static bool putIndexData(SQLiteDatabase& db, IDBKey* key, int64_t indexId, int64
     return putQuery.step() == SQLResultDone;
 }
 
-void IDBObjectStoreBackendImpl::put(PassRefPtr<SerializedScriptValue> prpValue, PassRefPtr<IDBKey> prpKey, bool addOnly, PassRefPtr<IDBCallbacks> prpCallbacks, IDBTransactionBackendInterface* transactionPtr, ExceptionCode& ec)
+void IDBObjectStoreBackendImpl::put(PassRefPtr<SerializedScriptValue> prpValue, PassRefPtr<IDBKey> prpKey, PutMode putMode, PassRefPtr<IDBCallbacks> prpCallbacks, IDBTransactionBackendInterface* transactionPtr, ExceptionCode& ec)
 {
     if (transactionPtr->mode() == IDBTransaction::READ_ONLY) {
         ec = IDBDatabaseException::READ_ONLY_ERR;
@@ -193,44 +193,74 @@ void IDBObjectStoreBackendImpl::put(PassRefPtr<SerializedScriptValue> prpValue, 
     RefPtr<IDBTransactionBackendInterface> transaction = transactionPtr;
     // FIXME: This should throw a SERIAL_ERR on structured clone problems.
     // FIXME: This should throw a DATA_ERR when the wrong key/keyPath data is supplied.
-    if (!transaction->scheduleTask(createCallbackTask(&IDBObjectStoreBackendImpl::putInternal, objectStore, value, key, addOnly, callbacks, transaction)))
+    if (!transaction->scheduleTask(createCallbackTask(&IDBObjectStoreBackendImpl::putInternal, objectStore, value, key, putMode, callbacks, transaction)))
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
 }
 
-void IDBObjectStoreBackendImpl::putInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<SerializedScriptValue> prpValue, PassRefPtr<IDBKey> prpKey, bool addOnly, PassRefPtr<IDBCallbacks> callbacks, PassRefPtr<IDBTransactionBackendInterface> transaction)
+PassRefPtr<IDBKey> IDBObjectStoreBackendImpl::selectKeyForPut(IDBObjectStoreBackendImpl* objectStore, SerializedScriptValue* value, IDBKey* key, PutMode putMode, IDBCallbacks* callbacks)
+{
+    if (putMode == CursorUpdate)
+        ASSERT(key);
+
+    const bool autoIncrement = objectStore->autoIncrement();
+    const bool hasKeyPath = !objectStore->m_keyPath.isNull();
+
+    if (hasKeyPath && key && putMode != CursorUpdate) {
+        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "A key was supplied for an objectStore that has a keyPath."));
+        return 0;
+    }
+
+    if (autoIncrement && key) {
+        objectStore->resetAutoIncrementKeyCache();
+        return key;
+    }
+
+    if (autoIncrement) {
+        ASSERT(!key);
+        if (!hasKeyPath)
+            return objectStore->genAutoIncrementKey();
+
+        RefPtr<IDBKey> keyPathKey = fetchKeyFromKeyPath(value, objectStore->m_keyPath);
+        if (keyPathKey) {
+            objectStore->resetAutoIncrementKeyCache();
+            return keyPathKey;
+        }
+
+        // FIXME: Generate auto increment key, and inject it through the key path.
+        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::UNKNOWN_ERR, "Adding data to object stores with auto increment and in-line keys not yet supported."));
+        return 0;
+    }
+
+    if (hasKeyPath) {
+        RefPtr<IDBKey> keyPathKey = fetchKeyFromKeyPath(value, objectStore->m_keyPath);
+
+        if (!keyPathKey) {
+            callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "The key could not be fetched from the keyPath."));
+            return 0;
+        }
+
+        if (putMode == CursorUpdate && !keyPathKey->isEqual(key)) {
+            callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "The key fetched from the keyPath does not match the key of the cursor."));
+            return 0;
+        }
+
+        return keyPathKey.release();
+    }
+
+    if (!key) {
+        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "No key supplied"));
+        return 0;
+    }
+
+    return key;
+}
+
+void IDBObjectStoreBackendImpl::putInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<SerializedScriptValue> prpValue, PassRefPtr<IDBKey> prpKey, PutMode putMode, PassRefPtr<IDBCallbacks> callbacks, PassRefPtr<IDBTransactionBackendInterface> transaction)
 {
     RefPtr<SerializedScriptValue> value = prpValue;
-    RefPtr<IDBKey> key = prpKey;
-
-    if (!objectStore->m_keyPath.isNull() && key) {
-        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "A key was supplied for an objectStore that has a keyPath."));
+    RefPtr<IDBKey> key = selectKeyForPut(objectStore.get(), value.get(), prpKey.get(), putMode, callbacks.get());
+    if (!key)
         return;
-    }
-
-    if (objectStore->autoIncrement() && key) {
-        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "A key was supplied for an objectStore that is using auto increment."));
-        return;
-    }
-
-    if (objectStore->autoIncrement()) {
-        key = objectStore->genAutoIncrementKey();
-
-        if (!objectStore->m_keyPath.isNull()) {
-            // FIXME: Inject the generated key into the object.
-            callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::UNKNOWN_ERR, "Adding data to object stores with auto increment and in-line keys not yet supported."));
-            return;
-        }
-    } else if (!objectStore->m_keyPath.isNull()) {
-        key = fetchKeyFromKeyPath(value.get(), objectStore->m_keyPath);
-
-        if (!key) {
-            callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "The key could not be fetched from the keyPath."));
-            return;
-        }
-    } else if (!key) {
-        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "No key supplied."));
-        return;
-    }
 
     if (key->type() == IDBKey::NullType) {
         callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::DATA_ERR, "NULL key is not allowed."));
@@ -261,7 +291,7 @@ void IDBObjectStoreBackendImpl::putInternal(ScriptExecutionContext*, PassRefPtr<
 
     bindWhereClause(getQuery, objectStore->id(), key.get());
     bool isExistingValue = getQuery.step() == SQLResultRow;
-    if (addOnly && isExistingValue) {
+    if (putMode == AddOnly && isExistingValue) {
         callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::CONSTRAINT_ERR, "Key already exists in the object store."));
         return;
     }
@@ -342,7 +372,39 @@ void IDBObjectStoreBackendImpl::deleteInternal(ScriptExecutionContext*, PassRefP
     ok = indexQuery.step() == SQLResultDone;
     ASSERT_UNUSED(ok, ok);
 
-    callbacks->onSuccess();
+    callbacks->onSuccess(SerializedScriptValue::nullValue());
+}
+
+void IDBObjectStoreBackendImpl::clear(PassRefPtr<IDBCallbacks> prpCallbacks, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
+{
+    if (transaction->mode() == IDBTransaction::READ_ONLY) {
+        ec = IDBDatabaseException::READ_ONLY_ERR;
+        return;
+    }
+
+    RefPtr<IDBObjectStoreBackendImpl> objectStore = this;
+    RefPtr<IDBCallbacks> callbacks = prpCallbacks;
+
+    if (!transaction->scheduleTask(createCallbackTask(&IDBObjectStoreBackendImpl::clearInternal, objectStore, callbacks)))
+        ec = IDBDatabaseException::NOT_ALLOWED_ERR;
+}
+
+static void doDelete(SQLiteDatabase& db, const char* sql, int64_t id)
+{
+    SQLiteStatement deleteQuery(db, sql);
+    bool ok = deleteQuery.prepare() == SQLResultOk;
+    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
+    deleteQuery.bindInt64(1, id);
+    ok = deleteQuery.step() == SQLResultDone;
+    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
+}
+
+void IDBObjectStoreBackendImpl::clearInternal(ScriptExecutionContext*, PassRefPtr<IDBObjectStoreBackendImpl> objectStore, PassRefPtr<IDBCallbacks> callbacks)
+{
+    doDelete(objectStore->sqliteDatabase(), "DELETE FROM IndexData WHERE objectStoreDataId IN (SELECT id FROM ObjectStoreData WHERE objectStoreId = ?)", objectStore->id());
+    doDelete(objectStore->sqliteDatabase(), "DELETE FROM ObjectStoreData WHERE objectStoreId = ?", objectStore->id());
+
+    callbacks->onSuccess(SerializedScriptValue::undefinedValue());
 }
 
 PassRefPtr<IDBIndexBackendInterface> IDBObjectStoreBackendImpl::createIndex(const String& name, const String& keyPath, bool unique, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
@@ -399,16 +461,6 @@ PassRefPtr<IDBIndexBackendInterface> IDBObjectStoreBackendImpl::index(const Stri
         return 0;
     }
     return index.release();
-}
-
-static void doDelete(SQLiteDatabase& db, const char* sql, int64_t id)
-{
-    SQLiteStatement deleteQuery(db, sql);
-    bool ok = deleteQuery.prepare() == SQLResultOk;
-    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
-    deleteQuery.bindInt64(1, id);
-    ok = deleteQuery.step() == SQLResultDone;
-    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
 }
 
 void IDBObjectStoreBackendImpl::deleteIndex(const String& name, IDBTransactionBackendInterface* transaction, ExceptionCode& ec)
@@ -483,7 +535,7 @@ void IDBObjectStoreBackendImpl::openCursorInternal(ScriptExecutionContext*, Pass
     query->bindInt64(currentColumn, objectStore->id());
 
     if (query->step() != SQLResultRow) {
-        callbacks->onSuccess();
+        callbacks->onSuccess(SerializedScriptValue::nullValue());
         return;
     }
 

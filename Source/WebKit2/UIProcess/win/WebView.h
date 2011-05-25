@@ -28,21 +28,30 @@
 
 #include "APIObject.h"
 #include "PageClient.h"
+#include "WKView.h"
 #include "WebPageProxy.h"
+#include <ShlObj.h>
+#include <WebCore/COMPtr.h>
+#include <WebCore/DragActions.h>
+#include <WebCore/DragData.h>
 #include <WebCore/WindowMessageListener.h>
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
+interface IDropTargetHelper;
+
 namespace WebKit {
 
 class DrawingAreaProxy;
 
-class WebView : public APIObject, public PageClient, WebCore::WindowMessageListener {
+class WebView : public APIObject, public PageClient, WebCore::WindowMessageListener, public IDropTarget {
 public:
     static PassRefPtr<WebView> create(RECT rect, WebContext* context, WebPageGroup* pageGroup, HWND parentWindow)
     {
-        return adoptRef(new WebView(rect, context, pageGroup, parentWindow));
+        RefPtr<WebView> webView = adoptRef(new WebView(rect, context, pageGroup, parentWindow));
+        webView->initialize();
+        return webView;
     }
     ~WebView();
 
@@ -50,8 +59,22 @@ public:
     void setParentWindow(HWND);
     void windowAncestryDidChange();
     void setIsInWindow(bool);
-    void setOverrideCursor(HCURSOR overrideCursor);
+    void setOverrideCursor(HCURSOR);
     void setInitialFocus(bool forward);
+    void setFindIndicatorCallback(WKViewFindIndicatorCallback, void*);
+    WKViewFindIndicatorCallback getFindIndicatorCallback(void**);
+    void initialize();
+
+    // IUnknown
+    virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
+    virtual ULONG STDMETHODCALLTYPE AddRef(void);
+    virtual ULONG STDMETHODCALLTYPE Release(void);
+
+    // IDropTarget
+    virtual HRESULT STDMETHODCALLTYPE DragEnter(IDataObject* pDataObject, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect);
+    virtual HRESULT STDMETHODCALLTYPE DragOver(DWORD grfKeyState, POINTL pt, DWORD* pdwEffect);
+    virtual HRESULT STDMETHODCALLTYPE DragLeave();
+    virtual HRESULT STDMETHODCALLTYPE Drop(IDataObject* pDataObject, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect);
 
     WebPageProxy* page() const { return m_page.get(); }
 
@@ -64,7 +87,6 @@ private:
     static LRESULT CALLBACK WebViewWndProc(HWND, UINT, WPARAM, LPARAM);
     LRESULT wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-    void setWasActivatedByMouseEvent(bool flag) { m_wasActivatedByMouseEvent = flag; }
     LRESULT onMouseEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onWheelEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onKeyEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
@@ -77,6 +99,9 @@ private:
     LRESULT onTimerEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onShowWindowEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onSetCursor(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
+
+    void paint(HDC, const WebCore::IntRect& dirtyRect);
+    void setWasActivatedByMouseEvent(bool flag) { m_wasActivatedByMouseEvent = flag; }
     bool onIMEStartComposition();
     bool onIMEComposition(LPARAM);
     bool onIMEEndComposition();
@@ -116,6 +141,7 @@ private:
     virtual bool isViewInWindow();
     virtual void processDidCrash();
     virtual void didRelaunchProcess();
+    virtual void pageClosed();
     virtual void takeFocus(bool direction);
     virtual void toolTipChanged(const WTF::String&, const WTF::String&);
     virtual void setCursor(const WebCore::Cursor&);
@@ -125,13 +151,16 @@ private:
     virtual void setEditCommandState(const WTF::String&, bool, int);
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
-    virtual void didNotHandleKeyEvent(const NativeWebKeyboardEvent&);
+    virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled);
     virtual void compositionSelectionChanged(bool);
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*);
     virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*);
     virtual void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut);
 
 #if USE(ACCELERATED_COMPOSITING)
+    virtual void enterAcceleratedCompositingMode(const LayerTreeContext&);
+    virtual void exitAcceleratedCompositingMode();
+
     virtual void pageDidEnterAcceleratedCompositing();
     virtual void pageDidLeaveAcceleratedCompositing();
     void switchToDrawingAreaTypeIfNecessary(DrawingAreaInfo::Type);
@@ -141,6 +170,8 @@ private:
     void didFinishLoadingDataForCustomRepresentation(const CoreIPC::DataReference&);
     virtual double customRepresentationZoomFactor();
     virtual void setCustomRepresentationZoomFactor(double);
+    WebCore::DragOperation keyStateToDragOperation(DWORD grfKeyState) const;
+    virtual void didChangeScrollbarsForMainFrame() const;
 
     virtual HWND nativeWindow();
 
@@ -164,6 +195,17 @@ private:
     RefPtr<WebPageProxy> m_page;
 
     unsigned m_inIMEComposition;
+
+    WKViewFindIndicatorCallback m_findIndicatorCallback;
+    void* m_findIndicatorCallbackContext;
+
+    COMPtr<IDataObject> m_dragData;
+    COMPtr<IDropTargetHelper> m_dropTargetHelper;
+    // FIXME: This variable is part of a workaround. The drop effect (pdwEffect) passed to Drop is incorrect. 
+    // We set this variable in DragEnter and DragOver so that it can be used in Drop to set the correct drop effect. 
+    // Thus, on return from DoDragDrop we have the correct pdwEffect for the drag-and-drop operation.
+    // (see https://bugs.webkit.org/show_bug.cgi?id=29264)
+    DWORD m_lastDropEffect;
 };
 
 } // namespace WebKit

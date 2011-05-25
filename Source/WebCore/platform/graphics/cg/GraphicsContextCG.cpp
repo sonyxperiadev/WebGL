@@ -35,6 +35,7 @@
 #include "KURL.h"
 #include "Path.h"
 #include "Pattern.h"
+#include "ShadowBlur.h"
 
 #include <CoreGraphics/CoreGraphics.h>
 #include <wtf/MathExtras.h>
@@ -165,9 +166,9 @@ void GraphicsContext::drawRect(const IntRect& rect)
             setCGFillColor(context, strokeColor(), strokeColorSpace());
         CGRect rects[4] = {
             FloatRect(rect.x(), rect.y(), rect.width(), 1),
-            FloatRect(rect.x(), rect.bottom() - 1, rect.width(), 1),
+            FloatRect(rect.x(), rect.maxY() - 1, rect.width(), 1),
             FloatRect(rect.x(), rect.y() + 1, 1, rect.height() - 2),
-            FloatRect(rect.right() - 1, rect.y() + 1, 1, rect.height() - 2)
+            FloatRect(rect.maxX() - 1, rect.y() + 1, 1, rect.height() - 2)
         };
         CGContextFillRects(context, rects, 4);
         if (oldFillColor != strokeColor())
@@ -563,7 +564,7 @@ void GraphicsContext::fillPath(const Path& path)
                 CGContextClip(layerContext);
 
             m_state.fillGradient->paint(layerContext);
-            CGContextDrawLayerAtPoint(context, CGPointMake(rect.left(), rect.top()), layer);
+            CGContextDrawLayerAtPoint(context, CGPointMake(rect.x(), rect.y()), layer);
             CGLayerRelease(layer);
         } else {
             CGContextBeginPath(context);
@@ -616,6 +617,16 @@ void GraphicsContext::strokePath(const Path& path)
     CGContextStrokePath(context);
 }
 
+static float radiusToLegacyRadius(float radius)
+{
+    return radius > 8 ? 8 + 4 * sqrt((radius - 8) / 2) : radius;
+}
+
+static bool hasBlurredShadow(const GraphicsContextState& state)
+{
+    return state.shadowColor.isValid() && state.shadowColor.alpha() && state.shadowBlur;
+}
+
 void GraphicsContext::fillRect(const FloatRect& rect)
 {
     if (paintingDisabled())
@@ -626,11 +637,16 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     if (m_state.fillGradient) {
         CGContextSaveGState(context);
         if (hasShadow()) {
-            CGContextConcatCTM(context, m_state.fillGradient->gradientSpaceTransform());
             CGLayerRef layer = CGLayerCreateWithContext(context, CGSizeMake(rect.width(), rect.height()), 0);
             CGContextRef layerContext = CGLayerGetContext(layer);
+
+            CGContextTranslateCTM(layerContext, -rect.x(), -rect.y());
+            CGContextAddRect(layerContext, rect);
+            CGContextClip(layerContext);
+
+            CGContextConcatCTM(layerContext, m_state.fillGradient->gradientSpaceTransform());
             m_state.fillGradient->paint(layerContext);
-            CGContextDrawLayerAtPoint(context, CGPointMake(rect.left(), rect.top()), layer);
+            CGContextDrawLayerAtPoint(context, CGPointMake(rect.x(), rect.y()), layer);
             CGLayerRelease(layer);
         } else {
             CGContextClipToRect(context, rect);
@@ -643,7 +659,22 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 
     if (m_state.fillPattern)
         applyFillPattern();
+
+    bool drawOwnShadow = hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
+    if (drawOwnShadow) {
+        float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
+        // Turn off CG shadows.
+        CGContextSaveGState(context);
+        CGContextSetShadowWithColor(platformContext(), CGSizeZero, 0, 0);
+
+        ShadowBlur contextShadow(shadowBlur, m_state.shadowOffset, m_state.shadowColor, m_state.shadowColorSpace);
+        contextShadow.drawRectShadow(this, rect, RoundedIntRect::Radii());
+    }
+
     CGContextFillRect(context, rect);
+
+    if (drawOwnShadow)
+        CGContextRestoreGState(context);
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace colorSpace)
@@ -658,7 +689,21 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
     if (oldFillColor != color || oldColorSpace != colorSpace)
         setCGFillColor(context, color, colorSpace);
 
+    bool drawOwnShadow = hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
+    if (drawOwnShadow) {
+        float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
+        // Turn off CG shadows.
+        CGContextSaveGState(context);
+        CGContextSetShadowWithColor(platformContext(), CGSizeZero, 0, 0);
+
+        ShadowBlur contextShadow(shadowBlur, m_state.shadowOffset, m_state.shadowColor, m_state.shadowColorSpace);
+        contextShadow.drawRectShadow(this, rect, RoundedIntRect::Radii());
+    }
+
     CGContextFillRect(context, rect);
+    
+    if (drawOwnShadow)
+        CGContextRestoreGState(context);
 
     if (oldFillColor != color || oldColorSpace != colorSpace)
         setCGFillColor(context, oldFillColor, oldColorSpace);
@@ -678,10 +723,70 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 
     Path path;
     path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+
+    bool drawOwnShadow = hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
+    if (drawOwnShadow) {
+        float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
+
+        // Turn off CG shadows.
+        CGContextSaveGState(context);
+        CGContextSetShadowWithColor(platformContext(), CGSizeZero, 0, 0);
+
+        ShadowBlur contextShadow(shadowBlur, m_state.shadowOffset, m_state.shadowColor, m_state.shadowColorSpace);
+        contextShadow.drawRectShadow(this, rect, RoundedIntRect::Radii(topLeft, topRight, bottomLeft, bottomRight));
+    }
+
     fillPath(path);
+
+    if (drawOwnShadow)
+        CGContextRestoreGState(context);
 
     if (oldFillColor != color || oldColorSpace != colorSpace)
         setCGFillColor(context, oldFillColor, oldColorSpace);
+}
+
+void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const RoundedIntRect& roundedHoleRect, const Color& color, ColorSpace colorSpace)
+{
+    if (paintingDisabled())
+        return;
+
+    CGContextRef context = platformContext();
+
+    Path path;
+    path.addRect(rect);
+
+    if (!roundedHoleRect.radii().isZero())
+        path.addRoundedRect(roundedHoleRect.rect(), roundedHoleRect.radii().topLeft(), roundedHoleRect.radii().topRight(), roundedHoleRect.radii().bottomLeft(), roundedHoleRect.radii().bottomRight());
+    else
+        path.addRect(roundedHoleRect.rect());
+
+    WindRule oldFillRule = fillRule();
+    Color oldFillColor = fillColor();
+    ColorSpace oldFillColorSpace = fillColorSpace();
+    
+    setFillRule(RULE_EVENODD);
+    setFillColor(color, colorSpace);
+
+    // fillRectWithRoundedHole() assumes that the edges of rect are clipped out, so we only care about shadows cast around inside the hole.
+    bool drawOwnShadow = hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms;
+    if (drawOwnShadow) {
+        float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
+
+        // Turn off CG shadows.
+        CGContextSaveGState(context);
+        CGContextSetShadowWithColor(platformContext(), CGSizeZero, 0, 0);
+
+        ShadowBlur contextShadow(shadowBlur, m_state.shadowOffset, m_state.shadowColor, m_state.shadowColorSpace);
+        contextShadow.drawInsetShadow(this, rect, roundedHoleRect.rect(), roundedHoleRect.radii());
+    }
+
+    fillPath(path);
+
+    if (drawOwnShadow)
+        CGContextRestoreGState(context);
+    
+    setFillRule(oldFillRule);
+    setFillColor(oldFillColor, oldFillColorSpace);
 }
 
 void GraphicsContext::clip(const FloatRect& rect)
@@ -720,6 +825,11 @@ void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
         CGContextEOClip(context);
     else
         CGContextClip(context);
+}
+
+IntRect GraphicsContext::clipBounds() const
+{
+    return enclosingIntRect(CGContextGetClipBoundingBox(platformContext()));
 }
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
@@ -766,6 +876,9 @@ void GraphicsContext::setPlatformShadow(const FloatSize& offset, float blur, con
 {
     if (paintingDisabled())
         return;
+    
+    // FIXME: we could avoid the shadow setup cost when we know we'll render the shadow ourselves.
+
     CGFloat xOffset = offset.width();
     CGFloat yOffset = offset.height();
     CGFloat blurRadius = blur;

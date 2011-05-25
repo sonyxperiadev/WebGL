@@ -32,7 +32,6 @@
 #include "AXObjectCache.h"
 #include "AccessibilityImageMapLink.h"
 #include "AccessibilityListBox.h"
-#include "CharacterNames.h"
 #include "EventNames.h"
 #include "FloatRect.h"
 #include "Frame.h"
@@ -77,6 +76,7 @@
 #include "htmlediting.h"
 #include "visible_units.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace std;
 
@@ -1169,7 +1169,7 @@ static String accessibleNameForNode(Node* node)
         return static_cast<HTMLInputElement*>(node)->value();
 
     if (node->isHTMLElement()) {
-        const AtomicString& alt = static_cast<HTMLElement*>(node)->getAttribute(altAttr);
+        const AtomicString& alt = toHTMLElement(node)->getAttribute(altAttr);
         if (!alt.isEmpty())
             return alt;
     }
@@ -1357,7 +1357,7 @@ String AccessibilityRenderObject::accessibilityDescription() const
     if (isImage() || isInputImage() || isNativeImage()) {
         Node* node = m_renderer->node();
         if (node && node->isHTMLElement()) {
-            const AtomicString& alt = static_cast<HTMLElement*>(node)->getAttribute(altAttr);
+            const AtomicString& alt = toHTMLElement(node)->getAttribute(altAttr);
             if (alt.isEmpty())
                 return String();
             return alt;
@@ -1384,11 +1384,11 @@ String AccessibilityRenderObject::accessibilityDescription() const
                 return static_cast<HTMLFrameElementBase*>(owner)->getAttribute(nameAttr);
             }
             if (owner->isHTMLElement())
-                return static_cast<HTMLElement*>(owner)->getAttribute(nameAttr);
+                return toHTMLElement(owner)->getAttribute(nameAttr);
         }
         owner = document->body();
         if (owner && owner->isHTMLElement())
-            return static_cast<HTMLElement*>(owner)->getAttribute(nameAttr);
+            return toHTMLElement(owner)->getAttribute(nameAttr);
     }
 
     return String();
@@ -2519,7 +2519,7 @@ IntRect AccessibilityRenderObject::boundsForVisiblePositionRange(const VisiblePo
     ourrect.unite(rect2);
     
     // if the rectangle spans lines and contains multiple text chars, use the range's bounding box intead
-    if (rect1.bottom() != rect2.bottom()) {
+    if (rect1.maxY() != rect2.maxY()) {
         RefPtr<Range> dataRange = makeRange(range.start, range.end);
         IntRect boundingBox = dataRange->boundingBox();
         String rangeString = plainText(dataRange.get());

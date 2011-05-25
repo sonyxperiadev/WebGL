@@ -56,8 +56,8 @@ public:
         return result;
     }
 
-    PassRefPtr<Float32Array> slice(int start) const;
-    PassRefPtr<Float32Array> slice(int start, int end) const;
+    PassRefPtr<Float32Array> subarray(int start) const;
+    PassRefPtr<Float32Array> subarray(int start, int end) const;
 
 private:
     Float32Array(PassRefPtr<ArrayBuffer> buffer,

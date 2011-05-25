@@ -1,7 +1,5 @@
 /*
- * This file is part of the select element renderer in WebCore.
- *
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2011 Apple Inc. All rights reserved.
  *               2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +46,7 @@
 #include "OptionElement.h"
 #include "Page.h"
 #include "PaintInfo.h"
+#include "RenderLayer.h"
 #include "RenderScrollbar.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
@@ -112,7 +111,7 @@ void RenderListBox::updateFromElement()
             }
                 
             if (!text.isEmpty()) {
-                float textWidth = itemFont.floatWidth(TextRun(text.impl(), 0, 0, 0, false, false, false, false));
+                float textWidth = itemFont.floatWidth(TextRun(text.impl(), false, 0, 0, TextRun::AllowTrailingExpansion, false, false, false, false));
                 width = max(width, textWidth);
             }
         }
@@ -142,8 +141,11 @@ void RenderListBox::selectionChanged()
 void RenderListBox::layout()
 {
     RenderBlock::layout();
-    if (m_scrollToRevealSelectionAfterLayout)
+    if (m_scrollToRevealSelectionAfterLayout) {
+        view()->disableLayoutState();
         scrollToRevealSelection();
+        view()->enableLayoutState();
+    }
 }
 
 void RenderListBox::scrollToRevealSelection()
@@ -303,7 +305,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
 
     // Determine where the item text should be placed
     IntRect r = itemBoundingBoxRect(tx, ty, listIndex);
-    r.move(optionsSpacingHorizontal, style()->font().ascent());
+    r.move(optionsSpacingHorizontal, style()->fontMetrics().ascent());
 
     RenderStyle* itemStyle = element->renderStyle();
     if (!itemStyle)
@@ -331,7 +333,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
 
     unsigned length = itemText.length();
     const UChar* string = itemText.characters();
-    TextRun textRun(string, length, 0, 0, 0, !itemStyle->isLeftToRightDirection(), itemStyle->unicodeBidi() == Override, false, false);
+    TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, !itemStyle->isLeftToRightDirection(), itemStyle->unicodeBidi() == Override, false, false);
 
     // Draw the item text
     if (itemStyle->visibility() != HIDDEN)
@@ -550,7 +552,7 @@ void RenderListBox::scrollTo(int newOffset)
 
 int RenderListBox::itemHeight() const
 {
-    return style()->font().height() + rowSpacing;
+    return style()->fontMetrics().height() + rowSpacing;
 }
 
 int RenderListBox::verticalScrollbarWidth() const
@@ -696,6 +698,37 @@ IntPoint RenderListBox::convertFromContainingViewToScrollbar(const Scrollbar* sc
     return point;
 }
 
+IntSize RenderListBox::contentsSize() const
+{
+    return IntSize(scrollWidth(), scrollHeight());
+}
+
+int RenderListBox::visibleHeight() const
+{
+    return height();
+}
+
+int RenderListBox::visibleWidth() const
+{
+    return width();
+}
+
+IntPoint RenderListBox::currentMousePosition() const
+{
+    RenderView* view = this->view();
+    if (!view)
+        return IntPoint();
+    return view->frameView()->currentMousePosition();
+}
+
+bool RenderListBox::scrollbarWillRenderIntoCompositingLayer() const
+{
+    RenderLayer* layer = this->enclosingLayer();
+    if (!layer)
+        return false;
+    return layer->scrollbarWillRenderIntoCompositingLayer();
+}
+
 PassRefPtr<Scrollbar> RenderListBox::createScrollbar()
 {
     RefPtr<Scrollbar> widget;
@@ -723,10 +756,13 @@ void RenderListBox::setHasVerticalScrollbar(bool hasScrollbar)
     if (hasScrollbar == (m_vBar != 0))
         return;
 
-    if (hasScrollbar)
+    if (hasScrollbar) {
         m_vBar = createScrollbar();
-    else
+        ScrollableArea::didAddVerticalScrollbar(m_vBar.get());
+    } else {
+        ScrollableArea::willRemoveVerticalScrollbar(m_vBar.get());
         destroyScrollbar();
+    }
 
     if (m_vBar)
         m_vBar->styleChanged();

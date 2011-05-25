@@ -23,23 +23,24 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "TextChecker.h"
+#import "config.h"
+#import "TextChecker.h"
 
-#include "TextCheckerState.h"
-#include <wtf/RetainPtr.h>
+#import "TextCheckerState.h"
+#import <wtf/RetainPtr.h>
 
 #ifndef BUILDING_ON_SNOW_LEOPARD
 #import <AppKit/NSTextChecker.h>
 #endif
 
-static const NSString * const WebAutomaticSpellingCorrectionEnabled = @"WebAutomaticSpellingCorrectionEnabled";
-static const NSString * const WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckingEnabled";
-static const NSString * const WebGrammarCheckingEnabled = @"WebGrammarCheckingEnabled";
-static const NSString * const WebSmartInsertDeleteEnabled = @"WebSmartInsertDeleteEnabled";
-static const NSString * const WebAutomaticQuoteSubstitutionEnabled = @"WebAutomaticQuoteSubstitutionEnabled";
-static const NSString * const WebAutomaticDashSubstitutionEnabled = @"WebAutomaticDashSubstitutionEnabled";
-static const NSString * const WebAutomaticLinkDetectionEnabled = @"WebAutomaticLinkDetectionEnabled";
-static const NSString * const WebAutomaticTextReplacementEnabled = @"WebAutomaticTextReplacementEnabled";
+static NSString* const WebAutomaticSpellingCorrectionEnabled = @"WebAutomaticSpellingCorrectionEnabled";
+static NSString* const WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckingEnabled";
+static NSString* const WebGrammarCheckingEnabled = @"WebGrammarCheckingEnabled";
+static NSString* const WebSmartInsertDeleteEnabled = @"WebSmartInsertDeleteEnabled";
+static NSString* const WebAutomaticQuoteSubstitutionEnabled = @"WebAutomaticQuoteSubstitutionEnabled";
+static NSString* const WebAutomaticDashSubstitutionEnabled = @"WebAutomaticDashSubstitutionEnabled";
+static NSString* const WebAutomaticLinkDetectionEnabled = @"WebAutomaticLinkDetectionEnabled";
+static NSString* const WebAutomaticTextReplacementEnabled = @"WebAutomaticTextReplacementEnabled";
 
 using namespace WebCore;
 

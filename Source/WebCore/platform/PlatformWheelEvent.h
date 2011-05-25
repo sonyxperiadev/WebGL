@@ -98,7 +98,9 @@ namespace WebCore {
             , m_altKey(false)
             , m_metaKey(false)
 #if PLATFORM(MAC)
+            , m_hasPreciseScrollingDeltas(false)
             , m_phase(PlatformWheelEventPhaseNone)
+            , m_timestamp(0)
 #endif
         {
         }
@@ -151,6 +153,8 @@ namespace WebCore {
 #endif
 
         PlatformWheelEventPhase phase() const { return m_phase; }
+        bool hasPreciseScrollingDeltas() const { return m_hasPreciseScrollingDeltas; }
+        double timestamp() const { return m_timestamp; }
 #endif
 
 #if PLATFORM(QT)
@@ -186,7 +190,9 @@ namespace WebCore {
         bool m_altKey;
         bool m_metaKey;
 #if PLATFORM(MAC)
+        bool m_hasPreciseScrollingDeltas;
         PlatformWheelEventPhase m_phase;
+        double m_timestamp;
 #endif
     };
 

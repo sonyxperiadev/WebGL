@@ -37,7 +37,13 @@
 namespace WebCore {
 
 class FloatPoint;
+class PlatformWheelEvent;
 class ScrollableArea;
+class Scrollbar;
+
+#if ENABLE(GESTURE_EVENTS)
+class PlatformGestureEvent;
+#endif
 
 class ScrollAnimator {
 public:
@@ -53,12 +59,34 @@ public:
 
     virtual void scrollToOffsetWithoutAnimation(const FloatPoint&);
 
+    ScrollableArea* scrollableArea() const { return m_scrollableArea; }
+
+    virtual void handleWheelEvent(PlatformWheelEvent&);
+#if ENABLE(GESTURE_EVENTS)
+    virtual void handleGestureEvent(const PlatformGestureEvent&);
+#endif
+
     FloatPoint currentPosition() const;
+
+    virtual void contentAreaWillPaint() const { }
+    virtual void mouseEnteredContentArea() const { }
+    virtual void mouseExitedContentArea() const { }
+    virtual void mouseMovedInContentArea() const { }
+    virtual void willStartLiveResize() { }
+    virtual void contentsResized() const { }
+    virtual void willEndLiveResize() { }
+    virtual void contentAreaDidShow() const { }
+    virtual void contentAreaDidHide() const { }
+
+    virtual void didAddVerticalScrollbar(Scrollbar*) { }
+    virtual void willRemoveVerticalScrollbar(Scrollbar*) { }
+    virtual void didAddHorizontalScrollbar(Scrollbar*) { }
+    virtual void willRemoveHorizontalScrollbar(Scrollbar*) { }
 
 protected:
     ScrollAnimator(ScrollableArea*);
 
-    void notityPositionChanged();
+    virtual void notityPositionChanged();
 
     ScrollableArea* m_scrollableArea;
     float m_currentPosX; // We avoid using a FloatPoint in order to reduce

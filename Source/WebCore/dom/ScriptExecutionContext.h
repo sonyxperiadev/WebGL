@@ -60,6 +60,7 @@ namespace WebCore {
     class FileThread;
 #endif
     class MessagePort;
+    class DOMURL;
     class SecurityOrigin;
     class ScriptCallStack;
 
@@ -90,6 +91,7 @@ namespace WebCore {
 
         SecurityOrigin* securityOrigin() const { return m_securityOrigin.get(); }
 
+        bool sanitizeScriptError(String& errorMessage, int& lineNumber, String& sourceURL);
         void reportException(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
         virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>) = 0;
 
@@ -112,6 +114,11 @@ namespace WebCore {
         void destroyedMessagePort(MessagePort*);
         const HashSet<MessagePort*>& messagePorts() const { return m_messagePorts; }
 
+#if ENABLE(BLOB)
+        void createdDomUrl(DOMURL*);
+        void destroyedDomUrl(DOMURL*);
+        const HashSet<DOMURL*>& domUrls() const { return m_domUrls; }
+#endif
         void ref() { refScriptExecutionContext(); }
         void deref() { derefScriptExecutionContext(); }
 
@@ -166,11 +173,14 @@ namespace WebCore {
         HashSet<MessagePort*> m_messagePorts;
 
         HashMap<ActiveDOMObject*, void*> m_activeDOMObjects;
+        bool m_iteratingActiveDOMObjects;
+        bool m_inDestructor;
 
         HashMap<int, DOMTimer*> m_timeouts;
 
 #if ENABLE(BLOB)
         HashSet<String> m_publicBlobURLs;
+        HashSet<DOMURL*> m_domUrls;
 #endif
 
         virtual void refScriptExecutionContext() = 0;

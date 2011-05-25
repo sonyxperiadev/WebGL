@@ -483,6 +483,7 @@ public:
     bool isComposited() const { return false; }
     bool hasCompositedMask() const { return false; }
 #endif
+    virtual bool scrollbarWillRenderIntoCompositingLayer() const;
 
     bool paintsWithTransparency(PaintBehavior paintBehavior) const
     {
@@ -495,7 +496,6 @@ private:
     // The normal operator new is disallowed on all render objects.
     void* operator new(size_t) throw();
 
-private:
     void setNextSibling(RenderLayer* next) { m_next = next; }
     void setPreviousSibling(RenderLayer* prev) { m_previous = prev; }
     void setParent(RenderLayer* parent);
@@ -571,6 +571,9 @@ private:
     virtual IntRect convertFromContainingViewToScrollbar(const Scrollbar*, const IntRect&) const;
     virtual IntPoint convertFromScrollbarToContainingView(const Scrollbar*, const IntPoint&) const;
     virtual IntPoint convertFromContainingViewToScrollbar(const Scrollbar*, const IntPoint&) const;
+    virtual IntSize contentsSize() const;
+    virtual int visibleHeight() const;
+    virtual int visibleWidth() const;
 
     // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
     void scrollTo(int x, int y);
@@ -624,7 +627,6 @@ private:
 
     void updateContentsScale(float);
 
-private:
     friend class RenderLayerBacking;
     friend class RenderLayerCompositor;
     friend class RenderBoxModelObject;

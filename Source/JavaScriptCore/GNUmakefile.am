@@ -11,7 +11,6 @@ javascriptcore_cppflags += \
 	-I$(srcdir)/Source/JavaScriptCore/jit \
 	-I$(srcdir)/Source/JavaScriptCore/jit \
 	-I$(srcdir)/Source/JavaScriptCore/parser \
-	-I$(srcdir)/Source/JavaScriptCore/pcre \
 	-I$(srcdir)/Source/JavaScriptCore/profiler \
 	-I$(srcdir)/Source/JavaScriptCore/runtime \
 	-I$(srcdir)/Source/JavaScriptCore/wtf \
@@ -23,7 +22,6 @@ javascriptcore_cppflags += \
 	-I$(srcdir)/Source/JavaScriptCore/yarr \
 	-I$(top_builddir)/Source/JavaScriptCore \
 	-I$(top_builddir)/Source/JavaScriptCore/parser \
-	-I$(top_builddir)/Source/JavaScriptCore/pcre \
 	-I$(top_builddir)/Source/JavaScriptCore/runtime
 
 javascriptcore_h_api += \
@@ -48,8 +46,7 @@ javascriptcore_built_nosources += \
 	Source/JavaScriptCore/runtime/NumberConstructor.lut.h \
 	Source/JavaScriptCore/runtime/RegExpConstructor.lut.h \
 	Source/JavaScriptCore/runtime/RegExpObject.lut.h \
-	Source/JavaScriptCore/runtime/StringPrototype.lut.h \
-	Source/JavaScriptCore/pcre/chartables.c
+	Source/JavaScriptCore/runtime/StringPrototype.lut.h
 
 javascriptcore_sources += \
 	Source/JavaScriptCore/API/APICast.h \
@@ -202,15 +199,10 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/parser/ResultType.h \
 	Source/JavaScriptCore/parser/SourceCode.h \
 	Source/JavaScriptCore/parser/SourceProvider.h \
+	Source/JavaScriptCore/parser/SourceProviderCache.cpp \
+	Source/JavaScriptCore/parser/SourceProviderCache.h \
+	Source/JavaScriptCore/parser/SourceProviderCacheItem.h \
 	Source/JavaScriptCore/parser/SyntaxChecker.h \
-	Source/JavaScriptCore/pcre/pcre_compile.cpp \
-	Source/JavaScriptCore/pcre/pcre_exec.cpp \
-	Source/JavaScriptCore/pcre/pcre.h \
-	Source/JavaScriptCore/pcre/pcre_internal.h \
-	Source/JavaScriptCore/pcre/pcre_tables.cpp \
-	Source/JavaScriptCore/pcre/pcre_ucp_searchfuncs.cpp \
-	Source/JavaScriptCore/pcre/pcre_xclass.cpp \
-	Source/JavaScriptCore/pcre/ucpinternal.h \
 	Source/JavaScriptCore/profiler/CallIdentifier.h \
 	Source/JavaScriptCore/profiler/Profile.cpp \
 	Source/JavaScriptCore/profiler/ProfileGenerator.cpp \
@@ -239,11 +231,12 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/runtime/CallData.cpp \
 	Source/JavaScriptCore/runtime/CallData.h \
 	Source/JavaScriptCore/runtime/ClassInfo.h \
+	Source/JavaScriptCore/runtime/MarkedBlock.cpp \
+	Source/JavaScriptCore/runtime/MarkedBlock.h \
 	Source/JavaScriptCore/runtime/MarkedSpace.cpp \
 	Source/JavaScriptCore/runtime/MarkedSpace.h \
 	Source/JavaScriptCore/runtime/Heap.cpp \
 	Source/JavaScriptCore/runtime/Heap.h \
-	Source/JavaScriptCore/runtime/CollectorHeapIterator.h \
 	Source/JavaScriptCore/runtime/CommonIdentifiers.cpp \
 	Source/JavaScriptCore/runtime/CommonIdentifiers.h \
 	Source/JavaScriptCore/runtime/Completion.cpp \
@@ -343,6 +336,8 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/runtime/Lookup.h \
 	Source/JavaScriptCore/runtime/MachineStackMarker.cpp \
 	Source/JavaScriptCore/runtime/MachineStackMarker.h \
+        Source/JavaScriptCore/runtime/ConservativeSet.cpp \
+        Source/JavaScriptCore/runtime/ConservativeSet.h \
 	Source/JavaScriptCore/runtime/MarkStack.cpp \
 	Source/JavaScriptCore/runtime/MarkStack.h \
 	Source/JavaScriptCore/runtime/MathObject.cpp \
@@ -423,6 +418,7 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/runtime/WeakGCMap.h \
 	Source/JavaScriptCore/runtime/WeakGCPtr.h \
 	Source/JavaScriptCore/runtime/WeakRandom.h \
+	Source/JavaScriptCore/runtime/WriteBarrier.h \
 	Source/JavaScriptCore/wtf/AlwaysInline.h \
 	Source/JavaScriptCore/wtf/ASCIICType.h \
 	Source/JavaScriptCore/wtf/Assertions.cpp \
@@ -430,10 +426,13 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/wtf/Atomics.h \
 	Source/JavaScriptCore/wtf/AVLTree.h \
 	Source/JavaScriptCore/wtf/Bitmap.h \
+	Source/JavaScriptCore/wtf/BloomFilter.h \
 	Source/JavaScriptCore/wtf/BumpPointerAllocator.h \
 	Source/JavaScriptCore/wtf/ByteArray.cpp \
 	Source/JavaScriptCore/wtf/ByteArray.h \
 	Source/JavaScriptCore/wtf/CrossThreadRefCounted.h \
+	Source/JavaScriptCore/wtf/CryptographicallyRandomNumber.cpp \
+	Source/JavaScriptCore/wtf/CryptographicallyRandomNumber.h \
 	Source/JavaScriptCore/wtf/CurrentTime.cpp \
 	Source/JavaScriptCore/wtf/CurrentTime.h \
 	Source/JavaScriptCore/wtf/DateMath.cpp \
@@ -482,9 +481,10 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/wtf/NotFound.h \
 	Source/JavaScriptCore/wtf/NullPtr.h \
 	Source/JavaScriptCore/wtf/OSAllocator.h \
+	Source/JavaScriptCore/wtf/OSRandomSource.cpp \
+	Source/JavaScriptCore/wtf/OSRandomSource.h \
 	Source/JavaScriptCore/wtf/OwnArrayPtr.h \
 	Source/JavaScriptCore/wtf/OwnFastMallocPtr.h \
-	Source/JavaScriptCore/wtf/OwnArrayPtrCommon.h \
 	Source/JavaScriptCore/wtf/OwnPtrCommon.h \
 	Source/JavaScriptCore/wtf/OwnPtr.h \
 	Source/JavaScriptCore/wtf/PageAllocation.h \
@@ -547,6 +547,7 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/wtf/ThreadSpecific.h \
 	Source/JavaScriptCore/wtf/TypeTraits.cpp \
 	Source/JavaScriptCore/wtf/TypeTraits.h \
+	Source/JavaScriptCore/wtf/unicode/CharacterNames.h \
 	Source/JavaScriptCore/wtf/unicode/CollatorDefault.cpp \
 	Source/JavaScriptCore/wtf/unicode/Collator.h \
 	Source/JavaScriptCore/wtf/unicode/Unicode.h \
@@ -608,9 +609,6 @@ Source/JavaScriptCore/%.lut.h: $(srcdir)/Source/JavaScriptCore/create_hash_table
 
 Source/JavaScriptCore/RegExpJitTables.h: $(srcdir)/Source/JavaScriptCore/create_regex_tables
 	$(AM_V_GEN)$(PYTHON) $^ > $@
-
-Source/JavaScriptCore/pcre/chartables.c: $(srcdir)/Source/JavaScriptCore/pcre/dftables
-	$(AM_V_GEN)$(PERL) $^ $@
 
 jsc: $(javascriptcore_built_nosources) Programs/jsc-@WEBKITGTK_API_MAJOR_VERSION@$(EXEEXT);
 
@@ -686,10 +684,6 @@ EXTRA_DIST += \
 	Source/JavaScriptCore/icu/LICENSE \
 	Source/JavaScriptCore/icu/README \
 	Source/JavaScriptCore/parser/Keywords.table \
-	Source/JavaScriptCore/pcre/AUTHORS \
-	Source/JavaScriptCore/pcre/COPYING \
-	Source/JavaScriptCore/pcre/dftables \
-	Source/JavaScriptCore/pcre/ucptable.cpp \
 	Source/JavaScriptCore/THANKS
 
 # Clean rules for JavaScriptCore
@@ -702,7 +696,6 @@ CLEANFILES += \
 	Source/JavaScriptCore/runtime/RegExpConstructor.lut.h \
 	Source/JavaScriptCore/runtime/RegExpObject.lut.h \
 	Source/JavaScriptCore/runtime/StringPrototype.lut.h \
-	Source/JavaScriptCore/pcre/chartables.c \
 	Programs/jsc \
 	Programs/jsc-@WEBKITGTK_API_MAJOR_VERSION@ \
 	Programs/minidom

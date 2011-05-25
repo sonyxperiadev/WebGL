@@ -36,11 +36,19 @@
 #include "GraphicsContext3D.h"
 #include "SharedGraphicsContext3D.h"
 
+#if ENABLE(SKIA_GPU)
+#include "GrContext.h"
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
 #include "Canvas2DLayerChromium.h"
 #endif
 
 namespace WebCore {
+
+#if ENABLE(SKIA_GPU)
+extern GrContext* GetGlobalGrContext();
+#endif
 
 struct DrawingBufferInternal {
     unsigned offscreenColorTexture;
@@ -72,7 +80,7 @@ DrawingBuffer::DrawingBuffer(GraphicsContext3D* context,
                              bool multisampleExtensionSupported,
                              bool packedDepthStencilExtensionSupported)
     : m_context(context)
-    , m_size(-1, -1)
+    , m_size(size)
     , m_multisampleExtensionSupported(multisampleExtensionSupported)
     , m_packedDepthStencilExtensionSupported(packedDepthStencilExtensionSupported)
     , m_fbo(0)
@@ -119,6 +127,8 @@ void DrawingBuffer::publishToPlatformLayer()
         
     if (m_callback)
         m_callback->willPublish();
+    if (multisample())
+        commit();
     unsigned parentTexture = m_internal->platformLayer->textureId();
     // FIXME: We do the copy in the canvas' (child) context so that it executes in the correct order relative to
     // other commands in the child context.  This ensures that the parent texture always contains a complete
@@ -126,6 +136,9 @@ void DrawingBuffer::publishToPlatformLayer()
     // happens before the compositor draws.  This means we might draw stale frames sometimes.  Ideally this
     // would insert a fence into the child command stream that the compositor could wait for.
     m_context->makeContextCurrent();
+#if ENABLE(SKIA_GPU)
+    GetGlobalGrContext()->flush(false);
+#endif
     static_cast<Extensions3DChromium*>(m_context->getExtensions())->copyTextureToParentTextureCHROMIUM(m_colorBuffer, parentTexture);
     m_context->flush();
 }

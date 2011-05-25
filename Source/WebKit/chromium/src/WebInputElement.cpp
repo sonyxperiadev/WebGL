@@ -135,11 +135,6 @@ void WebInputElement::setAutofilled(bool autoFilled)
     unwrap<HTMLInputElement>()->setAutofilled(autoFilled);
 }
 
-void WebInputElement::dispatchFormControlChangeEvent()
-{
-    unwrap<HTMLInputElement>()->dispatchFormControlChangeEvent();
-}
-
 void WebInputElement::setSelectionRange(int start, int end)
 {
     unwrap<HTMLInputElement>()->setSelectionRange(start, end);
@@ -160,7 +155,10 @@ bool WebInputElement::isValidValue(const WebString& value) const
     return constUnwrap<HTMLInputElement>()->isValidValue(value);
 }
 
-const int WebInputElement::defaultMaxLength = HTMLInputElement::s_maximumLength;
+int WebInputElement::defaultMaxLength()
+{
+    return HTMLInputElement::s_maximumLength;
+}
 
 WebInputElement::WebInputElement(const PassRefPtr<HTMLInputElement>& elem)
     : WebFormControlElement(elem)
@@ -176,6 +174,17 @@ WebInputElement& WebInputElement::operator=(const PassRefPtr<HTMLInputElement>& 
 WebInputElement::operator PassRefPtr<HTMLInputElement>() const
 {
     return static_cast<HTMLInputElement*>(m_private.get());
+}
+
+WebInputElement* toWebInputElement(WebElement* webElement)
+{
+    InputElement* inputElement = toInputElement(webElement->unwrap<Element>());
+    if (!inputElement)
+        return 0;
+
+    ASSERT(webElement->unwrap<Element>()->isHTMLElement());
+
+    return static_cast<WebInputElement*>(webElement);
 }
 
 } // namespace WebKit

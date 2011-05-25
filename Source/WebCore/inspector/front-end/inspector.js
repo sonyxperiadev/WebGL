@@ -223,8 +223,12 @@ var WebInspector = {
         if (hiddenPanels.indexOf("profiles") === -1) {
             this.panels.profiles = new WebInspector.ProfilesPanel();
             this.panels.profiles.registerProfileType(new WebInspector.CPUProfileType());
-            if (Preferences.heapProfilerPresent)
-                this.panels.profiles.registerProfileType(new WebInspector.HeapSnapshotProfileType());
+            if (Preferences.heapProfilerPresent) {
+                if (!Preferences.detailedHeapProfiles)
+                    this.panels.profiles.registerProfileType(new WebInspector.HeapSnapshotProfileType());
+                else
+                    this.panels.profiles.registerProfileType(new WebInspector.DetailedHeapshotProfileType());
+            }
         }
         if (hiddenPanels.indexOf("audits") === -1)
             this.panels.audits = new WebInspector.AuditsPanel();
@@ -344,53 +348,6 @@ var WebInspector = {
             errorWarningElement.title = null;
     },
 
-    get styleChanges()
-    {
-        return this._styleChanges;
-    },
-
-    set styleChanges(x)
-    {
-        x = Math.max(x, 0);
-
-        if (this._styleChanges === x)
-            return;
-        this._styleChanges = x;
-        this._updateChangesCount();
-    },
-
-    _updateChangesCount: function()
-    {
-        // TODO: Remove immediate return when enabling the Changes Panel
-        return;
-
-        var changesElement = document.getElementById("changes-count");
-        if (!changesElement)
-            return;
-
-        if (!this.styleChanges) {
-            changesElement.addStyleClass("hidden");
-            return;
-        }
-
-        changesElement.removeStyleClass("hidden");
-        changesElement.removeChildren();
-
-        if (this.styleChanges) {
-            var styleChangesElement = document.createElement("span");
-            styleChangesElement.id = "style-changes-count";
-            styleChangesElement.textContent = this.styleChanges;
-            changesElement.appendChild(styleChangesElement);
-        }
-
-        if (this.styleChanges) {
-            if (this.styleChanges === 1)
-                changesElement.title = WebInspector.UIString("%d style change", this.styleChanges);
-            else
-                changesElement.title = WebInspector.UIString("%d style changes", this.styleChanges);
-        }
-    },
-
     highlightDOMNode: function(nodeId)
     {
         if ("_hideDOMNodeHighlightTimeout" in this) {
@@ -445,6 +402,11 @@ var WebInspector = {
     resourceForURL: function(url)
     {
         return this.resourceTreeModel.resourceForURL(url);
+    },
+
+    openLinkExternallyLabel: function()
+    {
+        return WebInspector.UIString("Open Link in New Window");
     }
 }
 
@@ -471,7 +433,9 @@ WebInspector.PlatformFlavor = {
 WebInspector.loaded = function()
 {
     if ("page" in WebInspector.queryParamsObject) {
-        WebInspector.socket = new WebSocket("ws://" + window.location.host + "/devtools/page/" + WebInspector.queryParamsObject.page);
+        var page = WebInspector.queryParamsObject.page;
+        var host = "host" in WebInspector.queryParamsObject ? WebInspector.queryParamsObject.host : window.location.host;
+        WebInspector.socket = new WebSocket("ws://" + host + "/devtools/page/" + page);
         WebInspector.socket.onmessage = function(message) { InspectorBackend.dispatch(message.data); }
         WebInspector.socket.onerror = function(error) { console.error(error); }
         WebInspector.socket.onopen = function() {
@@ -506,9 +470,6 @@ WebInspector.doLoadedDone = function()
 
     this.drawer = new WebInspector.Drawer();
     this.console = new WebInspector.ConsoleView(this.drawer);
-    // TODO: Uncomment when enabling the Changes Panel
-    // this.changes = new WebInspector.ChangesView(this.drawer);
-    // TODO: Remove class="hidden" from inspector.html on button#changes-status-bar-item
     this.drawer.visibleView = this.console;
     this.resourceTreeModel = new WebInspector.ResourceTreeModel();
     this.networkManager = new WebInspector.NetworkManager(this.resourceTreeModel);
@@ -573,12 +534,6 @@ WebInspector.doLoadedDone = function()
     errorWarningCount.addEventListener("click", this.showConsole.bind(this), false);
     this._updateErrorAndWarningCounts();
 
-    this.styleChanges = 0;
-    // TODO: Uncomment when enabling the Changes Panel
-    // var changesElement = document.getElementById("changes-count");
-    // changesElement.addEventListener("click", this.showChanges.bind(this), false);
-    // this._updateErrorAndWarningCounts();
-
     var searchField = document.getElementById("search");
     searchField.addEventListener("search", this.performSearch.bind(this), false); // when the search is emptied
     searchField.addEventListener("mousedown", this._searchFieldManualFocus.bind(this), false); // when the search field is manually selected
@@ -596,6 +551,13 @@ WebInspector.doLoadedDone = function()
             WebInspector.showPanel(WebInspector.settings.lastActivePanel);
     }
     InspectorBackend.populateScriptObjects(onPopulateScriptObjects);
+
+    if (Preferences.debuggerAlwaysEnabled || WebInspector.settings.debuggerEnabled)
+        this.debuggerModel.enableDebugger();
+    if (Preferences.profilerAlwaysEnabled || WebInspector.settings.profilerEnabled)
+        InspectorBackend.enableProfiler();
+    if (WebInspector.settings.monitoringXHREnabled)
+        InspectorBackend.setMonitoringXHREnabled(true);
 
     InspectorBackend.setConsoleMessagesEnabled(true);
 
@@ -913,13 +875,13 @@ WebInspector.documentKeyDown = function(event)
 
         case "U+0052": // R key
             if ((event.metaKey && isMac) || (event.ctrlKey && !isMac)) {
-                InspectorBackend.reloadPage();
+                InspectorBackend.reloadPage(event.shiftKey);
                 event.preventDefault();
             }
             break;
         case "F5":
             if (!isMac)
-                InspectorBackend.reloadPage();
+                InspectorBackend.reloadPage(event.ctrlKey || event.shiftKey);
             break;
     }
 }
@@ -946,6 +908,7 @@ WebInspector.animateStyle = function(animations, duration, callback)
 {
     var interval;
     var complete = 0;
+    var hasCompleted = false;
 
     const intervalDuration = (1000 / 30); // 30 frames per second.
     const animationsLength = animations.length;
@@ -1014,14 +977,32 @@ WebInspector.animateStyle = function(animations, duration, callback)
 
         // End condition.
         if (complete >= duration) {
+            hasCompleted = true;
             clearInterval(interval);
             if (callback)
                 callback();
         }
     }
 
+    function forceComplete()
+    {
+        if (!hasCompleted) {
+            complete = duration;
+            animateLoop();
+        }
+    }
+
+    function cancel()
+    {
+        hasCompleted = true;
+        clearInterval(interval);
+    }
+
     interval = setInterval(animateLoop, intervalDuration);
-    return interval;
+    return {
+        cancel: cancel,
+        forceComplete: forceComplete
+    };
 }
 
 WebInspector.updateSearchLabel = function()
@@ -1147,11 +1128,6 @@ WebInspector.showConsole = function()
     this.drawer.showView(this.console);
 }
 
-WebInspector.showChanges = function()
-{
-    this.drawer.showView(this.changes);
-}
-
 WebInspector.showPanel = function(panel)
 {
     if (!(panel in this.panels))
@@ -1171,8 +1147,8 @@ WebInspector.domContentEventFired = function(time)
 WebInspector.loadEventFired = function(time)
 {
     this.panels.audits.mainResourceLoadTime = time;
-    if (this.panels.network)
-        this.panels.network.mainResourceLoadTime = time;
+    this.panels.network.mainResourceLoadTime = time;
+    this.panels.resources.loadEventFired();
     this.extensionServer.notifyPageLoaded((time - WebInspector.mainResource.startTime) * 1000);
     this.mainResourceLoadTime = time;
 }
@@ -1381,6 +1357,8 @@ WebInspector.showSourceLine = function(url, line, preferredPanel)
     this.currentPanel = this._choosePanelToShowSourceLine(url, line, preferredPanel);
     if (!this.currentPanel)
         return false;
+    if (this.drawer)
+        this.drawer.immediatelyFinishAnimation();
     this.currentPanel.showSourceLine(url, line);
     return true;
 }
@@ -1511,7 +1489,19 @@ WebInspector.completeURL = function(baseURL, href)
         var path = href;
         if (path.charAt(0) !== "/") {
             var basePath = parsedURL.path;
-            path = basePath.substring(0, basePath.lastIndexOf("/")) + "/" + path;
+            // A href of "?foo=bar" implies "basePath?foo=bar".
+            // With "basePath?a=b" and "?foo=bar" we should get "basePath?foo=bar".
+            var prefix;
+            if (path.charAt(0) === "?") {
+                var basePathCutIndex = basePath.indexOf("?");
+                if (basePathCutIndex !== -1)
+                    prefix = basePath.substring(0, basePathCutIndex);
+                else
+                    prefix = basePath;
+            } else
+                prefix = basePath.substring(0, basePath.lastIndexOf("/")) + "/";
+
+            path = prefix + path;
         } else if (path.length > 1 && path.charAt(1) === "/") {
             // href starts with "//" which is a full URL with the protocol dropped (use the baseURL protocol).
             return parsedURL.scheme + ":" + path;
@@ -1574,6 +1564,12 @@ WebInspector.performSearch = function(event)
 {
     var forceSearch = event.keyIdentifier === "Enter";
     this.doPerformSearch(event.target.value, forceSearch, event.shiftKey, false);
+}
+
+WebInspector.cancelSearch = function()
+{
+    document.getElementById("search").value = "";
+    this.doPerformSearch("");
 }
 
 WebInspector.doPerformSearch = function(query, forceSearch, isBackwardSearch, repeatSearch)
@@ -1873,6 +1869,7 @@ WebInspector.MIMETypes = {
     "font/opentype":               {3: true},
     "application/x-font-type1":    {3: true},
     "application/x-font-ttf":      {3: true},
+    "application/x-font-woff":     {3: true},
     "application/x-truetype-font": {3: true},
     "text/javascript":             {4: true},
     "text/ecmascript":             {4: true},

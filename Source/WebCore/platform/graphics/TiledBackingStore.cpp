@@ -73,8 +73,8 @@ void TiledBackingStore::invalidate(const IntRect& contentsDirtyRect)
 {
     IntRect dirtyRect(mapFromContents(contentsDirtyRect));
     
-    Tile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.topLeft());
-    Tile::Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.bottomRight());
+    Tile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
+    Tile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(dirtyRect.maxX(), dirtyRect.maxY()));
     
     for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
         for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
@@ -93,6 +93,8 @@ void TiledBackingStore::updateTileBuffers()
     if (m_contentsFrozen)
         return;
     
+    m_client->tiledBackingStorePaintBegin();
+
     Vector<IntRect> paintedArea;
     Vector<RefPtr<Tile> > dirtyTiles;
     TileMap::iterator end = m_tiles.end();
@@ -104,10 +106,10 @@ void TiledBackingStore::updateTileBuffers()
         paintedArea.append(mapToContents(it->second->rect()));
     }
     
-    if (dirtyTiles.isEmpty())
+    if (dirtyTiles.isEmpty()) {
+        m_client->tiledBackingStorePaintEnd(paintedArea);
         return;
-    
-    m_client->tiledBackingStorePaintBegin();
+    }
 
     // FIXME: In single threaded case, tile back buffers could be updated asynchronously 
     // one by one and then swapped to front in one go. This would minimize the time spent
@@ -132,8 +134,8 @@ void TiledBackingStore::paint(GraphicsContext* context, const IntRect& rect)
     
     IntRect dirtyRect = mapFromContents(rect);
     
-    Tile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.topLeft());
-    Tile::Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.bottomRight());
+    Tile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
+    Tile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(dirtyRect.maxX(), dirtyRect.maxY()));
 
     for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
         for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
@@ -227,8 +229,8 @@ void TiledBackingStore::createTiles()
     double shortestDistance = std::numeric_limits<double>::infinity();
     Vector<Tile::Coordinate> tilesToCreate;
     unsigned requiredTileCount = 0;
-    Tile::Coordinate topLeft = tileCoordinateForPoint(coverRect.topLeft());
-    Tile::Coordinate bottomRight = tileCoordinateForPoint(coverRect.bottomRight());
+    Tile::Coordinate topLeft = tileCoordinateForPoint(coverRect.location());
+    Tile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(coverRect.maxX(), coverRect.maxY()));
     for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
         for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
             Tile::Coordinate currentCoordinate(xCoordinate, yCoordinate);

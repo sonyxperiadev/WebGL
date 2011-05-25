@@ -13,7 +13,6 @@
     <file>BreakpointManager.js</file>
     <file>BreakpointsSidebarPane.js</file>
     <file>CallStackSidebarPane.js</file>
-    <file>ChangesView.js</file>
     <file>Checkbox.js</file>
     <file>Color.js</file>
     <file>ConsolePanel.js</file>
@@ -28,6 +27,7 @@
     <file>Database.js</file>
     <file>DatabaseQueryView.js</file>
     <file>DatabaseTableView.js</file>
+    <file>DetailedHeapshotView.js</file>
     <file>DataGrid.js</file>
     <file>DebuggerModel.js</file>
     <file>DOMAgent.js</file>
@@ -44,10 +44,10 @@
     <file>ExtensionPanel.js</file>
     <file>ExtensionRegistryStub.js</file>
     <file>ExtensionServer.js</file>
-    <file>FileSystemView.js</file>
     <file>FontView.js</file>
     <file>GoToLineDialog.js</file>
     <file>HAREntry.js</file>
+    <file>HeapSnapshot.js</file>
     <file>HeapSnapshotView.js</file>
     <file>HelpScreen.js</file>
     <file>ImageView.js</file>
@@ -64,6 +64,7 @@
     <file>Panel.js</file>
     <file>PanelEnablerView.js</file>
     <file>Placard.js</file>
+    <file>PleaseWaitMessage.js</file>
     <file>Popover.js</file>
     <file>ProfileDataGridTree.js</file>
     <file>ProfilesPanel.js</file>
@@ -84,18 +85,18 @@
     <file>ScriptFormatter.js</file>
     <file>ScriptFormatterWorker.js</file>
     <file>ScriptsPanel.js</file>
-    <file>ScriptView.js</file>
     <file>Section.js</file>
     <file>Settings.js</file>
     <file>ShortcutsHelp.js</file>
+    <file>ShowMoreDataGridNode.js</file>
     <file>SidebarPane.js</file>
     <file>SidebarTreeElement.js</file>
     <file>SourceCSSTokenizer.js</file>
     <file>SourceFrame.js</file>
+    <file>SourceFrameContent.js</file>
     <file>SourceHTMLTokenizer.js</file>
     <file>SourceJavaScriptTokenizer.js</file>
     <file>SourceTokenizer.js</file>
-    <file>SourceView.js</file>
     <file>StatusBarButton.js</file>
     <file>StylesSidebarPane.js</file>
     <file>SummaryBar.js</file>

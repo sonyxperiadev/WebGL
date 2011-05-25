@@ -64,12 +64,7 @@ LOCAL_SRC_FILES := \
 	parser/Nodes.cpp \
 	parser/Parser.cpp \
 	parser/ParserArena.cpp \
-	\
-	pcre/pcre_compile.cpp \
-	pcre/pcre_exec.cpp \
-	pcre/pcre_tables.cpp \
-	pcre/pcre_ucp_searchfuncs.cpp \
-	pcre/pcre_xclass.cpp \
+	parser/SourceProviderCache.cpp \
 	\
 	profiler/Profile.cpp \
 	profiler/ProfileGenerator.cpp \
@@ -84,6 +79,7 @@ LOCAL_SRC_FILES := \
 	runtime/BooleanObject.cpp \
 	runtime/BooleanPrototype.cpp \
 	runtime/CallData.cpp \
+	runtime/MarkedBlock.cpp \
 	runtime/MarkedSpace.cpp \
 	runtime/Heap.cpp \
 	runtime/CommonIdentifiers.cpp \
@@ -133,6 +129,7 @@ LOCAL_SRC_FILES := \
 	runtime/LiteralParser.cpp \
 	runtime/Lookup.cpp \
 	runtime/MachineStackMarker.cpp \
+	runtime/ConservativeSet.cpp \
 	runtime/MarkStack.cpp \
 	runtime/MarkStackPosix.cpp \
 	runtime/MathObject.cpp \
@@ -168,6 +165,7 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
+	wtf/CryptographicallyRandomNumber.cpp \
 	wtf/CurrentTime.cpp \
 	wtf/DateMath.cpp \
 	wtf/DecimalNumber.cpp \
@@ -176,6 +174,7 @@ LOCAL_SRC_FILES := \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
 	wtf/OSAllocatorPosix.cpp \
+	wtf/OSRandomSource.cpp \
 	wtf/PageAllocationAligned.cpp\
 	wtf/PageBlock.cpp\
 	wtf/RandomNumber.cpp \
@@ -237,17 +236,10 @@ $(LEXER_HEADER): $(LOCAL_PATH)/create_hash_table
 $(LEXER_HEADER): $(intermediates)/%.lut.h : $(LOCAL_PATH)/parser/Keywords.table
 	$(transform-generated-source)
 
-CHARTABLES := $(intermediates)/chartables.c
-$(CHARTABLES): PRIVATE_PATH := $(LOCAL_PATH)
-$(CHARTABLES): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/pcre/dftables $@
-$(CHARTABLES): $(LOCAL_PATH)/pcre/dftables
-$(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
-	$(transform-generated-source)
-
 REGEXP_JIT_TABLES := $(intermediates)/RegExpJitTables.h
 $(REGEXP_JIT_TABLES): PRIVATE_PATH := $(LOCAL_PATH)
 $(REGEXP_JIT_TABLES): PRIVATE_CUSTOM_TOOL = python $(PRIVATE_PATH)/create_regex_tables > $@
 $(REGEXP_JIT_TABLES): $(LOCAL_PATH)/create_regex_tables
 	$(transform-generated-source)
 
-LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(CHARTABLES) $(REGEXP_JIT_TABLES)
+LOCAL_GENERATED_SOURCES += $(JSC_OBJECTS) $(LEXER_HEADER) $(REGEXP_JIT_TABLES)

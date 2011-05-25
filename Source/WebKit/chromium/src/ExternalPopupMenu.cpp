@@ -128,10 +128,10 @@ void ExternalPopupMenu::didCancel()
 void ExternalPopupMenu::getPopupMenuInfo(WebPopupMenuInfo* info)
 {
     int itemCount = m_popupMenuClient->listSize();
-    WebVector<WebPopupMenuInfo::Item> items(
+    WebVector<WebMenuItemInfo> items(
         static_cast<size_t>(itemCount));
     for (int i = 0; i < itemCount; ++i) {
-        WebPopupMenuInfo::Item& popupItem = items[i];
+        WebMenuItemInfo& popupItem = items[i];
         popupItem.label = m_popupMenuClient->itemText(i);
         if (m_popupMenuClient->itemIsSeparator(i))
             popupItem.type = WebMenuItemInfo::Separator;
@@ -140,9 +140,15 @@ void ExternalPopupMenu::getPopupMenuInfo(WebPopupMenuInfo* info)
         else
             popupItem.type = WebMenuItemInfo::Option;
         popupItem.enabled = m_popupMenuClient->itemIsEnabled(i);
+        PopupMenuStyle style = m_popupMenuClient->itemStyle(i);
+        if (style.textDirection() == WebCore::RTL)
+            popupItem.textDirection = WebTextDirectionRightToLeft;
+        else
+            popupItem.textDirection = WebTextDirectionLeftToRight;
+        popupItem.hasTextDirectionOverride = style.hasTextDirectionOverride();
     }
 
-    info->itemHeight = m_popupMenuClient->menuStyle().font().height();
+    info->itemHeight = m_popupMenuClient->menuStyle().font().fontMetrics().height();
     info->itemFontSize =
         static_cast<int>(m_popupMenuClient->menuStyle().font().size());
     info->selectedIndex = m_popupMenuClient->selectedIndex();

@@ -232,7 +232,7 @@ public:
 
     Node* shadowRoot();
     void setShadowRoot(PassRefPtr<Node>);
-    virtual AtomicString shadowPseudoId() const;
+    virtual const AtomicString& shadowPseudoId() const;
 
     RenderStyle* computedStyle(PseudoId = NOPSEUDO);
 
@@ -276,7 +276,7 @@ public:
 
     bool isFinishedParsingChildren() const { return isParsingChildrenFinished(); }
     virtual void finishParsingChildren();
-    virtual void beginParsingChildren() { clearIsParsingChildrenFinished(); }
+    virtual void beginParsingChildren();
 
     // ElementTraversal API
     Element* firstElementChild() const;
@@ -510,9 +510,18 @@ inline void Element::setIdAttribute(const AtomicString& value)
     setAttribute(document()->idAttributeName(), value);
 }
 
-inline AtomicString Element::shadowPseudoId() const
+inline const AtomicString& Element::shadowPseudoId() const
 {
-    return AtomicString();
+    return nullAtom;
+}
+    
+inline Element* firstElementChild(const ContainerNode* container)
+{
+    ASSERT_ARG(container, container);
+    Node* child = container->firstChild();
+    while (child && !child->isElementNode())
+        child = child->nextSibling();
+    return static_cast<Element*>(child);
 }
 
 } // namespace

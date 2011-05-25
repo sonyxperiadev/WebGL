@@ -117,12 +117,22 @@ void webkit_set_cache_model(WebKitCacheModel model)
     gdouble deadDecodedDataDeletionInterval;
     guint pageCacheCapacity;
 
+    // FIXME: The Mac port calculates these values based on the amount of physical memory that's
+    // installed on the system. Currently these values match the Mac port for users with more than
+    // 512 MB and less than 1024 MB of physical memory.
     switch (model) {
     case WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER:
         pageCacheCapacity = 0;
-        cacheTotalCapacity = 0;
+        cacheTotalCapacity = 0; // FIXME: The Mac port actually sets this to larger than 0.
         cacheMinDeadCapacity = 0;
         cacheMaxDeadCapacity = 0;
+        deadDecodedDataDeletionInterval = 0;
+        break;
+    case WEBKIT_CACHE_MODEL_DOCUMENT_BROWSER:
+        pageCacheCapacity = 2;
+        cacheTotalCapacity = 16 * 1024 * 1024;
+        cacheMinDeadCapacity = cacheTotalCapacity / 8;
+        cacheMaxDeadCapacity = cacheTotalCapacity / 4;
         deadDecodedDataDeletionInterval = 0;
         break;
     case WEBKIT_CACHE_MODEL_WEB_BROWSER:
@@ -248,13 +258,7 @@ void webkitInit()
     PageGroup::setShouldTrackVisitedLinks(true);
 
     Pasteboard::generalPasteboard()->setHelper(WebKit::pasteboardHelperInstance());
-
-    iconDatabase()->setEnabled(true);
-
-    GOwnPtr<gchar> iconDatabasePath(g_build_filename(g_get_user_data_dir(), "webkit", "icondatabase", NULL));
-    iconDatabase()->open(iconDatabasePath.get());
-
-    atexit(closeIconDatabaseOnExit);
+    WebKit::setIconDatabaseEnabled(true);
 
     SoupSession* session = webkit_get_default_session();
 
@@ -277,6 +281,26 @@ PasteboardHelperGtk* pasteboardHelperInstance()
     static PasteboardHelperGtk* helper = new PasteboardHelperGtk();
     return helper;
 }
+
+void setIconDatabaseEnabled(bool enabled)
+{
+    static bool initialized = false;
+    if (enabled && !initialized) {
+        initialized = true;
+        atexit(closeIconDatabaseOnExit);
+    }
+
+    if (enabled) {
+        iconDatabase()->setEnabled(true);
+        GOwnPtr<gchar> iconDatabasePath(g_build_filename(g_get_user_data_dir(), "webkit", "icondatabase", NULL));
+        iconDatabase()->open(iconDatabasePath.get());
+        return;
+    }
+
+    iconDatabase()->setEnabled(false);
+    iconDatabase()->close();
+}
+
 
 } /** end namespace WebKit */
 

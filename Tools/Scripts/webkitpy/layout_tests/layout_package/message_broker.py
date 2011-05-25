@@ -41,9 +41,9 @@ requested configuration.
 """
 
 import logging
-import sys
 import time
-import traceback
+
+from webkitpy.common.system import stack_utils
 
 import dump_render_tree_thread
 
@@ -137,6 +137,7 @@ class MultiThreadedBroker(WorkerMessageBroker):
 
     def run_message_loop(self):
         threads = self._threads()
+        wedged_threads = set()
 
         # Loop through all the threads waiting for them to finish.
         some_thread_is_alive = True
@@ -145,11 +146,15 @@ class MultiThreadedBroker(WorkerMessageBroker):
             t = time.time()
             for thread in threads:
                 if thread.isAlive():
+                    if thread in wedged_threads:
+                        continue
+
                     some_thread_is_alive = True
                     next_timeout = thread.next_timeout()
                     if next_timeout and t > next_timeout:
-                        log_wedged_worker(thread.getName(), thread.id())
+                        stack_utils.log_thread_state(_log.error, thread.getName(), thread.id(), "is wedged")
                         thread.clear_next_timeout()
+                        wedged_threads.add(thread)
 
                 exception_info = thread.exception_info()
                 if exception_info is not None:
@@ -164,34 +169,10 @@ class MultiThreadedBroker(WorkerMessageBroker):
             if some_thread_is_alive:
                 time.sleep(0.01)
 
+        if wedged_threads:
+            _log.warning("All remaining threads are wedged, bailing out.")
+
     def cancel_workers(self):
         threads = self._threads()
         for thread in threads:
             thread.cancel()
-
-
-def log_wedged_worker(name, id):
-    """Log information about the given worker state."""
-    stack = _find_thread_stack(id)
-    assert(stack is not None)
-    _log.error("")
-    _log.error("%s (tid %d) is wedged" % (name, id))
-    _log_stack(stack)
-    _log.error("")
-
-
-def _find_thread_stack(id):
-    """Returns a stack object that can be used to dump a stack trace for
-    the given thread id (or None if the id is not found)."""
-    for thread_id, stack in sys._current_frames().items():
-        if thread_id == id:
-            return stack
-    return None
-
-
-def _log_stack(stack):
-    """Log a stack trace to log.error()."""
-    for filename, lineno, name, line in traceback.extract_stack(stack):
-        _log.error('File: "%s", line %d, in %s' % (filename, lineno, name))
-        if line:
-            _log.error('  %s' % line.strip())

@@ -180,7 +180,13 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
         
         this.valueElement = document.createElement("span");
         this.valueElement.className = "value";
-        this.valueElement.textContent = this.property.value.description;
+
+        var description = this.property.value.description;
+        // Render \n as a nice unicode cr symbol.
+        if (this.property.value.type === "string" && typeof description === "string")
+            description = description.replace(/\n/g, "\u21B5");
+        this.valueElement.textContent = description;
+
         if (this.property.isGetter)
             this.valueElement.addStyleClass("dimmed");
         if (this.property.value.isError())
@@ -188,7 +194,7 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
         if (this.property.value.type)
             this.valueElement.addStyleClass("console-formatted-" + this.property.value.type);
         if (this.property.value.type === "node")
-            this.valueElement.addEventListener("contextmenu", this._contextMenuEventFired.bind(this), true);
+            this.valueElement.addEventListener("contextmenu", this._contextMenuEventFired.bind(this), false);
 
         this.listItemElement.removeChildren();
 
@@ -203,8 +209,7 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
         function selectNode(nodeId)
         {
             if (nodeId) {
-                WebInspector.currentPanel = WebInspector.panels.elements;
-                WebInspector.panels.elements.focusedDOMNode = WebInspector.domAgent.nodeForId(nodeId);
+                WebInspector.panels.elements.switchToAndFocus(WebInspector.domAgent.nodeForId(nodeId));
             }
         }
 

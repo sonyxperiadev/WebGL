@@ -23,13 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "NetscapePlugin.h"
+#import "config.h"
+#import "NetscapePlugin.h"
 
-#include "PluginController.h"
-#include "WebEvent.h"
-#include <WebCore/GraphicsContext.h>
-#include <Carbon/Carbon.h>
-#include <WebKitSystemInterface.h>
+#import "PluginController.h"
+#import "WebEvent.h"
+#import <WebCore/GraphicsContext.h>
+#import <Carbon/Carbon.h>
+#import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 
@@ -169,6 +170,11 @@ NPError NetscapePlugin::popUpContextMenu(NPMenu* npMenu)
 
     WKPopupContextMenu(reinterpret_cast<NSMenu *>(npMenu), NSMakePoint(screenX, screenY));
     return NPERR_NO_ERROR;
+}
+
+mach_port_t NetscapePlugin::compositingRenderServerPort()
+{
+    return m_pluginController->compositingRenderServerPort();
 }
 
 #ifndef NP_NO_CARBON
@@ -779,8 +785,8 @@ static Rect computeFakeWindowBoundsRect(const WebCore::IntRect& windowFrameInScr
     // Carbon global coordinates has the origin set at the top left corner of the main viewing screen, so we want to flip the y coordinate.
     CGFloat maxY = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]);
 
-    int flippedWindowFrameYCoordinate = maxY - windowFrameInScreenCoordinates.bottom();
-    int flippedViewFrameYCoordinate = windowFrameInScreenCoordinates.height() - viewFrameInWindowCoordinates.bottom();
+    int flippedWindowFrameYCoordinate = maxY - windowFrameInScreenCoordinates.maxY();
+    int flippedViewFrameYCoordinate = windowFrameInScreenCoordinates.height() - viewFrameInWindowCoordinates.maxY();
 
     Rect bounds;
     

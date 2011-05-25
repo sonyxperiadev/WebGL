@@ -31,11 +31,8 @@
 #include "GRefPtr.h"
 #include "RenderTheme.h"
 
-#ifdef GTK_API_VERSION_2
-#include "gtkdrawing.h"
-#endif
-
 typedef gulong GType;
+typedef struct _GdkColormap GdkColormap;
 
 namespace WebCore {
 
@@ -92,7 +89,8 @@ public:
 #endif
 
 #ifdef GTK_API_VERSION_2
-    GtkWidget* gtkScrollbar();
+    GtkWidget* gtkVScrollbar() const;
+    GtkWidget* gtkHScrollbar() const;
     static void getIndicatorMetrics(ControlPart, int& indicatorSize, int& indicatorSpacing);
 #else
     GtkStyleContext* gtkScrollbarStyle();
@@ -171,6 +169,9 @@ protected:
 
     virtual bool paintCapsLockIndicator(RenderObject*, const PaintInfo&, const IntRect&);
 
+    virtual void adjustInnerSpinButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintInnerSpinButton(RenderObject*, const PaintInfo&, const IntRect&);
+
 private:
     void platformInit();
     static void setTextInputBorders(RenderStyle*);
@@ -195,12 +196,10 @@ private:
 
 #ifdef GTK_API_VERSION_2
     void setupWidgetAndAddToContainer(GtkWidget*, GtkWidget*) const;
-    bool paintRenderObject(GtkThemeWidgetType, RenderObject*, GraphicsContext*, const IntRect&, int flags = 0);
     void refreshComboBoxChildren() const;
     void getComboBoxPadding(RenderStyle*, int& left, int& top, int& right, int& bottom) const;
     int getComboBoxSeparatorWidth() const;
     int comboBoxArrowSize(RenderStyle*) const;
-    GtkThemeParts m_themeParts;
 
     GtkWidget* gtkButton() const;
     GtkWidget* gtkEntry() const;
@@ -216,6 +215,7 @@ private:
     GtkWidget* gtkComboBoxArrow() const;
     GtkWidget* gtkComboBoxSeparator() const;
 
+    GdkColormap* m_colormap;
     mutable GtkWidget* m_gtkWindow;
     mutable GtkWidget* m_gtkContainer;
     mutable GtkWidget* m_gtkButton;
@@ -230,6 +230,8 @@ private:
     mutable GtkWidget* m_gtkComboBoxButton;
     mutable GtkWidget* m_gtkComboBoxArrow;
     mutable GtkWidget* m_gtkComboBoxSeparator;
+    mutable GtkWidget* m_gtkVScrollbar;
+    mutable GtkWidget* m_gtkHScrollbar;
     bool m_themePartsHaveRGBAColormap;
     friend class WidgetRenderingContext;
 #endif

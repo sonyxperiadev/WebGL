@@ -122,14 +122,14 @@ void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureC
 
     const int firstDirtyTileX = static_cast<int>(floorf(inval.x() * invTileContentWidth));
     const int firstDirtyTileY = static_cast<int>(floorf(inval.y() * invTileContentHeight));
-    const int lastDirtyTileX = static_cast<int>(ceilf(inval.right() * invTileContentWidth));
-    const int lastDirtyTileY = static_cast<int>(ceilf(inval.bottom() * invTileContentHeight));
+    const int lastDirtyTileX = static_cast<int>(ceilf(inval.maxX() * invTileContentWidth));
+    const int lastDirtyTileY = static_cast<int>(ceilf(inval.maxY() * invTileContentHeight));
 
     XLOG("Marking X %d-%d and Y %d-%d dirty", firstDirtyTileX, lastDirtyTileX, firstDirtyTileY, lastDirtyTileY);
     // We defer marking the tile as dirty until the next time we need to prepare
     // to draw.
     m_invalRegion.op(firstDirtyTileX, firstDirtyTileY, lastDirtyTileX, lastDirtyTileY, SkRegion::kUnion_Op);
-    m_invalTilesRegion.op(inval.x(), inval.y(), inval.right(), inval.bottom(), SkRegion::kUnion_Op);
+    m_invalTilesRegion.op(inval.x(), inval.y(), inval.maxX(), inval.maxY(), SkRegion::kUnion_Op);
     m_latestPictureInval = pictureCount;
 }
 

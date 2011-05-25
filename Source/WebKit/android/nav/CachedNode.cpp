@@ -147,17 +147,17 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
         while (++unitBoundsPtr < unitBoundsEnd) {
             // any other unitBounds to the left or right of this one?
             int unitTop = unitBoundsPtr->y();
-            int unitBottom = unitBoundsPtr->bottom();
+            int unitBottom = unitBoundsPtr->maxY();
             int unitLeft = unitBoundsPtr->x();
-            int unitRight = unitBoundsPtr->right();
+            int unitRight = unitBoundsPtr->maxX();
             WebCore::IntRect* testBoundsPtr = mCursorRing.begin() - 1;
             while (++testBoundsPtr < unitBoundsEnd) {
                 if (unitBoundsPtr == testBoundsPtr)
                     continue;
                 int testTop = testBoundsPtr->y();
-                int testBottom = testBoundsPtr->bottom();
+                int testBottom = testBoundsPtr->maxY();
                 int testLeft = testBoundsPtr->x();
-                int testRight = testBoundsPtr->right();
+                int testRight = testBoundsPtr->maxX();
                 int candidateTop = unitTop > testTop ? unitTop : testTop;
                 int candidateBottom = unitBottom < testBottom ? unitBottom : testBottom;
                 int candidateLeft = unitRight < testLeft ? unitRight : testRight;
@@ -184,19 +184,19 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
                         continue;
                     if (leftRight) {
                         if (candidateTop >= checkBoundsPtr->y() &&
-                                candidateBottom > checkBoundsPtr->bottom())
-                            candidateTop = checkBoundsPtr->bottom(); 
+                                candidateBottom > checkBoundsPtr->maxY())
+                            candidateTop = checkBoundsPtr->maxY();
                         else if (candidateTop < checkBoundsPtr->y() &&
-                                candidateBottom <= checkBoundsPtr->bottom())
+                                candidateBottom <= checkBoundsPtr->maxY())
                             candidateBottom = checkBoundsPtr->y();
                         else
                             goto nextCheck;
                     } else {
                         if (candidateLeft >= checkBoundsPtr->x() &&
-                                candidateRight > checkBoundsPtr->right())
-                            candidateLeft = checkBoundsPtr->right(); 
+                                candidateRight > checkBoundsPtr->maxX())
+                            candidateLeft = checkBoundsPtr->maxX();
                         else if (candidateLeft < checkBoundsPtr->x() &&
-                                candidateRight <= checkBoundsPtr->right())
+                                candidateRight <= checkBoundsPtr->maxX())
                             candidateRight = checkBoundsPtr->x();
                         else
                             goto nextCheck;

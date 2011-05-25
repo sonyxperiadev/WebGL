@@ -37,6 +37,7 @@
 #include "CSSStyleSelector.h"
 #include "Chrome.h"
 #include "Console.h"
+#include "Crypto.h"
 #include "DOMApplicationCache.h"
 #include "DOMSelection.h"
 #include "DOMSettableTokenList.h"
@@ -342,8 +343,8 @@ void DOMWindow::adjustWindowRect(const FloatRect& screen, FloatRect& window, con
     window.setHeight(min(max(100.0f, window.height()), screen.height()));
     
     // Constrain the window position to the screen.
-    window.setX(max(screen.x(), min(window.x(), screen.right() - window.width())));
-    window.setY(max(screen.y(), min(window.y(), screen.bottom() - window.height())));
+    window.setX(max(screen.x(), min(window.x(), screen.maxX() - window.width())));
+    window.setY(max(screen.y(), min(window.y(), screen.maxY() - window.height())));
 }
 
 // FIXME: We can remove this function once V8 showModalDialog is changed to use DOMWindow.
@@ -432,6 +433,8 @@ void DOMWindow::clear()
     if (m_history)
         m_history->disconnectFrame();
     m_history = 0;
+
+    m_crypto = 0;
 
     if (m_locationbar)
         m_locationbar->disconnectFrame();
@@ -528,6 +531,13 @@ History* DOMWindow::history() const
     if (!m_history)
         m_history = History::create(m_frame);
     return m_history.get();
+}
+
+Crypto* DOMWindow::crypto() const
+{
+    if (!m_crypto)
+        m_crypto = Crypto::create();
+    return m_crypto.get();
 }
 
 BarInfo* DOMWindow::locationbar() const
@@ -964,33 +974,17 @@ String DOMWindow::prompt(const String& message, const String& defaultValue)
     return String();
 }
 
-static bool isSafeToConvertCharList(const String& string)
-{
-    for (unsigned i = 0; i < string.length(); i++) {
-        if (string[i] > 0xFF)
-            return false;
-    }
-
-    return true;
-}
-
 String DOMWindow::btoa(const String& stringToEncode, ExceptionCode& ec)
 {
     if (stringToEncode.isNull())
         return String();
 
-    if (!isSafeToConvertCharList(stringToEncode)) {
+    if (!stringToEncode.containsOnlyLatin1()) {
         ec = INVALID_CHARACTER_ERR;
         return String();
     }
 
-    Vector<char> in;
-    in.append(stringToEncode.characters(), stringToEncode.length());
-    Vector<char> out;
-
-    base64Encode(in, out);
-
-    return String(out.data(), out.size());
+    return base64Encode(stringToEncode.latin1());
 }
 
 String DOMWindow::atob(const String& encodedString, ExceptionCode& ec)
@@ -998,7 +992,7 @@ String DOMWindow::atob(const String& encodedString, ExceptionCode& ec)
     if (encodedString.isNull())
         return String();
 
-    if (!isSafeToConvertCharList(encodedString)) {
+    if (!encodedString.containsOnlyLatin1()) {
         ec = INVALID_CHARACTER_ERR;
         return String();
     }
@@ -1557,7 +1551,7 @@ void DOMWindow::dispatchLoadEvent()
         ownerElement->dispatchGenericEvent(ownerEvent.release());
     }
 
-    InspectorInstrumentation::mainResourceFiredLoadEvent(frame(), url());
+    InspectorInstrumentation::loadEventFired(frame(), url());
 }
 
 bool DOMWindow::dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget> prpTarget)
@@ -1585,7 +1579,6 @@ void DOMWindow::dispatchTimedEvent(PassRefPtr<Event> event, Document* target, do
     *startTime = currentTime();
     dispatchEvent(event, target);
     *endTime = currentTime();
-    ASSERT(*endTime >= *startTime);
 }
 
 void DOMWindow::removeAllEventListeners()

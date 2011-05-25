@@ -112,7 +112,7 @@ WebInspector.ProfilesPanel = function()
     this.enableToggleButton = new WebInspector.StatusBarButton("", "enable-toggle-status-bar-item");
     this.enableToggleButton.addEventListener("click", this._toggleProfiling.bind(this), false);
 
-    this.clearResultsButton = new WebInspector.StatusBarButton(WebInspector.UIString("Clear CPU profiles."), "clear-status-bar-item");
+    this.clearResultsButton = new WebInspector.StatusBarButton(WebInspector.UIString("Clear all profiles."), "clear-status-bar-item");
     this.clearResultsButton.addEventListener("click", this._clearProfiles.bind(this), false);
 
     this.profileViewStatusBarItemsContainer = document.createElement("div");
@@ -195,7 +195,7 @@ WebInspector.ProfilesPanel.prototype = {
         this._profiles = [];
         this._profilesIdMap = {};
         this._profileGroups = {};
-        this._profileGroupsForLinks = {}
+        this._profileGroupsForLinks = {};
         this._profilesWereRequested = false;
 
         this.sidebarTreeElement.removeStyleClass("some-expandable");
@@ -259,6 +259,13 @@ WebInspector.ProfilesPanel.prototype = {
 
     _addProfileHeader: function(profile)
     {
+        if (this.hasTemporaryProfile(profile.typeId)) {
+            if (profile.typeId === WebInspector.CPUProfileType.TypeId)
+                this._removeProfileHeader(this._temporaryRecordingProfile);
+            else
+                this._removeProfileHeader(this._temporaryTakingSnapshot);
+        }
+
         var typeId = profile.typeId;
         var profileType = this.getProfileType(typeId);
         var sidebarParent = profileType.treeElement;
@@ -308,6 +315,7 @@ WebInspector.ProfilesPanel.prototype = {
         }
 
         var profileTreeElement = profileType.createSidebarTreeElementForProfile(profile);
+        profile.sideBarElement = profileTreeElement;
         profileTreeElement.small = small;
         if (alternateTitle)
             profileTreeElement.mainTitle = alternateTitle;
@@ -370,17 +378,20 @@ WebInspector.ProfilesPanel.prototype = {
         this.profileViewStatusBarItemsContainer.removeChildren();
 
         var statusBarItems = view.statusBarItems;
-        for (var i = 0; i < statusBarItems.length; ++i)
-            this.profileViewStatusBarItemsContainer.appendChild(statusBarItems[i]);
+        if (statusBarItems)
+            for (var i = 0; i < statusBarItems.length; ++i)
+                this.profileViewStatusBarItemsContainer.appendChild(statusBarItems[i]);
     },
 
     getProfiles: function(typeId)
     {
         var result = [];
         var profilesCount = this._profiles.length;
-        for (var i = 0; i < profilesCount; ++i)
-            if (this._profiles[i].typeId === typeId)
-                result.push(this._profiles[i]);
+        for (var i = 0; i < profilesCount; ++i) {
+            var profile = this._profiles[i];
+            if (!profile.isTemporary && profile.typeId === typeId)
+                result.push(profile);
+        }
         return result;
     },
 
@@ -398,17 +409,6 @@ WebInspector.ProfilesPanel.prototype = {
         return !!this._profilesIdMap[this._makeKey(profile.uid, profile.typeId)];
     },
 
-    updateProfile: function(profile)
-    {
-        var profilesCount = this._profiles.length;
-        for (var i = 0; i < profilesCount; ++i)
-            if (this._profiles[i].typeId === profile.typeId
-                && this._profiles[i].uid === profile.uid) {
-                this._profiles[i] = profile;
-                break;
-            }
-    },
-
     loadHeapSnapshot: function(uid, callback)
     {
         var profile = this._profilesIdMap[this._makeKey(uid, WebInspector.HeapSnapshotProfileType.TypeId)];
@@ -423,6 +423,7 @@ WebInspector.ProfilesPanel.prototype = {
             profile._is_loading = true;
             profile._callbacks = [callback];
             profile._json = "";
+            profile.sideBarElement.subtitle = WebInspector.UIString("Loading…");
             InspectorBackend.getProfile(profile.typeId, profile.uid);
         }
     },
@@ -444,13 +445,23 @@ WebInspector.ProfilesPanel.prototype = {
 
         var callbacks = profile._callbacks;
         delete profile._callbacks;
-        var loadedSnapshot = JSON.parse(profile._json);
-        delete profile._json;
-        delete profile._is_loading;
-        profile._loaded = true;
-        WebInspector.HeapSnapshotView.prototype.processLoadedSnapshot(profile, loadedSnapshot);
-        for (var i = 0; i < callbacks.length; ++i)
-            callbacks[i](profile);
+        profile.sideBarElement.subtitle = WebInspector.UIString("Parsing…");
+        window.setTimeout(doParse, 0);
+
+        function doParse()
+        {
+            var loadedSnapshot = JSON.parse(profile._json);
+            delete profile._json;
+            delete profile._is_loading;
+            profile._loaded = true;
+            profile.sideBarElement.subtitle = "";
+            if (!Preferences.detailedHeapProfiles)
+                WebInspector.HeapSnapshotView.prototype.processLoadedSnapshot(profile, loadedSnapshot);
+            else
+                WebInspector.DetailedHeapshotView.prototype.processLoadedSnapshot(profile, loadedSnapshot);
+            for (var i = 0; i < callbacks.length; ++i)
+                callbacks[i](profile);
+        }
     },
 
     showView: function(view)
@@ -579,10 +590,13 @@ WebInspector.ProfilesPanel.prototype = {
 
     _toggleProfiling: function(optionalAlways)
     {
-        if (this._profilerEnabled)
+        if (this._profilerEnabled) {
+            WebInspector.settings.profilerEnabled = false;
             InspectorBackend.disableProfiler(true);
-        else
-            InspectorBackend.enableProfiler(!!optionalAlways);
+        } else {
+            WebInspector.settings.profilerEnabled = !!optionalAlways;
+            InspectorBackend.enableProfiler();
+        }
     },
 
     _populateProfiles: function()
@@ -629,6 +643,31 @@ WebInspector.ProfilesPanel.prototype = {
                 this._removeProfileHeader(this._temporaryRecordingProfile);
         }
         this.updateProfileTypeButtons();
+    },
+
+    takeHeapSnapshot: function(detailed)
+    {
+        if (!this.hasTemporaryProfile(WebInspector.HeapSnapshotProfileType.TypeId)) {
+            if (!this._temporaryTakingSnapshot) {
+                this._temporaryTakingSnapshot = {
+                    typeId: WebInspector.HeapSnapshotProfileType.TypeId,
+                    title: WebInspector.UIString("Snapshotting…"),
+                    uid: -1,
+                    isTemporary: true
+                };
+            }
+            this._addProfileHeader(this._temporaryTakingSnapshot);
+        }
+        InspectorBackend.takeHeapSnapshot(detailed);
+    },
+
+    _reportHeapSnapshotProgress: function(done, total)
+    {
+        if (this.hasTemporaryProfile(WebInspector.HeapSnapshotProfileType.TypeId)) {
+            this._temporaryTakingSnapshot.sideBarElement.subtitle = WebInspector.UIString("%.2f%%", (done / total) * 100);
+            if (done >= total)
+                this._removeProfileHeader(this._temporaryTakingSnapshot);
+        }
     }
 }
 
@@ -674,6 +713,11 @@ WebInspector.ProfilerDispatcher.prototype = {
     setRecordingProfile: function(isProfiling)
     {
         this._profiler._setRecordingProfile(isProfiling);
+    },
+
+    reportHeapSnapshotProgress: function(done, total)
+    {
+        this._profiler._reportHeapSnapshotProgress(done, total);
     }
 }
 
@@ -715,16 +759,6 @@ WebInspector.ProfileSidebarTreeElement.prototype = {
     {
         this._mainTitle = x;
         this.refreshTitles();
-    },
-
-    get subtitle()
-    {
-        // There is no subtitle.
-    },
-
-    set subtitle(x)
-    {
-        // Can't change subtitle.
     },
 
     set searchMatches(matches)

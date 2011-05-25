@@ -198,7 +198,8 @@ public:
     static bool commandIsSupportedFromMenuOrKeyBinding(const String& commandName); // Works without a frame.
 
     bool insertText(const String&, Event* triggeringEvent);
-    bool insertTextWithoutSendingTextEvent(const String&, bool selectInsertedText, Event* triggeringEvent);
+    bool insertTextForConfirmedComposition(const String& text);
+    bool insertTextWithoutSendingTextEvent(const String&, bool selectInsertedText, TextEvent* triggeringEvent);
     bool insertLineBreak();
     bool insertParagraphSeparator();
     
@@ -423,6 +424,7 @@ private:
     void stopCorrectionPanelTimer();
     void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel);
     void applyCorrectionPanelInfo(const Vector<DocumentMarker::MarkerType>& markerTypesToAdd);
+    void applyAutocorrectionBeforeTypingIfAppropriate();
 };
 
 inline void Editor::setStartNewKillRingSequence(bool flag)

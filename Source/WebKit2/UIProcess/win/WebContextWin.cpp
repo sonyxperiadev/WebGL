@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebContext.h"
 
 #include "WebProcessCreationParameters.h"
@@ -50,6 +51,11 @@ void WebContext::setShouldPaintNativeControls(bool b)
 void WebContext::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
     parameters.shouldPaintNativeControls = m_shouldPaintNativeControls;
+}
+
+String WebContext::platformDefaultDatabaseDirectory() const
+{
+    return WebCore::pathByAppendingComponent(WebCore::localUserSpecificStorageDirectory(), "Databases");
 }
 
 } // namespace WebKit

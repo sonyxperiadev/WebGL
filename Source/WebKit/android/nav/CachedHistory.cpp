@@ -64,18 +64,14 @@ bool CachedHistory::checkVisited(const CachedNode* node, CachedFrame::Direction 
 
 void CachedHistory::pinMaxMin(const WebCore::IntRect& viewBounds)
 {
-    if (mMinWorkingHorizontal < viewBounds.y() || 
-            mMinWorkingHorizontal >= viewBounds.bottom())
+    if (mMinWorkingHorizontal < viewBounds.y() || mMinWorkingHorizontal >= viewBounds.maxY())
         mMinWorkingHorizontal = viewBounds.y();
-    if (mMaxWorkingHorizontal > viewBounds.bottom() || 
-            mMaxWorkingHorizontal <= viewBounds.y())
-        mMaxWorkingHorizontal = viewBounds.bottom();
-    if (mMinWorkingVertical < viewBounds.x() || 
-            mMinWorkingVertical >= viewBounds.right())
+    if (mMaxWorkingHorizontal > viewBounds.maxY() || mMaxWorkingHorizontal <= viewBounds.y())
+        mMaxWorkingHorizontal = viewBounds.maxY();
+    if (mMinWorkingVertical < viewBounds.x() || mMinWorkingVertical >= viewBounds.maxX())
         mMinWorkingVertical = viewBounds.x();
-    if (mMaxWorkingVertical > viewBounds.right() || 
-            mMaxWorkingVertical <= viewBounds.x())
-        mMaxWorkingVertical = viewBounds.right();
+    if (mMaxWorkingVertical > viewBounds.maxX() || mMaxWorkingVertical <= viewBounds.x())
+        mMaxWorkingVertical = viewBounds.maxX();
 }
 
 void CachedHistory::reset()
@@ -111,11 +107,11 @@ void CachedHistory::setWorking(CachedFrame::Direction newMove,
     if (change) {   // uninitialized or change in direction
         if (lastAxis != CachedFrame::LEFT && navBounds->height() > 0) {
             mMinWorkingHorizontal = navBounds->y();
-            mMaxWorkingHorizontal = navBounds->bottom();
+            mMaxWorkingHorizontal = navBounds->maxY();
         }
         if (lastAxis != CachedFrame::UP && navBounds->width() > 0) {
             mMinWorkingVertical = navBounds->x();
-            mMaxWorkingVertical = navBounds->right();
+            mMaxWorkingVertical = navBounds->maxX();
         }
     }
     pinMaxMin(viewBounds);

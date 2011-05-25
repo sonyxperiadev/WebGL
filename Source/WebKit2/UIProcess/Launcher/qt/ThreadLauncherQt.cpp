@@ -24,6 +24,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "ThreadLauncher.h"
 
 #include "RunLoop.h"
@@ -54,7 +55,7 @@ static void* webThreadBody(void* /* context */)
 
     // FIXME: We do not support threaded mode for now.
 
-    WebProcess::shared().initialize("foo", RunLoop::current());
+    WebProcess::shared().initialize(-1, RunLoop::current());
     RunLoop::run();
 
     return 0;
@@ -70,8 +71,7 @@ CoreIPC::Connection::Identifier ThreadLauncher::createWebThread()
         return 0;
     }
 
-    QString serverIdentifier = QString::number(connectionIdentifier);
-    return serverIdentifier;
+    return connectionIdentifier;
 }
 
 } // namespace WebKit

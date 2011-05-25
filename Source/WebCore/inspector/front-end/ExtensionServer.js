@@ -252,9 +252,12 @@ WebInspector.ExtensionServer.prototype = {
         WebInspector.log(message.message);
     },
 
-    _onReload: function()
+    _onReload: function(message)
     {
-        InspectorBackend.reloadPage();
+        if (typeof message.userAgent === "string")
+            InspectorBackend.setUserAgentOverride(message.userAgent);
+
+        InspectorBackend.reloadPage(false);
         return this._status.OK();
     },
 
@@ -269,10 +272,8 @@ WebInspector.ExtensionServer.prototype = {
             result.value = resultObject.description;
             this._dispatchCallback(message.requestId, port, result);
         }
-        var evalExpression = "JSON.stringify(eval('" +
-            "with (window.console._commandLineAPI) with (window) {' + unescape('" + escape(message.expression) +
-            "') + '}'));";
-        InspectorBackend.evaluate(evalExpression, "none", callback.bind(this));
+        var evalExpression = "JSON.stringify(eval(unescape('" + escape(message.expression) + "')));";
+        InspectorBackend.evaluate(evalExpression, "none", true, callback.bind(this));
     },
 
     _onRevealAndSelect: function(message)

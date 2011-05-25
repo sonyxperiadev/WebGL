@@ -34,22 +34,22 @@ namespace JSC {
 
 const ClassInfo DateInstance::info = {"Date", 0, 0, 0};
 
-DateInstance::DateInstance(ExecState*, NonNullPassRefPtr<Structure> structure)
-    : JSWrapperObject(structure)
+DateInstance::DateInstance(ExecState* exec, NonNullPassRefPtr<Structure> structure)
+    : JSWrapperObject(exec->globalData(), structure)
 {
-    setInternalValue(jsNaN());
+    setInternalValue(exec->globalData(), jsNaN());
 }
 
-DateInstance::DateInstance(ExecState*, NonNullPassRefPtr<Structure> structure, double time)
-    : JSWrapperObject(structure)
+DateInstance::DateInstance(ExecState* exec, NonNullPassRefPtr<Structure> structure, double time)
+    : JSWrapperObject(exec->globalData(), structure)
 {
-    setInternalValue(jsNumber(timeClip(time)));
+    setInternalValue(exec->globalData(), jsNumber(timeClip(time)));
 }
 
 DateInstance::DateInstance(ExecState* exec, double time)
-    : JSWrapperObject(exec->lexicalGlobalObject()->dateStructure())
+    : JSWrapperObject(exec->globalData(), exec->lexicalGlobalObject()->dateStructure())
 {
-    setInternalValue(jsNumber(timeClip(time)));
+    setInternalValue(exec->globalData(), jsNumber(timeClip(time)));
 }
 
 const GregorianDateTime* DateInstance::calculateGregorianDateTime(ExecState* exec) const

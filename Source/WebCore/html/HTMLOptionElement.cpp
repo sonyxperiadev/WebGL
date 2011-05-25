@@ -194,7 +194,7 @@ void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange
 HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 {
     ContainerNode* select = parentNode();
-    while (select && !(select->hasTagName(selectTag) || select->hasTagName(keygenTag)))
+    while (select && !select->hasTagName(selectTag))
         select = select->parentNode();
 
     if (!select)
@@ -221,6 +221,9 @@ String HTMLOptionElement::label() const
 void HTMLOptionElement::setRenderStyle(PassRefPtr<RenderStyle> newStyle)
 {
     m_style = newStyle;
+    if (HTMLSelectElement* select = ownerSelectElement())
+        if (RenderObject* renderer = select->renderer())
+            renderer->repaint();
 }
 
 RenderStyle* HTMLOptionElement::nonRendererRenderStyle() const

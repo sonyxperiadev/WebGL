@@ -23,7 +23,6 @@
 #include "RenderTextControl.h"
 
 #include "AXObjectCache.h"
-#include "CharacterNames.h"
 #include "Editor.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -42,6 +41,7 @@
 #include "TextControlInnerElements.h"
 #include "TextIterator.h"
 #include "TextRun.h"
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace std;
 
@@ -146,7 +146,7 @@ void RenderTextControl::createSubtreeIfNeeded(TextControlInnerElement* innerBloc
         // For non-search fields, there is no intermediate innerBlock as the shadow node.
         // m_innerText will be the shadow node in that case.        
         RenderStyle* parentStyle = innerBlock ? innerBlock->renderer()->style() : style();
-        m_innerText = TextControlInnerTextElement::create(document(), innerBlock ? 0 : static_cast<HTMLElement*>(node()));
+        m_innerText = TextControlInnerTextElement::create(document(), innerBlock ? 0 : toHTMLElement(node()));
         m_innerText->attachInnerElement(innerBlock ? innerBlock : node(), createInnerTextStyle(parentStyle), renderArena());
     }
 }
@@ -544,7 +544,7 @@ float RenderTextControl::getAvgCharWidth(AtomicString family)
         return roundf(style()->font().primaryFont()->avgCharWidth());
 
     const UChar ch = '0'; 
-    return style()->font().floatWidth(TextRun(&ch, 1, false, 0, 0, false, false, false));
+    return style()->font().floatWidth(TextRun(&ch, 1, false, 0, 0, TextRun::AllowTrailingExpansion, false, false, false));
 }
 
 float RenderTextControl::scaleEmToUnits(int x) const
@@ -639,12 +639,12 @@ void RenderTextControl::paintPlaceholder(PaintInfo& paintInfo, int tx, int ty)
     paintInfo.context->setFillColor(placeholderStyle->visitedDependentColor(CSSPropertyColor), placeholderStyle->colorSpace());
     
     String placeholderText = static_cast<HTMLTextFormControlElement*>(node())->strippedPlaceholder();
-    TextRun textRun(placeholderText.characters(), placeholderText.length(), 0, 0, 0, !placeholderStyle->isLeftToRightDirection(), placeholderStyle->unicodeBidi() == Override, false, false);
+    TextRun textRun(placeholderText.characters(), placeholderText.length(), false, 0, 0, TextRun::AllowTrailingExpansion, !placeholderStyle->isLeftToRightDirection(), placeholderStyle->unicodeBidi() == Override, false, false);
     
     RenderBox* textRenderer = innerTextElement() ? innerTextElement()->renderBox() : 0;
     if (textRenderer) {
         IntPoint textPoint;
-        textPoint.setY(ty + textBlockInsetTop() + placeholderStyle->font().ascent());
+        textPoint.setY(ty + textBlockInsetTop() + placeholderStyle->fontMetrics().ascent());
         if (placeholderStyle->isLeftToRightDirection())
             textPoint.setX(tx + textBlockInsetLeft());
         else

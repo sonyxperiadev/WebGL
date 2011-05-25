@@ -37,12 +37,6 @@ enum ReasonForCallingCanExecuteScripts {
     NotAboutToExecuteScript
 };
 
-// Whether to call the XSSAuditor to audit a script before passing it to the JavaScript engine.
-enum ShouldAllowXSS {
-    AllowXSS,
-    DoNotAllowXSS
-};
+}
 
-} // namespace WebCore
-
-#endif // ScriptControllerBase_h
+#endif

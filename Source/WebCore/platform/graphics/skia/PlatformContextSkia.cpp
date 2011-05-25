@@ -51,6 +51,12 @@
 #include "SkDashPathEffect.h"
 #include "SkShader.h"
 
+#if ENABLE(SKIA_GPU)
+#include "GrContext.h"
+#include "SkGpuDevice.h"
+#include "SkGpuDeviceFactory.h"
+#endif
+
 #include <wtf/MathExtras.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/Vector.h>
@@ -61,6 +67,18 @@
 #endif
 
 namespace WebCore {
+
+#if ENABLE(SKIA_GPU)
+GrContext* GetGlobalGrContext()
+{
+    static GrContext* gGR;
+    if (!gGR) {
+        gGR = GrContext::CreateGLShaderContext();
+        gGR->setTextureCacheLimits(512, 50 * 1024 * 1024);
+    }
+    return gGR;
+}
+#endif
 
 extern bool isPathSkiaSafe(const SkMatrix& transform, const SkPath& path);
 
@@ -266,7 +284,7 @@ void PlatformContextSkia::beginLayerClippedToImage(const FloatRect& rect,
     // create the resulting image.
     m_state->m_clip = rect;
     SkRect bounds = { SkFloatToScalar(rect.x()), SkFloatToScalar(rect.y()),
-                      SkFloatToScalar(rect.right()), SkFloatToScalar(rect.bottom()) };
+                      SkFloatToScalar(rect.maxX()), SkFloatToScalar(rect.maxY()) };
 
     canvas()->clipRect(bounds);
     canvas()->saveLayerAlpha(&bounds, 255,
@@ -550,36 +568,10 @@ SkColor PlatformContextSkia::effectiveStrokeColor() const
     return m_state->applyAlpha(m_state->m_strokeColor);
 }
 
-void PlatformContextSkia::beginPath()
-{
-    m_path.reset();
-}
-
-void PlatformContextSkia::addPath(const SkPath& path)
-{
-    m_path.addPath(path, m_canvas->getTotalMatrix());
-}
-
-SkPath PlatformContextSkia::currentPathInLocalCoordinates() const
-{
-    SkPath localPath = m_path;
-    const SkMatrix& matrix = m_canvas->getTotalMatrix();
-    SkMatrix inverseMatrix;
-    if (!matrix.invert(&inverseMatrix))
-        return SkPath();
-    localPath.transform(inverseMatrix);
-    return localPath;
-}
-
 void PlatformContextSkia::canvasClipPath(const SkPath& path)
 {
     m_state->m_canvasClipApplied = true;
     m_canvas->clipPath(path);
-}
-
-void PlatformContextSkia::setFillRule(SkPath::FillType fr)
-{
-    m_path.setFillType(fr);
 }
 
 void PlatformContextSkia::setFillShader(SkShader* fillShader)
@@ -625,7 +617,11 @@ const SkBitmap* PlatformContextSkia::bitmap() const
 
 bool PlatformContextSkia::isPrinting()
 {
+#if ENABLE(SKIA_GPU)
+    return true;
+#else
     return m_canvas->getTopPlatformDevice().IsVectorial();
+#endif
 }
 
 void PlatformContextSkia::getImageResamplingHint(IntSize* srcSize, FloatSize* dstSize) const
@@ -739,6 +735,19 @@ void PlatformContextSkia::setSharedGraphicsContext3D(SharedGraphicsContext3D* co
         m_gpuCanvas = new GLES2Canvas(context, drawingBuffer, size);
         m_uploadTexture.clear();
         drawingBuffer->setWillPublishCallback(WillPublishCallbackImpl::create(this));
+
+#if ENABLE(SKIA_GPU)
+        m_useGPU = false;
+        context->makeContextCurrent();
+        m_gpuCanvas->bindFramebuffer();
+
+        GrContext* gr = GetGlobalGrContext();
+        gr->resetContext();
+        SkDeviceFactory* factory = new SkGpuDeviceFactory(gr, SkGpuDevice::Current3DApiRenderTarget());
+        SkDevice* device = factory->newDevice(m_canvas, SkBitmap::kARGB_8888_Config, drawingBuffer->size().width(), drawingBuffer->size().height(), false, false);
+        m_canvas->setDevice(device)->unref();
+        m_canvas->setDeviceFactory(factory);
+#endif
     } else {
         syncSoftwareCanvas();
         m_uploadTexture.clear();
@@ -750,8 +759,13 @@ void PlatformContextSkia::setSharedGraphicsContext3D(SharedGraphicsContext3D* co
 
 void PlatformContextSkia::prepareForSoftwareDraw() const
 {
-    if (!m_useGPU)
+    if (!m_useGPU) {
+#if ENABLE(SKIA_GPU)
+        if (m_gpuCanvas)
+            m_gpuCanvas->context()->makeContextCurrent();
+#endif
         return;
+    }
 
     if (m_backingStoreState == Hardware) {
         // Depending on the blend mode we need to do one of a few things:
@@ -804,8 +818,13 @@ void PlatformContextSkia::prepareForHardwareDraw() const
 
 void PlatformContextSkia::syncSoftwareCanvas() const
 {
-    if (!m_useGPU)
+    if (!m_useGPU) {
+#if ENABLE(SKIA_GPU)
+        if (m_gpuCanvas)
+            m_gpuCanvas->bindFramebuffer();
+#endif
         return;
+    }
 
     if (m_backingStoreState == Hardware)
         readbackHardwareToSoftware();
@@ -865,7 +884,7 @@ void PlatformContextSkia::readbackHardwareToSoftware() const
     const SkBitmap& bitmap = m_canvas->getDevice()->accessBitmap(true);
     SkAutoLockPixels lock(bitmap);
     int width = bitmap.width(), height = bitmap.height();
-    OwnArrayPtr<uint32_t> buf(new uint32_t[width]);
+    OwnArrayPtr<uint32_t> buf = adoptArrayPtr(new uint32_t[width]);
     SharedGraphicsContext3D* context = m_gpuCanvas->context();
     m_gpuCanvas->bindFramebuffer();
     // Flips the image vertically.

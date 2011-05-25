@@ -48,7 +48,11 @@
 #include <math.h>
 #include <stdio.h>
 
-#if ENABLE(3D_CANVAS)    
+#if USE(JSC)
+#include <runtime/JSLock.h>
+#endif
+
+#if ENABLE(WEBGL)    
 #include "WebGLContextAttributes.h"
 #include "WebGLRenderingContext.h"
 #endif
@@ -166,7 +170,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
         }
         return m_context.get();
     }
-#if ENABLE(3D_CANVAS)    
+#if ENABLE(WEBGL)    
     Settings* settings = document()->settings();
     if (settings && settings->webGLEnabled()
 #if !PLATFORM(CHROMIUM) && !PLATFORM(QT)
@@ -232,7 +236,7 @@ void HTMLCanvasElement::reset()
     IntSize oldSize = size();
     setSurfaceSize(IntSize(w, h)); // The image buffer gets cleared here.
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     if (m_context && m_context->is3d() && oldSize != size())
         static_cast<WebGLRenderingContext*>(m_context.get())->reshape(width(), height());
 #endif
@@ -279,7 +283,7 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
     }
 }
 
-#if ENABLE(3D_CANVAS)    
+#if ENABLE(WEBGL)    
 bool HTMLCanvasElement::is3D() const
 {
     return m_context && m_context->is3d();
@@ -344,10 +348,10 @@ String HTMLCanvasElement::toDataURL(const String& mimeType, const double* qualit
 
 IntRect HTMLCanvasElement::convertLogicalToDevice(const FloatRect& logicalRect) const
 {
-    float left = floorf(logicalRect.left() * m_pageScaleFactor);
-    float top = floorf(logicalRect.top() * m_pageScaleFactor);
-    float right = ceilf(logicalRect.right() * m_pageScaleFactor);
-    float bottom = ceilf(logicalRect.bottom() * m_pageScaleFactor);
+    float left = floorf(logicalRect.x() * m_pageScaleFactor);
+    float top = floorf(logicalRect.y() * m_pageScaleFactor);
+    float right = ceilf(logicalRect.maxX() * m_pageScaleFactor);
+    float bottom = ceilf(logicalRect.maxY() * m_pageScaleFactor);
     
     return IntRect(IntPoint(left, top), convertToValidDeviceSize(right - left, bottom - top));
 }
@@ -408,8 +412,10 @@ void HTMLCanvasElement::createImageBuffer() const
     m_imageBuffer->context()->setImageInterpolationQuality(DefaultInterpolationQuality);
 
 #if USE(JSC)
-    if (hasCachedDOMNodeWrapperUnchecked(document(), const_cast<HTMLCanvasElement*>(this)))
+    if (hasCachedDOMNodeWrapperUnchecked(document(), const_cast<HTMLCanvasElement*>(this))) {
+        JSC::JSLock lock(JSC::SilenceAssertionsOnly);
         scriptExecutionContext()->globalData()->heap.reportExtraMemoryCost(m_imageBuffer->dataSize());
+    }
 #endif
 }
 

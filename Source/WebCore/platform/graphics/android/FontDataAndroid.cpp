@@ -43,22 +43,20 @@ namespace WebCore {
 void SimpleFontData::platformInit()
 {
     SkPaint  paint;
-    SkPaint::FontMetrics metrics;
+    SkPaint::FontMetrics skiaFontMetrics;
     
     m_platformData.setupPaint(&paint);
-    (void)paint.getFontMetrics(&metrics);
+    paint.getFontMetrics(&skiaFontMetrics);
 
-    // use ceil instead of round to favor descent, given a lot of accidental
-    // clipping of descenders (e.g. 14pt 'g') in textedit fields
-    int d = SkScalarCeil(metrics.fDescent);
-    int s = SkScalarRound(metrics.fDescent - metrics.fAscent);
-    int a = s - d;
+    float d = SkScalarToFloat(skiaFontMetrics.fDescent);
+    float s = SkScalarToFloat(skiaFontMetrics.fDescent - skiaFontMetrics.fAscent);
+    float a = s - d;
 
-    m_ascent = a;
-    m_descent = d;
-    m_xHeight = SkScalarToFloat(-metrics.fAscent) * 0.56f;   // hack I stole from the window's port
-    m_lineSpacing = a + d;
-    m_lineGap = SkScalarRound(metrics.fLeading);
+    m_fontMetrics.setAscent(a);
+    m_fontMetrics.setDescent(d);
+    m_fontMetrics.setXHeight(SkScalarToFloat(-skiaFontMetrics.fAscent) * 0.56f);   // hack I stole from the window's port
+    m_fontMetrics.setLineSpacing(a + d);
+    m_fontMetrics.setLineGap(SkScalarToFloat(skiaFontMetrics.fLeading));
 }
 
 void SimpleFontData::platformCharWidthInit()

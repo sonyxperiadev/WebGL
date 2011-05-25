@@ -36,6 +36,16 @@ using namespace std;
 
 namespace WebCore {
 
+IntRect RenderProgressBarValuePart::preferredFrameRect()
+{
+    return toRenderProgress(parent())->valuePartRect();
+}
+
+bool RenderProgressBarValuePart::shouldBeHidden()
+{
+    return !toRenderProgress(parent())->shouldHaveParts();
+}
+
 RenderProgress::RenderProgress(HTMLProgressElement* element)
     : RenderIndicator(element)
     , m_position(-1)
@@ -49,23 +59,10 @@ RenderProgress::RenderProgress(HTMLProgressElement* element)
 
 RenderProgress::~RenderProgress()
 {
-    if (m_valuePart)
-        m_valuePart->detach();
 }
 
 void RenderProgress::updateFromElement()
 {
-    if (!m_valuePart) {
-        m_valuePart = ShadowBlockElement::createForPart(static_cast<HTMLElement*>(node()), PROGRESS_BAR_VALUE);
-        if (m_valuePart->renderer())
-            addChild(m_valuePart->renderer());
-    }
-
-    if (shouldHaveParts())
-        style()->setAppearance(NoControlPart);
-    else if (m_valuePart->renderer())
-        m_valuePart->renderer()->style()->setVisibility(HIDDEN);
-
     HTMLProgressElement* element = progressElement();
     if (m_position == element->position())
         return;
@@ -102,15 +99,14 @@ void RenderProgress::paint(PaintInfo& paintInfo, int tx, int ty)
 
 void RenderProgress::layoutParts()
 {
-    m_valuePart->layoutAsPart(valuePartRect());
+    for (RenderObject* child = firstChild(); child; child = child->nextSibling())
+        child->layout();
     updateAnimationState();
 }
 
 bool RenderProgress::shouldHaveParts() const
 {
     if (!style()->hasAppearance())
-        return true;
-    if (ShadowBlockElement::partShouldHaveStyle(this, PROGRESS_BAR_VALUE))
         return true;
     return false;
 }

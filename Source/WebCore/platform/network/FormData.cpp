@@ -209,14 +209,16 @@ void FormData::appendKeyValuePairItems(const FormDataList& list, const TextEncod
                     name = file->webkitRelativePath().isEmpty() ? file->name() : file->webkitRelativePath();
 #else
                     name = file->name();
-#endif                    
-
+#endif
                     // Let the application specify a filename if it's going to generate a replacement file for the upload.
-                    if (Page* page = document->page()) {
-                        String generatedFileName;
-                        shouldGenerateFile = page->chrome()->client()->shouldReplaceWithGeneratedFileForUpload(file->path(), generatedFileName);
-                        if (shouldGenerateFile)
-                            name = generatedFileName;
+                    const String& path = file->path();
+                    if (!path.isEmpty()) {
+                        if (Page* page = document->page()) {
+                            String generatedFileName;
+                            shouldGenerateFile = page->chrome()->client()->shouldReplaceWithGeneratedFileForUpload(path, generatedFileName);
+                            if (shouldGenerateFile)
+                                name = generatedFileName;
+                        }
                     }
                 } else {
                     // For non-file blob, use the identifier part of the URL as the name.
@@ -364,7 +366,9 @@ static void encode(Encoder& encoder, const FormDataElement& element)
 
 static bool decode(Decoder& decoder, FormDataElement& element)
 {
-    uint32_t type = element.m_type;
+    uint32_t type;
+    if (!decoder.decodeUInt32(type))
+        return false;
 
     switch (type) {
     case FormDataElement::data: {
@@ -432,7 +436,7 @@ void FormData::encodeForBackForward(Encoder& encoder) const
 
     encoder.encodeBool(m_hasGeneratedFiles);
 
-    encoder.encodeBool(m_identifier);
+    encoder.encodeInt64(m_identifier);
 }
 
 PassRefPtr<FormData> FormData::decodeForBackForward(Decoder& decoder)

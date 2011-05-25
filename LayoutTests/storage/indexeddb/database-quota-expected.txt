@@ -64,7 +64,7 @@ PASS db.objectStoreNames.length is 1
 PASS db.objectStoreNames.contains('') is false
 PASS db.objectStoreNames.contains('test456') is false
 PASS db.objectStoreNames.contains('test123') is true
-trans = db.transaction({mode: webkitIDBTransaction.READ_WRITE})
+trans = db.transaction([], webkitIDBTransaction.READ_WRITE)
 Creating 'data' which contains 64K of data
 PASS data.length is 65536
 store = trans.objectStore('test123')
@@ -80,6 +80,7 @@ PASS 'onerror' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
+event.preventDefault()
 PASS Adding data failed due to quota error. Data added was about 5 MB
 PASS successfullyParsed is true
 

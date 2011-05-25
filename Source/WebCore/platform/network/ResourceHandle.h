@@ -41,7 +41,7 @@ typedef struct _SoupSession SoupSession;
 typedef const struct __CFData * CFDataRef;
 #endif
 
-#if PLATFORM(WIN)
+#if USE(WININET)
 typedef unsigned long DWORD;
 typedef unsigned long DWORD_PTR;
 typedef void* LPVOID;
@@ -173,7 +173,7 @@ public:
 
     bool hasAuthenticationChallenge() const;
     void clearAuthentication();
-    void cancel();
+    virtual void cancel();
 
     // The client may be 0, in which case no callbacks will be made.
     ResourceHandleClient* client() const;

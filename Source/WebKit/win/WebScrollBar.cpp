@@ -174,9 +174,9 @@ HRESULT STDMETHODCALLTYPE WebScrollBar::frameRect(
         return E_POINTER;
     IntRect rect = m_scrollBar->frameRect();
     bounds->left = rect.x();
-    bounds->right = rect.right();
+    bounds->right = rect.maxX();
     bounds->top = rect.y();
-    bounds->bottom = rect.bottom();
+    bounds->bottom = rect.maxY();
     return S_OK;
 }
 
@@ -274,4 +274,14 @@ void WebScrollBar::invalidateScrollbarRect(Scrollbar*, const IntRect& rect)
 {
     RECT r = rect;
     ::InvalidateRect(m_containingWindow, &r, false);
+}
+
+Scrollbar* WebScrollBar::horizontalScrollbar() const
+{
+    return m_scrollBar->orientation() == HorizontalScrollbar ? m_scrollBar.get() : 0;
+}
+
+Scrollbar* WebScrollBar::verticalScrollbar() const
+{
+    return m_scrollBar->orientation() == VerticalScrollbar ? m_scrollBar.get() : 0;
 }

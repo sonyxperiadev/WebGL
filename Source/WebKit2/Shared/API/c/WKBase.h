@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +33,10 @@
 #include <WebKit2/WKBaseWin.h>
 #endif
 
+#if defined(BUILDING_GTK__)
+#include <WebKit2/WKBaseGtk.h>
+#endif
+
 /* WebKit2 shared types */
 
 typedef uint32_t WKTypeID;
@@ -49,6 +54,7 @@ typedef const struct OpaqueWKContextMenuItem* WKContextMenuItemRef;
 typedef const struct OpaqueWKData* WKDataRef;
 typedef const struct OpaqueWKDouble* WKDoubleRef;
 typedef const struct OpaqueWKError* WKErrorRef;
+typedef const struct OpaqueWKGraphicsContext* WKGraphicsContextRef;
 typedef const struct OpaqueWKImage* WKImageRef;
 typedef const struct OpaqueWKSecurityOrigin* WKSecurityOriginRef;
 typedef const struct OpaqueWKSerializedScriptValue* WKSerializedScriptValueRef;
@@ -92,14 +98,14 @@ typedef const struct OpaqueWKBundleBackForwardListItem* WKBundleBackForwardListI
 typedef const struct OpaqueWKBundleDOMCSSStyleDeclaration* WKBundleCSSStyleDeclarationRef;
 typedef const struct OpaqueWKBundleFrame* WKBundleFrameRef;
 typedef const struct OpaqueWKBundleHitTestResult* WKBundleHitTestResultRef;
+typedef const struct OpaqueWKBundleInspector* WKBundleInspectorRef;
+typedef const struct OpaqueWKBundleNavigationAction* WKBundleNavigationActionRef;
 typedef const struct OpaqueWKBundleNodeHandle* WKBundleNodeHandleRef;
 typedef const struct OpaqueWKBundlePage* WKBundlePageRef;
 typedef const struct OpaqueWKBundlePageGroup* WKBundlePageGroupRef;
 typedef const struct OpaqueWKBundlePageOverlay* WKBundlePageOverlayRef;
 typedef const struct OpaqueWKBundleRangeHandle* WKBundleRangeHandleRef;
 typedef const struct OpaqueWKBundleScriptWorld* WKBundleScriptWorldRef;
-
-/* These rules should stay the same as in JavaScriptCore/API/JSBase.h */
 
 #undef WK_EXPORT
 #if defined(WK_NO_EXPORT)

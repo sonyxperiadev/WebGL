@@ -91,6 +91,8 @@ public:
 
     int x() const { return m_location.x(); }
     int y() const { return m_location.y(); }
+    int maxX() const { return x() + width(); }
+    int maxY() const { return y() + height(); }
     int width() const { return m_size.width(); }
     int height() const { return m_size.height(); }
 
@@ -99,17 +101,7 @@ public:
     void setWidth(int width) { m_size.setWidth(width); }
     void setHeight(int height) { m_size.setHeight(height); }
 
-    // Be careful with these functions.  The point is considered to be to the right and below.  These are not
-    // substitutes for right() and bottom().
-    IntPoint topLeft() const { return m_location; }
-    IntPoint topRight() const { return IntPoint(right() - 1, y()); }
-    IntPoint bottomLeft() const { return IntPoint(x(), bottom() - 1); }
-    IntPoint bottomRight() const { return IntPoint(right() - 1, bottom() - 1); }
-
     bool isEmpty() const { return m_size.isEmpty(); }
-
-    int right() const { return x() + width(); }
-    int bottom() const { return y() + height(); }
 
     // NOTE: The result is rounded to integer values, and thus may be not the exact
     // center point.
@@ -118,26 +110,26 @@ public:
     void move(const IntSize& s) { m_location += s; } 
     void move(int dx, int dy) { m_location.move(dx, dy); } 
     
-    void shiftLeftEdgeTo(int edge)
+    void shiftXEdgeTo(int edge)
     {
         int delta = edge - x();
         setX(edge);
         setWidth(std::max(0, width() - delta));
     }
-    void shiftRightEdgeTo(int edge)
+    void shiftMaxXEdgeTo(int edge)
     {
-        int delta = edge - right();
+        int delta = edge - maxX();
         setWidth(std::max(0, width() + delta));
     }
-    void shiftTopEdgeTo(int edge)
+    void shiftYEdgeTo(int edge)
     {
         int delta = edge - y();
         setY(edge);
         setHeight(std::max(0, height() - delta));
     }
-    void shiftBottomEdgeTo(int edge)
+    void shiftMaxYEdgeTo(int edge)
     {
-        int delta = edge - bottom();
+        int delta = edge - maxY();
         setHeight(std::max(0, height() + delta));
     }
 
@@ -147,7 +139,7 @@ public:
     // This checks to see if the rect contains x,y in the traditional sense.
     // Equivalent to checking if the rect contains a 1x1 rect below and to the right of (px,py).
     bool contains(int px, int py) const
-        { return px >= x() && px < right() && py >= y() && py < bottom(); }
+        { return px >= x() && px < maxX() && py >= y() && py < maxY(); }
     bool contains(const IntPoint& point) const { return contains(point.x(), point.y()); }
 
     void intersect(const IntRect&);

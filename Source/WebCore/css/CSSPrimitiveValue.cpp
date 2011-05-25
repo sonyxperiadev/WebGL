@@ -127,10 +127,20 @@ PassRefPtr<CSSPrimitiveValue> CSSPrimitiveValue::createColor(unsigned rgbValue)
     // These are the empty and deleted values of the hash table.
     if (rgbValue == Color::transparent) {
         static CSSPrimitiveValue* colorTransparent = createUncachedColor(Color::transparent).releaseRef();
+#if CPU(ARM) && OS(LINUX)
+         // A workaround for gcc bug on ARM.
+        if (!colorTransparent)
+            return 0;
+#endif
         return colorTransparent;
     }
     if (rgbValue == Color::white) {
         static CSSPrimitiveValue* colorWhite = createUncachedColor(Color::white).releaseRef();
+#if CPU(ARM) && OS(LINUX)
+        // A workaround for gcc bug on ARM.
+        if (!colorWhite)
+            return 0;
+#endif
         return colorWhite;
     }
     RefPtr<CSSPrimitiveValue> primitiveValue = colorValueCache->get(rgbValue);
@@ -400,7 +410,7 @@ double CSSPrimitiveValue::computeLengthDouble(RenderStyle* style, RenderStyle* r
             // We really need to compute EX using fontMetrics for the original specifiedSize and not use
             // our actual constructed rendering font.
             applyZoomMultiplier = false;
-            factor = style->font().xHeight();
+            factor = style->fontMetrics().xHeight();
             break;
         case CSS_REMS:
             applyZoomMultiplier = false;
@@ -912,81 +922,6 @@ String CSSPrimitiveValue::cssText() const
     cssTextCache().set(this, text);
     m_hasCachedCSSText = true;
     return text;
-}
-
-CSSParserValue CSSPrimitiveValue::parserValue() const
-{
-    // We only have to handle a subset of types.
-    CSSParserValue value;
-    value.id = 0;
-    value.isInt = false;
-    value.unit = CSSPrimitiveValue::CSS_IDENT;
-    switch (m_type) {
-        case CSS_NUMBER:
-        case CSS_PERCENTAGE:
-        case CSS_EMS:
-        case CSS_EXS:
-        case CSS_REMS:
-        case CSS_PX:
-        case CSS_CM:
-        case CSS_MM:
-        case CSS_IN:
-        case CSS_PT:
-        case CSS_PC:
-        case CSS_DEG:
-        case CSS_RAD:
-        case CSS_GRAD:
-        case CSS_MS:
-        case CSS_S:
-        case CSS_HZ:
-        case CSS_KHZ:
-        case CSS_DIMENSION:
-        case CSS_TURN:
-            value.fValue = m_value.num;
-            value.unit = m_type;
-            break;
-        case CSS_STRING:
-        case CSS_URI:
-        case CSS_PARSER_HEXCOLOR:
-            value.string.characters = const_cast<UChar*>(m_value.string->characters());
-            value.string.length = m_value.string->length();
-            value.unit = m_type;
-            break;
-        case CSS_IDENT: {
-            value.id = m_value.ident;
-            const AtomicString& name = valueOrPropertyName(m_value.ident);
-            value.string.characters = const_cast<UChar*>(name.characters());
-            value.string.length = name.length();
-            break;
-        }
-        case CSS_PARSER_OPERATOR:
-            value.iValue = m_value.ident;
-            value.unit = CSSParserValue::Operator;
-            break;
-        case CSS_PARSER_INTEGER:
-            value.fValue = m_value.num;
-            value.unit = CSSPrimitiveValue::CSS_NUMBER;
-            value.isInt = true;
-            break;
-        case CSS_PARSER_IDENTIFIER:
-            value.string.characters = const_cast<UChar*>(m_value.string->characters());
-            value.string.length = m_value.string->length();
-            value.unit = CSSPrimitiveValue::CSS_IDENT;
-            break;
-        case CSS_UNKNOWN:
-        case CSS_ATTR:
-        case CSS_COUNTER:
-        case CSS_RECT:
-        case CSS_RGBCOLOR:
-        case CSS_PAIR:
-#if ENABLE(DASHBOARD_SUPPORT)
-        case CSS_DASHBOARD_REGION:
-#endif
-            ASSERT_NOT_REACHED();
-            break;
-    }
-    
-    return value;
 }
 
 void CSSPrimitiveValue::addSubresourceStyleURLs(ListHashSet<KURL>& urls, const CSSStyleSheet* styleSheet)

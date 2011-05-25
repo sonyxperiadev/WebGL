@@ -41,6 +41,8 @@
 #include "WebNumber.h"
 #include "WebString.h"
 #include "WebURL.h"
+#include "WebURLRequest.h"
+#include "WebURLResponse.h"
 #include <WebCore/ContextMenuItem.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/FrameLoaderTypes.h>
@@ -56,6 +58,7 @@ class MutableDictionary;
 class WebCertificateInfo;
 class WebContextMenuItem;
 class WebData;
+class WebGraphicsContext;
 class WebImage;
 class WebSecurityOrigin;
 class WebSerializedScriptValue;
@@ -78,6 +81,7 @@ WK_ADD_API_MAPPING(WKDataRef, WebData)
 WK_ADD_API_MAPPING(WKDictionaryRef, ImmutableDictionary)
 WK_ADD_API_MAPPING(WKDoubleRef, WebDouble)
 WK_ADD_API_MAPPING(WKErrorRef, WebError)
+WK_ADD_API_MAPPING(WKGraphicsContextRef, WebGraphicsContext)
 WK_ADD_API_MAPPING(WKImageRef, WebImage)
 WK_ADD_API_MAPPING(WKMutableArrayRef, MutableArray)
 WK_ADD_API_MAPPING(WKMutableDictionaryRef, MutableDictionary)
@@ -170,6 +174,16 @@ inline String toWTFString(WKURLRef urlRef)
 inline ProxyingRefPtr<WebError> toAPI(const WebCore::ResourceError& error)
 {
     return ProxyingRefPtr<WebError>(WebError::create(error));
+}
+
+inline ProxyingRefPtr<WebURLRequest> toAPI(const WebCore::ResourceRequest& request)
+{
+    return ProxyingRefPtr<WebURLRequest>(WebURLRequest::create(request));
+}
+
+inline ProxyingRefPtr<WebURLResponse> toAPI(const WebCore::ResourceResponse& response)
+{
+    return ProxyingRefPtr<WebURLResponse>(WebURLResponse::create(response));
 }
 
 /* Geometry conversions */

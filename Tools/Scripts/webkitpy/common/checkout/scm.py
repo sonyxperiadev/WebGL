@@ -34,10 +34,10 @@ import re
 import sys
 import shutil
 
-from webkitpy.common.system.executive import Executive, run_command, ScriptError
-from webkitpy.common.system.deprecated_logging import error, log
-import webkitpy.common.system.ospath as ospath
 from webkitpy.common.memoized import memoized
+from webkitpy.common.system.deprecated_logging import error, log
+from webkitpy.common.system.executive import Executive, run_command, ScriptError
+from webkitpy.common.system import ospath
 
 
 def find_checkout_root():
@@ -746,6 +746,22 @@ class Git(SCM):
     def display_name(self):
         return "git"
 
+    def prepend_svn_revision(self, diff):
+        revision = None
+        tries = 0
+        while not revision and tries < 10:
+            # If the git checkout is not tracking an SVN repo, then svn_revision_from_git_commit throws.
+            try:
+                revision = self.svn_revision_from_git_commit('HEAD~' + str(tries))
+            except:
+                return diff
+            tries += 1
+
+        if not revision:
+            return diff
+
+        return "Subversion Revision: " + str(revision) + '\n' + diff
+
     def create_patch(self, git_commit=None, changed_files=None):
         """Returns a byte array (str()) representing the patch file.
         Patch files are effectively binary since they may contain
@@ -753,7 +769,7 @@ class Git(SCM):
         command = ['git', 'diff', '--binary', "--no-ext-diff", "--full-index", "-M", self.merge_base(git_commit), "--"]
         if changed_files:
             command += changed_files
-        return self.run(command, decode_output=False, cwd=self.checkout_root)
+        return self.prepend_svn_revision(self.run(command, decode_output=False, cwd=self.checkout_root))
 
     def _run_git_svn_find_rev(self, arg):
         # git svn find-rev always exits 0, even when the revision or commit is not found.

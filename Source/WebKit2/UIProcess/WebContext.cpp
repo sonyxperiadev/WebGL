@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebContext.h"
 
 #include "DownloadProxy.h"
@@ -50,6 +51,8 @@
 #ifndef NDEBUG
 #include <wtf/RefCountedLeakCounter.h>
 #endif
+
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process()->connection())
 
 using namespace WebCore;
 
@@ -176,6 +179,7 @@ void WebContext::ensureWebProcess()
     parameters.cacheModel = m_cacheModel;
     parameters.languageCode = defaultLanguage();
     parameters.applicationCacheDirectory = applicationCacheDirectory();
+    parameters.databaseDirectory = databaseDirectory();
     parameters.clearResourceCaches = m_clearResourceCachesForNewWebProcess;
     parameters.clearApplicationCache = m_clearApplicationCacheForNewWebProcess;
 #if PLATFORM(MAC)
@@ -200,7 +204,7 @@ void WebContext::ensureWebProcess()
 
     for (size_t i = 0; i != m_pendingMessagesToPostToInjectedBundle.size(); ++i) {
         pair<String, RefPtr<APIObject> >& message = m_pendingMessagesToPostToInjectedBundle[i];
-        m_process->send(InjectedBundleMessage::PostMessage, 0, CoreIPC::In(message.first, WebContextUserMessageEncoder(message.second.get())));
+        m_process->deprecatedSend(InjectedBundleMessage::PostMessage, 0, CoreIPC::In(message.first, WebContextUserMessageEncoder(message.second.get())));
     }
     m_pendingMessagesToPostToInjectedBundle.clear();
 }
@@ -277,7 +281,7 @@ void WebContext::postMessageToInjectedBundle(const String& messageName, APIObjec
 
     // FIXME: We should consider returning false from this function if the messageBody cannot
     // be encoded.
-    m_process->send(InjectedBundleMessage::PostMessage, 0, CoreIPC::In(messageName, WebContextUserMessageEncoder(messageBody)));
+    m_process->deprecatedSend(InjectedBundleMessage::PostMessage, 0, CoreIPC::In(messageName, WebContextUserMessageEncoder(messageBody)));
 }
 
 // InjectedBundle client
@@ -297,6 +301,7 @@ void WebContext::didReceiveSynchronousMessageFromInjectedBundle(const String& me
 void WebContext::didNavigateWithNavigationData(uint64_t pageID, const WebNavigationDataStore& store, uint64_t frameID) 
 {
     WebFrameProxy* frame = m_process->webFrame(frameID);
+    MESSAGE_CHECK(frame);
     if (!frame->page())
         return;
     
@@ -306,6 +311,7 @@ void WebContext::didNavigateWithNavigationData(uint64_t pageID, const WebNavigat
 void WebContext::didPerformClientRedirect(uint64_t pageID, const String& sourceURLString, const String& destinationURLString, uint64_t frameID)
 {
     WebFrameProxy* frame = m_process->webFrame(frameID);
+    MESSAGE_CHECK(frame);
     if (!frame->page())
         return;
     
@@ -315,6 +321,7 @@ void WebContext::didPerformClientRedirect(uint64_t pageID, const String& sourceU
 void WebContext::didPerformServerRedirect(uint64_t pageID, const String& sourceURLString, const String& destinationURLString, uint64_t frameID)
 {
     WebFrameProxy* frame = m_process->webFrame(frameID);
+    MESSAGE_CHECK(frame);
     if (!frame->page())
         return;
     
@@ -324,6 +331,7 @@ void WebContext::didPerformServerRedirect(uint64_t pageID, const String& sourceU
 void WebContext::didUpdateHistoryTitle(uint64_t pageID, const String& title, const String& url, uint64_t frameID)
 {
     WebFrameProxy* frame = m_process->webFrame(frameID);
+    MESSAGE_CHECK(frame);
     if (!frame->page())
         return;
 
@@ -600,6 +608,14 @@ void WebContext::stopMemorySampler()
         return;
     
     m_process->send(Messages::WebProcess::StopMemorySampler(), 0);
+}
+
+String WebContext::databaseDirectory() const
+{
+    if (!m_overrideDatabaseDirectory.isEmpty())
+        return m_overrideDatabaseDirectory;
+
+    return platformDefaultDatabaseDirectory();
 }
 
 } // namespace WebKit

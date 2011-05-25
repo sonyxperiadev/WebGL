@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Copyright (C) 2011 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,22 +25,20 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DrawingAreaProxyUpdateChunk_h
-#define DrawingAreaProxyUpdateChunk_h
+#ifndef ChunkedUpdateDrawingAreaProxy_h
+#define ChunkedUpdateDrawingAreaProxy_h
 
 #include "DrawingAreaProxy.h"
 #include <WebCore/IntSize.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
-#ifdef __OBJC__
-@class WKView;
-#else
-class WKView;
-#endif
+OBJC_CLASS WKView;
 #elif PLATFORM(QT)
 #include <QImage>
 class QGraphicsWKView;
+#elif PLATFORM(GTK)
+typedef struct _cairo_surface cairo_surface_t;
 #endif
 
 namespace WebKit {
@@ -53,6 +53,9 @@ class WebView;
 typedef WebView PlatformWebView;
 #elif PLATFORM(QT)
 typedef QGraphicsWKView PlatformWebView;
+#elif PLATFORM(GTK)
+class WebView;
+typedef WebView PlatformWebView;
 #endif
 
 class ChunkedUpdateDrawingAreaProxy : public DrawingAreaProxy {
@@ -99,6 +102,8 @@ private:
     OwnPtr<HBITMAP> m_backingStoreBitmap;
 #elif PLATFORM(QT)
     QImage m_backingStoreImage;
+#elif PLATFORM(GTK)
+    cairo_surface_t* m_backingStoreImage;
 #endif
 
     PlatformWebView* m_webView;
@@ -106,4 +111,4 @@ private:
     
 } // namespace WebKit
 
-#endif // DrawingAreaProxyUpdateChunk_h
+#endif // ChunkedUpdateDrawingAreaProxy_h

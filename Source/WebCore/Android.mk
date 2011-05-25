@@ -131,6 +131,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/DocumentFragment.cpp \
 	dom/DocumentMarkerController.cpp \
 	dom/DocumentParser.cpp \
+	dom/DocumentOrderedMap.cpp \
 	dom/DocumentType.cpp \
 	dom/DynamicNodeList.cpp \
 	dom/EditingText.cpp \
@@ -387,12 +388,15 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/HTMLParserScheduler.cpp \
 	html/parser/HTMLPreloadScanner.cpp \
 	html/parser/HTMLScriptRunner.cpp \
+	html/parser/HTMLSourceTracker.cpp \
 	html/parser/HTMLTokenizer.cpp \
 	html/parser/HTMLTreeBuilder.cpp \
 	html/parser/HTMLViewSourceParser.cpp \
 	html/parser/TextDocumentParser.cpp \
 	html/parser/TextViewSourceParser.cpp \
+	html/parser/XSSFilter.cpp \
 	\
+	html/shadow/MediaControls.cpp \
 	html/shadow/SliderThumbElement.cpp \
 	\
 	inspector/ScriptArguments.cpp \
@@ -456,7 +460,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Chrome.cpp \
 	page/Connection.cpp \
 	page/Console.cpp \
+	page/ContentSecurityPolicy.cpp \
 	page/ContextMenuController.cpp \
+	page/Crypto.cpp \
 	page/DOMSelection.cpp \
 	page/DOMTimer.cpp \
 	page/DOMWindow.cpp \
@@ -494,7 +500,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/UserContentURLPattern.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
-	page/XSSAuditor.cpp \
 	\
 	page/android/DragControllerAndroid.cpp \
 	page/android/EventHandlerAndroid.cpp \
@@ -646,6 +651,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	platform/graphics/filters/DistantLightSource.cpp \
 	platform/graphics/filters/FEBlend.cpp \
 	platform/graphics/filters/FEColorMatrix.cpp \
 	platform/graphics/filters/FEComponentTransfer.cpp \
@@ -660,7 +666,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/filters/FESpecularLighting.cpp \
 	platform/graphics/filters/FETile.cpp \
 	platform/graphics/filters/FETurbulence.cpp \
-	platform/graphics/filters/LightSource.cpp
+	platform/graphics/filters/LightSource.cpp \
+	platform/graphics/filters/PointLightSource.cpp \
+	platform/graphics/filters/SpotLightSource.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -732,7 +740,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/text/Base64.cpp \
 	platform/text/BidiContext.cpp \
+	platform/text/Hyphenation.cpp \
 	platform/text/LineEnding.cpp \
+	platform/text/LocalizedNumberNone.cpp \
 	platform/text/RegularExpression.cpp \
 	platform/text/SegmentedString.cpp \
 	platform/text/String.cpp \
@@ -742,6 +752,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/TextCodecICU.cpp \
 	platform/text/TextCodecLatin1.cpp \
 	platform/text/TextCodecUTF16.cpp \
+	platform/text/TextCodecUTF8.cpp \
 	platform/text/TextCodecUserDefined.cpp \
 	platform/text/TextEncoding.cpp \
 	platform/text/TextEncodingDetectorICU.cpp \
@@ -790,6 +801,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderBox.cpp \
 	rendering/RenderBoxModelObject.cpp \
 	rendering/RenderButton.cpp \
+	rendering/RenderCombineText.cpp \
 	rendering/RenderCounter.cpp \
 	rendering/RenderDetails.cpp \
 	rendering/RenderDetailsMarker.cpp \
@@ -968,7 +980,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBRequest.cpp \
 	storage/IDBSQLiteDatabase.cpp \
 	storage/IDBSuccessEvent.cpp \
-	storage/IDBTimeoutEvent.cpp \
 	storage/IDBTransaction.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \

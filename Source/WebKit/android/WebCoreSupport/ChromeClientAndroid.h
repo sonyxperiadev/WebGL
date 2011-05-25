@@ -160,8 +160,6 @@ namespace android {
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*);
 
-        virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
-
         // Android-specific
         void setWebFrame(android::WebFrame* webframe);
         android::WebFrame* webFrame() { return m_webFrame; }
@@ -176,6 +174,7 @@ namespace android {
 #endif
 
         virtual bool selectItemWritingDirectionIsNatural();
+        virtual bool selectItemAlignmentFollowsMenuWritingDirection();
         virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
         virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 

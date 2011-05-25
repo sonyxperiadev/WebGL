@@ -236,14 +236,14 @@ bool HTMLObjectElement::hasFallbackContent() const
     return false;
 }
     
-bool HTMLObjectElement::hasValidClassId()
+inline bool HTMLObjectElement::hasValidClassId()
 {
     // HTML5 says that fallback content should be rendered if a non-empty
     // classid is specified for which the UA can't find a suitable plug-in.
     // WebKit supports no classids, with the exception of Qt plug-ins, which use
     // classid to specify which QObject to load.
 #if PLATFORM(QT)
-    return classId().isEmpty() || equalIgnoringCase(serviceType(), "application/x-qt-plugin");
+    return classId().isEmpty() || equalIgnoringCase(serviceType(), "application/x-qt-plugin") || equalIgnoringCase(serviceType(), "application/x-qt-styled-widget");
 #else
     return classId().isEmpty();
 #endif
@@ -251,7 +251,7 @@ bool HTMLObjectElement::hasValidClassId()
 
 // FIXME: This should be unified with HTMLEmbedElement::updateWidget and
 // moved down into HTMLPluginImageElement.cpp
-void HTMLObjectElement::updateWidget(bool onlyCreateNonNetscapePlugins)
+void HTMLObjectElement::updateWidget(PluginCreationOption pluginCreationOption)
 {
     ASSERT(!renderEmbeddedObject()->pluginCrashedOrWasMissing());
     // FIXME: We should ASSERT(needsWidgetUpdate()), but currently
@@ -277,7 +277,7 @@ void HTMLObjectElement::updateWidget(bool onlyCreateNonNetscapePlugins)
     bool fallbackContent = hasFallbackContent();
     renderEmbeddedObject()->setHasFallbackContent(fallbackContent);
 
-    if (onlyCreateNonNetscapePlugins && wouldLoadAsNetscapePlugin(url, serviceType))
+    if (pluginCreationOption == CreateOnlyNonNetscapePlugins && wouldLoadAsNetscapePlugin(url, serviceType))
         return;
 
     ASSERT(!m_inBeforeLoadEventHandler);
@@ -318,6 +318,7 @@ void HTMLObjectElement::insertedIntoDocument()
     }
 
     HTMLPlugInImageElement::insertedIntoDocument();
+    FormAssociatedElement::insertedIntoDocument();
 }
 
 void HTMLObjectElement::removedFromDocument()
@@ -329,6 +330,7 @@ void HTMLObjectElement::removedFromDocument()
     }
 
     HTMLPlugInImageElement::removedFromDocument();
+    FormAssociatedElement::removedFromDocument();
 }
 
 void HTMLObjectElement::attributeChanged(Attribute* attr, bool preserveDecls)
@@ -506,6 +508,11 @@ bool HTMLObjectElement::appendFormData(FormDataList&, bool)
 const AtomicString& HTMLObjectElement::formControlName() const
 {
     return m_name.isNull() ? emptyAtom : m_name;
+}
+
+HTMLFormElement* HTMLObjectElement::virtualForm() const
+{
+    return FormAssociatedElement::form();
 }
 
 }

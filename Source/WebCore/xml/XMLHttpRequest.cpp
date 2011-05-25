@@ -56,6 +56,7 @@
 #if USE(JSC)
 #include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
+#include <runtime/JSLock.h>
 #include <runtime/Protect.h>
 #endif
 
@@ -249,6 +250,7 @@ Document* XMLHttpRequest::responseXML(ExceptionCode& ec)
             m_responseXML = Document::create(0, m_url);
             // FIXME: Set Last-Modified.
             m_responseXML->setContent(m_responseBuilder.toStringPreserveCapacity());
+            m_responseXML->setSecurityOrigin(document()->securityOrigin());
             if (!m_responseXML->wellFormed())
                 m_responseXML = 0;
         }
@@ -269,7 +271,7 @@ Blob* XMLHttpRequest::responseBlob(ExceptionCode& ec) const
 }
 #endif
 
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
+#if ENABLE(WEBGL) || ENABLE(BLOB)
 ArrayBuffer* XMLHttpRequest::responseArrayBuffer(ExceptionCode& ec)
 {
     if (m_responseTypeCode != ResponseTypeArrayBuffer) {
@@ -310,7 +312,7 @@ void XMLHttpRequest::setResponseType(const String& responseType, ExceptionCode& 
         m_responseTypeCode = ResponseTypeBlob;
 #endif
     } else if (responseType == "arraybuffer") {
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
+#if ENABLE(WEBGL) || ENABLE(BLOB)
         m_responseTypeCode = ResponseTypeArrayBuffer;
 #endif
     } else
@@ -584,7 +586,7 @@ void XMLHttpRequest::send(DOMFormData* body, ExceptionCode& ec)
     createRequest(ec);
 }
 
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
+#if ENABLE(WEBGL) || ENABLE(BLOB)
 void XMLHttpRequest::send(ArrayBuffer* body, ExceptionCode& ec)
 {
     if (!initSend(ec))
@@ -737,7 +739,7 @@ void XMLHttpRequest::clearResponse()
 #if ENABLE(XHR_RESPONSE_BLOB)
     m_responseBlob = 0;
 #endif
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
+#if ENABLE(WEBGL) || ENABLE(BLOB)
     m_binaryResponseBuilder.clear();
     m_responseArrayBuffer.clear();
 #endif
@@ -791,8 +793,10 @@ void XMLHttpRequest::dropProtection()
     // can't be recouped until the load is done, so only
     // report the extra cost at that point.
     JSC::JSGlobalData* globalData = scriptExecutionContext()->globalData();
-    if (hasCachedDOMObjectWrapper(globalData, this))
+    if (hasCachedDOMObjectWrapper(globalData, this)) {
+        JSC::JSLock lock(JSC::SilenceAssertionsOnly);
         globalData->heap.reportExtraMemoryCost(m_responseBuilder.length() * 2);
+    }
 #endif
 
     unsetPendingActivity(this);
@@ -1072,7 +1076,7 @@ void XMLHttpRequest::didReceiveData(const char* data, int len)
 
     if (useDecoder)
         m_responseBuilder.append(m_decoder->decode(data, len));
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
+#if ENABLE(WEBGL) || ENABLE(BLOB)
     else if (responseTypeCode() == ResponseTypeArrayBuffer) {
         // Buffer binary data.
         if (!m_binaryResponseBuilder)

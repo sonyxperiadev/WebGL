@@ -118,7 +118,7 @@ public:
                 state == WebCore::RenderSkinAndroid::kFocused)
             return;
         m_state = state;
-        SkCanvas* canvas = m_picture->beginRecording(m_rect.right(), m_rect.bottom());
+        SkCanvas* canvas = m_picture->beginRecording(m_rect.maxX(), m_rect.maxY());
         buttonSkin->draw(canvas, m_rect, state);
         m_picture->endRecording();
     }

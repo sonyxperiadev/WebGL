@@ -28,8 +28,9 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "Event.h"
+#include "Document.h"
 #include "EventException.h"
+#include "EventQueue.h"
 #include "IDBAbortEvent.h"
 #include "IDBCompleteEvent.h"
 #include "IDBDatabase.h"
@@ -38,20 +39,22 @@
 #include "IDBObjectStore.h"
 #include "IDBObjectStoreBackendInterface.h"
 #include "IDBPendingTransactionMonitor.h"
-#include "IDBTimeoutEvent.h"
-#include "ScriptExecutionContext.h"
 
 namespace WebCore {
+
+PassRefPtr<IDBTransaction> IDBTransaction::create(ScriptExecutionContext* context, PassRefPtr<IDBTransactionBackendInterface> backend, IDBDatabase* db)
+{ 
+    return adoptRef(new IDBTransaction(context, backend, db));
+}
 
 IDBTransaction::IDBTransaction(ScriptExecutionContext* context, PassRefPtr<IDBTransactionBackendInterface> backend, IDBDatabase* db)
     : ActiveDOMObject(context, this)
     , m_backend(backend)
     , m_database(db)
     , m_mode(m_backend->mode())
-    , m_onAbortTimer(this, &IDBTransaction::onAbortTimerFired)
-    , m_onCompleteTimer(this, &IDBTransaction::onCompleteTimerFired)
-    , m_onTimeoutTimer(this, &IDBTransaction::onTimeoutTimerFired)
+    , m_finished(false)
 {
+    ASSERT(m_backend);
     IDBPendingTransactionMonitor::addPendingTransaction(m_backend.get());
 }
 
@@ -59,19 +62,29 @@ IDBTransaction::~IDBTransaction()
 {
 }
 
+IDBTransactionBackendInterface* IDBTransaction::backend() const
+{
+    return m_backend.get();
+}
+
+bool IDBTransaction::finished() const
+{
+    return m_finished;
+}
+
 unsigned short IDBTransaction::mode() const
 {
     return m_mode;
 }
 
-IDBDatabase* IDBTransaction::db()
+IDBDatabase* IDBTransaction::db() const
 {
     return m_database.get();
 }
 
 PassRefPtr<IDBObjectStore> IDBTransaction::objectStore(const String& name, ExceptionCode& ec)
 {
-    if (!m_backend) {
+    if (m_finished) {
         ec = IDBDatabaseException::NOT_ALLOWED_ERR;
         return 0;
     }
@@ -80,14 +93,33 @@ PassRefPtr<IDBObjectStore> IDBTransaction::objectStore(const String& name, Excep
         ASSERT(ec);
         return 0;
     }
-    RefPtr<IDBObjectStore> objectStore = IDBObjectStore::create(objectStoreBackend, m_backend.get());
+    RefPtr<IDBObjectStore> objectStore = IDBObjectStore::create(objectStoreBackend, this);
     return objectStore.release();
 }
 
 void IDBTransaction::abort()
 {
+    RefPtr<IDBTransaction> selfRef = this;
     if (m_backend)
         m_backend->abort();
+}
+
+void IDBTransaction::onAbort()
+{
+    enqueueEvent(IDBAbortEvent::create(IDBAny::create(this)));
+}
+
+void IDBTransaction::onComplete()
+{
+    enqueueEvent(IDBCompleteEvent::create(IDBAny::create(this)));
+}
+
+bool IDBTransaction::hasPendingActivity() const
+{
+    // FIXME: In an ideal world, we should return true as long as anyone has a or can
+    //        get a handle to us or any child request object and any of those have
+    //        event listeners. This is  in order to handle user generated events properly.
+    return !m_finished || ActiveDOMObject::hasPendingActivity();
 }
 
 ScriptExecutionContext* IDBTransaction::scriptExecutionContext() const
@@ -95,47 +127,52 @@ ScriptExecutionContext* IDBTransaction::scriptExecutionContext() const
     return ActiveDOMObject::scriptExecutionContext();
 }
 
-void IDBTransaction::onAbort()
+bool IDBTransaction::dispatchEvent(PassRefPtr<Event> event)
 {
-    ASSERT(!m_onAbortTimer.isActive());
-    ASSERT(!m_onCompleteTimer.isActive());
-    ASSERT(!m_onTimeoutTimer.isActive());
-    m_selfRef = this;
-    m_onAbortTimer.startOneShot(0);
-    m_backend.clear(); // Release the backend as it holds a (circular) reference back to us.
-}
+    ASSERT(!m_finished);
+    ASSERT(scriptExecutionContext());
+    ASSERT(event->target() == this);
+    ASSERT(!m_finished);
+    m_finished = true;
 
-void IDBTransaction::onComplete()
-{
-    ASSERT(!m_onAbortTimer.isActive());
-    ASSERT(!m_onCompleteTimer.isActive());
-    ASSERT(!m_onTimeoutTimer.isActive());
-    m_selfRef = this;
-    m_onCompleteTimer.startOneShot(0);
-    m_backend.clear(); // Release the backend as it holds a (circular) reference back to us.
-}
+    Vector<RefPtr<EventTarget> > targets;
+    targets.append(this);
+    targets.append(db());
 
-void IDBTransaction::onTimeout()
-{
-    ASSERT(!m_onAbortTimer.isActive());
-    ASSERT(!m_onCompleteTimer.isActive());
-    ASSERT(!m_onTimeoutTimer.isActive());
-    m_selfRef = this;
-    m_onTimeoutTimer.startOneShot(0);
-    m_backend.clear(); // Release the backend as it holds a (circular) reference back to us.
+    ASSERT(event->isIDBAbortEvent() || event->isIDBCompleteEvent());
+    return static_cast<IDBEvent*>(event.get())->dispatch(targets);
 }
 
 bool IDBTransaction::canSuspend() const
 {
-    // We may be in the middle of a transaction so we cannot suspend our object.
-    // Instead, we simply don't allow the owner page to go into the back/forward cache.
-    return false;
+    // FIXME: Technically we can suspend before the first request is schedule
+    //        and after the complete/abort event is enqueued.
+    return m_finished;
 }
 
-void IDBTransaction::stop()
+void IDBTransaction::contextDestroyed()
 {
+    ActiveDOMObject::contextDestroyed();
+
+    // Must happen in contextDestroyed since it can result in ActiveDOMObjects being destructed
+    // (and contextDestroyed is the only one resilient against this).
+    RefPtr<IDBTransaction> selfRef = this;
     if (m_backend)
         m_backend->abort();
+
+    m_finished = true;
+}
+
+void IDBTransaction::enqueueEvent(PassRefPtr<Event> event)
+{
+    ASSERT(!m_finished);
+    if (!scriptExecutionContext())
+        return;
+
+    ASSERT(scriptExecutionContext()->isDocument());
+    EventQueue* eventQueue = static_cast<Document*>(scriptExecutionContext())->eventQueue();
+    event->setTarget(this);
+    eventQueue->enqueueEvent(event);
 }
 
 EventTargetData* IDBTransaction::eventTargetData()
@@ -146,28 +183,6 @@ EventTargetData* IDBTransaction::eventTargetData()
 EventTargetData* IDBTransaction::ensureEventTargetData()
 {
     return &m_eventTargetData;
-}
-
-void IDBTransaction::onAbortTimerFired(Timer<IDBTransaction>* transaction)
-{
-    ASSERT(m_selfRef);
-    RefPtr<IDBTransaction> selfRef = m_selfRef.release();
-    dispatchEvent(IDBAbortEvent::create());
-}
-
-void IDBTransaction::onCompleteTimerFired(Timer<IDBTransaction>* transaction)
-{
-    ASSERT(m_selfRef);
-    RefPtr<IDBTransaction> selfRef = m_selfRef.release();
-    dispatchEvent(IDBCompleteEvent::create());
-}
-
-
-void IDBTransaction::onTimeoutTimerFired(Timer<IDBTransaction>* transaction)
-{
-    ASSERT(m_selfRef);
-    RefPtr<IDBTransaction> selfRef = m_selfRef.release();
-    dispatchEvent(IDBTimeoutEvent::create());
 }
 
 }

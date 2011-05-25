@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "NetscapePlugin.h"
 
 #include "NPRuntimeObjectMap.h"
@@ -351,8 +352,8 @@ void NetscapePlugin::callSetWindow()
     m_npWindow.height = m_frameRect.height();
     m_npWindow.clipRect.top = m_clipRect.y();
     m_npWindow.clipRect.left = m_clipRect.x();
-    m_npWindow.clipRect.bottom = m_clipRect.bottom();
-    m_npWindow.clipRect.right = m_clipRect.right();
+    m_npWindow.clipRect.bottom = m_clipRect.maxY();
+    m_npWindow.clipRect.right = m_clipRect.maxX();
 
     NPP_SetWindow(&m_npWindow);
 }

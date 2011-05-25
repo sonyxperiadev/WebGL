@@ -30,6 +30,7 @@
 #define DocumentLoader_h
 
 #include "DocumentLoadTiming.h"
+#include "DocumentWriter.h"
 #include "NavigationAction.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
@@ -43,11 +44,11 @@
 namespace WebCore {
 
     class ApplicationCacheHost;
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+#if ENABLE(WEB_ARCHIVE)
     class Archive;
+#endif
     class ArchiveResource;
     class ArchiveResourceCollection;
-#endif
     class Frame;
     class FrameLoader;
     class MainResourceLoader;
@@ -77,6 +78,8 @@ namespace WebCore {
         FrameLoader* frameLoader() const;
         MainResourceLoader* mainResourceLoader() const { return m_mainResourceLoader.get(); }
         PassRefPtr<SharedBuffer> mainResourceData() const;
+        
+        DocumentWriter* writer() const { return &m_writer; }
 
         const ResourceRequest& originalRequest() const;
         const ResourceRequest& originalRequestCopy() const;
@@ -126,26 +129,29 @@ namespace WebCore {
         void unschedule(SchedulePair*);
 #endif
 
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+#if ENABLE(WEB_ARCHIVE)
         void addAllArchiveResources(Archive*);
         void addArchiveResource(PassRefPtr<ArchiveResource>);
-        
-        // Return an ArchiveResource for the URL, either creating from live data or
-        // pulling from the ArchiveResourceCollection
-        PassRefPtr<ArchiveResource> subresource(const KURL&) const;
-        // Return the ArchiveResource for the URL only when loading an Archive
-        ArchiveResource* archiveResourceForURL(const KURL&) const;
         
         PassRefPtr<Archive> popArchiveForSubframe(const String& frameName);
         void clearArchiveResources();
         void setParsedArchiveData(PassRefPtr<SharedBuffer>);
         SharedBuffer* parsedArchiveData() const;
         
-        PassRefPtr<ArchiveResource> mainResource() const;
-        void getSubresources(Vector<PassRefPtr<ArchiveResource> >&) const;
-        
         bool scheduleArchiveLoad(ResourceLoader*, const ResourceRequest&, const KURL&);
-#endif
+#endif // ENABLE(WEB_ARCHIVE)
+
+        // Return the ArchiveResource for the URL only when loading an Archive
+        ArchiveResource* archiveResourceForURL(const KURL&) const;
+
+        PassRefPtr<ArchiveResource> mainResource() const;
+
+        // Return an ArchiveResource for the URL, either creating from live data or
+        // pulling from the ArchiveResourceCollection
+        PassRefPtr<ArchiveResource> subresource(const KURL&) const;
+        void getSubresources(Vector<PassRefPtr<ArchiveResource> >&) const;
+
+
 #ifndef NDEBUG
         bool isSubstituteLoadPending(ResourceLoader*) const;
 #endif
@@ -253,6 +259,8 @@ namespace WebCore {
         ResourceLoaderSet m_plugInStreamLoaders;
 
         RefPtr<SharedBuffer> m_mainResourceData;
+        
+        mutable DocumentWriter m_writer;
 
         // A reference to actual request used to create the data source.
         // This should only be used by the resourceLoadDelegate's
@@ -305,9 +313,9 @@ namespace WebCore {
         typedef HashMap<RefPtr<ResourceLoader>, RefPtr<SubstituteResource> > SubstituteResourceMap;
         SubstituteResourceMap m_pendingSubstituteResources;
         Timer<DocumentLoader> m_substituteResourceDeliveryTimer;
-                
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+
         OwnPtr<ArchiveResourceCollection> m_archiveResourceCollection;
+#if ENABLE(WEB_ARCHIVE)
         RefPtr<SharedBuffer> m_parsedArchiveData;
 #endif
 

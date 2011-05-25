@@ -32,6 +32,7 @@
 
 #if ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(INSPECTOR)
 #include "InjectedScript.h"
+#include "ScriptBreakpoint.h"
 #include "ScriptDebugListener.h"
 #include "ScriptState.h"
 #include <wtf/Forward.h>
@@ -42,7 +43,7 @@
 
 namespace WebCore {
 class InjectedScriptHost;
-class InspectorController;
+class InspectorAgent;
 class InspectorFrontend;
 class InspectorObject;
 class InspectorValue;
@@ -56,17 +57,20 @@ enum DebuggerEventType {
 class InspectorDebuggerAgent : public ScriptDebugListener {
     WTF_MAKE_NONCOPYABLE(InspectorDebuggerAgent); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<InspectorDebuggerAgent> create(InspectorController*, InspectorFrontend*);
+    static PassOwnPtr<InspectorDebuggerAgent> create(InspectorAgent*, InspectorFrontend*, bool eraseStickyBreakpoints);
     virtual ~InspectorDebuggerAgent();
 
-    static bool isDebuggerAlwaysEnabled();
+    void inspectedURLChanged(const String& url);
 
     // Part of the protocol.
     void activateBreakpoints();
     void deactivateBreakpoints();
-    void setStickyBreakpoint(const String& url, unsigned lineNumber, const String& condition, bool enabled);
-    void setBreakpoint(const String& sourceID, unsigned lineNumber, const String& condition, bool enabled, String* breakpointId, unsigned int* actualLineNumber);
-    void removeBreakpoint(const String& breakpointId);
+
+    void setJavaScriptBreakpoint(const String& url, int lineNumber, int columnNumber, const String& condition, bool enabled, String* breakpointId, RefPtr<InspectorArray>* locations);
+    void setJavaScriptBreakpointBySourceId(const String& sourceId, int lineNumber, int columnNumber, const String& condition, bool enabled, String* breakpointId, int* actualLineNumber, int* actualColumnNumber);
+    void removeJavaScriptBreakpoint(const String& breakpointId);
+    void continueToLocation(const String& sourceId, int lineNumber, int columnNumber);
+
     void editScriptSource(const String& sourceID, const String& newContent, bool* success, String* result, RefPtr<InspectorValue>* newCallFrames);
     void getScriptSource(const String& sourceID, String* scriptSource);
     void schedulePauseOnNextStatement(DebuggerEventType type, PassRefPtr<InspectorValue> data);
@@ -78,13 +82,11 @@ public:
     void stepInto();
     void stepOut();
     void setPauseOnExceptionsState(long pauseState, long* newState);
-    void evaluateOnCallFrame(PassRefPtr<InspectorObject> callFrameId, const String& expression, const String& objectGroup, RefPtr<InspectorValue>* result);
-    void getCompletionsOnCallFrame(PassRefPtr<InspectorObject> callFrameId, const String& expression, bool includeInspectorCommandLineAPI, RefPtr<InspectorValue>* result);
-
-    void clearForPageNavigation();
+    void evaluateOnCallFrame(PassRefPtr<InspectorObject> callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
+    void getCompletionsOnCallFrame(PassRefPtr<InspectorObject> callFrameId, const String& expression, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
 
 private:
-    InspectorDebuggerAgent(InspectorController*, InspectorFrontend*);
+    InspectorDebuggerAgent(InspectorAgent*, InspectorFrontend*, bool eraseStickyBreakpoints);
 
     PassRefPtr<InspectorValue> currentCallFrames();
 
@@ -93,17 +95,42 @@ private:
     virtual void didPause(ScriptState*);
     virtual void didContinue();
 
-    void restoreBreakpoint(const String& sourceID, unsigned lineNumber, const String& condition, bool enabled);
+    bool resolveBreakpoint(const String& breakpointId, const String& sourceId, const ScriptBreakpoint&, int* actualLineNumber, int* actualColumnNumber);
 
-    InspectorController* m_inspectorController;
+    class Script {
+    public:
+        Script()
+            : lineOffset(0)
+            , columnOffset(0)
+            , linesCount(0)
+        {
+        }
+
+        Script(const String& url, const String& data, int lineOffset, int columnOffset)
+            : url(url)
+            , data(data)
+            , lineOffset(lineOffset)
+            , columnOffset(columnOffset)
+            , linesCount(0)
+        {
+        }
+
+        String url;
+        String data;
+        int lineOffset;
+        int columnOffset;
+        int linesCount;
+    };
+
+    typedef HashMap<String, Script> ScriptsMap;
+    typedef HashMap<String, Vector<String> > BreakpointIdToDebugServerBreakpointIdsMap;
+
+    InspectorAgent* m_inspectorAgent;
     InspectorFrontend* m_frontend;
     ScriptState* m_pausedScriptState;
-    HashMap<String, String> m_scriptIDToContent;
-    typedef HashMap<String, Vector<String> > URLToSourceIDsMap;
-    URLToSourceIDsMap m_urlToSourceIDs;
-    typedef std::pair<String, bool> Breakpoint;
-    typedef HashMap<unsigned, Breakpoint> ScriptBreakpoints;
-    HashMap<String, ScriptBreakpoints> m_stickyBreakpoints;
+    ScriptsMap m_scripts;
+    BreakpointIdToDebugServerBreakpointIdsMap m_breakpointIdToDebugServerBreakpointIds;
+    String m_continueToLocationBreakpointId;
     RefPtr<InspectorObject> m_breakProgramDetails;
     bool m_javaScriptPauseScheduled;
 };

@@ -33,6 +33,8 @@
 
 #include "WebCommon.h"
 
+#define HAS_WEBAUDIO_FEATURE_ENABLE 1
+
 namespace WebKit {
 
 class WebString;
@@ -91,6 +93,7 @@ public:
     virtual void setOfflineWebApplicationCacheEnabled(bool) = 0;
     virtual void setWebAudioEnabled(bool) = 0;
     virtual void setExperimentalWebGLEnabled(bool) = 0;
+    virtual void setOpenGLMultisamplingEnabled(bool) = 0;
     virtual void setShowDebugBorders(bool) = 0;
     virtual void setEditingBehavior(EditingBehavior) = 0;
     virtual void setAcceleratedCompositingEnabled(bool) = 0;
@@ -102,6 +105,7 @@ public:
     virtual void setAccelerated2dCanvasEnabled(bool) = 0;
     virtual void setMemoryInfoEnabled(bool) = 0;
     virtual void setHyperlinkAuditingEnabled(bool) = 0;
+    virtual void setAsynchronousSpellCheckingEnabled(bool) = 0;
     virtual void setCaretBrowsingEnabled(bool) = 0;
     virtual void setInteractiveFormValidationEnabled(bool) = 0;
 

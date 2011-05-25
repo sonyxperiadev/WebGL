@@ -28,107 +28,117 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ScriptFormatter = function(source)
+WebInspector.ScriptFormatter = function()
 {
-    this._originalSource = source;
-    this._originalLineEndings = source.findAll("\n");
-    this._originalLineEndings.push(source.length);
-}
-
-WebInspector.ScriptFormatter.locationToPosition = function(lineEndings, location)
-{
-    var position = location.line ? lineEndings[location.line - 1] + 1 : 0;
-    return position + location.column;
-}
-
-WebInspector.ScriptFormatter.positionToLocation = function(lineEndings, position)
-{
-    var location = {};
-    location.line = lineEndings.upperBound(position - 1);
-    if (!location.line)
-        location.column = position;
-    else
-        location.column = position - lineEndings[location.line - 1] - 1;
-    return location;
+    this._worker = new Worker("ScriptFormatterWorker.js");
+    this._worker.onmessage = this._handleMessage.bind(this);
+    this._worker.onerror = this._handleError.bind(this);
+    this._tasks = [];
 }
 
 WebInspector.ScriptFormatter.prototype = {
-    format: function(callback)
+    formatContent: function(content, callback)
     {
-        var worker = new Worker("scriptFormatterWorker.js");
-        function messageHandler(event)
+        var chunks = this._splitContentIntoChunks(content.text, content.scriptRanges);
+
+        function didFormatChunks()
         {
-            var formattedSource = event.data;
-            this._formatted = true;
-            this._formattedSource = formattedSource;
-            this._formattedLineEndings = formattedSource.findAll("\n");
-            this._formattedLineEndings.push(formattedSource.length);
-            this._buildMapping();
-            callback(formattedSource);
+            var result = this._buildContentFromChunks(chunks);
+            callback(new WebInspector.FormattedSourceFrameContent(content, result.text, result.mapping));
         }
-        worker.onmessage = messageHandler.bind(this);
-        worker.postMessage(this._originalSource);
+        this._formatChunks(chunks, 0, didFormatChunks.bind(this));
     },
 
-    _buildMapping: function()
+    _splitContentIntoChunks: function(text, scriptRanges)
     {
-        this._originalSymbolPositions = [];
-        this._formattedSymbolPositions = [];
-        var lastCodePosition = 0;
-        var regexp = /[\$\.\w]+|{|}|;/g;
-        while (true) {
-            var match = regexp.exec(this._formattedSource);
-            if (!match)
+        var chunks = [];
+        function addChunk(start, end, isScript)
+        {
+            var chunk = {};
+            chunk.start = start;
+            chunk.end = end;
+            chunk.isScript = isScript;
+            chunk.text = text.substring(start, end);
+            chunks.push(chunk);
+        }
+        var currentPosition = 0;
+        for (var i = 0; i < scriptRanges.length; ++i) {
+            var scriptRange = scriptRanges[i];
+            if (currentPosition < scriptRange.start)
+                addChunk(currentPosition, scriptRange.start, false);
+            addChunk(scriptRange.start, scriptRange.end, true);
+            currentPosition = scriptRange.end;
+        }
+        if (currentPosition < text.length)
+            addChunk(currentPosition, text.length, false);
+        return chunks;
+    },
+
+    _formatChunks: function(chunks, index, callback)
+    {
+        while(true) {
+            if (index === chunks.length) {
+                callback();
+                return;
+            }
+            var chunk = chunks[index++];
+            if (chunk.isScript)
                 break;
-            var position = this._originalSource.indexOf(match[0], lastCodePosition);
-            if (position === -1)
-                continue;
-            this._originalSymbolPositions.push(position);
-            this._formattedSymbolPositions.push(match.index);
-            lastCodePosition = position + match[0].length;
         }
-        this._originalSymbolPositions.push(this._originalSource.length);
-        this._formattedSymbolPositions.push(this._formattedSource.length);
+
+        function didFormat(formattedSource, mapping)
+        {
+            chunk.text = formattedSource;
+            chunk.mapping = mapping;
+            this._formatChunks(chunks, index, callback);
+        }
+        this._formatScript(chunk.text, didFormat.bind(this));
     },
 
-    originalLineNumberToFormattedLineNumber: function(originalLineNumber)
+    _buildContentFromChunks: function(chunks)
     {
-        if (!this._formatted)
-            return originalLineNumber;
-        var originalPosition = WebInspector.ScriptFormatter.locationToPosition(this._originalLineEndings, { line: originalLineNumber, column: 0 });
-        return this.originalPositionToFormattedLineNumber(originalPosition);
+        var text = "";
+        var mapping = { original: [], formatted: [] };
+        for (var i = 0; i < chunks.length; ++i) {
+            var chunk = chunks[i];
+            mapping.original.push(chunk.start);
+            mapping.formatted.push(text.length);
+            if (chunk.isScript) {
+                if (text)
+                    text += "\n";
+                for (var j = 0; j < chunk.mapping.original.length; ++j) {
+                    mapping.original.push(chunk.mapping.original[j] + chunk.start);
+                    mapping.formatted.push(chunk.mapping.formatted[j] + text.length);
+                }
+                text += chunk.text;
+            } else {
+                if (text)
+                    text += "\n";
+                text += chunk.text;
+            }
+            mapping.original.push(chunk.end);
+            mapping.formatted.push(text.length);
+        }
+        return { text: text, mapping: mapping };
     },
 
-    formattedLineNumberToOriginalLineNumber: function(formattedLineNumber)
+    _formatScript: function(source, callback)
     {
-        if (!this._formatted)
-            return formattedLineNumber;
-        var originalPosition = this.formattedLineNumberToOriginalPosition(formattedLineNumber);
-        return WebInspector.ScriptFormatter.positionToLocation(this._originalLineEndings, originalPosition).line;
+        this._tasks.push({ source: source, callback: callback });
+        this._worker.postMessage(source);
     },
 
-    originalPositionToFormattedLineNumber: function(originalPosition)
+    _handleMessage: function(event)
     {
-        var lineEndings = this._formatted ? this._formattedLineEndings : this._originalLineEndings;
-        if (this._formatted)
-            formattedPosition = this._convertPosition(this._originalSymbolPositions, this._formattedSymbolPositions, originalPosition);
-        return WebInspector.ScriptFormatter.positionToLocation(lineEndings, formattedPosition).line;
+        var task = this._tasks.shift();
+        task.callback(event.data.formattedSource, event.data.mapping);
     },
 
-    formattedLineNumberToOriginalPosition: function(formattedLineNumber)
+    _handleError: function(event)
     {
-        var lineEndings = this._formatted ? this._formattedLineEndings : this._originalLineEndings;
-        var formattedPosition = WebInspector.ScriptFormatter.locationToPosition(lineEndings, { line: formattedLineNumber, column: 0 });
-        if (!this._formatted)
-            return formattedPosition;
-        return this._convertPosition(this._formattedSymbolPositions, this._originalSymbolPositions, formattedPosition);
-    },
-
-    _convertPosition: function(symbolPositions1, symbolPositions2, position)
-    {
-        var index = symbolPositions1.upperBound(position);
-        if (index === symbolPositions2.length - 1)
-            return symbolPositions2[index] - 1;
-        return symbolPositions2[index];
+        console.warn("Error in script formatter worker:", event);
+        event.preventDefault()
+        var task = this._tasks.shift();
+        task.callback(task.source, { original: [], formatted: [] });
     }
 }

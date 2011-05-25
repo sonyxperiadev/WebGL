@@ -32,7 +32,6 @@
 #define FrameLoader_h
 
 #include "CachePolicy.h"
-#include "DocumentWriter.h"
 #include "FrameLoaderStateMachine.h"
 #include "FrameLoaderTypes.h"
 #include "HistoryController.h"
@@ -99,7 +98,6 @@ public:
     PolicyChecker* policyChecker() const { return &m_policyChecker; }
     HistoryController* history() const { return &m_history; }
     ResourceLoadNotifier* notifier() const { return &m_notifer; }
-    DocumentWriter* writer() const { return &m_writer; }
     SubframeLoader* subframeLoader() const { return &m_subframeLoader; }
 
     // FIXME: This is not cool, people. There are too many different functions that all start loads.
@@ -118,8 +116,8 @@ public:
     void load(const ResourceRequest&, bool lockHistory);                                        // Called by WebFrame, calls load(ResourceRequest, SubstituteData).
     void load(const ResourceRequest&, const SubstituteData&, bool lockHistory);                 // Called both by WebFrame and internally, calls load(DocumentLoader*).
     void load(const ResourceRequest&, const String& frameName, bool lockHistory);               // Called by WebPluginController.
-    
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+
+#if ENABLE(WEB_ARCHIVE)
     void loadArchive(PassRefPtr<Archive>);
 #endif
 
@@ -269,10 +267,7 @@ public:
 
     void frameDetached();
 
-    const KURL& url() const { return m_URL; }
-
-    // setURL is a low-level setter and does not trigger loading.
-    void setURL(const KURL&);
+    void setOutgoingReferrer(const KURL&);
 
     void loadDone();
     void finishedParsing();
@@ -437,7 +432,6 @@ private:
     mutable PolicyChecker m_policyChecker;
     mutable HistoryController m_history;
     mutable ResourceLoadNotifier m_notifer;
-    mutable DocumentWriter m_writer;
     mutable SubframeLoader m_subframeLoader;
     mutable FrameLoaderStateMachine m_stateMachine;
 
@@ -470,7 +464,6 @@ private:
 
     RefPtr<SerializedScriptValue> m_pendingStateObject;
 
-    KURL m_URL;
     KURL m_workingURL;
 
     OwnPtr<IconLoader> m_iconLoader;

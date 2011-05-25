@@ -24,8 +24,11 @@
 #if ENABLE(SVG) && ENABLE(SVG_ANIMATION)
 #include "SVGAnimateElement.h"
 
+#include "CSSPropertyNames.h"
 #include "ColorDistance.h"
 #include "FloatConversion.h"
+#include "QualifiedName.h"
+#include "RenderObject.h"
 #include "SVGColor.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
@@ -82,17 +85,31 @@ static bool parseNumberValueAndUnit(const String& in, double& value, String& uni
     return ok;
 }
 
+static inline bool adjustForCurrentColor(Color& color, const String& value, SVGElement* target)
+{
+    if (!target || !target->isStyled() || value != "currentColor")
+        return false;
+    
+    if (RenderObject* targetRenderer = target->renderer())
+        color = targetRenderer->style()->visitedDependentColor(CSSPropertyColor);
+
+    return true;
+}
+
 SVGAnimateElement::PropertyType SVGAnimateElement::determinePropertyType(const String& attribute) const
 {
-    // FIXME: We need a full property table for figuring this out reliably.
+    // FIXME: We should not allow animation of attribute types other than AnimatedColor for <animateColor>.
     if (hasTagName(SVGNames::animateColorTag))
         return ColorProperty;
-    if (attribute == "d")
-        return PathProperty;
-    if (attribute == "points")
-        return PointsProperty;
-    if (attribute == "color" || attribute == "fill" || attribute == "stroke")
+
+    // FIXME: Now that we have a full property table we need a more granular type specific animation.
+    AnimatedAttributeType type = targetElement()->animatedPropertyTypeForAttribute(QualifiedName(nullAtom, attribute, nullAtom));
+    if (type == AnimatedColor)
         return ColorProperty;
+    if (type == AnimatedPath)
+        return PathProperty;
+    if (type == AnimatedPoints)
+        return PointsProperty;
     return NumberProperty;
 }
 
@@ -100,6 +117,9 @@ void SVGAnimateElement::calculateAnimatedValue(float percentage, unsigned repeat
 {
     ASSERT(percentage >= 0.f && percentage <= 1.f);
     ASSERT(resultElement);
+    bool isInFirstHalfOfAnimation = percentage < 0.5;
+    AnimationMode animationMode = this->animationMode();
+    
     if (hasTagName(SVGNames::setTag))
         percentage = 1.f;
     if (!resultElement->hasTagName(SVGNames::animateTag) && !resultElement->hasTagName(SVGNames::animateColorTag) 
@@ -111,33 +131,45 @@ void SVGAnimateElement::calculateAnimatedValue(float percentage, unsigned repeat
         return;
     if (m_propertyType == NumberProperty) {
         // To animation uses contributions from the lower priority animations as the base value.
-        if (animationMode() == ToAnimation)
+        if (animationMode == ToAnimation)
             m_fromNumber = results->m_animatedNumber;
-    
-        double number = (m_toNumber - m_fromNumber) * percentage + m_fromNumber;
+        
+        double number;
+        if (calcMode() == CalcModeDiscrete)
+            number = isInFirstHalfOfAnimation ? m_fromNumber : m_toNumber;
+        else
+            number = (m_toNumber - m_fromNumber) * percentage + m_fromNumber;
 
         // FIXME: This is not correct for values animation.
         if (isAccumulated() && repeat)
             number += m_toNumber * repeat;
-        if (isAdditive() && animationMode() != ToAnimation)
+        if (isAdditive() && animationMode != ToAnimation)
             results->m_animatedNumber += number;
         else 
             results->m_animatedNumber = number;
         return;
     } 
     if (m_propertyType == ColorProperty) {
-        if (animationMode() == ToAnimation)
+        if (animationMode == ToAnimation)
             m_fromColor = results->m_animatedColor;
-        Color color = ColorDistance(m_fromColor, m_toColor).scaledDistance(percentage).addToColorAndClamp(m_fromColor);
+        Color color;
+        if (calcMode() == CalcModeDiscrete)
+            color = isInFirstHalfOfAnimation ? m_fromColor : m_toColor;
+        else
+            color = ColorDistance(m_fromColor, m_toColor).scaledDistance(percentage).addToColorAndClamp(m_fromColor);
+
         // FIXME: Accumulate colors.
-        if (isAdditive() && animationMode() != ToAnimation)
+        if (isAdditive() && animationMode != ToAnimation)
             results->m_animatedColor = ColorDistance::addColorsAndClamp(results->m_animatedColor, color);
         else
             results->m_animatedColor = color;
         return;
     }
-    AnimationMode animationMode = this->animationMode();
     if (m_propertyType == PathProperty) {
+        if (animationMode == ToAnimation) {
+            ASSERT(results->m_animatedPathPointer);
+            m_fromPath = results->m_animatedPathPointer->copy();
+        }
         if (!percentage) {
             ASSERT(m_fromPath);
             ASSERT(percentage >= 0);
@@ -197,8 +229,11 @@ bool SVGAnimateElement::calculateFromAndToValues(const String& fromString, const
     // FIXME: Needs more solid way determine target attribute type.
     m_propertyType = determinePropertyType(attributeName());
     if (m_propertyType == ColorProperty) {
-        m_fromColor = SVGColor::colorFromRGBColorString(fromString);
-        m_toColor = SVGColor::colorFromRGBColorString(toString);
+        SVGElement* targetElement = this->targetElement();
+        if (!adjustForCurrentColor(m_fromColor, fromString, targetElement))
+            m_fromColor = SVGColor::colorFromRGBColorString(fromString);
+        if (!adjustForCurrentColor(m_toColor, toString, targetElement))
+            m_toColor = SVGColor::colorFromRGBColorString(toString);
         if ((m_fromColor.isValid() && m_toColor.isValid()) || (m_toColor.isValid() && animationMode() == ToAnimation))
             return true;
     } else if (m_propertyType == NumberProperty) {
@@ -210,8 +245,9 @@ bool SVGAnimateElement::calculateFromAndToValues(const String& fromString, const
         }
     } else if (m_propertyType == PathProperty) {
         SVGPathParserFactory* factory = SVGPathParserFactory::self();
-        if (factory->buildSVGPathByteStreamFromString(fromString, m_fromPath, UnalteredParsing)) {
-            if (factory->buildSVGPathByteStreamFromString(toString, m_toPath, UnalteredParsing))
+        if (factory->buildSVGPathByteStreamFromString(toString, m_toPath, UnalteredParsing)) {
+            // For to-animations the from number is calculated later
+            if (animationMode() == ToAnimation || factory->buildSVGPathByteStreamFromString(fromString, m_fromPath, UnalteredParsing))
                 return true;
         }
         m_fromPath.clear();
@@ -235,8 +271,12 @@ bool SVGAnimateElement::calculateFromAndByValues(const String& fromString, const
     ASSERT(!hasTagName(SVGNames::setTag));
     m_propertyType = determinePropertyType(attributeName());
     if (m_propertyType == ColorProperty) {
-        m_fromColor = fromString.isEmpty() ? Color() : SVGColor::colorFromRGBColorString(fromString);
-        m_toColor = ColorDistance::addColorsAndClamp(m_fromColor, SVGColor::colorFromRGBColorString(byString));
+        SVGElement* targetElement = this->targetElement();
+        if (!adjustForCurrentColor(m_fromColor, fromString, targetElement))
+            m_fromColor = fromString.isEmpty() ? Color() : SVGColor::colorFromRGBColorString(fromString);
+        if (!adjustForCurrentColor(m_toColor, byString, targetElement))
+            m_toColor = SVGColor::colorFromRGBColorString(byString);
+        m_toColor = ColorDistance::addColorsAndClamp(m_fromColor, m_toColor);
         if (!m_fromColor.isValid() || !m_toColor.isValid())
             return false;
     } else {
@@ -272,7 +312,9 @@ void SVGAnimateElement::resetToBaseValue(const String& baseString)
             return;
     } else if (m_propertyType == PathProperty) {
         m_animatedPath.clear();
-        m_animatedPathPointer = 0;
+        SVGPathParserFactory* factory = SVGPathParserFactory::self();
+        factory->buildSVGPathByteStreamFromString(baseString, m_animatedPath, UnalteredParsing);
+        m_animatedPathPointer = m_animatedPath.get();
         return;
     } else if (m_propertyType == PointsProperty) {
         m_animatedPoints.clear();

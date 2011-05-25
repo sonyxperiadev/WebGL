@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WKBundleScriptWorld.h"
 
 #include "InjectedBundleScriptWorld.h"
@@ -45,4 +46,9 @@ WKBundleScriptWorldRef WKBundleScriptWorldCreateWorld()
 WKBundleScriptWorldRef WKBundleScriptWorldNormalWorld()
 {
     return toAPI(InjectedBundleScriptWorld::normalWorld());
+}
+
+void WKBundleScriptWorldClearWrappers(WKBundleScriptWorldRef scriptWorldRef)
+{
+    toImpl(scriptWorldRef)->clearWrappers();
 }

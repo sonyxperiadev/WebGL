@@ -27,10 +27,15 @@
 #define WebPolicyClient_h
 
 #include "APIClient.h"
+#include "APIObject.h"
 #include "WKPage.h"
 #include "WebEvent.h"
 #include <WebCore/FrameLoaderTypes.h>
 #include <wtf/Forward.h>
+
+namespace WebCore {
+    class ResourceRequest;
+}
 
 namespace WebKit {
 
@@ -40,9 +45,9 @@ class WebFramePolicyListenerProxy;
 
 class WebPolicyClient : public APIClient<WKPagePolicyClient> {
 public:
-    bool decidePolicyForNavigationAction(WebPageProxy*, WebCore::NavigationType, WebEvent::Modifiers, WebMouseEvent::Button, const String& url, WebFrameProxy*, WebFramePolicyListenerProxy*);
-    bool decidePolicyForNewWindowAction(WebPageProxy*, WebCore::NavigationType, WebEvent::Modifiers, WebMouseEvent::Button, const String& url, WebFrameProxy*, WebFramePolicyListenerProxy*);
-    bool decidePolicyForMIMEType(WebPageProxy*, const String&, const String& url, WebFrameProxy*, WebFramePolicyListenerProxy*);
+    bool decidePolicyForNavigationAction(WebPageProxy*, WebFrameProxy*, WebCore::NavigationType, WebEvent::Modifiers, WebMouseEvent::Button, const WebCore::ResourceRequest&, WebFramePolicyListenerProxy*, APIObject* userData);
+    bool decidePolicyForNewWindowAction(WebPageProxy*, WebFrameProxy*, WebCore::NavigationType, WebEvent::Modifiers, WebMouseEvent::Button, const WebCore::ResourceRequest&, const String& frameName, WebFramePolicyListenerProxy*, APIObject* userData);
+    bool decidePolicyForMIMEType(WebPageProxy*, WebFrameProxy*, const String& MIMEType, const WebCore::ResourceRequest&, WebFramePolicyListenerProxy*, APIObject* userData);
 };
 
 } // namespace WebKit

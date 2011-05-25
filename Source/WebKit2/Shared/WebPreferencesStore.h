@@ -55,6 +55,7 @@ namespace WebKit {
     macro(AcceleratedCompositingEnabled, acceleratedCompositingEnabled, Bool, bool, true) \
     macro(CompositingBordersVisible, compositingBordersVisible, Bool, bool, false) \
     macro(CompositingRepaintCountersVisible, compositingRepaintCountersVisible, Bool, bool, false) \
+    macro(WebGLEnabled, webGLEnabled, Bool, bool, false) \
     macro(ForceFTPDirectoryListings, forceFTPDirectoryListings, Bool, bool, false) \
     macro(TabsToLinks, tabsToLinks, Bool, bool, false) \
     macro(DNSPrefetchingEnabled, dnsPrefetchingEnabled, Bool, bool, false) \
@@ -64,6 +65,7 @@ namespace WebKit {
     macro(AuthorAndUserStylesEnabled, authorAndUserStylesEnabled, Bool, bool, true) \
     macro(PaginateDuringLayoutEnabled, paginateDuringLayoutEnabled, Bool, bool, false) \
     macro(DOMPasteAllowed, domPasteAllowed, Bool, bool, false) \
+    macro(JavaScriptCanAccessClipboard, javaScriptCanAccessClipboard, Bool, bool, false) \
     macro(ShouldPrintBackgrounds, shouldPrintBackgrounds, Bool, bool, false) \
     \
 
@@ -91,13 +93,24 @@ namespace WebKit {
     macro(SerifFontFamily, serifFontFamily, String, String, "Times New Roman") \
     \
 
-#else
+#elif PLATFORM(MAC)
 
 #define FOR_EACH_WEBKIT_FONT_FAMILY_PREFERENCE(macro) \
     macro(StandardFontFamily, standardFontFamily, String, String, "Times") \
     macro(CursiveFontFamily, cursiveFontFamily, String, String, "Apple Chancery") \
     macro(FantasyFontFamily, fantasyFontFamily, String, String, "Papyrus") \
     macro(FixedFontFamily, fixedFontFamily, String, String, "Courier") \
+    macro(SansSerifFontFamily, sansSerifFontFamily, String, String, "Helvetica") \
+    macro(SerifFontFamily, serifFontFamily, String, String, "Times") \
+    \
+
+#elif PLATFORM(QT) || PLATFORM(GTK)
+
+#define FOR_EACH_WEBKIT_FONT_FAMILY_PREFERENCE(macro) \
+    macro(StandardFontFamily, standardFontFamily, String, String, "Times") \
+    macro(CursiveFontFamily, cursiveFontFamily, String, String, "Comic Sans MS") \
+    macro(FantasyFontFamily, fantasyFontFamily, String, String, "Impact") \
+    macro(FixedFontFamily, fixedFontFamily, String, String, "Courier New") \
     macro(SansSerifFontFamily, sansSerifFontFamily, String, String, "Helvetica") \
     macro(SerifFontFamily, serifFontFamily, String, String, "Times") \
     \

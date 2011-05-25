@@ -96,6 +96,12 @@ namespace WebCore {
         double responseTime() const { return m_responseTime; }
         void setResponseTime(double responseTime) { m_responseTime = responseTime; }
 
+        const String& socketAddress() const { return m_socketAddress; }
+        void setSocketAddress(const String& value) { m_socketAddress = value; }
+
+        const String& downloadFilePath() const { return m_downloadFilePath; }
+        void setDownloadFilePath(const String& downloadFilePath) { m_downloadFilePath = downloadFilePath; }
+
     private:
         friend class ResourceResponseBase;
 
@@ -143,6 +149,13 @@ namespace WebCore {
         // The time at which the response headers were received.  For cached
         // responses, this time could be "far" in the past.
         double m_responseTime;
+
+        // Remote address of the socket which fetched this resource, for presenting
+        // to inquisitive users.  Can be "ipv4:port", "[ipv6]:port", or empty.
+        String m_socketAddress;
+
+        // The path to the downloaded file.
+        String m_downloadFilePath;
     };
 
     struct CrossThreadResourceResponseData : public CrossThreadResourceResponseDataBase {
@@ -155,6 +168,8 @@ namespace WebCore {
         bool m_wasAlternateProtocolAvailable;
         bool m_wasFetchedViaProxy;
         double m_responseTime;
+        String m_socketAddress;
+        String m_downloadFilePath;
     };
 
 } // namespace WebCore

@@ -146,7 +146,7 @@ namespace WebKit {
         virtual void dispatchDidChangeBackForwardIndex() const;
 
         virtual void didDisplayInsecureContent();
-        virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
+        virtual void didRunInsecureContent(WebCore::SecurityOrigin*, const WebCore::KURL&);
 
         virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
         virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
@@ -201,6 +201,8 @@ namespace WebKit {
         // Plugin view to redirect data to
         WebCore::PluginView* m_pluginView;
         bool m_hasSentResponseToPlugin;
+
+        bool m_hasRepresentation;
     };
 
 }

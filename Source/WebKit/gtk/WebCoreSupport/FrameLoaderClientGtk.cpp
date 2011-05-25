@@ -98,6 +98,7 @@ FrameLoaderClient::FrameLoaderClient(WebKitWebFrame* frame)
     , m_loadingErrorPage(false)
     , m_pluginView(0)
     , m_hasSentResponseToPlugin(false)
+    , m_hasRepresentation(false)
 {
     ASSERT(m_frame);
 }
@@ -606,7 +607,7 @@ PassRefPtr<Frame> FrameLoaderClient::createFrame(const KURL& url, const String& 
 
     g_signal_emit_by_name(webView, "frame-created", kitFrame);
 
-    childFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
+    parentFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
@@ -773,14 +774,14 @@ void FrameLoaderClient::didDisplayInsecureContent()
     notImplemented();
 }
 
-void FrameLoaderClient::didRunInsecureContent(SecurityOrigin*)
+void FrameLoaderClient::didRunInsecureContent(SecurityOrigin*, const KURL&)
 {
     notImplemented();
 }
 
 void FrameLoaderClient::makeRepresentation(WebCore::DocumentLoader*)
 {
-    notImplemented();
+    m_hasRepresentation = true;
 }
 
 void FrameLoaderClient::forceLayout()
@@ -834,7 +835,7 @@ void FrameLoaderClient::dispatchDidChangeLocationWithinPage()
 {
     WebKitWebFramePrivate* priv = m_frame->priv;
     g_free(priv->uri);
-    priv->uri = g_strdup(core(m_frame)->loader()->url().prettyURL().utf8().data());
+    priv->uri = g_strdup(core(m_frame)->document()->url().prettyURL().utf8().data());
     g_object_notify(G_OBJECT(m_frame), "uri");
     WebKitWebView* webView = getViewFromFrame(m_frame);
     if (m_frame == webkit_web_view_get_main_frame(webView))
@@ -980,7 +981,7 @@ void FrameLoaderClient::dispatchDidLoadMainResource(WebCore::DocumentLoader*)
 
 void FrameLoaderClient::revertToProvisionalState(WebCore::DocumentLoader*)
 {
-    notImplemented();
+    m_hasRepresentation = true;
 }
 
 void FrameLoaderClient::willChangeTitle(WebCore::DocumentLoader*)
@@ -1028,8 +1029,10 @@ String FrameLoaderClient::generatedMIMETypeForURLScheme(const String&) const
 void FrameLoaderClient::finishedLoading(WebCore::DocumentLoader* documentLoader)
 {
     if (!m_pluginView) {
-        FrameLoader* loader = documentLoader->frameLoader();
-        loader->writer()->setEncoding(m_response.textEncodingName(), false);
+        // This is necessary to create an empty document,
+        // but it has to be skipped in the provisional phase.
+        if (m_hasRepresentation)
+            documentLoader->writer()->setEncoding("", false);
     } else {
         m_pluginView->didFinishLoading();
         m_pluginView = 0;

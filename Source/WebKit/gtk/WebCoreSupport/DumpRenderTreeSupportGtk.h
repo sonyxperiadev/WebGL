@@ -19,7 +19,6 @@
 #ifndef DumpRenderTreeSupportGtk_h
 #define DumpRenderTreeSupportGtk_h
 
-
 #include "JSStringRef.h"
 #include <webkit/webkitdefines.h>
 
@@ -28,6 +27,20 @@
 #include <webkit/webkitdefines.h>
 #include <webkit/webkitwebframe.h>
 #include <wtf/text/CString.h>
+
+namespace WebKit {
+
+enum {
+    WebFindOptionsCaseInsensitive = 1 << 0,
+    WebFindOptionsAtWordStarts = 1 << 1,
+    WebFindOptionsTreatMedialCapitalAsWordStart = 1 << 2,
+    WebFindOptionsBackwards = 1 << 3,
+    WebFindOptionsWrapAround = 1 << 4,
+    WebFindOptionsStartInSelection = 1 << 5
+};
+
+}
+typedef unsigned WebKitFindOptions;
 
 class DumpRenderTreeSupportGtk {
 
@@ -40,6 +53,7 @@ public:
 
     static void setLinksIncludedInFocusChain(bool);
     static bool linksIncludedInFocusChain();
+    static void setIconDatabaseEnabled(bool);
     static JSValueRef nodesFromRect(JSContextRef context, JSValueRef value, int x, int y, unsigned top, unsigned right, unsigned bottom, unsigned left, bool ignoreClipping);
     static void dumpConfigurationForViewport(WebKitWebView* webView, gint availableWidth, gint availableHeight);
 
@@ -70,6 +84,11 @@ public:
     // WebKitWebView
     static void executeCoreCommandByName(WebKitWebView*, const gchar* name, const gchar* value);
     static bool isCommandEnabled(WebKitWebView*, const gchar* name);
+    static bool findString(WebKitWebView*, const gchar*, WebKitFindOptions);
+    static void setComposition(WebKitWebView*, const char* text, int start, int end);
+    static void confirmComposition(WebKitWebView*, const char* text);
+    static bool firstRectForCharacterRange(WebKitWebView*, int location, int length, GdkRectangle*);
+    static bool selectedRange(WebKitWebView*, int* start, int* end);
 
     // GC
     static void gcCollectJavascriptObjects();

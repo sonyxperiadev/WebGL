@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -67,9 +67,14 @@
 
 namespace WebCore {
 
+namespace ResourceAgentState {
+static const char resourceAgentEnabled[] = "resourceAgentEnabled";
+static const char extraRequestHeaders[] = "extraRequestHeaders";
+}
+
 PassRefPtr<InspectorResourceAgent> InspectorResourceAgent::restore(Page* page, InspectorState* state, InspectorFrontend* frontend)
 {
-    if (state->getBoolean(InspectorState::resourceAgentEnabled))
+    if (state->getBoolean(ResourceAgentState::resourceAgentEnabled))
         return create(page, state, frontend);
     return 0;
 }
@@ -95,7 +100,6 @@ bool InspectorResourceAgent::resourceContent(Frame* frame, const KURL& url, Stri
 
 bool InspectorResourceAgent::resourceContentBase64(Frame* frame, const KURL& url, String* result)
 {
-    Vector<char> out;
     String textEncodingName;
     RefPtr<SharedBuffer> data = InspectorResourceAgent::resourceData(frame, url, &textEncodingName);
     if (!data) {
@@ -103,8 +107,7 @@ bool InspectorResourceAgent::resourceContentBase64(Frame* frame, const KURL& url
         return false;
     }
 
-    base64Encode(data->buffer(), out);
-    *result = String(out.data(), out.size());
+    *result = base64Encode(data->buffer());
     return true;
 }
 
@@ -120,6 +123,10 @@ PassRefPtr<SharedBuffer> InspectorResourceAgent::resourceData(Frame* frame, cons
     CachedResource* cachedResource = InspectorResourceAgent::cachedResource(frame, url);
     if (!cachedResource)
         return 0;
+
+    // Zero-sized resources don't have data at all -- so fake the empty buffer, insted of indicating error by returning 0.
+    if (!cachedResource->encodedSize())
+        return SharedBuffer::create();
 
     if (cachedResource->isPurgeable()) {
         // If the resource is purgeable then make it unpurgeable to get
@@ -289,7 +296,7 @@ static void populateObjectWithFrameResources(Frame* frame, PassRefPtr<InspectorO
 
 InspectorResourceAgent::~InspectorResourceAgent()
 {
-    m_state->setBoolean(InspectorState::resourceAgentEnabled, false);
+    m_state->setBoolean(ResourceAgentState::resourceAgentEnabled, false);
 }
 
 void InspectorResourceAgent::identifierForInitialRequest(unsigned long identifier, const KURL& url, DocumentLoader* loader)
@@ -304,8 +311,28 @@ void InspectorResourceAgent::identifierForInitialRequest(unsigned long identifie
     m_frontend->identifierForInitialRequest(identifier, url.string(), loaderObject, callStackValue);
 }
 
+void InspectorResourceAgent::setExtraHeaders(PassRefPtr<InspectorObject> headers)
+{
+    m_state->setObject(ResourceAgentState::extraRequestHeaders, headers);
+}
+
+
 void InspectorResourceAgent::willSendRequest(unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
+    RefPtr<InspectorObject> headers = m_state->getObject(ResourceAgentState::extraRequestHeaders);
+
+    if (headers) {
+        InspectorObject::const_iterator end = headers->end();
+        for (InspectorObject::const_iterator it = headers->begin(); it != end; ++it) {
+            String value;
+            if (it->second->asString(&value))
+                request.setHTTPHeaderField(it->first, value);
+        }
+    }
+
+    request.setReportLoadTiming(true);
+    request.setReportRawHeaders(true);
+
     m_frontend->willSendRequest(identifier, currentTime(), buildObjectForResourceRequest(request), buildObjectForResourceResponse(redirectResponse));
 }
 
@@ -318,23 +345,27 @@ void InspectorResourceAgent::didReceiveResponse(unsigned long identifier, Docume
 {
     RefPtr<InspectorObject> resourceResponse = buildObjectForResourceResponse(response);
     String type = "Other";
+    long cachedResourceSize = 0;
+
     if (loader) {
-        if (equalIgnoringFragmentIdentifier(response.url(), loader->frameLoader()->iconURL()))
-            type = "Image";
-        else {
-            CachedResource* cachedResource = InspectorResourceAgent::cachedResource(loader->frame(), response.url());
-            if (cachedResource)
-                type = cachedResourceTypeString(*cachedResource);
-
-            if (equalIgnoringFragmentIdentifier(response.url(), loader->url()) && type == "Other")
-                type = "Document";
-
+        CachedResource* cachedResource = InspectorResourceAgent::cachedResource(loader->frame(), response.url());
+        if (cachedResource) {
+            type = cachedResourceTypeString(*cachedResource);
+            cachedResourceSize = cachedResource->encodedSize();
             // Use mime type from cached resource in case the one in response is empty.
-            if (response.mimeType().isEmpty() && cachedResource)
+            if (response.mimeType().isEmpty())
                 resourceResponse->setString("mimeType", cachedResource->response().mimeType());
         }
+        if (equalIgnoringFragmentIdentifier(response.url(), loader->frameLoader()->iconURL()))
+            type = "Image";
+        else if (equalIgnoringFragmentIdentifier(response.url(), loader->url()) && type == "Other")
+            type = "Document";
     }
     m_frontend->didReceiveResponse(identifier, currentTime(), type, resourceResponse);
+    // If we revalidated the resource and got Not modified, send content length following didReceiveResponse
+    // as there will be no calls to didReceiveContentLength from the network stack.
+    if (cachedResourceSize && response.httpStatusCode() == 304)
+        didReceiveContentLength(identifier, cachedResourceSize);
 }
 
 void InspectorResourceAgent::didReceiveContentLength(unsigned long identifier, int lengthReceived)
@@ -376,7 +407,7 @@ static PassRefPtr<InspectorObject> buildObjectForFrame(Frame* frame)
             name = frame->ownerElement()->getAttribute(HTMLNames::idAttr);
         frameObject->setString("name", name);
     }
-    frameObject->setString("url", frame->loader()->url().string());
+    frameObject->setString("url", frame->document()->url().string());
     return frameObject;
 }
 
@@ -472,17 +503,17 @@ void InspectorResourceAgent::cachedResources(RefPtr<InspectorObject>* object)
     *object = buildObjectForFrameTree(m_page->mainFrame(), true);
 }
 
-void InspectorResourceAgent::resourceContent(unsigned long id, const String& url, bool base64Encode, String* content)
+void InspectorResourceAgent::resourceContent(unsigned long frameId, const String& url, bool base64Encode, bool* success, String* content)
 {
-    for (Frame* frame = m_page->mainFrame(); frame; frame = frame->tree()->traverseNext(m_page->mainFrame())) {
-        if (frameId(frame) != id)
-            continue;
-        if (base64Encode)
-            InspectorResourceAgent::resourceContentBase64(frame, KURL(ParsedURLString, url), content);
-        else
-            InspectorResourceAgent::resourceContent(frame, KURL(ParsedURLString, url), content);
-        break;
+    Frame* frame = frameForId(frameId);
+    if (!frame) {
+        *success = false;
+        return;
     }
+    if (base64Encode)
+        *success = InspectorResourceAgent::resourceContentBase64(frame, KURL(ParsedURLString, url), content);
+    else
+        *success = InspectorResourceAgent::resourceContent(frame, KURL(ParsedURLString, url), content);
 }
 
 InspectorResourceAgent::InspectorResourceAgent(Page* page, InspectorState* state, InspectorFrontend* frontend)
@@ -490,7 +521,7 @@ InspectorResourceAgent::InspectorResourceAgent(Page* page, InspectorState* state
     , m_state(state)
     , m_frontend(frontend)
 {
-    m_state->setBoolean(InspectorState::resourceAgentEnabled, true);
+    m_state->setBoolean(ResourceAgentState::resourceAgentEnabled, true);
 }
 
 } // namespace WebCore

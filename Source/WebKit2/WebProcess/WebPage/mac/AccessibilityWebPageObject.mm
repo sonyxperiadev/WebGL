@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
 #import "AccessibilityWebPageObject.h"
 
 #import "WebFrame.h"
@@ -32,6 +33,7 @@
 #import <WebCore/FrameView.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/Scrollbar.h>
+#import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 using namespace WebKit;
@@ -70,6 +72,7 @@ using namespace WebKit;
 
 - (void)dealloc
 {
+    WKUnregisterUniqueIdForElement(self);
     [m_accessibilityChildren release];
     [m_attributeNames release];
     [m_parent release];

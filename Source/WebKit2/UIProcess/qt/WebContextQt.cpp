@@ -24,10 +24,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebContext.h"
 
 #include "ApplicationCacheStorage.h"
 #include "WebProcessCreationParameters.h"
+#include <QProcess>
 
 namespace WebKit {
 
@@ -42,6 +44,13 @@ String WebContext::applicationCacheDirectory()
 
 void WebContext::platformInitializeWebProcess(WebProcessCreationParameters&)
 {
+    qRegisterMetaType<QProcess::ExitStatus>("QProcess::ExitStatus");
+}
+
+String WebContext::platformDefaultDatabaseDirectory() const
+{
+    // FIXME: Implement.
+    return "";
 }
 
 } // namespace WebKit

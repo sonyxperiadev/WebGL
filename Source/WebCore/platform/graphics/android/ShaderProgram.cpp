@@ -224,9 +224,7 @@ void ShaderProgram::setProjectionMatrix(SkRect& geometry)
     TransformationMatrix scale;
     scale.scale3d(geometry.width(), geometry.height(), 1.0);
 
-    TransformationMatrix total = m_projectionMatrix;
-    total.multLeft(translate);
-    total.multLeft(scale);
+    TransformationMatrix total = m_projectionMatrix * translate * scale;
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, total);
@@ -264,14 +262,10 @@ void ShaderProgram::setViewRect(const IntRect& viewRect)
     TransformationMatrix scale;
     scale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
 
-    m_documentToScreenMatrix = m_projectionMatrix;
-    m_documentToScreenMatrix.multiply(translate);
-    m_documentToScreenMatrix.multiply(scale);
+    m_documentToScreenMatrix = scale * translate * m_projectionMatrix;
 
-    m_documentToInvScreenMatrix = m_projectionMatrix;
     translate.scale3d(1, -1, 1);
-    m_documentToInvScreenMatrix.multiply(translate);
-    m_documentToInvScreenMatrix.multiply(scale);
+    m_documentToInvScreenMatrix = scale * translate * m_projectionMatrix;
 }
 
 // This function transform a clip rect extracted from the current layer
@@ -279,8 +273,7 @@ void ShaderProgram::setViewRect(const IntRect& viewRect)
 FloatRect ShaderProgram::rectInScreenCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
 {
     FloatRect srect(0, 0, size.width(), size.height());
-    TransformationMatrix renderMatrix = drawMatrix;
-    renderMatrix.multiply(m_documentToScreenMatrix);
+    TransformationMatrix renderMatrix = m_documentToScreenMatrix * drawMatrix;
     return renderMatrix.mapRect(srect);
 }
 
@@ -288,8 +281,7 @@ FloatRect ShaderProgram::rectInScreenCoord(const TransformationMatrix& drawMatri
 FloatRect ShaderProgram::rectInInvScreenCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
 {
     FloatRect srect(0, 0, size.width(), size.height());
-    TransformationMatrix renderMatrix = drawMatrix;
-    renderMatrix.multiply(m_documentToInvScreenMatrix);
+    TransformationMatrix renderMatrix = m_documentToInvScreenMatrix * drawMatrix;
     return renderMatrix.mapRect(srect);
 }
 
@@ -372,9 +364,9 @@ IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect, int margin)
 
 float ShaderProgram::zValue(const TransformationMatrix& drawMatrix, float w, float h)
 {
-    TransformationMatrix renderMatrix = drawMatrix;
-    renderMatrix.scale3d(w, h, 1);
-    renderMatrix.multiply(m_projectionMatrix);
+    TransformationMatrix modifiedDrawMatrix = drawMatrix;
+    modifiedDrawMatrix.scale3d(w, h, 1);
+    TransformationMatrix renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
     FloatPoint3D point(0.5, 0.5, 0.0);
     FloatPoint3D result = renderMatrix.mapPoint(point);
     return result.z();
@@ -385,11 +377,11 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
                                   bool forceBlending)
 {
 
-    TransformationMatrix renderMatrix = drawMatrix;
+    TransformationMatrix modifiedDrawMatrix = drawMatrix;
     // move the drawing depending on where the texture is on the layer
-    renderMatrix.translate(geometry.fLeft, geometry.fTop);
-    renderMatrix.scale3d(geometry.width(), geometry.height(), 1);
-    renderMatrix.multiply(m_projectionMatrix);
+    modifiedDrawMatrix.translate(geometry.fLeft, geometry.fTop);
+    modifiedDrawMatrix.scale3d(geometry.width(), geometry.height(), 1);
+    TransformationMatrix renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
@@ -414,10 +406,10 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
     // switch to our custom yuv video rendering program
     glUseProgram(m_videoProgram);
 
-    TransformationMatrix renderMatrix = drawMatrix;
-    renderMatrix.translate(geometry.fLeft, geometry.fTop);
-    renderMatrix.scale3d(geometry.width(), geometry.height(), 1);
-    renderMatrix.multiply(m_projectionMatrix);
+    TransformationMatrix modifiedDrawMatrix = drawMatrix;
+    modifiedDrawMatrix.translate(geometry.fLeft, geometry.fTop);
+    modifiedDrawMatrix.scale3d(geometry.width(), geometry.height(), 1);
+    TransformationMatrix renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, renderMatrix);

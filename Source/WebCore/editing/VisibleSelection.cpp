@@ -26,7 +26,6 @@
 #include "config.h"
 #include "VisibleSelection.h"
 
-#include "CharacterNames.h"
 #include "Document.h"
 #include "Element.h"
 #include "htmlediting.h"
@@ -34,10 +33,10 @@
 #include "VisiblePosition.h"
 #include "visible_units.h"
 #include "Range.h"
-
+#include <stdio.h>
 #include <wtf/Assertions.h>
 #include <wtf/text/CString.h>
-#include <stdio.h>
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
@@ -173,6 +172,9 @@ PassRefPtr<Range> VisibleSelection::toNormalizedRange() const
         s = s.parentAnchoredEquivalent();
         e = e.parentAnchoredEquivalent();
     }
+    
+    if (s.isNull() || e.isNull())
+        return 0;
 
     // VisibleSelections are supposed to always be valid.  This constructor will ASSERT
     // if a valid range could not be created, which is fine for this callsite.
@@ -432,7 +434,6 @@ void VisibleSelection::setWithoutValidation(const Position& base, const Position
 {
     ASSERT(!base.isNull());
     ASSERT(!extent.isNull());
-    ASSERT(base != extent);
     ASSERT(m_affinity == DOWNSTREAM);
     m_base = base;
     m_extent = extent;
@@ -444,7 +445,7 @@ void VisibleSelection::setWithoutValidation(const Position& base, const Position
         m_start = extent;
         m_end = base;
     }
-    m_selectionType = RangeSelection;
+    m_selectionType = base == extent ? CaretSelection : RangeSelection;
 }
 
 void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
@@ -526,13 +527,13 @@ void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
             Position p = nextVisuallyDistinctCandidate(m_start);
             Node* shadowAncestor = startRoot ? startRoot->shadowAncestorNode() : 0;
             if (p.isNull() && startRoot && (shadowAncestor != startRoot))
-                p = Position(shadowAncestor, 0);
+                p = positionBeforeNode(shadowAncestor);
             while (p.isNotNull() && !(lowestEditableAncestor(p.node()) == baseEditableAncestor && !isEditablePosition(p))) {
                 Node* root = editableRootForPosition(p);
                 shadowAncestor = root ? root->shadowAncestorNode() : 0;
                 p = isAtomicNode(p.node()) ? positionInParentAfterNode(p.node()) : nextVisuallyDistinctCandidate(p);
                 if (p.isNull() && (shadowAncestor != root))
-                    p = Position(shadowAncestor, 0);
+                    p = positionBeforeNode(shadowAncestor);
             }
             VisiblePosition next(p);
             

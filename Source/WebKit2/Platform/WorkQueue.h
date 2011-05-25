@@ -41,7 +41,8 @@
 #include <wtf/Vector.h>
 
 #if PLATFORM(QT)
-class QLocalSocket;
+#include <QSocketNotifier>
+#include "PlatformProcessIdentifier.h"
 class QObject;
 class QThread;
 #elif PLATFORM(GTK)
@@ -50,6 +51,8 @@ typedef struct _GMainLoop GMainLoop;
 #endif
 
 class WorkQueue {
+    WTF_MAKE_NONCOPYABLE(WorkQueue);
+
 public:
     explicit WorkQueue(const char* name);
     ~WorkQueue();
@@ -79,10 +82,8 @@ public:
     void registerHandle(HANDLE, PassOwnPtr<WorkItem>);
     void unregisterAndCloseHandle(HANDLE);
 #elif PLATFORM(QT)
-    void connectSignal(QObject*, const char* signal, PassOwnPtr<WorkItem>);
-    void disconnectSignal(QObject*, const char* signal);
-
-    void moveSocketToWorkThread(QLocalSocket*);
+    QSocketNotifier* registerSocketEventHandler(int, QSocketNotifier::Type, PassOwnPtr<WorkItem>);
+    void scheduleWorkOnTermination(WebKit::PlatformProcessIdentifier, PassOwnPtr<WorkItem>);
 #elif PLATFORM(GTK)
     void registerEventSourceHandler(int, int, PassOwnPtr<WorkItem>);
     void unregisterEventSourceHandler(int);
@@ -137,6 +138,7 @@ private:
     };
 
     static void CALLBACK handleCallback(void* context, BOOLEAN timerOrWaitFired);
+    static void CALLBACK timerCallback(void* context, BOOLEAN timerOrWaitFired);
     static DWORD WINAPI workThreadCallback(void* context);
 
     bool tryRegisterAsWorkThread();
@@ -153,6 +155,8 @@ private:
 
     Mutex m_handlesLock;
     HashMap<HANDLE, RefPtr<HandleWorkItem> > m_handles;
+
+    HANDLE m_timerQueue;
 #elif PLATFORM(QT)
     class WorkItemQt;
     HashMap<QObject*, WorkItemQt*> m_signalListeners;

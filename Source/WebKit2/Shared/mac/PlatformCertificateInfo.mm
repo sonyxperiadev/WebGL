@@ -23,12 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "PlatformCertificateInfo.h"
+#import "config.h"
+#import "PlatformCertificateInfo.h"
 
-#include "ArgumentDecoder.h"
-#include "ArgumentEncoder.h"
-#include <WebKitSystemInterface.h>
-#include <Security/Security.h>
+#import "ArgumentDecoder.h"
+#import "ArgumentEncoder.h"
+#import <WebKitSystemInterface.h>
+#import <Security/Security.h>
 
 using namespace WebCore;
 

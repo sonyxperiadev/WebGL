@@ -28,7 +28,14 @@
 namespace WebCore {
 
 class HTMLProgressElement;
-class ShadowBlockElement;
+
+class RenderProgressBarValuePart : public RenderIndicatorPart {
+public:
+    RenderProgressBarValuePart(Node* node) : RenderIndicatorPart(node) {}
+private:
+    virtual IntRect preferredFrameRect();
+    virtual bool shouldBeHidden();
+};
 
 class RenderProgress : public RenderIndicator {
 public:
@@ -40,6 +47,8 @@ public:
     double animationStartTime() const { return m_animationStartTime; }
 
     bool isDeterminate() const;
+    IntRect valuePartRect() const;
+    bool shouldHaveParts() const;
 
     HTMLProgressElement* progressElement() const;
 
@@ -48,11 +57,7 @@ private:
     virtual bool isProgress() const { return true; }
     virtual void updateFromElement();
     virtual void paint(PaintInfo&, int tx, int ty);
-
     virtual void layoutParts();
-
-    IntRect valuePartRect() const;
-    bool shouldHaveParts() const;
 
     void animationTimerFired(Timer<RenderProgress>*);
     void updateAnimationState();
@@ -63,7 +68,6 @@ private:
     double m_animationDuration;
     bool m_animating;
     Timer<RenderProgress> m_animationTimer;
-    RefPtr<ShadowBlockElement> m_valuePart;
 };
 
 inline RenderProgress* toRenderProgress(RenderObject* object)

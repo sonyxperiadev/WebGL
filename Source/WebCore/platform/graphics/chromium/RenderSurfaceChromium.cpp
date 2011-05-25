@@ -38,15 +38,17 @@ namespace WebCore {
 RenderSurfaceChromium::SharedValues::SharedValues(GraphicsContext3D* context)
     : m_context(context)
     , m_shaderProgram(0)
+    , m_maskShaderProgram(0)
     , m_shaderSamplerLocation(-1)
     , m_shaderMatrixLocation(-1)
     , m_shaderAlphaLocation(-1)
+    , m_maskShaderSamplerLocation(-1)
+    , m_maskShaderMaskSamplerLocation(-1)
+    , m_maskShaderMatrixLocation(-1)
+    , m_maskShaderAlphaLocation(-1)
     , m_initialized(false)
 {
-    // The following program composites layers whose contents are the results of a previous
-    // render operation and therefore doesn't perform any color swizzling. It is used
-    // in scrolling and for compositing offscreen textures.
-    char renderSurfaceVertexShaderString[] =
+    char vertexShaderString[] =
         "attribute vec4 a_position;   \n"
         "attribute vec2 a_texCoord;   \n"
         "uniform mat4 matrix;         \n"
@@ -56,7 +58,7 @@ RenderSurfaceChromium::SharedValues::SharedValues(GraphicsContext3D* context)
         "  gl_Position = matrix * a_position; \n"
         "  v_texCoord = a_texCoord;   \n"
         "}                            \n";
-    char renderSurfaceFragmentShaderString[] =
+    char fragmentShaderString[] =
         "precision mediump float;                            \n"
         "varying vec2 v_texCoord;                            \n"
         "uniform sampler2D s_texture;                        \n"
@@ -66,9 +68,22 @@ RenderSurfaceChromium::SharedValues::SharedValues(GraphicsContext3D* context)
         "  vec4 texColor = texture2D(s_texture, v_texCoord); \n"
         "  gl_FragColor = vec4(texColor.x, texColor.y, texColor.z, texColor.w) * alpha; \n"
         "}                                                   \n";
+    char fragmentShaderWithMaskString[] =
+        "precision mediump float;                            \n"
+        "varying vec2 v_texCoord;                            \n"
+        "uniform sampler2D s_texture;                        \n"
+        "uniform sampler2D s_mask;                           \n"
+        "uniform float alpha;                                \n"
+        "void main()                                         \n"
+        "{                                                   \n"
+        "  vec4 texColor = texture2D(s_texture, v_texCoord); \n"
+        "  vec4 maskColor = texture2D(s_mask, v_texCoord);   \n"
+        "  gl_FragColor = vec4(texColor.x, texColor.y, texColor.z, texColor.w) * alpha * maskColor.w; \n"
+        "}                                                   \n";
 
-    m_shaderProgram = LayerChromium::createShaderProgram(m_context, renderSurfaceVertexShaderString, renderSurfaceFragmentShaderString);
-    if (!m_shaderProgram) {
+    m_shaderProgram = LayerChromium::createShaderProgram(m_context, vertexShaderString, fragmentShaderString);
+    m_maskShaderProgram = LayerChromium::createShaderProgram(m_context, vertexShaderString, fragmentShaderWithMaskString);
+    if (!m_shaderProgram || !m_maskShaderProgram) {
         LOG_ERROR("RenderSurfaceChromium: Failed to create shader program");
         return;
     }
@@ -76,10 +91,24 @@ RenderSurfaceChromium::SharedValues::SharedValues(GraphicsContext3D* context)
     GLC(m_context, m_shaderSamplerLocation = m_context->getUniformLocation(m_shaderProgram, "s_texture"));
     GLC(m_context, m_shaderMatrixLocation = m_context->getUniformLocation(m_shaderProgram, "matrix"));
     GLC(m_context, m_shaderAlphaLocation = m_context->getUniformLocation(m_shaderProgram, "alpha"));
-    if (m_shaderSamplerLocation == -1 || m_shaderMatrixLocation == -1 || m_shaderAlphaLocation == -1) {
-        LOG_ERROR("Failed to initialize texture layer shader.");
+
+    GLC(m_context, m_maskShaderSamplerLocation = m_context->getUniformLocation(m_maskShaderProgram, "s_texture"));
+    GLC(m_context, m_maskShaderMaskSamplerLocation = m_context->getUniformLocation(m_maskShaderProgram, "s_mask"));
+    GLC(m_context, m_maskShaderMatrixLocation = m_context->getUniformLocation(m_maskShaderProgram, "matrix"));
+    GLC(m_context, m_maskShaderAlphaLocation = m_context->getUniformLocation(m_maskShaderProgram, "alpha"));
+
+    if (m_shaderSamplerLocation == -1 || m_shaderMatrixLocation == -1 || m_shaderAlphaLocation == -1
+        || m_maskShaderSamplerLocation == -1 || m_maskShaderMaskSamplerLocation == -1 || m_maskShaderMatrixLocation == -1 || m_maskShaderAlphaLocation == -1) {
+        LOG_ERROR("Failed to initialize render surface shaders.");
         return;
     }
+
+    GLC(m_context, m_context->useProgram(m_shaderProgram));
+    GLC(m_context, m_context->uniform1i(m_shaderSamplerLocation, 0));
+    GLC(m_context, m_context->useProgram(m_maskShaderProgram));
+    GLC(m_context, m_context->uniform1i(m_maskShaderSamplerLocation, 0));
+    GLC(m_context, m_context->uniform1i(m_maskShaderMaskSamplerLocation, 1));
+    GLC(m_context, m_context->useProgram(0));
     m_initialized = true;
 }
 
@@ -87,10 +116,13 @@ RenderSurfaceChromium::SharedValues::~SharedValues()
 {
     if (m_shaderProgram)
         GLC(m_context, m_context->deleteProgram(m_shaderProgram));
+    if (m_maskShaderProgram)
+        GLC(m_context, m_context->deleteProgram(m_maskShaderProgram));
 }
 
 RenderSurfaceChromium::RenderSurfaceChromium(LayerChromium* owningLayer)
     : m_owningLayer(owningLayer)
+    , m_maskLayer(0)
     , m_skipsDraw(false)
 {
 }
@@ -116,6 +148,17 @@ LayerRendererChromium* RenderSurfaceChromium::layerRenderer()
     return m_owningLayer->layerRenderer();
 }
 
+FloatRect RenderSurfaceChromium::drawableContentRect() const
+{
+    FloatRect localContentRect(-0.5 * m_contentRect.width(), -0.5 * m_contentRect.height(),
+                               m_contentRect.width(), m_contentRect.height());
+    FloatRect drawableContentRect = m_drawTransform.mapRect(localContentRect);
+    if (m_owningLayer->replicaLayer())
+        drawableContentRect.unite(m_replicaDrawTransform.mapRect(localContentRect));
+
+    return drawableContentRect;
+}
+
 bool RenderSurfaceChromium::prepareContentsTexture()
 {
     IntSize requiredSize(m_contentRect.size());
@@ -136,24 +179,69 @@ bool RenderSurfaceChromium::prepareContentsTexture()
     return true;
 }
 
+void RenderSurfaceChromium::drawSurface(LayerChromium* maskLayer, const TransformationMatrix& drawTransform)
+{
+    GraphicsContext3D* context3D = layerRenderer()->context();
+
+    int shaderMatrixLocation = -1;
+    int shaderAlphaLocation = -1;
+    const RenderSurfaceChromium::SharedValues* sv = layerRenderer()->renderSurfaceSharedValues();
+    ASSERT(sv && sv->initialized());
+    bool useMask = false;
+    if (maskLayer && maskLayer->drawsContent()) {
+        maskLayer->updateContentsIfDirty();
+        if (!maskLayer->bounds().isEmpty()) {
+            context3D->makeContextCurrent();
+            layerRenderer()->useShader(sv->maskShaderProgram());
+            GLC(context3D, context3D->activeTexture(GraphicsContext3D::TEXTURE0));
+            m_contentsTexture->bindTexture();
+            GLC(context3D, context3D->activeTexture(GraphicsContext3D::TEXTURE1));
+            maskLayer->bindContentsTexture();
+            GLC(context3D, context3D->activeTexture(GraphicsContext3D::TEXTURE0));
+            shaderMatrixLocation = sv->maskShaderMatrixLocation();
+            shaderAlphaLocation = sv->maskShaderAlphaLocation();
+            useMask = true;
+        }
+    }
+
+    if (!useMask) {
+        layerRenderer()->useShader(sv->shaderProgram());
+        m_contentsTexture->bindTexture();
+        shaderMatrixLocation = sv->shaderMatrixLocation();
+        shaderAlphaLocation = sv->shaderAlphaLocation();
+    }
+    
+    LayerChromium::drawTexturedQuad(layerRenderer()->context(), layerRenderer()->projectionMatrix(), drawTransform,
+                                        m_contentRect.width(), m_contentRect.height(), m_drawOpacity,
+                                        shaderMatrixLocation, shaderAlphaLocation);
+
+    m_contentsTexture->unreserve();
+
+    if (maskLayer)
+        maskLayer->unreserveContentsTexture();
+}
+
 void RenderSurfaceChromium::draw()
 {
     if (m_skipsDraw || !m_contentsTexture)
         return;
+    // FIXME: By using the same RenderSurface for both the content and its reflection,
+    // it's currently not possible to apply a separate mask to the reflection layer
+    // or correctly handle opacity in reflections (opacity must be applied after drawing
+    // both the layer and its reflection). The solution is to introduce yet another RenderSurface
+    // to draw the layer and its reflection in. For now we only apply a separate reflection
+    // mask if the contents don't have a mask of their own.
+    LayerChromium* replicaMaskLayer = m_maskLayer;
+    if (!m_maskLayer && m_owningLayer->replicaLayer())
+        replicaMaskLayer = m_owningLayer->replicaLayer()->maskLayer();
 
-    m_contentsTexture->bindTexture();
-
-    const RenderSurfaceChromium::SharedValues* sv = layerRenderer()->renderSurfaceSharedValues();
-    ASSERT(sv && sv->initialized());
-
-    layerRenderer()->useShader(sv->shaderProgram());
     layerRenderer()->setScissorToRect(m_scissorRect);
 
-    LayerChromium::drawTexturedQuad(layerRenderer()->context(), layerRenderer()->projectionMatrix(), m_drawTransform,
-                                    m_contentRect.width(), m_contentRect.height(), m_drawOpacity,
-                                    sv->shaderMatrixLocation(), sv->shaderAlphaLocation());
+    // Reflection draws before the layer.
+    if (m_owningLayer->replicaLayer()) 
+        drawSurface(replicaMaskLayer, m_replicaDrawTransform);
 
-    m_contentsTexture->unreserve();
+    drawSurface(m_maskLayer, m_drawTransform);
 }
 
 }

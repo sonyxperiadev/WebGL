@@ -42,10 +42,14 @@ public:
     bool wait(double absoluteTime);
 
 private:
+#if PLATFORM(WIN)
+    HANDLE m_event;
+#else
     bool m_isSet;
 
     Mutex m_mutex;
     ThreadCondition m_condition;
+#endif
 };
 
 } // namespace CoreIPC

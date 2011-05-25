@@ -27,89 +27,86 @@
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 
-#define ASSERT_CLASS_FITS_IN_CELL(class) COMPILE_ASSERT(sizeof(class) <= CELL_SIZE, class_fits_in_cell)
-
 namespace JSC {
 
-    class JSValue;
-    class UString;
     class GCActivityCallback;
+    class GlobalCodeBlock;
     class JSCell;
     class JSGlobalData;
     class JSValue;
+    class JSValue;
     class LiveObjectIterator;
-    class MarkedArgumentBuffer;
     class MarkStack;
+    class MarkedArgumentBuffer;
+    class RegisterFile;
+    class UString;
     class WeakGCHandlePool;
 
     typedef std::pair<JSValue, UString> ValueStringPair;
+    typedef HashCountedSet<JSCell*> ProtectCountSet;
+    typedef HashCountedSet<const char*> TypeCountSet;
 
     enum OperationInProgress { NoOperation, Allocation, Collection };
 
     class Heap {
         WTF_MAKE_NONCOPYABLE(Heap);
     public:
-        void destroy();
+        static Heap* heap(JSValue); // 0 for immediate values
+        static Heap* heap(JSCell*);
 
-        void* allocate(size_t);
+        static bool isMarked(const JSCell*);
+        static bool testAndSetMarked(const JSCell*);
+        static void setMarked(JSCell*);
+        
+        Heap(JSGlobalData*);
+        ~Heap();
+        void destroy(); // JSGlobalData must call destroy() before ~Heap().
 
-        bool isBusy(); // true if an allocation or collection is in progress
-        void collectAllGarbage();
+        JSGlobalData* globalData() const { return m_globalData; }
+        MarkedSpace& markedSpace() { return m_markedSpace; }
+        MachineStackMarker& machineStackMarker() { return m_machineStackMarker; }
 
         GCActivityCallback* activityCallback();
         void setActivityCallback(PassOwnPtr<GCActivityCallback>);
 
-        static const size_t minExtraCost = 256;
-        static const size_t maxExtraCost = 1024 * 1024;
+        bool isBusy(); // true if an allocation or collection is in progress
+        void* allocate(size_t);
+        void collectAllGarbage();
 
         void reportExtraMemoryCost(size_t cost);
 
-        size_t objectCount() const;
-        MarkedSpace::Statistics statistics() const;
-        size_t size() const;
-
         void protect(JSValue);
-        // Returns true if the value is no longer protected by any protect pointers
-        // (though it may still be alive due to heap/stack references).
-        bool unprotect(JSValue);
+        bool unprotect(JSValue); // True when the protect count drops to 0.
 
-        static Heap* heap(JSValue); // 0 for immediate values
-        static Heap* heap(JSCell*);
+        bool contains(void*);
 
+        size_t size() const;
+        size_t capacity() const;
+        size_t objectCount() const;
         size_t globalObjectCount();
         size_t protectedObjectCount();
         size_t protectedGlobalObjectCount();
-        HashCountedSet<const char*>* protectedObjectTypeCounts();
-        HashCountedSet<const char*>* objectTypeCounts();
-
-        static bool isCellMarked(const JSCell*);
-        static bool checkMarkCell(const JSCell*);
-        static void markCell(JSCell*);
+        PassOwnPtr<TypeCountSet> protectedObjectTypeCounts();
+        PassOwnPtr<TypeCountSet> objectTypeCounts();
 
         WeakGCHandle* addWeakGCHandle(JSCell*);
 
-        void markConservatively(ConservativeSet&, void* start, void* end);
-
-        void pushTempSortVector(WTF::Vector<ValueStringPair>*);
-        void popTempSortVector(WTF::Vector<ValueStringPair>*);        
+        void pushTempSortVector(Vector<ValueStringPair>*);
+        void popTempSortVector(Vector<ValueStringPair>*);
+        
+        HashSet<GlobalCodeBlock*>& codeBlocks() { return m_codeBlocks; }
 
         HashSet<MarkedArgumentBuffer*>& markListSet() { if (!m_markListSet) m_markListSet = new HashSet<MarkedArgumentBuffer*>; return *m_markListSet; }
-
-        JSGlobalData* globalData() const { return m_globalData; }
         
-        LiveObjectIterator primaryHeapBegin();
-        LiveObjectIterator primaryHeapEnd();
+        template <typename Functor> void forEach(Functor&);
         
-        MachineStackMarker& machineStackMarker() { return m_machineStackMarker; }
-
-        MarkedSpace& markedSpace() { return m_markedSpace; }
-
     private:
         friend class JSGlobalData;
-        Heap(JSGlobalData*);
-        ~Heap();
 
-        void recordExtraCost(size_t);
+        static const size_t minExtraCost = 256;
+        static const size_t maxExtraCost = 1024 * 1024;
+
+        void reportExtraMemoryCostSlowCase(size_t);
 
         void markRoots();
         void markProtectedObjects(MarkStack&);
@@ -117,13 +114,19 @@ namespace JSC {
 
         void updateWeakGCHandles();
         WeakGCHandlePool* weakGCHandlePool(size_t index);
+        
+        enum SweepToggle { DoNotSweep, DoSweep };
+        void reset(SweepToggle);
 
-        MarkedSpace m_markedSpace;
+        RegisterFile& registerFile();
+
         OperationInProgress m_operationInProgress;
+        MarkedSpace m_markedSpace;
 
         ProtectCountSet m_protectedValues;
-        WTF::Vector<PageAllocationAligned> m_weakGCHandlePools;
-        WTF::Vector<WTF::Vector<ValueStringPair>* > m_tempSortingVectors;
+        Vector<PageAllocationAligned> m_weakGCHandlePools;
+        Vector<Vector<ValueStringPair>* > m_tempSortingVectors;
+        HashSet<GlobalCodeBlock*> m_codeBlocks;
 
         HashSet<MarkedArgumentBuffer*>* m_markListSet;
 
@@ -137,30 +140,40 @@ namespace JSC {
         size_t m_extraCost;
     };
 
-    inline bool Heap::isCellMarked(const JSCell* cell)
+    inline bool Heap::isMarked(const JSCell* cell)
     {
-        return MarkedSpace::isCellMarked(cell);
+        return MarkedSpace::isMarked(cell);
     }
 
-    inline bool Heap::checkMarkCell(const JSCell* cell)
+    inline bool Heap::testAndSetMarked(const JSCell* cell)
     {
-        return MarkedSpace::checkMarkCell(cell);
+        return MarkedSpace::testAndSetMarked(cell);
     }
 
-    inline void Heap::markCell(JSCell* cell)
+    inline void Heap::setMarked(JSCell* cell)
     {
-        MarkedSpace::markCell(cell);
+        MarkedSpace::setMarked(cell);
+    }
+
+    inline bool Heap::contains(void* p)
+    {
+        return m_markedSpace.contains(p);
     }
 
     inline void Heap::reportExtraMemoryCost(size_t cost)
     {
         if (cost > minExtraCost) 
-            recordExtraCost(cost);
+            reportExtraMemoryCostSlowCase(cost);
     }
     
     inline WeakGCHandlePool* Heap::weakGCHandlePool(size_t index)
     {
         return static_cast<WeakGCHandlePool*>(m_weakGCHandlePools[index].base());
+    }
+
+    template <typename Functor> inline void Heap::forEach(Functor& functor)
+    {
+        m_markedSpace.forEach(functor);
     }
 
 } // namespace JSC

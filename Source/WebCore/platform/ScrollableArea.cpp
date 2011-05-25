@@ -35,12 +35,15 @@
 #include "FloatPoint.h"
 #include "PlatformWheelEvent.h"
 #include "ScrollAnimator.h"
+#include "ScrollbarTheme.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
 ScrollableArea::ScrollableArea()
     : m_scrollAnimator(ScrollAnimator::create(this))
+    , m_constrainsScrollingToContentEdge(true)
+    , m_inLiveResize(false)
 {
 }
 
@@ -108,16 +111,72 @@ void ScrollableArea::scrollToYOffsetWithoutAnimation(float y)
     scrollToOffsetWithoutAnimation(FloatPoint(m_scrollAnimator->currentPosition().x(), y));
 }
 
+void ScrollableArea::handleWheelEvent(PlatformWheelEvent& wheelEvent)
+{
+    m_scrollAnimator->handleWheelEvent(wheelEvent);
+}
+
+#if ENABLE(GESTURE_EVENTS)
+void ScrollableArea::handleGestureEvent(const PlatformGestureEvent& gestureEvent)
+{
+    m_scrollAnimator->handleGestureEvent(gestureEvent);
+}
+#endif
+
 void ScrollableArea::setScrollOffsetFromAnimation(const IntPoint& offset)
 {
     // Tell the derived class to scroll its contents.
     setScrollOffset(offset);
 
+    bool hasOverlayScrollbars = ScrollbarTheme::nativeTheme()->usesOverlayScrollbars();
+
     // Tell the scrollbars to update their thumb postions.
-    if (Scrollbar* horizontalScrollbar = this->horizontalScrollbar())
+    if (Scrollbar* horizontalScrollbar = this->horizontalScrollbar()) {
         horizontalScrollbar->offsetDidChange();
-    if (Scrollbar* verticalScrollbar = this->verticalScrollbar())
+        if (hasOverlayScrollbars)
+            horizontalScrollbar->invalidate();
+    }
+    if (Scrollbar* verticalScrollbar = this->verticalScrollbar()) {
         verticalScrollbar->offsetDidChange();
+        if (hasOverlayScrollbars)
+            verticalScrollbar->invalidate();
+    }
+}
+
+void ScrollableArea::willStartLiveResize()
+{
+    if (m_inLiveResize)
+        return;
+    m_inLiveResize = true;
+    scrollAnimator()->willStartLiveResize();
+}
+
+void ScrollableArea::willEndLiveResize()
+{
+    if (!m_inLiveResize)
+        return;
+    m_inLiveResize = false;
+    scrollAnimator()->willEndLiveResize();
+}    
+
+void ScrollableArea::didAddVerticalScrollbar(Scrollbar* scrollbar)
+{
+    scrollAnimator()->didAddVerticalScrollbar(scrollbar);
+}
+
+void ScrollableArea::willRemoveVerticalScrollbar(Scrollbar* scrollbar)
+{
+    scrollAnimator()->willRemoveVerticalScrollbar(scrollbar);
+}
+
+void ScrollableArea::didAddHorizontalScrollbar(Scrollbar* scrollbar)
+{
+    scrollAnimator()->didAddHorizontalScrollbar(scrollbar);
+}
+
+void ScrollableArea::willRemoveHorizontalScrollbar(Scrollbar* scrollbar)
+{
+    scrollAnimator()->willRemoveHorizontalScrollbar(scrollbar);
 }
 
 } // namespace WebCore

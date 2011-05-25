@@ -435,6 +435,10 @@ void InputType::srcAttributeChanged()
 {
 }
 
+void InputType::valueChanged()
+{
+}
+
 void InputType::willMoveToNewOwnerDocument()
 {
 }
@@ -510,6 +514,11 @@ PassOwnPtr<ClickHandlingState> InputType::willDispatchClick()
 
 void InputType::didDispatchClick(Event*, const ClickHandlingState&)
 {
+}
+
+String InputType::visibleValue() const
+{
+    return element()->value();
 }
 
 bool InputType::isAcceptableValue(const String&)

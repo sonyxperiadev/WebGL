@@ -160,11 +160,11 @@ bool RenderLineBoxList::rangeIntersectsRect(RenderBoxModelObject* renderer, int 
     
     if (renderer->style()->isHorizontalWritingMode()) {
         physicalStart += ty;
-        if (physicalStart >= rect.bottom() || physicalStart + physicalExtent <= rect.y())
+        if (physicalStart >= rect.maxY() || physicalStart + physicalExtent <= rect.y())
             return false;
     } else {
         physicalStart += tx;
-        if (physicalStart >= rect.right() || physicalStart + physicalExtent <= rect.x())
+        if (physicalStart >= rect.maxX() || physicalStart + physicalExtent <= rect.x())
             return false;
     }
     
@@ -231,19 +231,19 @@ void RenderLineBoxList::paint(RenderBoxModelObject* renderer, PaintInfo& paintIn
             // FIXME: This is the deprecated pagination model that is still needed
             // for embedded views inside AppKit.  AppKit is incapable of paginating vertical
             // text pages, so we don't have to deal with vertical lines at all here.
-            int topForPaginationCheck = curr->topVisualOverflow();
-            int bottomForPaginationCheck = curr->bottomVisualOverflow();
+            int topForPaginationCheck = curr->minYVisualOverflow();
+            int bottomForPaginationCheck = curr->maxYVisualOverflow();
             if (!curr->parent()) {
                 // We're a root box.  Use lineTop and lineBottom as well here.
                 topForPaginationCheck = min(topForPaginationCheck, curr->root()->lineTop());
                 bottomForPaginationCheck = max(bottomForPaginationCheck, curr->root()->lineBottom());
             }
             if (bottomForPaginationCheck - topForPaginationCheck <= v->printRect().height()) {
-                if (ty + bottomForPaginationCheck > v->printRect().bottom()) {
+                if (ty + bottomForPaginationCheck > v->printRect().maxY()) {
                     if (RootInlineBox* nextRootBox = curr->root()->nextRootBox())
-                        bottomForPaginationCheck = min(bottomForPaginationCheck, min(nextRootBox->topVisualOverflow(), nextRootBox->lineTop()));
+                        bottomForPaginationCheck = min(bottomForPaginationCheck, min(nextRootBox->minYVisualOverflow(), nextRootBox->lineTop()));
                 }
-                if (ty + bottomForPaginationCheck > v->printRect().bottom()) {
+                if (ty + bottomForPaginationCheck > v->printRect().maxY()) {
                     if (ty + topForPaginationCheck < v->truncatedAt())
                         v->setBestTruncatedAt(ty + topForPaginationCheck, renderer);
                     // If we were able to truncate, don't paint.

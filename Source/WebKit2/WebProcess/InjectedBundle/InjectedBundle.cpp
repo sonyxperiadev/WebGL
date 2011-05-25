@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "InjectedBundle.h"
 
 #include "Arguments.h"
@@ -70,7 +71,7 @@ void InjectedBundle::initializeClient(WKBundleClient* client)
 
 void InjectedBundle::postMessage(const String& messageName, APIObject* messageBody)
 {
-    WebProcess::shared().connection()->send(WebContextLegacyMessage::PostMessage, 0, CoreIPC::In(messageName, InjectedBundleUserMessageEncoder(messageBody)));
+    WebProcess::shared().connection()->deprecatedSend(WebContextLegacyMessage::PostMessage, 0, CoreIPC::In(messageName, InjectedBundleUserMessageEncoder(messageBody)));
 }
 
 void InjectedBundle::postSynchronousMessage(const String& messageName, APIObject* messageBody, RefPtr<APIObject>& returnData)
@@ -78,7 +79,7 @@ void InjectedBundle::postSynchronousMessage(const String& messageName, APIObject
     RefPtr<APIObject> returnDataTmp;
     InjectedBundleUserMessageDecoder messageDecoder(returnDataTmp);
     
-    bool succeeded = WebProcess::shared().connection()->sendSync(WebContextLegacyMessage::PostSynchronousMessage, 0, CoreIPC::In(messageName, InjectedBundleUserMessageEncoder(messageBody)), CoreIPC::Out(messageDecoder));
+    bool succeeded = WebProcess::shared().connection()->deprecatedSendSync(WebContextLegacyMessage::PostSynchronousMessage, 0, CoreIPC::In(messageName, InjectedBundleUserMessageEncoder(messageBody)), CoreIPC::Out(messageDecoder));
 
     if (!succeeded)
         return;

@@ -25,14 +25,14 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLRenderbuffer.h"
 
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
-    
+
 PassRefPtr<WebGLRenderbuffer> WebGLRenderbuffer::create(WebGLRenderingContext* ctx)
 {
     return adoptRef(new WebGLRenderbuffer(ctx));
@@ -57,4 +57,4 @@ void WebGLRenderbuffer::deleteObjectImpl(Platform3DObject object)
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

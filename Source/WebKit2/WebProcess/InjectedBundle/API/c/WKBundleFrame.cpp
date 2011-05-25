@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WKBundleFrame.h"
 #include "WKBundleFramePrivate.h"
 
@@ -53,6 +54,29 @@ WKURLRef WKBundleFrameCopyURL(WKBundleFrameRef frameRef)
 WKURLRef WKBundleFrameCopyProvisionalURL(WKBundleFrameRef frameRef)
 {
     return toCopiedURLAPI(toImpl(frameRef)->provisionalURL());
+}
+
+WKFrameLoadState WKBundleFrameGetFrameLoadState(WKBundleFrameRef frameRef)
+{
+    Frame* coreFrame = toImpl(frameRef)->coreFrame();
+    if (!coreFrame)
+        return kWKFrameLoadStateFinished;
+
+    FrameLoader* loader = coreFrame->loader();
+    if (!loader)
+        return kWKFrameLoadStateFinished;
+
+    switch (loader->state()) {
+    case FrameStateProvisional:
+        return kWKFrameLoadStateProvisional;
+    case FrameStateCommittedPage:
+        return kWKFrameLoadStateCommitted;
+    case FrameStateComplete:
+        return kWKFrameLoadStateFinished;
+    }
+
+    ASSERT_NOT_REACHED();
+    return kWKFrameLoadStateFinished;
 }
 
 WKArrayRef WKBundleFrameCopyChildFrames(WKBundleFrameRef frameRef)
@@ -152,58 +176,35 @@ bool WKBundleFrameAllowsFollowingLink(WKBundleFrameRef frameRef, WKURLRef urlRef
 
 WKRect WKBundleFrameGetContentBounds(WKBundleFrameRef frameRef)
 {
-    WKRect contentBounds = { { 0, 0 }, { 0, 0 } };
-    
-    Frame* coreFrame = toImpl(frameRef)->coreFrame();
-    if (!coreFrame)
-        return contentBounds;
-    
-    FrameView* view = coreFrame->view();
-    if (!view)
-        return contentBounds;
-    
-    contentBounds.size.width = view->contentsWidth();
-    contentBounds.size.height = view->contentsHeight();
-    
-    return contentBounds;
+    return toAPI(toImpl(frameRef)->contentBounds());
 }
 
 WKRect WKBundleFrameGetVisibleContentBounds(WKBundleFrameRef frameRef)
 {
-    WKRect visibleContentBounds = { { 0, 0 }, { 0, 0 } };
-    
-    Frame* coreFrame = toImpl(frameRef)->coreFrame();
-    if (!coreFrame)
-        return visibleContentBounds;
-    
-    FrameView* view = coreFrame->view();
-    if (!view)
-        return visibleContentBounds;
-    
-    FloatRect bounds = view->visibleContentRect(true);
-
-    visibleContentBounds.size.width = bounds.width();
-    visibleContentBounds.size.height = bounds.height();
-    
-    return visibleContentBounds;
+    return toAPI(toImpl(frameRef)->visibleContentBounds());
 }
 
-WK_EXPORT WKSize WKBundleFrameGetScrollOffset(WKBundleFrameRef frameRef)
+WKRect WKBundleFrameGetVisibleContentBoundsExcludingScrollbars(WKBundleFrameRef frameRef)
 {
-    WKSize scrollOffset = { 0, 0 };
-    
-    Frame* coreFrame = toImpl(frameRef)->coreFrame();
-    if (!coreFrame)
-        return scrollOffset;
-    
-    FrameView* view = coreFrame->view();
-    if (!view)
-        return scrollOffset;
-    
-    return toAPI(view->scrollOffset());
+    return toAPI(toImpl(frameRef)->visibleContentBoundsExcludingScrollbars());
+}
+
+WKSize WKBundleFrameGetScrollOffset(WKBundleFrameRef frameRef)
+{
+    return toAPI(toImpl(frameRef)->scrollOffset());
+}
+
+bool WKBundleFrameGetDocumentBackgroundColor(WKBundleFrameRef frameRef, double* red, double* green, double* blue, double* alpha)
+{
+    return toImpl(frameRef)->getDocumentBackgroundColor(red, green, blue, alpha);
 }
 
 WKStringRef WKBundleFrameCopySuggestedFilenameForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
     return toCopiedAPI(toImpl(frameRef)->suggestedFilenameForResourceWithURL(WebCore::KURL(WebCore::KURL(), toImpl(urlRef)->string())));
+}
+
+WKStringRef WKBundleFrameCopyMIMETypeForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
+{
+    return toCopiedAPI(toImpl(frameRef)->mimeTypeForResourceWithURL(WebCore::KURL(WebCore::KURL(), toImpl(urlRef)->string())));
 }

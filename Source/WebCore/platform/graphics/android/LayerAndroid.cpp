@@ -600,7 +600,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
     localMatrix.translate3d(originX + position.x(),
                             originY + position.y(),
                             anchorPointZ());
-    localMatrix.multLeft(m_transform);
+    localMatrix.multiply(m_transform);
     localMatrix.translate3d(-originX,
                             -originY,
                             -anchorPointZ());
@@ -648,7 +648,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
 
     if (!m_childrenTransform.isIdentity()) {
         localMatrix.translate(getSize().width() * 0.5f, getSize().height() * 0.5f);
-        localMatrix.multLeft(m_childrenTransform);
+        localMatrix.multiply(m_childrenTransform);
         localMatrix.translate(-getSize().width() * 0.5f, -getSize().height() * 0.5f);
     }
     for (int i = 0; i < count; i++)

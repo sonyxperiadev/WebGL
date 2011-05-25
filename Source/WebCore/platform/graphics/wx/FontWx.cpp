@@ -32,6 +32,7 @@
 #include "IntRect.h"
 #include "NotImplemented.h"
 #include "SimpleFontData.h"
+#include "TextRun.h"
 
 #if OS(WINDOWS)
 #include "UniscribeController.h"
@@ -51,6 +52,15 @@ namespace WebCore {
 bool Font::canReturnFallbackFontsForComplexText()
 {
 #if OS(WINDOWS) || OS(DARWIN)
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool Font::canExpandAroundIdeographsInComplexText()
+{
+#if OS(DARWIN)
     return true;
 #else
     return false;

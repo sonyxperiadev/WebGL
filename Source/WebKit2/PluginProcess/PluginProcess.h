@@ -44,7 +44,7 @@ class PluginProcess : ChildProcess {
 public:
     static PluginProcess& shared();
 
-    void initializeConnection(CoreIPC::Connection::Identifier);
+    void initialize(CoreIPC::Connection::Identifier, RunLoop*);
     void removeWebProcessConnection(WebProcessConnection* webProcessConnection);
 
     NetscapePluginModule* netscapePluginModule();
@@ -65,10 +65,11 @@ private:
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
     virtual void didClose(CoreIPC::Connection*);
     virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
+    virtual void didFailToSendSyncMessage(CoreIPC::Connection*);
 
     // Message handlers.
     void didReceivePluginProcessMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    void initialize(const PluginProcessCreationParameters&);
+    void initializePluginProcess(const PluginProcessCreationParameters&);
     void createWebProcessConnection();
     
     void shutdownTimerFired();

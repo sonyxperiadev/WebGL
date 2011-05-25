@@ -30,13 +30,13 @@
 #include "DocumentLoader.h"
 
 #include "ApplicationCacheHost.h"
-#include "ArchiveFactory.h"
 #include "ArchiveResourceCollection.h"
 #include "CachedPage.h"
 #include "CachedResourceLoader.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentParser.h"
+#include "DocumentWriter.h"
 #include "Event.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -49,10 +49,14 @@
 #include "PlatformString.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
-
+#include "TextResourceDecoder.h"
 #include <wtf/Assertions.h>
 #include <wtf/text/CString.h>
 #include <wtf/unicode/Unicode.h>
+
+#if ENABLE(WEB_ARCHIVE)
+#include "ArchiveFactory.h"
+#endif
 
 namespace WebCore {
 
@@ -77,6 +81,7 @@ static void setAllDefersLoading(const ResourceLoaderSet& loaders, bool defers)
 DocumentLoader::DocumentLoader(const ResourceRequest& req, const SubstituteData& substituteData)
     : m_deferMainResourceDataLoad(true)
     , m_frame(0)
+    , m_writer(m_frame)
     , m_originalRequest(req)
     , m_substituteData(substituteData)
     , m_originalRequestCopy(req)
@@ -168,9 +173,9 @@ void DocumentLoader::setRequest(const ResourceRequest& req)
     KURL oldURL = m_request.url();
     m_request = req;
 
-    // Only send webView:didReceiveServerRedirectForProvisionalLoadForFrame: if URL changed.
+    // Only send webView:didReceiveServerRedirectForProvisionalLoadForFrame: if URL changed (and is non-null).
     // Also, don't send it when replacing unreachable URLs with alternate content.
-    if (!handlingUnreachableURL && oldURL != req.url())
+    if (!handlingUnreachableURL && !req.url().isNull() && oldURL != req.url())
         frameLoader()->didReceiveServerRedirectForProvisionalLoadForFrame();
 }
 
@@ -276,7 +281,7 @@ void DocumentLoader::finishedLoading()
     commitIfReady();
     if (FrameLoader* loader = frameLoader()) {
         loader->finishedLoadingDocument(this);
-        loader->writer()->end();
+        m_writer.end();
     }
 }
 
@@ -290,7 +295,7 @@ void DocumentLoader::commitLoad(const char* data, int length)
     FrameLoader* frameLoader = DocumentLoader::frameLoader();
     if (!frameLoader)
         return;
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+#if ENABLE(WEB_ARCHIVE)
     if (ArchiveFactory::isArchiveMimeType(response().mimeType()))
         return;
 #endif
@@ -306,10 +311,9 @@ void DocumentLoader::commitData(const char* bytes, int length)
         userChosen = false;
         encoding = response().textEncodingName();
     }
-    // FIXME: DocumentWriter should be owned by DocumentLoader.
-    m_frame->loader()->writer()->setEncoding(encoding, userChosen);
+    m_writer.setEncoding(encoding, userChosen);
     ASSERT(m_frame->document()->parsing());
-    m_frame->loader()->writer()->addData(bytes, length);
+    m_writer.addData(bytes, length);
 }
 
 bool DocumentLoader::doesProgressiveLoad(const String& MIMEType) const
@@ -339,7 +343,7 @@ void DocumentLoader::setupForReplaceByMIMEType(const String& newMIMEType)
     }
     
     frameLoader()->finishedLoadingDocument(this);
-    m_frame->loader()->writer()->end();
+    m_writer.end();
     
     frameLoader()->setReplacing();
     m_gotFirstByte = false;
@@ -351,7 +355,7 @@ void DocumentLoader::setupForReplaceByMIMEType(const String& newMIMEType)
     
     stopLoadingSubresources();
     stopLoadingPlugIns();
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+#if ENABLE(WEB_ARCHIVE)
     clearArchiveResources();
 #endif
 }
@@ -378,6 +382,7 @@ void DocumentLoader::setFrame(Frame* frame)
         return;
     ASSERT(frame && !m_frame);
     m_frame = frame;
+    m_writer.setFrame(frame);
     attachToFrame();
 }
 
@@ -440,7 +445,7 @@ bool DocumentLoader::isLoadingInAPISense() const
     return frameLoader()->subframeIsLoading();
 }
 
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+#if ENABLE(WEB_ARCHIVE)
 void DocumentLoader::addAllArchiveResources(Archive* archive)
 {
     if (!m_archiveResourceCollection)
@@ -467,16 +472,6 @@ void DocumentLoader::addArchiveResource(PassRefPtr<ArchiveResource> resource)
     m_archiveResourceCollection->addResource(resource);
 }
 
-ArchiveResource* DocumentLoader::archiveResourceForURL(const KURL& url) const
-{
-    if (!m_archiveResourceCollection)
-        return 0;
-        
-    ArchiveResource* resource = m_archiveResourceCollection->archiveResourceForURL(url);
-
-    return resource && !resource->shouldIgnoreWhenUnarchiving() ? resource : 0;
-}
-
 PassRefPtr<Archive> DocumentLoader::popArchiveForSubframe(const String& frameName)
 {
     return m_archiveResourceCollection ? m_archiveResourceCollection->popSubframeArchive(frameName) : 0;
@@ -496,6 +491,17 @@ void DocumentLoader::setParsedArchiveData(PassRefPtr<SharedBuffer> data)
 SharedBuffer* DocumentLoader::parsedArchiveData() const
 {
     return m_parsedArchiveData.get();
+}
+#endif // ENABLE(WEB_ARCHIVE)
+
+ArchiveResource* DocumentLoader::archiveResourceForURL(const KURL& url) const
+{
+    if (!m_archiveResourceCollection)
+        return 0;
+        
+    ArchiveResource* resource = m_archiveResourceCollection->archiveResourceForURL(url);
+
+    return resource && !resource->shouldIgnoreWhenUnarchiving() ? resource : 0;
 }
 
 PassRefPtr<ArchiveResource> DocumentLoader::mainResource() const
@@ -546,7 +552,6 @@ void DocumentLoader::getSubresources(Vector<PassRefPtr<ArchiveResource> >& subre
 
     return;
 }
-#endif
 
 void DocumentLoader::deliverSubstituteResourcesAfterDelay()
 {
@@ -605,7 +610,7 @@ void DocumentLoader::cancelPendingSubstituteLoad(ResourceLoader* loader)
         m_substituteResourceDeliveryTimer.stop();
 }
 
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+#if ENABLE(WEB_ARCHIVE)
 bool DocumentLoader::scheduleArchiveLoad(ResourceLoader* loader, const ResourceRequest& request, const KURL& originalURL)
 {
     ArchiveResource* resource = 0;
@@ -626,7 +631,7 @@ bool DocumentLoader::scheduleArchiveLoad(ResourceLoader* loader, const ResourceR
     
     return true;
 }
-#endif
+#endif // ENABLE(WEB_ARCHIVE)
 
 void DocumentLoader::addResponse(const ResourceResponse& r)
 {

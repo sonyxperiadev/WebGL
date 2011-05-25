@@ -322,6 +322,12 @@ KURL::KURL(ParsedURLStringTag, const String& url)
     ASSERT(url == m_string);
 }
 
+KURL::KURL(ParsedURLStringTag, const URLString& url)
+{
+    parse(url.string());
+    ASSERT(url.string() == m_string);
+}
+
 KURL::KURL(const KURL& base, const String& relative)
 {
     init(base, relative, UTF8Encoding());
@@ -921,11 +927,11 @@ String decodeURLEscapeSequences(const String& str, const TextEncoding& encoding)
                 && isASCIIHexDigit(str[encodedRunEnd + 1])
                 && isASCIIHexDigit(str[encodedRunEnd + 2]))
             encodedRunEnd += 3;
+        searchPosition = encodedRunEnd;
         if (encodedRunEnd == encodedRunPosition) {
             ++searchPosition;
             continue;
         }
-        searchPosition = encodedRunEnd;
 
         // Decode the %-escapes into bytes.
         unsigned runLength = (encodedRunEnd - encodedRunPosition) / 3;
@@ -962,6 +968,14 @@ bool KURL::isLocalFile() const
     return protocolIs("file");
 }
 
+// Caution: This function does not bounds check.
+static void appendEscapedChar(char*& buffer, unsigned char c)
+{
+    *buffer++ = '%';
+    *buffer++ = hexDigits[c >> 4];
+    *buffer++ = hexDigits[c & 0xF];
+}
+
 static void appendEscapingBadChars(char*& buffer, const char* strStart, size_t length)
 {
     char* p = buffer;
@@ -971,16 +985,37 @@ static void appendEscapingBadChars(char*& buffer, const char* strStart, size_t l
     while (str < strEnd) {
         unsigned char c = *str++;
         if (isBadChar(c)) {
-            if (c == '%' || c == '?') {
+            if (c == '%' || c == '?')
                 *p++ = c;
-            } else if (c != 0x09 && c != 0x0a && c != 0x0d) {
-                *p++ = '%';
-                *p++ = hexDigits[c >> 4];
-                *p++ = hexDigits[c & 0xF];
-            }
-        } else {
+            else if (c != 0x09 && c != 0x0a && c != 0x0d)
+                appendEscapedChar(p, c);
+        } else
             *p++ = c;
+    }
+
+    buffer = p;
+}
+
+static void escapeAndAppendFragment(char*& buffer, const char* strStart, size_t length)
+{
+    char* p = buffer;
+
+    const char* str = strStart;
+    const char* strEnd = strStart + length;
+    while (str < strEnd) {
+        unsigned char c = *str++;
+        // Strip CR, LF and Tab from fragments, per:
+        // https://bugs.webkit.org/show_bug.cgi?id=8770
+        if (c == 0x09 || c == 0x0a || c == 0x0d)
+            continue;
+
+        // Chrome and IE allow non-ascii characters in fragments, however doing
+        // so would hit an ASSERT in checkEncodedString, so for now we don't.
+        if (c < 0x20 || c >= 127) {
+            appendEscapedChar(p, c);
+            continue;
         }
+        *p++ = c;
     }
 
     buffer = p;
@@ -1020,11 +1055,6 @@ static int copyPathRemovingDots(char* dst, const char* src, int srcStart, int sr
                     // relies on this.
                     baseStringPos += 3;
                     if (dst > bufferPathStart + 1)
-                        dst--;
-                    // Note that these two while blocks differ subtly.
-                    // The first helps to remove multiple adjoining slashes as we rewind.
-                    // The +1 to bufferPathStart in the first while block prevents eating a leading slash
-                    while (dst > bufferPathStart + 1 && dst[-1] == '/')
                         dst--;
                     while (dst > bufferPathStart && dst[-1] != '/')
                         dst--;
@@ -1068,6 +1098,38 @@ void KURL::parse(const String& string)
     copyASCII(string.characters(), string.length(), buffer.data());
     buffer[string.length()] = '\0';
     parse(buffer.data(), &string);
+}
+
+static inline bool equal(const char* a, size_t lenA, const char* b, size_t lenB)
+{
+    if (lenA != lenB)
+        return false;
+    return !strncmp(a, b, lenA);
+}
+
+// List of default schemes is taken from google-url:
+// http://code.google.com/p/google-url/source/browse/trunk/src/url_canon_stdurl.cc#120
+static inline bool isDefaultPortForScheme(const char* port, size_t portLength, const char* scheme, size_t schemeLength)
+{
+    // This switch is theoretically a performance optimization.  It came over when
+    // the code was moved from google-url, but may be removed later.
+    switch (schemeLength) {
+    case 2:
+        return equal("ws", 2, scheme, schemeLength) && equal("80", 2, port, portLength);
+    case 3:
+        if (equal("ftp", 3, scheme, schemeLength))
+            return equal("21", 2, port, portLength);
+        if (equal("wss", 3, scheme, schemeLength))
+            return equal("443", 3, port, portLength);
+        break;
+    case 4:
+        return equal("http", 4, scheme, schemeLength) && equal("80", 2, port, portLength);
+    case 5:
+        return equal("https", 5, scheme, schemeLength) && equal("443", 3, port, portLength);
+    case 6:
+        return equal("gopher", 6, scheme, schemeLength) && equal("70", 2, port, portLength);
+    }
+    return false;
 }
 
 void KURL::parse(const char* url, const String* originalString)
@@ -1246,7 +1308,7 @@ void KURL::parse(const char* url, const String* originalString)
     // copy in the scheme
     const char *schemeEndPtr = url + schemeEnd;
     while (strPtr < schemeEndPtr)
-        *p++ = *strPtr++;
+        *p++ = toASCIILower(*strPtr++);
     m_schemeEnd = p - buffer.data();
 
     bool hostIsLocalHost = portEnd - userStart == 9
@@ -1305,13 +1367,16 @@ void KURL::parse(const char* url, const String* originalString)
         }
         m_hostEnd = p - buffer.data();
 
-        // copy in the port
+        // Copy in the port if the URL has one (and it's not default).
         if (hostEnd != portStart) {
-            *p++ = ':';
-            strPtr = url + portStart;
-            const char *portEndPtr = url + portEnd;
-            while (strPtr < portEndPtr)
-                *p++ = *strPtr++;
+            const char* portStr = url + portStart;
+            size_t portLength = portEnd - portStart;
+            if (portLength && !isDefaultPortForScheme(portStr, portLength, buffer.data(), m_schemeEnd)) {
+                *p++ = ':';
+                const char* portEndPtr = url + portEnd;
+                while (portStr < portEndPtr)
+                    *p++ = *portStr++;
+            }
         }
         m_portEnd = p - buffer.data();
     } else
@@ -1349,7 +1414,7 @@ void KURL::parse(const char* url, const String* originalString)
     // add fragment, escaping bad characters
     if (fragmentEnd != queryEnd) {
         *p++ = '#';
-        appendEscapingBadChars(p, url + fragmentStart, fragmentEnd - fragmentStart);
+        escapeAndAppendFragment(p, url + fragmentStart, fragmentEnd - fragmentStart);
     }
     m_fragmentEnd = p - buffer.data();
 
@@ -1415,11 +1480,9 @@ String encodeWithURLEscapeSequences(const String& notEncodedString)
     const char* strEnd = str + asUTF8.length();
     while (str < strEnd) {
         unsigned char c = *str++;
-        if (isBadChar(c)) {
-            *p++ = '%';
-            *p++ = hexDigits[c >> 4];
-            *p++ = hexDigits[c & 0xF];
-        } else
+        if (isBadChar(c))
+            appendEscapedChar(p, c);
+        else
             *p++ = c;
     }
 

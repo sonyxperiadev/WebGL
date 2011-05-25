@@ -196,7 +196,7 @@ void Scrollbar::autoscrollPressedPart(double delay)
     }
 
     // Handle the arrows and track.
-    if (scrollableArea()->scroll(pressedPartScrollDirection(), pressedPartScrollGranularity()))
+    if (m_scrollableArea && m_scrollableArea->scroll(pressedPartScrollDirection(), pressedPartScrollGranularity()))
         startTimerIfNeeded(delay);
 }
 
@@ -268,7 +268,8 @@ void Scrollbar::moveThumb(int pos)
     
     if (delta) {
         float newPosition = static_cast<float>(thumbPos + delta) * maximum() / (trackLen - thumbLen);
-        scrollableArea()->scrollToOffsetWithoutAnimation(m_orientation, newPosition);
+        if (m_scrollableArea)
+            m_scrollableArea->scrollToOffsetWithoutAnimation(m_orientation, newPosition);
     }
 }
 
@@ -300,9 +301,10 @@ void Scrollbar::setPressedPart(ScrollbarPart part)
 bool Scrollbar::mouseMoved(const PlatformMouseEvent& evt)
 {
     if (m_pressedPart == ThumbPart) {
-        if (theme()->shouldSnapBackToDragOrigin(this, evt))
-            scrollableArea()->scrollToOffsetWithoutAnimation(m_orientation, m_dragOrigin);
-        else {
+        if (theme()->shouldSnapBackToDragOrigin(this, evt)) {
+            if (m_scrollableArea)
+                m_scrollableArea->scrollToOffsetWithoutAnimation(m_orientation, m_dragOrigin);
+        } else {
             moveThumb(m_orientation == HorizontalScrollbar ? 
                       convertFromContainingWindow(evt.pos()).x() :
                       convertFromContainingWindow(evt.pos()).y());
@@ -393,14 +395,14 @@ void Scrollbar::setFrameRect(const IntRect& rect)
         IntRect resizerRect = view->convertFromContainingWindow(view->windowResizerRect());
         if (rect.intersects(resizerRect)) {
             if (orientation() == HorizontalScrollbar) {
-                int overlap = rect.right() - resizerRect.x();
-                if (overlap > 0 && resizerRect.right() >= rect.right()) {
+                int overlap = rect.maxX() - resizerRect.x();
+                if (overlap > 0 && resizerRect.maxX() >= rect.maxX()) {
                     adjustedRect.setWidth(rect.width() - overlap);
                     overlapsResizer = true;
                 }
             } else {
-                int overlap = rect.bottom() - resizerRect.y();
-                if (overlap > 0 && resizerRect.bottom() >= rect.bottom()) {
+                int overlap = rect.maxY() - resizerRect.y();
+                if (overlap > 0 && resizerRect.maxY() >= rect.maxY()) {
                     adjustedRect.setHeight(rect.height() - overlap);
                     overlapsResizer = true;
                 }

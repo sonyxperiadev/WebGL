@@ -20,8 +20,8 @@
 #include "config.h"
 #include "InspectorServerQt.h"
 
-#include "InspectorBackendDispatcher.h"
 #include "InspectorClientQt.h"
+#include "InspectorController.h"
 #include "MD5.h"
 #include "Page.h"
 #include "qwebpage.h"
@@ -363,7 +363,7 @@ void InspectorServerRequestHandlerQt::webSocketReadyRead()
 #if ENABLE(INSPECTOR)
         if (m_inspectorClient) {
           InspectorController* inspectorController = m_inspectorClient->m_inspectedWebPage->d->page->inspectorController();
-          inspectorController->inspectorBackendDispatcher()->dispatch(QString::fromUtf8(payload));
+          inspectorController->dispatchMessageFromFrontend(QString::fromUtf8(payload));
         }
 #endif
 

@@ -89,6 +89,7 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("counterValueForElementById", &LayoutTestController::counterValueForElementById);
     bindMethod("disableImageLoading", &LayoutTestController::disableImageLoading);
     bindMethod("display", &LayoutTestController::display);
+    bindMethod("displayInvalidatedRegion", &LayoutTestController::displayInvalidatedRegion);
     bindMethod("dumpAsText", &LayoutTestController::dumpAsText);
     bindMethod("dumpBackForwardList", &LayoutTestController::dumpBackForwardList);
     bindMethod("dumpChildFramesAsText", &LayoutTestController::dumpChildFramesAsText);
@@ -106,7 +107,6 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("evaluateInWebInspector", &LayoutTestController::evaluateInWebInspector);
     bindMethod("evaluateScriptInIsolatedWorld", &LayoutTestController::evaluateScriptInIsolatedWorld);
     bindMethod("execCommand", &LayoutTestController::execCommand);
-    bindMethod("forceRedSelectionColors", &LayoutTestController::forceRedSelectionColors);
     bindMethod("grantDesktopNotificationPermission", &LayoutTestController::grantDesktopNotificationPermission);
     bindMethod("isCommandEnabled", &LayoutTestController::isCommandEnabled);
     bindMethod("layerTreeAsText", &LayoutTestController::layerTreeAsText);
@@ -628,9 +628,11 @@ void LayoutTestController::setAlwaysAcceptCookies(const CppArgumentList& argumen
     result->setNull();
 }
 
-void LayoutTestController::setAsynchronousSpellCheckingEnabled(const CppArgumentList&, CppVariant*)
+void LayoutTestController::setAsynchronousSpellCheckingEnabled(const CppArgumentList& arguments, CppVariant* result)
 {
-    // FIXME: Implement this.
+    if (arguments.size() > 0 && arguments[0].isBool())
+        m_shell->webView()->settings()->setAsynchronousSpellCheckingEnabled(cppVariantToBool(arguments[0]));
+    result->setNull();
 }
 
 void LayoutTestController::showWebInspector(const CppArgumentList&, CppVariant* result)
@@ -800,11 +802,11 @@ void LayoutTestController::pathToLocalResource(const CppArgumentList& arguments,
         // We want a temp file.
         const unsigned tempPrefixLength = 5;
         size_t bufferSize = MAX_PATH;
-        OwnArrayPtr<WCHAR> tempPath(new WCHAR[bufferSize]);
+        OwnArrayPtr<WCHAR> tempPath = adoptArrayPtr(new WCHAR[bufferSize]);
         DWORD tempLength = ::GetTempPathW(bufferSize, tempPath.get());
         if (tempLength + url.length() - tempPrefixLength + 1 > bufferSize) {
             bufferSize = tempLength + url.length() - tempPrefixLength + 1;
-            tempPath.set(new WCHAR[bufferSize]);
+            tempPath = adoptArrayPtr(new WCHAR[bufferSize]);
             tempLength = GetTempPathW(bufferSize, tempPath.get());
             ASSERT(tempLength < bufferSize);
         }
@@ -1078,6 +1080,14 @@ void LayoutTestController::display(const CppArgumentList& arguments, CppVariant*
     const WebKit::WebSize& size = m_shell->webView()->size();
     WebRect rect(0, 0, size.width, size.height);
     host->updatePaintRect(rect);
+    host->paintInvalidatedRegion();
+    host->displayRepaintMask();
+    result->setNull();
+}
+
+void LayoutTestController::displayInvalidatedRegion(const CppArgumentList& arguments, CppVariant* result)
+{
+    WebViewHost* host = m_shell->webViewHost();
     host->paintInvalidatedRegion();
     host->displayRepaintMask();
     result->setNull();
@@ -1462,12 +1472,6 @@ void LayoutTestController::evaluateInWebInspector(const CppArgumentList& argumen
     if (arguments.size() < 2 || !arguments[0].isNumber() || !arguments[1].isString())
         return;
     m_shell->drtDevToolsAgent()->evaluateInWebInspector(arguments[0].toInt32(), arguments[1].toString());
-}
-
-void LayoutTestController::forceRedSelectionColors(const CppArgumentList& arguments, CppVariant* result)
-{
-    result->setNull();
-    m_shell->webView()->setSelectionColors(0xffee0000, 0xff00ee00, 0xff000000, 0xffc0c0c0);
 }
 
 void LayoutTestController::addUserScript(const CppArgumentList& arguments, CppVariant* result)

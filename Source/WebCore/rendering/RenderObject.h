@@ -143,6 +143,18 @@ public:
             return children->lastChild();
         return 0;
     }
+    RenderObject* beforePseudoElementRenderer() const
+    {
+        if (const RenderObjectChildList* children = virtualChildren())
+            return children->beforePseudoElementRenderer(this);
+        return 0;
+    }
+    RenderObject* afterPseudoElementRenderer() const
+    {
+        if (const RenderObjectChildList* children = virtualChildren())
+            return children->afterPseudoElementRenderer(this);
+        return 0;
+    }
     virtual RenderObjectChildList* virtualChildren() { return 0; }
     virtual const RenderObjectChildList* virtualChildren() const { return 0; }
 
@@ -332,6 +344,7 @@ public:
     virtual bool isSVGImage() const { return false; }
     virtual bool isSVGForeignObject() const { return false; }
     virtual bool isSVGResourceContainer() const { return false; }
+    virtual bool isSVGResourceFilter() const { return false; }
     virtual bool isSVGResourceFilterPrimitive() const { return false; }
     virtual bool isSVGShadowTreeRootContainer() const { return false; }
 
@@ -444,6 +457,11 @@ public:
     bool isRooted(RenderView** = 0);
 
     Node* node() const { return m_isAnonymous ? 0 : m_node; }
+
+    // Returns the styled node that caused the generation of this renderer.
+    // This is the same as node() except for renderers of :before and :after
+    // pseudo elements for which their parent node is returned.
+    Node* generatingNode() const { return m_node == document() ? 0 : m_node; }
     void setNode(Node* node) { m_node = node; }
 
     Document* document() const { return m_node->document(); }

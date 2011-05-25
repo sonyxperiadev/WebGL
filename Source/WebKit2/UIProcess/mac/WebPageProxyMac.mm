@@ -23,11 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "WebPageProxy.h"
+#import "config.h"
+#import "WebPageProxy.h"
 
-#include "PageClient.h"
-#include <WebCore/Language.h>
-#include <wtf/text/StringConcatenate.h>
+#import "PageClient.h"
+#import <WebCore/Language.h>
+#import <wtf/text/StringConcatenate.h>
 
 @interface NSApplication (Details)
 - (void)speakString:(NSString *)string;

@@ -28,34 +28,92 @@
 
 #include "BrowserWindow.h"
 
+#include "qwkpreferences.h"
+
 static QWKPage* newPageFunction(QWKPage* page)
 {
     BrowserWindow* window = new BrowserWindow(page->context());
     return window->page();
 }
 
-QGraphicsWKView::BackingStoreType BrowserWindow::backingStoreTypeForNewWindow = QGraphicsWKView::Simple;
+QVector<qreal> BrowserWindow::m_zoomLevels;
 
-BrowserWindow::BrowserWindow(QWKContext* context)
+BrowserWindow::BrowserWindow(QWKContext* context, WindowOptions* options)
+    : m_isZoomTextOnly(false)
+    , m_currentZoom(1)
+    , m_context(context)
 {
+    if (options)
+        m_windowOptions = *options;
+    else {
+        WindowOptions tmpOptions;
+        m_windowOptions = tmpOptions;
+    }
+
+    if (m_windowOptions.useTiledBackingStore)
+        m_browser = new BrowserView(QGraphicsWKView::Tiled, context);
+    else
+        m_browser = new BrowserView(QGraphicsWKView::Simple, context);
+
     setAttribute(Qt::WA_DeleteOnClose);
 
-    m_menu = new QMenuBar();
-    m_browser = new BrowserView(backingStoreTypeForNewWindow, context);
-    m_addressBar = new QLineEdit();
+    connect(m_browser->view(), SIGNAL(loadProgress(int)), SLOT(loadProgress(int)));
+    connect(m_browser->view(), SIGNAL(titleChanged(const QString&)), SLOT(setWindowTitle(const QString&)));
+    connect(m_browser->view(), SIGNAL(urlChanged(const QUrl&)), SLOT(urlChanged(const QUrl&)));
 
-    m_menu->addAction("New Window", this, SLOT(newWindow()));
-    m_menu->addAction("Change User Agent", this, SLOT(showUserAgentDialog()));
-
-    m_menu->addSeparator();
-    m_menu->addAction("Quit", this, SLOT(close()));
-
+    this->setCentralWidget(m_browser);
     m_browser->setFocus(Qt::OtherFocusReason);
 
+    QMenu* fileMenu = menuBar()->addMenu("&File");
+    fileMenu->addAction("New Window", this, SLOT(newWindow()), QKeySequence::New);
+    fileMenu->addAction("Open File", this, SLOT(openFile()), QKeySequence::Open);
+    fileMenu->addSeparator();
+    fileMenu->addAction("Quit", this, SLOT(close()));
+
+    QMenu* viewMenu = menuBar()->addMenu("&View");
+    viewMenu->addAction(page()->action(QWKPage::Stop));
+    viewMenu->addAction(page()->action(QWKPage::Reload));
+    viewMenu->addSeparator();
+    QAction* zoomIn = viewMenu->addAction("Zoom &In", this, SLOT(zoomIn()));
+    QAction* zoomOut = viewMenu->addAction("Zoom &Out", this, SLOT(zoomOut()));
+    QAction* resetZoom = viewMenu->addAction("Reset Zoom", this, SLOT(resetZoom()));
+    QAction* zoomText = viewMenu->addAction("Zoom Text Only", this, SLOT(toggleZoomTextOnly(bool)));
+    zoomText->setCheckable(true);
+    zoomText->setChecked(false);
+    viewMenu->addSeparator();
+    viewMenu->addAction("Take Screen Shot...", this, SLOT(screenshot()));
+
+    zoomIn->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Plus));
+    zoomOut->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Minus));
+    resetZoom->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
+
+    QMenu* windowMenu = menuBar()->addMenu("&Window");
+    QAction* toggleFullScreen = windowMenu->addAction("Toggle FullScreen", this, SIGNAL(enteredFullScreenMode(bool)));
+    toggleFullScreen->setShortcut(Qt::Key_F11);
+    toggleFullScreen->setCheckable(true);
+    toggleFullScreen->setChecked(false);
+    // When exit fullscreen mode by clicking on the exit area (bottom right corner) we must
+    // uncheck the Toggle FullScreen action.
+    toggleFullScreen->connect(this, SIGNAL(enteredFullScreenMode(bool)), SLOT(setChecked(bool)));
+    connect(this, SIGNAL(enteredFullScreenMode(bool)), this, SLOT(toggleFullScreenMode(bool)));
+
+    QMenu* toolsMenu = menuBar()->addMenu("&Develop");
+    QAction* toggleFrameFlattening = toolsMenu->addAction("Toggle Frame Flattening", this, SLOT(toggleFrameFlattening(bool)));
+    toggleFrameFlattening->setCheckable(true);
+    toggleFrameFlattening->setChecked(false);
+    toolsMenu->addSeparator();
+    toolsMenu->addAction("Change User Agent", this, SLOT(showUserAgentDialog()));
+
+    QMenu* settingsMenu = menuBar()->addMenu("&Settings");
+    QAction* toggleAutoLoadImages = settingsMenu->addAction("Disable Auto Load Images", this, SLOT(toggleAutoLoadImages(bool)));
+    toggleAutoLoadImages->setCheckable(true);
+    toggleAutoLoadImages->setChecked(false);
+    QAction* toggleDisableJavaScript = settingsMenu->addAction("Disable JavaScript", this, SLOT(toggleDisableJavaScript(bool)));
+    toggleDisableJavaScript->setCheckable(true);
+    toggleDisableJavaScript->setChecked(false);
+
+    m_addressBar = new QLineEdit();
     connect(m_addressBar, SIGNAL(returnPressed()), SLOT(changeLocation()));
-    connect(m_browser->view(), SIGNAL(loadProgress(int)), SLOT(loadProgress(int)));
-    connect(m_browser->view(), SIGNAL(titleChanged(const QString&)), SLOT(titleChanged(const QString&)));
-    connect(m_browser->view(), SIGNAL(urlChanged(const QUrl&)), SLOT(urlChanged(const QUrl&)));
 
     QToolBar* bar = addToolBar("Navigation");
     bar->addAction(page()->action(QWKPage::Back));
@@ -64,17 +122,19 @@ BrowserWindow::BrowserWindow(QWKContext* context)
     bar->addAction(page()->action(QWKPage::Stop));
     bar->addWidget(m_addressBar);
 
-    this->setMenuBar(m_menu);
-    this->setCentralWidget(m_browser);
-
-    m_browser->setFocus(Qt::OtherFocusReason);
-
     QShortcut* selectAddressBar = new QShortcut(Qt::CTRL | Qt::Key_L, this);
     connect(selectAddressBar, SIGNAL(activated()), this, SLOT(openLocation()));
 
     page()->setCreateNewPageFunction(newPageFunction);
 
-    resize(960, 640);
+    // the zoom values are chosen to be like in Mozilla Firefox 3
+    if (!m_zoomLevels.count()) {
+        m_zoomLevels << 0.3 << 0.5 << 0.67 << 0.8 << 0.9;
+        m_zoomLevels << 1;
+        m_zoomLevels << 1.1 << 1.2 << 1.33 << 1.5 << 1.7 << 2 << 2.4 << 3;
+    }
+
+    resize(800, 600);
     show();
 }
 
@@ -91,7 +151,14 @@ QWKPage* BrowserWindow::page()
 
 BrowserWindow* BrowserWindow::newWindow(const QString& url)
 {
-    BrowserWindow* window = new BrowserWindow;
+    BrowserWindow* window;
+    if (m_windowOptions.useSeparateWebProcessPerWindow) {
+        QWKContext* context = new QWKContext();
+        window = new BrowserWindow(context);
+        context->setParent(window);
+    } else
+        window = new BrowserWindow(m_context);
+
     window->load(url);
     return window;
 }
@@ -127,34 +194,112 @@ void BrowserWindow::loadProgress(int progress)
     m_addressBar->setPalette(pallete);
 }
 
-void BrowserWindow::titleChanged(const QString& title)
-{
-    setWindowTitle(title);
-}
-
 void BrowserWindow::urlChanged(const QUrl& url)
 {
     m_addressBar->setText(url.toString());
 }
 
-void BrowserWindow::updateUserAgentList()
+void BrowserWindow::openFile()
 {
-    QFile file(":/useragentlist.txt");
+#ifndef QT_NO_FILEDIALOG
+    static const QString filter("HTML Files (*.htm *.html *.xhtml);;Text Files (*.txt);;Image Files (*.gif *.jpg *.png);;SVG Files (*.svg);;All Files (*)");
 
-    if (file.open(QIODevice::ReadOnly)) {
-        while (!file.atEnd()) {
-            QString agent = file.readLine().trimmed();
-            if (!m_userAgentList.contains(agent))
-                m_userAgentList << agent;
-        }
-        file.close();
+    QFileDialog fileDialog(this, tr("Open"), QString(), filter);
+    fileDialog.setAcceptMode(QFileDialog::AcceptOpen);
+    fileDialog.setFileMode(QFileDialog::ExistingFile);
+    fileDialog.setOptions(QFileDialog::ReadOnly);
+
+    if (fileDialog.exec()) {
+        QString selectedFile = fileDialog.selectedFiles()[0];
+        if (!selectedFile.isEmpty())
+            load(selectedFile);
     }
-
-    Q_ASSERT(!m_userAgentList.isEmpty());
-    QWKPage* wkPage = page();
-    if (!(wkPage->customUserAgent().isEmpty() || m_userAgentList.contains(wkPage->customUserAgent())))
-        m_userAgentList << wkPage->customUserAgent();
+#endif
 }
+
+void BrowserWindow::screenshot()
+{
+    QPixmap pixmap = QPixmap::grabWidget(m_browser);
+    QLabel* label = 0;
+#if !defined(Q_OS_SYMBIAN)
+    label = new QLabel;
+    label->setAttribute(Qt::WA_DeleteOnClose);
+    label->setWindowTitle("Screenshot - Preview");
+    label->setPixmap(pixmap);
+    label->show();
+#endif
+
+#ifndef QT_NO_FILEDIALOG
+    QString fileName = QFileDialog::getSaveFileName(label, "Screenshot", QString(), QString("PNG File (.png)"));
+    if (!fileName.isEmpty()) {
+        QRegExp rx("*.png");
+        rx.setCaseSensitivity(Qt::CaseInsensitive);
+        rx.setPatternSyntax(QRegExp::Wildcard);
+
+        if (!rx.exactMatch(fileName))
+            fileName += ".png";
+
+        pixmap.save(fileName, "png");
+        if (label)
+            label->setWindowTitle(QString("Screenshot - Saved at %1").arg(fileName));
+    }
+#endif
+}
+
+void BrowserWindow::zoomIn()
+{
+    if (m_isZoomTextOnly)
+        m_currentZoom = page()->textZoomFactor();
+    else
+        m_currentZoom = page()->pageZoomFactor();
+
+    int i = m_zoomLevels.indexOf(m_currentZoom);
+    Q_ASSERT(i >= 0);
+    if (i < m_zoomLevels.count() - 1)
+        m_currentZoom = m_zoomLevels[i + 1];
+
+    applyZoom();
+}
+
+void BrowserWindow::zoomOut()
+{
+    if (m_isZoomTextOnly)
+        m_currentZoom = page()->textZoomFactor();
+    else
+        m_currentZoom = page()->pageZoomFactor();
+
+    int i = m_zoomLevels.indexOf(m_currentZoom);
+    Q_ASSERT(i >= 0);
+    if (i > 0)
+        m_currentZoom = m_zoomLevels[i - 1];
+
+    applyZoom();
+}
+
+void BrowserWindow::resetZoom()
+{
+    m_currentZoom = 1;
+    applyZoom();
+}
+
+void BrowserWindow::toggleZoomTextOnly(bool b)
+{
+    m_isZoomTextOnly = b;
+}
+
+void BrowserWindow::toggleFullScreenMode(bool enable)
+{
+    if (enable)
+        setWindowState(Qt::WindowFullScreen);
+    else
+        setWindowState(Qt::WindowNoState);
+}
+
+void BrowserWindow::toggleFrameFlattening(bool toggle)
+{
+    page()->preferences()->setAttribute(QWKPreferences::FrameFlatteningEnabled, toggle);
+}
+
 
 void BrowserWindow::showUserAgentDialog()
 {
@@ -185,9 +330,45 @@ void BrowserWindow::showUserAgentDialog()
         page()->setCustomUserAgent(combo->currentText());
 }
 
+void BrowserWindow::toggleDisableJavaScript(bool enable)
+{
+    page()->preferences()->setAttribute(QWKPreferences::JavascriptEnabled, !enable);
+}
+
+void BrowserWindow::toggleAutoLoadImages(bool enable)
+{
+    page()->preferences()->setAttribute(QWKPreferences::AutoLoadImages, !enable);
+}
+
+void BrowserWindow::updateUserAgentList()
+{
+    QFile file(":/useragentlist.txt");
+
+    if (file.open(QIODevice::ReadOnly)) {
+        while (!file.atEnd()) {
+            QString agent = file.readLine().trimmed();
+            if (!m_userAgentList.contains(agent))
+                m_userAgentList << agent;
+        }
+        file.close();
+    }
+
+    Q_ASSERT(!m_userAgentList.isEmpty());
+    QWKPage* wkPage = page();
+    if (!(wkPage->customUserAgent().isEmpty() || m_userAgentList.contains(wkPage->customUserAgent())))
+        m_userAgentList << wkPage->customUserAgent();
+}
+
+void BrowserWindow::applyZoom()
+{
+    if (m_isZoomTextOnly)
+        page()->setTextZoomFactor(m_currentZoom);
+    else
+        page()->setPageZoomFactor(m_currentZoom);
+}
+
 BrowserWindow::~BrowserWindow()
 {
     delete m_addressBar;
     delete m_browser;
-    delete m_menu;
 }

@@ -3,6 +3,7 @@
 SOURCES += \
     wtf/Assertions.cpp \
     wtf/ByteArray.cpp \
+    wtf/CryptographicallyRandomNumber.cpp \
     wtf/CurrentTime.cpp \
     wtf/DateMath.cpp \
     wtf/dtoa.cpp \
@@ -14,6 +15,7 @@ SOURCES += \
     wtf/MD5.cpp \
     wtf/MainThread.cpp \
     wtf/NullPtr.cpp \
+    wtf/OSRandomSource.cpp \
     wtf/qt/MainThreadQt.cpp \
     wtf/qt/StringQt.cpp \
     wtf/qt/ThreadingQt.cpp \
@@ -22,6 +24,7 @@ SOURCES += \
     wtf/RandomNumber.cpp \
     wtf/RefCountedLeakCounter.cpp \
     wtf/StackBounds.cpp \
+    wtf/TCSystemAlloc.cpp \
     wtf/ThreadingNone.cpp \
     wtf/Threading.cpp \
     wtf/TypeTraits.cpp \
@@ -40,10 +43,6 @@ contains(DEFINES, USE_GSTREAMER=1) {
     DEFINES += ENABLE_GLIB_SUPPORT=1
     PKGCONFIG += glib-2.0 gio-2.0
     CONFIG += link_pkgconfig
-}
-
-!contains(DEFINES, USE_SYSTEM_MALLOC=1) {
-    SOURCES += wtf/TCSystemAlloc.cpp
 }
 
 unix:!symbian: SOURCES += wtf/OSAllocatorPosix.cpp

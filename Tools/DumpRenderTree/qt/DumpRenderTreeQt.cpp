@@ -83,6 +83,8 @@
 
 namespace WebCore {
 
+const int databaseDefaultQuota = 5 * 1024 * 1024;
+
 NetworkAccessManager::NetworkAccessManager(QObject* parent)
     : QNetworkAccessManager(parent)
 {
@@ -520,7 +522,7 @@ void DumpRenderTree::dryRunPrint(QWebFrame* frame)
 #endif
 }
 
-void DumpRenderTree::resetToConsistentStateBeforeTesting()
+void DumpRenderTree::resetToConsistentStateBeforeTesting(const QUrl& url)
 {
     // reset so that any current loads are stopped
     // NOTE: that this has to be done before the layoutTestController is
@@ -528,6 +530,10 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting()
     m_page->blockSignals(true);
     m_page->triggerAction(QWebPage::Stop);
     m_page->blockSignals(false);
+
+    QList<QWebSecurityOrigin> knownOrigins = QWebSecurityOrigin::allOrigins();
+    for (int i = 0; i < knownOrigins.size(); ++i)
+        knownOrigins[i].setDatabaseQuota(databaseDefaultQuota);
 
     // reset the layoutTestController at this point, so that we under no
     // circumstance dump (stop the waitUntilDone timer) during the reset
@@ -550,6 +556,14 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting()
     m_page->mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAsNeeded);
     m_page->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAsNeeded);
 
+    if (url.scheme() == "http" || url.scheme() == "https") {
+        // credentials may exist from previous tests.
+        m_page->setNetworkAccessManager(0);
+        delete m_networkAccessManager;
+        m_networkAccessManager = new NetworkAccessManager(this);
+        m_page->setNetworkAccessManager(m_networkAccessManager);
+    }
+
     WorkQueue::shared()->clear();
     WorkQueue::shared()->setFrozen(false);
 
@@ -560,6 +574,7 @@ void DumpRenderTree::resetToConsistentStateBeforeTesting()
 
     QLocale::setDefault(QLocale::c());
 
+    layoutTestController()->setDeveloperExtrasEnabled(true);
 #ifndef Q_OS_WINCE
     setlocale(LC_ALL, "");
 #endif
@@ -579,26 +594,16 @@ static bool isWebInspectorTest(const QUrl& url)
     return false;
 }
 
-static bool shouldEnableDeveloperExtras(const QUrl& url)
-{
-    return true;
-}
-
 void DumpRenderTree::open(const QUrl& url)
 {
     DumpRenderTreeSupportQt::dumpResourceLoadCallbacksPath(QFileInfo(url.toString()).path());
-    resetToConsistentStateBeforeTesting();
+    resetToConsistentStateBeforeTesting(url);
 
-    if (shouldEnableDeveloperExtras(m_page->mainFrame()->url())) {
+    if (isWebInspectorTest(m_page->mainFrame()->url()))
         layoutTestController()->closeWebInspector();
-        layoutTestController()->setDeveloperExtrasEnabled(false);
-    }
 
-    if (shouldEnableDeveloperExtras(url)) {
-        layoutTestController()->setDeveloperExtrasEnabled(true);
-        if (isWebInspectorTest(url))
-            layoutTestController()->showWebInspector();
-    }
+    if (isWebInspectorTest(url))
+        layoutTestController()->showWebInspector();
 
     if (isGlobalHistoryTest(url))
         layoutTestController()->dumpHistoryCallbacks();
@@ -1028,7 +1033,7 @@ void DumpRenderTree::dumpDatabaseQuota(QWebFrame* frame, const QString& dbName)
            origin.host().toUtf8().data(),
            origin.port(),
            dbName.toUtf8().data());
-    origin.setDatabaseQuota(5 * 1024 * 1024);
+    origin.setDatabaseQuota(databaseDefaultQuota);
 }
 
 void DumpRenderTree::dumpApplicationCacheQuota(QWebSecurityOrigin* origin, quint64 defaultOriginQuota)
@@ -1085,9 +1090,6 @@ void DumpRenderTree::windowCloseRequested()
     QWebPage* page = qobject_cast<QWebPage*>(sender());
     QObject* container = page->parent();
     windows.removeAll(container);
-    // Our use of container->deleteLater() means we need to remove closed pages
-    // from the org.webkit.qt.DumpRenderTree group explicitly.
-    DumpRenderTreeSupportQt::webPageSetGroupName(page, "");
     container->deleteLater();
 }
 

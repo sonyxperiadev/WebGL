@@ -21,7 +21,8 @@
 #include "config.h"
 #include "Heap.h"
 
-#include "CollectorHeapIterator.h"
+#include "CodeBlock.h"
+#include "ConservativeSet.h"
 #include "GCActivityCallback.h"
 #include "GCHandle.h"
 #include "Interpreter.h"
@@ -30,14 +31,19 @@
 #include "JSLock.h"
 #include "JSONObject.h"
 #include "Tracing.h"
+#include <algorithm>
 
 #define COLLECT_ON_EVERY_ALLOCATION 0
 
+using namespace std;
+
 namespace JSC {
 
+const size_t minBytesPerCycle = 512 * 1024;
+
 Heap::Heap(JSGlobalData* globalData)
-    : m_markedSpace(globalData)
-    , m_operationInProgress(NoOperation)
+    : m_operationInProgress(NoOperation)
+    , m_markedSpace(globalData)
     , m_markListSet(0)
     , m_activityCallback(DefaultGCActivityCallback::create(this))
     , m_globalData(globalData)
@@ -71,14 +77,12 @@ void Heap::destroy()
     delete m_markListSet;
     m_markListSet = 0;
 
-    ProtectCountSet protectedValuesCopy = m_protectedValues;
-    m_markedSpace.destroy(protectedValuesCopy);
-    ASSERT(!protectedObjectCount());
+    m_markedSpace.destroy();
 
     m_globalData = 0;
 }
 
-void Heap::recordExtraCost(size_t cost)
+void Heap::reportExtraMemoryCostSlowCase(size_t cost)
 {
     // Our frequency of garbage collection tries to balance memory use against speed
     // by collecting based on the number of newly created values. However, for values
@@ -91,20 +95,8 @@ void Heap::recordExtraCost(size_t cost)
     // if a large value survives one garbage collection, there is not much point to
     // collecting more frequently as long as it stays alive.
 
-    if (m_extraCost > maxExtraCost && m_extraCost > m_markedSpace.size() / 2) {
-        JAVASCRIPTCORE_GC_BEGIN();
-
-        markRoots();
-
-        JAVASCRIPTCORE_GC_MARKED();
-
-        m_markedSpace.reset();
-        m_extraCost = 0;
-
-        JAVASCRIPTCORE_GC_END();
-
-        (*m_activityCallback)();
-    }
+    if (m_extraCost > maxExtraCost && m_extraCost > m_markedSpace.capacity() / 2)
+        collectAllGarbage();
     m_extraCost += cost;
 }
 
@@ -113,7 +105,7 @@ void* Heap::allocate(size_t s)
     ASSERT(globalData()->identifierTable == wtfThreadData().currentIdentifierTable());
     ASSERT(JSLock::lockCount() > 0);
     ASSERT(JSLock::currentThreadIsHoldingLock());
-    ASSERT_UNUSED(s, s <= HeapConstants::cellSize);
+    ASSERT_UNUSED(s, s <= MarkedBlock::CELL_SIZE);
     ASSERT(m_operationInProgress == NoOperation);
 
 #if COLLECT_ON_EVERY_ALLOCATION
@@ -124,32 +116,16 @@ void* Heap::allocate(size_t s)
     m_operationInProgress = Allocation;
     void* result = m_markedSpace.allocate(s);
     m_operationInProgress = NoOperation;
-
     if (!result) {
-        JAVASCRIPTCORE_GC_BEGIN();
-
-        markRoots();
-
-        JAVASCRIPTCORE_GC_MARKED();
-
-        m_markedSpace.reset();
-        m_extraCost = 0;
-
-        JAVASCRIPTCORE_GC_END();
-
-        (*m_activityCallback)();
+        reset(DoNotSweep);
 
         m_operationInProgress = Allocation;
         result = m_markedSpace.allocate(s);
         m_operationInProgress = NoOperation;
     }
+
     ASSERT(result);
     return result;
-}
-
-void Heap::markConservatively(ConservativeSet& conservativeSet, void* start, void* end)
-{
-    m_markedSpace.markConservatively(conservativeSet, start, end);
 }
 
 void Heap::updateWeakGCHandles()
@@ -163,7 +139,7 @@ void WeakGCHandlePool::update()
     for (unsigned i = 1; i < WeakGCHandlePool::numPoolEntries; ++i) {
         if (m_entries[i].isValidPtr()) {
             JSCell* cell = m_entries[i].get();
-            if (!cell || !Heap::isCellMarked(cell))
+            if (!cell || !Heap::isMarked(cell))
                 m_entries[i].invalidate();
         }
     }
@@ -208,7 +184,7 @@ void Heap::markProtectedObjects(MarkStack& markStack)
 {
     ProtectCountSet::iterator end = m_protectedValues.end();
     for (ProtectCountSet::iterator it = m_protectedValues.begin(); it != end; ++it)
-        markStack.append(it->first);
+        markStack.deprecatedAppend(&it->first);
 }
 
 void Heap::pushTempSortVector(Vector<ValueStringPair>* tempVector)
@@ -233,11 +209,16 @@ void Heap::markTempSortVectors(MarkStack& markStack)
         Vector<ValueStringPair>::iterator vectorEnd = tempSortingVector->end();
         for (Vector<ValueStringPair>::iterator vectorIt = tempSortingVector->begin(); vectorIt != vectorEnd; ++vectorIt) {
             if (vectorIt->first)
-                markStack.append(vectorIt->first);
+                markStack.deprecatedAppend(&vectorIt->first);
         }
     }
 }
-    
+
+inline RegisterFile& Heap::registerFile()
+{
+    return m_globalData->interpreter->registerFile();
+}
+
 void Heap::markRoots()
 {
 #ifndef NDEBUG
@@ -256,12 +237,11 @@ void Heap::markRoots()
     // We gather the conservative set before clearing mark bits, because
     // conservative gathering uses the mark bits from our last mark pass to
     // determine whether a reference is valid.
-    ConservativeSet conservativeSet;
+    ConservativeSet conservativeSet(this);
     m_machineStackMarker.markMachineStackConservatively(conservativeSet);
-    m_globalData->interpreter->registerFile().markCallFrames(conservativeSet, this);
+    conservativeSet.add(registerFile().start(), registerFile().end());
 
-    // Reset mark bits.
-    m_markedSpace.clearMarkBits();
+    m_markedSpace.clearMarks();
 
     MarkStack& markStack = m_markStack;
     conservativeSet.mark(markStack);
@@ -274,12 +254,17 @@ void Heap::markRoots()
     // Mark temporary vector for Array sorting
     markTempSortVectors(markStack);
     markStack.drain();
+    
+    HashSet<GlobalCodeBlock*>::const_iterator end = m_codeBlocks.end();
+    for (HashSet<GlobalCodeBlock*>::const_iterator it = m_codeBlocks.begin(); it != end; ++it)
+        (*it)->markAggregate(markStack);
+    markStack.drain();
 
     // Mark misc. other roots.
     if (m_markListSet && m_markListSet->size())
         MarkedArgumentBuffer::markLists(markStack, *m_markListSet);
     if (m_globalData->exception)
-        markStack.append(m_globalData->exception);
+        markStack.append(&m_globalData->exception);
     if (m_globalData->firstStringifierToMark)
         JSONObject::markStringifiers(markStack, m_globalData->firstStringifierToMark);
     markStack.drain();
@@ -301,39 +286,30 @@ size_t Heap::objectCount() const
     return m_markedSpace.objectCount();
 }
 
-MarkedSpace::Statistics Heap::statistics() const
-{
-    return m_markedSpace.statistics();
-}
-
 size_t Heap::size() const
 {
     return m_markedSpace.size();
 }
 
+size_t Heap::capacity() const
+{
+    return m_markedSpace.capacity();
+}
+
 size_t Heap::globalObjectCount()
 {
-    size_t count = 0;
-    if (JSGlobalObject* head = m_globalData->head) {
-        JSGlobalObject* o = head;
-        do {
-            ++count;
-            o = o->next();
-        } while (o != head);
-    }
-    return count;
+    return m_globalData->globalObjects.uncheckedSize();
 }
 
 size_t Heap::protectedGlobalObjectCount()
 {
     size_t count = 0;
-    if (JSGlobalObject* head = m_globalData->head) {
-        JSGlobalObject* o = head;
-        do {
-            if (m_protectedValues.contains(o))
-                ++count;
-            o = o->next();
-        } while (o != head);
+
+    GlobalObjectMap& map = m_globalData->globalObjects;
+    GlobalObjectMap::iterator end = map.uncheckedEnd();
+    for (GlobalObjectMap::iterator it = map.uncheckedBegin(); it != end; ++it) {
+        if (map.isValid(it) && m_protectedValues.contains(it->second.get()))
+            ++count;
     }
 
     return count;
@@ -344,7 +320,23 @@ size_t Heap::protectedObjectCount()
     return m_protectedValues.size();
 }
 
-static const char* typeName(JSCell* cell)
+class TypeCounter {
+public:
+    TypeCounter();
+    void operator()(JSCell*);
+    PassOwnPtr<TypeCountSet> take();
+    
+private:
+    const char* typeName(JSCell*);
+    OwnPtr<TypeCountSet> m_typeCountSet;
+};
+
+inline TypeCounter::TypeCounter()
+    : m_typeCountSet(new TypeCountSet)
+{
+}
+
+inline const char* TypeCounter::typeName(JSCell* cell)
 {
     if (cell->isString())
         return "string";
@@ -360,27 +352,32 @@ static const char* typeName(JSCell* cell)
     return info ? info->className : "Object";
 }
 
-HashCountedSet<const char*>* Heap::protectedObjectTypeCounts()
+inline void TypeCounter::operator()(JSCell* cell)
 {
-    HashCountedSet<const char*>* counts = new HashCountedSet<const char*>;
+    m_typeCountSet->add(typeName(cell));
+}
+
+inline PassOwnPtr<TypeCountSet> TypeCounter::take()
+{
+    return m_typeCountSet.release();
+}
+
+PassOwnPtr<TypeCountSet> Heap::protectedObjectTypeCounts()
+{
+    TypeCounter typeCounter;
 
     ProtectCountSet::iterator end = m_protectedValues.end();
     for (ProtectCountSet::iterator it = m_protectedValues.begin(); it != end; ++it)
-        counts->add(typeName(it->first));
+        typeCounter(it->first);
 
-    return counts;
+    return typeCounter.take();
 }
 
-HashCountedSet<const char*>* Heap::objectTypeCounts()
+PassOwnPtr<TypeCountSet> Heap::objectTypeCounts()
 {
-    HashCountedSet<const char*>* counts = new HashCountedSet<const char*>;
-
-    LiveObjectIterator it = primaryHeapBegin();
-    LiveObjectIterator heapEnd = primaryHeapEnd();
-    for ( ; it != heapEnd; ++it)
-        counts->add(typeName(*it));
-
-    return counts;
+    TypeCounter typeCounter;
+    forEach(typeCounter);
+    return typeCounter.take();
 }
 
 bool Heap::isBusy()
@@ -390,6 +387,11 @@ bool Heap::isBusy()
 
 void Heap::collectAllGarbage()
 {
+    reset(DoSweep);
+}
+
+void Heap::reset(SweepToggle sweepToggle)
+{
     ASSERT(globalData()->identifierTable == wtfThreadData().currentIdentifierTable());
     JAVASCRIPTCORE_GC_BEGIN();
 
@@ -398,22 +400,19 @@ void Heap::collectAllGarbage()
     JAVASCRIPTCORE_GC_MARKED();
 
     m_markedSpace.reset();
-    m_markedSpace.sweep();
     m_extraCost = 0;
+
+    if (sweepToggle == DoSweep) {
+        m_markedSpace.sweep();
+        m_markedSpace.shrink();
+    }
+
+    size_t proportionalBytes = static_cast<size_t>(1.5 * m_markedSpace.size());
+    m_markedSpace.setHighWaterMark(max(proportionalBytes, minBytesPerCycle));
 
     JAVASCRIPTCORE_GC_END();
 
     (*m_activityCallback)();
-}
-
-LiveObjectIterator Heap::primaryHeapBegin()
-{
-    return m_markedSpace.primaryHeapBegin();
-}
-
-LiveObjectIterator Heap::primaryHeapEnd()
-{
-    return m_markedSpace.primaryHeapEnd();
 }
 
 void Heap::setActivityCallback(PassOwnPtr<GCActivityCallback> activityCallback)

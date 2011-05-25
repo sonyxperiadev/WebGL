@@ -35,12 +35,18 @@
 #include <Accelerate/Accelerate.h>
 #endif
 
-#if !OS(DARWIN) && USE(WEBAUDIO_MKL)
+#if !OS(DARWIN)
+#if USE(WEBAUDIO_MKL)
 #include "mkl_dfti.h"
+#endif // USE(WEBAUDIO_MKL)
+#if USE(WEBAUDIO_FFTW)
+#include "fftw3.h"
+#endif // USE(WEBAUDIO_FFTW)
 #endif
 
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Platform.h>
+#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -56,6 +62,7 @@ public:
     FFTFrame(const FFTFrame& frame);
     ~FFTFrame();
 
+    static void initialize();
     static void cleanup();
     void doFFT(float* data);
     void doInverseFFT(float* data);
@@ -98,8 +105,8 @@ private:
     DSPSplitComplex m_frame;
     AudioFloatArray m_realData;
     AudioFloatArray m_imagData;
-#endif // OS(DARWIN)
-#if !OS(DARWIN) && USE(WEBAUDIO_MKL)
+#else // !OS(DARWIN)
+#if USE(WEBAUDIO_MKL)
     // Interleaves the planar real and imaginary data and returns a
     // pointer to the resulting storage which can be used for in-place
     // or out-of-place operations. FIXME: ideally all of the MKL
@@ -115,7 +122,31 @@ private:
     AudioFloatArray m_complexData;
     AudioFloatArray m_realData;
     AudioFloatArray m_imagData;
-#endif // !OS(DARWIN) && USE(WEBAUDIO_MKL)
+#endif // USE(WEBAUDIO_MKL)
+#if USE(WEBAUDIO_FFTW)
+    fftwf_plan m_forwardPlan;
+    fftwf_plan m_backwardPlan;
+
+    enum Direction {
+        Forward,
+        Backward
+    };
+
+    // Both the real and imaginary data are stored here.
+    // The real data is stored first, followed by three float values of padding.
+    // The imaginary data is stored after the padding and is 16-byte aligned (if m_data itself is aligned).
+    // The reason we don't use separate arrays for real and imaginary is because the FFTW plans are shared
+    // between FFTFrame instances and require that the real and imaginary data pointers be the same distance apart.
+    AudioFloatArray m_data;
+
+    static Mutex *s_planLock;
+    static fftwf_plan* fftwForwardPlans;
+    static fftwf_plan* fftwBackwardPlans;
+
+    static fftwf_plan fftwPlanForSize(unsigned fftSize, Direction,
+                                      float*, float*, float*);
+#endif // USE(WEBAUDIO_FFTW)
+#endif // !OS(DARWIN)
 };
 
 } // namespace WebCore

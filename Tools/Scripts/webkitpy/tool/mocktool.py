@@ -464,6 +464,12 @@ class MockSCM(Mock):
         # os.getcwd() can't work here because other parts of the code assume that "checkout_root"
         # will actually be the root.  Since getcwd() is wrong, use a globally fake root for now.
         self.checkout_root = self.fake_checkout_root
+        self.added_paths = set()
+
+    def add(self, destination_path, return_exit_code=False):
+        self.added_paths.add(destination_path)
+        if return_exit_code:
+            return 0
 
     def changed_files(self, git_commit=None):
         return ["MockFile1"]
@@ -483,16 +489,26 @@ class MockSCM(Mock):
                 "https://bugs.example.org/show_bug.cgi?id=75\n")
         raise Exception("Bogus commit_id in commit_message_for_local_commit.")
 
+    def diff_for_file(self, path, log=None):
+        return path + '-diff'
+
     def diff_for_revision(self, revision):
         return "DiffForRevision%s\n" \
                "http://bugs.webkit.org/show_bug.cgi?id=12345" % revision
 
+    def show_head(self, path):
+        return path
+
     def svn_revision_from_commit_text(self, commit_text):
         return "49824"
 
-    def add(self, destination_path, return_exit_code=False):
-        if return_exit_code:
-            return 0
+
+class MockDEPS(object):
+    def read_variable(self, name):
+        return 6564
+
+    def write_variable(self, name, value):
+        log("MOCK: MockDEPS.write_variable(%s, %s)" % (name, value))
 
 
 class MockCheckout(object):
@@ -528,6 +544,9 @@ class MockCheckout(object):
         commit_message.message = lambda:"This is a fake commit message that is at least 50 characters."
         return commit_message
 
+    def chromium_deps(self):
+        return MockDEPS()
+
     def apply_patch(self, patch, force=False):
         pass
 
@@ -548,6 +567,9 @@ class MockUser(object):
     def prompt_with_list(cls, list_title, list_items, can_choose_multiple=False, raw_input=raw_input):
         pass
 
+    def __init__(self):
+        self.opened_urls = []
+
     def edit(self, files):
         pass
 
@@ -558,13 +580,14 @@ class MockUser(object):
         pass
 
     def confirm(self, message=None, default='y'):
-        print message
+        log(message)
         return default == 'y'
 
     def can_open_url(self):
         return True
 
     def open_url(self, url):
+        self.opened_urls.append(url)
         if url.startswith("file://"):
             log("MOCK: user.open_url: file://...")
             return

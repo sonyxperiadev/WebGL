@@ -144,7 +144,7 @@ void WebMediaPlayerClientImpl::repaint()
     ASSERT(m_mediaPlayer);
 #if USE(ACCELERATED_COMPOSITING)
     if (m_videoLayer.get() && supportsAcceleratedRendering())
-        m_videoLayer->setNeedsDisplay(FloatRect(0, 0, m_videoLayer->bounds().width(), m_videoLayer->bounds().height()));
+        m_videoLayer->setNeedsDisplay(IntRect(0, 0, m_videoLayer->bounds().width(), m_videoLayer->bounds().height()));
 #endif
     m_mediaPlayer->repaint();
 }
@@ -397,6 +397,17 @@ void WebMediaPlayerClientImpl::setSize(const IntSize& size)
 
 void WebMediaPlayerClientImpl::paint(GraphicsContext* context, const IntRect& rect)
 {
+#if USE(ACCELERATED_COMPOSITING)
+    // If we are using GPU to render video, ignore requests to paint frames into
+    // canvas because it will be taken care of by VideoLayerChromium.
+    if (acceleratedRenderingInUse())
+        return;
+#endif
+    paintCurrentFrameInContext(context, rect);
+}
+
+void WebMediaPlayerClientImpl::paintCurrentFrameInContext(GraphicsContext* context, const IntRect& rect)
+{
     // Normally GraphicsContext operations do nothing when painting is disabled.
     // Since we're accessing platformContext() directly we have to manually
     // check.
@@ -443,6 +454,11 @@ MediaPlayer::MovieLoadType WebMediaPlayerClientImpl::movieLoadType() const
 bool WebMediaPlayerClientImpl::supportsAcceleratedRendering() const
 {
     return m_supportsAcceleratedCompositing;
+}
+
+bool WebMediaPlayerClientImpl::acceleratedRenderingInUse()
+{
+    return m_videoLayer.get() && m_videoLayer->layerRenderer();
 }
 
 VideoFrameChromium* WebMediaPlayerClientImpl::getCurrentFrame()

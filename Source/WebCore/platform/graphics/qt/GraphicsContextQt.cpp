@@ -62,14 +62,11 @@
 #include <QPolygonF>
 #include <QStack>
 #include <QVector>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
-QPainter::CompositionMode GraphicsContext::toQtCompositionMode(CompositeOperator op)
+static inline QPainter::CompositionMode toQtCompositionMode(CompositeOperator op)
 {
     switch (op) {
     case CompositeClear:
@@ -231,8 +228,15 @@ GraphicsContextPlatformPrivate::GraphicsContextPlatformPrivate(QPainter* p, cons
     if (!painter)
         return;
 
+#if OS(SYMBIAN)
+    if (painter->paintEngine()->type() == QPaintEngine::OpenVG)
+        antiAliasingForRectsAndLines = true;
+    else
+        antiAliasingForRectsAndLines = painter->testRenderHint(QPainter::Antialiasing);
+#else
     // Use the default the QPainter was constructed with.
     antiAliasingForRectsAndLines = painter->testRenderHint(QPainter::Antialiasing);
+#endif
 
     // Used for default image interpolation quality.
     initialSmoothPixmapTransformHint = painter->testRenderHint(QPainter::SmoothPixmapTransform);
@@ -784,7 +788,7 @@ void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
     p->setClipPath(platformPath, Qt::IntersectClip);
 }
 
-void drawFocusRingForPath(QPainter* p, const QPainterPath& path, int width, const Color& color, bool antiAliasing)
+void drawFocusRingForPath(QPainter* p, const QPainterPath& path, const Color& color, bool antiAliasing)
 {
     const bool antiAlias = p->testRenderHint(QPainter::Antialiasing);
     p->setRenderHint(QPainter::Antialiasing, antiAliasing);
@@ -794,9 +798,8 @@ void drawFocusRingForPath(QPainter* p, const QPainterPath& path, int width, cons
 
     QPen nPen = p->pen();
     nPen.setColor(color);
-    nPen.setWidth(width);
     p->setBrush(Qt::NoBrush);
-    nPen.setStyle(Qt::SolidLine);
+    nPen.setStyle(Qt::DotLine);
 
     p->strokePath(path, nPen);
     p->setBrush(oldBrush);
@@ -805,14 +808,14 @@ void drawFocusRingForPath(QPainter* p, const QPainterPath& path, int width, cons
     p->setRenderHint(QPainter::Antialiasing, antiAlias);
 }
 
-void GraphicsContext::drawFocusRing(const Path& path, int width, int offset, const Color& color)
+void GraphicsContext::drawFocusRing(const Path& path, int /* width */, int offset, const Color& color)
 {
     // FIXME: Use 'offset' for something? http://webkit.org/b/49909
 
     if (paintingDisabled() || !color.isValid())
         return;
 
-    drawFocusRingForPath(m_data->p(), path.platformPath(), width, color, m_data->antiAliasingForRectsAndLines);
+    drawFocusRingForPath(m_data->p(), path.platformPath(), color, m_data->antiAliasingForRectsAndLines);
 }
 
 /**
@@ -840,8 +843,7 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
         tmpPath.addRoundedRect(rect, radius, radius);
         path = path.united(tmpPath);
     }
-
-    drawFocusRingForPath(m_data->p(), path, width, color, m_data->antiAliasingForRectsAndLines);
+    drawFocusRingForPath(m_data->p(), path, color, m_data->antiAliasingForRectsAndLines);
 }
 
 void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool)
@@ -896,7 +898,7 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect)
     qreal deviceScaleY = sqrtf(deviceTransform.m21() * deviceTransform.m21() + deviceTransform.m22() * deviceTransform.m22());
 
     QPoint deviceOrigin(frect.x() * deviceScaleX, frect.y() * deviceScaleY);
-    QPoint deviceLowerRight(frect.right() * deviceScaleX, frect.bottom() * deviceScaleY);
+    QPoint deviceLowerRight(frect.maxX() * deviceScaleX, frect.maxY() * deviceScaleY);
 
     // Don't let the height or width round to 0 unless either was originally 0
     if (deviceOrigin.y() == deviceLowerRight.y() && frect.height())
@@ -1135,7 +1137,7 @@ void GraphicsContext::rotate(float radians)
     if (paintingDisabled())
         return;
 
-    m_data->p()->rotate(180 / M_PI*radians);
+    m_data->p()->rotate(rad2deg(qreal(radians)));
 }
 
 void GraphicsContext::scale(const FloatSize& s)

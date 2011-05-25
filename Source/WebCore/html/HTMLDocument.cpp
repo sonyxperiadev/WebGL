@@ -69,7 +69,7 @@
 #include "HTMLBodyElement.h"
 #include "HTMLElementFactory.h"
 #include "HTMLNames.h"
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "KURL.h"
 #include "Page.h"
 #include "Settings.h"
@@ -79,8 +79,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLDocument::HTMLDocument(Frame* frame, const KURL& url, const KURL& baseURL)
-    : Document(frame, url, false, true, baseURL)
+HTMLDocument::HTMLDocument(Frame* frame, const KURL& url)
+    : Document(frame, url, false, true)
 {
     clearXMLVersion();
 }
@@ -277,11 +277,7 @@ void HTMLDocument::releaseEvents()
 
 PassRefPtr<DocumentParser> HTMLDocument::createParser()
 {
-    bool reportErrors = false;
-#if ENABLE(INSPECTOR)
-    if (Page* page = this->page())
-        reportErrors = page->inspectorController()->hasFrontend();
-#endif
+    bool reportErrors = InspectorInstrumentation::hasFrontend(this->page());
     return HTMLDocumentParser::create(this, reportErrors);
 }
 

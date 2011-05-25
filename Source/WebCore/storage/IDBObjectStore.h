@@ -45,11 +45,10 @@ namespace WebCore {
 
 class DOMStringList;
 class IDBAny;
-class IDBTransactionBackendInterface;
 
 class IDBObjectStore : public RefCounted<IDBObjectStore> {
 public:
-    static PassRefPtr<IDBObjectStore> create(PassRefPtr<IDBObjectStoreBackendInterface> idbObjectStore, IDBTransactionBackendInterface* transaction)
+    static PassRefPtr<IDBObjectStore> create(PassRefPtr<IDBObjectStoreBackendInterface> idbObjectStore, IDBTransaction* transaction)
     {
         return adoptRef(new IDBObjectStore(idbObjectStore, transaction));
     }
@@ -63,25 +62,27 @@ public:
     PassRefPtr<IDBRequest> add(ScriptExecutionContext* context, PassRefPtr<SerializedScriptValue> value, ExceptionCode& ec) { return add(context, value, 0, ec);  }
     PassRefPtr<IDBRequest> put(ScriptExecutionContext* context, PassRefPtr<SerializedScriptValue> value, ExceptionCode& ec) { return put(context, value, 0, ec);  }
     PassRefPtr<IDBIndex> createIndex(const String& name, const String& keyPath, ExceptionCode& ec) { return createIndex(name, keyPath, OptionsObject(), ec); }
-    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext* context, ExceptionCode& ec) { return openCursor(context, OptionsObject(), ec); }
+    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext* context, ExceptionCode& ec) { return openCursor(context, 0, ec); } 
+    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext* context, PassRefPtr<IDBKeyRange> keyRange, ExceptionCode& ec) { return openCursor(context, keyRange, IDBCursor::NEXT, ec); } 
 
     PassRefPtr<IDBRequest> get(ScriptExecutionContext*, PassRefPtr<IDBKey>, ExceptionCode&);
     PassRefPtr<IDBRequest> add(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue>, PassRefPtr<IDBKey>, ExceptionCode&);
     PassRefPtr<IDBRequest> put(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue>, PassRefPtr<IDBKey>, ExceptionCode&);
     PassRefPtr<IDBRequest> deleteFunction(ScriptExecutionContext*, PassRefPtr<IDBKey> key, ExceptionCode&);
+    PassRefPtr<IDBRequest> clear(ScriptExecutionContext*, ExceptionCode&);
 
     PassRefPtr<IDBIndex> createIndex(const String& name, const String& keyPath, const OptionsObject&, ExceptionCode&);
     PassRefPtr<IDBIndex> index(const String& name, ExceptionCode&);
     void deleteIndex(const String& name, ExceptionCode&);
 
-    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext*, const OptionsObject&, ExceptionCode&);
+    PassRefPtr<IDBRequest> openCursor(ScriptExecutionContext*, PassRefPtr<IDBKeyRange>, unsigned short direction, ExceptionCode&); 
 
 private:
-    IDBObjectStore(PassRefPtr<IDBObjectStoreBackendInterface>, IDBTransactionBackendInterface* transaction);
+    IDBObjectStore(PassRefPtr<IDBObjectStoreBackendInterface>, IDBTransaction*);
     void removeTransactionFromPendingList();
 
     RefPtr<IDBObjectStoreBackendInterface> m_objectStore;
-    RefPtr<IDBTransactionBackendInterface> m_transaction;
+    RefPtr<IDBTransaction> m_transaction;
 };
 
 } // namespace WebCore

@@ -87,6 +87,7 @@ void LayoutTestController::reset()
     DumpRenderTreeSupportQt::dumpHistoryCallbacks(false);
     DumpRenderTreeSupportQt::dumpVisitedLinksCallbacks(false);
     setIconDatabaseEnabled(false);
+    clearAllDatabases();
 
     emit hidePage();
 }
@@ -828,6 +829,11 @@ bool LayoutTestController::hasSpellingMarker(int, int)
 QVariantList LayoutTestController::nodesFromRect(const QWebElement& document, int x, int y, unsigned top, unsigned right, unsigned bottom, unsigned left, bool ignoreClipping)
 {
     return DumpRenderTreeSupportQt::nodesFromRect(document, x, y, top, right, bottom, left, ignoreClipping);
+}
+
+void LayoutTestController::addURLToRedirect(const QString& origin, const QString& destination)
+{
+    DumpRenderTreeSupportQt::addURLToRedirect(origin, destination);
 }
 
 const unsigned LayoutTestController::maxViewWidth = 800;

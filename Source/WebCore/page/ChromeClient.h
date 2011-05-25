@@ -26,7 +26,6 @@
 #include "Cursor.h"
 #include "FocusDirection.h"
 #include "GraphicsContext.h"
-#include "HTMLParserQuirks.h"
 #include "HostWindow.h"
 #include "PopupMenu.h"
 #include "PopupMenuClient.h"
@@ -53,7 +52,6 @@ namespace WebCore {
     class FloatRect;
     class Frame;
     class Geolocation;
-    class HTMLParserQuirks;
     class HitTestResult;
     class IntRect;
     class NavigationAction;
@@ -136,6 +134,10 @@ namespace WebCore {
         virtual bool shouldInterruptJavaScript() = 0;
         virtual bool tabsToLinks() const = 0;
 
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+        virtual void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title) = 0;
+#endif
+
         virtual IntRect windowResizerRect() const = 0;
 
         // Methods used by HostWindow.
@@ -211,6 +213,8 @@ namespace WebCore {
                                           float value, float proportion, ScrollbarControlPartMask);
         virtual bool paintCustomScrollCorner(GraphicsContext*, const FloatRect&);
 
+        virtual bool paintCustomOverhangArea(GraphicsContext*, const IntRect&, const IntRect&, const IntRect&);
+
         // FIXME: Remove once all ports are using client-based geolocation. https://bugs.webkit.org/show_bug.cgi?id=40373
         // For client-based geolocation, these two methods have moved to GeolocationClient. https://bugs.webkit.org/show_bug.cgi?id=50061
         // This can be either a synchronous or asynchronous call. The ChromeClient can display UI asking the user for permission
@@ -228,8 +232,6 @@ namespace WebCore {
         
         virtual void formDidFocus(const Node*) { };
         virtual void formDidBlur(const Node*) { };
-
-        virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() = 0;
 
 #if USE(ACCELERATED_COMPOSITING)
         // Pass 0 as the GraphicsLayer to detatch the root layer.
@@ -292,6 +294,7 @@ namespace WebCore {
 #endif
 
         virtual bool selectItemWritingDirectionIsNatural() = 0;
+        virtual bool selectItemAlignmentFollowsMenuWritingDirection() = 0;
         virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const = 0;
         virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const = 0;
 
@@ -300,6 +303,8 @@ namespace WebCore {
 #endif
 
         virtual void postAccessibilityNotification(AccessibilityObject*, AXObjectCache::AXNotification) { }
+
+        virtual void didCompleteRubberBandForMainFrame(const IntSize&) const { }
 
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
         virtual void webAppCanBeInstalled() = 0;

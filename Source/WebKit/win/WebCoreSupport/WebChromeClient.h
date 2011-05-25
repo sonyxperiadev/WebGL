@@ -144,8 +144,6 @@ public:
 
     virtual void formStateDidChange(const WebCore::Node*) { }
 
-    virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
-
 #if USE(ACCELERATED_COMPOSITING)
         // Pass 0 as the GraphicsLayer to detatch the root layer.
         virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*);
@@ -175,6 +173,7 @@ public:
 #endif
 
     virtual bool selectItemWritingDirectionIsNatural();
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection();
     virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
     virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 

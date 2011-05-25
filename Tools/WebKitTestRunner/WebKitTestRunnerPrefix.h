@@ -34,4 +34,5 @@
 #define min min
 #endif
 
+#include <wtf/Platform.h>
 #include <WebKit2/WebKit2.h>

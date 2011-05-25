@@ -144,6 +144,8 @@ void DocumentThreadableLoader::makeCrossOriginAccessRequestWithPreflight(const R
         preflightRequest.setHTTPHeaderField("Access-Control-Request-Headers", String::adopt(headerBuffer));
     }
 
+    preflightRequest.setPriority(request.priority());
+
     loadRequest(preflightRequest, DoSecurityCheck);
 }
 
@@ -295,6 +297,8 @@ void DocumentThreadableLoader::preflightSuccess()
 {
     OwnPtr<ResourceRequest> actualRequest;
     actualRequest.swap(m_actualRequest);
+
+    actualRequest->setHTTPOrigin(m_document->securityOrigin()->toString());
 
     // It should be ok to skip the security check since we already asked about the preflight request.
     loadRequest(*actualRequest, SkipSecurityCheck);

@@ -23,18 +23,19 @@
  *
  */
 
+#import "config.h"
+#import "WebMemorySampler.h"
+
 #if ENABLE(MEMORY_SAMPLER)  
 
-#include "WebMemorySampler.h"
-
-#include <JavaScriptCore/MemoryStatistics.h>
-#include <mach/mach.h>
-#include <mach/task.h>
-#include <mach/mach_types.h>
-#include <malloc/malloc.h>
-#include <runtime/JSLock.h>
-#include <WebCore/JSDOMWindow.h>
-#include <wtf/CurrentTime.h>
+#import <JavaScriptCore/MemoryStatistics.h>
+#import <mach/mach.h>
+#import <mach/task.h>
+#import <mach/mach_types.h>
+#import <malloc/malloc.h>
+#import <runtime/JSLock.h>
+#import <WebCore/JSDOMWindow.h>
+#import <wtf/CurrentTime.h>
 
 using namespace WebCore;
 using namespace JSC;
@@ -115,9 +116,8 @@ WebMemoryStatistics WebMemorySampler::sampleWebKit() const
     totalBytesCommitted += fastMallocBytesCommitted;
     
     JSLock lock(SilenceAssertionsOnly);
-    MarkedSpace::Statistics heapMemoryStats = heapStatistics(JSDOMWindow::commonJSGlobalData());
-    size_t jscHeapBytesInUse = heapMemoryStats.size - heapMemoryStats.free;
-    size_t jscHeapBytesCommitted = heapMemoryStats.size;
+    size_t jscHeapBytesInUse = JSDOMWindow::commonJSGlobalData()->heap.size();
+    size_t jscHeapBytesCommitted = JSDOMWindow::commonJSGlobalData()->heap.capacity();
     totalBytesInUse += jscHeapBytesInUse;
     totalBytesCommitted += jscHeapBytesCommitted;
     

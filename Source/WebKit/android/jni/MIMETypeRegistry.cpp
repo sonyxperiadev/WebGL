@@ -41,6 +41,7 @@ namespace WebCore {
 
 String MIMETypeRegistry::getMIMETypeForExtension(const String& ext)
 {
+    ASSERT(isMainThread());
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jclass mimeClass = env->FindClass("android/webkit/MimeTypeMap");
     LOG_ASSERT(mimeClass, "Could not find class MimeTypeMap");

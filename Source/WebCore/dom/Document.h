@@ -32,15 +32,19 @@
 #include "CollectionType.h"
 #include "Color.h"
 #include "ContainerNode.h"
+#include "ContentSecurityPolicy.h"
+#include "DOMTimeStamp.h"
+#include "DocumentLoader.h"
+#include "DocumentOrderedMap.h"
 #include "DocumentTiming.h"
 #include "QualifiedName.h"
 #include "ScriptExecutionContext.h"
 #include "Timer.h"
 #include "ViewportArguments.h"
 #include <wtf/FixedArray.h>
-#include <wtf/HashCountedSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/PassRefPtr.h>
 
 #if USE(JSC)
 #include <runtime/WeakGCMap.h>
@@ -347,7 +351,6 @@ public:
 
     String defaultCharset() const;
     
-    // Synonyms backing similar DOM attributes. Use Document::encoding() to avoid virtual dispatch.
     String inputEncoding() const { return Document::encoding(); }
     String charset() const { return Document::encoding(); }
     String characterSet() const { return Document::encoding(); }
@@ -429,6 +432,7 @@ public:
 #endif
     virtual bool isFrameSet() const { return false; }
     
+    CSSStyleSelector* styleSelectorIfExists() const { return m_styleSelector.get(); }
     CSSStyleSelector* styleSelector()
     { 
         if (!m_styleSelector)
@@ -554,11 +558,22 @@ public:
     // to get visually ordered hebrew and arabic pages right
     void setVisuallyOrdered();
     bool visuallyOrdered() const { return m_visuallyOrdered; }
+    
+    void setDocumentLoader(DocumentLoader* documentLoader) { m_documentLoader = documentLoader; }
+    DocumentLoader* loader() const { return m_documentLoader; }
 
     void open(Document* ownerDocument = 0);
     void implicitOpen();
+
+    // close() is the DOM API document.close()
     void close();
+    // In some situations (see the code), we ignore document.close().
+    // explicitClose() bypass these checks and actually tries to close the
+    // input stream.
+    void explicitClose();
+    // implicitClose() actually does the work of closing the input stream.
     void implicitClose();
+
     void cancelParsing();
 
     void write(const SegmentedString& text, Document* ownerDocument = 0);
@@ -952,7 +967,7 @@ public:
     virtual void postTask(PassOwnPtr<Task>); // Executes the task on context's thread asynchronously.
 
 #if USE(JSC)
-    typedef JSC::WeakGCMap<WebCore::Node*, JSNode*> JSWrapperCache;
+    typedef JSC::WeakGCMap<WebCore::Node*, JSNode> JSWrapperCache;
     typedef HashMap<DOMWrapperWorld*, JSWrapperCache*> JSWrapperCacheMap;
     JSWrapperCacheMap& wrapperCacheMap() { return m_wrapperCacheMap; }
     JSWrapperCache* getWrapperCache(DOMWrapperWorld* world);
@@ -1091,7 +1106,7 @@ public:
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     int webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback>, Element*);
     void webkitCancelRequestAnimationFrame(int id);
-    void serviceScriptedAnimations();
+    void serviceScriptedAnimations(DOMTimeStamp);
 #endif
 
     bool mayCauseFlashOfUnstyledContent() const;
@@ -1101,35 +1116,15 @@ public:
 
     void initDNSPrefetch();
 
+    ContentSecurityPolicy* contentSecurityPolicy() { return &m_contentSecurityPolicy; }
+
 protected:
-    Document(Frame*, const KURL& url, bool isXHTML, bool isHTML, const KURL& baseURL = KURL());
+    Document(Frame*, const KURL&, bool isXHTML, bool isHTML);
 
     void clearXMLVersion() { m_xmlVersion = String(); }
 
 
 private:
-    class DocumentOrderedMap {
-    public:
-        void add(AtomicStringImpl*, Element*);
-        void remove(AtomicStringImpl*, Element*);
-        void clear();
-
-        bool contains(AtomicStringImpl*) const;
-        bool containsMultiple(AtomicStringImpl*) const;
-        template<bool keyMatches(AtomicStringImpl*, Element*)> Element* get(AtomicStringImpl*, const Document*) const;
-
-        void checkConsistency() const;
-
-    private:
-        typedef HashMap<AtomicStringImpl*, Element*> Map;
-
-        // We maintain the invariant that m_duplicateCounts is the count of all elements with a given key
-        // excluding the one referenced in m_map, if any. This means it one less than the total count
-        // when the first node with a given key is cached, otherwise the same as the total count.
-        mutable Map m_map;
-        mutable HashCountedSet<AtomicStringImpl*> m_duplicateCounts;
-    };
-
     friend class IgnoreDestructiveWriteCountIncrementer;
 
     void detachParser();
@@ -1172,6 +1167,7 @@ private:
     bool m_didCalculateStyleSelector;
 
     Frame* m_frame;
+    DocumentLoader* m_documentLoader;
     OwnPtr<CachedResourceLoader> m_cachedResourceLoader;
     RefPtr<DocumentParser> m_parser;
     bool m_wellFormed;
@@ -1422,23 +1418,17 @@ private:
 
     DocumentTiming m_documentTiming;
     RefPtr<MediaQueryMatcher> m_mediaQueryMatcher;
+    bool m_writeRecursionIsTooDeep;
+    unsigned m_writeRecursionDepth;
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     typedef Vector<RefPtr<RequestAnimationFrameCallback> > RequestAnimationFrameCallbackList;
     OwnPtr<RequestAnimationFrameCallbackList> m_requestAnimationFrameCallbacks;
     int m_nextRequestAnimationFrameCallbackId;
 #endif
+
+    ContentSecurityPolicy m_contentSecurityPolicy;
 };
-
-inline bool Document::DocumentOrderedMap::contains(AtomicStringImpl* id) const
-{
-    return m_map.contains(id) || m_duplicateCounts.contains(id);
-}
-
-inline bool Document::DocumentOrderedMap::containsMultiple(AtomicStringImpl* id) const
-{
-    return m_duplicateCounts.contains(id);
-}
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const
 {

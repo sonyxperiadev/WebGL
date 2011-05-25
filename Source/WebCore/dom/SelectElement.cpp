@@ -22,7 +22,6 @@
 #include "SelectElement.h"
 
 #include "Attribute.h"
-#include "CharacterNames.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Element.h"
@@ -31,7 +30,6 @@
 #include "FormDataList.h"
 #include "Frame.h"
 #include "HTMLFormElement.h"
-#include "HTMLKeygenElement.h"
 #include "HTMLNames.h"
 #include "HTMLSelectElement.h"
 #include "KeyboardEvent.h"
@@ -43,6 +41,7 @@
 #include "RenderMenuList.h"
 #include "SpatialNavigation.h"
 #include <wtf/Assertions.h>
+#include <wtf/unicode/CharacterNames.h>
 
 #if ENABLE(WML)
 #include "WMLNames.h"
@@ -315,10 +314,13 @@ int SelectElement::selectedIndex(const SelectElementData& data, const Element* e
 
 void SelectElement::setSelectedIndex(SelectElementData& data, Element* element, int optionIndex, bool deselect, bool fireOnChangeNow, bool userDrivenChange)
 {
-    const Vector<Element*>& items = data.listItems(element);
-    int listIndex = optionToListIndex(data, element, optionIndex);
+    if (optionIndex == -1 && !deselect && !data.multiple())
+        optionIndex = nextSelectableListIndex(data, element, -1);
     if (!data.multiple())
         deselect = true;
+
+    const Vector<Element*>& items = data.listItems(element);
+    int listIndex = optionToListIndex(data, element, optionIndex);
 
     Element* excludeElement = 0;
     if (OptionElement* optionElement = (listIndex >= 0 ? toOptionElement(items[listIndex]) : 0)) {
@@ -1024,12 +1026,8 @@ const Vector<Element*>& SelectElementData::listItems(const Element* element) con
 
 SelectElement* toSelectElement(Element* element)
 {
-    if (element->isHTMLElement()) {
-        if (element->hasTagName(HTMLNames::selectTag))
-            return static_cast<HTMLSelectElement*>(element);
-        if (element->hasTagName(HTMLNames::keygenTag))
-            return static_cast<HTMLKeygenElement*>(element);
-    }
+    if (element->isHTMLElement() && element->hasTagName(HTMLNames::selectTag))
+        return static_cast<HTMLSelectElement*>(element);
 
 #if ENABLE(WML)
     if (element->isWMLElement() && element->hasTagName(WMLNames::selectTag))

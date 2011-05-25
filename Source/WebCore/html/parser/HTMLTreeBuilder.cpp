@@ -26,8 +26,8 @@
 #include "config.h"
 #include "HTMLTreeBuilder.h"
 
-#include "CharacterNames.h"
 #include "Comment.h"
+#include "DOMWindow.h"
 #include "DocumentFragment.h"
 #include "DocumentType.h"
 #include "Frame.h"
@@ -50,6 +50,7 @@
 #include "XLinkNames.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
@@ -341,7 +342,7 @@ private:
 HTMLTreeBuilder::HTMLTreeBuilder(HTMLDocumentParser* parser, HTMLDocument* document, bool reportErrors, bool usePreHTML5ParserQuirks)
     : m_framesetOk(true)
     , m_document(document)
-    , m_tree(document, FragmentScriptingAllowed, false)
+    , m_tree(document)
     , m_reportErrors(reportErrors)
     , m_isPaused(false)
     , m_insertionMode(InitialMode)
@@ -359,8 +360,8 @@ HTMLTreeBuilder::HTMLTreeBuilder(HTMLDocumentParser* parser, HTMLDocument* docum
 HTMLTreeBuilder::HTMLTreeBuilder(HTMLDocumentParser* parser, DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission, bool usePreHTML5ParserQuirks)
     : m_framesetOk(true)
     , m_fragmentContext(fragment, contextElement, scriptingPermission)
-    , m_document(m_fragmentContext.document())
-    , m_tree(m_document, scriptingPermission, true)
+    , m_document(fragment->document())
+    , m_tree(fragment, scriptingPermission)
     , m_reportErrors(false) // FIXME: Why not report errors in fragments?
     , m_isPaused(false)
     , m_insertionMode(InitialMode)
@@ -374,7 +375,6 @@ HTMLTreeBuilder::HTMLTreeBuilder(HTMLDocumentParser* parser, DocumentFragment* f
     if (contextElement) {
         // Steps 4.2-4.6 of the HTML5 Fragment Case parsing algorithm:
         // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-end.html#fragment-case
-        m_document->setCompatibilityMode(contextElement->document()->compatibilityMode());
         processFakeStartTag(htmlTag);
         resetInsertionModeAppropriately();
         m_tree.setForm(closestFormAncestor(contextElement));
@@ -403,27 +403,24 @@ HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext()
 }
 
 HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext(DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission)
-    : m_dummyDocumentForFragmentParsing(HTMLDocument::create(0, KURL(), fragment->document()->baseURI()))
-    , m_fragment(fragment)
+    : m_fragment(fragment)
     , m_contextElement(contextElement)
     , m_scriptingPermission(scriptingPermission)
 {
-    m_dummyDocumentForFragmentParsing->setCompatibilityMode(fragment->document()->compatibilityMode());
-}
-
-Document* HTMLTreeBuilder::FragmentParsingContext::document() const
-{
-    ASSERT(m_fragment);
-    return m_dummyDocumentForFragmentParsing.get();
+    ASSERT(!fragment->hasChildNodes());
 }
 
 void HTMLTreeBuilder::FragmentParsingContext::finished()
 {
-    // Populate the DocumentFragment with the parsed content now that we're done.
-    ContainerNode* root = m_dummyDocumentForFragmentParsing.get();
-    if (m_contextElement)
-        root = m_dummyDocumentForFragmentParsing->documentElement();
-    m_fragment->takeAllChildrenFrom(root);
+    if (!m_contextElement)
+        return;
+    
+    // The HTML5 spec says to return the children of the fragment's document
+    // element when there is a context element (10.4.7).
+    RefPtr<ContainerNode> documentElement = firstElementChild(m_fragment);
+    m_fragment->removeChildren();
+    ASSERT(documentElement);
+    m_fragment->takeAllChildrenFrom(documentElement.get());
 }
 
 HTMLTreeBuilder::FragmentParsingContext::~FragmentParsingContext()
@@ -2805,6 +2802,20 @@ void HTMLTreeBuilder::finished()
 
     // Warning, this may detach the parser. Do not do anything else after this.
     m_document->finishedParsing();
+}
+
+void HTMLTreeBuilder::parseError(AtomicHTMLToken&)
+{
+    DEFINE_STATIC_LOCAL(String, parseErrorMessage, ("HTML parse error (recovered gracefully)"));
+
+    if (!m_reportErrors)
+        return;
+
+    DOMWindow* domWindow = m_document->domWindow();
+    if (!domWindow)
+        return;
+
+    domWindow->console()->addMessage(HTMLMessageSource, LogMessageType, WarningMessageLevel, parseErrorMessage, m_parser->lineNumber(), m_document->url().string());
 }
 
 bool HTMLTreeBuilder::scriptEnabled(Frame* frame)

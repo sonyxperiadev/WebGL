@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "PageOverlay.h"
 
 #include "WebPage.h"
@@ -30,6 +31,7 @@
 #include <WebCore/FrameView.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/Page.h>
+#include <WebCore/ScrollbarTheme.h>
 
 using namespace WebCore;
 
@@ -55,12 +57,14 @@ IntRect PageOverlay::bounds() const
     FrameView* frameView = webPage()->corePage()->mainFrame()->view();
 
     int width = frameView->width();
-    if (frameView->verticalScrollbar())
-        width -= frameView->verticalScrollbar()->width();
     int height = frameView->height();
-    if (frameView->horizontalScrollbar())
-        height -= frameView->horizontalScrollbar()->height();
-    
+
+    if (!ScrollbarTheme::nativeTheme()->usesOverlayScrollbars()) {
+        if (frameView->verticalScrollbar())
+            width -= frameView->verticalScrollbar()->width();
+        if (frameView->horizontalScrollbar())
+            height -= frameView->horizontalScrollbar()->height();
+    }    
     return IntRect(0, 0, width, height);
 }
 
@@ -71,10 +75,10 @@ void PageOverlay::setPage(WebPage* webPage)
     m_client->didMoveToWebPage(this, webPage);
 }
 
-void PageOverlay::setNeedsDisplay(const WebCore::IntRect& dirtyRect)
+void PageOverlay::setNeedsDisplay(const IntRect& dirtyRect)
 {
     if (m_webPage)
-        m_webPage->drawingArea()->setNeedsDisplay(dirtyRect);
+        m_webPage->drawingArea()->setPageOverlayNeedsDisplay(dirtyRect);
 }
 
 void PageOverlay::setNeedsDisplay()

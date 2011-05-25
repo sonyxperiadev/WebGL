@@ -30,7 +30,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "GraphicsContext3D.h"
 
@@ -205,7 +205,7 @@ void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingCon
         // We need to draw the resizing bitmap into the canvas's backing store.
         SkCanvas canvas(*canvasBitmap);
         SkRect dst;
-        dst.set(SkIntToScalar(0), SkIntToScalar(0), canvasBitmap->width(), canvasBitmap->height());
+        dst.set(SkIntToScalar(0), SkIntToScalar(0), SkIntToScalar(canvasBitmap->width()), SkIntToScalar(canvasBitmap->height()));
         canvas.drawBitmapRect(m_resizingBitmap, 0, dst);
     }
 #elif PLATFORM(CG)
@@ -364,8 +364,13 @@ rt GraphicsContext3DInternal::name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6, t7 
     return m_impl->name(a1, a2, a3, a4, a5, a6, a7, a8, a9);   \
 }
 
+#define DELEGATE_TO_IMPL_10(name, t1, t2, t3, t4, t5, t6, t7, t8, t9, t10) \
+void GraphicsContext3DInternal::name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6, t7 a7, t8 a8, t9 a9, t10 a10) \
+{ \
+    m_impl->name(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10); \
+}
+
 DELEGATE_TO_IMPL_R(makeContextCurrent, bool)
-DELEGATE_TO_IMPL_1R(sizeInBytes, GC3Denum, unsigned int)
 
 bool GraphicsContext3DInternal::isGLES2Compliant() const
 {
@@ -692,6 +697,14 @@ void splitStringHelper(const String& str, HashSet<String>& set)
         set.add(substrings[i]);
 }
 
+String mapExtensionName(const String& name)
+{
+    if (name == "GL_ANGLE_framebuffer_blit"
+        || name == "GL_ANGLE_framebuffer_multisample")
+        return "GL_CHROMIUM_framebuffer_multisample";
+    return name;
+}
+
 } // anonymous namespace
 
 void GraphicsContext3DInternal::initializeExtensions()
@@ -711,25 +724,27 @@ void GraphicsContext3DInternal::initializeExtensions()
 bool GraphicsContext3DInternal::supportsExtension(const String& name)
 {
     initializeExtensions();
-    return m_enabledExtensions.contains(name) || m_requestableExtensions.contains(name);
+    String mappedName = mapExtensionName(name);
+    return m_enabledExtensions.contains(mappedName) || m_requestableExtensions.contains(mappedName);
 }
 
 bool GraphicsContext3DInternal::ensureExtensionEnabled(const String& name)
 {
     initializeExtensions();
 
-    if (m_enabledExtensions.contains(name))
+    String mappedName = mapExtensionName(name);
+    if (m_enabledExtensions.contains(mappedName))
         return true;
 
-    if (m_requestableExtensions.contains(name)) {
-        m_impl->requestExtensionCHROMIUM(name.ascii().data());
+    if (m_requestableExtensions.contains(mappedName)) {
+        m_impl->requestExtensionCHROMIUM(mappedName.ascii().data());
         m_enabledExtensions.clear();
         m_requestableExtensions.clear();
         m_initializedAvailableExtensions = false;
     }
 
     initializeExtensions();
-    return m_enabledExtensions.contains(name);
+    return m_enabledExtensions.contains(mappedName);
 }
 
 DELEGATE_TO_IMPL_4R(mapBufferSubDataCHROMIUM, GC3Denum, GC3Dsizeiptr, GC3Dsizei, GC3Denum, void*)
@@ -737,6 +752,8 @@ DELEGATE_TO_IMPL_1(unmapBufferSubDataCHROMIUM, const void*)
 DELEGATE_TO_IMPL_9R(mapTexSubImage2DCHROMIUM, GC3Denum, GC3Dint, GC3Dint, GC3Dint, GC3Dsizei, GC3Dsizei, GC3Denum, GC3Denum, GC3Denum, void*)
 DELEGATE_TO_IMPL_1(unmapTexSubImage2DCHROMIUM, const void*)
 DELEGATE_TO_IMPL_2(copyTextureToParentTextureCHROMIUM, Platform3DObject, Platform3DObject)
+DELEGATE_TO_IMPL_10(blitFramebufferCHROMIUM, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dbitfield, GC3Denum)
+DELEGATE_TO_IMPL_5(renderbufferStorageMultisampleCHROMIUM, GC3Denum, GC3Dsizei, GC3Denum, GC3Dsizei, GC3Dsizei)
 
 //----------------------------------------------------------------------
 // GraphicsContext3D
@@ -897,7 +914,6 @@ PlatformLayer* GraphicsContext3D::platformLayer() const
 #endif
 
 DELEGATE_TO_INTERNAL(makeContextCurrent)
-DELEGATE_TO_INTERNAL_1R(sizeInBytes, GC3Denum, unsigned int)
 DELEGATE_TO_INTERNAL_2(reshape, int, int)
 DELEGATE_TO_INTERNAL_R(getInternalFramebufferSize, IntSize)
 
@@ -1066,6 +1082,35 @@ DELEGATE_TO_INTERNAL_1(deleteTexture, Platform3DObject)
 DELEGATE_TO_INTERNAL_1(synthesizeGLError, GC3Denum)
 DELEGATE_TO_INTERNAL_R(getExtensions, Extensions3D*)
 
+DELEGATE_TO_INTERNAL_1(setContextLostCallback, PassOwnPtr<GraphicsContext3D::ContextLostCallback>)
+
+class GraphicsContextLostCallbackAdapter : public WebKit::WebGraphicsContext3D::WebGraphicsContextLostCallback {
+public:
+    virtual void onContextLost();
+    static PassOwnPtr<GraphicsContextLostCallbackAdapter> create(PassOwnPtr<GraphicsContext3D::ContextLostCallback>);
+    virtual ~GraphicsContextLostCallbackAdapter() {}
+private:
+    GraphicsContextLostCallbackAdapter(PassOwnPtr<GraphicsContext3D::ContextLostCallback> cb) : m_contextLostCallback(cb) {}
+    OwnPtr<GraphicsContext3D::ContextLostCallback> m_contextLostCallback;
+};
+
+void GraphicsContextLostCallbackAdapter::onContextLost()
+{
+    if (m_contextLostCallback)
+        m_contextLostCallback->onContextLost();
+}
+
+PassOwnPtr<GraphicsContextLostCallbackAdapter> GraphicsContextLostCallbackAdapter::create(PassOwnPtr<GraphicsContext3D::ContextLostCallback> cb)
+{
+    return adoptPtr(new GraphicsContextLostCallbackAdapter(cb));
+}
+
+void GraphicsContext3DInternal::setContextLostCallback(PassOwnPtr<GraphicsContext3D::ContextLostCallback> cb)
+{
+    m_contextLostCallbackAdapter = GraphicsContextLostCallbackAdapter::create(cb);
+    m_impl->setContextLostCallback(m_contextLostCallbackAdapter.get());
+}
+
 bool GraphicsContext3D::isGLES2Compliant() const
 {
     return m_internal->isGLES2Compliant();
@@ -1073,4 +1118,4 @@ bool GraphicsContext3D::isGLES2Compliant() const
 
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

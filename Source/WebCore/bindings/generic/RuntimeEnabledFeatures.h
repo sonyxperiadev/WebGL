@@ -97,17 +97,8 @@ public:
     static bool webkitAudioContextEnabled() { return isWebAudioEnabled; }
 #endif
 
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
+#if ENABLE(WEBGL) || ENABLE(BLOB)
     static void setWebGLEnabled(bool isEnabled) { isWebGLEnabled = isEnabled; }
-    static bool arrayBufferEnabled() { return isWebGLEnabled; }
-    static bool int8ArrayEnabled() { return isWebGLEnabled; }
-    static bool uint8ArrayEnabled() { return isWebGLEnabled; }
-    static bool int16ArrayEnabled() { return isWebGLEnabled; }
-    static bool uint16ArrayEnabled() { return isWebGLEnabled; }
-    static bool int32ArrayEnabled() { return isWebGLEnabled; }
-    static bool uint32ArrayEnabled() { return isWebGLEnabled; }
-    static bool float32ArrayEnabled() { return isWebGLEnabled; }
-    static bool dataViewEnabled() { return isWebGLEnabled; }
     static bool webGLRenderingContextEnabled() { return isWebGLEnabled; }
     static bool webGLArrayBufferEnabled() { return isWebGLEnabled; }
     static bool webGLByteArrayEnabled() { return isWebGLEnabled; }
@@ -169,6 +160,11 @@ public:
     static void setFileSystemEnabled(bool isEnabled) { isFileSystemEnabled = isEnabled; }
 #endif
 
+#if ENABLE(JAVASCRIPT_I18N_API)
+    static bool javaScriptI18NAPIEnabled();
+    static void setJavaScriptI18NAPIEnabled(bool isEnabled) { isJavaScriptI18NAPIEnabled = isEnabled; }
+#endif
+
 private:
     // Never instantiate.
     RuntimeEnabledFeatures() { }
@@ -192,6 +188,10 @@ private:
 
 #if ENABLE(FILE_SYSTEM)
     static bool isFileSystemEnabled;
+#endif
+
+#if ENABLE(JAVASCRIPT_I18N_API)
+    static bool isJavaScriptI18NAPIEnabled;
 #endif
 };
 

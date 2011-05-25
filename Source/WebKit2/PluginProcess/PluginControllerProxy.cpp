@@ -23,9 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if ENABLE(PLUGIN_PROCESS)
-
+#include "config.h"
 #include "PluginControllerProxy.h"
+
+#if ENABLE(PLUGIN_PROCESS)
 
 #include "DataReference.h"
 #include "NPObjectProxy.h"
@@ -247,6 +248,11 @@ void PluginControllerProxy::setComplexTextInputEnabled(bool complexTextInputEnab
     m_isComplexTextInputEnabled = complexTextInputEnabled;
 
     m_connection->connection()->send(Messages::PluginProxy::SetComplexTextInputEnabled(complexTextInputEnabled), m_pluginInstanceID);
+}
+
+mach_port_t PluginControllerProxy::compositingRenderServerPort()
+{
+    return PluginProcess::shared().compositingRenderServerPort();
 }
 
 String PluginControllerProxy::proxiesForURL(const String& urlString)

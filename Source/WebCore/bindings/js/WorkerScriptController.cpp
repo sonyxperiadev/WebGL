@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2011 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -80,8 +81,8 @@ void WorkerScriptController::initScript()
         RefPtr<Structure> structure = JSDedicatedWorkerContext::createStructure(dedicatedContextPrototype);
 
         m_workerContextWrapper = new (m_globalData.get()) JSDedicatedWorkerContext(structure.release(), m_workerContext->toDedicatedWorkerContext());
-        workerContextPrototype->putAnonymousValue(0, m_workerContextWrapper);
-        dedicatedContextPrototype->putAnonymousValue(0, m_workerContextWrapper);
+        workerContextPrototype->putAnonymousValue(*m_globalData, 0, m_workerContextWrapper);
+        dedicatedContextPrototype->putAnonymousValue(*m_globalData, 0, m_workerContextWrapper);
 #if ENABLE(SHARED_WORKERS)
     } else {
         ASSERT(m_workerContext->isSharedWorkerContext());
@@ -90,8 +91,8 @@ void WorkerScriptController::initScript()
         RefPtr<Structure> structure = JSSharedWorkerContext::createStructure(sharedContextPrototype);
 
         m_workerContextWrapper = new (m_globalData.get()) JSSharedWorkerContext(structure.release(), m_workerContext->toSharedWorkerContext());
-        workerContextPrototype->putAnonymousValue(0, m_workerContextWrapper);
-        sharedContextPrototype->putAnonymousValue(0, m_workerContextWrapper);
+        workerContextPrototype->putAnonymousValue(*m_globalData, 0, m_workerContextWrapper);
+        sharedContextPrototype->putAnonymousValue(*m_globalData, 0, m_workerContextWrapper);
 #endif
     }
 }
@@ -131,8 +132,15 @@ ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode,
     if (comp.complType() == Normal || comp.complType() == ReturnValue)
         return comp.value();
 
-    if (comp.complType() == Throw)
-        *exception = comp.value();
+    if (comp.complType() == Throw) {
+        String errorMessage;
+        int lineNumber = 0;
+        String sourceURL = sourceCode.url().string();
+        if (m_workerContext->sanitizeScriptError(errorMessage, lineNumber, sourceURL))
+            *exception = ScriptValue(throwError(exec, createError(exec, errorMessage.impl())));
+        else
+            *exception = comp.value();
+    }
     return JSValue();
 }
 

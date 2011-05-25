@@ -164,12 +164,6 @@ bool JSCallbackObject<Base>::getOwnPropertySlot(ExecState* exec, const Identifie
 }
 
 template <class Base>
-bool JSCallbackObject<Base>::getOwnPropertySlot(ExecState* exec, unsigned propertyName, PropertySlot& slot)
-{
-    return getOwnPropertySlot(exec, Identifier::from(exec, propertyName), slot);
-}
-
-template <class Base>
 bool JSCallbackObject<Base>::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
     PropertySlot slot;
@@ -238,7 +232,7 @@ void JSCallbackObject<Base>::put(ExecState* exec, const Identifier& propertyName
             if (StaticFunctionEntry* entry = staticFunctions->get(propertyName.impl())) {
                 if (entry->attributes & kJSPropertyAttributeReadOnly)
                     return;
-                JSCallbackObject<Base>::putDirect(propertyName, value); // put as override property
+                JSCallbackObject<Base>::putDirect(exec->globalData(), propertyName, value); // put as override property
                 return;
             }
         }
@@ -565,7 +559,7 @@ JSValue JSCallbackObject<Base>::staticFunctionGetter(ExecState* exec, JSValue sl
                 if (JSObjectCallAsFunctionCallback callAsFunction = entry->callAsFunction) {
                     
                     JSObject* o = new (exec) JSCallbackFunction(exec, asGlobalObject(thisObj->getAnonymousValue(0)), callAsFunction, propertyName);
-                    thisObj->putDirect(propertyName, o, entry->attributes);
+                    thisObj->putDirect(exec->globalData(), propertyName, o, entry->attributes);
                     return o;
                 }
             }

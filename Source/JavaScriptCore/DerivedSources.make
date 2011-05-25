@@ -27,7 +27,6 @@
 VPATH = \
     $(JavaScriptCore) \
     $(JavaScriptCore)/parser \
-    $(JavaScriptCore)/pcre \
     $(JavaScriptCore)/docs \
     $(JavaScriptCore)/runtime \
     $(JavaScriptCore)/interpreter \
@@ -40,7 +39,6 @@ all : \
     DatePrototype.lut.h \
     HeaderDetection.h \
     JSONObject.lut.h \
-    JavaScriptCore.JSVALUE32.exp \
     JavaScriptCore.JSVALUE32_64.exp \
     JavaScriptCore.JSVALUE64.exp \
     Lexer.lut.h \
@@ -50,7 +48,6 @@ all : \
     RegExpJitTables.h \
     RegExpObject.lut.h \
     StringPrototype.lut.h \
-    chartables.c \
     docs/bytecode.html \
 #
 
@@ -60,11 +57,6 @@ all : \
 	$^ -i > $@
 Lexer.lut.h: create_hash_table Keywords.table
 	$^ > $@
-
-# character tables for PCRE
-
-chartables.c : dftables
-	$^ $@
 
 docs/bytecode.html: make-bytecode-docs.pl Interpreter.cpp 
 	perl $^ $@
@@ -76,16 +68,26 @@ RegExpJitTables.h: create_regex_tables
 
 # export files
 
-JavaScriptCore.JSVALUE32.exp: JavaScriptCore.exp JavaScriptCore.JSVALUE32only.exp
-	cat $^ > $@
-
 JavaScriptCore.JSVALUE32_64.exp: JavaScriptCore.exp JavaScriptCore.JSVALUE32_64only.exp
 	cat $^ > $@
 
 JavaScriptCore.JSVALUE64.exp: JavaScriptCore.exp JavaScriptCore.JSVALUE64only.exp
 	cat $^ > $@
 
+
 # header detection
 
-HeaderDetection.h : DerivedSources.make
-	if [ -f $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/pthread_machdep.h ]; then echo "#define HAVE_PTHREAD_MACHDEP_H 1" > $@; else echo > $@; fi
+ifeq ($(OS),MACOS)
+
+HeaderDetection.h : DerivedSources.make /System/Library/CoreServices/SystemVersion.plist
+	rm -f $@
+	echo "/* This is a generated file. Do not edit. */" > $@
+	if [ -f $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/pthread_machdep.h ]; then echo "#define HAVE_PTHREAD_MACHDEP_H 1" >> $@; else echo >> $@; fi
+	if [ -f $(SDKROOT)/System/Library/Frameworks/AppKit.framework/PrivateHeaders/NSScrollerImpPair_Private.h ]; then echo "#define USE_WK_SCROLLBAR_PAINTER_AND_CONTROLLER 1" >> $@; else echo >> $@; fi
+
+else
+
+HeaderDetection.h :
+	echo > $@
+
+endif

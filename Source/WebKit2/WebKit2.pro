@@ -13,8 +13,8 @@ CONFIG(standalone_package) {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = ../WebCore/generated
 }
 
-include($$PWD/../../WebKit.pri)
-include($$PWD/../../common.pri)
+include($$PWD/../WebKit.pri)
+include($$PWD/../common.pri)
 include($$PWD/../WebCore/features.pri)
 include(WebKit2.pri)
 
@@ -45,7 +45,6 @@ WEBKIT2_INCLUDEPATH = \
     $$PWD/../JavaScriptCore/interpreter \
     $$PWD/../JavaScriptCore/jit \
     $$PWD/../JavaScriptCore/parser \
-    $$PWD/../JavaScriptCore/pcre \
     $$PWD/../JavaScriptCore/profiler \
     $$PWD/../JavaScriptCore/runtime \
     $$PWD/../JavaScriptCore/wtf \
@@ -170,9 +169,6 @@ symbian {
     INCLUDEPATH = $$WEBKIT2_INCLUDEPATH $$INCLUDEPATH
 }
 
-PREFIX_HEADER = $$PWD/../WebKit2/WebKit2Prefix.h
-*-g++*:QMAKE_CXXFLAGS += "-include $$PREFIX_HEADER"
-
 WEBKIT2_GENERATED_HEADERS = \
     $$WEBKIT2_GENERATED_SOURCES_DIR/AuthenticationManagerMessages.h \
     $$WEBKIT2_GENERATED_SOURCES_DIR/DownloadProxyMessages.h \
@@ -232,12 +228,12 @@ HEADERS += \
     Platform/SharedMemory.h \
     Platform/WorkItem.h \
     Platform/WorkQueue.h \
-    Platform/qt/MappedMemoryPool.h \
     Shared/API/c/WKBase.h \
     Shared/API/c/WKCertificateInfo.h \
     Shared/API/c/WKContextMenuItem.h \
     Shared/API/c/WKContextMenuItemTypes.h \
     Shared/API/c/WKGeometry.h \
+    Shared/API/c/WKGraphicsContext.h \
     Shared/API/c/WKImage.h \
     Shared/API/c/WKNumber.h \
     Shared/API/c/WKPageLoadTypes.h \
@@ -280,6 +276,7 @@ HEADERS += \
     Shared/WebEventConversion.h \
     Shared/WebFindOptions.h \
     Shared/WebGeolocationPosition.h \
+    Shared/WebGraphicsContext.h \
     Shared/WebImage.h \
     Shared/WebNavigationDataStore.h \
     Shared/WebNumber.h \
@@ -293,7 +290,6 @@ HEADERS += \
     Shared/WebURLResponse.h \
     Shared/WebUserContentURLPattern.h \
     Shared/Plugins/Netscape/NetscapePluginModule.h \
-    Shared/qt/CleanupHandler.h \
     Shared/qt/PlatformCertificateInfo.h \
     Shared/qt/UpdateChunk.h \
     Shared/qt/WebEventFactoryQt.h \
@@ -398,6 +394,7 @@ HEADERS += \
     WebProcess/InjectedBundle/API/c/WKBundleBackForwardList.h \
     WebProcess/InjectedBundle/API/c/WKBundleBackForwardListItem.h \
     WebProcess/InjectedBundle/API/c/WKBundleHitTestResult.h \
+    WebProcess/InjectedBundle/API/c/WKBundleNavigationAction.h \
     WebProcess/InjectedBundle/API/c/WKBundleNodeHandle.h \
     WebProcess/InjectedBundle/API/c/WKBundleNodeHandlePrivate.h \
     WebProcess/InjectedBundle/API/c/WKBundlePage.h \
@@ -408,8 +405,10 @@ HEADERS += \
     WebProcess/InjectedBundle/InjectedBundle.h \
     WebProcess/InjectedBundle/InjectedBundleClient.h \
     WebProcess/InjectedBundle/InjectedBundleHitTestResult.h \
+    WebProcess/InjectedBundle/InjectedBundleNavigationAction.h \
     WebProcess/InjectedBundle/InjectedBundlePageContextMenuClient.h \
     WebProcess/InjectedBundle/InjectedBundlePageFormClient.h \
+    WebProcess/InjectedBundle/InjectedBundlePagePolicyClient.h \
     WebProcess/InjectedBundle/InjectedBundlePageUIClient.h \
     WebProcess/InjectedBundle/InjectedBundleScriptWorld.h \
     WebProcess/InjectedBundle/InjectedBundleUserMessageCoders.h \
@@ -459,12 +458,12 @@ SOURCES += \
     Platform/CoreIPC/BinarySemaphore.cpp \
     Platform/CoreIPC/Connection.cpp \
     Platform/CoreIPC/DataReference.cpp \
+    Platform/CoreIPC/qt/AttachmentQt.cpp \
     Platform/CoreIPC/qt/ConnectionQt.cpp \
     Platform/Logging.cpp \
     Platform/Module.cpp \
     Platform/RunLoop.cpp \
     Platform/WorkQueue.cpp \
-    Platform/qt/MappedMemoryPool.cpp \
     Platform/qt/ModuleQt.cpp \
     Platform/qt/RunLoopQt.cpp \
     Platform/qt/SharedMemoryQt.cpp \
@@ -472,6 +471,7 @@ SOURCES += \
     Shared/API/c/WKArray.cpp \
     Shared/API/c/WKCertificateInfo.cpp \
     Shared/API/c/WKContextMenuItem.cpp \
+    Shared/API/c/WKGraphicsContext.cpp \
     Shared/API/c/WKImage.cpp \
     Shared/API/c/WKNumber.cpp \
     Shared/API/c/WKSecurityOrigin.cpp \
@@ -502,6 +502,7 @@ SOURCES += \
     Shared/WebEvent.cpp \
     Shared/WebEventConversion.cpp \
     Shared/WebGeolocationPosition.cpp \
+    Shared/WebGraphicsContext.cpp \
     Shared/WebKeyboardEvent.cpp \
     Shared/WebImage.cpp \
     Shared/WebMouseEvent.cpp \
@@ -517,7 +518,6 @@ SOURCES += \
     Shared/WebURLResponse.cpp \
     Shared/WebWheelEvent.cpp \
     Shared/qt/ShareableBitmapQt.cpp \
-    Shared/qt/CleanupHandler.cpp \
     Shared/qt/NativeWebKeyboardEventQt.cpp \
     Shared/qt/UpdateChunk.cpp \
     Shared/qt/WebCoreArgumentCodersQt.cpp \
@@ -623,6 +623,8 @@ SOURCES += \
     WebProcess/InjectedBundle/API/c/WKBundleBackForwardListItem.cpp \
     WebProcess/InjectedBundle/API/c/WKBundleFrame.cpp \
     WebProcess/InjectedBundle/API/c/WKBundleHitTestResult.cpp \
+    WebProcess/InjectedBundle/API/c/WKBundleInspector.cpp \
+    WebProcess/InjectedBundle/API/c/WKBundleNavigationAction.cpp \
     WebProcess/InjectedBundle/API/c/WKBundleNodeHandle.cpp \
     WebProcess/InjectedBundle/API/c/WKBundlePage.cpp \
     WebProcess/InjectedBundle/API/c/WKBundlePageGroup.cpp \
@@ -631,14 +633,17 @@ SOURCES += \
     WebProcess/InjectedBundle/DOM/InjectedBundleNodeHandle.cpp \
     WebProcess/InjectedBundle/DOM/InjectedBundleRangeHandle.cpp \
     WebProcess/InjectedBundle/InjectedBundle.cpp \
-    WebProcess/InjectedBundle/InjectedBundleClient.cpp \
     WebProcess/InjectedBundle/InjectedBundleBackForwardList.cpp \
     WebProcess/InjectedBundle/InjectedBundleBackForwardListItem.cpp \
+    WebProcess/InjectedBundle/InjectedBundleClient.cpp \
     WebProcess/InjectedBundle/InjectedBundleHitTestResult.cpp \    
+    WebProcess/InjectedBundle/InjectedBundleNavigationAction.cpp \
     WebProcess/InjectedBundle/InjectedBundlePageContextMenuClient.cpp \
     WebProcess/InjectedBundle/InjectedBundlePageEditorClient.cpp \
     WebProcess/InjectedBundle/InjectedBundlePageFormClient.cpp \
     WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.cpp \
+    WebProcess/InjectedBundle/InjectedBundlePagePolicyClient.cpp \
+    WebProcess/InjectedBundle/InjectedBundlePageResourceLoadClient.cpp \
     WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp \
     WebProcess/InjectedBundle/InjectedBundleScriptWorld.cpp \
     WebProcess/InjectedBundle/qt/InjectedBundleQt.cpp \
@@ -666,7 +671,6 @@ SOURCES += \
     WebProcess/WebCoreSupport/WebPopupMenu.cpp \
     WebProcess/WebCoreSupport/WebSearchPopupMenu.cpp \
     WebProcess/WebCoreSupport/qt/WebContextMenuClientQt.cpp \
-    WebProcess/WebCoreSupport/qt/WebDatabaseManagerQt.cpp \
     WebProcess/WebCoreSupport/qt/WebErrorsQt.cpp \
     WebProcess/WebCoreSupport/qt/WebFrameNetworkingContext.cpp \
     WebProcess/WebCoreSupport/qt/WebPopupMenuQt.cpp \
@@ -693,3 +697,4 @@ SOURCES += \
     WebProcess/qt/WebProcessMainQt.cpp \
     WebProcess/qt/WebProcessQt.cpp \
     $$WEBKIT2_GENERATED_SOURCES
+

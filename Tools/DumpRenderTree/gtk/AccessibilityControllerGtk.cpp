@@ -27,6 +27,7 @@
 #include "config.h"
 #include "AccessibilityController.h"
 
+#include "AccessibilityCallbacks.h"
 #include "AccessibilityUIElement.h"
 #include "DumpRenderTree.h"
 #include "WebCoreSupport/DumpRenderTreeSupportGtk.h"
@@ -34,6 +35,8 @@
 #include <atk/atk.h>
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
+
+static bool loggingAccessibilityEvents = false;
 
 AccessibilityController::AccessibilityController()
 {
@@ -77,6 +80,21 @@ void AccessibilityController::setLogScrollingStartEvents(bool)
 
 void AccessibilityController::setLogValueChangeEvents(bool)
 {
+}
+
+void AccessibilityController::setLogAccessibilityEvents(bool logAccessibilityEvents)
+{
+    if (logAccessibilityEvents == loggingAccessibilityEvents)
+        return;
+
+    if (!logAccessibilityEvents) {
+        disconnectAccessibilityCallbacks();
+        loggingAccessibilityEvents = false;
+        return;
+    }
+
+    connectAccessibilityCallbacks();
+    loggingAccessibilityEvents = true;
 }
 
 void AccessibilityController::addNotificationListener(PlatformUIElement, JSObjectRef)

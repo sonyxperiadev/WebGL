@@ -27,7 +27,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #include "config.h"
 #include "SimpleFontData.h"
 
@@ -35,9 +34,8 @@
 #include "Font.h"
 #include "FontCache.h"
 #include "FontDescription.h"
-#include <wtf/MathExtras.h>
 #include <mlang.h>
-#include <tchar.h>
+#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
@@ -51,11 +49,14 @@ void SimpleFontData::platformInit()
     const TEXTMETRIC& tm = m_platformData.metrics();
     m_isSystemFont = m_platformData.isSystemFont();
 
-    m_ascent = (tm.tmAscent * m_platformData.size() + 36) / 72;
-    m_descent = (tm.tmDescent * m_platformData.size() + 36) / 72;
-    m_lineGap = (tm.tmExternalLeading * m_platformData.size() + 36) / 72;
-    m_lineSpacing = m_ascent + m_descent + m_lineGap;
-    m_xHeight = m_ascent * 0.56f;
+    float ascent = (tm.tmAscent * m_platformData.size() + 36) / 72.0f;
+    float descent = (tm.tmDescent * m_platformData.size() + 36) / 72.0f;
+    float lineGap = (tm.tmExternalLeading * m_platformData.size() + 36) / 72.0f;
+    m_fontMetrics.setAscent(ascent);
+    m_fontMetrics.setDescent(descent);
+    m_fontMetrics.setLineGap(lineGap);
+    m_fontMetrics.setLineSpacing(lroundf(ascent) + lroundf(descent) + lroundf(lineGap));
+    m_fontMetrics.setXHeight(ascent * 0.56f);
 }
 
 void SimpleFontData::platformDestroy()

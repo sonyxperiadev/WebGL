@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WKPage.h"
 #include "WKPagePrivate.h"
 
@@ -290,6 +291,16 @@ WKSize WKPageFixedLayoutSize(WKPageRef pageRef)
     return toAPI(toImpl(pageRef)->fixedLayoutSize());
 }
 
+bool WKPageHasHorizontalScrollbar(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->hasHorizontalScrollbar();
+}
+
+bool WKPageHasVerticalScrollbar(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->hasVerticalScrollbar();
+}
+
 void WKPageFindString(WKPageRef pageRef, WKStringRef string, WKFindOptions options, unsigned maxMatchCount)
 {
     toImpl(pageRef)->findString(toImpl(string)->string(), toFindOptions(options), maxMatchCount);
@@ -429,3 +440,15 @@ void WKPageGetContentsAsString_b(WKPageRef pageRef, WKPageGetSourceForFrameBlock
     WKPageGetContentsAsString(pageRef, Block_copy(block), callContentsAsStringBlockBlockAndDispose);
 }
 #endif
+
+void WKPageForceRepaint(WKPageRef pageRef, void* context, WKPageForceRepaintFunction callback)
+{
+    toImpl(pageRef)->forceRepaint(VoidCallback::create(context, callback));
+}
+
+WK_EXPORT WKURLRef WKPageCopyPendingAPIRequestURL(WKPageRef pageRef)
+{
+    if (toImpl(pageRef)->pendingAPIRequestURL().isNull())
+        return 0;
+    return toCopiedURLAPI(toImpl(pageRef)->pendingAPIRequestURL());
+}

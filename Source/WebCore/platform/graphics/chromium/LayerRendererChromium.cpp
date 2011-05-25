@@ -143,20 +143,19 @@ void LayerRendererChromium::useShader(unsigned programId)
 
 IntRect LayerRendererChromium::verticalScrollbarRect(const IntRect& visibleRect, const IntRect& contentRect)
 {
-    IntRect verticalScrollbar(IntPoint(contentRect.right(), contentRect.y()), IntSize(visibleRect.width() - contentRect.width(), visibleRect.height()));
+    IntRect verticalScrollbar(IntPoint(contentRect.maxX(), contentRect.y()), IntSize(visibleRect.width() - contentRect.width(), visibleRect.height()));
     return verticalScrollbar;
 }
 
 IntRect LayerRendererChromium::horizontalScrollbarRect(const IntRect& visibleRect, const IntRect& contentRect)
 {
-    IntRect horizontalScrollbar(IntPoint(contentRect.x(), contentRect.bottom()), IntSize(visibleRect.width(), visibleRect.height() - contentRect.height()));
+    IntRect horizontalScrollbar(IntPoint(contentRect.x(), contentRect.maxY()), IntSize(visibleRect.width(), visibleRect.height() - contentRect.height()));
     return horizontalScrollbar;
 }
 
 void LayerRendererChromium::invalidateRootLayerRect(const IntRect& dirtyRect, const IntRect& visibleRect, const IntRect& contentRect)
 {
-    if (contentRect.intersects(dirtyRect))
-        m_rootLayerTiler->invalidateRect(dirtyRect);
+    m_rootLayerTiler->invalidateRect(dirtyRect);
     if (m_horizontalScrollbarTiler) {
         IntRect scrollbar = horizontalScrollbarRect(visibleRect, contentRect);
         if (dirtyRect.intersects(scrollbar)) {
@@ -266,6 +265,11 @@ void LayerRendererChromium::drawLayers(const IntRect& visibleRect, const IntRect
     // Re-enable color writes to layers, which may be partially transparent.
     m_context->colorMask(true, true, true, true);
 
+    // Recheck that we still have a root layer.  This may become null if
+    // compositing gets turned off during a paint operation.
+    if (!m_rootLayer)
+        return;
+
     // Set the root visible/content rects --- used by subsequent drawLayers calls.
     m_rootVisibleRect = visibleRect;
     m_rootContentRect = contentRect;
@@ -346,8 +350,8 @@ void LayerRendererChromium::setRootLayer(PassRefPtr<LayerChromium> layer)
 
 void LayerRendererChromium::getFramebufferPixels(void *pixels, const IntRect& rect)
 {
-    ASSERT(rect.right() <= rootLayerTextureSize().width()
-           && rect.bottom() <= rootLayerTextureSize().height());
+    ASSERT(rect.maxX() <= rootLayerTextureSize().width()
+           && rect.maxY() <= rootLayerTextureSize().height());
 
     if (!pixels)
         return;
@@ -388,7 +392,7 @@ bool LayerRendererChromium::isLayerVisible(LayerChromium* layer, const Transform
     // bounds into clip space.
     TransformationMatrix renderMatrix = matrix;
     renderMatrix.scale3d(layer->bounds().width(), layer->bounds().height(), 1);
-    renderMatrix.multiply(m_projectionMatrix);
+    renderMatrix = m_projectionMatrix * renderMatrix;
 
     FloatRect layerRect(-0.5, -0.5, 1, 1);
     FloatRect mappedRect = renderMatrix.mapRect(layerRect);
@@ -434,12 +438,12 @@ void LayerRendererChromium::updateLayersRecursive(LayerChromium* layer, const Tr
     // LT = Tr[l]
     layerLocalTransform.translate3d(position.x(), position.y(), layer->anchorPointZ());
     // LT = Tr[l] * M[l]
-    layerLocalTransform.multLeft(layer->transform());
+    layerLocalTransform.multiply(layer->transform());
     // LT = Tr[l] * M[l] * Tr[c]
     layerLocalTransform.translate3d(centerOffsetX, centerOffsetY, -layer->anchorPointZ());
 
     TransformationMatrix combinedTransform = parentMatrix;
-    combinedTransform = combinedTransform.multLeft(layerLocalTransform);
+    combinedTransform = combinedTransform.multiply(layerLocalTransform);
 
     FloatRect layerRect(-0.5 * layer->bounds().width(), -0.5 * layer->bounds().height(), layer->bounds().width(), layer->bounds().height());
     IntRect transformedLayerRect;
@@ -448,12 +452,17 @@ void LayerRendererChromium::updateLayersRecursive(LayerChromium* layer, const Tr
     // these conditions hold:
     // 1. The layer clips its descendants and its transform is not a simple translation.
     // 2. If the layer has opacity != 1 and does not have a preserves-3d transform style.
+    // 3. The layer uses a mask
+    // 4. The layer has a replica (used for reflections)
     // If a layer preserves-3d then we don't create a RenderSurface for it to avoid flattening
     // out its children. The opacity value of the children layers is multiplied by the opacity
     // of their parent.
     bool useSurfaceForClipping = layer->masksToBounds() && !isScaleOrTranslation(combinedTransform);
     bool useSurfaceForOpacity = layer->opacity() != 1 && !layer->preserves3D();
-    if ((useSurfaceForClipping || useSurfaceForOpacity) && layer->descendantsDrawContent()) {
+    bool useSurfaceForMasking = layer->maskLayer();
+    bool useSurfaceForReflection = layer->replicaLayer();
+    if (((useSurfaceForClipping || useSurfaceForOpacity) && layer->descendantsDrawContent())
+        || useSurfaceForMasking || useSurfaceForReflection) {
         RenderSurfaceChromium* renderSurface = layer->m_renderSurface.get();
         if (!renderSurface)
             renderSurface = layer->createRenderSurface();
@@ -486,6 +495,18 @@ void LayerRendererChromium::updateLayersRecursive(LayerChromium* layer, const Tr
         renderSurface->m_scissorRect = layer->superlayer()->m_scissorRect;
 
         renderSurface->m_layerList.clear();
+
+        if (layer->maskLayer()) {
+            renderSurface->m_maskLayer = layer->maskLayer();
+            layer->maskLayer()->setLayerRenderer(this);
+            layer->maskLayer()->m_targetRenderSurface = renderSurface;
+        } else
+            renderSurface->m_maskLayer = 0;
+
+        if (layer->replicaLayer() && layer->replicaLayer()->maskLayer()) {
+            layer->replicaLayer()->maskLayer()->setLayerRenderer(this);
+            layer->replicaLayer()->maskLayer()->m_targetRenderSurface = renderSurface;
+        }
 
         renderSurfaceLayerList.append(layer);
     } else {
@@ -540,7 +561,7 @@ void LayerRendererChromium::updateLayersRecursive(LayerChromium* layer, const Tr
     }
 
     // Apply the sublayer transform at the center of the layer.
-    sublayerMatrix.multLeft(layer->sublayerTransform());
+    sublayerMatrix.multiply(layer->sublayerTransform());
 
     // The origin of the sublayers is the top left corner of the layer, not the
     // center. The matrix passed down to the sublayers is therefore:
@@ -558,16 +579,13 @@ void LayerRendererChromium::updateLayersRecursive(LayerChromium* layer, const Tr
 
         if (sublayer->m_renderSurface) {
             RenderSurfaceChromium* sublayerRenderSurface = sublayer->m_renderSurface.get();
-            const IntRect& contentRect = sublayerRenderSurface->contentRect();
-            FloatRect sublayerRect(-0.5 * contentRect.width(), -0.5 * contentRect.height(),
-                                   contentRect.width(), contentRect.height());
-            layer->m_drawableContentRect.unite(enclosingIntRect(sublayerRenderSurface->m_drawTransform.mapRect(sublayerRect)));
+            layer->m_drawableContentRect.unite(enclosingIntRect(sublayerRenderSurface->drawableContentRect()));
             descendants.append(sublayer);
         } else
             layer->m_drawableContentRect.unite(sublayer->m_drawableContentRect);
     }
 
-    if (layer->masksToBounds())
+    if (layer->masksToBounds() || useSurfaceForMasking)
         layer->m_drawableContentRect.intersect(transformedLayerRect);
 
     if (layer->m_renderSurface && layer != m_rootLayer) {
@@ -577,9 +595,13 @@ void LayerRendererChromium::updateLayersRecursive(LayerChromium* layer, const Tr
 
         // Restrict the RenderSurface size to the portion that's visible.
         FloatSize centerOffsetDueToClipping;
-        renderSurface->m_contentRect.intersect(layer->m_scissorRect);
-        FloatPoint clippedSurfaceCenter = renderSurface->contentRectCenter();
-        centerOffsetDueToClipping = clippedSurfaceCenter - surfaceCenter;
+        // Don't clip if the layer is reflected as the reflection shouldn't be
+        // clipped.
+        if (!layer->replicaLayer()) {
+            renderSurface->m_contentRect.intersect(layer->m_scissorRect);
+            FloatPoint clippedSurfaceCenter = renderSurface->contentRectCenter();
+            centerOffsetDueToClipping = clippedSurfaceCenter - surfaceCenter;
+        }
 
         // The RenderSurface backing texture cannot exceed the maximum supported
         // texture size.
@@ -596,6 +618,15 @@ void LayerRendererChromium::updateLayersRecursive(LayerChromium* layer, const Tr
         // Adjust the origin of the transform to be the center of the render surface.
         renderSurface->m_drawTransform = renderSurface->m_originTransform;
         renderSurface->m_drawTransform.translate3d(surfaceCenter.x() + centerOffsetDueToClipping.width(), surfaceCenter.y() + centerOffsetDueToClipping.height(), 0);
+
+        // Compute the transformation matrix used to draw the replica of the render
+        // surface.
+        if (layer->replicaLayer()) {
+            renderSurface->m_replicaDrawTransform = renderSurface->m_originTransform;
+            renderSurface->m_replicaDrawTransform.translate3d(layer->replicaLayer()->position().x(), layer->replicaLayer()->position().y(), 0);
+            renderSurface->m_replicaDrawTransform.multiply(layer->replicaLayer()->transform());
+            renderSurface->m_replicaDrawTransform.translate3d(surfaceCenter.x() - anchorPoint.x() * bounds.width(), surfaceCenter.y() - anchorPoint.y() * bounds.height(), 0);
+        }
     }
 
     // Compute the depth value of the center of the layer which will be used when
@@ -682,10 +713,10 @@ void LayerRendererChromium::drawLayer(LayerChromium* layer, RenderSurfaceChromiu
     if (!isLayerVisible)
         return;
 
-    // FIXME: Need to take into account the transform of the containing
-    // RenderSurface here, otherwise single-sided layers that draw on
-    // transformed surfaces won't always be culled properly.
-    if (!layer->doubleSided() && layer->m_drawTransform.m33() < 0)
+    // FIXME: Need to take into account the commulative render surface transforms all the way from
+    //        the default render surface in order to determine visibility.
+    TransformationMatrix combinedDrawMatrix = (layer->m_renderSurface ? layer->m_renderSurface->drawTransform().multiply(layer->m_drawTransform) : layer->m_drawTransform);
+    if (!layer->doubleSided() && combinedDrawMatrix.m33() < 0)
          return;
 
     if (layer->drawsContent()) {
@@ -711,7 +742,7 @@ void LayerRendererChromium::setScissorToRect(const IntRect& scissorRect)
     // But, if rendering to offscreen texture, we reverse our sense of 'upside down'.
     int scissorY;
     if (m_currentRenderSurface == m_defaultRenderSurface && !m_compositeOffscreen)
-        scissorY = m_currentRenderSurface->m_contentRect.height() - (scissorRect.bottom() - m_currentRenderSurface->m_contentRect.y());
+        scissorY = m_currentRenderSurface->m_contentRect.height() - (scissorRect.maxY() - m_currentRenderSurface->m_contentRect.y());
     else
         scissorY = scissorRect.y() - m_currentRenderSurface->m_contentRect.y();
     GLC(m_context.get(), m_context->scissor(scissorX, scissorY, scissorRect.width(), scissorRect.height()));
@@ -737,9 +768,9 @@ bool LayerRendererChromium::checkTextureSize(const IntSize& textureSize)
 void LayerRendererChromium::setDrawViewportRect(const IntRect& drawRect, bool flipY)
 {
     if (flipY)
-        m_projectionMatrix = orthoMatrix(drawRect.x(), drawRect.right(), drawRect.bottom(), drawRect.y());
+        m_projectionMatrix = orthoMatrix(drawRect.x(), drawRect.maxX(), drawRect.maxY(), drawRect.y());
     else
-        m_projectionMatrix = orthoMatrix(drawRect.x(), drawRect.right(), drawRect.y(), drawRect.bottom());
+        m_projectionMatrix = orthoMatrix(drawRect.x(), drawRect.maxX(), drawRect.y(), drawRect.maxY());
     GLC(m_context.get(), m_context->viewport(0, 0, drawRect.width(), drawRect.height()));
 }
 

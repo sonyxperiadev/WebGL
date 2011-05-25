@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WKPreferences.h"
 #include "WKPreferencesPrivate.h"
 
@@ -330,6 +331,16 @@ bool WKPreferencesGetCompositingRepaintCountersVisible(WKPreferencesRef preferen
     return toImpl(preferencesRef)->compositingRepaintCountersVisible();
 }
 
+void WKPreferencesSetWebGLEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setWebGLEnabled(flag);
+}
+
+bool WKPreferencesGetWebGLEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->webGLEnabled();
+}
+
 void WKPreferencesSetNeedsSiteSpecificQuirks(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setNeedsSiteSpecificQuirks(flag);
@@ -448,4 +459,14 @@ void WKPreferencesSetDOMPasteAllowed(WKPreferencesRef preferencesRef, bool enabl
 bool WKPreferencesGetDOMPasteAllowed(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->domPasteAllowed();
+}
+
+void WKPreferencesSetJavaScriptCanAccessClipboard(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setJavaScriptCanAccessClipboard(enabled);
+}
+
+bool WKPreferencesGetJavaScriptCanAccessClipboard(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->javaScriptCanAccessClipboard();
 }

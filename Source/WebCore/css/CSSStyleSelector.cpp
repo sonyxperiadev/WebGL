@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2004-2005 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2006, 2007 Nicholas Shanks (webkit@nickshanks.com)
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -352,73 +352,43 @@ if (id == propID) { \
     return; \
 }
 
-class CSSRuleData {
-    WTF_MAKE_NONCOPYABLE(CSSRuleData);
+class RuleData {
 public:
-    CSSRuleData(unsigned pos, CSSStyleRule* r, CSSSelector* sel, CSSRuleData* prev = 0)
-        : m_position(pos)
-        , m_rule(r)
-        , m_selector(sel)
-        , m_next(0)
-    {
-        if (prev)
-            prev->m_next = this;
-    }
+    RuleData(CSSStyleRule*, CSSSelector*, unsigned position);
 
-    ~CSSRuleData()
-    {
-    }
-
-    unsigned position() { return m_position; }
-    CSSStyleRule* rule() { return m_rule; }
-    CSSSelector* selector() { return m_selector; }
-    CSSRuleData* next() { return m_next; }
+    unsigned position() const { return m_position; }
+    CSSStyleRule* rule() const { return m_rule; }
+    CSSSelector* selector() const { return m_selector; }
+    
+    bool hasFastCheckableSelector() const { return m_hasFastCheckableSelector; }
+    bool hasMultipartSelector() const { return m_hasMultipartSelector; }
+    bool hasTopSelectorMatchingHTMLBasedOnRuleHash() const { return m_hasTopSelectorMatchingHTMLBasedOnRuleHash; }
+    
+    // Try to balance between memory usage (there can be lots of RuleData objects) and good filtering performance.
+    static const unsigned maximumIdentifierCount = 4;
+    const unsigned* descendantSelectorIdentifierHashes() const { return m_descendantSelectorIdentifierHashes; }
 
 private:
-    unsigned m_position;
+    void collectDescendantSelectorIdentifierHashes();
+    void collectIdentifierHashes(const CSSSelector*, unsigned& identifierCount);
+    
     CSSStyleRule* m_rule;
     CSSSelector* m_selector;
-    CSSRuleData* m_next;
+    unsigned m_position : 29;
+    bool m_hasFastCheckableSelector : 1;
+    bool m_hasMultipartSelector : 1;
+    bool m_hasTopSelectorMatchingHTMLBasedOnRuleHash : 1;
+    // Use plain array instead of a Vector to minimize memory overhead.
+    unsigned m_descendantSelectorIdentifierHashes[maximumIdentifierCount];
 };
 
-class CSSRuleDataList {
-    WTF_MAKE_NONCOPYABLE(CSSRuleDataList);
+class RuleSet {
+    WTF_MAKE_NONCOPYABLE(RuleSet);
 public:
-    CSSRuleDataList(unsigned pos, CSSStyleRule* rule, CSSSelector* sel)
-        : m_first(new CSSRuleData(pos, rule, sel))
-        , m_last(m_first)
-    {
-    }
-
-    ~CSSRuleDataList()
-    {
-        CSSRuleData* ptr;
-        CSSRuleData* next;
-        ptr = m_first;
-        while (ptr) {
-            next = ptr->next();
-            delete ptr;
-            ptr = next;
-        }
-    }
-
-    CSSRuleData* first() const { return m_first; }
-    CSSRuleData* last() const { return m_last; }
-
-    void append(unsigned pos, CSSStyleRule* rule, CSSSelector* sel) { m_last = new CSSRuleData(pos, rule, sel, m_last); }
-
-private:
-    CSSRuleData* m_first;
-    CSSRuleData* m_last;
-};
-
-class CSSRuleSet {
-    WTF_MAKE_NONCOPYABLE(CSSRuleSet);
-public:
-    CSSRuleSet();
-    ~CSSRuleSet();
+    RuleSet();
+    ~RuleSet();
     
-    typedef HashMap<AtomicStringImpl*, CSSRuleDataList*> AtomRuleMap;
+    typedef HashMap<AtomicStringImpl*, Vector<RuleData>*> AtomRuleMap;
     
     void addRulesFromSheet(CSSStyleSheet*, const MediaQueryEvaluator&, CSSStyleSelector* = 0);
 
@@ -427,34 +397,36 @@ public:
     void addPageRule(CSSStyleRule* rule, CSSSelector* sel);
     void addToRuleSet(AtomicStringImpl* key, AtomRuleMap& map,
                       CSSStyleRule* rule, CSSSelector* sel);
+    void shrinkToFit();
+    void disableAutoShrinkToFit() { m_autoShrinkToFitEnabled = false; }
     
-    void collectIdsAndSiblingRules(HashSet<AtomicStringImpl*>& ids, OwnPtr<CSSRuleSet>& siblingRules) const;
+    void collectIdsAndSiblingRules(HashSet<AtomicStringImpl*>& ids, OwnPtr<RuleSet>& siblingRules) const;
     
-    CSSRuleDataList* getIDRules(AtomicStringImpl* key) { return m_idRules.get(key); }
-    CSSRuleDataList* getClassRules(AtomicStringImpl* key) { return m_classRules.get(key); }
-    CSSRuleDataList* getTagRules(AtomicStringImpl* key) { return m_tagRules.get(key); }
-    CSSRuleDataList* getPseudoRules(AtomicStringImpl* key) { return m_pseudoRules.get(key); }
-    CSSRuleDataList* getUniversalRules() { return m_universalRules.get(); }
-    CSSRuleDataList* getPageRules() { return m_pageRules.get(); }
+    const Vector<RuleData>* getIDRules(AtomicStringImpl* key) const { return m_idRules.get(key); }
+    const Vector<RuleData>* getClassRules(AtomicStringImpl* key) const { return m_classRules.get(key); }
+    const Vector<RuleData>* getTagRules(AtomicStringImpl* key) const { return m_tagRules.get(key); }
+    const Vector<RuleData>* getPseudoRules(AtomicStringImpl* key) const { return m_pseudoRules.get(key); }
+    const Vector<RuleData>* getUniversalRules() const { return &m_universalRules; }
+    const Vector<RuleData>* getPageRules() const { return &m_pageRules; }
     
 public:
     AtomRuleMap m_idRules;
     AtomRuleMap m_classRules;
     AtomRuleMap m_tagRules;
     AtomRuleMap m_pseudoRules;
-    OwnPtr<CSSRuleDataList> m_universalRules;
-    OwnPtr<CSSRuleDataList> m_pageRules;
+    Vector<RuleData> m_universalRules;
+    Vector<RuleData> m_pageRules;
     unsigned m_ruleCount;
-    unsigned m_pageRuleCount;
+    bool m_autoShrinkToFitEnabled;
 };
 
-static CSSRuleSet* defaultStyle;
-static CSSRuleSet* defaultQuirksStyle;
-static CSSRuleSet* defaultPrintStyle;
-static CSSRuleSet* defaultViewSourceStyle;
+static RuleSet* defaultStyle;
+static RuleSet* defaultQuirksStyle;
+static RuleSet* defaultPrintStyle;
+static RuleSet* defaultViewSourceStyle;
 static CSSStyleSheet* simpleDefaultStyleSheet;
     
-static CSSRuleSet* siblingRulesInDefaultStyle;
+static RuleSet* siblingRulesInDefaultStyle;
 
 RenderStyle* CSSStyleSelector::s_styleNotYetAvailable;
 
@@ -473,7 +445,7 @@ static inline bool elementCanUseSimpleDefaultStyle(Element* e)
 
 static inline void collectSiblingRulesInDefaultStyle()
 {
-    OwnPtr<CSSRuleSet> siblingRules;
+    OwnPtr<RuleSet> siblingRules;
     HashSet<AtomicStringImpl*> ids;
     defaultStyle->collectIdsAndSiblingRules(ids, siblingRules);
     ASSERT(ids.isEmpty());
@@ -546,10 +518,12 @@ CSSStyleSelector::CSSStyleSelector(Document* document, StyleSheetList* styleShee
     if (m_rootDefaultStyle && view)
         m_medium = adoptPtr(new MediaQueryEvaluator(view->mediaType(), view->frame(), m_rootDefaultStyle.get()));
 
-    m_authorStyle = adoptPtr(new CSSRuleSet);
+    m_authorStyle = adoptPtr(new RuleSet);
+    // Adding rules from multiple sheets, shrink at the end.
+    m_authorStyle->disableAutoShrinkToFit();
 
     // FIXME: This sucks! The user sheet is reparsed every time!
-    OwnPtr<CSSRuleSet> tempUserStyle = adoptPtr(new CSSRuleSet);
+    OwnPtr<RuleSet> tempUserStyle = adoptPtr(new RuleSet);
     if (pageUserSheet)
         tempUserStyle->addRulesFromSheet(pageUserSheet, *m_medium, this);
     if (pageGroupUserSheets) {
@@ -562,7 +536,7 @@ CSSStyleSelector::CSSStyleSelector(Document* document, StyleSheetList* styleShee
         }
     }
 
-    if (tempUserStyle->m_ruleCount > 0 || tempUserStyle->m_pageRuleCount > 0)
+    if (tempUserStyle->m_ruleCount > 0 || tempUserStyle->m_pageRules.size() > 0)
         m_userStyle = tempUserStyle.release();
 
     // Add rules from elements like SVG's <font-face>
@@ -575,8 +549,7 @@ CSSStyleSelector::CSSStyleSelector(Document* document, StyleSheetList* styleShee
         StyleSheet* sheet = styleSheets->item(i);
         if (sheet->isCSSStyleSheet() && !sheet->disabled())
             m_authorStyle->addRulesFromSheet(static_cast<CSSStyleSheet*>(sheet), *m_medium, this);
-    }
-    
+    }    
     // Collect all ids and rules using sibling selectors (:first-child and similar)
     // in the current set of stylesheets. Style sharing code uses this information to reject
     // sharing candidates.
@@ -586,6 +559,10 @@ CSSStyleSelector::CSSStyleSelector(Document* document, StyleSheetList* styleShee
     m_authorStyle->collectIdsAndSiblingRules(m_idsInRules, m_siblingRules);
     if (m_userStyle)
         m_userStyle->collectIdsAndSiblingRules(m_idsInRules, m_siblingRules);
+
+    m_authorStyle->shrinkToFit();
+    if (m_siblingRules)
+        m_siblingRules->shrinkToFit();
 
     if (document->renderer() && document->renderer()->style())
         document->renderer()->style()->font().update(fontSelector());
@@ -622,13 +599,13 @@ static void loadFullDefaultStyle()
         ASSERT(defaultStyle);
         delete defaultStyle;
         simpleDefaultStyleSheet->deref();
-        defaultStyle = new CSSRuleSet;
+        defaultStyle = new RuleSet;
         simpleDefaultStyleSheet = 0;
     } else {
         ASSERT(!defaultStyle);
-        defaultStyle = new CSSRuleSet;
-        defaultPrintStyle = new CSSRuleSet;
-        defaultQuirksStyle = new CSSRuleSet;
+        defaultStyle = new RuleSet;
+        defaultPrintStyle = new RuleSet;
+        defaultQuirksStyle = new RuleSet;
     }
 
     // Strict-mode rules.
@@ -661,9 +638,9 @@ static void loadSimpleDefaultStyle()
     ASSERT(!defaultStyle);
     ASSERT(!simpleDefaultStyleSheet);
     
-    defaultStyle = new CSSRuleSet;
-    defaultPrintStyle = new CSSRuleSet;
-    defaultQuirksStyle = new CSSRuleSet;
+    defaultStyle = new RuleSet;
+    defaultPrintStyle = new RuleSet;
+    defaultQuirksStyle = new RuleSet;
 
     simpleDefaultStyleSheet = parseUASheet(simpleUserAgentStyleSheet, strlen(simpleUserAgentStyleSheet));
     defaultStyle->addRulesFromSheet(simpleDefaultStyleSheet, screenEval());
@@ -674,8 +651,90 @@ static void loadSimpleDefaultStyle()
 static void loadViewSourceStyle()
 {
     ASSERT(!defaultViewSourceStyle);
-    defaultViewSourceStyle = new CSSRuleSet;
+    defaultViewSourceStyle = new RuleSet;
     defaultViewSourceStyle->addRulesFromSheet(parseUASheet(sourceUserAgentStyleSheet, sizeof(sourceUserAgentStyleSheet)), screenEval());
+}
+    
+static inline void collectElementIdentifierHashes(const Element* element, Vector<unsigned, 4>& identifierHashes)
+{
+    identifierHashes.append(element->localName().impl()->existingHash());
+    if (element->hasID())
+        identifierHashes.append(element->idForStyleResolution().impl()->existingHash());
+    const StyledElement* styledElement = element->isStyledElement() ? static_cast<const StyledElement*>(element) : 0;
+    if (styledElement && styledElement->hasClass()) {
+        const SpaceSplitString& classNames = styledElement->classNames();
+        size_t count = classNames.size();
+        for (size_t i = 0; i < count; ++i)
+            identifierHashes.append(classNames[i].impl()->existingHash());
+    }
+}
+
+void CSSStyleSelector::pushParentStackFrame(Element* parent)
+{
+    ASSERT(m_ancestorIdentifierFilter);
+    ASSERT(m_parentStack.isEmpty() || m_parentStack.last().element == parent->parentElement());
+    ASSERT(!m_parentStack.isEmpty() || !parent->parentElement());
+    m_parentStack.append(ParentStackFrame(parent));
+    ParentStackFrame& parentFrame = m_parentStack.last();
+    // Mix tags, class names and ids into some sort of weird bouillabaisse.
+    // The filter is used for fast rejection of child and descendant selectors.
+    collectElementIdentifierHashes(parent, parentFrame.identifierHashes);
+    size_t count = parentFrame.identifierHashes.size();
+    for (size_t i = 0; i < count; ++i)
+        m_ancestorIdentifierFilter->add(parentFrame.identifierHashes[i]);
+}
+
+void CSSStyleSelector::popParentStackFrame()
+{
+    ASSERT(!m_parentStack.isEmpty());
+    ASSERT(m_ancestorIdentifierFilter);
+    const ParentStackFrame& parentFrame = m_parentStack.last();
+    size_t count = parentFrame.identifierHashes.size();
+    for (size_t i = 0; i < count; ++i)
+        m_ancestorIdentifierFilter->remove(parentFrame.identifierHashes[i]);
+    m_parentStack.removeLast();
+    if (m_parentStack.isEmpty()) {
+        ASSERT(m_ancestorIdentifierFilter->likelyEmpty());
+        m_ancestorIdentifierFilter.clear();
+    }
+}
+
+void CSSStyleSelector::pushParent(Element* parent)
+{
+    if (m_parentStack.isEmpty()) {
+        ASSERT(!m_ancestorIdentifierFilter);
+        m_ancestorIdentifierFilter = adoptPtr(new BloomFilter<bloomFilterKeyBits>);
+        // If the element is not the root itself, build the stack starting from the root.
+        if (parent->parentElement()) {
+            Vector<Element*, 30> ancestors;
+            for (Element* ancestor = parent; ancestor; ancestor = ancestor->parentElement())
+                ancestors.append(ancestor);
+            int count = ancestors.size();
+            for (int n = count - 1; n >= 0; --n)
+                pushParentStackFrame(ancestors[n]);
+            return;
+        }
+    } else if (!parent->parentElement()) {
+        // We are not always invoked consistently. For example, script execution can cause us to enter
+        // style recalc in the middle of tree building. Reset the stack if we see a new root element.
+        ASSERT(m_ancestorIdentifierFilter);
+        m_ancestorIdentifierFilter->clear();
+        m_parentStack.resize(0);
+    } else {
+        ASSERT(m_ancestorIdentifierFilter);
+        // We may get invoked for some random elements in some wacky cases during style resolve.
+        // Pause maintaining the stack in this case.
+        if (m_parentStack.last().element != parent->parentElement())
+            return;
+    }
+    pushParentStackFrame(parent);
+}
+
+void CSSStyleSelector::popParent(Element* parent)
+{
+    if (m_parentStack.isEmpty() || m_parentStack.last().element != parent)
+        return;
+    popParentStackFrame();
 }
 
 void CSSStyleSelector::addMatchedDeclaration(CSSMutableStyleDeclaration* decl)
@@ -683,7 +742,7 @@ void CSSStyleSelector::addMatchedDeclaration(CSSMutableStyleDeclaration* decl)
     m_matchedDecls.append(decl);
 }
 
-void CSSStyleSelector::matchRules(CSSRuleSet* rules, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules)
+void CSSStyleSelector::matchRules(RuleSet* rules, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules)
 {
     m_matchedRules.clear();
 
@@ -728,21 +787,38 @@ void CSSStyleSelector::matchRules(CSSRuleSet* rules, int& firstRuleIndex, int& l
     }
 }
 
-void CSSStyleSelector::matchRulesForList(CSSRuleDataList* rules, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules)
+inline bool CSSStyleSelector::fastRejectSelector(const RuleData& ruleData) const
+{
+    ASSERT(m_ancestorIdentifierFilter);
+    const unsigned* descendantSelectorIdentifierHashes = ruleData.descendantSelectorIdentifierHashes();
+    for (unsigned n = 0; n < RuleData::maximumIdentifierCount && descendantSelectorIdentifierHashes[n]; ++n) {
+        if (!m_ancestorIdentifierFilter->mayContain(descendantSelectorIdentifierHashes[n]))
+            return true;
+    }
+    return false;
+}
+
+void CSSStyleSelector::matchRulesForList(const Vector<RuleData>* rules, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules)
 {
     if (!rules)
         return;
+    // In some cases we may end up looking up style for random elements in the middle of a recursive tree resolve.
+    // Ancestor identifier filter won't be up-to-date in that case and we can't use the fast path.
+    bool canUseFastReject = !m_parentStack.isEmpty() && m_parentStack.last().element == m_parentNode;
 
-    for (CSSRuleData* d = rules->first(); d; d = d->next()) {
-        CSSStyleRule* rule = d->rule();
-        if (m_checker.m_sameOriginOnly && !m_checker.m_document->securityOrigin()->canRequest(rule->baseURL()))
-            continue; 
-        if (checkSelector(d->selector())) {
+    unsigned size = rules->size();
+    for (unsigned i = 0; i < size; ++i) {
+        const RuleData& ruleData = rules->at(i);
+        if (canUseFastReject && fastRejectSelector(ruleData))
+            continue;
+        if (checkSelector(ruleData)) {
             // If the rule has no properties to apply, then ignore it in the non-debug mode.
+            CSSStyleRule* rule = ruleData.rule();
             CSSMutableStyleDeclaration* decl = rule->declaration();
             if (!decl || (!decl->length() && !includeEmptyRules))
                 continue;
-            
+            if (m_checker.m_sameOriginOnly && !m_checker.m_document->securityOrigin()->canRequest(rule->baseURL()))
+                continue; 
             // If we're matching normal rules, set a pseudo bit if 
             // we really just matched a pseudo-element.
             if (m_dynamicPseudo != NOPSEUDO && m_checker.m_pseudoStyle == NOPSEUDO) {
@@ -757,20 +833,20 @@ void CSSStyleSelector::matchRulesForList(CSSRuleDataList* rules, int& firstRuleI
                     firstRuleIndex = lastRuleIndex;
 
                 // Add this rule to our list of matched rules.
-                addMatchedRule(d);
+                addMatchedRule(&ruleData);
             }
         }
     }
 }
 
-static bool operator >(CSSRuleData& r1, CSSRuleData& r2)
+static bool operator >(const RuleData& r1, const RuleData& r2)
 {
     int spec1 = r1.selector()->specificity();
     int spec2 = r2.selector()->specificity();
     return (spec1 == spec2) ? r1.position() > r2.position() : spec1 > spec2; 
 }
     
-static bool operator <=(CSSRuleData& r1, CSSRuleData& r2)
+static bool operator <=(const RuleData& r1, const RuleData& r2)
 {
     return !(r1 > r2);
 }
@@ -785,8 +861,8 @@ void CSSStyleSelector::sortMatchedRules(unsigned start, unsigned end)
         for (unsigned i = end - 1; i > start; i--) {
             bool sorted = true;
             for (unsigned j = start; j < i; j++) {
-                CSSRuleData* elt = m_matchedRules[j];
-                CSSRuleData* elt2 = m_matchedRules[j + 1];
+                const RuleData* elt = m_matchedRules[j];
+                const RuleData* elt2 = m_matchedRules[j + 1];
                 if (*elt > *elt2) {
                     sorted = false;
                     m_matchedRules[j] = elt2;
@@ -804,8 +880,8 @@ void CSSStyleSelector::sortMatchedRules(unsigned start, unsigned end)
     sortMatchedRules(start, mid);
     sortMatchedRules(mid, end);
     
-    CSSRuleData* elt = m_matchedRules[mid - 1];
-    CSSRuleData* elt2 = m_matchedRules[mid];
+    const RuleData* elt = m_matchedRules[mid - 1];
+    const RuleData* elt2 = m_matchedRules[mid];
     
     // Handle the fast common case (of equal specificity).  The list may already
     // be completely sorted.
@@ -814,7 +890,7 @@ void CSSStyleSelector::sortMatchedRules(unsigned start, unsigned end)
     
     // We have to merge sort.  Ensure our merge buffer is big enough to hold
     // all the items.
-    Vector<CSSRuleData*> rulesMergeBuffer;
+    Vector<const RuleData*> rulesMergeBuffer;
     rulesMergeBuffer.reserveInitialCapacity(end - start); 
 
     unsigned i1 = start;
@@ -1129,6 +1205,14 @@ inline Node* CSSStyleSelector::findSiblingForStyleSharing(Node* node, unsigned& 
     return node;
 }
 
+static inline bool parentStylePreventsSharing(const RenderStyle* parentStyle)
+{
+    return parentStyle->childrenAffectedByPositionalRules() 
+        || parentStyle->childrenAffectedByFirstChildRules()
+        || parentStyle->childrenAffectedByLastChildRules() 
+        || parentStyle->childrenAffectedByDirectAdjacentRules();
+}
+
 ALWAYS_INLINE RenderStyle* CSSStyleSelector::locateSharedStyle()
 {
     if (!m_styledElement || !m_parentStyle)
@@ -1138,6 +1222,8 @@ ALWAYS_INLINE RenderStyle* CSSStyleSelector::locateSharedStyle()
         return 0;
     // Ids stop style sharing if they show up in the stylesheets.
     if (m_styledElement->hasID() && m_idsInRules.contains(m_styledElement->idForStyleResolution().impl()))
+        return 0;
+    if (parentStylePreventsSharing(m_parentStyle))
         return 0;
     // Check previous siblings.
     unsigned count = 0;
@@ -1152,7 +1238,7 @@ ALWAYS_INLINE RenderStyle* CSSStyleSelector::locateSharedStyle()
     if (matchesSiblingRules())
         return 0;
     // Tracking child index requires unique style for each node. This may get set by the sibling rule match above.
-    if (m_parentStyle->childrenAffectedByPositionalRules())
+    if (parentStylePreventsSharing(m_parentStyle))
         return 0;
     return shareNode->renderStyle();
 }
@@ -1160,7 +1246,7 @@ ALWAYS_INLINE RenderStyle* CSSStyleSelector::locateSharedStyle()
 void CSSStyleSelector::matchUARules(int& firstUARule, int& lastUARule)
 {
     // First we match rules from the user agent sheet.
-    CSSRuleSet* userAgentStyleSheet = m_medium->mediaTypeMatchSpecific("print")
+    RuleSet* userAgentStyleSheet = m_medium->mediaTypeMatchSpecific("print")
         ? defaultPrintStyle : defaultStyle;
     matchRules(userAgentStyleSheet, firstUARule, lastUARule, false);
 
@@ -2010,20 +2096,102 @@ PassRefPtr<CSSRuleList> CSSStyleSelector::pseudoStyleRulesForElement(Element* e,
     return m_ruleList.release();
 }
 
-bool CSSStyleSelector::checkSelector(CSSSelector* sel)
+inline bool CSSStyleSelector::checkSelector(const RuleData& ruleData)
 {
     m_dynamicPseudo = NOPSEUDO;
 
-    // Check the selector
-    SelectorMatch match = m_checker.checkSelector(sel, m_element, &m_selectorAttrs, m_dynamicPseudo, false, false, style(), m_parentNode ? m_parentNode->renderStyle() : 0);
+    if (ruleData.hasFastCheckableSelector()) {
+        // We know this selector does not include any pseudo selectors.
+        if (m_checker.m_pseudoStyle != NOPSEUDO)
+            return false;
+        // We know a sufficiently simple single part selector matches simply because we found it from the rule hash.
+        // This is limited to HTML only so we don't need to check the namespace.
+        if (ruleData.hasTopSelectorMatchingHTMLBasedOnRuleHash() && !ruleData.hasMultipartSelector() && m_element->isHTMLElement())
+            return true;
+        return SelectorChecker::fastCheckSelector(ruleData.selector(), m_element);
+    }
+
+    // Slow path.
+    SelectorMatch match = m_checker.checkSelector(ruleData.selector(), m_element, &m_selectorAttrs, m_dynamicPseudo, false, false, style(), m_parentNode ? m_parentNode->renderStyle() : 0);
     if (match != SelectorMatches)
         return false;
-
     if (m_checker.m_pseudoStyle != NOPSEUDO && m_checker.m_pseudoStyle != m_dynamicPseudo)
         return false;
-
     return true;
 }
+
+static inline bool selectorTagMatches(const Element* element, const CSSSelector* selector)
+{
+    if (!selector->hasTag())
+        return true;
+    const AtomicString& localName = selector->tag().localName();
+    if (localName != starAtom && localName != element->localName())
+        return false;
+    const AtomicString& namespaceURI = selector->tag().namespaceURI();
+    return namespaceURI == starAtom || namespaceURI == element->namespaceURI();
+}
+
+static inline bool isFastCheckableSelector(const CSSSelector* selector)
+{
+    for (; selector; selector = selector->tagHistory()) {
+        if (selector->relation() != CSSSelector::Descendant)
+            return false;
+        if (selector->m_match != CSSSelector::None && selector->m_match != CSSSelector::Id && selector->m_match != CSSSelector::Class)
+            return false;
+    }
+    return true;
+}
+
+bool CSSStyleSelector::SelectorChecker::fastCheckSelector(const CSSSelector* selector, const Element* element)
+{
+    ASSERT(isFastCheckableSelector(selector));
+
+    // The top selector requires tag check only as rule hashes have already handled id and class matches.
+    if (!selectorTagMatches(element, selector))
+        return false;
+
+    selector = selector->tagHistory();
+    if (!selector)
+        return true;
+    const Element* ancestor = element;
+    // We know this compound selector has descendant combinators only and all components are simple.
+    for (; selector; selector = selector->tagHistory()) {
+        AtomicStringImpl* value;
+        switch (selector->m_match) {
+        case CSSSelector::Class:
+            value = selector->value().impl();
+            while (true) {
+                if (!(ancestor = ancestor->parentElement()))
+                    return false;
+                const StyledElement* styledElement = static_cast<const StyledElement*>(ancestor);
+                if (ancestor->hasClass() && styledElement->classNames().contains(value) && selectorTagMatches(ancestor, selector))
+                    break;
+            }
+            break;
+        case CSSSelector::Id:
+            value = selector->value().impl();
+            while (true) {
+                if (!(ancestor = ancestor->parentElement()))
+                    return false;
+                if (ancestor->hasID() && ancestor->idForStyleResolution().impl() == value && selectorTagMatches(ancestor, selector))
+                    break;
+            }
+            break;
+        case CSSSelector::None:
+            while (true) {
+                if (!(ancestor = ancestor->parentElement()))
+                    return false;
+                if (selectorTagMatches(ancestor, selector))
+                    break;
+            }
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+        }
+    }
+    return true;
+}
+    
 
 // Recursive check of selectors and combinators
 // It can return 3 different values:
@@ -2216,21 +2384,15 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
     if (!e)
         return false;
 
-    if (sel->hasTag()) {
-        const AtomicString& selLocalName = sel->m_tag.localName();
-        if (selLocalName != starAtom && selLocalName != e->localName())
-            return false;
-        const AtomicString& selNS = sel->m_tag.namespaceURI();
-        if (selNS != starAtom && selNS != e->namespaceURI())
-            return false;
-    }
+    if (!selectorTagMatches(e, sel))
+        return false;
 
     if (sel->hasAttribute()) {
         if (sel->m_match == CSSSelector::Class)
-            return e->hasClass() && static_cast<StyledElement*>(e)->classNames().contains(sel->m_value);
+            return e->hasClass() && static_cast<StyledElement*>(e)->classNames().contains(sel->value());
 
         if (sel->m_match == CSSSelector::Id)
-            return e->hasID() && e->idForStyleResolution() == sel->m_value;
+            return e->hasID() && e->idForStyleResolution() == sel->value();
         
         const QualifiedName& attr = sel->attribute();
 
@@ -2249,22 +2411,22 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
 
         switch (sel->m_match) {
         case CSSSelector::Exact:
-            if (caseSensitive ? sel->m_value != value : !equalIgnoringCase(sel->m_value, value))
+            if (caseSensitive ? sel->value() != value : !equalIgnoringCase(sel->value(), value))
                 return false;
             break;
         case CSSSelector::List:
         {
             // Ignore empty selectors or selectors containing spaces
-            if (sel->m_value.contains(' ') || sel->m_value.isEmpty())
+            if (sel->value().contains(' ') || sel->value().isEmpty())
                 return false;
 
             unsigned startSearchAt = 0;
             while (true) {
-                size_t foundPos = value.find(sel->m_value, startSearchAt, caseSensitive);
+                size_t foundPos = value.find(sel->value(), startSearchAt, caseSensitive);
                 if (foundPos == notFound)
                     return false;
                 if (foundPos == 0 || value[foundPos - 1] == ' ') {
-                    unsigned endStr = foundPos + sel->m_value.length();
+                    unsigned endStr = foundPos + sel->value().length();
                     if (endStr == value.length() || value[endStr] == ' ')
                         break; // We found a match.
                 }
@@ -2275,24 +2437,24 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
             break;
         }
         case CSSSelector::Contain:
-            if (!value.contains(sel->m_value, caseSensitive) || sel->m_value.isEmpty())
+            if (!value.contains(sel->value(), caseSensitive) || sel->value().isEmpty())
                 return false;
             break;
         case CSSSelector::Begin:
-            if (!value.startsWith(sel->m_value, caseSensitive) || sel->m_value.isEmpty())
+            if (!value.startsWith(sel->value(), caseSensitive) || sel->value().isEmpty())
                 return false;
             break;
         case CSSSelector::End:
-            if (!value.endsWith(sel->m_value, caseSensitive) || sel->m_value.isEmpty())
+            if (!value.endsWith(sel->value(), caseSensitive) || sel->value().isEmpty())
                 return false;
             break;
         case CSSSelector::Hyphen:
-            if (value.length() < sel->m_value.length())
+            if (value.length() < sel->value().length())
                 return false;
-            if (!value.startsWith(sel->m_value, caseSensitive))
+            if (!value.startsWith(sel->value(), caseSensitive))
                 return false;
             // It they start the same, check for exact match or following '-':
-            if (value.length() != sel->m_value.length() && value[sel->m_value.length()] != '-')
+            if (value.length() != sel->value().length() && value[sel->value().length()] != '-')
                 return false;
             break;
         case CSSSelector::PseudoClass:
@@ -2875,70 +3037,130 @@ bool CSSStyleSelector::SelectorChecker::checkScrollbarPseudoClass(CSSSelector* s
 
 // -----------------------------------------------------------------
 
-CSSRuleSet::CSSRuleSet()
+static inline bool isSelectorMatchingHTMLBasedOnRuleHash(const CSSSelector* selector)
+{
+    const AtomicString& selectorNamespace = selector->tag().namespaceURI();
+    if (selectorNamespace != starAtom && selectorNamespace != xhtmlNamespaceURI)
+        return false;
+    if (selector->m_match == CSSSelector::None)
+        return true;
+    if (selector->m_match != CSSSelector::Id && selector->m_match != CSSSelector::Class)
+        return false;
+    return selector->tag() == starAtom;
+}
+
+RuleData::RuleData(CSSStyleRule* rule, CSSSelector* selector, unsigned position)
+    : m_rule(rule)
+    , m_selector(selector)
+    , m_position(position)
+    , m_hasFastCheckableSelector(isFastCheckableSelector(selector))
+    , m_hasMultipartSelector(selector->tagHistory())
+    , m_hasTopSelectorMatchingHTMLBasedOnRuleHash(isSelectorMatchingHTMLBasedOnRuleHash(selector))
+{
+    collectDescendantSelectorIdentifierHashes();
+}
+
+inline void RuleData::collectIdentifierHashes(const CSSSelector* selector, unsigned& identifierCount)
+{
+    if ((selector->m_match == CSSSelector::Id || selector->m_match == CSSSelector::Class) && !selector->value().isEmpty())
+        m_descendantSelectorIdentifierHashes[identifierCount++] = selector->value().impl()->existingHash();
+    if (identifierCount == maximumIdentifierCount)
+        return;
+    const AtomicString& localName = selector->tag().localName();
+    if (localName != starAtom)
+        m_descendantSelectorIdentifierHashes[identifierCount++] = localName.impl()->existingHash();
+}
+
+inline void RuleData::collectDescendantSelectorIdentifierHashes()
+{
+    unsigned identifierCount = 0;
+    CSSSelector::Relation relation = m_selector->relation();
+    
+    // Skip the topmost selector. It is handled quickly by the rule hashes.    
+    bool skipOverSubselectors = true;
+    for (const CSSSelector* selector = m_selector->tagHistory(); selector; selector = selector->tagHistory()) {
+        // Only collect identifiers that match ancestors.
+        switch (relation) {
+        case CSSSelector::SubSelector:
+            if (!skipOverSubselectors)
+                collectIdentifierHashes(selector, identifierCount);
+            break;
+        case CSSSelector::DirectAdjacent:
+        case CSSSelector::IndirectAdjacent:
+        case CSSSelector::ShadowDescendant:
+            skipOverSubselectors = true;
+            break;
+        case CSSSelector::Descendant:
+        case CSSSelector::Child:
+            skipOverSubselectors = false;
+            collectIdentifierHashes(selector, identifierCount);
+            break;
+        }
+        if (identifierCount == maximumIdentifierCount)
+            return;
+        relation = selector->relation();
+    }
+    m_descendantSelectorIdentifierHashes[identifierCount] = 0;
+}
+
+RuleSet::RuleSet()
     : m_ruleCount(0)
-    , m_pageRuleCount(0)
+    , m_autoShrinkToFitEnabled(true)
 {
 }
 
-CSSRuleSet::~CSSRuleSet()
+RuleSet::~RuleSet()
 { 
     deleteAllValues(m_idRules);
     deleteAllValues(m_classRules);
+    deleteAllValues(m_pseudoRules);
     deleteAllValues(m_tagRules);
 }
 
 
-void CSSRuleSet::addToRuleSet(AtomicStringImpl* key, AtomRuleMap& map,
+void RuleSet::addToRuleSet(AtomicStringImpl* key, AtomRuleMap& map,
                               CSSStyleRule* rule, CSSSelector* sel)
 {
     if (!key) return;
-    CSSRuleDataList* rules = map.get(key);
+    Vector<RuleData>* rules = map.get(key);
     if (!rules) {
-        rules = new CSSRuleDataList(m_ruleCount++, rule, sel);
+        rules = new Vector<RuleData>;
         map.set(key, rules);
-    } else
-        rules->append(m_ruleCount++, rule, sel);
+    }
+    rules->append(RuleData(rule, sel, m_ruleCount++));
 }
 
-void CSSRuleSet::addRule(CSSStyleRule* rule, CSSSelector* sel)
+void RuleSet::addRule(CSSStyleRule* rule, CSSSelector* sel)
 {
     if (sel->m_match == CSSSelector::Id) {
-        addToRuleSet(sel->m_value.impl(), m_idRules, rule, sel);
+        addToRuleSet(sel->value().impl(), m_idRules, rule, sel);
         return;
     }
     if (sel->m_match == CSSSelector::Class) {
-        addToRuleSet(sel->m_value.impl(), m_classRules, rule, sel);
+        addToRuleSet(sel->value().impl(), m_classRules, rule, sel);
         return;
     }
      
     if (sel->isUnknownPseudoElement()) {
-        addToRuleSet(sel->m_value.impl(), m_pseudoRules, rule, sel);
+        addToRuleSet(sel->value().impl(), m_pseudoRules, rule, sel);
         return;
     }
 
-    const AtomicString& localName = sel->m_tag.localName();
+    const AtomicString& localName = sel->tag().localName();
     if (localName != starAtom) {
         addToRuleSet(localName.impl(), m_tagRules, rule, sel);
         return;
     }
 
-    // Just put it in the universal rule set.
-    if (!m_universalRules)
-        m_universalRules = adoptPtr(new CSSRuleDataList(m_ruleCount++, rule, sel));
-    else
-        m_universalRules->append(m_ruleCount++, rule, sel);
+    m_universalRules.append(RuleData(rule, sel, m_ruleCount++));
 }
 
-void CSSRuleSet::addPageRule(CSSStyleRule* rule, CSSSelector* sel)
+void RuleSet::addPageRule(CSSStyleRule* rule, CSSSelector* sel)
 {
-    if (!m_pageRules)
-        m_pageRules = adoptPtr(new CSSRuleDataList(m_pageRuleCount++, rule, sel));
-    else
-        m_pageRules->append(m_pageRuleCount++, rule, sel);
+    m_pageRules.append(RuleData(rule, sel, m_pageRules.size()));
 }
 
-void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluator& medium, CSSStyleSelector* styleSelector)
+void RuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluator& medium, CSSStyleSelector* styleSelector)
 {
     if (!sheet)
         return;
@@ -2987,9 +3209,11 @@ void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluat
         } else if (item->isKeyframesRule())
             styleSelector->addKeyframeStyle(static_cast<WebKitCSSKeyframesRule*>(item));
     }
+    if (m_autoShrinkToFitEnabled)
+        shrinkToFit();
 }
 
-void CSSRuleSet::addStyleRule(CSSStyleRule* rule)
+void RuleSet::addStyleRule(CSSStyleRule* rule)
 {
     if (rule->isPageRule()) {
         CSSPageRule* pageRule = static_cast<CSSPageRule*>(rule);
@@ -3000,45 +3224,63 @@ void CSSRuleSet::addStyleRule(CSSStyleRule* rule)
     }
 }
 
-static void collectIdsAndSiblingRulesFromList(HashSet<AtomicStringImpl*>& ids, OwnPtr<CSSRuleSet>& siblingRules, const CSSRuleDataList* rules)
+static void collectIdsAndSiblingRulesFromList(HashSet<AtomicStringImpl*>& ids, OwnPtr<RuleSet>& siblingRules, const Vector<RuleData>& rules)
 {
-    for (CSSRuleData* data = rules->first(); data; data = data->next()) {
+    unsigned size = rules.size();
+    for (unsigned i = 0; i < size; ++i) {
+        const RuleData& ruleData = rules[i];
         bool foundSiblingSelector = false;
-        for (CSSSelector* selector = data->selector(); selector; selector = selector->tagHistory()) {
-            if (selector->m_match == CSSSelector::Id && !selector->m_value.isEmpty())
-                ids.add(selector->m_value.impl());
+        for (CSSSelector* selector = ruleData.selector(); selector; selector = selector->tagHistory()) {
+            if (selector->m_match == CSSSelector::Id && !selector->value().isEmpty())
+                ids.add(selector->value().impl());
             if (CSSSelector* simpleSelector = selector->simpleSelector()) {
                 ASSERT(!simpleSelector->simpleSelector());
-                if (simpleSelector->m_match == CSSSelector::Id && !simpleSelector->m_value.isEmpty())
-                    ids.add(simpleSelector->m_value.impl());
+                if (simpleSelector->m_match == CSSSelector::Id && !simpleSelector->value().isEmpty())
+                    ids.add(simpleSelector->value().impl());
             }
             if (selector->isSiblingSelector())
                 foundSiblingSelector = true;
         }
         if (foundSiblingSelector) {
             if (!siblingRules)
-                siblingRules = adoptPtr(new CSSRuleSet);
-            siblingRules->addRule(data->rule(), data->selector());   
+                siblingRules = adoptPtr(new RuleSet);
+            siblingRules->addRule(ruleData.rule(), ruleData.selector());   
         }
     }
 }
 
-void CSSRuleSet::collectIdsAndSiblingRules(HashSet<AtomicStringImpl*>& ids, OwnPtr<CSSRuleSet>& siblingRules) const
+void RuleSet::collectIdsAndSiblingRules(HashSet<AtomicStringImpl*>& ids, OwnPtr<RuleSet>& siblingRules) const
 {
     AtomRuleMap::const_iterator end = m_idRules.end();
     for (AtomRuleMap::const_iterator it = m_idRules.begin(); it != end; ++it)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, it->second);
+        collectIdsAndSiblingRulesFromList(ids, siblingRules, *it->second);
     end = m_classRules.end();
     for (AtomRuleMap::const_iterator it = m_classRules.begin(); it != end; ++it)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, it->second);
+        collectIdsAndSiblingRulesFromList(ids, siblingRules, *it->second);
     end = m_tagRules.end();
     for (AtomRuleMap::const_iterator it = m_tagRules.begin(); it != end; ++it)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, it->second);
+        collectIdsAndSiblingRulesFromList(ids, siblingRules, *it->second);
     end = m_pseudoRules.end();
     for (AtomRuleMap::const_iterator it = m_pseudoRules.begin(); it != end; ++it)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, it->second);
-    if (m_universalRules)
-        collectIdsAndSiblingRulesFromList(ids, siblingRules, m_universalRules.get());
+        collectIdsAndSiblingRulesFromList(ids, siblingRules, *it->second);
+    collectIdsAndSiblingRulesFromList(ids, siblingRules, m_universalRules);
+}
+    
+static inline void shrinkMapVectorsToFit(RuleSet::AtomRuleMap& map)
+{
+    RuleSet::AtomRuleMap::iterator end = map.end();
+    for (RuleSet::AtomRuleMap::iterator it = map.begin(); it != end; ++it)
+        it->second->shrinkToFit();
+}
+    
+void RuleSet::shrinkToFit()
+{
+    shrinkMapVectorsToFit(m_idRules);
+    shrinkMapVectorsToFit(m_classRules);
+    shrinkMapVectorsToFit(m_tagRules);
+    shrinkMapVectorsToFit(m_pseudoRules);
+    m_universalRules.shrinkToFit();
+    m_pageRules.shrinkToFit();
 }
 
 // -------------------------------------------------------------------------------------
@@ -3107,7 +3349,7 @@ void CSSStyleSelector::applyDeclarations(bool isImportant, int startIndex, int e
     }
 }
 
-void CSSStyleSelector::matchPageRules(CSSRuleSet* rules, bool isLeftPage, bool isFirstPage, const String& pageName)
+void CSSStyleSelector::matchPageRules(RuleSet* rules, bool isLeftPage, bool isFirstPage, const String& pageName)
 {
     m_matchedRules.clear();
 
@@ -3128,17 +3370,19 @@ void CSSStyleSelector::matchPageRules(CSSRuleSet* rules, bool isLeftPage, bool i
         addMatchedDeclaration(m_matchedRules[i]->rule()->declaration());
 }
 
-void CSSStyleSelector::matchPageRulesForList(CSSRuleDataList* rules, bool isLeftPage, bool isFirstPage, const String& pageName)
+void CSSStyleSelector::matchPageRulesForList(const Vector<RuleData>* rules, bool isLeftPage, bool isFirstPage, const String& pageName)
 {
     if (!rules)
         return;
 
-    for (CSSRuleData* d = rules->first(); d; d = d->next()) {
-        CSSStyleRule* rule = d->rule();
-        const AtomicString& selectorLocalName = d->selector()->m_tag.localName();
+    unsigned size = rules->size();
+    for (unsigned i = 0; i < size; ++i) {
+        const RuleData& ruleData = rules->at(i);
+        CSSStyleRule* rule = ruleData.rule();
+        const AtomicString& selectorLocalName = ruleData.selector()->tag().localName();
         if (selectorLocalName != starAtom && selectorLocalName != pageName)
             continue;
-        CSSSelector::PseudoType pseudoType = d->selector()->pseudoType();
+        CSSSelector::PseudoType pseudoType = ruleData.selector()->pseudoType();
         if ((pseudoType == CSSSelector::PseudoLeftPage && !isLeftPage)
             || (pseudoType == CSSSelector::PseudoRightPage && isLeftPage)
             || (pseudoType == CSSSelector::PseudoFirstPage && !isFirstPage))
@@ -3150,7 +3394,7 @@ void CSSStyleSelector::matchPageRulesForList(CSSRuleDataList* rules, bool isLeft
             continue;
 
         // Add this rule to our list of matched rules.
-        addMatchedRule(d);
+        addMatchedRule(&ruleData);
     }
 }
 
@@ -4295,9 +4539,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         }
         
         // FIXME: Should clamp all sorts of other integer properties too.
-        const double minIntAsDouble = INT_MIN;
-        const double maxIntAsDouble = INT_MAX;
-        m_style->setZIndex(static_cast<int>(max(minIntAsDouble, min(primitiveValue->getDoubleValue(), maxIntAsDouble))));
+        m_style->setZIndex(clampToInteger(primitiveValue->getDoubleValue()));
         return;
     }
     case CSSPropertyWidows:
@@ -5763,6 +6005,8 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 
     case CSSPropertyWebkitTextCombine:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(textCombine, TextCombine)
+        if (m_style->hasTextCombine())
+            m_style->setUnique(); // The style could be modified in RenderCombineText depending on text metrics.
         return;
 
     case CSSPropertyWebkitTextEmphasisPosition:
@@ -7196,9 +7440,21 @@ bool CSSStyleSelector::createTransformOperations(CSSValue* inValue, RenderStyle*
                 break;
             }   
             case WebKitCSSTransformValue::PerspectiveTransformOperation: {
-                double p = firstValue->getDoubleValue();
-                if (p < 0.0)
+                bool ok = true;
+                Length p = Length(0, Fixed);
+                if (CSSPrimitiveValue::isUnitTypeLength(firstValue->primitiveType()))
+                    p = convertToLength(firstValue, style, rootStyle, zoomFactor, &ok);
+                else {
+                    // This is a quirk that should go away when 3d transforms are finalized.
+                    double val = firstValue->getDoubleValue();
+                    ok = val >= 0;
+                    val = clampToPositiveInteger(val);
+                    p = Length(static_cast<int>(val), Fixed);
+                }
+                
+                if (!ok)
                     return false;
+
                 operations.operations().append(PerspectiveTransformOperation::create(p));
                 break;
             }

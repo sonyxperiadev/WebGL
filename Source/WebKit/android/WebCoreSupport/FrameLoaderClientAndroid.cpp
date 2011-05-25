@@ -249,7 +249,7 @@ void FrameLoaderClientAndroid::dispatchDidReceiveIcon() {
     ASSERT(m_frame);
     if (m_frame->tree() && m_frame->tree()->parent())
         return;
-    WTF::String url(m_frame->loader()->url().string());
+    WTF::String url(m_frame->document()->url().string());
     // Try to obtain the icon image.
     WebCore::Image* icon = WebCore::iconDatabase()->iconForPageURL(
             url, WebCore::IntSize(16, 16));
@@ -706,7 +706,7 @@ void FrameLoaderClientAndroid::didDisplayInsecureContent()
     notImplemented();
 }
 
-void FrameLoaderClientAndroid::didRunInsecureContent(SecurityOrigin*)
+void FrameLoaderClientAndroid::didRunInsecureContent(SecurityOrigin*, const KURL&)
 {
     notImplemented();
 }
@@ -761,7 +761,7 @@ bool FrameLoaderClientAndroid::shouldFallBack(const ResourceError&) {
 bool FrameLoaderClientAndroid::canHandleRequest(const ResourceRequest& request) const {
     ASSERT(m_frame);
     // Don't allow hijacking of intrapage navigation
-    if (WebCore::equalIgnoringFragmentIdentifier(request.url(), m_frame->loader()->url()))
+    if (WebCore::equalIgnoringFragmentIdentifier(request.url(), m_frame->document()->url()))
         return true;
 
     // Don't allow hijacking of iframe urls that are http or https
@@ -1334,7 +1334,7 @@ void FrameLoaderClientAndroid::didAddIconForPageUrl(const String& pageUrl) {
     // to be read from disk.
     registerForIconNotification(false);
     KURL u(ParsedURLString, pageUrl);
-    if (equalIgnoringFragmentIdentifier(u, m_frame->loader()->url())) {
+    if (equalIgnoringFragmentIdentifier(u, m_frame->document()->url())) {
         dispatchDidReceiveIcon();
     }
 }

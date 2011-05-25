@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,6 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityRenderObject.h"
-#include "CharacterNames.h"
 #include "FloatRect.h"
 #include "FocusController.h"
 #include "Frame.h"
@@ -53,6 +52,7 @@
 #include "htmlediting.h"
 #include "visible_units.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace std;
 
@@ -718,6 +718,15 @@ unsigned AccessibilityObject::doAXLineForIndex(unsigned index)
 {
     return lineForPosition(visiblePositionForIndex(index, false));
 }
+    
+Document* AccessibilityObject::document() const
+{
+    FrameView* frameView = documentFrameView();
+    if (!frameView)
+        return 0;
+    
+    return frameView->frame()->document();
+}
 
 FrameView* AccessibilityObject::documentFrameView() const 
 { 
@@ -1040,6 +1049,17 @@ AccessibilityObject* AccessibilityObject::focusedUIElement() const
         return 0;
     
     return AXObjectCache::focusedUIElementForPage(page);
+}
+    
+AccessibilitySortDirection AccessibilityObject::sortDirection() const
+{
+    const AtomicString& sortAttribute = getAttribute(aria_sortAttr);
+    if (equalIgnoringCase(sortAttribute, "ascending"))
+        return SortDirectionAscending;
+    if (equalIgnoringCase(sortAttribute, "descending"))
+        return SortDirectionDescending;
+    
+    return SortDirectionNone;
 }
     
 bool AccessibilityObject::supportsARIAExpanded() const

@@ -25,14 +25,14 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLProgram.h"
 
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
-    
+
 PassRefPtr<WebGLProgram> WebGLProgram::create(WebGLRenderingContext* ctx)
 {
     return adoptRef(new WebGLProgram(ctx));
@@ -103,7 +103,7 @@ bool WebGLProgram::isUsingVertexAttrib0() const
     return false;
 }
 
-WebGLShader* WebGLProgram::getAttachedShader(GraphicsContext3D::WebGLEnumType type)
+WebGLShader* WebGLProgram::getAttachedShader(GC3Denum type)
 {
     switch (type) {
     case GraphicsContext3D::VERTEX_SHADER:
@@ -157,4 +157,4 @@ bool WebGLProgram::detachShader(WebGLShader* shader)
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

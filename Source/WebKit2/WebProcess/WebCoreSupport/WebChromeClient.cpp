@@ -24,12 +24,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebChromeClient.h"
 
 #define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
 #include "NotImplemented.h"
 
 #include "DrawingArea.h"
+#include "InjectedBundleNavigationAction.h"
 #include "InjectedBundleUserMessageCoders.h"
 #include "WebContextMenu.h"
 #include "WebCoreArgumentCoders.h"
@@ -49,6 +51,7 @@
 #include <WebCore/FileChooser.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
+#include <WebCore/FrameView.h>
 #include <WebCore/HTMLNames.h>
 #include <WebCore/HTMLPlugInImageElement.h>
 #include <WebCore/Page.h>
@@ -151,8 +154,8 @@ void WebChromeClient::focusedFrameChanged(Frame* frame)
 
 Page* WebChromeClient::createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures& windowFeatures, const NavigationAction& navigationAction)
 {
-    uint32_t modifiers = modifiersForNavigationAction(navigationAction);
-    int32_t mouseButton = mouseButtonForNavigationAction(navigationAction);
+    uint32_t modifiers = static_cast<uint32_t>(InjectedBundleNavigationAction::modifiersForNavigationAction(navigationAction));
+    int32_t mouseButton = static_cast<int32_t>(InjectedBundleNavigationAction::mouseButtonForNavigationAction(navigationAction));
 
     uint64_t newPageID = 0;
     WebPageCreationParameters parameters;
@@ -354,11 +357,15 @@ void WebChromeClient::invalidateWindow(const IntRect&, bool)
 
 void WebChromeClient::invalidateContentsAndWindow(const IntRect& rect, bool)
 {
+    if (m_page->corePage()->mainFrame()->document()->printing())
+        return;
     m_page->drawingArea()->setNeedsDisplay(rect);
 }
 
 void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& rect, bool)
 {
+    if (m_page->corePage()->mainFrame()->document()->printing())
+        return;
     m_page->pageDidScroll();
     m_page->drawingArea()->setNeedsDisplay(rect);
 }
@@ -413,7 +420,23 @@ void WebChromeClient::contentsSizeChanged(Frame* frame, const IntSize& size) con
     WebFrame* largestFrame = findLargestFrameInFrameSet(m_page);
     if (largestFrame != m_cachedFrameSetLargestFrame.get()) {
         m_cachedFrameSetLargestFrame = largestFrame;
-        WebProcess::shared().connection()->send(Messages::WebPageProxy::FrameSetLargestFrameChanged(largestFrame ? largestFrame->frameID() : 0), m_page->pageID());
+        m_page->send(Messages::WebPageProxy::FrameSetLargestFrameChanged(largestFrame ? largestFrame->frameID() : 0));
+    }
+
+    if (frame->page()->mainFrame() != frame)
+        return;
+    FrameView* frameView = frame->view();
+    if (!frameView)
+        return;
+
+    bool hasHorizontalScrollbar = frameView->horizontalScrollbar();
+    bool hasVerticalScrollbar = frameView->verticalScrollbar();
+
+    if (hasHorizontalScrollbar != m_cachedMainFrameHasHorizontalScrollbar || hasVerticalScrollbar != m_cachedMainFrameHasVerticalScrollbar) {
+        m_page->send(Messages::WebPageProxy::DidChangeScrollbarsForMainFrame(hasHorizontalScrollbar, hasVerticalScrollbar));
+        
+        m_cachedMainFrameHasHorizontalScrollbar = hasHorizontalScrollbar;
+        m_cachedMainFrameHasVerticalScrollbar = hasVerticalScrollbar;
     }
 }
 
@@ -550,6 +573,15 @@ bool WebChromeClient::paintCustomScrollCorner(GraphicsContext*, const FloatRect&
     return false;
 }
 
+bool WebChromeClient::paintCustomOverhangArea(GraphicsContext* context, const IntRect& horizontalOverhangArea, const IntRect& verticalOverhangArea, const IntRect& dirtyRect)
+{
+    if (!m_page->injectedBundleUIClient().shouldPaintCustomOverhangArea())
+        return false;
+
+    m_page->injectedBundleUIClient().paintCustomOverhangArea(m_page, context, horizontalOverhangArea, verticalOverhangArea, dirtyRect);
+    return true;
+}
+
 void WebChromeClient::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
 {
     notImplemented();
@@ -611,6 +643,11 @@ void WebChromeClient::formDidBlur(const Node*)
 
 bool WebChromeClient::selectItemWritingDirectionIsNatural()
 {
+    return false;
+}
+
+bool WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection()
+{
     return true;
 }
 
@@ -630,12 +667,6 @@ void WebChromeClient::showContextMenu()
     m_page->contextMenu()->show();
 }
 #endif
-
-PassOwnPtr<HTMLParserQuirks> WebChromeClient::createHTMLParserQuirks()
-{
-    notImplemented();
-    return 0;
-}
 
 #if USE(ACCELERATED_COMPOSITING)
 void WebChromeClient::attachRootGraphicsLayer(Frame*, GraphicsLayer* layer)
@@ -681,6 +712,11 @@ void WebChromeClient::setLastSetCursorToCurrentCursor()
 void WebChromeClient::dispatchViewportDataDidChange(const ViewportArguments& args) const
 {
     m_page->send(Messages::WebPageProxy::DidChangeViewportData(args));
+}
+
+void WebChromeClient::didCompleteRubberBandForMainFrame(const IntSize& initialOverhang) const
+{
+    m_page->send(Messages::WebPageProxy::DidCompleteRubberBandForMainFrame(initialOverhang));
 }
 
 } // namespace WebKit

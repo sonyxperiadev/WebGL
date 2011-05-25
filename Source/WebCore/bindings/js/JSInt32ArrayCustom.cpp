@@ -24,9 +24,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
-
 #include "JSInt32Array.h"
 
 #include "Int32Array.h"
@@ -62,5 +59,3 @@ EncodedJSValue JSC_HOST_CALL JSInt32ArrayConstructor::constructJSInt32Array(Exec
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(3D_CANVAS) || ENABLE(BLOB)

@@ -31,7 +31,6 @@
 
 #include "ArgList.h"
 #include "Heap.h"
-#include "CollectorHeapIterator.h"
 #include "CommonIdentifiers.h"
 #include "FunctionConstructor.h"
 #include "GetterSetter.h"
@@ -87,25 +86,26 @@ void* JSGlobalData::jsFunctionVPtr;
 
 void JSGlobalData::storeVPtrs()
 {
-    CollectorCell cell;
-    void* storage = &cell;
+    // Enough storage to fit a JSArray, JSByteArray, JSString, or JSFunction.
+    // COMPILE_ASSERTS below check that this is true.
+    char storage[64];
 
-    COMPILE_ASSERT(sizeof(JSArray) <= sizeof(CollectorCell), sizeof_JSArray_must_be_less_than_CollectorCell);
+    COMPILE_ASSERT(sizeof(JSArray) <= sizeof(storage), sizeof_JSArray_must_be_less_than_storage);
     JSCell* jsArray = new (storage) JSArray(JSArray::VPtrStealingHack);
     JSGlobalData::jsArrayVPtr = jsArray->vptr();
     jsArray->~JSCell();
 
-    COMPILE_ASSERT(sizeof(JSByteArray) <= sizeof(CollectorCell), sizeof_JSByteArray_must_be_less_than_CollectorCell);
+    COMPILE_ASSERT(sizeof(JSByteArray) <= sizeof(storage), sizeof_JSByteArray_must_be_less_than_storage);
     JSCell* jsByteArray = new (storage) JSByteArray(JSByteArray::VPtrStealingHack);
     JSGlobalData::jsByteArrayVPtr = jsByteArray->vptr();
     jsByteArray->~JSCell();
 
-    COMPILE_ASSERT(sizeof(JSString) <= sizeof(CollectorCell), sizeof_JSString_must_be_less_than_CollectorCell);
+    COMPILE_ASSERT(sizeof(JSString) <= sizeof(storage), sizeof_JSString_must_be_less_than_storage);
     JSCell* jsString = new (storage) JSString(JSString::VPtrStealingHack);
     JSGlobalData::jsStringVPtr = jsString->vptr();
     jsString->~JSCell();
 
-    COMPILE_ASSERT(sizeof(JSFunction) <= sizeof(CollectorCell), sizeof_JSFunction_must_be_less_than_CollectorCell);
+    COMPILE_ASSERT(sizeof(JSFunction) <= sizeof(storage), sizeof_JSFunction_must_be_less_than_storage);
     JSCell* jsFunction = new (storage) JSFunction(JSFunction::createStructure(jsNull()));
     JSGlobalData::jsFunctionVPtr = jsFunction->vptr();
     jsFunction->~JSCell();
@@ -140,7 +140,6 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , parser(new Parser)
     , interpreter(new Interpreter)
     , heap(this)
-    , head(0)
     , dynamicGlobalObject(0)
     , firstStringifierToMark(0)
     , cachedUTCOffset(NaN)
@@ -166,11 +165,14 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     if (canUseJIT) {
         m_canUseJIT = kCFBooleanTrue == canUseJIT;
         CFRelease(canUseJIT);
-    } else
-        m_canUseJIT = !getenv("JavaScriptCoreUseJIT");
+    } else {
+      char* canUseJITString = getenv("JavaScriptCoreUseJIT");
+      m_canUseJIT = !canUseJITString || atoi(canUseJITString);
+    }
     CFRelease(canUseJITKey);
 #elif OS(UNIX)
-    m_canUseJIT = !getenv("JavaScriptCoreUseJIT");
+    char* canUseJITString = getenv("JavaScriptCoreUseJIT");
+    m_canUseJIT = !canUseJITString || atoi(canUseJITString);
 #else
     m_canUseJIT = true;
 #endif
@@ -311,21 +313,30 @@ void JSGlobalData::dumpSampleData(ExecState* exec)
     interpreter->dumpSampleData(exec);
 }
 
+class Recompiler {
+public:
+    void operator()(JSCell*);
+};
+
+inline void Recompiler::operator()(JSCell* cell)
+{
+    if (!cell->inherits(&JSFunction::info))
+        return;
+    JSFunction* function = asFunction(cell);
+    if (function->executable()->isHostFunction())
+        return;
+    function->jsExecutable()->discardCode();
+}
+
+
 void JSGlobalData::recompileAllJSFunctions()
 {
     // If JavaScript is running, it's not safe to recompile, since we'll end
     // up throwing away code that is live on the stack.
     ASSERT(!dynamicGlobalObject);
-
-    LiveObjectIterator it = heap.primaryHeapBegin();
-    LiveObjectIterator heapEnd = heap.primaryHeapEnd();
-    for ( ; it != heapEnd; ++it) {
-        if ((*it)->inherits(&JSFunction::info)) {
-            JSFunction* function = asFunction(*it);
-            if (!function->executable()->isHostFunction())
-                function->jsExecutable()->discardCode();
-        }
-    }
+    
+    Recompiler recompiler;
+    heap.forEach(recompiler);
 }
 
 #if ENABLE(REGEXP_TRACING)

@@ -37,6 +37,7 @@
 
 namespace WebCore {
 class HTMLInputElement;
+class SpellChecker;
 }
 
 namespace WebKit {
@@ -111,7 +112,7 @@ public:
                                    WTF::Vector<WTF::String>& guesses);
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
-    virtual void requestCheckingOfString(WebCore::SpellChecker*, int, const WTF::String&) {}
+    virtual void requestCheckingOfString(WebCore::SpellChecker*, int, const WTF::String&);
 
     // Shows the form autofill popup for |node| if it is an HTMLInputElement and
     // it is empty.  This is called when you press the up or down arrow in a
@@ -119,12 +120,6 @@ public:
     // Returns true if the autofill popup has been scheduled to be shown, false
     // otherwise.
     virtual bool showFormAutofillForNode(WebCore::Node*);
-
-    // Notification that the text changed due to acceptance of a suggestion
-    // provided by an Autocomplete popup.  Having a separate callback in this
-    // case is a simple way to break the cycle that would otherwise occur if
-    // textDidChangeInTextField was called.
-    virtual void onAutocompleteSuggestionAccepted(WebCore::HTMLInputElement*);
 
 private:
     void modifySelection(WebCore::Frame*, WebCore::KeyboardEvent*);

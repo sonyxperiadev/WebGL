@@ -35,7 +35,7 @@
 #include "FramelessScrollView.h"
 #include "FrameView.h"
 #include "IntRect.h"
-#include "PlatformContextSkia.h"
+#include "painting/GraphicsContextBuilder.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
@@ -141,13 +141,13 @@ void WebPopupMenuImpl::resize(const WebSize& newSize)
     m_size = newSize;
 
     if (m_widget) {
-      IntRect newGeometry(0, 0, m_size.width, m_size.height);
-      m_widget->setFrameRect(newGeometry);
+        IntRect newGeometry(0, 0, m_size.width, m_size.height);
+        m_widget->setFrameRect(newGeometry);
     }
 
     if (m_client) {
-      WebRect damagedRect(0, 0, m_size.width, m_size.height);
-      m_client->didInvalidateRect(damagedRect);
+        WebRect damagedRect(0, 0, m_size.width, m_size.height);
+        m_client->didInvalidateRect(damagedRect);
     }
 }
 
@@ -164,18 +164,8 @@ void WebPopupMenuImpl::paint(WebCanvas* canvas, const WebRect& rect)
     if (!m_widget)
         return;
 
-    if (!rect.isEmpty()) {
-#if WEBKIT_USING_CG
-        GraphicsContext gc(canvas);
-#elif WEBKIT_USING_SKIA
-        PlatformContextSkia context(canvas);
-        // PlatformGraphicsContext is actually a pointer to PlatformContextSkia.
-        GraphicsContext gc(reinterpret_cast<PlatformGraphicsContext*>(&context));
-#else
-        notImplemented();
-#endif
-        m_widget->paint(&gc, rect);
-    }
+    if (!rect.isEmpty())
+        m_widget->paint(&GraphicsContextBuilder(canvas).context(), rect);
 }
 
 void WebPopupMenuImpl::themeChanged()

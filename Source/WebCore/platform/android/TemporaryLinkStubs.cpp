@@ -76,6 +76,8 @@
 #include "Widget.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <wtf/Assertions.h>
+#include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
 #if USE(JSC)

@@ -86,6 +86,24 @@ static URLSchemesMap& emptyDocumentSchemes()
     return emptyDocumentSchemes;
 }
 
+static URLSchemesMap& canDisplayOnlyIfCanRequestSchemes()
+{
+    DEFINE_STATIC_LOCAL(URLSchemesMap, canDisplayOnlyIfCanRequestSchemes, ());
+
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+    if (canDisplayOnlyIfCanRequestSchemes.isEmpty()) {
+#if ENABLE(BLOB)
+        canDisplayOnlyIfCanRequestSchemes.add("blob");
+#endif
+#if ENABLE(FILE_SYSTEM)
+        canDisplayOnlyIfCanRequestSchemes.add("filesystem");
+#endif
+    }
+#endif // ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+
+    return canDisplayOnlyIfCanRequestSchemes;
+}
+
 void SchemeRegistry::registerURLSchemeAsLocal(const String& scheme)
 {
     localURLSchemes().add(scheme);
@@ -121,6 +139,8 @@ void SchemeRegistry::registerURLSchemeAsNoAccess(const String& scheme)
 
 bool SchemeRegistry::shouldTreatURLSchemeAsNoAccess(const String& scheme)
 {
+    if (scheme.isEmpty())
+        return false;
     return schemesWithUniqueOrigins().contains(scheme);
 }
 
@@ -131,6 +151,8 @@ void SchemeRegistry::registerURLSchemeAsDisplayIsolated(const String& scheme)
 
 bool SchemeRegistry::shouldTreatURLSchemeAsDisplayIsolated(const String& scheme)
 {
+    if (scheme.isEmpty())
+        return false;
     return displayIsolatedURLSchemes().contains(scheme);
 }
 
@@ -141,6 +163,8 @@ void SchemeRegistry::registerURLSchemeAsSecure(const String& scheme)
 
 bool SchemeRegistry::shouldTreatURLSchemeAsSecure(const String& scheme)
 {
+    if (scheme.isEmpty())
+        return false;
     return secureSchemes().contains(scheme);
 }
 
@@ -151,7 +175,21 @@ void SchemeRegistry::registerURLSchemeAsEmptyDocument(const String& scheme)
 
 bool SchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(const String& scheme)
 {
+    if (scheme.isEmpty())
+        return false;
     return emptyDocumentSchemes().contains(scheme);
+}
+
+bool SchemeRegistry::canDisplayOnlyIfCanRequest(const String& scheme)
+{
+    if (scheme.isEmpty())
+        return false;
+    return canDisplayOnlyIfCanRequestSchemes().contains(scheme);
+}
+
+void SchemeRegistry::registerAsCanDisplayOnlyIfCanRequest(const String& scheme)
+{
+    canDisplayOnlyIfCanRequestSchemes().add(scheme);
 }
 
 } // namespace WebCore

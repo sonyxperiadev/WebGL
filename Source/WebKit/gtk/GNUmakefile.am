@@ -98,7 +98,6 @@ libwebkitgtk_@WEBKITGTK_API_MAJOR_VERSION@_@WEBKITGTK_API_MINOR_VERSION@_la_LIBA
 	$(OLE32_LIBS)
 
 webkitgtk_static_h_api += \
-	$(srcdir)/Source/WebCore/platform/network/soup/cache/webkit/soup-cache.h \
 	$(srcdir)/Source/WebKit/gtk/webkit/webkit.h \
 	$(srcdir)/Source/WebKit/gtk/webkit/webkitdefines.h \
 	$(srcdir)/Source/WebKit/gtk/webkit/webkitdownload.h \
@@ -160,6 +159,7 @@ webkitgtk_sources += \
 	Source/WebCore/bindings/gobject/WebKitDOMObject.h \
 	Source/WebCore/bindings/gobject/WebKitHTMLElementWrapperFactory.cpp \
 	Source/WebCore/bindings/gobject/WebKitHTMLElementWrapperFactory.h \
+	Source/WebKit/gtk/WebCoreSupport/AssertMatchingEnums.cpp \
 	Source/WebKit/gtk/WebCoreSupport/ChromeClientGtk.cpp \
 	Source/WebKit/gtk/WebCoreSupport/ChromeClientGtk.h \
 	Source/WebKit/gtk/WebCoreSupport/ContextMenuClientGtk.cpp \
@@ -261,7 +261,6 @@ $(WEBKIT_GIRSOURCES): $(G_IR_SCANNER) $(JSCORE_GIRSOURCES) libwebkitgtk-@WEBKITG
 	     --add-include-path=$(WebKit) \
 	     --add-include-path=$(top_builddir) \
 	     -I$(srcdir)/Source \
-	     -I$(top_srcdir)/Source/WebCore/platform/network/soup/cache \
 	     -I$(WebKit) \
 	     -I$(GENSOURCES) \
 	     -I$(GENSOURCES_WEBKIT) \
@@ -349,10 +348,8 @@ $(GENSOURCES_WEBKIT)/webkitenumtypes.cpp: $(webkitgtk_h_api) $(WebKit)/GNUmakefi
 	&& rm -f xgen-gtc
 
 # GSettings
-if USE_GSETTINGS
 gsettings_SCHEMAS = $(top_builddir)/Source/WebKit/gtk/org.webkitgtk-@WEBKITGTK_API_VERSION@.gschema.xml
 @GSETTINGS_RULES@
-endif
 
 EXTRA_DIST += \
 	$(WebKit)/ChangeLog \
@@ -379,7 +376,6 @@ noinst_PROGRAMS += $(TEST_PROGS)
 webkit_tests_cflags = \
 	-fno-strict-aliasing \
 	-I$(srcdir)/Source/JavaScriptCore/ForwardingHeaders \
-	-I$(WebCore)/platform/network/soup/cache \
 	-I$(WebKit) \
 	-I$(GENSOURCES) \
 	-I$(top_builddir)/Source/WebKit/gtk \

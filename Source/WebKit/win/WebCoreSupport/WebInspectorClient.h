@@ -34,6 +34,7 @@
 #include <WebCore/InspectorFrontendClientLocal.h>
 #include <WebCore/PlatformString.h>
 #include <WebCore/WindowMessageListener.h>
+#include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <windows.h>
 
@@ -58,10 +59,12 @@ public:
     virtual void highlight(WebCore::Node*);
     virtual void hideHighlight();
 
-    virtual void populateSetting(const WTF::String& key, WTF::String* value);
-    virtual void storeSetting(const WTF::String& key, const WTF::String& value);
-
     virtual bool sendMessageToFrontend(const WTF::String&);
+
+    bool inspectorStartsAttached();
+    void setInspectorStartsAttached(bool);
+
+    void releaseFrontendPage();
 
     void updateHighlight();
     void frontendClosing()
@@ -70,9 +73,9 @@ public:
         releaseFrontendPage();
     }
 
-    void releaseFrontendPage();
 private:
     ~WebInspectorClient();
+    WTF::PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
 
     WebView* m_inspectedWebView;
     WebCore::Page* m_frontendPage;
@@ -84,7 +87,7 @@ private:
 
 class WebInspectorFrontendClient : public WebCore::InspectorFrontendClientLocal, WebCore::WindowMessageListener {
 public:
-    WebInspectorFrontendClient(WebView* inspectedWebView, HWND inspectedWebViewHwnd, HWND frontendHwnd, const COMPtr<WebView>& frotnendWebView, HWND frontendWebViewHwnd, WebInspectorClient* inspectorClient);
+    WebInspectorFrontendClient(WebView* inspectedWebView, HWND inspectedWebViewHwnd, HWND frontendHwnd, const COMPtr<WebView>& frotnendWebView, HWND frontendWebViewHwnd, WebInspectorClient*, WTF::PassOwnPtr<Settings>);
 
     virtual void frontendLoaded();
     

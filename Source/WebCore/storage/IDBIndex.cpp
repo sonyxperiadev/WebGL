@@ -34,13 +34,13 @@
 #include "IDBKey.h"
 #include "IDBKeyRange.h"
 #include "IDBRequest.h"
-#include "IDBTransactionBackendInterface.h"
+#include "IDBTransaction.h"
 
 namespace WebCore {
 
 static const unsigned short defaultDirection = IDBCursor::NEXT;
 
-IDBIndex::IDBIndex(PassRefPtr<IDBIndexBackendInterface> backend, IDBTransactionBackendInterface* transaction)
+IDBIndex::IDBIndex(PassRefPtr<IDBIndexBackendInterface> backend, IDBTransaction* transaction)
     : m_backend(backend)
     , m_transaction(transaction)
 {
@@ -52,13 +52,8 @@ IDBIndex::~IDBIndex()
 {
 }
 
-PassRefPtr<IDBRequest> IDBIndex::openCursor(ScriptExecutionContext* context, const OptionsObject& options, ExceptionCode& ec)
+PassRefPtr<IDBRequest> IDBIndex::openCursor(ScriptExecutionContext* context, PassRefPtr<IDBKeyRange> keyRange, unsigned short direction, ExceptionCode& ec)
 {
-    RefPtr<IDBKeyRange> keyRange = options.getKeyKeyRange("range");
-
-    // Converted to an unsigned short.
-    int32_t direction = defaultDirection;
-    options.getKeyInt32("direction", direction);
     if (direction != IDBCursor::NEXT && direction != IDBCursor::NEXT_NO_DUPLICATE && direction != IDBCursor::PREV && direction != IDBCursor::PREV_NO_DUPLICATE) {
         // FIXME: May need to change when specced: http://www.w3.org/Bugs/Public/show_bug.cgi?id=11406
         ec = IDBDatabaseException::CONSTRAINT_ERR;
@@ -66,19 +61,14 @@ PassRefPtr<IDBRequest> IDBIndex::openCursor(ScriptExecutionContext* context, con
     }
 
     RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
-    m_backend->openCursor(keyRange, direction, request, m_transaction.get(), ec);
+    m_backend->openCursor(keyRange, direction, request, m_transaction->backend(), ec);
     if (ec)
         return 0;
     return request;
 }
 
-PassRefPtr<IDBRequest> IDBIndex::openKeyCursor(ScriptExecutionContext* context, const OptionsObject& options, ExceptionCode& ec)
+PassRefPtr<IDBRequest> IDBIndex::openKeyCursor(ScriptExecutionContext* context, PassRefPtr<IDBKeyRange> keyRange, unsigned short direction, ExceptionCode& ec)
 {
-    RefPtr<IDBKeyRange> keyRange = options.getKeyKeyRange("range");
-
-    // Converted to an unsigned short.
-    int32_t direction = defaultDirection;
-    options.getKeyInt32("direction", direction);
     if (direction != IDBCursor::NEXT && direction != IDBCursor::NEXT_NO_DUPLICATE && direction != IDBCursor::PREV && direction != IDBCursor::PREV_NO_DUPLICATE) {
         // FIXME: May need to change when specced: http://www.w3.org/Bugs/Public/show_bug.cgi?id=11406
         ec = IDBDatabaseException::CONSTRAINT_ERR;
@@ -86,7 +76,7 @@ PassRefPtr<IDBRequest> IDBIndex::openKeyCursor(ScriptExecutionContext* context, 
     }
 
     RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
-    m_backend->openKeyCursor(keyRange, direction, request, m_transaction.get(), ec);
+    m_backend->openKeyCursor(keyRange, direction, request, m_transaction->backend(), ec);
     if (ec)
         return 0;
     return request;
@@ -95,7 +85,7 @@ PassRefPtr<IDBRequest> IDBIndex::openKeyCursor(ScriptExecutionContext* context, 
 PassRefPtr<IDBRequest> IDBIndex::get(ScriptExecutionContext* context, PassRefPtr<IDBKey> key, ExceptionCode& ec)
 {
     RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
-    m_backend->get(key, request, m_transaction.get(), ec);
+    m_backend->get(key, request, m_transaction->backend(), ec);
     if (ec)
         return 0;
     return request;
@@ -104,7 +94,7 @@ PassRefPtr<IDBRequest> IDBIndex::get(ScriptExecutionContext* context, PassRefPtr
 PassRefPtr<IDBRequest> IDBIndex::getKey(ScriptExecutionContext* context, PassRefPtr<IDBKey> key, ExceptionCode& ec)
 {
     RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
-    m_backend->getKey(key, request, m_transaction.get(), ec);
+    m_backend->getKey(key, request, m_transaction->backend(), ec);
     if (ec)
         return 0;
     return request;

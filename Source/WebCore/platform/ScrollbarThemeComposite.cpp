@@ -37,6 +37,8 @@
 #include "ScrollableArea.h"
 #include "Settings.h"
 
+using namespace std;
+
 namespace WebCore {
 
 #if PLATFORM(WIN)
@@ -246,18 +248,28 @@ void ScrollbarThemeComposite::splitTrack(Scrollbar* scrollbar, const IntRect& un
     if (scrollbar->orientation() == HorizontalScrollbar) {
         thumbRect = IntRect(trackRect.x() + thumbPos, trackRect.y() + (trackRect.height() - thickness) / 2, thumbLength(scrollbar), thickness); 
         beforeThumbRect = IntRect(trackRect.x(), trackRect.y(), thumbPos + thumbRect.width() / 2, trackRect.height()); 
-        afterThumbRect = IntRect(trackRect.x() + beforeThumbRect.width(), trackRect.y(), trackRect.right() - beforeThumbRect.right(), trackRect.height());
+        afterThumbRect = IntRect(trackRect.x() + beforeThumbRect.width(), trackRect.y(), trackRect.maxX() - beforeThumbRect.maxX(), trackRect.height());
     } else {
         thumbRect = IntRect(trackRect.x() + (trackRect.width() - thickness) / 2, trackRect.y() + thumbPos, thickness, thumbLength(scrollbar));
         beforeThumbRect = IntRect(trackRect.x(), trackRect.y(), trackRect.width(), thumbPos + thumbRect.height() / 2); 
-        afterThumbRect = IntRect(trackRect.x(), trackRect.y() + beforeThumbRect.height(), trackRect.width(), trackRect.bottom() - beforeThumbRect.bottom());
+        afterThumbRect = IntRect(trackRect.x(), trackRect.y() + beforeThumbRect.height(), trackRect.width(), trackRect.maxY() - beforeThumbRect.maxY());
     }
+}
+
+// Returns the size represented by track taking into account scrolling past
+// the end of the document.
+static float usedTotalSize(Scrollbar* scrollbar)
+{
+    float overhangAtStart = -scrollbar->currentPos();
+    float overhangAtEnd = scrollbar->currentPos() + scrollbar->visibleSize() - scrollbar->totalSize();
+    float overhang = max(0.0f, max(overhangAtStart, overhangAtEnd));
+    return scrollbar->totalSize() + overhang;
 }
 
 int ScrollbarThemeComposite::thumbPosition(Scrollbar* scrollbar)
 {
     if (scrollbar->enabled())
-        return scrollbar->currentPos() * (trackLength(scrollbar) - thumbLength(scrollbar)) / scrollbar->maximum();
+        return max(0.0f, scrollbar->currentPos()) * (trackLength(scrollbar) - thumbLength(scrollbar)) / (usedTotalSize(scrollbar) - scrollbar->visibleSize());
     return 0;
 }
 
@@ -266,7 +278,7 @@ int ScrollbarThemeComposite::thumbLength(Scrollbar* scrollbar)
     if (!scrollbar->enabled())
         return 0;
 
-    float proportion = (float)scrollbar->visibleSize() / scrollbar->totalSize();
+    float proportion = scrollbar->visibleSize() / usedTotalSize(scrollbar);
     int trackLen = trackLength(scrollbar);
     int length = proportion * trackLen;
     length = max(length, minimumThumbLength(scrollbar));

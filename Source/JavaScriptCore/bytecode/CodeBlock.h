@@ -248,7 +248,8 @@ namespace JSC {
     protected:
         CodeBlock(ScriptExecutable* ownerExecutable, CodeType, JSGlobalObject*, PassRefPtr<SourceProvider>, unsigned sourceOffset, SymbolTable* symbolTable, bool isConstructor);
 
-        JSGlobalObject* m_globalObject;
+        DeprecatedPtr<JSGlobalObject> m_globalObject;
+        Heap* m_heap;
 
     public:
         virtual ~CodeBlock();
@@ -485,7 +486,7 @@ namespace JSC {
         unsigned addRegExp(RegExp* r) { createRareDataIfNecessary(); unsigned size = m_rareData->m_regexps.size(); m_rareData->m_regexps.append(r); return size; }
         RegExp* regexp(int index) const { ASSERT(m_rareData); return m_rareData->m_regexps[index].get(); }
 
-        JSGlobalObject* globalObject() { return m_globalObject; }
+        JSGlobalObject* globalObject() { return m_globalObject.get(); }
 
         // Jump Tables
 
@@ -616,16 +617,13 @@ namespace JSC {
         GlobalCodeBlock(ScriptExecutable* ownerExecutable, CodeType codeType, JSGlobalObject* globalObject, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset)
             : CodeBlock(ownerExecutable, codeType, globalObject, sourceProvider, sourceOffset, &m_unsharedSymbolTable, false)
         {
-            m_globalObject->codeBlocks().add(this);
+            m_heap->codeBlocks().add(this);
         }
 
         ~GlobalCodeBlock()
         {
-            if (m_globalObject)
-                m_globalObject->codeBlocks().remove(this);
+            m_heap->codeBlocks().remove(this);
         }
-
-        void clearGlobalObject() { m_globalObject = 0; }
 
     private:
         SymbolTable m_unsharedSymbolTable;

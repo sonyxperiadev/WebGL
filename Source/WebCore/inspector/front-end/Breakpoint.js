@@ -29,47 +29,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.Breakpoint = function(debuggerModel, breakpointId, sourceID, url, line, enabled, condition)
+WebInspector.Breakpoint = function(id, url, sourceID, lineNumber, columnNumber, condition, enabled)
 {
-    this.id = breakpointId;
+    this.id = id;
     this.url = url;
-    this.line = line;
     this.sourceID = sourceID;
-    this._enabled = enabled;
-    this._condition = condition || "";
-    this._debuggerModel = debuggerModel;
+    this.lineNumber = lineNumber;
+    this.columnNumber = columnNumber;
+    this.condition = condition;
+    this.enabled = enabled;
+    this.locations = [];
 }
 
 WebInspector.Breakpoint.prototype = {
-    get enabled()
+    addLocation: function(sourceID, lineNumber, columnNumber)
     {
-        return this._enabled;
-    },
-
-    set enabled(enabled)
-    {
-        if (this._enabled === enabled)
-            return;
-        this.remove();
-        WebInspector.debuggerModel.setBreakpoint(this.sourceID, this.line, enabled, this.condition);
-    },
-
-    get condition()
-    {
-        return this._condition;
-    },
-
-    get data()
-    {
-        return { id: this.id, url: this.url, sourceID: this.sourceID, lineNumber: this.line, condition: this.condition };
-    },
-
-    remove: function()
-    {
-        this._debuggerModel.removeBreakpoint(this.id);
-        this.removeAllListeners();
-        delete this._debuggerModel;
+        this.locations.push({ sourceID: sourceID, lineNumber: lineNumber, columnNumber: columnNumber });
     }
 }
-
-WebInspector.Breakpoint.prototype.__proto__ = WebInspector.Object.prototype;

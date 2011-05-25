@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebInspectorFrontendClient.h"
 
 #if ENABLE(INSPECTOR)
@@ -40,7 +41,7 @@ using namespace WebCore;
 namespace WebKit {
 
 WebInspectorFrontendClient::WebInspectorFrontendClient(WebPage* page, WebPage* inspectorPage)
-    : InspectorFrontendClientLocal(page->corePage()->inspectorController(), inspectorPage->corePage())
+    : InspectorFrontendClientLocal(page->corePage()->inspectorController(), inspectorPage->corePage(), new Settings())
     , m_page(page)
 {
 }

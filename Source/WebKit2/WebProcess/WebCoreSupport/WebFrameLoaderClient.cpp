@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "WebFrameLoaderClient.h"
 
 #define DISABLE_NOT_IMPLEMENTED_WARNINGS 1
@@ -30,6 +31,7 @@
 
 #include "AuthenticationManager.h"
 #include "DataReference.h"
+#include "InjectedBundleNavigationAction.h"
 #include "InjectedBundleUserMessageCoders.h"
 #include "PlatformCertificateInfo.h"
 #include "PluginView.h"
@@ -57,6 +59,7 @@
 #include <WebCore/FrameView.h>
 #include <WebCore/HTMLAppletElement.h>
 #include <WebCore/HTMLFormElement.h>
+#include <WebCore/HistoryItem.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MouseEvent.h>
 #include <WebCore/Page.h>
@@ -141,13 +144,18 @@ void WebFrameLoaderClient::detachedFromParent3()
     notImplemented();
 }
 
-void WebFrameLoaderClient::assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest& request)
+void WebFrameLoaderClient::assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
 {
     WebPage* webPage = m_frame->page();
     if (!webPage)
         return;
 
-    webPage->send(Messages::WebPageProxy::DidInitiateLoadForResource(m_frame->frameID(), identifier, request));
+    bool pageIsProvisionallyLoading = false;
+    if (FrameLoader* frameLoader = loader->frameLoader())
+        pageIsProvisionallyLoading = frameLoader->provisionalDocumentLoader() == loader;
+
+    webPage->injectedBundleResourceLoadClient().didInitiateLoadForResource(webPage, m_frame, identifier, request, pageIsProvisionallyLoading);
+    webPage->send(Messages::WebPageProxy::DidInitiateLoadForResource(m_frame->frameID(), identifier, request, pageIsProvisionallyLoading));
 }
 
 void WebFrameLoaderClient::dispatchWillSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
@@ -156,8 +164,9 @@ void WebFrameLoaderClient::dispatchWillSendRequest(DocumentLoader*, unsigned lon
     if (!webPage)
         return;
 
-    if (!webPage->injectedBundleLoaderClient().shouldLoadResourceForFrame(webPage, m_frame, request.url().string())) {
-        request = ResourceRequest();
+    webPage->injectedBundleResourceLoadClient().willSendRequestForFrame(webPage, m_frame, identifier, request, redirectResponse);
+
+    if (request.isNull()) {
         // FIXME: We should probably send a message saying we cancelled the request for the resource.
         return;
     }
@@ -211,6 +220,7 @@ void WebFrameLoaderClient::dispatchDidReceiveResponse(DocumentLoader*, unsigned 
     if (!webPage)
         return;
 
+    webPage->injectedBundleResourceLoadClient().didReceiveResponseForResource(webPage, m_frame, identifier, response);
     webPage->send(Messages::WebPageProxy::DidReceiveResponseForResource(m_frame->frameID(), identifier, response));
 }
 
@@ -220,6 +230,7 @@ void WebFrameLoaderClient::dispatchDidReceiveContentLength(DocumentLoader*, unsi
     if (!webPage)
         return;
 
+    webPage->injectedBundleResourceLoadClient().didReceiveContentLengthForResource(webPage, m_frame, identifier, lengthReceived);
     webPage->send(Messages::WebPageProxy::DidReceiveContentLengthForResource(m_frame->frameID(), identifier, lengthReceived));
 }
 
@@ -229,6 +240,7 @@ void WebFrameLoaderClient::dispatchDidFinishLoading(DocumentLoader*, unsigned lo
     if (!webPage)
         return;
 
+    webPage->injectedBundleResourceLoadClient().didFinishLoadForResource(webPage, m_frame, identifier);
     webPage->send(Messages::WebPageProxy::DidFinishLoadForResource(m_frame->frameID(), identifier));
 }
 
@@ -238,6 +250,7 @@ void WebFrameLoaderClient::dispatchDidFailLoading(DocumentLoader*, unsigned long
     if (!webPage)
         return;
 
+    webPage->injectedBundleResourceLoadClient().didFailLoadForResource(webPage, m_frame, identifier, error);
     webPage->send(Messages::WebPageProxy::DidFailLoadForResource(m_frame->frameID(), identifier, error));
 }
 
@@ -311,7 +324,7 @@ void WebFrameLoaderClient::dispatchDidChangeLocationWithinPage()
     webPage->injectedBundleLoaderClient().didSameDocumentNavigationForFrame(webPage, m_frame, SameDocumentNavigationAnchorNavigation, userData);
 
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), SameDocumentNavigationAnchorNavigation, m_frame->coreFrame()->loader()->url().string(), InjectedBundleUserMessageEncoder(userData.get())));
+    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), SameDocumentNavigationAnchorNavigation, m_frame->coreFrame()->document()->url().string(), InjectedBundleUserMessageEncoder(userData.get())));
 }
 
 void WebFrameLoaderClient::dispatchDidPushStateWithinPage()
@@ -326,7 +339,7 @@ void WebFrameLoaderClient::dispatchDidPushStateWithinPage()
     webPage->injectedBundleLoaderClient().didSameDocumentNavigationForFrame(webPage, m_frame, SameDocumentNavigationSessionStatePush, userData);
 
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), SameDocumentNavigationSessionStatePush, m_frame->coreFrame()->loader()->url().string(), InjectedBundleUserMessageEncoder(userData.get())));
+    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), SameDocumentNavigationSessionStatePush, m_frame->coreFrame()->document()->url().string(), InjectedBundleUserMessageEncoder(userData.get())));
 }
 
 void WebFrameLoaderClient::dispatchDidReplaceStateWithinPage()
@@ -341,7 +354,7 @@ void WebFrameLoaderClient::dispatchDidReplaceStateWithinPage()
     webPage->injectedBundleLoaderClient().didSameDocumentNavigationForFrame(webPage, m_frame, SameDocumentNavigationSessionStateReplace, userData);
 
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), SameDocumentNavigationSessionStateReplace, m_frame->coreFrame()->loader()->url().string(), InjectedBundleUserMessageEncoder(userData.get())));
+    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), SameDocumentNavigationSessionStateReplace, m_frame->coreFrame()->document()->url().string(), InjectedBundleUserMessageEncoder(userData.get())));
 }
 
 void WebFrameLoaderClient::dispatchDidPopStateWithinPage()
@@ -356,7 +369,7 @@ void WebFrameLoaderClient::dispatchDidPopStateWithinPage()
     webPage->injectedBundleLoaderClient().didSameDocumentNavigationForFrame(webPage, m_frame, SameDocumentNavigationSessionStatePop, userData);
 
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), SameDocumentNavigationSessionStatePop, m_frame->coreFrame()->loader()->url().string(), InjectedBundleUserMessageEncoder(userData.get())));
+    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), SameDocumentNavigationSessionStatePop, m_frame->coreFrame()->document()->url().string(), InjectedBundleUserMessageEncoder(userData.get())));
 }
 
 void WebFrameLoaderClient::dispatchWillClose()
@@ -426,7 +439,14 @@ void WebFrameLoaderClient::dispatchDidCommitLoad()
     webPage->sandboxExtensionTracker().didCommitProvisionalLoad(m_frame);
 
     // Notify the UIProcess.
+
     webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(m_frame->frameID(), response.mimeType(), m_frameHasCustomRepresentation, PlatformCertificateInfo(response), InjectedBundleUserMessageEncoder(userData.get())));
+
+    // Only restore the scale factor for standard frame loads (of the main frame).
+    if (m_frame->isMainFrame() && m_frame->coreFrame()->loader()->loadType() == FrameLoadTypeStandard) {
+        if (m_frame->coreFrame()->pageScaleFactor() != 1)
+            webPage->scaleWebView(1, IntPoint());
+    }
 }
 
 void WebFrameLoaderClient::dispatchDidFailProvisionalLoad(const ResourceError& error)
@@ -556,64 +576,27 @@ void WebFrameLoaderClient::dispatchShow()
     webPage->show();
 }
 
-uint32_t modifiersForNavigationAction(const NavigationAction& navigationAction)
-{
-    uint32_t modifiers = 0;
-    if (const UIEventWithKeyState* keyStateEvent = findEventWithKeyState(const_cast<Event*>(navigationAction.event()))) {
-        if (keyStateEvent->shiftKey())
-            modifiers |= WebEvent::ShiftKey;
-        if (keyStateEvent->ctrlKey())
-            modifiers |= WebEvent::ControlKey;
-        if (keyStateEvent->altKey())
-            modifiers |= WebEvent::AltKey;
-        if (keyStateEvent->metaKey())
-            modifiers |= WebEvent::MetaKey;
-    }
-
-    return modifiers;
-}
-
-static const MouseEvent* findMouseEvent(const Event* event)
-{
-    for (const Event* e = event; e; e = e->underlyingEvent()) {
-        if (e->isMouseEvent())
-            return static_cast<const MouseEvent*>(e);
-    }
-    return 0;
-}
-
-int32_t mouseButtonForNavigationAction(const NavigationAction& navigationAction)
-{
-    const MouseEvent* mouseEvent = findMouseEvent(navigationAction.event());
-    if (!mouseEvent)
-        return -1;
-
-    if (!mouseEvent->buttonDown())
-        return -1;
-
-    return mouseEvent->button();
-}
-
 void WebFrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& MIMEType, const ResourceRequest& request)
 {
-    if (m_frame->coreFrame()->loader()->documentLoader()->url().isEmpty() && request.url() == blankURL()) {
-        // WebKit2 loads initial about:blank documents synchronously, without consulting the policy delegate
-        ASSERT(m_frame->coreFrame()->loader()->stateMachine()->committingFirstRealLoad());
-        (m_frame->coreFrame()->loader()->policyChecker()->*function)(PolicyUse);
-        return;
-    }
-    
     WebPage* webPage = m_frame->page();
     if (!webPage)
         return;
 
-    uint64_t listenerID = m_frame->setUpPolicyListener(function);
-    const String& url = request.url().string(); // FIXME: Pass entire request.
+    if (!request.url().string())
+        return;
 
+    RefPtr<APIObject> userData;
+
+    // Notify the bundle client.
+    webPage->injectedBundlePolicyClient().decidePolicyForMIMEType(webPage, m_frame, MIMEType, request, userData);
+
+    uint64_t listenerID = m_frame->setUpPolicyListener(function);
     bool receivedPolicyAction;
     uint64_t policyAction;
     uint64_t downloadID;
-    if (!webPage->sendSync(Messages::WebPageProxy::DecidePolicyForMIMEType(m_frame->frameID(), MIMEType, url, listenerID), Messages::WebPageProxy::DecidePolicyForMIMEType::Reply(receivedPolicyAction, policyAction, downloadID)))
+
+    // Notify the UIProcess.
+    if (!webPage->sendSync(Messages::WebPageProxy::DecidePolicyForMIMEType(m_frame->frameID(), MIMEType, request, listenerID, InjectedBundleUserMessageEncoder(userData.get())), Messages::WebPageProxy::DecidePolicyForMIMEType::Reply(receivedPolicyAction, policyAction, downloadID)))
         return;
 
     // We call this synchronously because CFNetwork can only convert a loading connection to a download from its didReceiveResponse callback.
@@ -621,54 +604,50 @@ void WebFrameLoaderClient::dispatchDecidePolicyForMIMEType(FramePolicyFunction f
         m_frame->didReceivePolicyDecision(listenerID, static_cast<PolicyAction>(policyAction), downloadID);
 }
 
-void WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction& navigationAction, const ResourceRequest& request, PassRefPtr<FormState>, const String& frameName)
+void WebFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction& navigationAction, const ResourceRequest& request, PassRefPtr<FormState> formState, const String& frameName)
 {
     WebPage* webPage = m_frame->page();
     if (!webPage)
         return;
 
+    RefPtr<APIObject> userData;
+
+    RefPtr<InjectedBundleNavigationAction> action = InjectedBundleNavigationAction::create(m_frame, navigationAction, formState);
+
+    // Notify the bundle client.
+    webPage->injectedBundlePolicyClient().decidePolicyForNewWindowAction(webPage, m_frame, action.get(), request, frameName, userData);
+
+
     uint64_t listenerID = m_frame->setUpPolicyListener(function);
 
-    // FIXME: Pass more than just the navigation action type.
-    // FIXME: Pass the frame name.
-    const String& url = request.url().string(); // FIXME: Pass entire request.
-
-    uint32_t navigationType = static_cast<uint32_t>(navigationAction.type());
-    uint32_t modifiers = modifiersForNavigationAction(navigationAction);
-    int32_t mouseButton = mouseButtonForNavigationAction(navigationAction);
-
-    webPage->send(Messages::WebPageProxy::DecidePolicyForNewWindowAction(m_frame->frameID(), navigationType, modifiers, mouseButton, url, listenerID));
+    // Notify the UIProcess.
+    webPage->send(Messages::WebPageProxy::DecidePolicyForNewWindowAction(m_frame->frameID(), action->navigationType(), action->modifiers(), action->mouseButton(), request, frameName, listenerID, InjectedBundleUserMessageEncoder(userData.get())));
 }
 
-void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction& navigationAction, const ResourceRequest& request, PassRefPtr<FormState>)
+void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction& navigationAction, const ResourceRequest& request, PassRefPtr<FormState> formState)
 {
-    if (m_frame->coreFrame()->loader()->documentLoader()->url().isEmpty() && request.url() == blankURL()) {
-        // WebKit2 loads initial about:blank documents synchronously, without consulting the policy delegate
-        ASSERT(m_frame->coreFrame()->loader()->stateMachine()->committingFirstRealLoad());
-        (m_frame->coreFrame()->loader()->policyChecker()->*function)(PolicyUse);
-        return;
-    }
-
-    // Always ignore requests with empty URLs.
-    if (request.isEmpty()) {
-        (m_frame->coreFrame()->loader()->policyChecker()->*function)(PolicyIgnore);
-        return;
-    }
-    
     WebPage* webPage = m_frame->page();
     if (!webPage)
         return;
 
+    RefPtr<APIObject> userData;
+
+    RefPtr<InjectedBundleNavigationAction> action = InjectedBundleNavigationAction::create(m_frame, navigationAction, formState);
+
+    // Notify the bundle client.
+    webPage->injectedBundlePolicyClient().decidePolicyForNavigationAction(webPage, m_frame, action.get(), request, userData);
+
     uint64_t listenerID = m_frame->setUpPolicyListener(function);
+    bool receivedPolicyAction;
+    uint64_t policyAction;
 
-    // FIXME: Pass more than just the navigation action type.
-    const String& url = request.url().string(); // FIXME: Pass entire request.
+    // Notify the UIProcess.
+    if (!webPage->sendSync(Messages::WebPageProxy::DecidePolicyForNavigationAction(m_frame->frameID(), action->navigationType(), action->modifiers(), action->mouseButton(), request, listenerID, InjectedBundleUserMessageEncoder(userData.get())), Messages::WebPageProxy::DecidePolicyForNavigationAction::Reply(receivedPolicyAction, policyAction)))
+        return;
 
-    uint32_t navigationType = static_cast<uint32_t>(navigationAction.type());
-    uint32_t modifiers = modifiersForNavigationAction(navigationAction);
-    int32_t mouseButton = mouseButtonForNavigationAction(navigationAction);
-
-    webPage->send(Messages::WebPageProxy::DecidePolicyForNavigationAction(m_frame->frameID(), navigationType, modifiers, mouseButton, url, listenerID));
+    // We call this synchronously because WebCore cannot gracefully handle a frame load without a synchronous navigation policy reply.
+    if (receivedPolicyAction)
+        m_frame->didReceivePolicyDecision(listenerID, static_cast<PolicyAction>(policyAction), 0);
 }
 
 void WebFrameLoaderClient::cancelPolicyCheck()
@@ -900,7 +879,7 @@ void WebFrameLoaderClient::didDisplayInsecureContent()
     webPage->send(Messages::WebPageProxy::DidDisplayInsecureContentForFrame(m_frame->frameID(), InjectedBundleUserMessageEncoder(userData.get())));
 }
 
-void WebFrameLoaderClient::didRunInsecureContent(SecurityOrigin*)
+void WebFrameLoaderClient::didRunInsecureContent(SecurityOrigin*, const KURL&)
 {
     WebPage* webPage = m_frame->page();
     if (!webPage)
@@ -1003,7 +982,9 @@ void WebFrameLoaderClient::saveViewStateToItem(HistoryItem*)
 
 void WebFrameLoaderClient::restoreViewState()
 {
-    notImplemented();
+    // Inform the UI process of the scale factor.
+    double scaleFactor = m_frame->coreFrame()->loader()->history()->currentItem()->pageScaleFactor();
+    m_frame->page()->send(Messages::WebPageProxy::ViewScaleFactorDidChange(scaleFactor));
 }
 
 void WebFrameLoaderClient::provisionalLoadStarted()

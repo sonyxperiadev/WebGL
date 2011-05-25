@@ -39,14 +39,8 @@
 #include <QPainterPath>
 #include <QTransform>
 #include <QString>
+#include <wtf/MathExtras.h>
 #include <wtf/OwnPtr.h>
-
-#define _USE_MATH_DEFINES
-#include <math.h>
-
-#ifndef M_PI
-#   define M_PI 3.14159265358979323846
-#endif
 
 namespace WebCore {
 
@@ -263,7 +257,6 @@ void Path::closeSubpath()
     m_path.closeSubpath();
 }
 
-#define DEGREES(t) ((t) * 180.0 / M_PI)
 void Path::addArc(const FloatPoint& p, float r, float sar, float ear, bool anticlockwise)
 {
     qreal xc = p.x();
@@ -280,8 +273,8 @@ void Path::addArc(const FloatPoint& p, float r, float sar, float ear, bool antic
     anticlockwise = !anticlockwise;
     //end hack
 
-    float sa = DEGREES(sar);
-    float ea = DEGREES(ear);
+    float sa = rad2deg(sar);
+    float ea = rad2deg(ear);
 
     double span = 0;
 
@@ -438,6 +431,14 @@ float Path::normalAngleAtLength(float length, bool& ok)
     qreal percent = m_path.percentAtLength(length);
     qreal angle = m_path.angleAtPercent(percent);
 
+    // Normalize angle value.
+    // QPainterPath returns angle values with the origo being at the top left corner.
+    // In case of moveTo(0, 0) and addLineTo(0, 10) the angle is 270,
+    // while the caller expects it to be 90.
+    // Normalize the value by mirroring it to the x-axis.
+    // For more info look at pathLengthApplierFunction().
+    if (angle > 0)
+        angle = 360 - angle;
     return angle;
 }
 

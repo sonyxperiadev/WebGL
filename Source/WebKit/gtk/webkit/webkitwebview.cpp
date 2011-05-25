@@ -402,7 +402,7 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
         // If there's a focused elment, use its location.
         if (Node* focusedNode = getFocusedNode(frame)) {
             IntRect focusedNodeRect = focusedNode->getRect();
-            location = IntPoint(rightAligned ? focusedNodeRect.right() : focusedNodeRect.x(), focusedNodeRect.bottom());
+            location = IntPoint(rightAligned ? focusedNodeRect.maxX() : focusedNodeRect.x(), focusedNodeRect.maxY());
         } else
             location = IntPoint(rightAligned ? view->contentsWidth() - contextMenuMargin : contextMenuMargin, contextMenuMargin);
     } else {
@@ -440,7 +440,7 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
                                 startCaretRect.width() + extraWidthToEndOfLine,
                                 startCaretRect.height());
 
-        location = IntPoint(rightAligned ? firstRect.right() : firstRect.x(), firstRect.bottom());
+        location = IntPoint(rightAligned ? firstRect.maxX() : firstRect.x(), firstRect.maxY());
     }
 
     // FIXME: The IntSize(0, -1) is a hack to get the hit-testing to result in the selected element.
@@ -4671,7 +4671,7 @@ gdouble webkit_web_view_get_progress(WebKitWebView* webView)
 const gchar* webkit_web_view_get_encoding(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
-    String encoding = core(webView)->mainFrame()->loader()->writer()->encoding();
+    String encoding = core(webView)->mainFrame()->document()->loader()->writer()->encoding();
     if (encoding.isEmpty())
         return 0;
     webView->priv->encoding = encoding.utf8();
@@ -5051,7 +5051,7 @@ WebKitHitTestResult* webkit_web_view_get_hit_test_result(WebKitWebView* webView,
 G_CONST_RETURN gchar* webkit_web_view_get_icon_uri(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-    String iconURL = iconDatabase()->iconURLForPageURL(core(webView)->mainFrame()->loader()->url().prettyURL());
+    String iconURL = iconDatabase()->iconURLForPageURL(core(webView)->mainFrame()->document()->url().prettyURL());
     webView->priv->iconURI = iconURL.utf8();
     return webView->priv->iconURI.data();
 }

@@ -109,9 +109,9 @@ public:
     static void clipboardWriteData(const String& type, const String& data, const String& metadata);
 
     // Interface for handling copy and paste, drag and drop, and selection copy.
-    static HashSet<String> clipboardReadAvailableTypes(PasteboardPrivate::ClipboardBuffer, bool* containsFilenames);
-    static bool clipboardReadData(PasteboardPrivate::ClipboardBuffer, const String& type, String& data, String& metadata);
-    static Vector<String> clipboardReadFilenames(PasteboardPrivate::ClipboardBuffer);
+    static HashSet<String> clipboardReadAvailableTypes(const Frame*, PasteboardPrivate::ClipboardBuffer, bool* containsFilenames);
+    static bool clipboardReadData(const Frame*, PasteboardPrivate::ClipboardBuffer, const String& type, String& data, String& metadata);
+    static Vector<String> clipboardReadFilenames(const Frame*, PasteboardPrivate::ClipboardBuffer);
 
     // Cookies ------------------------------------------------------------
     static void setCookies(const Document*, const KURL&, const String& value);
@@ -171,7 +171,6 @@ public:
 
     // IndexedDB ----------------------------------------------------------
     static PassRefPtr<IDBFactoryBackendInterface> idbFactory();
-    static void idbShutdown();
     // Extracts keyPath from values and returns the corresponding keys.
     static void createIDBKeysFromSerializedValuesAndKeyPath(const Vector<RefPtr<SerializedScriptValue> >& values, const String& keyPath, Vector<RefPtr<IDBKey> >& keys);
 

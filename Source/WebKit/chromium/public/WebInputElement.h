@@ -74,14 +74,13 @@ namespace WebKit {
         WEBKIT_API WebString placeholder() const;
         WEBKIT_API bool isAutofilled() const;
         WEBKIT_API void setAutofilled(bool);
-        WEBKIT_API void dispatchFormControlChangeEvent();
         WEBKIT_API void setSelectionRange(int, int);
         WEBKIT_API int selectionStart() const;
         WEBKIT_API int selectionEnd() const;
         WEBKIT_API bool isValidValue(const WebString&) const;
 
         // Exposes the default value of the maxLength attribute.
-        WEBKIT_API static const int defaultMaxLength;
+        WEBKIT_API static int defaultMaxLength();
 
 #if WEBKIT_IMPLEMENTATION
         WebInputElement(const WTF::PassRefPtr<WebCore::HTMLInputElement>&);
@@ -89,6 +88,13 @@ namespace WebKit {
         operator WTF::PassRefPtr<WebCore::HTMLInputElement>() const;
 #endif
     };
+
+    WEBKIT_API WebInputElement* toWebInputElement(WebElement*);
+
+    inline const WebInputElement* toWebInputElement(const WebElement* element)
+    {
+        return toWebInputElement(const_cast<WebElement*>(element));
+    }
 
 } // namespace WebKit
 

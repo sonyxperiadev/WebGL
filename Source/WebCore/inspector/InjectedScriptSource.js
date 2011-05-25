@@ -28,6 +28,20 @@
 
 (function (InjectedScriptHost, inspectedWindow, injectedScriptId) {
 
+function bind(thisObject, memberFunction)
+{
+    var func = memberFunction;
+    var args = Array.prototype.slice.call(arguments, 2);
+    function bound()
+    {
+        return func.apply(thisObject, args.concat(Array.prototype.slice.call(arguments, 0)));
+    }
+    bound.toString = function() {
+        return "bound: " + func;
+    };
+    return bound;
+}
+
 var InjectedScript = function()
 {
     this._lastBoundObjectId = 1;
@@ -186,27 +200,27 @@ InjectedScript.prototype = {
         return Object.keys(propertyNameSet);
     },
 
-    getCompletions: function(expression, includeInspectorCommandLineAPI)
+    getCompletions: function(expression, includeCommandLineAPI)
     {
         var props = {};
         try {
             if (!expression)
                 expression = "this";
-            var expressionResult = this._evaluateOn(inspectedWindow.eval, inspectedWindow, expression, false);
+            var expressionResult = this._evaluateOn(inspectedWindow.eval, inspectedWindow, expression, false, false);
 
             if (typeof expressionResult === "object")
                 this._populatePropertyNames(expressionResult, props);
-    
-            if (includeInspectorCommandLineAPI) {
-                for (var prop in this._commandLineAPI)
-                    props[prop] = true;
+
+            if (includeCommandLineAPI) {
+                for (var prop in CommandLineAPI.members_)
+                    props[CommandLineAPI.members_[prop]] = true;
             }
         } catch(e) {
         }
         return props;
     },
 
-    getCompletionsOnCallFrame: function(callFrameId, expression, includeInspectorCommandLineAPI)
+    getCompletionsOnCallFrame: function(callFrameId, expression, includeCommandLineAPI)
     {
         var props = {};
         try {
@@ -215,7 +229,7 @@ InjectedScript.prototype = {
                 return props;
 
             if (expression) {
-                var expressionResult = this._evaluateOn(callFrame.evaluate, callFrame, expression, true);
+                var expressionResult = this._evaluateOn(callFrame.evaluate, callFrame, expression, true, false);
                 if (typeof expressionResult === "object")
                     this._populatePropertyNames(expressionResult, props);
             } else {
@@ -225,49 +239,52 @@ InjectedScript.prototype = {
                     this._populatePropertyNames(scopeChain[i], props);
             }
     
-            if (includeInspectorCommandLineAPI) {
-                for (var prop in this._commandLineAPI)
-                    props[prop] = true;
+            if (includeCommandLineAPI) {
+                for (var prop in CommandLineAPI.members_)
+                    props[CommandLineAPI.members_[prop]] = true;
             }
         } catch(e) {
         }
         return props;
     },
 
-    evaluate: function(expression, objectGroup)
+    evaluate: function(expression, objectGroup, injectCommandLineAPI)
     {
-        return this._evaluateAndWrap(inspectedWindow.eval, inspectedWindow, expression, objectGroup, false);
+        return this._evaluateAndWrap(inspectedWindow.eval, inspectedWindow, expression, objectGroup, false, injectCommandLineAPI);
     },
 
-    _evaluateAndWrap: function(evalFunction, object, expression, objectGroup, isEvalOnCallFrame)
+    _evaluateAndWrap: function(evalFunction, object, expression, objectGroup, isEvalOnCallFrame, injectCommandLineAPI)
     {
         try {
-            return this._wrapObject(this._evaluateOn(evalFunction, object, expression, isEvalOnCallFrame), objectGroup);
+            return this._wrapObject(this._evaluateOn(evalFunction, object, expression, isEvalOnCallFrame, injectCommandLineAPI), objectGroup);
         } catch (e) {
             return InjectedScript.RemoteObject.fromException(e);
         }
     },
 
-    _evaluateOn: function(evalFunction, object, expression, isEvalOnCallFrame)
+    _evaluateOn: function(evalFunction, object, expression, isEvalOnCallFrame, injectCommandLineAPI)
     {
         // Only install command line api object for the time of evaluation.
         // Surround the expression in with statements to inject our command line API so that
         // the window object properties still take more precedent than our API functions.
-        inspectedWindow.console._commandLineAPI = this._commandLineAPI;
-    
-        // We don't want local variables to be shadowed by global ones when evaluating on CallFrame.
-        if (!isEvalOnCallFrame)
-            expression = "with (window) {\n" + expression + "\n} ";
-        expression = "with (window ? window.console._commandLineAPI : {}) {\n" + expression + "\n}";
-        var value = evalFunction.call(object, expression);
-    
-        delete inspectedWindow.console._commandLineAPI;
-    
-        // When evaluating on call frame error is not thrown, but returned as a value.
-        if (this._type(value) === "error")
-            throw value.toString();
-    
-        return value;
+
+        try {
+            if (injectCommandLineAPI && inspectedWindow.console) {
+                inspectedWindow.console._commandLineAPI = new CommandLineAPI(this._commandLineAPIImpl, isEvalOnCallFrame ? object : null);
+                expression = "with ((window && window.console && window.console._commandLineAPI) || {}) {\n" + expression + "\n}";
+            }
+
+            var value = evalFunction.call(object, expression);
+
+            // When evaluating on call frame error is not thrown, but returned as a value.
+            if (this._type(value) === "error")
+                throw value.toString();
+
+            return value;
+        } finally {
+            if (injectCommandLineAPI && inspectedWindow.console)
+                delete inspectedWindow.console._commandLineAPI;
+        }
     },
 
     getNodeId: function(node)
@@ -291,12 +308,12 @@ InjectedScript.prototype = {
         return result;
     },
 
-    evaluateOnCallFrame: function(callFrameId, code, objectGroup)
+    evaluateOnCallFrame: function(callFrameId, expression, objectGroup, injectCommandLineAPI)
     {
         var callFrame = this._callFrameForId(callFrameId);
         if (!callFrame)
             return false;
-        return this._evaluateAndWrap(callFrame.evaluate, callFrame, code, objectGroup, true);
+        return this._evaluateAndWrap(callFrame.evaluate, callFrame, expression, objectGroup, true, injectCommandLineAPI);
     },
 
     _callFrameForId: function(callFrameId)
@@ -471,49 +488,6 @@ InjectedScript.prototype = {
     {
         // We don't use String(obj) because inspectedWindow.String is undefined if owning frame navigated to another page.
         return "" + obj;
-    },
-
-    _logEvent: function(event)
-    {
-        console.log(event.type, event);
-    },
-
-    _normalizeEventTypes: function(types)
-    {
-        if (typeof types === "undefined")
-            types = [ "mouse", "key", "load", "unload", "abort", "error", "select", "change", "submit", "reset", "focus", "blur", "resize", "scroll" ];
-        else if (typeof types === "string")
-            types = [ types ];
-
-        var result = [];
-        for (var i = 0; i < types.length; i++) {
-            if (types[i] === "mouse")
-                result.splice(0, 0, "mousedown", "mouseup", "click", "dblclick", "mousemove", "mouseover", "mouseout");
-            else if (types[i] === "key")
-                result.splice(0, 0, "keydown", "keyup", "keypress");
-            else
-                result.push(types[i]);
-        }
-        return result;
-    },
-
-    _inspectedNode: function(num)
-    {
-        var nodeId = InjectedScriptHost.inspectedNode(num);
-        return this._nodeForId(nodeId);
-    },
-
-    _bindToScript: function(func)
-    {
-        var args = Array.prototype.slice.call(arguments, 1);
-        function bound()
-        {
-            return func.apply(injectedScript, args.concat(Array.prototype.slice.call(arguments)));
-        }
-        bound.toString = function() {
-            return "bound: " + func;
-        };
-        return bound;
     }
 }
 
@@ -602,15 +576,48 @@ InjectedScript.CallFrameProxy.prototype = {
     }
 }
 
-function CommandLineAPI()
+function CommandLineAPI(commandLineAPIImpl, callFrame)
 {
-    for (var i = 0; i < 5; ++i)
-        this.__defineGetter__("$" + i, injectedScript._bindToScript(injectedScript._inspectedNode, i));
+    function inScopeVariables(member)
+    {
+        if (!callFrame)
+            return false;
+
+        var scopeChain = callFrame.scopeChain;
+        for (var i = 0; i < scopeChain.length; ++i) {
+            if (member in scopeChain[i])
+                return true;
+        }
+        return false;
+    }
+
+    for (var i = 0; i < CommandLineAPI.members_.length; ++i) {
+        var member = CommandLineAPI.members_[i];
+        if (member in inspectedWindow || inScopeVariables(member))
+            continue;
+
+        this[member] = bind(commandLineAPIImpl, commandLineAPIImpl[member]);
+    }
+
+    for (var i = 0; i < 5; ++i) {
+        var member = "$" + i;
+        if (member in inspectedWindow || inScopeVariables(member))
+            continue;
+
+        this.__defineGetter__("$" + i, bind(commandLineAPIImpl, commandLineAPIImpl._inspectedNode, i));
+    }
 }
 
-CommandLineAPI.prototype = {
-    // Only add API functions here, private stuff should go to
-    // InjectedScript so that it is not suggested by the completion.
+CommandLineAPI.members_ = [
+    "$", "$$", "$x", "dir", "dirxml", "keys", "values", "profile", "profileEnd",
+    "monitorEvents", "unmonitorEvents", "inspect", "copy", "clear"
+];
+
+function CommandLineAPIImpl()
+{
+}
+
+CommandLineAPIImpl.prototype = {
     $: function()
     {
         return document.getElementById.apply(document, arguments)
@@ -625,8 +632,8 @@ CommandLineAPI.prototype = {
     {
         var nodes = [];
         try {
-            var doc = context || document;
-            var results = doc.evaluate(xpath, doc, null, XPathResult.ANY_TYPE, null);
+            var doc = (context && context.ownerDocument) || inspectedWindow.document;
+            var results = doc.evaluate(xpath, context || doc, null, XPathResult.ANY_TYPE, null);
             var node;
             while (node = results.iterateNext())
                 nodes.push(node);
@@ -672,10 +679,10 @@ CommandLineAPI.prototype = {
     {
         if (!object || !object.addEventListener || !object.removeEventListener)
             return;
-        types = injectedScript._normalizeEventTypes(types);
+        types = this._normalizeEventTypes(types);
         for (var i = 0; i < types.length; ++i) {
-            object.removeEventListener(types[i], injectedScript._logEvent, false);
-            object.addEventListener(types[i], injectedScript._logEvent, false);
+            object.removeEventListener(types[i], this._logEvent, false);
+            object.addEventListener(types[i], this._logEvent, false);
         }
     },
 
@@ -683,9 +690,9 @@ CommandLineAPI.prototype = {
     {
         if (!object || !object.addEventListener || !object.removeEventListener)
             return;
-        types = injectedScript._normalizeEventTypes(types);
+        types = this._normalizeEventTypes(types);
         for (var i = 0; i < types.length; ++i)
-            object.removeEventListener(types[i], injectedScript._logEvent, false);
+            object.removeEventListener(types[i], this._logEvent, false);
     },
 
     inspect: function(object)
@@ -718,10 +725,39 @@ CommandLineAPI.prototype = {
     clear: function()
     {
         InjectedScriptHost.clearConsoleMessages();
+    },
+
+    _inspectedNode: function(num)
+    {
+        var nodeId = InjectedScriptHost.inspectedNode(num);
+        return injectedScript._nodeForId(nodeId);
+    },
+
+    _normalizeEventTypes: function(types)
+    {
+        if (typeof types === "undefined")
+            types = [ "mouse", "key", "load", "unload", "abort", "error", "select", "change", "submit", "reset", "focus", "blur", "resize", "scroll" ];
+        else if (typeof types === "string")
+            types = [ types ];
+
+        var result = [];
+        for (var i = 0; i < types.length; i++) {
+            if (types[i] === "mouse")
+                result.splice(0, 0, "mousedown", "mouseup", "click", "dblclick", "mousemove", "mouseover", "mouseout");
+            else if (types[i] === "key")
+                result.splice(0, 0, "keydown", "keyup", "keypress");
+            else
+                result.push(types[i]);
+        }
+        return result;
+    },
+
+    _logEvent: function(event)
+    {
+        console.log(event.type, event);
     }
 }
 
-injectedScript._commandLineAPI = new CommandLineAPI();
+injectedScript._commandLineAPIImpl = new CommandLineAPIImpl();
 return injectedScript;
 })
-

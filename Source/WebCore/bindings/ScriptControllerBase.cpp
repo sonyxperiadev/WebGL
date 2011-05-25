@@ -27,7 +27,6 @@
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "Settings.h"
-#include "XSSAuditor.h"
 
 namespace WebCore {
 
@@ -44,12 +43,12 @@ bool ScriptController::canExecuteScripts(ReasonForCallingCanExecuteScripts reaso
     return allowed;
 }
 
-ScriptValue ScriptController::executeScript(const String& script, bool forceUserGesture, ShouldAllowXSS shouldAllowXSS)
+ScriptValue ScriptController::executeScript(const String& script, bool forceUserGesture)
 {
-    return executeScript(ScriptSourceCode(script, forceUserGesture ? KURL() : m_frame->document()->url()), shouldAllowXSS);
+    return executeScript(ScriptSourceCode(script, forceUserGesture ? KURL() : m_frame->document()->url()));
 }
 
-ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode, ShouldAllowXSS shouldAllowXSS)
+ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode)
 {
     if (!canExecuteScripts(AboutToExecuteScript) || isPaused())
         return ScriptValue();
@@ -57,7 +56,7 @@ ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode, 
     bool wasInExecuteScript = m_inExecuteScript;
     m_inExecuteScript = true;
 
-    ScriptValue result = evaluate(sourceCode, shouldAllowXSS);
+    ScriptValue result = evaluate(sourceCode);
 
     if (!wasInExecuteScript) {
         m_inExecuteScript = false;
@@ -88,9 +87,7 @@ bool ScriptController::executeIfJavaScriptURL(const KURL& url, ShouldReplaceDocu
     const int javascriptSchemeLength = sizeof("javascript:") - 1;
 
     String decodedURL = decodeURLEscapeSequences(url.string());
-    ScriptValue result;
-    if (xssAuditor()->canEvaluateJavaScriptURL(decodedURL))
-        result = executeScript(decodedURL.substring(javascriptSchemeLength), processingUserGesture(), AllowXSS);
+    ScriptValue result = executeScript(decodedURL.substring(javascriptSchemeLength), false);
 
     // If executing script caused this frame to be removed from the page, we
     // don't want to try to replace its document!
@@ -112,7 +109,7 @@ bool ScriptController::executeIfJavaScriptURL(const KURL& url, ShouldReplaceDocu
     //        synchronously can cause crashes:
     //        http://bugs.webkit.org/show_bug.cgi?id=16782
     if (shouldReplaceDocumentIfJavaScriptURL == ReplaceDocumentIfJavaScriptURL)
-        m_frame->loader()->writer()->replaceDocument(scriptResult);
+        m_frame->document()->loader()->writer()->replaceDocument(scriptResult);
 
     return true;
 }

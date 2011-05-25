@@ -72,9 +72,14 @@ PlatformWebView::~PlatformWebView()
     WKRelease(m_view);
 }
 
-WKPageRef PlatformWebView::page()
+WKPageRef PlatformWebView::page() const
 {
     return WKViewGetPage(m_view);
+}
+
+void PlatformWebView::resizeTo(unsigned width, unsigned height)
+{
+    ::SetWindowPos(WKViewGetWindow(m_view), 0, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS);
 }
 
 void PlatformWebView::simulateSpacebarKeyPress()

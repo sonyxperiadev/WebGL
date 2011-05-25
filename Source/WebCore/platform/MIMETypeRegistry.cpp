@@ -27,9 +27,6 @@
 #include "config.h"
 #include "MIMETypeRegistry.h"
 
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-#include "ArchiveFactory.h"
-#endif
 #include "MediaPlayer.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -44,6 +41,10 @@
 #if PLATFORM(QT)
 #include <qimagereader.h>
 #include <qimagewriter.h>
+#endif
+
+#if ENABLE(WEB_ARCHIVE)
+#include "ArchiveFactory.h"
 #endif
 
 namespace WebCore {
@@ -249,7 +250,7 @@ static void initializeSupportedNonImageMimeTypes()
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(types); ++i)
         supportedNonImageMIMETypes->add(types[i]);
 
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+#if ENABLE(WEB_ARCHIVE)
     ArchiveFactory::registerKnownArchiveMIMETypes();
 #endif
 }
@@ -368,6 +369,13 @@ static MediaMIMETypeMap& mediaMIMETypeMap()
 
     return mediaMIMETypeForExtensionMap;
 }
+
+#if ENABLE(FILE_SYSTEM) && ENABLE(WORKERS)
+String MIMETypeRegistry::getMIMETypeForExtension(const String& extension)
+{
+    return getMIMETypeForExtensionThreadSafe(extension);
+}
+#endif
 
 String MIMETypeRegistry::getMediaMIMETypeForExtension(const String& ext)
 {

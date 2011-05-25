@@ -129,17 +129,20 @@ _PATH_RULES_SPECIFIER = [
     ([# The EFL APIs use EFL naming style, which includes
       # both lower-cased and camel-cased, underscore-sparated
       # values.
-      "WebKit/efl/ewk/",
+      "Source/WebKit/efl/ewk/",
       # There is no clean way to avoid "yy_*" names used by flex.
       "Source/WebCore/css/CSSParser.cpp",
       # Qt code uses '_' in some places (such as private slots
       # and on test xxx_data methos on tests)
       "Source/JavaScriptCore/qt/",
-      "WebKit/qt/Api/",
-      "WebKit/qt/tests/",
-      "WebKit/qt/declarative/",
-      "WebKit/qt/examples/"],
+      "Source/WebKit/qt/Api/",
+      "Source/WebKit/qt/tests/",
+      "Source/WebKit/qt/declarative/",
+      "Source/WebKit/qt/examples/"],
      ["-readability/naming"]),
+     ([# Qt's MiniBrowser has no config.h
+       "Tools/MiniBrowser/qt"],
+      ["-build/include"]),
     ([# The GTK+ APIs use GTK+ naming style, which includes
       # lower-cased, underscore-separated values.
       # Also, GTK+ allows the use of NULL.
@@ -162,24 +165,18 @@ _PATH_RULES_SPECIFIER = [
       "-whitespace/parens"]),
 
     # WebKit2 rules:
-    # WebKit2 doesn't use config.h, and certain directories have other
-    # idiosyncracies.
+    # WebKit2 and certain directories have idiosyncracies.
     ([# NPAPI has function names with underscores.
       "Source/WebKit2/WebProcess/Plugins/Netscape"],
-     ["-build/include_order",
-      "-readability/naming"]),
+     ["-readability/naming"]),
     ([# The WebKit2 C API has names with underscores and whitespace-aligned
       # struct members. Also, we allow unnecessary parameter names in
       # WebKit2 APIs because we're matching CF's header style.
       "Source/WebKit2/UIProcess/API/C/",
       "Source/WebKit2/WebProcess/InjectedBundle/API/c/"],
-     ["-build/include_order",
-      "-readability/naming",
+     ["-readability/naming",
       "-readability/parameter_name",
       "-whitespace/declaration"]),
-    ([# Nothing in WebKit2 uses config.h.
-      "Source/WebKit2/"],
-     ["-build/include_order"]),
 
     # For third-party Python code, keep only the following checks--
     #
@@ -243,7 +240,7 @@ _XML_FILE_EXTENSIONS = [
 _SKIPPED_FILES_WITH_WARNING = [
     "gtk2drawing.c", # WebCore/platform/gtk/gtk2drawing.c
     "gtkdrawing.h", # WebCore/platform/gtk/gtkdrawing.h
-    "WebKit/gtk/tests/",
+    "Source/WebKit/gtk/tests/",
     # Soup API that is still being cooked, will be removed from WebKit
     # in a few months when it is merged into soup proper. The style
     # follows the libsoup style completely.

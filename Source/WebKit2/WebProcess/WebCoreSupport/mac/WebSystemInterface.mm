@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "config.h"
 #import "WebSystemInterface.h"
 
 #import <WebCore/WebCoreSystemInterface.h>
@@ -55,6 +56,7 @@ void InitWebCoreSystemInterface(void)
         INIT(GetFontInLanguageForRange);
         INIT(GetGlyphTransformedAdvances);
         INIT(GetGlyphsForCharacters);
+        INIT(GetHTTPPipeliningPriority);
         INIT(GetMIMETypeForExtension);
         INIT(GetNSURLResponseLastModifiedDate);
         INIT(GetPreferredExtensionForMIMEType);
@@ -82,6 +84,7 @@ void InitWebCoreSystemInterface(void)
         INIT(SetCONNECTProxyForStream);
         INIT(SetCookieStoragePrivateBrowsingEnabled);
         INIT(SetDragImage);
+        INIT(SetHTTPPipeliningPriority);
         INIT(SetNSURLConnectionDefersCallbacks);
         INIT(SetNSURLRequestShouldContentSniff);
         INIT(SetPatternBaseCTM);
@@ -92,11 +95,51 @@ void InitWebCoreSystemInterface(void)
         INIT(SignalCFReadStreamHasBytes);
 
 #if !defined(BUILDING_ON_SNOW_LEOPARD)
+        INIT(IOSurfaceContextCreate);
+        INIT(IOSurfaceContextCreateImage);
         INIT(CreateCTTypesetterWithUniCharProviderAndOptions);
         INIT(MakeScrollbarPainter);
+        INIT(ScrollbarPainterSetDelegate);
         INIT(ScrollbarPainterPaint);
+        INIT(ScrollbarThickness);
+        INIT(ScrollbarMinimumThumbLength);
+        INIT(ScrollbarMinimumTotalLengthNeededForThumb);
+        INIT(ScrollbarPainterKnobAlpha);
+        INIT(SetScrollbarPainterKnobAlpha);
+        INIT(ScrollbarPainterTrackAlpha);
+        INIT(SetScrollbarPainterTrackAlpha);
+        INIT(ScrollbarPainterIsHorizontal);
+        INIT(ScrollbarPainterSetOverlayState);
+        INIT(MakeScrollbarPainterController);
+        INIT(MakeScrollbarReplacementPainter);
+        INIT(SetPainterForPainterController);
+        INIT(VerticalScrollbarPainterForController);
+        INIT(HorizontalScrollbarPainterForController);
+        INIT(SetScrollbarPainterControllerStyle);
+        INIT(ContentAreaScrolled);
+        INIT(ContentAreaWillPaint);
+        INIT(MouseEnteredContentArea);
+        INIT(MouseExitedContentArea);
+        INIT(MouseMovedInContentArea);
+        INIT(WillStartLiveResize);
+        INIT(ContentAreaResized);
+        INIT(WillEndLiveResize);
+        INIT(ContentAreaDidShow);
+        INIT(ContentAreaDidHide);
+        INIT(ScrollbarPainterUsesOverlayScrollers);
 #else
         INIT(GetHyphenationLocationBeforeIndex);
 #endif
+        
+        INIT(GetAXTextMarkerTypeID);
+        INIT(GetAXTextMarkerRangeTypeID);
+        INIT(CreateAXTextMarker);
+        INIT(GetBytesFromAXTextMarker);
+        INIT(CreateAXTextMarkerRange);
+        INIT(CopyAXTextMarkerRangeStart);
+        INIT(CopyAXTextMarkerRangeEnd);
+        INIT(AccessibilityHandleFocusChanged);
+        INIT(CreateAXUIElementRef);
+        INIT(UnregisterUniqueIdForElement);        
     });
 }

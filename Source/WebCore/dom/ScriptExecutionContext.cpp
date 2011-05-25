@@ -30,6 +30,7 @@
 #include "ActiveDOMObject.h"
 #include "Blob.h"
 #include "BlobURL.h"
+#include "DOMURL.h"
 #include "Database.h"
 #include "DatabaseTask.h"
 #include "DatabaseThread.h"
@@ -83,7 +84,9 @@ public:
 };
 
 ScriptExecutionContext::ScriptExecutionContext()
-    : m_inDispatchErrorEvent(false)
+    : m_iteratingActiveDOMObjects(false)
+    , m_inDestructor(false)
+    , m_inDispatchErrorEvent(false)
 #if ENABLE(DATABASE)
     , m_hasOpenDatabases(false)
 #endif
@@ -92,10 +95,12 @@ ScriptExecutionContext::ScriptExecutionContext()
 
 ScriptExecutionContext::~ScriptExecutionContext()
 {
-    HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
-    for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
-        ASSERT(iter->first->scriptExecutionContext() == this);
-        iter->first->contextDestroyed();
+    m_inDestructor = true;
+    for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != m_activeDOMObjects.end(); iter = m_activeDOMObjects.begin()) {
+        ActiveDOMObject* object = iter->first;
+        m_activeDOMObjects.remove(iter);
+        ASSERT(object->scriptExecutionContext() == this);
+        object->contextDestroyed();
     }
 
     HashSet<MessagePort*>::iterator messagePortsEnd = m_messagePorts.end();
@@ -120,6 +125,12 @@ ScriptExecutionContext::~ScriptExecutionContext()
     HashSet<String>::iterator publicBlobURLsEnd = m_publicBlobURLs.end();
     for (HashSet<String>::iterator iter = m_publicBlobURLs.begin(); iter != publicBlobURLsEnd; ++iter)
         ThreadableBlobRegistry::unregisterBlobURL(KURL(ParsedURLString, *iter));
+
+    HashSet<DOMURL*>::iterator domUrlsEnd = m_domUrls.end();
+    for (HashSet<DOMURL*>::iterator iter = m_domUrls.begin(); iter != domUrlsEnd; ++iter) {
+        ASSERT((*iter)->scriptExecutionContext() == this);
+        (*iter)->contextDestroyed();
+    }
 #endif
 }
 
@@ -194,46 +205,70 @@ void ScriptExecutionContext::destroyedMessagePort(MessagePort* port)
     m_messagePorts.remove(port);
 }
 
+#if ENABLE(BLOB)
+void ScriptExecutionContext::createdDomUrl(DOMURL* url)
+{
+    ASSERT(url);
+    m_domUrls.add(url);
+}
+
+void ScriptExecutionContext::destroyedDomUrl(DOMURL* url)
+{
+    ASSERT(url);
+    m_domUrls.remove(url);
+}
+#endif
+
 bool ScriptExecutionContext::canSuspendActiveDOMObjects()
 {
     // No protection against m_activeDOMObjects changing during iteration: canSuspend() shouldn't execute arbitrary JS.
+    m_iteratingActiveDOMObjects = true;
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
-        if (!iter->first->canSuspend())
+        if (!iter->first->canSuspend()) {
+            m_iteratingActiveDOMObjects = false;
             return false;
-    }
+        }
+    }    
+    m_iteratingActiveDOMObjects = false;
     return true;
 }
 
 void ScriptExecutionContext::suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension why)
 {
     // No protection against m_activeDOMObjects changing during iteration: suspend() shouldn't execute arbitrary JS.
+    m_iteratingActiveDOMObjects = true;
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
         iter->first->suspend(why);
     }
+    m_iteratingActiveDOMObjects = false;
 }
 
 void ScriptExecutionContext::resumeActiveDOMObjects()
 {
     // No protection against m_activeDOMObjects changing during iteration: resume() shouldn't execute arbitrary JS.
+    m_iteratingActiveDOMObjects = true;
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
         iter->first->resume();
     }
+    m_iteratingActiveDOMObjects = false;
 }
 
 void ScriptExecutionContext::stopActiveDOMObjects()
 {
     // No protection against m_activeDOMObjects changing during iteration: stop() shouldn't execute arbitrary JS.
+    m_iteratingActiveDOMObjects = true;
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
         iter->first->stop();
     }
+    m_iteratingActiveDOMObjects = false;
 
     // Also close MessagePorts. If they were ActiveDOMObjects (they could be) then they could be stopped instead.
     closeMessagePorts();
@@ -243,12 +278,17 @@ void ScriptExecutionContext::createdActiveDOMObject(ActiveDOMObject* object, voi
 {
     ASSERT(object);
     ASSERT(upcastPointer);
+    ASSERT(!m_inDestructor);
+    if (m_iteratingActiveDOMObjects)
+        CRASH();
     m_activeDOMObjects.add(object, upcastPointer);
 }
 
 void ScriptExecutionContext::destroyedActiveDOMObject(ActiveDOMObject* object)
 {
     ASSERT(object);
+    if (m_iteratingActiveDOMObjects)
+        CRASH();
     m_activeDOMObjects.remove(object);
 }
 
@@ -263,6 +303,17 @@ void ScriptExecutionContext::closeMessagePorts() {
 void ScriptExecutionContext::setSecurityOrigin(PassRefPtr<SecurityOrigin> securityOrigin)
 {
     m_securityOrigin = securityOrigin;
+}
+
+bool ScriptExecutionContext::sanitizeScriptError(String& errorMessage, int& lineNumber, String& sourceURL)
+{
+    KURL targetURL = completeURL(sourceURL);
+    if (securityOrigin()->canRequest(targetURL))
+        return false;
+    errorMessage = "Script error.";
+    sourceURL = String();
+    lineNumber = 0;
+    return true;
 }
 
 void ScriptExecutionContext::reportException(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack> callStack)
@@ -294,9 +345,14 @@ bool ScriptExecutionContext::dispatchErrorEvent(const String& errorMessage, int 
     if (!target)
         return false;
 
+    String message = errorMessage;
+    int line = lineNumber;
+    String sourceName = sourceURL;
+    sanitizeScriptError(message, line, sourceName);
+
     ASSERT(!m_inDispatchErrorEvent);
     m_inDispatchErrorEvent = true;
-    RefPtr<ErrorEvent> errorEvent = ErrorEvent::create(errorMessage, sourceURL, lineNumber);
+    RefPtr<ErrorEvent> errorEvent = ErrorEvent::create(message, sourceName, line);
     target->dispatchEvent(errorEvent);
     m_inDispatchErrorEvent = false;
     return errorEvent->defaultPrevented();

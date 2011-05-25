@@ -89,6 +89,18 @@ void SVGFESpecularLightingElement::parseMappedAttribute(Attribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
+void SVGFESpecularLightingElement::svgAttributeChanged(const QualifiedName& attrName)
+{
+    SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
+
+    if (attrName == SVGNames::inAttr
+        || attrName == SVGNames::surfaceScaleAttr
+        || attrName == SVGNames::specularConstantAttr
+        || attrName == SVGNames::specularExponentAttr
+        || attrName == SVGNames::kernelUnitLengthAttr)
+        invalidate();
+}
+
 void SVGFESpecularLightingElement::synchronizeProperty(const QualifiedName& attrName)
 {
     SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
@@ -115,6 +127,24 @@ void SVGFESpecularLightingElement::synchronizeProperty(const QualifiedName& attr
         synchronizeKernelUnitLengthX();
         synchronizeKernelUnitLengthY();
     }
+}
+
+AttributeToPropertyTypeMap& SVGFESpecularLightingElement::attributeToPropertyTypeMap()
+{
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGFESpecularLightingElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGFilterPrimitiveStandardAttributes::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(SVGNames::inAttr, AnimatedString);
+    attributeToPropertyTypeMap.set(SVGNames::specularConstantAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::specularExponentAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::surfaceScaleAttr, AnimatedNumber);
+    attributeToPropertyTypeMap.set(SVGNames::kernelUnitLengthAttr, AnimatedNumberOptionalNumber);
 }
 
 PassRefPtr<LightSource> SVGFESpecularLightingElement::findLights() const

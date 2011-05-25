@@ -51,14 +51,14 @@ UniscribeHelperTextRun::UniscribeHelperTextRun(const TextRun& run,
     setLetterSpacing(font.letterSpacing());
     setSpaceWidth(font.spaceWidth());
     setWordSpacing(font.wordSpacing());
-    setAscent(font.primaryFont()->ascent());
+    setAscent(font.fontMetrics().ascent());
 
     init();
 
-    // Padding is the amount to add to make justification happen. This
+    // Expansion is the amount to add to make justification happen. This
     // should be done after Init() so all the runs are already measured.
-    if (run.padding() > 0)
-        justify(run.padding());
+    if (run.expansion() > 0)
+        justify(run.expansion());
 }
 
 UniscribeHelperTextRun::UniscribeHelperTextRun(
@@ -121,7 +121,7 @@ bool UniscribeHelperTextRun::nextWinFontData(
         m_hfonts.append(simpleFontData->platformData().hfont());
         m_scriptCaches.append(simpleFontData->platformData().scriptCache());
         m_fontProperties.append(simpleFontData->platformData().scriptFontProperties());
-        m_ascents.append(simpleFontData->ascent());
+        m_ascents.append(simpleFontData->fontMetrics().ascent());
     }
 
     *hfont = m_hfonts[m_fontIndex - 1];

@@ -33,8 +33,7 @@ from __future__ import with_statement
 import time
 
 from webkitpy.common.system import filesystem_mock
-
-from webkitpy.layout_tests.layout_package import test_output
+from webkitpy.tool import mocktool
 
 import base
 
@@ -51,9 +50,17 @@ class TestInstance:
         self.keyboard = False
         self.error = ''
         self.timeout = False
-        self.actual_text = self.base + '-txt\n'
-        self.actual_checksum = self.base + '-checksum\n'
-        self.actual_image = self.base + '-png\n'
+
+        # The values of each field are treated as raw byte strings. They
+        # will be converted to unicode strings where appropriate using
+        # MockFileSystem.read_text_file().
+        self.actual_text = self.base + '-txt'
+        self.actual_checksum = self.base + '-checksum'
+
+        # We add the '\x8a' for the image file to prevent the value from
+        # being treated as UTF-8 (the character is invalid)
+        self.actual_image = self.base + '\x8a' + '-png'
+
         self.expected_text = self.actual_text
         self.expected_checksum = self.actual_checksum
         self.expected_image = self.actual_image
@@ -84,53 +91,44 @@ class TestList:
 def unit_test_list():
     tests = TestList()
     tests.add('failures/expected/checksum.html',
-                actual_checksum='checksum_fail-checksum')
+              actual_checksum='checksum_fail-checksum')
     tests.add('failures/expected/crash.html', crash=True)
     tests.add('failures/expected/exception.html', exception=True)
     tests.add('failures/expected/timeout.html', timeout=True)
     tests.add('failures/expected/hang.html', hang=True)
-    tests.add('failures/expected/missing_text.html',
-                expected_text=None)
+    tests.add('failures/expected/missing_text.html', expected_text=None)
     tests.add('failures/expected/image.html',
-                actual_image='image_fail-png',
-                expected_image='image-png')
+              actual_image='image_fail-png',
+              expected_image='image-png')
     tests.add('failures/expected/image_checksum.html',
-                actual_checksum='image_checksum_fail-checksum',
-                actual_image='image_checksum_fail-png')
-    tests.add('failures/expected/keyboard.html',
-                keyboard=True)
-    tests.add('failures/expected/missing_check.html',
-                expected_checksum=None)
-    tests.add('failures/expected/missing_image.html',
-                expected_image=None)
-    tests.add('failures/expected/missing_text.html',
-                expected_text=None)
+              actual_checksum='image_checksum_fail-checksum',
+              actual_image='image_checksum_fail-png')
+    tests.add('failures/expected/keyboard.html', keyboard=True)
+    tests.add('failures/expected/missing_check.html', expected_checksum=None)
+    tests.add('failures/expected/missing_image.html', expected_image=None)
+    tests.add('failures/expected/missing_text.html', expected_text=None)
     tests.add('failures/expected/newlines_leading.html',
-                expected_text="\nfoo\n",
-                actual_text="foo\n")
+              expected_text="\nfoo\n", actual_text="foo\n")
     tests.add('failures/expected/newlines_trailing.html',
-                expected_text="foo\n\n",
-                actual_text="foo\n")
+              expected_text="foo\n\n", actual_text="foo\n")
     tests.add('failures/expected/newlines_with_excess_CR.html',
-                expected_text="foo\r\r\r\n",
-                actual_text="foo\n")
-    tests.add('failures/expected/text.html',
-                actual_text='text_fail-png')
+              expected_text="foo\r\r\r\n", actual_text="foo\n")
+    tests.add('failures/expected/text.html', actual_text='text_fail-png')
     tests.add('failures/unexpected/crash.html', crash=True)
     tests.add('failures/unexpected/text-image-checksum.html',
-                actual_text='text-image-checksum_fail-txt',
-                actual_checksum='text-image-checksum_fail-checksum')
+              actual_text='text-image-checksum_fail-txt',
+              actual_checksum='text-image-checksum_fail-checksum')
     tests.add('failures/unexpected/timeout.html', timeout=True)
     tests.add('http/tests/passes/text.html')
     tests.add('http/tests/ssl/text.html')
     tests.add('passes/error.html', error='stuff going to stderr')
     tests.add('passes/image.html')
     tests.add('passes/platform_image.html')
+
     # Text output files contain "\r\n" on Windows.  This may be
     # helpfully filtered to "\r\r\n" by our Python/Cygwin tooling.
     tests.add('passes/text.html',
-                expected_text='\nfoo\n\n',
-                actual_text='\nfoo\r\n\r\r\n')
+              expected_text='\nfoo\n\n', actual_text='\nfoo\r\n\r\r\n')
     tests.add('websocket/tests/passes/text.html')
     return tests
 
@@ -184,6 +182,9 @@ WONTFIX SKIP : failures/expected/keyboard.html = CRASH
 WONTFIX SKIP : failures/expected/exception.html = CRASH
 """
 
+    # Add in a file should be ignored by test_files.find().
+    files[LAYOUT_TEST_DIR + 'userscripts/resources/iframe.html'] = 'iframe'
+
     fs = filesystem_mock.MockFileSystem(files)
     fs._tests = test_list
     return fs
@@ -192,30 +193,31 @@ WONTFIX SKIP : failures/expected/exception.html = CRASH
 class TestPort(base.Port):
     """Test implementation of the Port interface."""
 
-    def __init__(self, **kwargs):
-        # FIXME: what happens if we're not passed in the test filesystem
-        # and the tests don't match what's in the filesystem?
-        #
-        # We'll leave as is for now to avoid unnecessary dependencies while
-        # converting all of the unit tests over to using
-        # unit_test_filesystem(). If things get out of sync the tests should
-        # fail in fairly obvious ways. Eventually we want to just do:
-        #
-        # assert kwargs['filesystem']._tests
-        # self._tests = kwargs['filesystem']._tests
+    def __init__(self, port_name=None, user=None, filesystem=None, **kwargs):
+        if not filesystem:
+            filesystem = unit_test_filesystem()
 
-        if 'filesystem' not in kwargs or kwargs['filesystem'] is None:
-            kwargs['filesystem'] = unit_test_filesystem()
-            self._tests = kwargs['filesystem']._tests
-        else:
-            self._tests = unit_test_list()
+        assert filesystem._tests
+        self._tests = filesystem._tests
 
-        kwargs.setdefault('port_name', 'test')
-        base.Port.__init__(self, **kwargs)
+        if not user:
+            user = mocktool.MockUser()
+
+        if not port_name or port_name == 'test':
+            port_name = 'test-mac'
+
+        self._expectations_path = LAYOUT_TEST_DIR + '/platform/test/test_expectations.txt'
+        base.Port.__init__(self, port_name=port_name, filesystem=filesystem, user=user,
+                           **kwargs)
+
+    def _path_to_driver(self):
+        # This routine shouldn't normally be called, but it is called by
+        # the mock_drt Driver. We return something, but make sure it's useless.
+        return 'junk'
 
     def baseline_path(self):
-        return self._filesystem.join(self.layout_tests_dir(), 'platform',
-                                     self.name() + self.version())
+        # We don't bother with a fallback path.
+        return self._filesystem.join(self.layout_tests_dir(), 'platform', self.name())
 
     def baseline_search_path(self):
         return [self.baseline_path()]
@@ -223,11 +225,14 @@ class TestPort(base.Port):
     def check_build(self, needs_http):
         return True
 
+    def default_configuration(self):
+        return 'Release'
+
     def diff_image(self, expected_contents, actual_contents,
                    diff_filename=None):
         diffed = actual_contents != expected_contents
         if diffed and diff_filename:
-            self._filesystem.write_text_file(diff_filename,
+            self._filesystem.write_binary_file(diff_filename,
                 "< %s\n---\n> %s\n" % (expected_contents, actual_contents))
         return diffed
 
@@ -261,23 +266,98 @@ class TestPort(base.Port):
     def stop_websocket_server(self):
         pass
 
-    def test_base_platform_names(self):
-        return ('mac', 'win')
-
-    def test_expectations(self):
-        return self._filesystem.read_text_file(LAYOUT_TEST_DIR + '/platform/test/test_expectations.txt')
+    def path_to_test_expectations_file(self):
+        return self._expectations_path
 
     def test_platform_name(self):
-        return 'mac'
+        name_map = {
+            'test-mac': 'mac',
+            'test-win': 'win',
+            'test-win-xp': 'win-xp',
+        }
+        return name_map[self._name]
 
     def test_platform_names(self):
-        return self.test_base_platform_names()
+        return ('mac', 'win', 'win-xp')
 
     def test_platform_name_to_name(self, test_platform_name):
-        return test_platform_name
+        name_map = {
+            'mac': 'test-mac',
+            'win': 'test-win',
+            'win-xp': 'test-win-xp',
+        }
+        return name_map[test_platform_name]
+
+    # FIXME: These next two routines are copied from base.py with
+    # the calls to path.abspath_to_uri() removed. We shouldn't have
+    # to do this.
+    def filename_to_uri(self, filename):
+        """Convert a test file (which is an absolute path) to a URI."""
+        LAYOUTTEST_HTTP_DIR = "http/tests/"
+        LAYOUTTEST_WEBSOCKET_DIR = "http/tests/websocket/tests/"
+
+        relative_path = self.relative_test_filename(filename)
+        port = None
+        use_ssl = False
+
+        if (relative_path.startswith(LAYOUTTEST_WEBSOCKET_DIR)
+            or relative_path.startswith(LAYOUTTEST_HTTP_DIR)):
+            relative_path = relative_path[len(LAYOUTTEST_HTTP_DIR):]
+            port = 8000
+
+        # Make http/tests/local run as local files. This is to mimic the
+        # logic in run-webkit-tests.
+        #
+        # TODO(dpranke): remove the media reference and the SSL reference?
+        if (port and not relative_path.startswith("local/") and
+            not relative_path.startswith("media/")):
+            if relative_path.startswith("ssl/"):
+                port += 443
+                protocol = "https"
+            else:
+                protocol = "http"
+            return "%s://127.0.0.1:%u/%s" % (protocol, port, relative_path)
+
+        return "file://" + self._filesystem.abspath(filename)
+
+    def uri_to_test_name(self, uri):
+        """Return the base layout test name for a given URI.
+
+        This returns the test name for a given URI, e.g., if you passed in
+        "file:///src/LayoutTests/fast/html/keygen.html" it would return
+        "fast/html/keygen.html".
+
+        """
+        test = uri
+        if uri.startswith("file:///"):
+            prefix = "file://" + self.layout_tests_dir() + "/"
+            return test[len(prefix):]
+
+        if uri.startswith("http://127.0.0.1:8880/"):
+            # websocket tests
+            return test.replace('http://127.0.0.1:8880/', '')
+
+        if uri.startswith("http://"):
+            # regular HTTP test
+            return test.replace('http://127.0.0.1:8000/', 'http/tests/')
+
+        if uri.startswith("https://"):
+            return test.replace('https://127.0.0.1:8443/', 'http/tests/')
+
+        raise NotImplementedError('unknown url type: %s' % uri)
 
     def version(self):
-        return ''
+        version_map = {
+            'test-win-xp': '-xp',
+            'test-win': '-7',
+            'test-mac': '-leopard',
+        }
+        return version_map[self._name]
+
+    def test_configuration(self):
+        if not self._test_configuration:
+            self._test_configuration = TestTestConfiguration(self)
+        return self._test_configuration
 
 
 class TestDriver(base.Driver):
@@ -287,7 +367,7 @@ class TestDriver(base.Driver):
         self._port = port
 
     def cmd_line(self):
-        return ['None']
+        return [self._port._path_to_driver()]
 
     def poll(self):
         return True
@@ -302,13 +382,20 @@ class TestDriver(base.Driver):
             raise ValueError('exception from ' + test_name)
         if test.hang:
             time.sleep((float(test_input.timeout) * 4) / 1000.0)
-        return test_output.TestOutput(test.actual_text, test.actual_image,
-                                      test.actual_checksum, test.crash,
-                                      time.time() - start_time, test.timeout,
-                                      test.error)
+        return base.DriverOutput(test.actual_text, test.actual_image,
+                                 test.actual_checksum, test.crash,
+                                 time.time() - start_time, test.timeout,
+                                 test.error)
 
     def start(self):
         pass
 
     def stop(self):
         pass
+
+
+class TestTestConfiguration(base.TestConfiguration):
+    def all_systems(self):
+        return (('mac', 'leopard', 'x86'),
+                ('win', 'xp', 'x86'),
+                ('win', 'win7', 'x86'))

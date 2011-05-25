@@ -112,7 +112,7 @@ void RenderView::layout()
         setPageLogicalHeight(0);
 
     if (printing())
-        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = width();
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = logicalWidth();
 
     // Use calcWidth/Height to get the new width/height, since this will take the full page zoom factor into account.
     bool relayoutChildren = !printing() && (!m_frameView || width() != viewWidth() || height() != viewHeight());
@@ -156,13 +156,13 @@ void RenderView::mapLocalToContainer(RenderBoxModelObject* repaintContainer, boo
     }
     
     if (fixed && m_frameView)
-        transformState.move(m_frameView->scrollOffset());
+        transformState.move(m_frameView->scrollOffsetForFixedPosition());
 }
 
 void RenderView::mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState& transformState) const
 {
     if (fixed && m_frameView)
-        transformState.move(-m_frameView->scrollOffset());
+        transformState.move(-m_frameView->scrollOffsetForFixedPosition());
 
     if (useTransforms && shouldUseTransformFromContainer(0)) {
         TransformationMatrix t;
@@ -311,13 +311,13 @@ void RenderView::computeRectForRepaint(RenderBoxModelObject* repaintContainer, I
         // We have to flip by hand since the view's logical height has not been determined.  We
         // can use the viewport width and height.
         if (style()->isHorizontalWritingMode())
-            rect.setY(viewHeight() - rect.bottom());
+            rect.setY(viewHeight() - rect.maxY());
         else
-            rect.setX(viewWidth() - rect.right());
+            rect.setX(viewWidth() - rect.maxX());
     }
 
     if (fixed && m_frameView)
-        rect.move(m_frameView->scrollX(), m_frameView->scrollY());
+        rect.move(m_frameView->scrollXForFixedPosition(), m_frameView->scrollYForFixedPosition());
         
     // Apply our transform if we have one (because of full page zooming).
     if (m_layer && m_layer->transform())
@@ -658,7 +658,7 @@ IntRect RenderView::viewRect() const
 
 int RenderView::docTop() const
 {
-    IntRect overflowRect(0, topLayoutOverflow(), 0, bottomLayoutOverflow() - topLayoutOverflow());
+    IntRect overflowRect(0, minYLayoutOverflow(), 0, maxYLayoutOverflow() - minYLayoutOverflow());
     flipForWritingMode(overflowRect);
     if (hasTransform())
         overflowRect = layer()->currentTransform().mapRect(overflowRect);
@@ -671,7 +671,7 @@ int RenderView::docBottom() const
     flipForWritingMode(overflowRect);
     if (hasTransform())
         overflowRect = layer()->currentTransform().mapRect(overflowRect);
-    return overflowRect.bottom();
+    return overflowRect.maxY();
 }
 
 int RenderView::docLeft() const
@@ -689,7 +689,7 @@ int RenderView::docRight() const
     flipForWritingMode(overflowRect);
     if (hasTransform())
         overflowRect = layer()->currentTransform().mapRect(overflowRect);
-    return overflowRect.right();
+    return overflowRect.maxX();
 }
 
 int RenderView::viewHeight() const

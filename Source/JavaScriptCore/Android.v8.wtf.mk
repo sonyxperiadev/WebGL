@@ -26,14 +26,9 @@
 # wtf source files
 
 LOCAL_SRC_FILES := \
-	pcre/pcre_compile.cpp \
-	pcre/pcre_exec.cpp \
-	pcre/pcre_tables.cpp \
-	pcre/pcre_ucp_searchfuncs.cpp \
-	pcre/pcre_xclass.cpp \
-	\
 	wtf/Assertions.cpp \
 	wtf/ByteArray.cpp \
+	wtf/CryptographicallyRandomNumber.cpp \
 	wtf/CurrentTime.cpp \
 	wtf/DateMath.cpp \
 	wtf/DecimalNumber.cpp \
@@ -42,6 +37,7 @@ LOCAL_SRC_FILES := \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
 	wtf/OSAllocatorPosix.cpp \
+	wtf/OSRandomSource.cpp \
 	wtf/PageAllocationAligned.cpp \
 	wtf/PageBlock.cpp \
 	wtf/RandomNumber.cpp \
@@ -72,16 +68,15 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/url/src/URLCharacterTypes.cpp \
 	wtf/url/src/URLEscape.cpp \
-	wtf/url/src/URLSegments.cpp
+	wtf/url/src/URLSegments.cpp \
+	\
+	yarr/YarrInterpreter.cpp \
+	yarr/YarrPattern.cpp
 
-CHARTABLES := $(intermediates)/chartables.c
-$(CHARTABLES): PRIVATE_PATH := $(LOCAL_PATH)
-$(CHARTABLES): PRIVATE_CUSTOM_TOOL = perl $(PRIVATE_PATH)/pcre/dftables $@
-$(CHARTABLES): $(LOCAL_PATH)/pcre/dftables
-$(CHARTABLES): $(LOCAL_PATH)/pcre/pcre_internal.h
+REGEXP_JIT_TABLES := $(intermediates)/RegExpJitTables.h
+$(REGEXP_JIT_TABLES): PRIVATE_PATH := $(LOCAL_PATH)
+$(REGEXP_JIT_TABLES): PRIVATE_CUSTOM_TOOL = python $(PRIVATE_PATH)/create_regex_tables > $@
+$(REGEXP_JIT_TABLES): $(LOCAL_PATH)/create_regex_tables
 	$(transform-generated-source)
 
-$(intermediates)/pcre/pcre_tables.o : $(CHARTABLES)
-
-# We do not add $(CHARTABLES) to LOCAL_GENERATED_SOURCES because the chartables.c file
-# is explicitly #included in pcre_tables.cpp.
+LOCAL_GENERATED_SOURCES += $(REGEXP_JIT_TABLES)
