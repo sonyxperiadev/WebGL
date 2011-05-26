@@ -1066,15 +1066,15 @@ void CachedRoot::calcBitBounds(const IntRect& nodeBounds, IntRect* bitBounds) co
     DBG_NAV_LOGD("contentBounds=(%d,%d,r=%d,b=%d) overBounds=(%d,%d,r=%d,b=%d)"
         " mScrolledBounds=(%d,%d,r=%d,b=%d) mViewBounds=(%d,%d,r=%d,b=%d)"
         " bitBounds=(%d,%d,r=%d,b=%d)",
-        contentBounds.x(), contentBounds.y(), contentBounds.right(),
-        contentBounds.bottom(),
-        overBounds.x(), overBounds.y(), overBounds.right(), overBounds.bottom(),
-        mScrolledBounds.x(), mScrolledBounds.y(), mScrolledBounds.right(),
-        mScrolledBounds.bottom(),
-        mViewBounds.x(), mViewBounds.y(), mViewBounds.right(),
-        mViewBounds.bottom(),
-        bitBounds->x(), bitBounds->y(), bitBounds->right(),
-        bitBounds->bottom());
+        contentBounds.x(), contentBounds.y(), contentBounds.maxX(),
+        contentBounds.maxY(),
+        overBounds.x(), overBounds.y(), overBounds.maxX(), overBounds.maxY(),
+        mScrolledBounds.x(), mScrolledBounds.y(), mScrolledBounds.maxX(),
+        mScrolledBounds.maxY(),
+        mViewBounds.x(), mViewBounds.y(), mViewBounds.maxX(),
+        mViewBounds.maxY(),
+        bitBounds->x(), bitBounds->y(), bitBounds->maxX(),
+        bitBounds->maxY());
 }
 
 
@@ -1134,9 +1134,9 @@ bool CachedRoot::checkRings(SkPicture* picture, const CachedNode* node,
     bool result = ringCheck.textOutsideRings();
     DBG_NAV_LOGD("bitBounds=(%d,%d,r=%d,b=%d) nodeBounds=(%d,%d,r=%d,b=%d)"
         " testBounds=(%d,%d,r=%d,b=%d) success=%s",
-        bitBounds.x(), bitBounds.y(), bitBounds.right(), bitBounds.bottom(),
-        nodeBounds.x(), nodeBounds.y(), nodeBounds.right(), nodeBounds.bottom(),
-        testBounds.x(), testBounds.y(), testBounds.right(), testBounds.bottom(),
+        bitBounds.x(), bitBounds.y(), bitBounds.maxX(), bitBounds.maxY(),
+        nodeBounds.x(), nodeBounds.y(), nodeBounds.maxX(), nodeBounds.maxY(),
+        testBounds.x(), testBounds.y(), testBounds.maxX(), testBounds.maxY(),
         result ? "true" : "false");
     return result;
 }
@@ -1282,7 +1282,7 @@ void CachedRoot::init(WebCore::Frame* frame, CachedHistory* history)
 bool CachedRoot::innerDown(const CachedNode* test, BestData* bestData) const
 {
     ASSERT(minWorkingVertical() >= mViewBounds.x());
-    ASSERT(maxWorkingVertical() <= mViewBounds.right());
+    ASSERT(maxWorkingVertical() <= mViewBounds.maxX());
     setupScrolledBounds();
     // (line up)
     mScrolledBounds.setHeight(mScrolledBounds.height() + mMaxYScroll);
@@ -1308,7 +1308,7 @@ bool CachedRoot::innerDown(const CachedNode* test, BestData* bestData) const
 bool CachedRoot::innerLeft(const CachedNode* test, BestData* bestData) const
 {
     ASSERT(minWorkingHorizontal() >= mViewBounds.y());
-    ASSERT(maxWorkingHorizontal() <= mViewBounds.bottom());
+    ASSERT(maxWorkingHorizontal() <= mViewBounds.maxY());
     setupScrolledBounds();
     mScrolledBounds.setX(mScrolledBounds.x() - mMaxXScroll);
     mScrolledBounds.setWidth(mScrolledBounds.width() + mMaxXScroll);
@@ -1406,7 +1406,7 @@ void CachedRoot::innerMove(const CachedNode* node, BestData* bestData,
 bool CachedRoot::innerRight(const CachedNode* test, BestData* bestData) const
 {
     ASSERT(minWorkingHorizontal() >= mViewBounds.y());
-    ASSERT(maxWorkingHorizontal() <= mViewBounds.bottom());
+    ASSERT(maxWorkingHorizontal() <= mViewBounds.maxY());
     setupScrolledBounds();
     // (align)
     mScrolledBounds.setWidth(mScrolledBounds.width() + mMaxXScroll);
@@ -1432,7 +1432,7 @@ bool CachedRoot::innerRight(const CachedNode* test, BestData* bestData) const
 bool CachedRoot::innerUp(const CachedNode* test, BestData* bestData) const
 {
     ASSERT(minWorkingVertical() >= mViewBounds.x());
-    ASSERT(maxWorkingVertical() <= mViewBounds.right());
+    ASSERT(maxWorkingVertical() <= mViewBounds.maxX());
     setupScrolledBounds();
     mScrolledBounds.setY(mScrolledBounds.y() - mMaxYScroll);
     mScrolledBounds.setHeight(mScrolledBounds.height() + mMaxYScroll);
