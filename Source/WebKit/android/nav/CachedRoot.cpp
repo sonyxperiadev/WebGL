@@ -1158,7 +1158,9 @@ const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,
 #if DEBUG_NAV_UI
     DBG_NAV_LOGD("rect=(%d,%d,w=%d,h=%d) xy=(%d,%d)", rect.x(), rect.y(),
         rect.width(), rect.height(), *x, *y);
+#if DUMP_NAV_CACHE
     if (mRootLayer) CachedLayer::Debug::printRootLayerAndroid(mRootLayer);
+#endif
 #endif
     int best = INT_MAX;
     bool inside = false;
