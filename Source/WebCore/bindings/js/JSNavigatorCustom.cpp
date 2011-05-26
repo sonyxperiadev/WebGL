@@ -53,7 +53,7 @@ JSC::JSValue  WebCore::JSNavigator::isApplicationInstalled(JSC::ExecState* exec)
         return jsUndefined();
     }
 
-    if (!exec->argument(1).inherits(&InternalFunction::info)) {
+    if (!exec->argument(1).inherits(&InternalFunction::s_info)) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
     }
