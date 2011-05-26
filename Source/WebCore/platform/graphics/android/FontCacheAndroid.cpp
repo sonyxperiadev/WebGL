@@ -65,8 +65,22 @@ static bool isFallbackFamily(String family)
         || equalIgnoringCase(family, "sans-serif")
         || equalIgnoringCase(family, "sans")
         || equalIgnoringCase(family, "monospace")
+        || equalIgnoringCase(family, "times")   // skia aliases for serif
+        || equalIgnoringCase(family, "times new roman")
+        || equalIgnoringCase(family, "palatino")
+        || equalIgnoringCase(family, "georgia")
+        || equalIgnoringCase(family, "baskerville")
+        || equalIgnoringCase(family, "goudy")
         || equalIgnoringCase(family, "cursive")
-        || equalIgnoringCase(family, "fantasy");
+        || equalIgnoringCase(family, "fantasy")
+        || equalIgnoringCase(family, "ITC Stone Serif")
+        || equalIgnoringCase(family, "arial")   // skia aliases for sans-serif
+        || equalIgnoringCase(family, "helvetica")
+        || equalIgnoringCase(family, "tahoma")
+        || equalIgnoringCase(family, "verdana")
+        || equalIgnoringCase(family, "courier") // skia aliases for monospace
+        || equalIgnoringCase(family, "courier new")
+        || equalIgnoringCase(family, "monaco");
 }
 
 static char* AtomicStringToUTF8String(const AtomicString& utf16)
