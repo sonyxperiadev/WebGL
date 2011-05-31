@@ -496,7 +496,7 @@ static JNINativeMethod gWebCoreJavaBridgeMethods[] = {
         (void*) JavaBridge::AddPackageName },
     { "removePackageName", "(Ljava/lang/String;)V",
         (void*) JavaBridge::RemovePackageName },
-    { "updateProxy", "(Ljava/lang/String;)V",
+    { "nativeUpdateProxy", "(Ljava/lang/String;Ljava/lang/String;)V",
         (void*) JavaBridge::UpdateProxy }
 };
 
