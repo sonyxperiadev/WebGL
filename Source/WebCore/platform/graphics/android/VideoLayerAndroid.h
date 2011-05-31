@@ -68,14 +68,11 @@ private:
     void init();
     // Surface texture for showing the video is actually allocated in Java side
     // and passed into this native code.
-    GLuint m_textureId;
     sp<android::SurfaceTexture> m_surfaceTexture;
 
     PlayerState m_playerState;
 
     // Texture for showing the static image will be created at native side.
-    // TODO: instead using a shared texture, we could make a texture pool to
-    // show different screen shots for different videos
     static bool m_createdTexture;
     static GLuint m_backgroundTextureId;
     static GLuint m_posterTextureId;

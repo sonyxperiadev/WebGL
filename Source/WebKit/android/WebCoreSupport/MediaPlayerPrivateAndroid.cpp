@@ -35,6 +35,7 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "SkiaUtils.h"
+#include "TilesManager.h"
 #include "VideoLayerAndroid.h"
 #include "WebCoreJni.h"
 #include "WebViewCore.h"
@@ -72,6 +73,7 @@ struct MediaPlayerPrivate::JavaGlue {
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
 {
+    TilesManager::instance()->videoLayerManager()->removeLayer(m_videoLayer->uniqueId());
     // m_videoLayer is reference counted, unref is enough here.
     m_videoLayer->unref();
     if (m_glue->m_javaProxy) {
@@ -290,6 +292,8 @@ public:
         m_naturalSizeUnknown = false;
         m_player->durationChanged();
         m_player->sizeChanged();
+        TilesManager::instance()->videoLayerManager()->updateVideoLayerSize(
+            m_player->platformLayer()->uniqueId(), width*height);
     }
 
     virtual bool hasAudio() const { return false; } // do not display the audio UI

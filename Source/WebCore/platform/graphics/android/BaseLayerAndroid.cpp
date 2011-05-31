@@ -352,6 +352,9 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
             // the unnecessary ones to make space...
             TilesManager::instance()->cleanupLayersTextures(compositedRoot);
         }
+        // Clean up GL textures for video layer.
+        TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
+
         // Finally do another pass to create new textures and schedule
         // repaints if needed
         compositedRoot->createGLTextures();

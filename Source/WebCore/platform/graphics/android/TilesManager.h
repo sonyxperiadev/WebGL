@@ -35,6 +35,7 @@
 #include "ShaderProgram.h"
 #include "TexturesGenerator.h"
 #include "TiledPage.h"
+#include "VideoLayerManager.h"
 #include <utils/threads.h>
 
 namespace WebCore {
@@ -76,6 +77,7 @@ public:
     }
 
     ShaderProgram* shader() { return &m_shader; }
+    VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
     BackedDoubleBufferedTexture* getAvailableTexture(BaseTile* owner);
 
@@ -153,6 +155,7 @@ private:
     static TilesManager* gInstance;
 
     ShaderProgram m_shader;
+    VideoLayerManager m_videoLayerManager;
     SkBitmap* m_tilesBitmap;
 };
 

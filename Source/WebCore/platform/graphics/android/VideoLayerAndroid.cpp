@@ -75,9 +75,7 @@ void VideoLayerAndroid::init()
 {
     // m_surfaceTexture is only useful on UI thread, no need to copy.
     // And it will be set at setBaseLayer timeframe
-
     m_playerState = INITIALIZED;
-    m_textureId = 0;
 }
 
 // We can use this function to set the Layer to point to surface texture.
@@ -85,9 +83,8 @@ void VideoLayerAndroid::setSurfaceTexture(sp<SurfaceTexture> texture,
                                           int textureName, PlayerState playerState)
 {
     m_surfaceTexture = texture;
-    m_textureId = textureName;
-
     m_playerState = playerState;
+    TilesManager::instance()->videoLayerManager()->registerTexture(uniqueId(), textureName);
 }
 
 GLuint VideoLayerAndroid::createSpinnerInnerTexture()
@@ -199,18 +196,32 @@ bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         // Show the real video.
         m_surfaceTexture->updateTexImage();
         m_surfaceTexture->getTransformMatrix(surfaceMatrix);
+        GLuint textureId =
+            TilesManager::instance()->videoLayerManager()->getTextureId(uniqueId());
         TilesManager::instance()->shader()->drawVideoLayerQuad(drawTransform(),
                                                                surfaceMatrix,
-                                                               rect, m_textureId);
+                                                               rect, textureId);
+        TilesManager::instance()->videoLayerManager()->updateMatrix(uniqueId(),
+                                                                    surfaceMatrix);
     } else {
-        // Show the poster
-        TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
-                                                          m_backgroundTextureId,
-                                                          0.5, true);
-
-        TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), innerRect,
-                                                          m_posterTextureId,
-                                                          1, true);
+        GLuint textureId =
+            TilesManager::instance()->videoLayerManager()->getTextureId(uniqueId());
+        GLfloat* matrix =
+            TilesManager::instance()->videoLayerManager()->getMatrix(uniqueId());
+        if (textureId && matrix) {
+            // Show the screen shot for each video.
+            TilesManager::instance()->shader()->drawVideoLayerQuad(drawTransform(),
+                                                               matrix,
+                                                               rect, textureId);
+        } else {
+            // Show the static poster b/c there is no screen shot available.
+            TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
+                                                              m_backgroundTextureId,
+                                                              0.5, true);
+            TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), innerRect,
+                                                              m_posterTextureId,
+                                                              1, true);
+        }
     }
 
     return drawChildrenGL(glWebViewState, matrix);

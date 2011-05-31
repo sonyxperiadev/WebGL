@@ -647,6 +647,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/TilesManager.cpp \
 	platform/graphics/android/TiledPage.cpp \
 	platform/graphics/android/VideoLayerAndroid.cpp \
+	platform/graphics/android/VideoLayerManager.cpp \
 	platform/graphics/android/android_graphics.cpp \
 
 ifeq ($(ENABLE_SVG), true)
