@@ -109,7 +109,7 @@ public:
     static void AddPackageNames(JNIEnv* env, jobject obj, jobject packageNames);
     static void AddPackageName(JNIEnv* env, jobject obj, jstring packageName);
     static void RemovePackageName(JNIEnv* env, jobject obj, jstring packageName);
-    static void UpdateProxy(JNIEnv* env, jobject obj, jstring newProxy);
+    static void UpdateProxy(JNIEnv* env, jobject obj, jstring newProxy, jstring newExList);
 
 
 private:
@@ -456,12 +456,13 @@ void JavaBridge::RemovePackageName(JNIEnv* env, jobject obj, jstring packageName
     packageNotifier().removePackageName(jstringToWtfString(env, packageName));
 }
 
-void JavaBridge::UpdateProxy(JNIEnv* env, jobject obj, jstring newProxy)
+void JavaBridge::UpdateProxy(JNIEnv* env, jobject obj, jstring newProxy, jstring newExList)
 {
 #if USE(CHROME_NETWORK_STACK)
     std::string proxy = jstringToStdString(env, newProxy);
-    WebCache::get(false)->proxy()->UpdateProxySettings(proxy);
-    WebCache::get(true)->proxy()->UpdateProxySettings(proxy);
+    std::string exList = jstringToStdString(env, newExList);
+    WebCache::get(false)->proxy()->UpdateProxySettings(proxy, exList);
+    WebCache::get(true)->proxy()->UpdateProxySettings(proxy, exList);
 #endif
 }
 
