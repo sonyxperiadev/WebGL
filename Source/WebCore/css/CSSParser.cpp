@@ -226,14 +226,10 @@ void CSSParser::setupParser(const char* prefix, const String& string, const char
 
 void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string, int startLineNumber, StyleRuleRangeMap* ruleRangeMap)
 {
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
-    m_styleSheet = sheet;
-=======
     setStyleSheet(sheet);
->>>>>>> WebKit at r80534
     m_defaultNamespace = starAtom; // Reset the default namespace.
     m_ruleRangeMap = ruleRangeMap;
     if (ruleRangeMap) {
@@ -254,14 +250,10 @@ void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string, int start
 
 PassRefPtr<CSSRule> CSSParser::parseRule(CSSStyleSheet* sheet, const String& string)
 {
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
-    m_styleSheet = sheet;
-=======
     setStyleSheet(sheet);
->>>>>>> WebKit at r80534
     m_allowNamespaceDeclarations = false;
     setupParser("@-webkit-rule{", string, "} ");
     cssyyparse(this);
@@ -273,14 +265,10 @@ PassRefPtr<CSSRule> CSSParser::parseRule(CSSStyleSheet* sheet, const String& str
 
 PassRefPtr<CSSRule> CSSParser::parseKeyframeRule(CSSStyleSheet *sheet, const String &string)
 {
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
-    m_styleSheet = sheet;
-=======
     setStyleSheet(sheet);
->>>>>>> WebKit at r80534
     setupParser("@-webkit-keyframe-rule{ ", string, "} ");
     cssyyparse(this);
 #ifdef ANDROID_INSTRUMENT

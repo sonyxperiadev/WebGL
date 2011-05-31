@@ -1097,15 +1097,11 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyEmptyCells:
             return primitiveValueCache->createValue(style->emptyCells());
         case CSSPropertyFloat:
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
             if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
-                return CSSPrimitiveValue::createIdentifier(CSSValueNone);
+                return primitiveValueCache->createIdentifierValue(CSSValueNone);
 #endif
-            return CSSPrimitiveValue::create(style->floating());
-=======
             return primitiveValueCache->createValue(style->floating());
->>>>>>> WebKit at r80534
         case CSSPropertyFontFamily: {
             const FontFamily& firstFamily = style->fontDescription().family();
             if (!firstFamily.next())
@@ -1279,15 +1275,11 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyOverflowX:
             return primitiveValueCache->createValue(style->overflowX());
         case CSSPropertyOverflowY:
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
             if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
-                return CSSPrimitiveValue::createIdentifier(CSSValueVisible);
+                return primitiveValueCache->createIdentifierValue(CSSValueVisible);
 #endif
-            return CSSPrimitiveValue::create(style->overflowY());
-=======
             return primitiveValueCache->createValue(style->overflowY());
->>>>>>> WebKit at r80534
         case CSSPropertyPaddingTop:
             if (renderer && renderer->isBox())
                 return zoomAdjustedPixelValue(toRenderBox(renderer)->paddingTop(false), style.get(), primitiveValueCache);
@@ -1316,15 +1308,11 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return primitiveValueCache->createValue(style->pageBreakInside());
         }
         case CSSPropertyPosition:
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
             if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
-                return CSSPrimitiveValue::createIdentifier(CSSValueStatic);
+                return primitiveValueCache->createIdentifierValue(CSSValueStatic);
 #endif
-            return CSSPrimitiveValue::create(style->position());
-=======
             return primitiveValueCache->createValue(style->position());
->>>>>>> WebKit at r80534
         case CSSPropertyRight:
             return getPositionOffsetValue(style.get(), CSSPropertyRight, primitiveValueCache);
         case CSSPropertyTableLayout:
@@ -1413,12 +1401,11 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             ASSERT_NOT_REACHED();
             return 0;
         case CSSPropertyVisibility:
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
             if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
-                return CSSPrimitiveValue::createIdentifier(CSSValueVisible);
+                return primitiveValueCache->createIdentifierValue(CSSValueVisible);
 #endif
-            return CSSPrimitiveValue::create(style->visibility());
+            return primitiveValueCache->createValue(style->visibility());
         case CSSPropertyWhiteSpace:
 #ifdef ANDROID_LAYOUT
             if (settings && settings->layoutAlgorithm() == Settings::kLayoutSSR)
@@ -1426,21 +1413,16 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
                     case NORMAL:
                     case NOWRAP:
                     case KHTML_NOWRAP:
-                        return CSSPrimitiveValue::createIdentifier(CSSValueNormal);
+                        return primitiveValueCache->createIdentifierValue(CSSValueNormal);
                     case PRE:
                     case PRE_WRAP:
-                        return CSSPrimitiveValue::createIdentifier(CSSValuePreWrap);
+                        return primitiveValueCache->createIdentifierValue(CSSValuePreWrap);
                     case PRE_LINE:
-                        return CSSPrimitiveValue::createIdentifier(CSSValuePreLine);
+                        return primitiveValueCache->createIdentifierValue(CSSValuePreLine);
                 }
             else     
 #endif
-            return CSSPrimitiveValue::create(style->whiteSpace());
-=======
-            return primitiveValueCache->createValue(style->visibility());
-        case CSSPropertyWhiteSpace:
             return primitiveValueCache->createValue(style->whiteSpace());
->>>>>>> WebKit at r80534
         case CSSPropertyWidows:
             return primitiveValueCache->createValue(style->widows(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyWidth:
@@ -1825,27 +1807,27 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             // shorthand property currently not supported see bug 13658
             break;
         case CSSPropertyWebkitRingFillColor:
-            return CSSPrimitiveValue::createColor(style->ringFillColor().rgb());
+            return primitiveValueCache->createColorValue(style->ringFillColor().rgb());
         case CSSPropertyWebkitRingInnerWidth:
-            return CSSPrimitiveValue::create(style->ringInnerWidth());
+            return primitiveValueCache->createValue(style->ringInnerWidth());
         case CSSPropertyWebkitRingOuterWidth:
-            return CSSPrimitiveValue::create(style->ringOuterWidth());
+            return primitiveValueCache->createValue(style->ringOuterWidth());
         case CSSPropertyWebkitRingOutset:
-            return CSSPrimitiveValue::create(style->ringOutset());
+            return primitiveValueCache->createValue(style->ringOutset());
         case CSSPropertyWebkitRingPressedInnerColor:
-            return CSSPrimitiveValue::createColor(style->ringPressedInnerColor().rgb());
+            return primitiveValueCache->createColorValue(style->ringPressedInnerColor().rgb());
         case CSSPropertyWebkitRingPressedOuterColor:
-            return CSSPrimitiveValue::createColor(style->ringPressedOuterColor().rgb());
+            return primitiveValueCache->createColorValue(style->ringPressedOuterColor().rgb());
         case CSSPropertyWebkitRingRadius:
-            return CSSPrimitiveValue::create(style->ringRadius());
+            return primitiveValueCache->createValue(style->ringRadius());
         case CSSPropertyWebkitRingSelectedInnerColor:
-            return CSSPrimitiveValue::createColor(style->ringSelectedInnerColor().rgb());
+            return primitiveValueCache->createColorValue(style->ringSelectedInnerColor().rgb());
         case CSSPropertyWebkitRingSelectedOuterColor:
-            return CSSPrimitiveValue::createColor(style->ringSelectedOuterColor().rgb());
+            return primitiveValueCache->createColorValue(style->ringSelectedOuterColor().rgb());
 #endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
         case CSSPropertyWebkitTapHighlightColor:
-            return CSSPrimitiveValue::createColor(style->tapHighlightColor().rgb());
+            return primitiveValueCache->createColorValue(style->tapHighlightColor().rgb());
 #endif
 #if ENABLE(SVG)
         case CSSPropertyClipPath:
