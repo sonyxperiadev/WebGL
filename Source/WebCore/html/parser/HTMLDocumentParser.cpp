@@ -341,25 +341,14 @@ void HTMLDocumentParser::append(const SegmentedString& source)
     if (m_preloadScanner)
         m_preloadScanner->appendToEnd(source);
 
-<<<<<<< HEAD
-        if (m_writeNestingLevel > 1) {
-            // We've gotten data off the network in a nested write.
-            // We don't want to consume any more of the input stream now.  Do
-            // not worry.  We'll consume this data in a less-nested write().
-#ifdef ANDROID_INSTRUMENT
-            android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
-#endif
-            return;
-        }
-
-        pumpTokenizerIfPossible(AllowYield);
-=======
     if (inPumpSession()) {
         // We've gotten data off the network in a nested write.
         // We don't want to consume any more of the input stream now.  Do
         // not worry.  We'll consume this data in a less-nested write().
+#ifdef ANDROID_INSTRUMENT
+        android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
+#endif
         return;
->>>>>>> WebKit at r80534
     }
 
     pumpTokenizerIfPossible(AllowYield);

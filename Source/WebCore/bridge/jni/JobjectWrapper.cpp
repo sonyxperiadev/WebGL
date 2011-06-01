@@ -48,24 +48,9 @@ JobjectWrapper::JobjectWrapper(jobject instance)
         LOG_ERROR("Could not get GlobalRef for %p", instance);
 }
 
-<<<<<<< HEAD:Source/WebCore/platform/network/android/NetworkStateNotifierAndroid.cpp
-// TODO: Upstream to webkit.org
-void NetworkStateNotifier::networkTypeChange(Connection::ConnectionType type)
-{
-    if (m_type == type)
-        return;
-
-    m_type = type;
-
-    if (m_networkStateChangedFunction)
-        m_networkStateChangedFunction();
-}
-
-=======
 JobjectWrapper::~JobjectWrapper()
 {
     m_env->DeleteGlobalRef(m_instance);
->>>>>>> WebKit at r80534:Source/WebCore/bridge/jni/JobjectWrapper.cpp
 }
 
 #endif // ENABLE(JAVA_BRIDGE)

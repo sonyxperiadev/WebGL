@@ -78,18 +78,13 @@ public:
 
 #if PLATFORM(ANDROID)
     void networkStateChange(bool online) { setOnLine(online); }
-#endif
-
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
+    // TODO: Upstream to webkit.org
+    void networkTypeChange(Connection::ConnectionType type);
     // TODO: Upstream to webkit.org
     Connection::ConnectionType type() const { return m_type; }
 #endif
 
-private:    
-=======
 private:
->>>>>>> WebKit at r80534
     bool m_isOnLine;
 #if PLATFORM(ANDROID)
     // TODO: Upstream to webkit.org
@@ -116,18 +111,6 @@ private:
     HANDLE m_waitHandle;
     OVERLAPPED m_overlapped;
 
-<<<<<<< HEAD
-#elif PLATFORM(CHROMIUM)
-    NetworkStateNotifierPrivate p;
-
-#elif PLATFORM(ANDROID)
-public:
-    void networkStateChange(bool online);
-    // TODO: Upstream to webkit.org
-    void networkTypeChange(Connection::ConnectionType type);
-
-=======
->>>>>>> WebKit at r80534
 #elif PLATFORM(QT) && ENABLE(QT_BEARER)
     friend class NetworkStateNotifierPrivate;
     NetworkStateNotifierPrivate* p;

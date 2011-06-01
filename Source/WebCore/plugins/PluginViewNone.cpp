@@ -28,10 +28,7 @@
 
 #if USE(JSC)
 #include "BridgeJSC.h"
-<<<<<<< HEAD
-=======
 #include <runtime/ScopeChain.h>
->>>>>>> WebKit at r80534
 #endif
 
 using namespace WTF;

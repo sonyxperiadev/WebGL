@@ -1126,7 +1126,6 @@ void FrameView::removeFixedObject()
         updateCanBlitOnScrollRecursively();
 }
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // When the screen size change, fixed positioned element should be updated.
 void FrameView::updatePositionedObjects()
@@ -1149,7 +1148,7 @@ void FrameView::updatePositionedObjects()
     }
 }
 #endif
-=======
+
 int FrameView::scrollXForFixedPosition() const
 {
     int visibleContentWidth = visibleContentRect().width();
@@ -1206,7 +1205,6 @@ IntSize FrameView::scrollOffsetForFixedPosition() const
 {
     return IntSize(scrollXForFixedPosition(), scrollYForFixedPosition());
 }
->>>>>>> WebKit at r80534
 
 IntPoint FrameView::currentMousePosition() const
 {

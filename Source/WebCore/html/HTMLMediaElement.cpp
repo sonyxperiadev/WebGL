@@ -171,14 +171,12 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
     LOG(Media, "HTMLMediaElement::HTMLMediaElement");
     document->registerForDocumentActivationCallbacks(this);
     document->registerForMediaVolumeCallbacks(this);
-<<<<<<< HEAD
+    document->registerForPrivateBrowsingStateChangedCallbacks(this);
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
     // Enable the Media Element to listen to all the touch events
     document->addListenerTypeIfNeeded(eventNames().touchstartEvent);
 #endif
-=======
-    document->registerForPrivateBrowsingStateChangedCallbacks(this);
->>>>>>> WebKit at r80534
+
 }
 
 HTMLMediaElement::~HTMLMediaElement()

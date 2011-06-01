@@ -517,11 +517,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/ContentType.cpp \
 	platform/ContextMenuItem.cpp \
 	platform/CrossThreadCopier.cpp \
-<<<<<<< HEAD
 	platform/Cursor.cpp \
-	platform/DeprecatedPtrListImpl.cpp \
-=======
->>>>>>> WebKit at r80534
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
 	platform/FileChooser.cpp \
@@ -926,11 +922,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/ScrollBehavior.cpp \
-<<<<<<< HEAD
 	rendering/ShadowElement.cpp \
-	rendering/TextControlInnerElements.cpp \
-=======
->>>>>>> WebKit at r80534
 	rendering/TransformState.cpp \
 	rendering/break_lines.cpp \
 	\

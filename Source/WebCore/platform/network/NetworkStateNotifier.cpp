@@ -59,4 +59,17 @@ void NetworkStateNotifier::setOnLine(bool onLine)
 }
 #endif // PLATFORM(ANDROID) || PLATFORM(CHROMIM)
 
+#ifdef ANDROID
+void NetworkStateNotifier::networkTypeChange(Connection::ConnectionType type)
+{
+    if (m_type == type)
+        return;
+
+    m_type = type;
+
+    if (m_networkStateChangedFunction)
+        m_networkStateChangedFunction();
+}
+#endif
+
 }

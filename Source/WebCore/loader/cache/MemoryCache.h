@@ -167,16 +167,15 @@ public:
     
     void resourceAccessed(CachedResource*);
 
-<<<<<<< HEAD
+    typedef HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash> SecurityOriginSet;
+    void removeResourcesWithOrigin(SecurityOrigin*);
+    void getOriginsWithCache(SecurityOriginSet& origins);
+
 #ifdef ANDROID_INSTRUMENT
     unsigned getLiveSize() { return m_liveSize; }
     unsigned getDeadSize() { return m_deadSize; }
 #endif
-=======
-    typedef HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash> SecurityOriginSet;
-    void removeResourcesWithOrigin(SecurityOrigin*);
-    void getOriginsWithCache(SecurityOriginSet& origins);
->>>>>>> WebKit at r80534
+
 
 private:
     MemoryCache();

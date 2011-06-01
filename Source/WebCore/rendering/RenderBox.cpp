@@ -2117,7 +2117,6 @@ void RenderBox::computeBlockDirectionMargins(RenderBlock* containingBlock)
 
 int RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode) const
 {
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // Fixed element's position should be decided by the visible screen size.
     // That is in the doc coordindate.
@@ -2126,19 +2125,13 @@ int RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxModelObje
         return PlatformBridge::screenWidthInDocCoord(view->frameView());
     }
 #endif
-    if (containingBlock->isBox()) {
-        const RenderBox* containingBlockBox = toRenderBox(containingBlock);
-        return containingBlockBox->width() - containingBlockBox->borderLeft() - containingBlockBox->borderRight() - containingBlockBox->verticalScrollbarWidth();
-    }
-    
-=======
+
     if (checkForPerpendicularWritingMode && containingBlock->style()->isHorizontalWritingMode() != style()->isHorizontalWritingMode())
         return containingBlockLogicalHeightForPositioned(containingBlock, false);
 
     if (containingBlock->isBox())
         return toRenderBox(containingBlock)->clientLogicalWidth();
 
->>>>>>> WebKit at r80534
     ASSERT(containingBlock->isRenderInline() && containingBlock->isRelPositioned());
 
     const RenderInline* flow = toRenderInline(containingBlock);
@@ -2162,8 +2155,7 @@ int RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxModelObje
     return max(0, (fromRight - fromLeft));
 }
 
-<<<<<<< HEAD
-int RenderBox::containingBlockHeightForPositioned(const RenderBoxModelObject* containingBlock) const
+int RenderBox::containingBlockLogicalHeightForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode) const
 {
 #if PLATFORM(ANDROID)
     // Fixed element's position should be decided by the visible screen size.
@@ -2173,14 +2165,10 @@ int RenderBox::containingBlockHeightForPositioned(const RenderBoxModelObject* co
         return PlatformBridge::screenHeightInDocCoord(view->frameView());
     }
 #endif
-    int heightResult = 0;
-=======
-int RenderBox::containingBlockLogicalHeightForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode) const
-{
+
     if (checkForPerpendicularWritingMode && containingBlock->style()->isHorizontalWritingMode() != style()->isHorizontalWritingMode())
         return containingBlockLogicalWidthForPositioned(containingBlock, false);
 
->>>>>>> WebKit at r80534
     if (containingBlock->isBox())
         return toRenderBox(containingBlock)->clientLogicalHeight();
         
