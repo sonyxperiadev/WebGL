@@ -45,7 +45,7 @@
 #include "android_graphics.h"
 #include <JNIUtility.h>
 
-// #define PLUGIN_DEBUG_LOCAL // controls the printing of log messages
+#define PLUGIN_DEBUG_LOCAL // controls the printing of log messages
 #define DEBUG_EVENTS 0 // logs event contents, return value, and processing time
 #define DEBUG_VISIBLE_RECTS 0 // temporary debug printfs and fixes
 
@@ -73,6 +73,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_isSurfaceClippedOut = false;
     m_layer = 0;
     m_powerState = kDefault_ANPPowerState;
+    m_fullScreenOrientation = -1;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
@@ -630,7 +631,8 @@ void PluginWidgetAndroid::requestFullScreen() {
         m_core->destroySurface(m_embeddedView);
 
     // add the full screen view
-    m_core->showFullScreenPlugin(m_embeddedView, m_pluginView->instance());
+    m_core->showFullScreenPlugin(m_embeddedView, m_fullScreenOrientation,
+                                 m_pluginView->instance());
     m_isFullScreen = true;
 }
 
@@ -656,6 +658,35 @@ void PluginWidgetAndroid::exitFullScreen(bool pluginInitiated) {
     sendEvent(event);
 
     m_isFullScreen = false;
+}
+
+void PluginWidgetAndroid::setFullScreenOrientation(ANPScreenOrientation orientation) {
+
+    int internalOrienationId;
+    /* We need to validate that the input is legitimate and then convert the
+     * value from the plugin enum to the enum used by the android view system.
+     * The view system values correspond to those values for the
+     * screenOrientation attribute in R.java (see also ActivityInfo.java).
+     */
+    switch (orientation) {
+        case kFixedLandscape_ANPScreenOrientation:
+            internalOrienationId = 0;
+            break;
+        case kFixedPortrait_ANPScreenOrientation:
+            internalOrienationId = 1;
+            break;
+        case kLandscape_ANPScreenOrientation:
+            internalOrienationId = 6;
+            break;
+        case kPortrait_ANPScreenOrientation:
+            internalOrienationId = 7;
+            break;
+        default:
+            internalOrienationId = -1;
+    }
+
+    PLUGIN_LOG("%s orientation (%d)", __FUNCTION__, internalOrienationId);
+    m_fullScreenOrientation = internalOrienationId;
 }
 
 void PluginWidgetAndroid::requestCenterFitZoom() {

@@ -470,7 +470,7 @@ namespace android {
         jclass getPluginClass(const WTF::String& libName, const char* className);
 
         // Creates a full screen surface for a plugin
-        void showFullScreenPlugin(jobject webkitPlugin, NPP npp);
+        void showFullScreenPlugin(jobject webkitPlugin, int32_t orientation, NPP npp);
 
         // Instructs the UI thread to discard the plugin's full-screen surface
         void hideFullScreenPlugin();

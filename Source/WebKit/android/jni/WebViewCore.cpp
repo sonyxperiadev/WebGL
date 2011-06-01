@@ -391,7 +391,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;I)V");
     m_javaGlue->m_formDidBlur = GetJMethod(env, clazz, "formDidBlur", "(I)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
-    m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;I)V");
+    m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;II)V");
     m_javaGlue->m_hideFullScreenPlugin = GetJMethod(env, clazz, "hideFullScreenPlugin", "()V");
     m_javaGlue->m_createSurface = GetJMethod(env, clazz, "createSurface", "(Landroid/view/View;)Landroid/webkit/ViewManager$ChildView;");
     m_javaGlue->m_addSurface = GetJMethod(env, clazz, "addSurface", "(Landroid/view/View;IIII)Landroid/webkit/ViewManager$ChildView;");
@@ -3619,14 +3619,16 @@ jclass WebViewCore::getPluginClass(const WTF::String& libName, const char* class
     }
 }
 
-void WebViewCore::showFullScreenPlugin(jobject childView, NPP npp)
+void WebViewCore::showFullScreenPlugin(jobject childView, int32_t orientation, NPP npp)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
         return;
 
-    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_showFullScreenPlugin, childView, reinterpret_cast<int>(npp));
+    env->CallVoidMethod(javaObject.get(),
+                        m_javaGlue->m_showFullScreenPlugin,
+                        childView, orientation, reinterpret_cast<int>(npp));
     checkException(env);
 }
 
