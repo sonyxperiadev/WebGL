@@ -81,12 +81,6 @@
 
 // ANDROID def should be after all PLATFORM to avoid override.
 #if PLATFORM(ANDROID)
-// Android uses a single set of include directories when building WebKit and
-// JavaScriptCore. Since WebCore/ is included before JavaScriptCore/, Android
-// includes JavaScriptCore/config.h explicitly here to make sure it gets picked
-// up.
-#include <JavaScriptCore/config.h>
-
 #define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
 // This must be defined before we include FastMalloc.h, below.
 #define USE_SYSTEM_MALLOC 1
@@ -211,6 +205,9 @@
 #if !defined(WTF_USE_CHROME_NETWORK_STACK)
 #define WTF_USE_CHROME_NETWORK_STACK 0
 #endif /* !defined(WTF_USE_CHROME_NETWORK_STACK) */
+
+// This is present in JavaScriptCore/config.h, which Android does not use.
+#define WTF_CHANGES 1
 
 #endif /* PLATFORM(ANDROID) */
 
