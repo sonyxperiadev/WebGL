@@ -60,7 +60,7 @@ static int fromANPFormat(ANPSampleFormat fm) {
     }
 }
 
-static void callbackProc(int event, void* user, void* info) {
+static void callbackProc(android::AudioTrack::event_type event, void* user, void* info) {
     ANPAudioTrack* track = reinterpret_cast<ANPAudioTrack*>(user);
     
     switch (event) {
