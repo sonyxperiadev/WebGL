@@ -85,11 +85,10 @@ CachedResourceLoader::CachedResourceLoader(Document* document)
     , m_autoLoadImages(true)
     , m_loadFinishing(false)
     , m_allowStaleResources(false)
-    , m_isInMethod(0)
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     , m_blockNetworkImage(false)
 #endif
-
+    , m_isInMethod(0)
 {
 }
 
