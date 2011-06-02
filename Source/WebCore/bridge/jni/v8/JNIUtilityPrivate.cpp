@@ -30,7 +30,9 @@
 
 #include "JavaInstanceV8.h"
 #include "JavaNPObjectV8.h"
+#if PLATFORM(ANDROID)
 #include "npruntime_impl.h"
+#endif // PLATFORM(ANDROID)
 #include <wtf/text/CString.h>
 
 namespace JSC {
@@ -46,6 +48,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
 
     switch (jniType) {
     case array_type:
+#if PLATFORM(ANDROID)
         {
             JNIEnv* env = getJNIEnv();
             jobject javaArray;
@@ -55,17 +58,9 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
             if (!success) {
                 // No length property so we don't know how many elements to put into the array.
                 // Treat this as an error.
-#ifdef EMULATE_JSC_BINDINGS
                 // JSC sends null for an array that is not an array of strings or basic types,
                 // do this also in the unknown length case.
                 memset(&result, 0, sizeof(jvalue));
-#else
-                // Sending NULL as JSC does seems dangerous. (Imagine the java method that asks
-                // for the length of the array it was passed). Here we send a 0 length array.
-                jclass objectClass = env->FindClass("java/lang/Object");
-                javaArray = env->NewObjectArray(0, objectClass, 0);
-                env->DeleteLocalRef(objectClass);
-#endif
                 break;
             }
 
@@ -202,28 +197,19 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
                     }
                 }
             } else {
-#ifdef EMULATE_JSC_BINDINGS
                 // JSC sends null for an array that is not an array of strings or basic types.
                 memset(&result, 0, sizeof(jvalue));
                 break;
-#else
-                // Sending NULL as JSC does seems dangerous. (Imagine the java method that asks
-                // for the length of the array it was passed). Here we send a 0 length array.
-                jclass objectClass = env->FindClass("java/lang/Object");
-                javaArray = env->NewObjectArray(0, objectClass, 0);
-                env->DeleteLocalRef(objectClass);
-#endif
             }
 
             result.l = javaArray;
         }
         break;
+#endif // PLATFORM(ANDROID)
 
     case object_type:
         {
-            JNIEnv* env = getJNIEnv();
             result.l = static_cast<jobject>(0);
-            jobject javaString;
 
             // First see if we have a Java instance.
             if (type == NPVariantType_Object) {
@@ -237,6 +223,7 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
             if (!result.l && !strcmp(javaClassName.data(), "java.lang.String")) {
 #ifdef CONVERT_NULL_TO_EMPTY_STRING
                 if (type == NPVariantType_Null) {
+                    JNIEnv* env = getJNIEnv();
                     jchar buf[2];
                     jobject javaString = env->functions->NewString(env, buf, 0);
                     result.l = javaString;
@@ -246,38 +233,32 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
 #endif
                 {
                     NPString src = NPVARIANT_TO_STRING(value);
-                    javaString = env->NewStringUTF(src.UTF8Characters);
+                    JNIEnv* env = getJNIEnv();
+                    jobject javaString = env->NewStringUTF(src.UTF8Characters);
                     result.l = javaString;
-                } else if (type == NPVariantType_Int32) {
+                }
+#if PLATFORM(ANDROID)
+                else if (type == NPVariantType_Int32) {
                     jint src = NPVARIANT_TO_INT32(value);
-                    jclass integerClass = env->FindClass("java/lang/Integer");
-                    jmethodID toString = env->GetStaticMethodID(integerClass, "toString", "(I)Ljava/lang/String;");
-                    javaString = env->CallStaticObjectMethod(integerClass, toString, src);
-                    result.l = javaString;
-                    env->DeleteLocalRef(integerClass);
+                    jclass integerClass = getJNIEnv()->FindClass("java/lang/Integer");
+                    jmethodID toString = getJNIEnv()->GetStaticMethodID(integerClass, "toString", "(I)Ljava/lang/String;");
+                    result.l = getJNIEnv()->CallStaticObjectMethod(integerClass, toString, src);
+                    getJNIEnv()->DeleteLocalRef(integerClass);
                 } else if (type == NPVariantType_Bool) {
                     jboolean src = NPVARIANT_TO_BOOLEAN(value);
-                    jclass booleanClass = env->FindClass("java/lang/Boolean");
-                    jmethodID toString = env->GetStaticMethodID(booleanClass, "toString", "(Z)Ljava/lang/String;");
-                    javaString = env->CallStaticObjectMethod(booleanClass, toString, src);
-                    result.l = javaString;
-                    env->DeleteLocalRef(booleanClass);
+                    jclass booleanClass = getJNIEnv()->FindClass("java/lang/Boolean");
+                    jmethodID toString = getJNIEnv()->GetStaticMethodID(booleanClass, "toString", "(Z)Ljava/lang/String;");
+                    result.l = getJNIEnv()->CallStaticObjectMethod(booleanClass, toString, src);
+                    getJNIEnv()->DeleteLocalRef(booleanClass);
                 } else if (type == NPVariantType_Double) {
                     jdouble src = NPVARIANT_TO_DOUBLE(value);
-                    jclass doubleClass = env->FindClass("java/lang/Double");
-                    jmethodID toString = env->GetStaticMethodID(doubleClass, "toString", "(D)Ljava/lang/String;");
-                    javaString = env->CallStaticObjectMethod(doubleClass, toString, src);
-                    result.l = javaString;
-                    env->DeleteLocalRef(doubleClass);
-                }
-#ifdef EMULATE_JSC_BINDINGS
-                // For the undefined value, JSC sends the String "undefined". Feels to me like we
-                // should send null in this case.
-                else if (!NPVARIANT_IS_NULL(value)) {
-                  javaString = env->NewStringUTF("undefined");
-                  result.l = javaString;
-                }
-#endif
+                    jclass doubleClass = getJNIEnv()->FindClass("java/lang/Double");
+                    jmethodID toString = getJNIEnv()->GetStaticMethodID(doubleClass, "toString", "(D)Ljava/lang/String;");
+                    result.l = getJNIEnv()->CallStaticObjectMethod(doubleClass, toString, src);
+                    getJNIEnv()->DeleteLocalRef(doubleClass);
+                } else if (!NPVARIANT_IS_NULL(value))
+                    result.l = getJNIEnv()->NewStringUTF("undefined");
+#endif // PLATFORM(ANDROID)
             } else if (!result.l)
                 memset(&result, 0, sizeof(jvalue)); // Handle it the same as a void case
         }
@@ -307,15 +288,6 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
         {
             if (type == NPVariantType_Int32)
                 result.c = static_cast<char>(NPVARIANT_TO_INT32(value));
-#ifndef EMULATE_JSC_BINDINGS
-            // There is no char type in JavaScript - just strings 1 character
-            // long. So just converting it to an int above doesn't work. Again,
-            // we emulate the behavior for now for maximum compatability.
-            else if (type == NPVariantType_String) {
-                NPString str = NPVARIANT_TO_STRING(value);
-                result.c = str.UTF8Characters[0];
-            }
-#endif
             else
                 memset(&result, 0, sizeof(jvalue));
         }
@@ -376,6 +348,8 @@ jvalue convertNPVariantToJValue(NPVariant value, const WTF::String& javaType)
         }
         break;
 
+        break;
+
     case invalid_type:
     default:
     case void_type:
@@ -427,17 +401,7 @@ void convertJValueToNPVariant(jvalue value, JNIType jniType, const char* javaTyp
 
     case char_type:
         {
-#ifndef EMULATE_JSC_BINDINGS
-            // There is no char type in JavaScript - just strings 1 character
-            // long. So just converting it to an int above doesn't work. Again,
-            // we emulate the behavior for now for maximum compatability.
-            if (!strcmp(javaTypeName, "char")) {
-                const char c = value.c;
-                const char* v = strndup(&c, 1);
-                STRINGZ_TO_NPVARIANT(v, *result);
-            } else
-#endif
-                INT32_TO_NPVARIANT(value.c, *result);
+            INT32_TO_NPVARIANT(value.c, *result);
         }
         break;
 
