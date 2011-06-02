@@ -36,6 +36,7 @@
 #include "jni.h"
 
 #include <cutils/log.h>
+#include <openssl/x509.h>
 #include <string>
 #include <utils/AssetManager.h>
 
@@ -407,6 +408,14 @@ void WebRequest::OnSSLCertificateError(net::URLRequest* request, int cert_error,
             m_urlLoader.get(), &WebUrlLoaderClient::reportSslCertError, cert_error, scoped_cert));
 }
 
+void WebRequest::OnCertificateRequested(net::URLRequest* request, net::SSLCertRequestInfo* cert_request_info)
+{
+    scoped_refptr<net::SSLCertRequestInfo> scoped_cert_request_info = cert_request_info;
+    m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
+            m_urlLoader.get(), &WebUrlLoaderClient::requestClientCert, scoped_cert_request_info));
+}
+
+
 // After calling Start(), the delegate will receive an OnResponseStarted
 // callback when the request has completed.  If an error occurred, the
 // request->status() will be set.  On success, all redirects have been
@@ -459,6 +468,18 @@ void WebRequest::proceedSslCertError()
 void WebRequest::cancelSslCertError(int cert_error)
 {
     m_request->SimulateError(cert_error);
+}
+
+void WebRequest::sslClientCert(EVP_PKEY* pkey, scoped_refptr<net::X509Certificate> chain)
+{
+    base::ScopedOpenSSL<EVP_PKEY, EVP_PKEY_free> privateKey(pkey);
+    if (privateKey.get() == NULL || chain.get() == NULL) {
+        m_request->ContinueWithCertificate(NULL);
+        return;
+    }
+    GURL gurl(m_url);
+    net::OpenSSLPrivateKeyStore::GetInstance()->StorePrivateKey(gurl, privateKey.release());
+    m_request->ContinueWithCertificate(chain.release());
 }
 
 void WebRequest::startReading()
