@@ -2633,16 +2633,10 @@ void RenderLayer::paintPaginatedChildLayer(RenderLayer* childLayer, RenderLayer*
     Vector<RenderLayer*> columnLayers;
     RenderLayer* ancestorLayer = isNormalFlowOnly() ? parent() : stackingContext();
     for (RenderLayer* curr = childLayer->parent(); curr; curr = curr->parent()) {
-        if (curr->renderer()->hasColumns())
+        if (curr->renderer()->hasColumns() && checkContainingBlockChainForPagination(childLayer->renderer(), curr->renderBox()))
             columnLayers.append(curr);
-#ifdef ANDROID
-        // Bug filed: 56107
         if (curr == ancestorLayer)
             break;
-#else
-        if (curr == ancestorLayer || (curr->parent() && curr->parent()->renderer()->isPositioned()))
-            break;
-#endif
     }
 
     ASSERT(columnLayers.size());
@@ -3122,9 +3116,9 @@ RenderLayer* RenderLayer::hitTestPaginatedChildLayer(RenderLayer* childLayer, Re
     Vector<RenderLayer*> columnLayers;
     RenderLayer* ancestorLayer = isNormalFlowOnly() ? parent() : stackingContext();
     for (RenderLayer* curr = childLayer->parent(); curr; curr = curr->parent()) {
-        if (curr->renderer()->hasColumns())
+        if (curr->renderer()->hasColumns() && checkContainingBlockChainForPagination(childLayer->renderer(), curr->renderBox()))
             columnLayers.append(curr);
-        if (curr == ancestorLayer || (curr->parent() && curr->parent()->renderer()->isPositioned()))
+        if (curr == ancestorLayer)
             break;
     }
 
