@@ -62,8 +62,17 @@ public:
     WEBKIT_API WebString httpStatusText() const;
     WEBKIT_API void setHTTPStatusText(const WebString&);
 
+    WEBKIT_API long long encodedDataLength() const;
+    WEBKIT_API void setEncodedDataLength(long long);
+
     WEBKIT_API void addRequestHeader(const WebString& name, const WebString& value);
     WEBKIT_API void addResponseHeader(const WebString& name, const WebString& value);
+
+    WEBKIT_API WebString requestHeadersText() const;
+    WEBKIT_API void setRequestHeadersText(const WebString&);
+
+    WEBKIT_API WebString responseHeadersText() const;
+    WEBKIT_API void setResponseHeadersText(const WebString&);
 
 #if WEBKIT_IMPLEMENTATION
     WebHTTPLoadInfo(WTF::PassRefPtr<WebCore::ResourceLoadInfo>);

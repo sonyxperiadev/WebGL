@@ -229,6 +229,11 @@ bool Event::isAudioProcessingEvent() const
 {
     return false;
 }
+
+bool Event::isOfflineAudioCompletionEvent() const
+{
+    return false;
+}
 #endif
 
 #if ENABLE(INPUT_SPEECH)
@@ -259,7 +264,7 @@ bool Event::fromUserGesture()
         // other accepted events
         || type == eventNames().selectEvent || type == eventNames().changeEvent
         || type == eventNames().focusEvent || type == eventNames().blurEvent
-        || type == eventNames().submitEvent || type == eventNames().formchangeEvent;
+        || type == eventNames().submitEvent;
 }
 
 bool Event::storesResultAsString() const
@@ -269,11 +274,6 @@ bool Event::storesResultAsString() const
 
 void Event::storeResult(const String&)
 {
-}
-
-bool Event::dispatch(EventDispatcher* dispatcher)
-{
-    return dispatcher->dispatchEvent(this);
 }
 
 void Event::setTarget(PassRefPtr<EventTarget> target)
@@ -297,6 +297,20 @@ void Event::setUnderlyingEvent(PassRefPtr<Event> ue)
         if (e == this)
             return;
     m_underlyingEvent = ue;
+}
+
+EventDispatchMediator::EventDispatchMediator(PassRefPtr<Event> event)
+    : m_event(event)
+{
+}
+
+EventDispatchMediator::~EventDispatchMediator()
+{
+}
+
+bool EventDispatchMediator::dispatchEvent(EventDispatcher* dispatcher) const
+{
+    return dispatcher->dispatchEvent(m_event.get());
 }
 
 } // namespace WebCore

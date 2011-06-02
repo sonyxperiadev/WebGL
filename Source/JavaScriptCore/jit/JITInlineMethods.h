@@ -123,6 +123,13 @@ ALWAYS_INLINE void JIT::beginUninterruptedSequence(int insnSpace, int constSpace
 
     ensureSpace(insnSpace, constSpace);
 
+#elif CPU(SH4)
+#ifndef NDEBUG
+    insnSpace += sizeof(SH4Word);
+    constSpace += sizeof(uint64_t);
+#endif
+
+    m_assembler.ensureSpace(insnSpace + m_assembler.maxInstructionSize + 2, constSpace + 8);
 #endif
 
 #if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
@@ -133,8 +140,9 @@ ALWAYS_INLINE void JIT::beginUninterruptedSequence(int insnSpace, int constSpace
 #endif
 }
 
-ALWAYS_INLINE void JIT::endUninterruptedSequence(int insnSpace, int constSpace)
+ALWAYS_INLINE void JIT::endUninterruptedSequence(int insnSpace, int constSpace, int dst)
 {
+    UNUSED_PARAM(dst);
 #if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
     /* There are several cases when the uninterrupted sequence is larger than
      * maximum required offset for pathing the same sequence. Eg.: if in a
@@ -143,6 +151,15 @@ ALWAYS_INLINE void JIT::endUninterruptedSequence(int insnSpace, int constSpace)
      * calculation of length of uninterrupted sequence. So, the insnSpace and
      * constSpace should be upper limit instead of hard limit.
      */
+#if CPU(SH4)
+    if ((dst > 15) || (dst < -16)) {
+        insnSpace += 8;
+        constSpace += 2;
+    }
+
+    if (((dst >= -16) && (dst < 0)) || ((dst > 7) && (dst <= 15)))
+        insnSpace += 8;
+#endif
     ASSERT(differenceBetween(m_uninterruptedInstructionSequenceBegin, label()) <= insnSpace);
     ASSERT(sizeOfConstantPool() - m_uninterruptedConstantSequenceBegin <= constSpace);
 #endif
@@ -166,6 +183,22 @@ ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(RegisterID reg)
 ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(Address address)
 {
     loadPtr(address, linkRegister);
+}
+#elif CPU(SH4)
+
+ALWAYS_INLINE void JIT::preserveReturnAddressAfterCall(RegisterID reg)
+{
+    m_assembler.stspr(reg);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(RegisterID reg)
+{
+    m_assembler.ldspr(reg);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(Address address)
+{
+    loadPtrLinkReg(address);
 }
 
 #elif CPU(MIPS)
@@ -216,6 +249,8 @@ ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline()
     // Within a trampoline the return address will be on the stack at this point.
     addPtr(TrustedImm32(sizeof(void*)), stackPointerRegister, firstArgumentRegister);
 #elif CPU(ARM)
+    move(stackPointerRegister, firstArgumentRegister);
+#elif CPU(SH4)
     move(stackPointerRegister, firstArgumentRegister);
 #endif
     // In the trampoline on x86-64, the first argument register is not overwritten.
@@ -453,11 +488,11 @@ inline void JIT::emitStoreCell(unsigned index, RegisterID payload, bool indexIsC
         store32(TrustedImm32(JSValue::CellTag), tagFor(index, callFrameRegister));
 }
 
-inline void JIT::emitStoreBool(unsigned index, RegisterID tag, bool indexIsBool)
+inline void JIT::emitStoreBool(unsigned index, RegisterID payload, bool indexIsBool)
 {
+    store32(payload, payloadFor(index, callFrameRegister));
     if (!indexIsBool)
-        store32(TrustedImm32(0), payloadFor(index, callFrameRegister));
-    store32(tag, tagFor(index, callFrameRegister));
+        store32(TrustedImm32(JSValue::BooleanTag), tagFor(index, callFrameRegister));
 }
 
 inline void JIT::emitStoreDouble(unsigned index, FPRegisterID value)
@@ -674,7 +709,7 @@ ALWAYS_INLINE JIT::Jump JIT::emitJumpIfJSCell(RegisterID reg)
 #if USE(JSVALUE64)
     return branchTestPtr(Zero, reg, tagMaskRegister);
 #else
-    return branchTest32(Zero, reg, TrustedImm32(JSImmediate::TagMask));
+    return branchTest32(Zero, reg, TrustedImm32(TagMask));
 #endif
 }
 
@@ -695,7 +730,7 @@ ALWAYS_INLINE JIT::Jump JIT::emitJumpIfNotJSCell(RegisterID reg)
 #if USE(JSVALUE64)
     return branchTestPtr(NonZero, reg, tagMaskRegister);
 #else
-    return branchTest32(NonZero, reg, TrustedImm32(JSImmediate::TagMask));
+    return branchTest32(NonZero, reg, TrustedImm32(TagMask));
 #endif
 }
 
@@ -736,7 +771,7 @@ ALWAYS_INLINE JIT::Jump JIT::emitJumpIfImmediateInteger(RegisterID reg)
 #if USE(JSVALUE64)
     return branchPtr(AboveOrEqual, reg, tagTypeNumberRegister);
 #else
-    return branchTest32(NonZero, reg, TrustedImm32(JSImmediate::TagTypeNumber));
+    return branchTest32(NonZero, reg, TrustedImm32(TagTypeNumber));
 #endif
 }
 
@@ -745,7 +780,7 @@ ALWAYS_INLINE JIT::Jump JIT::emitJumpIfNotImmediateInteger(RegisterID reg)
 #if USE(JSVALUE64)
     return branchPtr(Below, reg, tagTypeNumberRegister);
 #else
-    return branchTest32(Zero, reg, TrustedImm32(JSImmediate::TagTypeNumber));
+    return branchTest32(Zero, reg, TrustedImm32(TagTypeNumber));
 #endif
 }
 
@@ -774,12 +809,12 @@ ALWAYS_INLINE void JIT::emitJumpSlowCaseIfNotImmediateNumber(RegisterID reg)
 #if USE(JSVALUE32_64)
 ALWAYS_INLINE void JIT::emitFastArithDeTagImmediate(RegisterID reg)
 {
-    subPtr(TrustedImm32(JSImmediate::TagTypeNumber), reg);
+    subPtr(TrustedImm32(TagTypeNumber), reg);
 }
 
 ALWAYS_INLINE JIT::Jump JIT::emitFastArithDeTagImmediateJumpIfZero(RegisterID reg)
 {
-    return branchSubPtr(Zero, TrustedImm32(JSImmediate::TagTypeNumber), reg);
+    return branchSubPtr(Zero, TrustedImm32(TagTypeNumber), reg);
 }
 #endif
 
@@ -790,7 +825,7 @@ ALWAYS_INLINE void JIT::emitFastArithReTagImmediate(RegisterID src, RegisterID d
 #else
     if (src != dest)
         move(src, dest);
-    addPtr(TrustedImm32(JSImmediate::TagTypeNumber), dest);
+    addPtr(TrustedImm32(TagTypeNumber), dest);
 #endif
 }
 
@@ -810,8 +845,7 @@ ALWAYS_INLINE void JIT::emitFastArithIntToImmNoCheck(RegisterID src, RegisterID 
 
 ALWAYS_INLINE void JIT::emitTagAsBoolImmediate(RegisterID reg)
 {
-    lshift32(TrustedImm32(JSImmediate::ExtendedPayloadShift), reg);
-    or32(TrustedImm32(static_cast<int32_t>(JSImmediate::FullTagTypeBool)), reg);
+    or32(TrustedImm32(static_cast<int32_t>(ValueFalse)), reg);
 }
 
 #endif // USE(JSVALUE32_64)

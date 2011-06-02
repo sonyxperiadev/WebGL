@@ -31,6 +31,7 @@
 #include "MainResourceLoader.h"
 
 #include "ApplicationCacheHost.h"
+#include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentLoadTiming.h"
 #include "DocumentLoader.h"
@@ -39,6 +40,7 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLFormElement.h"
+#include "InspectorInstrumentation.h"
 #include "Page.h"
 #if PLATFORM(QT)
 #include "PluginDatabase.h"
@@ -262,6 +264,7 @@ void MainResourceLoader::continueAfterContentPolicy(PolicyAction contentPolicy, 
             receivedError(cannotShowURLError());
             return;
         }
+        InspectorInstrumentation::continueWithPolicyDownload(m_frame.get(), documentLoader(), identifier(), r);
         frameLoader()->client()->download(m_handle.get(), request(), m_handle.get()->firstRequest(), r);
         // It might have gone missing
         if (frameLoader())
@@ -269,6 +272,7 @@ void MainResourceLoader::continueAfterContentPolicy(PolicyAction contentPolicy, 
         return;
 
     case PolicyIgnore:
+        InspectorInstrumentation::continueWithPolicyIgnore(m_frame.get(), documentLoader(), identifier(), r);
         stopLoadingForPolicyChange();
         return;
     
@@ -355,6 +359,10 @@ void MainResourceLoader::didReceiveResponse(const ResourceResponse& r)
     if (it != r.httpHeaderFields().end()) {
         String content = it->second;
         if (m_frame->loader()->shouldInterruptLoadForXFrameOptions(content, r.url())) {
+            InspectorInstrumentation::continueAfterXFrameOptionsDenied(m_frame.get(), documentLoader(), identifier(), r);
+            DEFINE_STATIC_LOCAL(String, consoleMessage, ("Refused to display document because display forbidden by X-Frame-Options.\n"));
+            m_frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, consoleMessage, 1, String());
+
             cancel();
             return;
         }
@@ -411,7 +419,7 @@ void MainResourceLoader::didReceiveResponse(const ResourceResponse& r)
     frameLoader()->policyChecker()->checkContentPolicy(m_response, callContinueAfterContentPolicy, this);
 }
 
-void MainResourceLoader::didReceiveData(const char* data, int length, long long lengthReceived, bool allAtOnce)
+void MainResourceLoader::didReceiveData(const char* data, int length, long long encodedDataLength, bool allAtOnce)
 {
     ASSERT(data);
     ASSERT(length != 0);
@@ -434,7 +442,7 @@ void MainResourceLoader::didReceiveData(const char* data, int length, long long 
 #endif
  
  #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    documentLoader()->applicationCacheHost()->mainResourceDataReceived(data, length, lengthReceived, allAtOnce);
+    documentLoader()->applicationCacheHost()->mainResourceDataReceived(data, length, encodedDataLength, allAtOnce);
 #endif
 
     // The additional processing can do anything including possibly removing the last
@@ -443,7 +451,7 @@ void MainResourceLoader::didReceiveData(const char* data, int length, long long 
 
     m_timeOfLastDataReceived = currentTime();
 
-    ResourceLoader::didReceiveData(data, length, lengthReceived, allAtOnce);
+    ResourceLoader::didReceiveData(data, length, encodedDataLength, allAtOnce);
 }
 
 void MainResourceLoader::didFinishLoading(double finishTime)

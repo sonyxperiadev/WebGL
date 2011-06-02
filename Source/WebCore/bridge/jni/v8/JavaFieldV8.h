@@ -28,8 +28,8 @@
 
 #if ENABLE(JAVA_BRIDGE)
 
-#include "JavaString.h"
-#include "JobjectWrapper.h"
+#include "JNIUtility.h"
+#include <wtf/text/WTFString.h>
 
 namespace JSC {
 
@@ -37,17 +37,11 @@ namespace Bindings {
 
 class JavaField {
 public:
-    JavaField(JNIEnv*, jobject aField);
+    virtual ~JavaField() {}
 
-    const JavaString& name() const { return m_name; }
-    const char* typeClassName() const { return m_typeClassName.utf8(); }
-    JavaType type() const { return m_type; }
-
-private:
-    JavaString m_name;
-    JavaString m_typeClassName;
-    JavaType m_type;
-    RefPtr<JobjectWrapper> m_field;
+    virtual String name() const = 0;
+    virtual const char* typeClassName() const = 0;
+    virtual JavaType type() const = 0;
 };
 
 } // namespace Bindings

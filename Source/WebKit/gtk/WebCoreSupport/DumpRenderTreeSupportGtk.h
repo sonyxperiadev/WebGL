@@ -20,12 +20,10 @@
 #define DumpRenderTreeSupportGtk_h
 
 #include "JSStringRef.h"
-#include <webkit/webkitdefines.h>
-
 #include <atk/atk.h>
 #include <glib.h>
 #include <webkit/webkitdefines.h>
-#include <webkit/webkitwebframe.h>
+#include <webkit/webkitdomdefines.h>
 #include <wtf/text/CString.h>
 
 namespace WebKit {
@@ -60,6 +58,9 @@ public:
     static void dumpConfigurationForViewport(WebKitWebView* webView, gint deviceDPI, gint deviceWidth, gint deviceHeight, gint availableWidth, gint availableHeight);
 
     static void clearOpener(WebKitWebFrame*);
+
+    static JSValueRef shadowRoot(JSContextRef, JSValueRef);
+    static WebKitDOMRange* jsValueToDOMRange(JSContextRef, JSValueRef);
 
     // FIXME: Move these to webkitwebframe.h once their API has been discussed.
     static GSList* getFrameChildren(WebKitWebFrame*);
@@ -97,6 +98,11 @@ public:
     static bool selectedRange(WebKitWebView*, int* start, int* end);
     static double defaultMinimumTimerInterval(); // Not really tied to WebView
     static void setMinimumTimerInterval(WebKitWebView*, double);
+    static void rectangleForSelection(WebKitWebFrame*, GdkRectangle*);
+
+    // Accessibility
+    static void incrementAccessibilityValue(AtkObject*);
+    static void decrementAccessibilityValue(AtkObject*);
 
     // GC
     static void gcCollectJavascriptObjects();

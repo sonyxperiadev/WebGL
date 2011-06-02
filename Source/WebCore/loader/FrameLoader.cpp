@@ -615,7 +615,7 @@ void FrameLoader::receivedFirstData()
     dispatchDidClearWindowObjectsInAllWorlds();
     
     if (m_documentLoader) {
-        String ptitle = m_documentLoader->title();
+        StringWithDirection ptitle = m_documentLoader->title();
         // If we have a title let the WebView know about it.
         if (!ptitle.isNull())
             m_client->dispatchDidReceiveTitle(ptitle);
@@ -712,10 +712,10 @@ void FrameLoader::startIconLoader()
     if (urlString.isEmpty())
         return;
 
-    // People who want to avoid loading images generally want to avoid loading all images.
+    // People who want to avoid loading images generally want to avoid loading all images, unless an exception has been made for site icons.
     // Now that we've accounted for URL mapping, avoid starting the network load if images aren't set to display automatically.
     Settings* settings = m_frame->settings();
-    if (settings && !settings->loadsImagesAutomatically())
+    if (settings && !settings->loadsImagesAutomatically() && !settings->loadsSiteIconsIgnoringImageLoadingSetting())
         return;
 
     // If we're reloading the page, always start the icon load now.
@@ -798,10 +798,10 @@ void FrameLoader::commitIconURLToIconDatabase(const KURL& icon)
 
 void FrameLoader::finishedParsing()
 {
+    m_frame->injectUserScripts(InjectAtDocumentEnd);
+
     if (m_stateMachine.creatingInitialEmptyDocument())
         return;
-
-    m_frame->injectUserScripts(InjectAtDocumentEnd);
 
     // This can be called from the Frame's destructor, in which case we shouldn't protect ourselves
     // because doing so will cause us to re-enter the destructor when protector goes out of scope.
@@ -1478,6 +1478,11 @@ void FrameLoader::load(DocumentLoader* newDocumentLoader)
     // shouldn't a more explicit type of reload be defined, that means roughly 
     // "load without affecting history" ? 
     if (shouldReloadToHandleUnreachableURL(newDocumentLoader)) {
+        // shouldReloadToHandleUnreachableURL() returns true only when the original load type is back-forward.
+        // In this case we should save the document state now. Otherwise the state can be lost because load type is
+        // changed and updateForBackForwardNavigation() will not be called when loading is committed.
+        history()->saveDocumentAndScrollState();
+
         ASSERT(type == FrameLoadTypeStandard);
         type = FrameLoadTypeReload;
     }
@@ -1936,9 +1941,9 @@ void FrameLoader::commitProvisionalLoad()
         dispatchDidCommitLoad();
 
         // If we have a title let the WebView know about it. 
-        String title = m_documentLoader->title();
-        if (!title.isNull()) 
-            m_client->dispatchDidReceiveTitle(title);         
+        StringWithDirection title = m_documentLoader->title();
+        if (!title.isNull())
+            m_client->dispatchDidReceiveTitle(title);
 
         checkCompleted();
     } else {        
@@ -2839,7 +2844,8 @@ unsigned long FrameLoader::loadResourceSynchronously(const ResourceRequest& requ
         }
 #endif
     }
-    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, response, data.size(), static_cast<int>(response.expectedContentLength()), error);
+    int encodedDataLength = response.resourceLoadInfo() ? static_cast<int>(response.resourceLoadInfo()->encodedDataLength) : -1;
+    notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, response, data.size(), encodedDataLength, error);
     return identifier;
 }
 
@@ -3393,7 +3399,7 @@ bool FrameLoader::canAuthenticateAgainstProtectionSpace(ResourceLoader* loader, 
 }
 #endif
 
-void FrameLoader::setTitle(const String& title)
+void FrameLoader::setTitle(const StringWithDirection& title)
 {
     documentLoader()->setTitle(title);
 }

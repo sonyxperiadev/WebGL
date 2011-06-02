@@ -71,7 +71,7 @@ InjectedScript.prototype = {
         if (arguments.length === 0)
             return;
 
-        var objectId = this._wrapObject(object, "", false);
+        var objectId = this._wrapObject(object, "");
         var hints = {};
 
         switch (injectedScript._describe(object)) {
@@ -90,7 +90,7 @@ InjectedScript.prototype = {
         return object;
     },
 
-    _wrapObject: function(object, objectGroupName, abbreviate)
+    _wrapObject: function(object, objectGroupName)
     {
         try {
             if (typeof object === "object" || typeof object === "function" || this._isHTMLAllCollection(object)) {
@@ -107,7 +107,7 @@ InjectedScript.prototype = {
                     this._idToObjectGroupName[id] = objectGroupName;
                 }
             }
-            return InjectedScript.RemoteObject.fromObject(object, objectId, abbreviate);
+            return InjectedScript.RemoteObject.fromObject(object, objectId);
         } catch (e) {
             return InjectedScript.RemoteObject.fromObject("[ Exception: " + e.toString() + " ]");
         }
@@ -139,7 +139,7 @@ InjectedScript.prototype = {
         return result;
     },
 
-    getProperties: function(objectId, ignoreHasOwnProperty, abbreviate)
+    getProperties: function(objectId, ignoreHasOwnProperty)
     {
         var parsedObjectId = this._parseObjectId(objectId);
         var object = this._objectForId(parsedObjectId);
@@ -162,7 +162,7 @@ InjectedScript.prototype = {
             var isGetter = object["__lookupGetter__"] && object.__lookupGetter__(propertyName);
             if (!isGetter) {
                 try {
-                    property.value = this._wrapObject(object[propertyName], objectGroupName, abbreviate);
+                    property.value = this._wrapObject(object[propertyName], objectGroupName);
                 } catch(e) {
                     property.value = new InjectedScript.RemoteObject.fromException(e);
                 }
@@ -299,7 +299,6 @@ InjectedScript.prototype = {
         if (!callFrame)
             return false;
     
-        injectedScript.releaseObjectGroup("backtrace");
         var result = [];
         var depth = 0;
         do {
@@ -402,12 +401,13 @@ InjectedScript.prototype = {
         return type;
     },
 
-    _describe: function(obj, abbreviated)
+    _describe: function(obj)
     {
         var type = this._type(obj);
 
         switch (type) {
         case "object":
+            // Fall through.
         case "node":
             var result = InjectedScriptHost.internalConstructorName(obj);
             if (result === "Object") {
@@ -424,14 +424,9 @@ InjectedScript.prototype = {
                 className += "[" + obj.length + "]";
             return className;
         case "string":
-            if (abbreviated && obj.length > 100)
-                return obj.substring(0, 100) + "\u2026";
             return obj;
         case "function":
-            var objectText = this._toString(obj);
-            if (abbreviated)
-                objectText = /.*/.exec(objectText)[0].replace(/ +$/g, "");
-            return objectText;
+            // Fall through.
         default:
             return this._toString(obj);
         }
@@ -461,14 +456,14 @@ InjectedScript.RemoteObject.fromException = function(e)
     return new InjectedScript.RemoteObject(null, "error", e.toString());
 }
 
-InjectedScript.RemoteObject.fromObject = function(object, objectId, abbreviate)
+InjectedScript.RemoteObject.fromObject = function(object, objectId)
 {
     var type = injectedScript._type(object);
     var rawType = typeof object;
     var hasChildren = (rawType === "object" && object !== null && (!!Object.getOwnPropertyNames(object).length || !!object.__proto__)) || rawType === "function";
     var description = "";
     try {
-        var description = injectedScript._describe(object, abbreviate);
+        var description = injectedScript._describe(object);
         return new InjectedScript.RemoteObject(objectId, type, description, hasChildren);
     } catch (e) {
         return InjectedScript.RemoteObject.fromException(e);
@@ -478,11 +473,8 @@ InjectedScript.RemoteObject.fromObject = function(object, objectId, abbreviate)
 InjectedScript.CallFrameProxy = function(ordinal, callFrame)
 {
     this.id = "{\"ordinal\":" + ordinal + ",\"injectedScriptId\":" + injectedScriptId + "}";
-    this.type = callFrame.type;
-    this.functionName = (this.type === "function" ? callFrame.functionName : "");
-    this.sourceID = callFrame.sourceID;
-    this.line = callFrame.line;
-    this.column = callFrame.column;
+    this.functionName = (callFrame.type === "function" ? callFrame.functionName : "");
+    this.location = { sourceID: callFrame.sourceID, lineNumber: callFrame.line, columnNumber: callFrame.column };
     this.scopeChain = this._wrapScopeChain(callFrame);
 }
 
@@ -494,38 +486,28 @@ InjectedScript.CallFrameProxy.prototype = {
         const WITH_SCOPE = 2;
         const CLOSURE_SCOPE = 3;
         const CATCH_SCOPE = 4;
-    
+
+        var scopeTypeNames = {};
+        scopeTypeNames[GLOBAL_SCOPE] = "global";
+        scopeTypeNames[LOCAL_SCOPE] = "local";
+        scopeTypeNames[WITH_SCOPE] = "with";
+        scopeTypeNames[CLOSURE_SCOPE] = "closure";
+        scopeTypeNames[CATCH_SCOPE] = "catch";
+
         var scopeChain = callFrame.scopeChain;
         var scopeChainProxy = [];
         var foundLocalScope = false;
         for (var i = 0; i < scopeChain.length; i++) {
-            var scopeType = callFrame.scopeType(i);
-            var scopeObject = scopeChain[i];
-            var scopeObjectProxy = injectedScript._wrapObject(scopeObject, "backtrace", true);
+            var scope = {};
+            scope.object = injectedScript._wrapObject(scopeChain[i], "backtrace");
 
-            switch(scopeType) {
-                case LOCAL_SCOPE: {
-                    foundLocalScope = true;
-                    scopeObjectProxy.isLocal = true;
-                    scopeObjectProxy.thisObject = injectedScript._wrapObject(callFrame.thisObject, "backtrace", true);
-                    break;
-                }
-                case CLOSURE_SCOPE: {
-                    scopeObjectProxy.isClosure = true;
-                    break;
-                }
-                case WITH_SCOPE:
-                case CATCH_SCOPE: {
-                    if (foundLocalScope && scopeObject instanceof inspectedWindow.Element)
-                        scopeObjectProxy.isElement = true;
-                    else if (foundLocalScope && scopeObject instanceof inspectedWindow.Document)
-                        scopeObjectProxy.isDocument = true;
-                    else
-                        scopeObjectProxy.isWithBlock = true;
-                    break;
-                }
-            }
-            scopeChainProxy.push(scopeObjectProxy);
+            var scopeType = callFrame.scopeType(i);
+            scope.type = scopeTypeNames[scopeType];
+
+            if (scopeType === LOCAL_SCOPE)
+                scope.this = injectedScript._wrapObject(callFrame.thisObject, "backtrace");
+
+            scopeChainProxy.push(scope);
         }
         return scopeChainProxy;
     }

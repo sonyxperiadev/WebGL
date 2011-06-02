@@ -66,19 +66,21 @@ ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace, RenderingMode, bool& s
     : m_data(size)
     , m_size(size)
 {
-    if (!m_data.m_canvas.initialize(size.width(), size.height(), false)) {
+    SkCanvas* canvas = skia::CreateBitmapCanvas(size.width(), size.height(), false);
+    if (!canvas) {
         success = false;
         return;
     }
 
-    m_data.m_platformContext.setCanvas(&m_data.m_canvas);
+    m_data.m_canvas = canvas;
+    m_data.m_platformContext.setCanvas(m_data.m_canvas.get());
     m_context.set(new GraphicsContext(&m_data.m_platformContext));
     m_context->platformContext()->setDrawingToImageBuffer(true);
 
     // Make the background transparent. It would be nice if this wasn't
     // required, but the canvas is currently filled with the magic transparency
     // color. Can we have another way to manage this?
-    m_data.m_canvas.drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
+    m_data.m_canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
     success = true;
 }
 
@@ -117,6 +119,7 @@ void ImageBuffer::draw(GraphicsContext* context, ColorSpace styleColorSpace, con
 {
     if (m_data.m_platformContext.useGPU() && context->platformContext()->useGPU()) {
         if (context->platformContext()->canAccelerate()) {
+            m_data.m_platformContext.prepareForHardwareDraw();
             DrawingBuffer* sourceDrawingBuffer = m_data.m_platformContext.gpuCanvas()->drawingBuffer();
             unsigned sourceTexture = static_cast<unsigned>(sourceDrawingBuffer->platformColorBuffer());
             FloatRect destRectNormalized(normalizeRect(destRect));
@@ -344,6 +347,8 @@ void ImageBuffer::putPremultipliedImageData(ByteArray* source, const IntSize& so
 template <typename T>
 static String ImageToDataURL(T& source, const String& mimeType, const double* quality)
 {
+    ASSERT(MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType));
+
     Vector<unsigned char> encodedImage;
     if (mimeType == "image/jpeg") {
         int compressionQuality = JPEGImageEncoder::DefaultCompressionQuality;
@@ -365,9 +370,6 @@ static String ImageToDataURL(T& source, const String& mimeType, const double* qu
 
 String ImageBuffer::toDataURL(const String& mimeType, const double* quality) const
 {
-    ASSERT(MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType));
-
-    Vector<unsigned char> encodedImage;
     SkDevice* device = context()->platformContext()->canvas()->getDevice();
     SkBitmap bitmap = device->accessBitmap(false);
 

@@ -38,7 +38,7 @@ WALDOCSSPROPS = $$PWD/css/CSSPropertyNames.in
 
 WALDOCSSVALUES = $$PWD/css/CSSValueKeywords.in
 
-DASHBOARDSUPPORTCSSPROPERTIES = $$PWD/css/DashboardSupportCSSPropertyNames.in
+contains(DEFINES, ENABLE_DASHBOARD_SUPPORT=1): DASHBOARDSUPPORTCSSPROPERTIES = $$PWD/css/DashboardSupportCSSPropertyNames.in
 
 XPATHBISON = $$PWD/xml/XPathGrammar.y
 
@@ -62,8 +62,7 @@ STYLESHEETS_EMBED = \
     $$PWD/css/mediaControls.css \
     $$PWD/css/mediaControlsQt.css \
     $$PWD/css/mediaControlsQtFullscreen.css \
-    $$PWD/css/themeQtNoListboxes.css \
-    $$PWD/css/themeQtMobile.css
+    $$PWD/css/themeQtNoListboxes.css
 
 v8 {
     IDL_BINDINGS += \
@@ -160,7 +159,6 @@ IDL_BINDINGS += \
     dom/WebKitTransitionEvent.idl \
     dom/WheelEvent.idl \
     fileapi/Blob.idl \
-    fileapi/BlobBuilder.idl \
     fileapi/DirectoryEntry.idl \
     fileapi/DirectoryEntrySync.idl \
     fileapi/DirectoryReader.idl \
@@ -186,9 +184,10 @@ IDL_BINDINGS += \
     fileapi/FileSystemCallback.idl \
     fileapi/FileWriter.idl \
     fileapi/FileWriterCallback.idl \
-    fileapi/Flags.idl \
+    fileapi/WebKitFlags.idl \
     fileapi/Metadata.idl \
     fileapi/MetadataCallback.idl \
+    fileapi/WebKitBlobBuilder.idl \
     html/canvas/ArrayBufferView.idl \
     html/canvas/ArrayBuffer.idl \
     html/canvas/DataView.idl \
@@ -297,6 +296,7 @@ IDL_BINDINGS += \
     html/HTMLTableSectionElement.idl \
     html/HTMLTextAreaElement.idl \
     html/HTMLTitleElement.idl \
+    html/HTMLTrackElement.idl \
     html/HTMLUListElement.idl \
     html/HTMLVideoElement.idl \
     html/ImageData.idl \
@@ -326,6 +326,9 @@ IDL_BINDINGS += \
     page/Location.idl \
     page/MemoryInfo.idl \
     page/Navigator.idl \
+    page/NavigatorUserMediaError.idl \
+    page/NavigatorUserMediaErrorCallback.idl \
+    page/NavigatorUserMediaSuccessCallback.idl \
     page/Performance.idl \
     page/PerformanceNavigation.idl \
     page/PerformanceTiming.idl \
@@ -359,6 +362,9 @@ IDL_BINDINGS += \
     storage/IDBTransaction.idl \
     storage/Storage.idl \
     storage/StorageEvent.idl \
+    storage/StorageInfo.idl \
+    storage/StorageInfoErrorCallback.idl \
+    storage/StorageInfoUsageCallback.idl \
     storage/SQLError.idl \
     storage/SQLException.idl \
     storage/SQLResultSet.idl \

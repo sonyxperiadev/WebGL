@@ -30,7 +30,7 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
-#if PLATFORM(QT)
+#if PLATFORM(QT) || PLATFORM(GTK)
 #include "Attachment.h"
 #include <wtf/text/WTFString.h>
 #endif
@@ -60,7 +60,7 @@ public:
         void encode(CoreIPC::ArgumentEncoder*) const;
         static bool decode(CoreIPC::ArgumentDecoder*, Handle&);
 
-#if PLATFORM(QT)
+#if USE(UNIX_DOMAIN_SOCKETS)
         CoreIPC::Attachment releaseToAttachment() const;
         void adoptFromAttachment(int fileDescriptor, size_t);
 #endif
@@ -70,7 +70,7 @@ public:
         mutable mach_port_t m_port;
 #elif PLATFORM(WIN)
         mutable HANDLE m_handle;
-#elif PLATFORM(QT)
+#elif USE(UNIX_DOMAIN_SOCKETS)
         mutable int m_fileDescriptor;
 #endif
         size_t m_size;
@@ -82,6 +82,10 @@ public:
     // Create a shared memory object from the given handle and the requested protection. Will return 0 on failure.
     static PassRefPtr<SharedMemory> create(const Handle&, Protection);
     
+#if PLATFORM(WIN)
+    static PassRefPtr<SharedMemory> adopt(HANDLE, size_t, Protection);
+#endif
+
     ~SharedMemory();
 
     bool createHandle(Handle&, Protection);
@@ -99,7 +103,7 @@ private:
     mach_port_t m_port;
 #elif PLATFORM(WIN)
     HANDLE m_handle;
-#elif PLATFORM(QT)
+#elif USE(UNIX_DOMAIN_SOCKETS)
     int m_fileDescriptor;
 #endif
 };

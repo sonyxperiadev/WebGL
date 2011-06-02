@@ -25,6 +25,7 @@
 #include "JSEvent.h"
 #include "JSEventTarget.h"
 #include "JSMainThreadExecState.h"
+#include "WorkerContext.h"
 #include <runtime/JSLock.h>
 #include <wtf/RefCountedLeakCounter.h>
 
@@ -38,7 +39,11 @@ JSEventListener::JSEventListener(JSObject* function, JSObject* wrapper, bool isA
     , m_isAttribute(isAttribute)
     , m_isolatedWorld(isolatedWorld)
 {
-    m_jsFunction.set(*m_isolatedWorld->globalData(), wrapper, function);
+    if (wrapper)
+        m_jsFunction.set(*m_isolatedWorld->globalData(), wrapper, function);
+    else
+        ASSERT(!function);
+
 }
 
 JSEventListener::~JSEventListener()
@@ -60,7 +65,7 @@ void JSEventListener::markJSFunction(MarkStack& markStack)
 void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext, Event* event)
 {
     ASSERT(scriptExecutionContext);
-    if (!scriptExecutionContext || scriptExecutionContext->isJSExecutionTerminated())
+    if (!scriptExecutionContext || scriptExecutionContext->isJSExecutionForbidden())
         return;
 
     JSLock lock(SilenceAssertionsOnly);
@@ -125,6 +130,14 @@ void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext
         globalData.timeoutChecker.stop();
 
         globalObject->setCurrentEvent(savedEvent);
+
+#if ENABLE(WORKERS)
+        if (scriptExecutionContext->isWorkerContext()) {
+            bool terminatorCausedException = (exec->hadException() && exec->exception().isObject() && asObject(exec->exception())->exceptionType() == Terminated);
+            if (terminatorCausedException || globalData.terminator.shouldTerminate())
+                static_cast<WorkerContext*>(scriptExecutionContext)->script()->forbidExecution();
+        }
+#endif
 
         if (exec->hadException()) {
             event->target()->uncaughtExceptionInEventHandler();

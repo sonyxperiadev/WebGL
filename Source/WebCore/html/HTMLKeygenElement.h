@@ -49,10 +49,9 @@ private:
 
     virtual bool isEnumeratable() const { return true; }
 
-    virtual bool isResettable() const { return true; }
     virtual void reset();
 
-    HTMLSelectElement* selectShadow();
+    HTMLSelectElement* shadowSelect() const;
 
     AtomicString m_challenge;
     AtomicString m_keyType;

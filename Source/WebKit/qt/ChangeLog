@@ -1,3 +1,671 @@
+2011-04-19  Igor Oliveira  <igor.oliveira@openbossa.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] X11: Text selection is causing oncopy event to be called
+        https://bugs.webkit.org/show_bug.cgi?id=58656
+
+        Always when text is selected the oncopy event is fired, this behavior does
+        not exist in Firefox or Chrome. Now, when selecting a text, QtWebKit
+        is making multi part-copies (with rich text metadata), the multi-part
+        data can be obtained by data transfer items interface when supported by QtWebKit.
+        Also, copies to the clipboard of a selected image, is not supported by Chrome and
+        Firefox and was removed from QtWebKit.
+
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::handleClipboard):
+
+2011-04-18  Csaba Osztrogonác  <ossy@webkit.org>
+
+        [Qt][WK2] Unreviewed buildfix after r84174.
+
+        * QtWebKit.pro: Missing includepath added.
+
+2011-04-18  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt][Symbian] Fix Api test failure -- tst_QWebFrame::inputFieldFocus
+        https://bugs.webkit.org/show_bug.cgi?id=57546
+
+        Disable the fullscreen VKB when testing inputFieldFocus().
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2011-04-18  Andreas Kling  <kling@webkit.org>
+
+        [Qt] DRT: Unreviewed test fix after r84168.
+        
+        Dump the original request KURL for blocked access attempts.
+        Turns out converting it to a QUrl lower-cases the hostname.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchWillSendRequest):
+
+2011-04-18  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Fix Api tests for QWebPage on Symbian
+        https://bugs.webkit.org/show_bug.cgi?id=56924
+
+        Ignores the style attribute that selectedHtml() returns.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::cursorMovements):
+        (tst_QWebPage::textSelection):
+        (tst_QWebPage::findText):
+
+2011-04-18  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        REGRESSION (r84010): [Qt] DRT: Unbreak redirection of http:/ URLs.
+        https://bugs.webkit.org/show_bug.cgi?id=58779
+
+        KURL::host() doesn't return the host part of [broken] http:/ URLs, so use
+        QUrl instead to match the behavior of other ports.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchWillSendRequest):
+
+2011-04-18  Dominic Cooney  <dominicc@chromium.org>
+
+        Reviewed by Andreas Kling.
+
+        Add layoutTestController.shadowRoot to Qt DRT.
+        https://bugs.webkit.org/show_bug.cgi?id=58759
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::shadowRoot): Added.
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2011-04-16  Caio Marcelo de Oliveira Filho  <caio.oliveira@openbossa.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Autotest got missed in the handover of the QML WebView element
+        https://bugs.webkit.org/show_bug.cgi?id=41449
+
+        Importing WebView QML element test cases from Qt repository. I did some
+        style modifications and simplifications in the original code but hopefully
+        without changing the behavior.
+
+        Tests that do not pass are marked with QEXPECT_FAIL or QSKIP. The two major
+        issues currently are:
+
+        - pixelCache() test checked the usage of pixel cache by using a subclass of
+          QDeclarativeWebView. We can't do that right now because this class is not
+          exported. We may need a Q_AUTOTEST_EXPORT thing for QtWebKit if we want
+          this kind of test.
+        - elementAtArea() test uses a function that is not exported. But in this case
+          I think we should test it's user, the public method "heuristicZoom".
+
+        * tests/qdeclarativewebview/resources/basic.html: Added.
+        * tests/qdeclarativewebview/resources/basic.png: Added.
+        * tests/qdeclarativewebview/resources/basic.qml: Added.
+        * tests/qdeclarativewebview/resources/elements.html: Added.
+        * tests/qdeclarativewebview/resources/elements.qml: Added.
+        * tests/qdeclarativewebview/resources/forward.html: Added.
+        * tests/qdeclarativewebview/resources/forward.png: Added.
+        * tests/qdeclarativewebview/resources/javaScript.html: Added.
+        * tests/qdeclarativewebview/resources/javaScript.qml: Added.
+        * tests/qdeclarativewebview/resources/loadError.qml: Added.
+        * tests/qdeclarativewebview/resources/newwindows.html: Added.
+        * tests/qdeclarativewebview/resources/newwindows.qml: Added.
+        * tests/qdeclarativewebview/resources/propertychanges.qml: Added.
+        * tests/qdeclarativewebview/resources/sethtml.qml: Added.
+        * tests/qdeclarativewebview/tst_qdeclarativewebview.cpp:
+        (tst_QDeclarativeWebView::tmpDir):
+        (strippedHtml):
+        (fileContents):
+        (removeRecursive):
+        (tst_QDeclarativeWebView::cleanupTestCase):
+        (tst_QDeclarativeWebView::basicProperties):
+        (tst_QDeclarativeWebView::elementAreaAt):
+        (tst_QDeclarativeWebView::historyNav):
+        (callEvaluateJavaScript):
+        (tst_QDeclarativeWebView::javaScript):
+        (tst_QDeclarativeWebView::loadError):
+        (tst_QDeclarativeWebView::multipleWindows):
+        (tst_QDeclarativeWebView::newWindowComponent):
+        (tst_QDeclarativeWebView::newWindowParent):
+        (tst_QDeclarativeWebView::pressGrabTime):
+        (tst_QDeclarativeWebView::renderingEnabled):
+        (tst_QDeclarativeWebView::setHtml):
+        (tst_QDeclarativeWebView::settings):
+        (tst_QDeclarativeWebView::checkNoErrors):
+        * tests/qdeclarativewebview/tst_qdeclarativewebview.qrc:
+
+2011-04-08  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QWebPage MIME type handling inconsistency with other web browsers
+        https://bugs.webkit.org/show_bug.cgi?id=46968
+
+        Implementing mime type sniffing based on
+        http://tools.ietf.org/html/draft-abarth-mime-sniff-06.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createNetworkingContext):
+        * WebCoreSupport/FrameNetworkingContextQt.cpp:
+        (WebCore::FrameNetworkingContextQt::FrameNetworkingContextQt):
+        (WebCore::FrameNetworkingContextQt::create):
+        (WebCore::FrameNetworkingContextQt::MIMESniffingEnabled):
+        * WebCoreSupport/FrameNetworkingContextQt.h:
+        * tests/MIMESniffing/MIMESniffing.pro: Added.
+        * tests/MIMESniffing/TestData.h: Added.
+        * tests/MIMESniffing/resources.qrc: Added.
+        * tests/MIMESniffing/resources/application_atom+xml: Added.
+        * tests/MIMESniffing/resources/application_ogg: Added.
+        * tests/MIMESniffing/resources/application_pdf: Added.
+        * tests/MIMESniffing/resources/application_postscript: Added.
+        * tests/MIMESniffing/resources/application_rdf+xml: Added.
+        * tests/MIMESniffing/resources/application_rss+xml: Added.
+        * tests/MIMESniffing/resources/application_x-gzip: Added.
+        * tests/MIMESniffing/resources/application_x-rar-compressed: Added.
+        * tests/MIMESniffing/resources/application_zip: Added.
+        * tests/MIMESniffing/resources/audio_x-wave: Added.
+        * tests/MIMESniffing/resources/image_bmp: Added.
+        * tests/MIMESniffing/resources/image_gif: Added.
+        * tests/MIMESniffing/resources/image_jpeg: Added.
+        * tests/MIMESniffing/resources/image_png: Added.
+        * tests/MIMESniffing/resources/image_vnd.microsoft.icon: Added.
+        * tests/MIMESniffing/resources/image_webp: Added.
+        * tests/MIMESniffing/resources/text_html: Added.
+        * tests/MIMESniffing/resources/text_xml: Added.
+        * tests/MIMESniffing/resources/video_webm: Added.
+        * tests/MIMESniffing/tst_MIMESniffing.cpp: Added.
+        (tst_MIMESniffing::tst_MIMESniffing):
+        (errorText):
+        (tst_MIMESniffing::testCase1):
+        * tests/tests.pro:
+
+2011-04-15  Andreas Kling  <kling@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] DRT: Block access to external URLs.
+
+        Implement the "Blocked access to external URL" behavior for Qt's DRT,
+        based on what other ports are doing.
+
+        Fixes <http://webkit.org/b/57306> and <http://webkit.org/b/58523>.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchWillSendRequest):
+
+2011-01-26  Ragner Magalhaes  <ragner.magalhaes@openbossa.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Web Inspector does not highlight elements
+        https://bugs.webkit.org/show_bug.cgi?id=35125
+
+        Adjust Web inspector to highlight elements on the page when the mouse
+        hovers the element on DOM inspector.
+
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::renderRelativeCoords):
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::highlight):
+        (WebCore::InspectorClientQt::hideHighlight):
+
+2011-04-12  George Guo  <George.Guo@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] On Symbian got "Update Error" when installing QtWebkit.sis
+        http://bugs.webkit.org/show_bug.cgi?id=58141
+
+        If QtWebKit is already in Symbian ROM, we need package to be
+        both SA and RU type
+
+        * QtWebKit.pro:
+
+2011-04-12  Alexis Menard  <alexis.menard@openbossa.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Private Q_SLOTS void orientationChanged() can't be in qwebframe.h public header file.
+        https://bugs.webkit.org/show_bug.cgi?id=58251
+
+        Fix an issue with slot names after http://trac.webkit.org/changeset/83512.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::QWebFrame):
+
+2011-04-11  Alexis Menard  <alexis.menard@openbossa.org>
+
+        Reviewed by Benjamin Poulain.
+
+        [Qt] Private Q_SLOTS void orientationChanged() can't be in qwebframe.h public header file.
+        https://bugs.webkit.org/show_bug.cgi?id=58251
+
+        Qt coding conventions states that private slots should be located in private implementation of
+        the class. This allows us to rename/delete the slots in the future without breaking anything.
+
+        No new tests added, just a simple refactoring.
+
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::_q_orientationChanged):
+        * Api/qwebframe.h:
+        * Api/qwebframe_p.h:
+
+2011-04-11  Alexis Menard  <alexis.menard@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Sub-Frame content is not updated when scrolling in certain circumstances
+        https://bugs.webkit.org/show_bug.cgi?id=50373
+
+        Make sure that we invalidate the backing store when using TILED_BACKING_STORE
+        and the page contains sub frames. This bug appears only when frame flattening is
+        disabled and scrollable subframes.
+
+        Original patch from Thomas Thrainer.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::invalidateWindow):
+
+2011-04-11  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] HTML5 Drag and Drop demos not working
+        https://bugs.webkit.org/show_bug.cgi?id=56486
+
+        Handling the drop with JavaScript was not working with Qt because if the action is ignored
+        in response to DragEnter, no further events are sent to the view.
+
+        Drag and drop is defined and used differently by webpages. The drag move events are determining
+        what action should take place. To adopt this behavior for Qt, we always accept drag enter events
+        on the widget.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::dragEnterEvent):
+
+2011-04-11  Andras Becsi  <abecsi@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] REGRESSION(83122): tst_QWebElement::style() fails
+        https://bugs.webkit.org/show_bug.cgi?id=58032
+
+        According to the documentation of QWebElement the styleProperty method should
+        not respect style inheritance and other CSS rules for the InlineStyle enum.
+
+        r83122 fixed this behaviour.
+
+        * tests/qwebelement/tst_qwebelement.cpp:
+        (tst_QWebElement::style): Fix the expected color for QWebElement::InlineStyle.
+
+2011-04-11  Andreas Kling  <andreas.kling@nokia.com>
+
+        Build fix after r83436.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidReceiveResponse):
+
+2011-04-11  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Benjamin Poulain.
+
+        [Qt] dumpResourceResponseMIMETypes shouldn't strip URL query string.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidReceiveResponse): Use KURL::lastPathComponent()
+        for the dumpResourceResponseMIMETypes display string instead of QFileInfo::fileName().
+        This is in line with the Mac port.
+
+2011-04-08  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r83295.
+        http://trac.webkit.org/changeset/83295
+        https://bugs.webkit.org/show_bug.cgi?id=58144
+
+        Broke 4 tests in QtWebKit (Requested by tonikitoo on #webkit).
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleInputMethodKeydown):
+
+2011-04-08  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt]REGRESSION(r82243): fast/events/onsearch-enter.html fails
+        https://bugs.webkit.org/show_bug.cgi?id=57472
+
+        Avoid to insert new line for both keydown event & keypress event.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleInputMethodKeydown):
+
+2011-04-07  Caio Marcelo de Oliveira Filho  <caio.oliveira@openbossa.org>
+
+        Reviewed by Benjamin Poulain.
+
+        [Qt] QWebFrame::setUrl works only from second time if url fragment is present
+        https://bugs.webkit.org/show_bug.cgi?id=32723
+
+        When clearing the frame, instead of using the URL passed to QWebFrame::setUrl(),
+        use an invalid URL (the begin() without arguments). Clearing the document
+        with the same URL was causing problems when we had a fragment because it assume that
+        only scrolling was enough and did not loaded the document again.
+
+        When setUrl() is called but fails, url() is expected to return the requested value. The
+        begin(url) guaranteed that before. This patch adds a member to track the URL, which is
+        updated when the URL changes and also when setUrl() is called.
+
+        KURL was used for the member so that when setUrl() is called, and then url() is checked
+        before the page gets loaded, we perform the same conversion that will be performed by a
+        successful load, e.g. add trailing '/' to an address. This behavior is checked by
+        tst_QWebFrame::requestedUrl() test.
+
+        For the record: the second QWebPage::setUrl() worked because the load was considered a
+        FrameLoadTypeSame, and because of that, was not fit for just scrolling, a reload was
+        needed. See FrameLoader::shouldScrollToAnchor() for details on this classification.
+
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::emitUrlChanged): update our URL member and emit the signal.
+        (clearCoreFrame):
+        (isCoreFrameClear):
+        (QWebFrame::setUrl):
+        (QWebFrame::url):
+        (QWebFrame::baseUrl): look in the document for the baseURL since its contents can change
+        the baseURL, e.g. by using the <base> tag.
+        * Api/qwebframe_p.h:
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidChangeLocationWithinPage):
+        (WebCore::FrameLoaderClientQt::dispatchDidCommitLoad):
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+        (tst_QWebFrame::setUrlWithFragment): unskip test.
+
+2011-04-07  Alexis Menard  <alexis.menard@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Build fix when using Phonon as a backend for the multimedia support.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::ChromeClientQt):
+        (WebCore::ChromeClientQt::~ChromeClientQt):
+        * WebCoreSupport/ChromeClientQt.h:
+
+2011-04-06  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] LayoutTestController needs to implement numberOfPendingGeolocationPermissionRequests
+        https://bugs.webkit.org/show_bug.cgi?id=56086
+
+        Add the accessor numberOfPendingGeolocationPermissionRequests to call GeolocationClientMock::numberOfPendingPermissionRequests()
+        from the LayoutTestController.
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::numberOfPendingGeolocationPermissionRequests):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2011-04-06  Anders Bakken  <agbakken@gmail.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] FrameLoaderClientQt.cpp has coding-style errors
+        https://bugs.webkit.org/show_bug.cgi?id=40254
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (drtDescriptionSuitableForTestResult):
+        (WebCore::FrameLoaderClientQt::hasWebView):
+        (WebCore::FrameLoaderClientQt::setCopiesOnScroll):
+        (WebCore::FrameLoaderClientQt::dispatchDidHandleOnloadEvents):
+        (WebCore::FrameLoaderClientQt::dispatchDidReceiveTitle):
+        (WebCore::FrameLoaderClientQt::dispatchDidChangeIcons):
+        (WebCore::FrameLoaderClientQt::cancelPolicyCheck):
+        (WebCore::FrameLoaderClientQt::dispatchWillSubmitForm):
+        (WebCore::FrameLoaderClientQt::postProgressStartedNotification):
+        (WebCore::FrameLoaderClientQt::postProgressFinishedNotification):
+        (WebCore::FrameLoaderClientQt::setMainFrameDocumentReady):
+        (WebCore::FrameLoaderClientQt::willChangeTitle):
+        (WebCore::FrameLoaderClientQt::didChangeTitle):
+        (WebCore::FrameLoaderClientQt::finishedLoading):
+        (WebCore::FrameLoaderClientQt::frameLoadCompleted):
+        (WebCore::FrameLoaderClientQt::provisionalLoadStarted):
+        (WebCore::FrameLoaderClientQt::didFinishLoad):
+        (WebCore::FrameLoaderClientQt::setTitle):
+        (WebCore::FrameLoaderClientQt::dispatchDidReceiveIcon):
+        (WebCore::FrameLoaderClientQt::dispatchDidClearWindowObjectInWorld):
+        (WebCore::FrameLoaderClientQt::updateGlobalHistory):
+        (WebCore::FrameLoaderClientQt::shouldGoToHistoryItem):
+        (WebCore::FrameLoaderClientQt::shouldStopLoadingForHistoryItem):
+        (WebCore::FrameLoaderClientQt::committedLoad):
+        (WebCore::FrameLoaderClientQt::download):
+        (WebCore::FrameLoaderClientQt::dispatchWillSendRequest):
+        (WebCore::FrameLoaderClientQt::shouldUseCredentialStorage):
+        (WebCore::FrameLoaderClientQt::dispatchDecidePolicyForResponse):
+        (WebCore::FrameLoaderClientQt::dispatchDecidePolicyForNavigationAction):
+        (WebCore::FrameLoaderClientQt::createFrame):
+        (WebCore::FrameLoaderClientQt::objectContentType):
+        (WebCore::FrameLoaderClientQt::createPlugin):
+
+2011-04-06  Alexis Menard  <alexis.menard@openbossa.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] We should use USE(QT_MULTIMEDIA) rather than ENABLE(QT_MULTIMEDIA).
+        https://bugs.webkit.org/show_bug.cgi?id=57974
+
+        We should use USE(QT_MULTIMEDIA) rather than ENABLE(QT_MULTIMEDIA).
+
+        No new tests needed, just a config flag rename.
+
+        * Api/qwebkitplatformplugin.h:
+        * WebCoreSupport/ChromeClientQt.cpp:
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::mediaContentUrlByElementId):
+        * WebCoreSupport/FullScreenVideoQt.cpp:
+        (WebCore::FullScreenVideoQt::FullScreenVideoQt):
+        (WebCore::FullScreenVideoQt::~FullScreenVideoQt):
+        (WebCore::FullScreenVideoQt::enterFullScreenForNode):
+        (WebCore::FullScreenVideoQt::exitFullScreenForNode):
+        (WebCore::FullScreenVideoQt::requiresFullScreenForVideoPlayback):
+        (WebCore::FullScreenVideoQt::isValid):
+        * WebCoreSupport/FullScreenVideoQt.h:
+        * WebCoreSupport/QtPlatformPlugin.cpp:
+        * WebCoreSupport/QtPlatformPlugin.h:
+        * examples/platformplugin/WebPlugin.cpp:
+        (WebPlugin::supportsExtension):
+        (WebPlugin::createExtension):
+        * examples/platformplugin/WebPlugin.h:
+        * examples/platformplugin/platformplugin.pro:
+        * examples/platformplugin/qwebkitplatformplugin.h:
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::loadHtml5Video):
+        * tests/tests.pri:
+
+2011-04-06  Alexis Menard  <alexis.menard@openbossa.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Implement fullscreen playback for the GStreamer backend.
+        https://bugs.webkit.org/show_bug.cgi?id=56826
+
+        Implement support for fullscreen playback when building the
+        Qt port with the GStreamer backend (DEFINES+=USE_GSTREAMER=1).
+        The implementation is done in FullScreenVideoQt alongside with
+        the Qt Multimedia support.
+
+        No new tests because layout tests cover it. They are not yet activated
+        but will be any time soon.
+
+        * QtWebKit.pro:
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::ChromeClientQt):
+        (WebCore::ChromeClientQt::~ChromeClientQt):
+        (WebCore::ChromeClientQt::enterFullscreenForNode):
+        (WebCore::ChromeClientQt::exitFullscreenForNode):
+        * WebCoreSupport/ChromeClientQt.h:
+        * WebCoreSupport/FullScreenVideoQt.cpp:
+        (WebCore::GStreamerFullScreenVideoHandler::GStreamerFullScreenVideoHandler):
+        (WebCore::GStreamerFullScreenVideoHandler::setVideoElement):
+        (WebCore::GStreamerFullScreenVideoHandler::enterFullScreen):
+        (WebCore::GStreamerFullScreenVideoHandler::windowClosed):
+        (WebCore::GStreamerFullScreenVideoHandler::exitFullScreen):
+        (WebCore::DefaultFullScreenVideoHandler::DefaultFullScreenVideoHandler):
+        (WebCore::FullScreenVideoQt::FullScreenVideoQt):
+        (WebCore::FullScreenVideoQt::~FullScreenVideoQt):
+        (WebCore::FullScreenVideoQt::enterFullScreenForNode):
+        (WebCore::FullScreenVideoQt::exitFullScreenForNode):
+        (WebCore::FullScreenVideoQt::requiresFullScreenForVideoPlayback):
+        (WebCore::FullScreenVideoQt::isValid):
+        * WebCoreSupport/FullScreenVideoQt.h:
+        (WebCore::GStreamerFullScreenVideoHandler::~GStreamerFullScreenVideoHandler):
+
+2011-04-06  Caio Marcelo de Oliveira Filho  <caio.oliveira@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Improve tests for QWebFrame::url() and related methods
+        https://bugs.webkit.org/show_bug.cgi?id=57865
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+        (FakeReply::FakeReply): make more URLs reply HostNotFound. We needed two different URLs in the test.
+        (tst_QWebFrame::requestedUrlAfterSetAndLoadFailures): check the properties after an setUrl()
+        that fails and a load() that fails (for a different URL).
+
+        (tst_QWebFrame::setUrlWithFragment_data):
+        (tst_QWebFrame::setUrlWithFragment): add other test cases similar to the original, but changing
+        the URL in the frame before the test starts.
+
+        (tst_QWebFrame::setUrlSameUrl): document existing behavior of calling setUrl() twice with
+        the same URL as argument.
+
+        (extractBaseUrl):
+        (tst_QWebFrame::setUrlThenLoads_data):
+        (tst_QWebFrame::setUrlThenLoads): check the URL related properties of the frame after a
+        sequence of set and loads. Those tests are interesting because the properties
+        react different to setUrl() and load(): 'requestedUrl' always change, 'url' only when setUrl()
+        is used or after the load() is committed and baseUrl() is similar to url() but also depends
+        on the contents of the page when it loads.
+
+2011-04-04  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        [Refactoring] SpellCheckingResult should be replaced with TextCheckingResult
+        https://bugs.webkit.org/show_bug.cgi?id=56085
+        
+        * WebCoreSupport/EditorClientQt.h:
+        (WebCore::EditorClientQt::requestCheckingOfString):
+
+2011-04-04  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        setContentEditable with true/false/inherit string is not working properly
+        https://bugs.webkit.org/show_bug.cgi?id=52058
+
+        Move isContentEditable from HTMLElement to Node. WebKit should only access isContentEditable
+        as rendererIsEditable is for WebCore internal use.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2011-04-01  Carol Szabo  <carol.szabo@nokia.com>
+
+        Reviewed by Benjamin Poulain.
+
+        Changed QWebFramePrivate::renderFromTiledBackingStore to call directly into
+        Scrollbar/PanIcon rendering, bypassing the potential relayout in renderRelativeCoords.
+
+        Tiled painting still causes synchronous layout when
+        accelerated compositing and texture mapper are enabled
+        https://bugs.webkit.org/show_bug.cgi?id=56929
+
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::renderFromTiledBackingStore):
+        (QWebFramePrivate::renderRelativeCoords):
+        (QWebFramePrivate::renderFrameWidgets):
+        * Api/qwebframe_p.h:
+
+2011-04-01  Nancy Piedra  <nancy.piedra@nokia.com>
+
+        Reviewed by Benjamin Poulain.
+
+        [Qt] DragClientQt.h has coding-style errors
+        https://bugs.webkit.org/show_bug.cgi?id=40425
+
+        * WebCoreSupport/DragClientQt.h:
+
+2011-03-31  Marius Storm-Olsen  <marius.storm-olsen@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Properly detect phonon include, and avoid double qtLibraryTarget() call
+        https://bugs.webkit.org/show_bug.cgi?id=57017
+
+        Build fix. No new tests.
+
+        * QtWebKit.pro:
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Another build fix.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::updateGlobalHistory):
+
+2011-03-31  Nancy Piedra  <nancy.piedra@nokia.com>
+
+        Reviewed by Benjamin Poulain.
+
+        [Qt] ChromeClientQt.h has coding-style errors
+        https://bugs.webkit.org/show_bug.cgi?id=40239
+
+        * WebCoreSupport/ChromeClientQt.h:
+        (WebCore::ChromeClientQt::scrollbarsModeDidChange):
+        (WebCore::ChromeClientQt::needTouchEvents):
+        (WebCore::ChromeClientQt::formStateDidChange):
+        (WebCore::ChromeClientQt::scrollRectIntoView):
+        (WebCore::ChromeClientQt::requestGeolocationPermissionForFrame):
+        (WebCore::ChromeClientQt::cancelGeolocationPermissionRequestForFrame):
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Build fix from previous change.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::title):
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        <title> should support dir attribute
+        https://bugs.webkit.org/show_bug.cgi?id=50961
+
+        Update to new FrameLoaderClient interface.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidReceiveTitle):
+        (WebCore::FrameLoaderClientQt::setTitle):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2011-03-30  Yi Shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt][Symbian] Fix Api test failure -- tst_QWebView::focusInputTypes
+        https://bugs.webkit.org/show_bug.cgi?id=57020
+
+        Added a macro 'VERIFY_INPUTMETHOD_HINTS' to test inputmethodhints().
+
+        * tests/qwebview/tst_qwebview.cpp:
+        (tst_QWebView::focusInputTypes):
+
 2011-03-30  Robert Hogan  <robert@webkit.org>
 
         Reviewed by Antonio Gomes.

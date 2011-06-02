@@ -254,9 +254,9 @@ void SelectionController::respondToNodeModification(Node* node, bool baseRemoved
             m_selection.setWithoutValidation(m_selection.start(), m_selection.end());
         else
             m_selection.setWithoutValidation(m_selection.end(), m_selection.start());
-    } else if (m_selection.firstRange()) {
+    } else if (RefPtr<Range> range = m_selection.firstRange()) {
         ExceptionCode ec = 0;
-        Range::CompareResults compareResult = m_selection.firstRange()->compareNode(node, ec);
+        Range::CompareResults compareResult = range->compareNode(node, ec);
         if (!ec && (compareResult == Range::NODE_BEFORE_AND_AFTER || compareResult == Range::NODE_INSIDE)) {
             // If we did nothing here, when this node's renderer was destroyed, the rect that it 
             // occupied would be invalidated, but, selection gaps that change as a result of 
@@ -450,6 +450,9 @@ VisiblePosition SelectionController::modifyExtendingRight(TextGranularity granul
     case DocumentBoundary:
         // FIXME: implement all of the above?
         pos = modifyExtendingForward(granularity);
+        break;
+    case WebKitVisualWordGranularity:
+        break;
     }
     return pos;
 }
@@ -489,6 +492,8 @@ VisiblePosition SelectionController::modifyExtendingForward(TextGranularity gran
         else
             pos = endOfDocument(pos);
         break;
+    case WebKitVisualWordGranularity:
+        break;
     }
     
     return pos;
@@ -519,6 +524,9 @@ VisiblePosition SelectionController::modifyMovingRight(TextGranularity granulari
         break;
     case LineBoundary:
         pos = rightBoundaryOfLine(startForPlatform(), directionOfEnclosingBlock());
+        break;
+    case WebKitVisualWordGranularity:
+        pos = rightWordPosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
         break;
     }
     return pos;
@@ -568,6 +576,8 @@ VisiblePosition SelectionController::modifyMovingForward(TextGranularity granula
         else
             pos = endOfDocument(pos);
         break;
+    case WebKitVisualWordGranularity:
+        break;
     }
     return pos;
 }
@@ -607,6 +617,9 @@ VisiblePosition SelectionController::modifyExtendingLeft(TextGranularity granula
     case ParagraphBoundary:
     case DocumentBoundary:
         pos = modifyExtendingBackward(granularity);
+        break;
+    case WebKitVisualWordGranularity:
+        break;
     }
     return pos;
 }
@@ -651,6 +664,8 @@ VisiblePosition SelectionController::modifyExtendingBackward(TextGranularity gra
         else
             pos = startOfDocument(pos);
         break;
+    case WebKitVisualWordGranularity:
+        break;
     }
     return pos;
 }
@@ -680,6 +695,9 @@ VisiblePosition SelectionController::modifyMovingLeft(TextGranularity granularit
         break;
     case LineBoundary:
         pos = leftBoundaryOfLine(startForPlatform(), directionOfEnclosingBlock());
+        break;
+    case WebKitVisualWordGranularity:
+        pos = leftWordPosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
         break;
     }
     return pos;
@@ -722,6 +740,8 @@ VisiblePosition SelectionController::modifyMovingBackward(TextGranularity granul
             pos = startOfEditableContent(pos);
         else
             pos = startOfDocument(pos);
+        break;
+    case WebKitVisualWordGranularity:
         break;
     }
     return pos;

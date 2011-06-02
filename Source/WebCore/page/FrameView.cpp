@@ -152,6 +152,11 @@ FrameView::FrameView(Frame* frame)
         if (Page* page = m_frame->page()) {
             m_page = page;
             m_page->addScrollableArea(this);
+
+            if (m_frame == m_page->mainFrame()) {
+                ScrollableArea::setVerticalScrollElasticity(ScrollElasticityAllowed);
+                ScrollableArea::setHorizontalScrollElasticity(ScrollElasticityAllowed);
+            }
         }
     }
 }
@@ -265,6 +270,10 @@ void FrameView::resetScrollbars()
 
 void FrameView::resetScrollbarsAndClearContentsSize()
 {
+    // Since the contents size is being cleared, the scroll position will lost as a consequence.
+    // Cache the scroll position so it can be restored by the page cache if necessary. 
+    cacheCurrentScrollPosition();
+
     resetScrollbars();
 
     setScrollbarsSuppressed(true);
@@ -335,7 +344,7 @@ bool FrameView::didFirstLayout() const
 void FrameView::invalidateRect(const IntRect& rect)
 {
     if (!parent()) {
-        if (hostWindow() && shouldUpdate())
+        if (hostWindow())
             hostWindow()->invalidateContentsAndWindow(rect, false /*immediate*/);
         return;
     }
@@ -524,6 +533,8 @@ void FrameView::applyOverflowToViewport(RenderObject* o, ScrollbarMode& hMode, S
 
 void FrameView::calculateScrollbarModesForLayout(ScrollbarMode& hMode, ScrollbarMode& vMode)
 {
+    m_viewportRenderer = 0;
+
     const HTMLFrameOwnerElement* owner = m_frame->ownerElement();
     if (owner && (owner->scrollingMode() == ScrollbarAlwaysOff)) {
         hMode = ScrollbarAlwaysOff;
@@ -590,6 +601,30 @@ void FrameView::updateCompositingLayers()
 #endif
 }
 
+GraphicsLayer* FrameView::layerForHorizontalScrollbar() const
+{
+    RenderView* view = m_frame->contentRenderer();
+    if (!view)
+        return 0;
+    return view->compositor()->layerForHorizontalScrollbar();
+}
+
+GraphicsLayer* FrameView::layerForVerticalScrollbar() const
+{
+    RenderView* view = m_frame->contentRenderer();
+    if (!view)
+        return 0;
+    return view->compositor()->layerForVerticalScrollbar();
+}
+
+GraphicsLayer* FrameView::layerForScrollCorner() const
+{
+    RenderView* view = m_frame->contentRenderer();
+    if (!view)
+        return 0;
+    return view->compositor()->layerForScrollCorner();
+}
+
 bool FrameView::syncCompositingStateForThisFrame()
 {
     ASSERT(m_frame->view() == this);
@@ -601,6 +636,13 @@ bool FrameView::syncCompositingStateForThisFrame()
     // layer content to occur before layout has happened, which will cause paintContents() to bail.
     if (needsLayout())
         return false;
+
+    if (GraphicsLayer* graphicsLayer = view->compositor()->layerForHorizontalScrollbar())
+        graphicsLayer->syncCompositingStateForThisLayerOnly();
+    if (GraphicsLayer* graphicsLayer = view->compositor()->layerForVerticalScrollbar())
+        graphicsLayer->syncCompositingStateForThisLayerOnly();
+    if (GraphicsLayer* graphicsLayer = view->compositor()->layerForScrollCorner())
+        graphicsLayer->syncCompositingStateForThisLayerOnly();
 
     view->compositor()->flushPendingLayerChanges();
 
@@ -646,7 +688,7 @@ bool FrameView::hasCompositedContentIncludingDescendants() const
             if (compositor->inCompositingMode())
                 return true;
 
-            if (!RenderLayerCompositor::allowsIndependentlyCompositedIFrames(this))
+            if (!RenderLayerCompositor::allowsIndependentlyCompositedFrames(this))
                 break;
         }
     }
@@ -857,7 +899,7 @@ void FrameView::layout(bool allowSubtree)
             printf("Elapsed time before first layout: %d\n", document->elapsedTime());
 #endif        
     }
-    
+
     ScrollbarMode hMode;
     ScrollbarMode vMode;    
     calculateScrollbarModesForLayout(hMode, vMode);
@@ -1320,7 +1362,7 @@ void FrameView::setIsOverlapped(bool isOverlapped)
             }
         }
 
-        if (RenderLayerCompositor::allowsIndependentlyCompositedIFrames(this)) {
+        if (RenderLayerCompositor::allowsIndependentlyCompositedFrames(this)) {
             // We also need to trigger reevaluation for this and all descendant frames,
             // since a frame uses compositing if any ancestor is compositing.
             for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext(m_frame.get())) {
@@ -1503,7 +1545,7 @@ void FrameView::repaintContentRectangle(const IntRect& r, bool immediate)
 {
     ASSERT(!m_frame->ownerElement());
 
-    double delay = adjustedDeferredRepaintDelay();
+    double delay = m_deferringRepaints ? 0 : adjustedDeferredRepaintDelay();
     if ((m_deferringRepaints || m_deferredRepaintTimer.isActive() || delay) && !immediate) {
         IntRect paintRect = r;
         if (clipsRepaints() && !paintsEntireContents())
@@ -1561,6 +1603,13 @@ void FrameView::visibleContentsResized()
 
     if (needsLayout())
         layout();
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* root = m_frame->contentRenderer()) {
+        if (root->usesCompositing())
+            root->compositor()->frameViewDidChangeSize();
+    }
+#endif
 }
 
 void FrameView::beginDeferredRepaints()
@@ -1659,6 +1708,7 @@ void FrameView::resetDeferredRepaintDelay()
 
 double FrameView::adjustedDeferredRepaintDelay() const
 {
+    ASSERT(!m_deferringRepaints);
     if (!m_deferredRepaintDelay)
         return 0;
     double timeSinceLastPaint = currentTime() - m_lastPaintTime;
@@ -1748,10 +1798,12 @@ void FrameView::scheduleRelayoutOfSubtree(RenderObject* relayoutRoot)
             if (isObjectAncestorContainerOf(m_layoutRoot, relayoutRoot)) {
                 // Keep the current root
                 relayoutRoot->markContainingBlocksForLayout(false, m_layoutRoot);
+                ASSERT(!m_layoutRoot->container() || !m_layoutRoot->container()->needsLayout());
             } else if (m_layoutRoot && isObjectAncestorContainerOf(relayoutRoot, m_layoutRoot)) {
                 // Re-root at relayoutRoot
                 m_layoutRoot->markContainingBlocksForLayout(false, relayoutRoot);
                 m_layoutRoot = relayoutRoot;
+                ASSERT(!m_layoutRoot->container() || !m_layoutRoot->container()->needsLayout());
             } else {
                 // Just do a full relayout
                 if (m_layoutRoot)
@@ -1763,6 +1815,7 @@ void FrameView::scheduleRelayoutOfSubtree(RenderObject* relayoutRoot)
     } else if (m_layoutSchedulingEnabled) {
         int delay = m_frame->document()->minimumLayoutDelay();
         m_layoutRoot = relayoutRoot;
+        ASSERT(!m_layoutRoot->container() || !m_layoutRoot->container()->needsLayout());
         m_delayedLayout = delay != 0;
         m_layoutTimer.startOneShot(delay * 0.001);
     }
@@ -1868,8 +1921,6 @@ void FrameView::setShouldUpdateWhileOffscreen(bool shouldUpdateWhileOffscreen)
 bool FrameView::shouldUpdate(bool immediateRequested) const
 {
     if (!immediateRequested && isOffscreen() && !shouldUpdateWhileOffscreen())
-        return false;
-    if (!m_frame || !m_frame->document() || m_frame->document()->mayCauseFlashOfUnstyledContent())
         return false;
     return true;
 }
@@ -2141,7 +2192,11 @@ void FrameView::didCompleteRubberBand(const IntSize& initialOverhang) const
 
 void FrameView::scrollbarStyleChanged()
 {
-    m_frame->page()->setNeedsRecalcStyleInAllFrames();
+    Page* page = m_frame->page();
+    ASSERT(page);
+    if (!page)
+        return;
+    page->setNeedsRecalcStyleInAllFrames();
 }
 
 bool FrameView::shouldSuspendScrollAnimations() const
@@ -2179,11 +2234,6 @@ void FrameView::updateDashboardRegions()
 }
 #endif
 
-void FrameView::invalidateScrollCorner()
-{
-    invalidateRect(scrollCornerRect());
-}
-
 void FrameView::updateScrollCorner()
 {
     RenderObject* renderer = 0;
@@ -2218,11 +2268,13 @@ void FrameView::updateScrollCorner()
         if (!m_scrollCorner)
             m_scrollCorner = new (renderer->renderArena()) RenderScrollbarPart(renderer->document());
         m_scrollCorner->setStyle(cornerStyle.release());
-        invalidateRect(scrollCornerRect());
+        invalidateScrollCorner();
     } else if (m_scrollCorner) {
         m_scrollCorner->destroy();
         m_scrollCorner = 0;
     }
+
+    ScrollView::updateScrollCorner();
 }
 
 void FrameView::paintScrollCorner(GraphicsContext* context, const IntRect& cornerRect)

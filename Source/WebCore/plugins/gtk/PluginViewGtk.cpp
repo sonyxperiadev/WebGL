@@ -47,6 +47,7 @@
 #include "Image.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
+#include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformContextCairo.h"
 #include "PlatformKeyboardEvent.h"
@@ -560,30 +561,32 @@ void PluginView::setParentVisible(bool visible)
     }
 }
 
-NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf)
+NPError PluginView::handlePostReadFile(Vector<char>& outputBuffer, uint32_t filenameLength, const char* filenameBuffer)
 {
-    WTF::String filename(buf, len);
+    // There doesn't seem to be any documentation about what encoding the filename
+    // is in, but most ports seem to assume UTF-8 here and the test plugin is definitely
+    // sending the path in UTF-8 encoding.
+    CString filename(filenameBuffer, filenameLength);
 
-    if (filename.startsWith("file:///"))
-        filename = filename.substring(8);
-
-    // Get file info
-    if (!g_file_test ((filename.utf8()).data(), (GFileTest)(G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)))
+    GRefPtr<GFile> file = adoptGRef(g_file_new_for_commandline_arg(filename.data()));
+    if (g_file_query_file_type(file.get(), G_FILE_QUERY_INFO_NONE, 0) != G_FILE_TYPE_REGULAR)
         return NPERR_FILE_NOT_FOUND;
 
-    //FIXME - read the file data into buffer
-    FILE* fileHandle = fopen((filename.utf8()).data(), "r");
-    
-    if (fileHandle == 0)
+    GRefPtr<GFileInfo> fileInfo = adoptGRef(g_file_query_info(file.get(),
+                                                              G_FILE_ATTRIBUTE_STANDARD_SIZE,
+                                                              G_FILE_QUERY_INFO_NONE,
+                                                              0, 0));
+    if (!fileInfo)
         return NPERR_FILE_NOT_FOUND;
 
-    //buffer.resize();
+    GRefPtr<GFileInputStream> inputStream = adoptGRef(g_file_read(file.get(), 0, 0));
+    if (!inputStream)
+        return NPERR_FILE_NOT_FOUND;
 
-    int bytesRead = fread(buffer.data(), 1, 0, fileHandle);
-
-    fclose(fileHandle);
-
-    if (bytesRead <= 0)
+    outputBuffer.resize(g_file_info_get_size(fileInfo.get()));
+    gsize bytesRead = 0;
+    if (!g_input_stream_read_all(G_INPUT_STREAM(inputStream.get()),
+                                 outputBuffer.data(), outputBuffer.size(), &bytesRead, 0, 0))
         return NPERR_FILE_NOT_FOUND;
 
     return NPERR_NO_ERROR;
@@ -660,7 +663,7 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
 #if defined(XP_UNIX)
             *static_cast<Window*>(value) = GDK_WINDOW_XWINDOW(gdk_window_get_toplevel(gdkWindow));
 #elif defined(GDK_WINDOWING_WIN32)
-            *static_cast<HGIOBJ*>(value) = GDK_WINDOW_HWND(gdkWindow);
+            *static_cast<HGDIOBJ*>(value) = GDK_WINDOW_HWND(gdkWindow);
 #endif
             *result = NPERR_NO_ERROR;
             return true;
@@ -706,6 +709,7 @@ void PluginView::forceRedraw()
         gtk_widget_queue_draw(m_parentFrame->view()->hostWindow()->platformPageClient());
 }
 
+#ifndef GDK_WINDOWING_WIN32
 static Display* getPluginDisplay()
 {
     // The plugin toolkit might have a different X connection open.  Since we're
@@ -719,6 +723,7 @@ static Display* getPluginDisplay()
     return 0;
 #endif
 }
+#endif
 
 #if defined(XP_UNIX)
 static void getVisualAndColormap(int depth, Visual** visual, Colormap* colormap)
@@ -783,6 +788,7 @@ bool PluginView::platformStart()
     ASSERT(m_isStarted);
     ASSERT(m_status == PluginStatusLoadedSuccessfully);
 
+#if defined(XP_UNIX)
     if (m_plugin->pluginFuncs()->getvalue) {
         PluginView::setCurrentPluginView(this);
         JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
@@ -791,11 +797,11 @@ bool PluginView::platformStart()
         setCallingPlugin(false);
         PluginView::setCurrentPluginView(0);
     }
+#endif
 
     if (m_isWindowed) {
-#if defined(XP_UNIX)
         GtkWidget* pageClient = m_parentFrame->view()->hostWindow()->platformPageClient();
-
+#if defined(XP_UNIX)
         if (m_needsXEmbed) {
             // If our parent is not anchored the startup process will
             // fail miserably for XEmbed plugins a bit later on when
@@ -817,7 +823,9 @@ bool PluginView::platformStart()
 #endif
     } else {
         setPlatformWidget(0);
+#if defined(XP_UNIX)
         m_pluginDisplay = getPluginDisplay();
+#endif
     }
 
     show();

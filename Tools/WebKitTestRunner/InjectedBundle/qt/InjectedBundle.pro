@@ -72,7 +72,7 @@ INCLUDEPATH = \
 PREFIX_HEADER = $$PWD/../../WebKitTestRunnerPrefix.h
 *-g++*:QMAKE_CXXFLAGS += "-include $$PREFIX_HEADER"
 
-unix:!mac:!symbian {
+unix:!mac:!symbian:!embedded {
     CONFIG += link_pkgconfig
     PKGCONFIG += fontconfig
 }
@@ -80,3 +80,6 @@ unix:!mac:!symbian {
 TARGET = WTRInjectedBundle
 DESTDIR = $$OUTPUT_DIR/lib
 !CONFIG(standalone_package): CONFIG -= app_bundle
+linux-* {
+    QMAKE_LFLAGS += -Wl,--no-undefined
+}

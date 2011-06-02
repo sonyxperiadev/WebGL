@@ -27,13 +27,46 @@
 #include "JSNamedNodeMap.h"
 
 #include "JSNode.h"
-
 #include "Element.h"
 #include "NamedNodeMap.h"
 
 using namespace JSC;
 
 namespace WebCore {
+
+class JSNamedNodeMapOwner : public JSC::WeakHandleOwner {
+    virtual bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::MarkStack&);
+    virtual void finalize(JSC::Handle<JSC::Unknown>, void* context);
+};
+
+bool JSNamedNodeMapOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, MarkStack& markStack)
+{
+    JSNamedNodeMap* jsNamedNodeMap = static_cast<JSNamedNodeMap*>(handle.get().asCell());
+    if (!jsNamedNodeMap->hasCustomProperties())
+        return false;
+    Element* element = jsNamedNodeMap->impl()->element();
+    if (!element)
+        return false;
+    return markStack.containsOpaqueRoot(root(element));
+}
+
+void JSNamedNodeMapOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
+{
+    JSNamedNodeMap* jsNamedNodeMap = static_cast<JSNamedNodeMap*>(handle.get().asCell());
+    DOMWrapperWorld* world = static_cast<DOMWrapperWorld*>(context);
+    uncacheWrapper(world, jsNamedNodeMap->impl(), jsNamedNodeMap);
+}
+
+inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld*, NamedNodeMap*)
+{
+    DEFINE_STATIC_LOCAL(JSNamedNodeMapOwner, jsNamedNodeMapOwner, ());
+    return &jsNamedNodeMapOwner;
+}
+
+inline void* wrapperContext(DOMWrapperWorld* world, NamedNodeMap*)
+{
+    return world;
+}
 
 bool JSNamedNodeMap::canGetItemsForName(ExecState*, NamedNodeMap* impl, const Identifier& propertyName)
 {
@@ -50,10 +83,19 @@ void JSNamedNodeMap::markChildren(MarkStack& markStack)
 {
     Base::markChildren(markStack);
 
-    // Mark the element so that this will work to access the attribute even if the last
-    // other reference goes away.
-    if (Element* element = impl()->element())
-        markDOMNodeWrapper(markStack, element->document(), element);
+    // We need to keep the wrapper for our underlying NamedNodeMap's element
+    // alive because NamedNodeMap and Attr rely on the element for data, and
+    // don't know how to keep it alive correctly.
+    // FIXME: Fix this lifetime issue in the DOM, and remove this.
+    Element* element = impl()->element();
+    if (!element)
+        return;
+    markStack.addOpaqueRoot(root(element));
+}
+
+JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, NamedNodeMap* impl)
+{
+    return wrap<JSNamedNodeMap>(exec, globalObject, impl);
 }
 
 } // namespace WebCore

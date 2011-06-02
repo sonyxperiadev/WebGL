@@ -28,7 +28,6 @@
 
 #include "JITCode.h"
 #include "JITStubs.h"
-#include "JSImmediate.h"
 #include "JSValue.h"
 #include "MacroAssembler.h"
 #include "RegisterFile.h"
@@ -154,20 +153,50 @@ namespace JSC {
         static const FPRegisterID fpRegT1 = MIPSRegisters::f6;
         static const FPRegisterID fpRegT2 = MIPSRegisters::f8;
         static const FPRegisterID fpRegT3 = MIPSRegisters::f10;
+#elif CPU(SH4)
+        static const RegisterID timeoutCheckRegister = SH4Registers::r8;
+        static const RegisterID callFrameRegister = SH4Registers::fp;
+
+        static const RegisterID regT0 = SH4Registers::r0;
+        static const RegisterID regT1 = SH4Registers::r1;
+        static const RegisterID regT2 = SH4Registers::r2;
+        static const RegisterID regT3 = SH4Registers::r10;
+        static const RegisterID regT4 = SH4Registers::r4;
+        static const RegisterID regT5 = SH4Registers::r5;
+        static const RegisterID regT6 = SH4Registers::r6;
+        static const RegisterID regT7 = SH4Registers::r7;
+        static const RegisterID firstArgumentRegister =regT4;
+
+        static const RegisterID returnValueRegister = SH4Registers::r0;
+        static const RegisterID cachedResultRegister = SH4Registers::r0;
+
+        static const FPRegisterID fpRegT0  = SH4Registers::fr0;
+        static const FPRegisterID fpRegT1  = SH4Registers::fr2;
+        static const FPRegisterID fpRegT2  = SH4Registers::fr4;
+        static const FPRegisterID fpRegT3  = SH4Registers::fr6;
+        static const FPRegisterID fpRegT4  = SH4Registers::fr8;
+        static const FPRegisterID fpRegT5  = SH4Registers::fr10;
+        static const FPRegisterID fpRegT6  = SH4Registers::fr12;
+        static const FPRegisterID fpRegT7  = SH4Registers::fr14;
 #else
 #error "JIT not supported on this platform."
 #endif
 
 #if USE(JSVALUE32_64)
         // Can't just propogate JSValue::Int32Tag as visual studio doesn't like it
-        static const unsigned Int32Tag = 0xfffffffd;
+        static const unsigned Int32Tag = 0xffffffff;
         COMPILE_ASSERT(Int32Tag == JSValue::Int32Tag, Int32Tag_out_of_sync);
 #else
-        static const unsigned Int32Tag = JSImmediate::TagTypeNumber >> 32;
+        static const unsigned Int32Tag = TagTypeNumber >> 32;
 #endif
         inline Jump emitLoadJSCell(unsigned virtualRegisterIndex, RegisterID payload);
         inline Jump emitLoadInt32(unsigned virtualRegisterIndex, RegisterID dst);
         inline Jump emitLoadDouble(unsigned virtualRegisterIndex, FPRegisterID dst, RegisterID scratch);
+
+        inline void storePtrWithWriteBarrier(TrustedImmPtr ptr, RegisterID /* owner */, Address dest)
+        {
+            storePtr(ptr, dest);
+        }
 
 #if USE(JSVALUE32_64)
         inline Jump emitJumpIfNotJSCell(unsigned virtualRegisterIndex);

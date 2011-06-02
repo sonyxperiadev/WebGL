@@ -118,7 +118,10 @@ public:
     static void didReceiveResourceData(const InspectorInstrumentationCookie&);
     static InspectorInstrumentationCookie willReceiveResourceResponse(Frame*, unsigned long identifier, const ResourceResponse&);
     static void didReceiveResourceResponse(const InspectorInstrumentationCookie&, unsigned long identifier, DocumentLoader*, const ResourceResponse&);
-    static void didReceiveContentLength(Frame*, unsigned long identifier, int dataLength, int lengthReceived);
+    static void continueAfterXFrameOptionsDenied(Frame*, DocumentLoader*, unsigned long identifier, const ResourceResponse&);
+    static void continueWithPolicyDownload(Frame*, DocumentLoader*, unsigned long identifier, const ResourceResponse&);
+    static void continueWithPolicyIgnore(Frame*, DocumentLoader*, unsigned long identifier, const ResourceResponse&);
+    static void didReceiveContentLength(Frame*, unsigned long identifier, int dataLength, int encodedDataLength);
     static void didFinishLoading(Frame*, unsigned long identifier, double finishTime);
     static void didFailLoading(Frame*, unsigned long identifier, const ResourceError&);
     static void resourceRetrievedByXMLHttpRequest(ScriptExecutionContext*, unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
@@ -234,7 +237,11 @@ private:
     static void didReceiveResourceDataImpl(const InspectorInstrumentationCookie&);
     static InspectorInstrumentationCookie willReceiveResourceResponseImpl(InspectorAgent*, unsigned long identifier, const ResourceResponse&);
     static void didReceiveResourceResponseImpl(const InspectorInstrumentationCookie&, unsigned long identifier, DocumentLoader*, const ResourceResponse&);
-    static void didReceiveContentLengthImpl(InspectorAgent*, unsigned long identifier, int dataLength, int lengthReceived);
+    static void didReceiveResourceResponseButCanceledImpl(Frame*, DocumentLoader*, unsigned long identifier, const ResourceResponse&);
+    static void continueAfterXFrameOptionsDeniedImpl(Frame*, DocumentLoader*, unsigned long identifier, const ResourceResponse&);
+    static void continueWithPolicyDownloadImpl(Frame*, DocumentLoader*, unsigned long identifier, const ResourceResponse&);
+    static void continueWithPolicyIgnoreImpl(Frame*, DocumentLoader*, unsigned long identifier, const ResourceResponse&);
+    static void didReceiveContentLengthImpl(InspectorAgent*, unsigned long identifier, int dataLength, int encodedDataLength);
     static void didFinishLoadingImpl(InspectorAgent*, unsigned long identifier, double finishTime);
     static void didFailLoadingImpl(InspectorAgent*, unsigned long identifier, const ResourceError&);
     static void resourceRetrievedByXMLHttpRequestImpl(InspectorAgent*, unsigned long identifier, const String& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
@@ -612,7 +619,7 @@ inline void InspectorInstrumentation::applyUserAgentOverride(Frame* frame, Strin
 inline void InspectorInstrumentation::willSendRequest(Frame* frame, unsigned long identifier, DocumentLoader* loader, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* ic = inspectorAgentWithFrontendForFrame(frame))
+    if (InspectorAgent* ic = inspectorAgentForFrame(frame))
         willSendRequestImpl(ic, identifier, loader, request, redirectResponse);
 #endif
 }
@@ -651,7 +658,7 @@ inline void InspectorInstrumentation::didReceiveResourceData(const InspectorInst
 inline InspectorInstrumentationCookie InspectorInstrumentation::willReceiveResourceResponse(Frame* frame, unsigned long identifier, const ResourceResponse& response)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForFrame(frame))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(frame))
         return willReceiveResourceResponseImpl(inspectorAgent, identifier, response);
 #endif
     return InspectorInstrumentationCookie();
@@ -665,18 +672,42 @@ inline void InspectorInstrumentation::didReceiveResourceResponse(const Inspector
 #endif
 }
 
-inline void InspectorInstrumentation::didReceiveContentLength(Frame* frame, unsigned long identifier, int dataLength, int lengthReceived)
+inline void InspectorInstrumentation::continueAfterXFrameOptionsDenied(Frame* frame, DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForFrame(frame))
-        didReceiveContentLengthImpl(inspectorAgent, identifier, dataLength, lengthReceived);
+    if (inspectorAgentWithFrontendForFrame(frame))
+        InspectorInstrumentation::continueAfterXFrameOptionsDeniedImpl(frame, loader, identifier, r);
+#endif
+}
+
+inline void InspectorInstrumentation::continueWithPolicyDownload(Frame* frame, DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r)
+{
+#if ENABLE(INSPECTOR)
+    if (inspectorAgentWithFrontendForFrame(frame))
+        InspectorInstrumentation::continueWithPolicyDownloadImpl(frame, loader, identifier, r);
+#endif
+}
+
+inline void InspectorInstrumentation::continueWithPolicyIgnore(Frame* frame, DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r)
+{
+#if ENABLE(INSPECTOR)
+    if (inspectorAgentWithFrontendForFrame(frame))
+        InspectorInstrumentation::continueWithPolicyIgnoreImpl(frame, loader, identifier, r);
+#endif
+}
+
+inline void InspectorInstrumentation::didReceiveContentLength(Frame* frame, unsigned long identifier, int dataLength, int encodedDataLength)
+{
+#if ENABLE(INSPECTOR)
+    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(frame))
+        didReceiveContentLengthImpl(inspectorAgent, identifier, dataLength, encodedDataLength);
 #endif
 }
 
 inline void InspectorInstrumentation::didFinishLoading(Frame* frame, unsigned long identifier, double finishTime)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForFrame(frame))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(frame))
         didFinishLoadingImpl(inspectorAgent, identifier, finishTime);
 #endif
 }
@@ -708,7 +739,7 @@ inline void InspectorInstrumentation::scriptImported(ScriptExecutionContext* con
 inline void InspectorInstrumentation::domContentLoadedEventFired(Frame* frame, const KURL& url)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForFrame(frame))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(frame))
         domContentLoadedEventFiredImpl(inspectorAgent, frame, url);
 #endif
 }
@@ -716,7 +747,7 @@ inline void InspectorInstrumentation::domContentLoadedEventFired(Frame* frame, c
 inline void InspectorInstrumentation::loadEventFired(Frame* frame, const KURL& url)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForFrame(frame))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(frame))
         loadEventFiredImpl(inspectorAgent, frame, url);
 #endif
 }
@@ -724,7 +755,7 @@ inline void InspectorInstrumentation::loadEventFired(Frame* frame, const KURL& u
 inline void InspectorInstrumentation::frameDetachedFromParent(Frame* frame)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForFrame(frame))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForFrame(frame))
         frameDetachedFromParentImpl(inspectorAgent, frame);
 #endif
 }
@@ -792,7 +823,7 @@ inline void InspectorInstrumentation::didDestroyWorker(ScriptExecutionContext* c
 inline void InspectorInstrumentation::didCreateWebSocket(ScriptExecutionContext* context, unsigned long identifier, const KURL& requestURL, const KURL& documentURL)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForContext(context))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForContext(context))
         didCreateWebSocketImpl(inspectorAgent, identifier, requestURL, documentURL);
 #endif
 }
@@ -800,7 +831,7 @@ inline void InspectorInstrumentation::didCreateWebSocket(ScriptExecutionContext*
 inline void InspectorInstrumentation::willSendWebSocketHandshakeRequest(ScriptExecutionContext* context, unsigned long identifier, const WebSocketHandshakeRequest& request)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForContext(context))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForContext(context))
         willSendWebSocketHandshakeRequestImpl(inspectorAgent, identifier, request);
 #endif
 }
@@ -808,7 +839,7 @@ inline void InspectorInstrumentation::willSendWebSocketHandshakeRequest(ScriptEx
 inline void InspectorInstrumentation::didReceiveWebSocketHandshakeResponse(ScriptExecutionContext* context, unsigned long identifier, const WebSocketHandshakeResponse& response)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForContext(context))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForContext(context))
         didReceiveWebSocketHandshakeResponseImpl(inspectorAgent, identifier, response);
 #endif
 }
@@ -816,7 +847,7 @@ inline void InspectorInstrumentation::didReceiveWebSocketHandshakeResponse(Scrip
 inline void InspectorInstrumentation::didCloseWebSocket(ScriptExecutionContext* context, unsigned long identifier)
 {
 #if ENABLE(INSPECTOR)
-    if (InspectorAgent* inspectorAgent = inspectorAgentWithFrontendForContext(context))
+    if (InspectorAgent* inspectorAgent = inspectorAgentForContext(context))
         didCloseWebSocketImpl(inspectorAgent, identifier);
 #endif
 }

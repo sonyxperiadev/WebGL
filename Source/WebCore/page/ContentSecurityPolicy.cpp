@@ -57,6 +57,11 @@ bool isHostCharacter(UChar c)
     return isASCIIAlphanumeric(c) || c == '-';
 }
 
+bool isOptionValueCharacter(UChar c)
+{
+    return isASCIIAlphanumeric(c) || c == '-';
+}
+
 bool isSchemeContinuationCharacter(UChar c)
 {
     return isASCIIAlphanumeric(c) || c == '+' || c == '-' || c == '.';
@@ -385,8 +390,7 @@ bool CSPSourceList::parsePort(const UChar* begin, const UChar* end, int& port, b
 
 void CSPSourceList::addSourceSelf()
 {
-    // FIXME: Inherit the scheme, host, and port from the current URL.
-    notImplemented();
+    m_list.append(CSPSource(m_origin->protocol(), m_origin->host(), m_origin->port(), false, false));
 }
 
 class CSPDirective {
@@ -405,6 +409,55 @@ public:
 private:
     CSPSourceList m_sourceList;
 };
+
+class CSPOptions {
+public:
+    explicit CSPOptions(const String& value)
+        : m_disableXSSProtection(false)
+        , m_evalScript(false)
+    {
+        parse(value);
+    }
+
+    bool disableXSSProtection() const { return m_disableXSSProtection; }
+    bool evalScript() const { return m_evalScript; }
+
+private:
+    void parse(const String&);
+
+    bool m_disableXSSProtection;
+    bool m_evalScript;
+};
+
+// options           = "options" *( 1*WSP option-value ) *WSP
+// option-value      = 1*( ALPHA / DIGIT / "-" )
+//
+void CSPOptions::parse(const String& value)
+{
+    DEFINE_STATIC_LOCAL(String, disableXSSProtection, ("disable-xss-protection"));
+    DEFINE_STATIC_LOCAL(String, evalScript, ("eval-script"));
+
+    const UChar* position = value.characters();
+    const UChar* end = position + value.length();
+
+    while (position < end) {
+        skipWhile<isASCIISpace>(position, end);
+
+        const UChar* optionsValueBegin = position;
+
+        if (!skipExactly<isOptionValueCharacter>(position, end))
+            return;
+
+        skipWhile<isOptionValueCharacter>(position, end);
+
+        String optionsValue(optionsValueBegin, position - optionsValueBegin);
+
+        if (equalIgnoringCase(optionsValue, disableXSSProtection))
+            m_disableXSSProtection = true;
+        else if (equalIgnoringCase(optionsValue, evalScript))
+            m_evalScript = true;
+    }
+}
 
 ContentSecurityPolicy::ContentSecurityPolicy(SecurityOrigin* origin)
     : m_havePolicy(false)
@@ -425,19 +478,59 @@ void ContentSecurityPolicy::didReceiveHeader(const String& header)
     m_havePolicy = true;
 }
 
+bool ContentSecurityPolicy::protectAgainstXSS() const
+{
+    return m_scriptSrc && (!m_options || !m_options->disableXSSProtection());
+}
+
 bool ContentSecurityPolicy::allowJavaScriptURLs() const
 {
-    return !m_scriptSrc;
+    return !protectAgainstXSS();
 }
 
 bool ContentSecurityPolicy::allowInlineEventHandlers() const
 {
-    return !m_scriptSrc;
+    return !protectAgainstXSS();
+}
+
+bool ContentSecurityPolicy::allowInlineScript() const
+{
+    return !protectAgainstXSS();
+}
+
+bool ContentSecurityPolicy::allowEval() const
+{
+    return !m_scriptSrc || (m_options && m_options->evalScript());
 }
 
 bool ContentSecurityPolicy::allowScriptFromSource(const KURL& url) const
 {
     return !m_scriptSrc || m_scriptSrc->allows(url);
+}
+
+bool ContentSecurityPolicy::allowObjectFromSource(const KURL& url) const
+{
+    return !m_objectSrc || m_objectSrc->allows(url);
+}
+
+bool ContentSecurityPolicy::allowImageFromSource(const KURL& url) const
+{
+    return !m_imgSrc || m_imgSrc->allows(url);
+}
+
+bool ContentSecurityPolicy::allowStyleFromSource(const KURL& url) const
+{
+    return !m_styleSrc || m_styleSrc->allows(url);
+}
+
+bool ContentSecurityPolicy::allowFontFromSource(const KURL& url) const
+{
+    return !m_fontSrc || m_fontSrc->allows(url);
+}
+
+bool ContentSecurityPolicy::allowMediaFromSource(const KURL& url) const
+{
+    return !m_mediaSrc || m_mediaSrc->allows(url);
 }
 
 // policy            = directive-list
@@ -514,11 +607,29 @@ bool ContentSecurityPolicy::parseDirective(const UChar* begin, const UChar* end,
 void ContentSecurityPolicy::addDirective(const String& name, const String& value)
 {
     DEFINE_STATIC_LOCAL(String, scriptSrc, ("script-src"));
+    DEFINE_STATIC_LOCAL(String, objectSrc, ("object-src"));
+    DEFINE_STATIC_LOCAL(String, imgSrc, ("img-src"));
+    DEFINE_STATIC_LOCAL(String, styleSrc, ("style-src"));
+    DEFINE_STATIC_LOCAL(String, fontSrc, ("font-src"));
+    DEFINE_STATIC_LOCAL(String, mediaSrc, ("media-src"));
+    DEFINE_STATIC_LOCAL(String, options, ("options"));
 
     ASSERT(!name.isEmpty());
 
     if (!m_scriptSrc && equalIgnoringCase(name, scriptSrc))
         m_scriptSrc = adoptPtr(new CSPDirective(value, m_origin.get()));
+    else if (!m_objectSrc && equalIgnoringCase(name, objectSrc))
+        m_objectSrc = adoptPtr(new CSPDirective(value, m_origin.get()));
+    else if (!m_imgSrc && equalIgnoringCase(name, imgSrc))
+        m_imgSrc = adoptPtr(new CSPDirective(value, m_origin.get()));
+    else if (!m_styleSrc && equalIgnoringCase(name, styleSrc))
+        m_styleSrc = adoptPtr(new CSPDirective(value, m_origin.get()));
+    else if (!m_fontSrc && equalIgnoringCase(name, fontSrc))
+        m_fontSrc = adoptPtr(new CSPDirective(value, m_origin.get()));
+    else if (!m_mediaSrc && equalIgnoringCase(name, mediaSrc))
+        m_mediaSrc = adoptPtr(new CSPDirective(value, m_origin.get()));
+    else if (!m_options && equalIgnoringCase(name, options))
+        m_options = adoptPtr(new CSPOptions(value));
 }
 
 }

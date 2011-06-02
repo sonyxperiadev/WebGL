@@ -50,7 +50,7 @@ inline JSCallbackObject<Base>* JSCallbackObject<Base>::asCallbackObject(JSValue 
 }
 
 template <class Base>
-JSCallbackObject<Base>::JSCallbackObject(ExecState* exec, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, JSClassRef jsClass, void* data)
+JSCallbackObject<Base>::JSCallbackObject(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, JSClassRef jsClass, void* data)
     : Base(globalObject, structure)
     , m_callbackObjectData(adoptPtr(new JSCallbackObjectData(data, jsClass)))
 {
@@ -61,8 +61,8 @@ JSCallbackObject<Base>::JSCallbackObject(ExecState* exec, JSGlobalObject* global
 // Global object constructor.
 // FIXME: Move this into a separate JSGlobalCallbackObject class derived from this one.
 template <class Base>
-JSCallbackObject<Base>::JSCallbackObject(JSClassRef jsClass, NonNullPassRefPtr<Structure> structure)
-    : Base(structure)
+JSCallbackObject<Base>::JSCallbackObject(JSGlobalData& globalData, JSClassRef jsClass, Structure* structure)
+    : Base(globalData, structure)
     , m_callbackObjectData(adoptPtr(new JSCallbackObjectData(0, jsClass)))
 {
     ASSERT(Base::inherits(&s_info));
@@ -88,16 +88,16 @@ void JSCallbackObject<Base>::init(ExecState* exec)
         JSObjectInitializeCallback initialize = initRoutines[i];
         initialize(toRef(exec), toRef(this));
     }
-}
 
-template <class Base>
-JSCallbackObject<Base>::~JSCallbackObject()
-{
-    JSObjectRef thisRef = toRef(this);
-    
-    for (JSClassRef jsClass = classRef(); jsClass; jsClass = jsClass->parentClass)
-        if (JSObjectFinalizeCallback finalize = jsClass->finalize)
-            finalize(thisRef);
+    bool needsFinalizer = false;
+    for (JSClassRef jsClassPtr = classRef(); jsClassPtr && !needsFinalizer; jsClassPtr = jsClassPtr->parentClass)
+        needsFinalizer = jsClassPtr->finalize;
+    if (needsFinalizer) {
+        HandleSlot slot = exec->globalData().allocateGlobalHandle();
+        HandleHeap::heapFor(slot)->makeWeak(slot, m_callbackObjectData.get(), classRef());
+        HandleHeap::heapFor(slot)->writeBarrier(slot, this);
+        *slot = this;
+    }
 }
 
 template <class Base>

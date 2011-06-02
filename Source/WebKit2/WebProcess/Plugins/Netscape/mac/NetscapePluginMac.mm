@@ -124,6 +124,7 @@ NPBool NetscapePlugin::convertPoint(double sourceX, double sourceY, NPCoordinate
     case NPCoordinateSpaceFlippedScreen:
         sourceXInScreenSpace = sourceX;
         sourceYInScreenSpace = flipScreenYCoordinate(sourceY);
+        break;
     default:
         return false;
     }
@@ -231,17 +232,7 @@ bool NetscapePlugin::platformPostInitialize()
         // Get the Core Animation layer.
         if (NPP_GetValue(NPPVpluginCoreAnimationLayer, &value) == NPERR_NO_ERROR && value) {
             ASSERT(!m_pluginLayer);
-
-            CALayer *realPluginLayer = reinterpret_cast<CALayer *>(value);
-
-            // Create a layer with flipped geometry and add the real plug-in layer as a sublayer
-            // so the coordinate system will match the event coordinate system.
-            m_pluginLayer.adoptNS([[CALayer alloc] init]);
-            [m_pluginLayer.get() setBounds:[realPluginLayer bounds]];
-            [m_pluginLayer.get() setGeometryFlipped:YES];
-
-            [realPluginLayer setAutoresizingMask:kCALayerWidthSizable | kCALayerHeightSizable];
-            [m_pluginLayer.get() addSublayer:realPluginLayer];
+            m_pluginLayer = reinterpret_cast<CALayer *>(value);
         }
     }
 
@@ -517,11 +508,14 @@ bool NetscapePlugin::platformHandleMouseEvent(const WebMouseEvent& mouseEvent)
             // access m_currentMouseEvent afterwards.
             RefPtr<NetscapePlugin> protect(this);
 
-            bool returnValue = NPP_HandleEvent(&event);
+            NPP_HandleEvent(&event);
 
             m_currentMouseEvent = previousMouseEvent;
 
-            return returnValue;
+            // Some plug-ins return false even if the mouse event has been handled.
+            // This leads to bugs such as <rdar://problem/9167611>. Work around this
+            // by always returning true.
+            return true;
         }
 
 #ifndef NP_NO_CARBON
@@ -549,7 +543,12 @@ bool NetscapePlugin::platformHandleMouseEvent(const WebMouseEvent& mouseEvent)
             event.where.h = mouseEvent.globalPosition().x();
             event.where.v = mouseEvent.globalPosition().y();
 
-            return NPP_HandleEvent(&event);
+            NPP_HandleEvent(&event);
+
+            // Some plug-ins return false even if the mouse event has been handled.
+            // This leads to bugs such as <rdar://problem/9167611>. Work around this
+            // by always returning true.
+            return true;
         }
 #endif
 
@@ -646,6 +645,8 @@ static unsigned modifierFlags(const WebKeyboardEvent& keyboardEvent)
 {
     unsigned modifierFlags = 0;
 
+    if (keyboardEvent.capsLockKey())
+        modifierFlags |= NSAlphaShiftKeyMask;
     if (keyboardEvent.shiftKey())
         modifierFlags |= NSShiftKeyMask;
     if (keyboardEvent.controlKey())
@@ -658,20 +659,46 @@ static unsigned modifierFlags(const WebKeyboardEvent& keyboardEvent)
     return modifierFlags;
 }
 
+static bool isFlagsChangedEvent(const WebKeyboardEvent& keyboardEvent)
+{
+    switch (keyboardEvent.nativeVirtualKeyCode()) {
+    case 54: // Right Command
+    case 55: // Left Command
+
+    case 57: // Capslock
+
+    case 56: // Left Shift
+    case 60: // Right Shift
+
+    case 58: // Left Alt
+    case 61: // Right Alt
+            
+    case 59: // Left Ctrl
+    case 62: // Right Ctrl
+        return true;
+    }
+
+    return false;
+}
+
 static NPCocoaEvent initializeKeyboardEvent(const WebKeyboardEvent& keyboardEvent)
 {
     NPCocoaEventType eventType;
-    
-    switch (keyboardEvent.type()) {
-        case WebEvent::KeyDown:
-            eventType = NPCocoaEventKeyDown;
-            break;
-        case WebEvent::KeyUp:
-            eventType = NPCocoaEventKeyUp;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-            return NPCocoaEvent();
+
+    if (isFlagsChangedEvent(keyboardEvent))
+        eventType = NPCocoaEventFlagsChanged;
+    else {
+        switch (keyboardEvent.type()) {
+            case WebEvent::KeyDown:
+                eventType = NPCocoaEventKeyDown;
+                break;
+            case WebEvent::KeyUp:
+                eventType = NPCocoaEventKeyUp;
+                break;
+            default:
+                ASSERT_NOT_REACHED();
+                return NPCocoaEvent();
+        }
     }
 
     NPCocoaEvent event = initializeEvent(eventType);

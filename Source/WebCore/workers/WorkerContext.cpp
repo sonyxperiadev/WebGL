@@ -51,6 +51,7 @@
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "SecurityOrigin.h"
+#include "WorkerInspectorController.h"
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #include "WorkerObjectProxy.h"
@@ -106,6 +107,9 @@ WorkerContext::WorkerContext(const KURL& url, const String& userAgent, WorkerThr
     , m_userAgent(userAgent)
     , m_script(new WorkerScriptController(this))
     , m_thread(thread)
+#if ENABLE(INSPECTOR)
+    , m_workerInspectorController(new WorkerInspectorController(this))
+#endif
     , m_closing(false)
 {
     setSecurityOrigin(SecurityOrigin::create(url));
@@ -167,9 +171,10 @@ void WorkerContext::close()
     if (m_closing)
         return;
 
-    m_closing = true;
     // Let current script run to completion but prevent future script evaluations.
-    m_script->forbidExecution(WorkerScriptController::LetRunningScriptFinish);
+    // After m_closing is set, all the tasks in the queue continue to be fetched but only
+    // tasks with isCleanupTask()==true will be executed.
+    m_closing = true;
     postTask(CloseWorkerContextTask::create());
 }
 
@@ -320,7 +325,7 @@ bool WorkerContext::isContextThread() const
     return currentThread() == thread()->threadID();
 }
 
-bool WorkerContext::isJSExecutionTerminated() const
+bool WorkerContext::isJSExecutionForbidden() const
 {
     return m_script->isExecutionForbidden();
 }
@@ -345,7 +350,7 @@ DOMURL* WorkerContext::webkitURL() const
 #endif
 
 #if ENABLE(FILE_SYSTEM)
-void WorkerContext::requestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+void WorkerContext::webkitRequestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
 {
     if (!AsyncFileSystem::isAvailable() || !securityOrigin()->canAccessFileSystem()) {
         DOMFileSystem::scheduleCallback(this, errorCallback, FileError::create(FileError::SECURITY_ERR));
@@ -353,7 +358,7 @@ void WorkerContext::requestFileSystem(int type, long long size, PassRefPtr<FileS
     }
 
     AsyncFileSystem::Type fileSystemType = static_cast<AsyncFileSystem::Type>(type);
-    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent) {
+    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent && fileSystemType != AsyncFileSystem::External) {
         DOMFileSystem::scheduleCallback(this, errorCallback, FileError::create(FileError::INVALID_MODIFICATION_ERR));
         return;
     }
@@ -361,7 +366,7 @@ void WorkerContext::requestFileSystem(int type, long long size, PassRefPtr<FileS
     LocalFileSystem::localFileSystem().requestFileSystem(this, fileSystemType, size, FileSystemCallbacks::create(successCallback, errorCallback, this), false);
 }
 
-PassRefPtr<DOMFileSystemSync> WorkerContext::requestFileSystemSync(int type, long long size, ExceptionCode& ec)
+PassRefPtr<DOMFileSystemSync> WorkerContext::webkitRequestFileSystemSync(int type, long long size, ExceptionCode& ec)
 {
     ec = 0;
     if (!AsyncFileSystem::isAvailable() || !securityOrigin()->canAccessFileSystem()) {
@@ -370,7 +375,7 @@ PassRefPtr<DOMFileSystemSync> WorkerContext::requestFileSystemSync(int type, lon
     }
 
     AsyncFileSystem::Type fileSystemType = static_cast<AsyncFileSystem::Type>(type);
-    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent) {
+    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent && fileSystemType != AsyncFileSystem::External) {
         ec = FileException::INVALID_MODIFICATION_ERR;
         return 0;
     }
@@ -380,7 +385,7 @@ PassRefPtr<DOMFileSystemSync> WorkerContext::requestFileSystemSync(int type, lon
     return helper.getResult(ec);
 }
 
-void WorkerContext::resolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+void WorkerContext::webkitResolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
 {
     KURL completedURL = completeURL(url);
     if (!AsyncFileSystem::isAvailable() || !securityOrigin()->canAccessFileSystem() || !securityOrigin()->canRequest(completedURL)) {
@@ -398,7 +403,7 @@ void WorkerContext::resolveLocalFileSystemURL(const String& url, PassRefPtr<Entr
     LocalFileSystem::localFileSystem().readFileSystem(this, type, ResolveURICallbacks::create(successCallback, errorCallback, this, filePath));
 }
 
-PassRefPtr<EntrySync> WorkerContext::resolveLocalFileSystemSyncURL(const String& url, ExceptionCode& ec)
+PassRefPtr<EntrySync> WorkerContext::webkitResolveLocalFileSystemSyncURL(const String& url, ExceptionCode& ec)
 {
     ec = 0;
     KURL completedURL = completeURL(url);
@@ -429,6 +434,7 @@ PassRefPtr<EntrySync> WorkerContext::resolveLocalFileSystemSyncURL(const String&
 
 COMPILE_ASSERT(static_cast<int>(WorkerContext::TEMPORARY) == static_cast<int>(AsyncFileSystem::Temporary), enum_mismatch);
 COMPILE_ASSERT(static_cast<int>(WorkerContext::PERSISTENT) == static_cast<int>(AsyncFileSystem::Persistent), enum_mismatch);
+COMPILE_ASSERT(static_cast<int>(WorkerContext::EXTERNAL) == static_cast<int>(AsyncFileSystem::External), enum_mismatch);
 #endif
 
 WorkerContext::Observer::Observer(WorkerContext* context)

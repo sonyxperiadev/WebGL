@@ -28,7 +28,7 @@
 
 #if ENABLE(JAVA_BRIDGE)
 
-#include "JavaInstanceV8.h"
+#include "JavaInstanceJobjectV8.h"
 #include "JavaNPObjectV8.h"
 #if PLATFORM(ANDROID)
 #include "npruntime_impl.h"
@@ -424,7 +424,7 @@ JavaValue jvalueToJavaValue(const jvalue& value, const JavaType& type)
     case JavaTypeVoid:
         break;
     case JavaTypeObject:
-        result.m_objectValue = new JavaInstance(value.l);
+        result.m_objectValue = new JavaInstanceJobject(value.l);
         break;
     case JavaTypeString:
         {
@@ -476,8 +476,11 @@ jvalue javaValueToJvalue(const JavaValue& value)
     case JavaTypeArray:
 #endif
     case JavaTypeObject:
-        if (value.m_objectValue)
-            result.l = value.m_objectValue->javaInstance();
+        if (value.m_objectValue) {
+            // This method is used only by JavaInstanceJobject, so we know the
+            // derived type of the object.
+            result.l = static_cast<JavaInstanceJobject*>(value.m_objectValue.get())->javaInstance();
+        }
         break;
     case JavaTypeString:
         // This creates a local reference to a new String object, which will

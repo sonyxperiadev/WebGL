@@ -52,8 +52,8 @@ namespace JSC {
         static const int NUM_PARAMETERS_NOT_COMPILED = -1;
     
     public:
-        ExecutableBase(Structure* structure, int numParameters)
-            : JSCell(structure)
+        ExecutableBase(JSGlobalData& globalData, Structure* structure, int numParameters)
+            : JSCell(globalData, structure)
             , m_numParametersForCall(numParameters)
             , m_numParametersForConstruct(numParameters)
         {
@@ -65,10 +65,11 @@ namespace JSC {
             return m_numParametersForCall == NUM_PARAMETERS_IS_HOST;
         }
 
-        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, &s_info); }
 
     protected:
         static const unsigned StructureFlags = 0;
+        static const ClassInfo s_info;
         int m_numParametersForCall;
         int m_numParametersForConstruct;
 
@@ -115,10 +116,12 @@ namespace JSC {
 
         NativeFunction function() { return m_function; }
 
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(LeafType, StructureFlags), AnonymousSlotCount, &s_info); }
+
     private:
 #if ENABLE(JIT)
         NativeExecutable(JSGlobalData& globalData, JITCode callThunk, NativeFunction function, JITCode constructThunk, NativeFunction constructor)
-            : ExecutableBase(globalData.executableStructure.get(), NUM_PARAMETERS_IS_HOST)
+            : ExecutableBase(globalData, globalData.nativeExecutableStructure.get(), NUM_PARAMETERS_IS_HOST)
             , m_function(function)
             , m_constructor(constructor)
         {
@@ -129,7 +132,7 @@ namespace JSC {
         }
 #else
         NativeExecutable(JSGlobalData& globalData, NativeFunction function, NativeFunction constructor)
-            : ExecutableBase(globalData.executableStructure.get(), NUM_PARAMETERS_IS_HOST)
+            : ExecutableBase(globalData, globalData.nativeExecutableStructure.get(), NUM_PARAMETERS_IS_HOST)
             , m_function(function)
             , m_constructor(constructor)
         {
@@ -140,22 +143,13 @@ namespace JSC {
         // Probably should be a NativeConstructor, but this will currently require rewriting the JIT
         // trampoline. It may be easier to make NativeFunction be passed 'this' as a part of the ArgList.
         NativeFunction m_constructor;
-    };
-
-    class VPtrHackExecutable : public ExecutableBase {
-    public:
-        VPtrHackExecutable(Structure* structure)
-            : ExecutableBase(structure, NUM_PARAMETERS_IS_HOST)
-        {
-        }
-
-        ~VPtrHackExecutable();
+        static const ClassInfo s_info;
     };
 
     class ScriptExecutable : public ExecutableBase {
     public:
         ScriptExecutable(Structure* structure, JSGlobalData* globalData, const SourceCode& source, bool isInStrictContext)
-            : ExecutableBase(structure, NUM_PARAMETERS_NOT_COMPILED)
+            : ExecutableBase(*globalData, structure, NUM_PARAMETERS_NOT_COMPILED)
             , m_source(source)
             , m_features(isInStrictContext ? StrictModeFeature : 0)
         {
@@ -169,7 +163,7 @@ namespace JSC {
         }
 
         ScriptExecutable(Structure* structure, ExecState* exec, const SourceCode& source, bool isInStrictContext)
-            : ExecutableBase(structure, NUM_PARAMETERS_NOT_COMPILED)
+            : ExecutableBase(exec->globalData(), structure, NUM_PARAMETERS_NOT_COMPILED)
             , m_source(source)
             , m_features(isInStrictContext ? StrictModeFeature : 0)
         {
@@ -238,10 +232,11 @@ namespace JSC {
             return generatedJITCodeForCall();
         }
 #endif
-        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
 
     private:
         static const unsigned StructureFlags = OverridesMarkChildren | ScriptExecutable::StructureFlags;
+        static const ClassInfo s_info;
         EvalExecutable(ExecState*, const SourceCode&, bool);
 
         JSObject* compileInternal(ExecState*, ScopeChainNode*);
@@ -284,10 +279,11 @@ namespace JSC {
         }
 #endif
         
-        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
 
     private:
         static const unsigned StructureFlags = OverridesMarkChildren | ScriptExecutable::StructureFlags;
+        static const ClassInfo s_info;
         ProgramExecutable(ExecState*, const SourceCode&);
 
         JSObject* compileInternal(ExecState*, ScopeChainNode*);
@@ -376,7 +372,7 @@ namespace JSC {
         void discardCode();
         void markChildren(MarkStack&);
         static FunctionExecutable* fromGlobalCode(const Identifier&, ExecState*, Debugger*, const SourceCode&, JSObject** exception);
-        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
 
     private:
         FunctionExecutable(JSGlobalData*, const Identifier& name, const SourceCode&, bool forceUsesArguments, FunctionParameters*, bool, int firstLine, int lastLine);
@@ -386,6 +382,7 @@ namespace JSC {
         JSObject* compileForConstructInternal(ExecState*, ScopeChainNode*);
         
         static const unsigned StructureFlags = OverridesMarkChildren | ScriptExecutable::StructureFlags;
+        static const ClassInfo s_info;
         unsigned m_numCapturedVariables : 31;
         bool m_forceUsesArguments : 1;
 

@@ -36,12 +36,16 @@ from webkitpy.layout_tests.layout_package import test_failures
 _log = logging.getLogger(__name__)
 
 
-def write_test_result(port, root_output_dir, filename, driver_output,
+def write_test_result(port, filename, driver_output,
                       expected_driver_output, failures):
     """Write the test result to the result output directory."""
+    root_output_dir = port.results_directory()
     checksums_mismatch_but_images_are_same = False
     imagehash_mismatch_failure = None
     writer = TestResultWriter(port, root_output_dir, filename)
+    if driver_output.error:
+        writer.write_stderr(driver_output.error)
+
     for failure in failures:
         # FIXME: Instead of this long 'if' block, each failure class might
         # have a responsibility for writing a test result.
@@ -63,8 +67,11 @@ def write_test_result(port, root_output_dir, filename, driver_output,
             if not images_are_different:
                 checksums_mismatch_but_images_are_same = True
                 imagehash_mismatch_failure = failure
+        elif isinstance(failure, (test_failures.FailureAudioMismatch,
+                                  test_failures.FailureMissingAudio)):
+            writer.write_audio_files(driver_output.audio, expected_driver_output.audio)
         elif isinstance(failure, test_failures.FailureCrash):
-            if failure.reference_filename:
+            if failure.is_reftest:
                 writer.write_crash_report(expected_driver_output.error)
             else:
                 writer.write_crash_report(driver_output.error)
@@ -150,6 +157,12 @@ class TestResultWriter(object):
         if expected is not None:
             fs.write_binary_file(expected_filename, expected)
 
+    def write_stderr(self, error):
+        fs = self._port._filesystem
+        filename = self.output_filename("-stderr.txt")
+        fs.maybe_make_directory(fs.dirname(filename))
+        fs.write_text_file(filename, error)
+
     def write_crash_report(self, error):
         """Write crash information."""
         fs = self._port._filesystem
@@ -186,6 +199,9 @@ class TestResultWriter(object):
         pretty_patch = self._port.pretty_patch_text(diff_filename)
         pretty_patch_filename = self.output_filename(self.FILENAME_SUFFIX_PRETTY_PATCH)
         fs.write_binary_file(pretty_patch_filename, pretty_patch)
+
+    def write_audio_files(self, actual_audio, expected_audio):
+        self.write_output_files('.wav', actual_audio, expected_audio)
 
     def write_image_files(self, actual_image, expected_image):
         self.write_output_files('.png', actual_image, expected_image)

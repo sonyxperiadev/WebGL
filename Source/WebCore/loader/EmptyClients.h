@@ -196,6 +196,10 @@ public:
     virtual NotificationPresenter* notificationPresenter() const { return 0; }
 #endif
 
+#if ENABLE(DIRECTORY_UPLOAD)
+    virtual void enumerateChosenDirectory(const String&, FileChooser*) { }
+#endif
+
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) { }
     virtual void chooseIconForFiles(const Vector<String>&, FileChooser*) { }
 
@@ -270,7 +274,7 @@ public:
     virtual void dispatchWillClose() { }
     virtual void dispatchDidReceiveIcon() { }
     virtual void dispatchDidStartProvisionalLoad() { }
-    virtual void dispatchDidReceiveTitle(const String&) { }
+    virtual void dispatchDidReceiveTitle(const StringWithDirection&) { }
     virtual void dispatchDidChangeIcons() { }
     virtual void dispatchDidCommitLoad() { }
     virtual void dispatchDidFailProvisionalLoad(const ResourceError&) { }
@@ -338,7 +342,7 @@ public:
     virtual void prepareForDataSourceReplacement() { }
 
     virtual PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData) { return DocumentLoader::create(request, substituteData); }
-    virtual void setTitle(const String&, const KURL&) { }
+    virtual void setTitle(const StringWithDirection&, const KURL&) { }
 
     virtual String userAgent(const KURL&) { return ""; }
 
@@ -415,11 +419,11 @@ public:
     virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
 
 #if USE(UNIFIED_TEXT_CHECKING)
-    virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
+    virtual void checkTextOfParagraph(const UChar*, int, TextCheckingTypeMask, Vector<TextCheckingResult>&) { };
 #endif
 
     virtual void getGuessesForWord(const String&, const String&, Vector<String>&) { }
-    virtual void requestCheckingOfString(SpellChecker*, int, const String&) { }
+    virtual void requestCheckingOfString(SpellChecker*, int, TextCheckingTypeMask, const String&) { }
 };
 
 class EmptyEditorClient : public EditorClient {

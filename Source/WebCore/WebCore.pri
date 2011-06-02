@@ -10,6 +10,8 @@ QT *= network
 
 SOURCE_DIR = $$replace(PWD, /WebCore, "")
 
+contains(QT_CONFIG, qpa):CONFIG += embedded
+
 # Use a config-specific target to prevent parallel builds file clashes on Mac
 mac: CONFIG(debug, debug|release): WEBCORE_TARGET = webcored
 else: WEBCORE_TARGET = webcore
@@ -91,9 +93,11 @@ WEBCORE_INCLUDEPATH = \
     $$SOURCE_DIR/WebCore/platform/audio \
     $$SOURCE_DIR/WebCore/platform/graphics \
     $$SOURCE_DIR/WebCore/platform/graphics/filters \
+    $$SOURCE_DIR/WebCore/platform/graphics/filters/arm \
     $$SOURCE_DIR/WebCore/platform/graphics/texmap \
     $$SOURCE_DIR/WebCore/platform/graphics/transforms \
     $$SOURCE_DIR/WebCore/platform/image-decoders \
+    $$SOURCE_DIR/WebCore/platform/leveldb \
     $$SOURCE_DIR/WebCore/platform/mock \
     $$SOURCE_DIR/WebCore/platform/network \
     $$SOURCE_DIR/WebCore/platform/sql \
@@ -142,15 +146,12 @@ symbian {
         LIBS += -llibpthread
     }
 
-    symbian-abld|symbian-sbsv2 {
-        # RO text (code) section in qtwebkit.dll exceeds allocated space for gcce udeb target.
-        # Move RW-section base address to start from 0xE00000 instead of the toolchain default 0x400000.
-        QMAKE_LFLAGS.ARMCC += --rw-base 0xE00000
-        MMP_RULES += ALWAYS_BUILD_AS_ARM
-    }  else {
-        QMAKE_CFLAGS -= --thumb
-        QMAKE_CXXFLAGS -= --thumb
-    }
+    # RO text (code) section in qtwebkit.dll exceeds allocated space for gcce udeb target.
+    # Move RW-section base address to start from 0x1000000 instead of the toolchain default 0x400000.
+    QMAKE_LFLAGS.ARMCC += --rw-base 0x1000000
+    QMAKE_LFLAGS.GCCE += -Tdata 0x1000000
+
+    CONFIG += do_not_build_as_thumb
 
     CONFIG(release, debug|release): QMAKE_CXXFLAGS.ARMCC += -OTime -O3
     # Symbian plugin support
@@ -285,8 +286,6 @@ contains(DEFINES, ENABLE_SYMBIAN_DIALOG_PROVIDERS) {
     }
 }
 
-contains(QT_CONFIG, qpa):CONFIG += embedded
-
 !CONFIG(webkit-debug):CONFIG(QTDIR_build) {
     # Remove the following 2 lines if you want debug information in WebCore
     CONFIG -= separate_debug_info
@@ -300,7 +299,7 @@ contains (CONFIG, text_breaking_with_icu) {
 !CONFIG(QTDIR_build) {
     win32-*|wince* {
         DLLDESTDIR = $$OUTPUT_DIR/bin
-        build_pass: TARGET = $$qtLibraryTarget($$TARGET)
+        isEmpty(QT_SOURCE_TREE):build_pass: TARGET = $$qtLibraryTarget($$TARGET)
 
         dlltarget.commands = $(COPY_FILE) $(DESTDIR_TARGET) $$[QT_INSTALL_BINS]
         dlltarget.CONFIG = no_path

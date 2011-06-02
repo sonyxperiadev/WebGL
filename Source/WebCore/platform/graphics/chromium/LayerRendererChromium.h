@@ -52,22 +52,22 @@
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CGContext.h>
 #include <wtf/RetainPtr.h>
 #endif
 
 namespace WebCore {
 
+class CCHeadsUpDisplay;
 class CCLayerImpl;
 class GeometryBinding;
 class GraphicsContext3D;
-class CCHeadsUpDisplay;
 
 // Class that handles drawing of composited render layers using GL.
 class LayerRendererChromium : public RefCounted<LayerRendererChromium> {
 public:
-    static PassRefPtr<LayerRendererChromium> create(PassRefPtr<GraphicsContext3D>, PassOwnPtr<TilePaintInterface> contentPaint, PassOwnPtr<TilePaintInterface> scrollbarPaint);
+    static PassRefPtr<LayerRendererChromium> create(PassRefPtr<GraphicsContext3D>, PassOwnPtr<TilePaintInterface> contentPaint);
 
     ~LayerRendererChromium();
 
@@ -88,7 +88,7 @@ public:
 
     IntSize viewportSize() const { return m_viewportVisibleRect.size(); }
 
-    void setRootLayer(PassRefPtr<LayerChromium> layer);
+    void setRootLayer(PassRefPtr<LayerChromium>);
     LayerChromium* rootLayer() { return m_rootLayer.get(); }
     void transferRootLayer(LayerRendererChromium* other) { other->m_rootLayer = m_rootLayer.release(); }
 
@@ -110,7 +110,6 @@ public:
 
     const GeometryBinding* sharedGeometry() const { return m_sharedGeometry.get(); }
     const LayerChromium::BorderProgram* borderProgram() const { return m_borderProgram.get(); }
-    const ContentLayerChromium::Program* contentLayerProgram() const { return m_contentLayerProgram.get(); }
     const RenderSurfaceChromium::Program* renderSurfaceProgram() const { return m_renderSurfaceProgram.get(); }
     const RenderSurfaceChromium::MaskProgram* renderSurfaceMaskProgram() const { return m_renderSurfaceMaskProgram.get(); }
     const LayerTilerChromium::Program* tilerProgram() const { return m_tilerProgram.get(); }
@@ -131,17 +130,23 @@ public:
 
     String layerTreeAsText() const;
 
-private:
-    explicit LayerRendererChromium(PassRefPtr<GraphicsContext3D>, PassOwnPtr<TilePaintInterface> contentPaint, PassOwnPtr<TilePaintInterface> scrollbarPaint);
+    void addChildContext(GraphicsContext3D*);
+    void removeChildContext(GraphicsContext3D*);
 
-    void updateLayers(Vector<CCLayerImpl*>& renderSurfaceLayerList);
+private:
+    typedef Vector<RefPtr<CCLayerImpl> > LayerList;
+    typedef HashMap<GraphicsContext3D*, int> ChildContextMap;
+
+    explicit LayerRendererChromium(PassRefPtr<GraphicsContext3D>, PassOwnPtr<TilePaintInterface> contentPaint);
+
+    void updateLayers(LayerList& renderSurfaceLayerList);
     void updateRootLayerContents();
-    void updateRootLayerScrollbars();
-    void updatePropertiesAndRenderSurfaces(LayerChromium*, const TransformationMatrix& parentMatrix, Vector<CCLayerImpl*>& renderSurfaceLayerList, Vector<CCLayerImpl*>& layerList);
+    void updatePropertiesAndRenderSurfaces(LayerChromium*, const TransformationMatrix& parentMatrix, LayerList& renderSurfaceLayerList, LayerList& layers);
+
     void paintContentsRecursive(LayerChromium*);
     void updateCompositorResourcesRecursive(LayerChromium*);
 
-    void drawLayers(const Vector<CCLayerImpl*>& renderSurfaceLayerList);
+    void drawLayers(const LayerList& renderSurfaceLayerList);
     void drawLayer(CCLayerImpl*, RenderSurfaceChromium*);
 
     void drawRootLayer();
@@ -156,15 +161,12 @@ private:
 
     bool makeContextCurrent();
 
-    static bool compareLayerZ(const CCLayerImpl*, const CCLayerImpl*);
+    static bool compareLayerZ(const RefPtr<CCLayerImpl>&, const RefPtr<CCLayerImpl>&);
 
     void dumpRenderSurfaces(TextStream&, int indent, LayerChromium*) const;
 
     bool initializeSharedObjects();
     void cleanupSharedObjects();
-
-    IntRect verticalScrollbarRect() const;
-    IntRect horizontalScrollbarRect() const;
 
     IntRect m_viewportVisibleRect;
     IntRect m_viewportContentRect;
@@ -174,10 +176,7 @@ private:
 
     RefPtr<LayerChromium> m_rootLayer;
     OwnPtr<TilePaintInterface> m_rootLayerContentPaint;
-    OwnPtr<TilePaintInterface> m_rootLayerScrollbarPaint;
     OwnPtr<LayerTilerChromium> m_rootLayerContentTiler;
-    OwnPtr<LayerTilerChromium> m_horizontalScrollbarTiler;
-    OwnPtr<LayerTilerChromium> m_verticalScrollbarTiler;
 
     bool m_hardwareCompositing;
 
@@ -188,10 +187,10 @@ private:
     bool m_compositeOffscreen;
 
 #if USE(SKIA)
-    OwnPtr<skia::PlatformCanvas> m_rootLayerCanvas;
+    OwnPtr<SkCanvas> m_rootLayerCanvas;
     OwnPtr<PlatformContextSkia> m_rootLayerSkiaContext;
     OwnPtr<GraphicsContext> m_rootLayerGraphicsContext;
-#elif PLATFORM(CG)
+#elif USE(CG)
     Vector<uint8_t> m_rootLayerBackingStore;
     RetainPtr<CGContextRef> m_rootLayerCGContext;
     OwnPtr<GraphicsContext> m_rootLayerGraphicsContext;
@@ -206,7 +205,6 @@ private:
     // we cannot store these values in static variables.
     OwnPtr<GeometryBinding> m_sharedGeometry;
     OwnPtr<LayerChromium::BorderProgram> m_borderProgram;
-    OwnPtr<ContentLayerChromium::Program> m_contentLayerProgram;
     OwnPtr<RenderSurfaceChromium::Program> m_renderSurfaceProgram;
     OwnPtr<RenderSurfaceChromium::MaskProgram> m_renderSurfaceMaskProgram;
     OwnPtr<LayerTilerChromium::Program> m_tilerProgram;
@@ -220,6 +218,15 @@ private:
     OwnPtr<CCHeadsUpDisplay> m_headsUpDisplay;
 
     RefPtr<GraphicsContext3D> m_context;
+    ChildContextMap m_childContexts;
+
+    // If true, the child contexts were copied to the compositor texture targets
+    // and the compositor will need to wait on the proper latches before using
+    // the target textures. If false, the compositor is reusing the textures
+    // from last frame.
+    bool m_childContextsWereCopied;
+
+    bool m_contextSupportsLatch;
 
     RenderSurfaceChromium* m_defaultRenderSurface;
 };

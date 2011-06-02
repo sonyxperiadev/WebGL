@@ -43,7 +43,6 @@
 #include <runtime/Error.h>
 #include <runtime/FunctionPrototype.h>
 #include <runtime/JSLock.h>
-#include <runtime/JSNumberCell.h>
 #include <runtime/PropertyNameArray.h>
 #include <wtf/Assertions.h>
 #include <wtf/StdLibExtras.h>
@@ -120,7 +119,7 @@ public:
         ASSERT(inherits(&s_info));
     }
 
-    static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
     {
         return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }

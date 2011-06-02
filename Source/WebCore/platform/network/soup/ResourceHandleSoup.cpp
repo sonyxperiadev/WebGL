@@ -69,7 +69,7 @@ public:
     ~WebCoreSynchronousLoader();
 
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
-    virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);
+    virtual void didReceiveData(ResourceHandle*, const char*, int, int encodedDataLength);
     virtual void didFinishLoading(ResourceHandle*, double /*finishTime*/);
     virtual void didFail(ResourceHandle*, const ResourceError&);
 
@@ -135,11 +135,6 @@ ResourceHandleInternal::~ResourceHandleInternal()
 {
     if (m_soupRequest)
         g_object_set_data(G_OBJECT(m_soupRequest.get()), "webkit-resource", 0);
-
-    if (m_idleHandler) {
-        g_source_remove(m_idleHandler);
-        m_idleHandler = 0;
-    }
 }
 
 ResourceHandle::~ResourceHandle()

@@ -38,6 +38,10 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/text/StringHash.h>
 
+#if OS(SOLARIS)
+#include <sys/types.h> // For time_t structure.
+#endif
+
 namespace WebCore { 
 
 class IconDataSnapshot;
@@ -51,17 +55,22 @@ enum ImageDataStatus {
 
 class IconSnapshot {
 public:
-    IconSnapshot() : timestamp(0) { }
+    IconSnapshot() : m_timestamp(0) { }
     
-    IconSnapshot(const String& url, int stamp, SharedBuffer* theData)
-        : iconURL(url)
-        , timestamp(stamp)
-        , data(theData)
+    IconSnapshot(const String& iconURL, int timestamp, SharedBuffer* data)
+        : m_iconURL(iconURL)
+        , m_timestamp(timestamp)
+        , m_data(data)
     { }
-        
-    String iconURL;
-    int timestamp;
-    RefPtr<SharedBuffer> data;
+
+    const String& iconURL() const { return m_iconURL; }
+    int timestamp() const { return m_timestamp; }
+    SharedBuffer* data() const { return m_data.get(); }
+
+private:
+    String m_iconURL;
+    int m_timestamp;
+    RefPtr<SharedBuffer> m_data;
 };
     
 class IconRecord : public RefCounted<IconRecord> {

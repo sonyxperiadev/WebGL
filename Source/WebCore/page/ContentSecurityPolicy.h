@@ -32,6 +32,7 @@
 namespace WebCore {
 
 class CSPDirective;
+class CSPOptions;
 class KURL;
 class SecurityOrigin;
 
@@ -47,10 +48,20 @@ public:
 
     bool allowJavaScriptURLs() const;
     bool allowInlineEventHandlers() const;
+    bool allowInlineScript() const;
+    bool allowEval() const;
+
     bool allowScriptFromSource(const KURL&) const;
+    bool allowObjectFromSource(const KURL&) const;
+    bool allowImageFromSource(const KURL&) const;
+    bool allowStyleFromSource(const KURL&) const;
+    bool allowFontFromSource(const KURL&) const;
+    bool allowMediaFromSource(const KURL&) const;
 
 private:
     explicit ContentSecurityPolicy(SecurityOrigin*);
+
+    bool protectAgainstXSS() const;
 
     void parse(const String&);
     bool parseDirective(const UChar* begin, const UChar* end, String& name, String& value);
@@ -59,6 +70,12 @@ private:
     bool m_havePolicy;
     RefPtr<SecurityOrigin> m_origin;
     OwnPtr<CSPDirective> m_scriptSrc;
+    OwnPtr<CSPDirective> m_objectSrc;
+    OwnPtr<CSPDirective> m_imgSrc;
+    OwnPtr<CSPDirective> m_styleSrc;
+    OwnPtr<CSPDirective> m_fontSrc;
+    OwnPtr<CSPDirective> m_mediaSrc;
+    OwnPtr<CSPOptions> m_options;
 };
 
 }

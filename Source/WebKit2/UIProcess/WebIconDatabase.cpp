@@ -100,14 +100,12 @@ void WebIconDatabase::enableDatabaseCleanup()
 
 void WebIconDatabase::retainIconForPageURL(const String& pageURL)
 {
-    LOG(IconDatabase, "WK2 UIProcess retaining icon for page URL %s", pageURL.ascii().data());
     if (m_iconDatabaseImpl)
         m_iconDatabaseImpl->retainIconForPageURL(pageURL);
 }
 
 void WebIconDatabase::releaseIconForPageURL(const String& pageURL)
 {
-    LOG(IconDatabase, "WK2 UIProcess releasing icon for page URL %s", pageURL.ascii().data());
     if (m_iconDatabaseImpl)
         m_iconDatabaseImpl->releaseIconForPageURL(pageURL);
 }
@@ -157,7 +155,8 @@ void WebIconDatabase::getLoadDecisionForIconURL(const String& iconURL, uint64_t 
         return;
 
     if (!m_iconDatabaseImpl || !m_iconDatabaseImpl->isOpen() || iconURL.isEmpty()) {
-        m_webContext->process()->send(Messages::WebIconDatabaseProxy::ReceivedIconLoadDecision(static_cast<int>(IconLoadNo), callbackID), 0);
+        // FIXME (Multi-WebProcess): We need to know which connection to send this message to.
+        m_webContext->sendToAllProcesses(Messages::WebIconDatabaseProxy::ReceivedIconLoadDecision(static_cast<int>(IconLoadNo), callbackID));
         return;
     }
     
@@ -170,23 +169,40 @@ void WebIconDatabase::getLoadDecisionForIconURL(const String& iconURL, uint64_t 
         m_pendingLoadDecisionURLMap.set(callbackID, iconURL);
         return;    
     }
-    
-    m_webContext->process()->send(Messages::WebIconDatabaseProxy::ReceivedIconLoadDecision((int)decision, callbackID), 0);
+
+    // FIXME (Multi-WebProcess): We need to know which connection to send this message to.
+    m_webContext->sendToAllProcesses(Messages::WebIconDatabaseProxy::ReceivedIconLoadDecision((int)decision, callbackID));
 }
 
 Image* WebIconDatabase::imageForPageURL(const String& pageURL)
 {
-    if (!m_webContext)
-        return 0;
-
-    if (!m_iconDatabaseImpl || !m_iconDatabaseImpl->isOpen() || pageURL.isEmpty())
-        return 0;
+    if (!m_webContext || !m_iconDatabaseImpl || !m_iconDatabaseImpl->isOpen() || pageURL.isEmpty())
+        return 0;    
 
     // The WebCore IconDatabase ignores the passed in size parameter.
     // If that changes we'll need to rethink how this API is exposed.
     return m_iconDatabaseImpl->synchronousIconForPageURL(pageURL, WebCore::IntSize(32, 32));
 }
 
+void WebIconDatabase::removeAllIcons()
+{
+    m_iconDatabaseImpl->removeAllIcons();   
+}
+
+void WebIconDatabase::checkIntegrityBeforeOpening()
+{
+    IconDatabase::checkIntegrityBeforeOpening();
+}
+
+void WebIconDatabase::close()
+{
+    m_iconDatabaseImpl->close();
+}
+
+void WebIconDatabase::initializeIconDatabaseClient(const WKIconDatabaseClient* client)
+{
+    m_iconDatabaseClient.initialize(client);
+}
 
 // WebCore::IconDatabaseClient
 bool WebIconDatabase::performImport()
@@ -195,24 +211,24 @@ bool WebIconDatabase::performImport()
     return true;
 }
 
-void WebIconDatabase::didImportIconURLForPageURL(const String&)
+void WebIconDatabase::didImportIconURLForPageURL(const String& pageURL)
 {
-    // Send a WK2 client notification out here.
+    didChangeIconForPageURL(pageURL);
 }
 
-void WebIconDatabase::didImportIconDataForPageURL(const String&)
+void WebIconDatabase::didImportIconDataForPageURL(const String& pageURL)
 {
-    // Send a WK2 client notification out here.
+    didChangeIconForPageURL(pageURL);
 }
 
-void WebIconDatabase::didChangeIconForPageURL(const String&)
+void WebIconDatabase::didChangeIconForPageURL(const String& pageURL)
 {
-    // Send a WK2 client notification out here.
+    m_iconDatabaseClient.didChangeIconForPageURL(this, WebURL::create(pageURL).get());
 }
 
 void WebIconDatabase::didRemoveAllIcons()
 {
-    // Send a WK2 client notification out here.
+    m_iconDatabaseClient.didRemoveAllIcons(this);
 }
 
 void WebIconDatabase::didFinishURLImport()
@@ -234,7 +250,8 @@ void WebIconDatabase::didFinishURLImport()
         // Decisions should never be unknown after the inital import is complete
         ASSERT(decision != IconLoadUnknown);
 
-        m_webContext->process()->send(Messages::WebIconDatabaseProxy::ReceivedIconLoadDecision(static_cast<int>(decision), i->first), 0);
+        // FIXME (Multi-WebProcess): We need to know which connection to send this message to.
+        m_webContext->sendToAllProcesses(Messages::WebIconDatabaseProxy::ReceivedIconLoadDecision(static_cast<int>(decision), i->first));
     }
     
     m_pendingLoadDecisionURLMap.clear();

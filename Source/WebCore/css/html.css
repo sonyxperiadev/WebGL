@@ -446,12 +446,16 @@ input::-webkit-input-list-button {
 input::-webkit-inner-spin-button {
     -webkit-appearance: inner-spin-button;
     display: inline-block;
+    position: relative;
+    cursor: default;
     -webkit-user-select: none;
 }
 
 input::-webkit-outer-spin-button {
     -webkit-appearance: outer-spin-button;
     display: inline-block;
+    position: relative;
+    cursor: default;
     margin-left: 2px;
     -webkit-user-select: none;
 }
@@ -673,70 +677,59 @@ output {
 
 meter {
     -webkit-appearance: meter;
-    display: inline-block;
+    -webkit-box-sizing: border-box;
+    display: inline-box;
     height: 1em;
     width: 5em;
     vertical-align: -0.2em;
 }
 
-meter::-webkit-meter {
-    -webkit-appearance: meter;
-}
-
-meter::-webkit-meter-horizontal-bar {
-    -webkit-appearance: meter;
+meter::-webkit-meter-bar {
     background: -webkit-gradient(linear, left top, left bottom, from(#ddd), to(#ddd), color-stop(0.20, #eee), color-stop(0.45, #ccc), color-stop(0.55, #ccc));
+    height: 100%;
+    -webkit-box-sizing: border-box;
 }
 
-meter::-webkit-meter-vertical-bar {
-    -webkit-appearance: meter;
-    background: -webkit-gradient(linear, left top, right top, from(#ddd), to(#ddd), color-stop(0.20, #eee), color-stop(0.45, #ccc), color-stop(0.55, #ccc));
-}
-
-meter::-webkit-meter-horizontal-optimum-value {
-    -webkit-appearance: meter;
+meter::-webkit-meter-optimum-value {
     background: -webkit-gradient(linear, left top, left bottom, from(#ad7), to(#ad7), color-stop(0.20, #cea), color-stop(0.45, #7a3), color-stop(0.55, #7a3));
+    height: 100%;
+    -webkit-box-sizing: border-box;
 }
 
-meter::-webkit-meter-horizontal-suboptimal-value {
-    -webkit-appearance: meter;
+meter::-webkit-meter-suboptimum-value {
     background: -webkit-gradient(linear, left top, left bottom, from(#fe7), to(#fe7), color-stop(0.20, #ffc), color-stop(0.45, #db3), color-stop(0.55, #db3));
+    height: 100%;
+    -webkit-box-sizing: border-box;
 }
 
-meter::-webkit-meter-horizontal-even-less-good-value {
-    -webkit-appearance: meter;
+meter::-webkit-meter-even-less-good-value {
     background: -webkit-gradient(linear, left top, left bottom, from(#f77), to(#f77), color-stop(0.20, #fcc), color-stop(0.45, #d44), color-stop(0.55, #d44));
-}
-
-meter::-webkit-meter-vertical-optimum-value {
-    -webkit-appearance: meter;
-    background: -webkit-gradient(linear, left top, right top, from(#ad7), to(#ad7), color-stop(0.20, #cea), color-stop(0.45, #7a3), color-stop(0.55, #7a3));
-}
-
-meter::-webkit-meter-vertical-suboptimal-value {
-    -webkit-appearance: meter;
-    background: -webkit-gradient(linear, left top, right top, from(#fe7), to(#fe7), color-stop(0.20, #ffc), color-stop(0.45, #db3), color-stop(0.55, #db3));
-}
- 
-meter::-webkit-meter-vertical-even-less-good-value {
-    -webkit-appearance: meter;
-    background: -webkit-gradient(linear, left top, right top, from(#f77), to(#f77), color-stop(0.20, #fcc), color-stop(0.45, #d44), color-stop(0.55, #d44));
+    height: 100%;
+    -webkit-box-sizing: border-box;
 }
 
 /* progress */
 
 progress {
     -webkit-appearance: progress-bar;
+    -webkit-box-sizing: border-box;
     display: inline-block;
     height: 1em;
     width: 10em;
     vertical-align: -0.2em;
-    background-color: gray;
 }
 
-progress::-webkit-progress-bar-value {
-    -webkit-appearance: progress-bar;
+progress::-webkit-progress-bar {
+    background-color: gray;
+    height: 100%;
+    -webkit-box-sizing: border-box;
+}
+
+progress::-webkit-progress-value {
     background-color: green;
+    height: 100%;
+    width: 50%; /* should be removed later */
+    -webkit-box-sizing: border-box;
 }
 
 /* datagrid */
@@ -892,6 +885,13 @@ details {
 
 summary {
     display: block
+}
+
+summary::-webkit-details-marker {
+    display: inline-block;
+    width: 0.66em;
+    height: 0.66em;
+    margin-right: 0.4em;
 }
 
 /* page */

@@ -139,6 +139,9 @@ WKPageRef TestController::createOtherPage(WKPageRef oldPage, WKDictionaryRef, WK
         createOtherPage,
         0, // showPage
         closeOtherPage,
+        0, // takeFocus
+        0, // focus
+        0, // unfocus
         0, // runJavaScriptAlert        
         0, // runJavaScriptConfirm
         0, // runJavaScriptPrompt
@@ -273,6 +276,9 @@ void TestController::initialize(int argc, const char* argv[])
         createOtherPage,
         0, // showPage
         0, // close
+        0, // takeFocus
+        0, // focus
+        0, // unfocus
         0, // runJavaScriptAlert        
         0, // runJavaScriptConfirm
         0, // runJavaScriptPrompt
@@ -358,6 +364,9 @@ bool TestController::resetStateToConsistentValues()
     WKPreferencesSetDOMPasteAllowed(preferences, true);
     WKPreferencesSetUniversalAccessFromFileURLsAllowed(preferences, true);
     WKPreferencesSetFileAccessFromFileURLsAllowed(preferences, true);
+#if ENABLE(FULLSCREEN_API)
+    WKPreferencesSetFullScreenEnabled(preferences, true);
+#endif
 
     static WKStringRef standardFontFamily = WKStringCreateWithUTF8CString("Times");
     static WKStringRef cursiveFontFamily = WKStringCreateWithUTF8CString("Apple Chancery");

@@ -34,7 +34,7 @@
 
 #if PLATFORM(CHROMIUM) || PLATFORM(QT)
 #define DefaultInterpolationQuality InterpolationMedium
-#elif PLATFORM(CG)
+#elif USE(CG)
 #define DefaultInterpolationQuality InterpolationLow
 #else
 #define DefaultInterpolationQuality InterpolationDefault
@@ -149,10 +149,6 @@ private:
 
     virtual void parseMappedAttribute(Attribute*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-
-    virtual void attach();
-
-    virtual void recalcStyle(StyleChange);
 
     void reset();
 

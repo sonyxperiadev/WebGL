@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
- * Copyright (C) 2009-2011 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -111,8 +111,8 @@ public:
     void reset();
 
     // Methods called from the frontend for DOM nodes inspection.
-    void querySelector(ErrorString*, int nodeId, const String& selectors, bool documentWide, int* elementId);
-    void querySelectorAll(ErrorString*, int nodeId, const String& selectors, bool documentWide, RefPtr<InspectorArray>* result);
+    void querySelector(ErrorString*, int nodeId, const String& selectors, int* elementId);
+    void querySelectorAll(ErrorString*, int nodeId, const String& selectors, RefPtr<InspectorArray>* result);
     void getDocument(ErrorString*, RefPtr<InspectorObject>* root);
     void getChildNodes(ErrorString*, int nodeId);
     void setAttribute(ErrorString*, int elementId, const String& name, const String& value);
@@ -123,10 +123,10 @@ public:
     void setOuterHTML(ErrorString*, int nodeId, const String& outerHTML, int* newId);
     void setNodeValue(ErrorString*, int nodeId, const String& value);
     void getEventListenersForNode(ErrorString*, int nodeId, RefPtr<InspectorArray>* listenersArray);
-    void performSearch(ErrorString*, const String& whitespaceTrimmedQuery, bool runSynchronously);
+    void performSearch(ErrorString*, const String& whitespaceTrimmedQuery, const bool* const runSynchronously);
     void cancelSearch(ErrorString*);
     void resolveNode(ErrorString*, int nodeId, RefPtr<InspectorObject>* result);
-    void setSearchingForNode(ErrorString*, bool enabled, bool* newState);
+    void setSearchingForNode(ErrorString*, bool enabled);
     void pushNodeToFrontend(ErrorString*, const String& objectId, int* nodeId);
     void pushNodeByPathToFrontend(ErrorString*, const String& path, int* nodeId);
     void hideHighlight(ErrorString*);
@@ -134,6 +134,7 @@ public:
     void hideDOMNodeHighlight(ErrorString* error) { hideHighlight(error); }
     void highlightFrame(ErrorString*, const String& frameId);
     void hideFrameHighlight(ErrorString* error) { hideHighlight(error); }
+    Node* highlightedNode() const { return m_highlightedNode.get(); }
 
     // Methods called from the InspectorInstrumentation.
     void setDocument(Document*);
@@ -186,7 +187,6 @@ private:
     Node* assertNode(ErrorString*, int nodeId);
     Element* assertElement(ErrorString*, int nodeId);
     HTMLElement* assertHTMLElement(ErrorString*, int nodeId);
-    Node* nodeToSelectOn(ErrorString*, int nodeId, bool documentWide);
 
     int pushNodePathToFrontend(Node*);
     void pushChildNodesToFrontend(int nodeId);

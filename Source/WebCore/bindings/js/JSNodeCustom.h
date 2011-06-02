@@ -31,16 +31,45 @@
 
 namespace WebCore {
 
-inline JSNode* getCachedDOMNodeWrapper(JSC::ExecState* exec, Document* document, Node* node)
-{
-    if (currentWorld(exec)->isNormal()) {
-        ASSERT(node->wrapper() == (document ? document->getWrapperCache(currentWorld(exec))->get(node) : domObjectWrapperMapFor(exec).get(node)));
-        return static_cast<JSNode*>(node->wrapper());
-    }
+class JSNodeOwner : public JSC::WeakHandleOwner {
+    virtual bool isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, JSC::MarkStack&);
+    virtual void finalize(JSC::Handle<JSC::Unknown>, void* context);
+};
 
-    if (document)
-        return document->getWrapperCache(currentWorld(exec))->get(node);
-    return static_cast<JSNode*>(domObjectWrapperMapFor(exec).get(node));
+inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld*, Node*)
+{
+    DEFINE_STATIC_LOCAL(JSNodeOwner, jsNodeOwner, ());
+    return &jsNodeOwner;
+}
+
+inline void* wrapperContext(DOMWrapperWorld* world, Node*)
+{
+    return world;
+}
+
+inline JSDOMWrapper* getInlineCachedWrapper(DOMWrapperWorld* world, Node* node)
+{
+    if (!world->isNormal())
+        return 0;
+    return node->wrapper();
+}
+
+inline bool setInlineCachedWrapper(DOMWrapperWorld* world, Node* node, JSDOMWrapper* wrapper)
+{
+    if (!world->isNormal())
+        return false;
+    ASSERT(!node->wrapper());
+    node->setWrapper(*world->globalData(), wrapper, wrapperOwner(world, node), wrapperContext(world, node));
+    return true;
+}
+
+inline bool clearInlineCachedWrapper(DOMWrapperWorld* world, Node* node, JSDOMWrapper* wrapper)
+{
+    if (!world->isNormal())
+        return false;
+    ASSERT_UNUSED(wrapper, node->wrapper() == wrapper);
+    node->clearWrapper();
+    return true;
 }
 
 JSC::JSValue createWrapper(JSC::ExecState*, JSDOMGlobalObject*, Node*);
@@ -50,11 +79,21 @@ inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, 
     if (!node)
         return JSC::jsNull();
 
-    JSNode* wrapper = getCachedDOMNodeWrapper(exec, node->document(), node);
+    JSNode* wrapper = static_cast<JSNode*>(getCachedWrapper(currentWorld(exec), node));
     if (wrapper)
         return wrapper;
 
     return createWrapper(exec, globalObject, node);
+}
+
+static inline Node* root(Node* node)
+{
+    if (node->inDocument())
+        return node->document();
+
+    while (node->parentNode())
+        node = node->parentNode();
+    return node;
 }
 
 }

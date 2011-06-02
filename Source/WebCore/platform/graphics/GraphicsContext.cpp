@@ -148,7 +148,7 @@ void GraphicsContext::setLegacyShadow(const FloatSize& offset, float blur, const
     m_state.shadowBlur = blur;
     m_state.shadowColor = color;
     m_state.shadowColorSpace = colorSpace;
-#if PLATFORM(CG)
+#if USE(CG)
     m_state.shadowsUseLegacyRadius = true;
 #endif
     setPlatformShadow(offset, blur, color, colorSpace);
@@ -397,7 +397,11 @@ void GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const F
     if (paintingDisabled())
         return;
 
+    // FIXME: This ownership should be reversed. We should pass BidiRunList
+    // to BidiResolver in createBidiRunsForLine.
     BidiResolver<TextRunIterator, BidiCharacterRun> bidiResolver;
+    BidiRunList<BidiCharacterRun>& bidiRuns = bidiResolver.runs();
+
     WTF::Unicode::Direction paragraphDirection = run.ltr() ? WTF::Unicode::LeftToRight : WTF::Unicode::RightToLeft;
 
     bidiResolver.setStatus(BidiStatus(paragraphDirection, paragraphDirection, paragraphDirection, BidiContext::create(run.ltr() ? 0 : 1, paragraphDirection, run.directionalOverride())));
@@ -405,11 +409,11 @@ void GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const F
     bidiResolver.setPosition(TextRunIterator(&run, 0));
     bidiResolver.createBidiRunsForLine(TextRunIterator(&run, run.length()));
 
-    if (!bidiResolver.runCount())
+    if (!bidiRuns.runCount())
         return;
 
     FloatPoint currPoint = point;
-    BidiCharacterRun* bidiRun = bidiResolver.firstRun();
+    BidiCharacterRun* bidiRun = bidiRuns.firstRun();
     while (bidiRun) {
 
         TextRun subrun = run;
@@ -425,7 +429,7 @@ void GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const F
             currPoint.move(font.width(subrun), 0);
     }
 
-    bidiResolver.deleteRuns();
+    bidiRuns.deleteRuns();
 }
 
 void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run, const FloatPoint& point, int h, const Color& backgroundColor, ColorSpace colorSpace, int from, int to)
@@ -563,7 +567,7 @@ void GraphicsContext::addRoundedRectClip(const RoundedIntRect& rect)
         return;
 
     Path path;
-    path.addRoundedRect(rect.rect(), rect.radii().topLeft(), rect.radii().topRight(), rect.radii().bottomLeft(), rect.radii().bottomRight());
+    path.addRoundedRect(rect);
     clip(path);
 }
 
@@ -573,7 +577,7 @@ void GraphicsContext::clipOutRoundedRect(const RoundedIntRect& rect)
         return;
 
     Path path;
-    path.addRoundedRect(rect.rect(), rect.radii().topLeft(), rect.radii().topRight(), rect.radii().bottomLeft(), rect.radii().bottomRight());
+    path.addRoundedRect(rect);
     clipOut(path);
 }
 
@@ -584,7 +588,7 @@ void GraphicsContext::clipToImageBuffer(ImageBuffer* buffer, const FloatRect& re
     buffer->clip(this, rect);
 }
 
-#if !PLATFORM(CG)
+#if !USE(CG)
 IntRect GraphicsContext::clipBounds() const
 {
     ASSERT_NOT_REACHED();
@@ -617,7 +621,7 @@ void GraphicsContext::fillRoundedRect(const RoundedIntRect& rect, const Color& c
     fillRoundedRect(rect.rect(), rect.radii().topLeft(), rect.radii().topRight(), rect.radii().bottomLeft(), rect.radii().bottomRight(), color, colorSpace);
 }
 
-#if !PLATFORM(CG)
+#if !USE(CG)
 void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const RoundedIntRect& roundedHoleRect, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
@@ -627,7 +631,7 @@ void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const Rounded
     path.addRect(rect);
 
     if (!roundedHoleRect.radii().isZero())
-        path.addRoundedRect(roundedHoleRect.rect(), roundedHoleRect.radii().topLeft(), roundedHoleRect.radii().topRight(), roundedHoleRect.radii().bottomLeft(), roundedHoleRect.radii().bottomRight());
+        path.addRoundedRect(roundedHoleRect);
     else
         path.addRect(roundedHoleRect.rect());
 
@@ -674,7 +678,11 @@ void GraphicsContext::setPlatformStrokePattern(Pattern*)
 }
 #endif
 
+<<<<<<< HEAD
 #if !PLATFORM(CG) && !(USE(SKIA) && !PLATFORM(ANDROID))
+=======
+#if !USE(CG) && !USE(SKIA)
+>>>>>>> WebKit.org at r84325
 // Implement this if you want to go ahead and push the drawing mode into your native context
 // immediately.
 void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
@@ -682,13 +690,17 @@ void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
 }
 #endif
 
+<<<<<<< HEAD
 #if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(USE(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
+=======
+#if !PLATFORM(QT) && !USE(CAIRO) && !USE(SKIA) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
+>>>>>>> WebKit.org at r84325
 void GraphicsContext::setPlatformStrokeStyle(StrokeStyle)
 {
 }
 #endif
 
-#if !PLATFORM(CG)
+#if !USE(CG)
 void GraphicsContext::setPlatformShouldSmoothFonts(bool)
 {
 }

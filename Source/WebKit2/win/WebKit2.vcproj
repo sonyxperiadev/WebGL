@@ -431,6 +431,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\Shared\EditorState.h"
+				>
+			</File>
+			<File
 				RelativePath="..\Shared\FontInfo.cpp"
 				>
 			</File>
@@ -483,6 +487,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\Shared\NativeWebMouseEvent.h"
+				>
+			</File>
+			<File
 				RelativePath="..\Shared\OriginAndDatabases.cpp"
 				>
 			</File>
@@ -520,10 +528,6 @@
 			</File>
 			<File
 				RelativePath="..\Shared\SecurityOriginData.h"
-				>
-			</File>
-			<File
-				RelativePath="..\Shared\SelectionState.h"
 				>
 			</File>
 			<File
@@ -1145,10 +1149,6 @@
 					RelativePath="..\Shared\CoreIPCSupport\WebPageProxyMessageKinds.h"
 					>
 				</File>
-				<File
-					RelativePath="..\Shared\CoreIPCSupport\WebProcessProxyMessageKinds.h"
-					>
-				</File>
 			</Filter>
 			<Filter
 				Name="cf"
@@ -1192,6 +1192,64 @@
 				<File
 					RelativePath="..\Shared\win\NativeWebKeyboardEventWin.cpp"
 					>
+				</File>
+				<File
+					RelativePath="..\Shared\win\NativeWebMouseEventWin.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\$(InputName)1.obj"
+							XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\$(InputName)1.obj"
+							XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo_CFLite|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\$(InputName)1.obj"
+							XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo_CFLite|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\$(InputName)1.obj"
+							XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\$(InputName)1.obj"
+							XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Production|Win32"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)\$(InputName)1.obj"
+							XMLDocumentationFileName="$(IntDir)\$(InputName)1.xdc"
+						/>
+					</FileConfiguration>
 				</File>
 				<File
 					RelativePath="..\Shared\win\PlatformCertificateInfo.cpp"
@@ -1905,6 +1963,10 @@
 						>
 					</File>
 					<File
+						RelativePath="..\WebProcess\WebPage\win\LayerTreeHostWin.cpp"
+						>
+					</File>
+					<File
 						RelativePath="..\WebProcess\WebPage\win\WebInspectorWin.cpp"
 						>
 					</File>
@@ -1962,6 +2024,10 @@
 									Name="VCCLCompilerTool"
 								/>
 							</FileConfiguration>
+						</File>
+						<File
+							RelativePath="..\WebProcess\WebPage\ca\win\LayerTreeHostCAWin.h"
+							>
 						</File>
 					</Filter>
 				</Filter>
@@ -2767,6 +2833,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\UIProcess\WebIconDatabaseClient.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebIconDatabaseClient.h"
+				>
+			</File>
+			<File
 				RelativePath="..\UIProcess\WebInspectorProxy.cpp"
 				>
 			</File>
@@ -3236,6 +3310,22 @@
 							>
 						</File>
 						<File
+							RelativePath="..\UIProcess\API\C\win\WKGrammarDetail.cpp"
+							>
+						</File>
+						<File
+							RelativePath="..\UIProcess\API\C\win\WKGrammarDetail.h"
+							>
+						</File>
+						<File
+							RelativePath="..\UIProcess\API\C\win\WKTextChecker.cpp"
+							>
+						</File>
+						<File
+							RelativePath="..\UIProcess\API\C\win\WKTextChecker.h"
+							>
+						</File>
+						<File
 							RelativePath="..\UIProcess\API\C\win\WKView.cpp"
 							>
 						</File>
@@ -3390,6 +3480,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\UIProcess\win\WebGrammarDetail.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\win\WebGrammarDetail.h"
+					>
+				</File>
+				<File
 					RelativePath="..\UIProcess\win\WebInspectorProxyWin.cpp"
 					>
 				</File>
@@ -3403,6 +3501,26 @@
 				</File>
 				<File
 					RelativePath="..\UIProcess\win\WebPopupMenuProxyWin.h"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\win\WebProcessProxyWin.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\win\WebTextChecker.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\win\WebTextChecker.h"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\win\WebTextCheckerClient.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\win\WebTextCheckerClient.h"
 					>
 				</File>
 				<File

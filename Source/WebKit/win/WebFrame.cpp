@@ -30,7 +30,6 @@
 
 #include "CFDictionaryPropertyBag.h"
 #include "COMPropertyBag.h"
-#include "COMPtr.h"
 #include "DOMCoreClasses.h"
 #include "DefaultPolicyDelegate.h"
 #include "HTMLFrameOwnerElement.h"
@@ -54,6 +53,7 @@
 #include "WebURLResponse.h"
 #include "WebView.h"
 #include <WebCore/BString.h>
+#include <WebCore/COMPtr.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
@@ -104,14 +104,14 @@
 #include <JavaScriptCore/JSValue.h>
 #include <wtf/MathExtras.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CoreGraphics.h>
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 #include "PlatformContextCairo.h"
 #include <cairo-win32.h>
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG)
 // CG SPI used for printing
 extern "C" {
     CGAffineTransform CGContextGetBaseCTM(CGContextRef c); 
@@ -2113,7 +2113,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::getPrintedPageCount(
     return S_OK;
 }
 
-#if PLATFORM(CG)
+#if USE(CG)
 void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
 {
     int x = pageRect.x();
@@ -2167,7 +2167,7 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
     CGContextEndPage(pctx);
     CGContextRestoreGState(pctx);
 }
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 static float scaleFactor(HDC printDC, const IntRect& marginRect, const IntRect& pageRect)
 {
     const IntRect& printRect = printerRect(printDC);
@@ -2320,12 +2320,12 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     /* [in] */ UINT endPage,
     /* [retval][out] */ void* ctx)
 {
-#if PLATFORM(CG)
+#if USE(CG)
     if (!printDC || !ctx) {
         ASSERT_NOT_REACHED();
         return E_POINTER;
     }
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
     if (!printDC) {
         ASSERT_NOT_REACHED();
         return E_POINTER;
@@ -2369,7 +2369,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
         return E_FAIL;
 
     UINT pageCount = (UINT) m_pageRects.size();
-#if PLATFORM(CG)
+#if USE(CG)
     PlatformGraphicsContext* pctx = (PlatformGraphicsContext*)ctx;
 #endif
 
@@ -2396,7 +2396,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     for (UINT ii = startPage; ii < endPage; ii++)
         spoolPage(pctx, &spoolCtx, printDC, ui.get(), headerHeight, footerHeight, ii, pageCount);
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
     cairo_surface_finish(printSurface);
     ASSERT(!cairo_surface_status(printSurface));
     cairo_surface_destroy(printSurface);

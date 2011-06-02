@@ -37,11 +37,13 @@
 #include "WKPage.h"
 #include "WKPreferencesPrivate.h"
 #include "WKProtectionSpaceTypes.h"
+#include "WKResourceCacheManager.h"
 #include "WKSharedAPICast.h"
 #include <WebCore/CookieJar.h>
 #include <WebCore/Credential.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/ProtectionSpace.h>
+#include <WebCore/Settings.h>
 
 namespace WebKit {
 
@@ -182,6 +184,44 @@ inline WKFontSmoothingLevel toAPI(FontSmoothingLevel level)
     return kWKFontSmoothingLevelMedium;
 }
 
+inline WKEditableLinkBehavior toAPI(WebCore::EditableLinkBehavior behavior)
+{
+    switch (behavior) {
+    case WebCore::EditableLinkDefaultBehavior:
+        return kWKEditableLinkBehaviorDefault;
+    case WebCore::EditableLinkAlwaysLive:
+        return kWKEditableLinkBehaviorAlwaysLive;
+    case WebCore::EditableLinkOnlyLiveWithShiftKey:
+        return kWKEditableLinkBehaviorOnlyLiveWithShiftKey;
+    case WebCore::EditableLinkLiveWhenNotFocused:
+        return kWKEditableLinkBehaviorLiveWhenNotFocused;
+    case WebCore::EditableLinkNeverLive:
+        return kWKEditableLinkBehaviorNeverLive;
+    }
+    
+    ASSERT_NOT_REACHED();
+    return kWKEditableLinkBehaviorNeverLive;
+}
+
+inline WebCore::EditableLinkBehavior toEditableLinkBehavior(WKEditableLinkBehavior wkBehavior)
+{
+    switch (wkBehavior) {
+    case kWKEditableLinkBehaviorDefault:
+        return WebCore::EditableLinkDefaultBehavior;
+    case kWKEditableLinkBehaviorAlwaysLive:
+        return WebCore::EditableLinkAlwaysLive;
+    case kWKEditableLinkBehaviorOnlyLiveWithShiftKey:
+        return WebCore::EditableLinkOnlyLiveWithShiftKey;
+    case kWKEditableLinkBehaviorLiveWhenNotFocused:
+        return WebCore::EditableLinkLiveWhenNotFocused;
+    case kWKEditableLinkBehaviorNeverLive:
+        return WebCore::EditableLinkNeverLive;
+    }
+    
+    ASSERT_NOT_REACHED();
+    return WebCore::EditableLinkNeverLive;
+}
+    
 inline WKProtectionSpaceServerType toAPI(WebCore::ProtectionSpaceServerType type)
 {
     switch (type) {
@@ -246,9 +286,9 @@ inline WebCore::CredentialPersistence toCredentialPersistence(WKCredentialPersis
 inline ResourceCachesToClear toResourceCachesToClear(WKResourceCachesToClear wkResourceCachesToClear)
 {
     switch (wkResourceCachesToClear) {
-    case kWKAllResourceCaches:
+    case WKResourceCachesToClearAll:
         return AllResourceCaches;
-    case kWKInMemoryResourceCachesOnly:
+    case WKResourceCachesToClearInMemoryOnly:
         return InMemoryResourceCachesOnly;
     }
 

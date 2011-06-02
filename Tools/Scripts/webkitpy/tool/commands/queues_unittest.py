@@ -253,6 +253,7 @@ MOCK: release_work_item: commit-queue 197
 
     def test_rollout(self):
         tool = MockTool(log_executive=True)
+        tool.filesystem.write_text_file('/mock/results.html', '')  # Otherwise the commit-queue will hit a KeyError trying to read the results from the MockFileSystem.
         tool.buildbot.light_tree_on_fire()
         expected_stderr = {
             "begin_work_queue": self._default_begin_work_queue_stderr("commit-queue", MockSCM.fake_checkout_root),
@@ -321,6 +322,7 @@ MOCK: release_work_item: commit-queue 106
     def test_manual_reject_during_processing(self):
         queue = SecondThoughtsCommitQueue()
         queue.bind_to_tool(MockTool())
+        queue._tool.filesystem.write_text_file('/mock/results.html', '')  # Otherwise the commit-queue will hit a KeyError trying to read the results from the MockFileSystem.
         queue._options = Mock()
         queue._options.port = None
         expected_stderr = """MOCK: update_status: commit-queue Cleaned working directory
@@ -376,6 +378,17 @@ The commit-queue is continuing to process your patch.
 
         OutputCapture().assert_outputs(self, queue.report_flaky_tests, [QueuesTest.mock_work_item, test_results, MockZipFile()], expected_stderr=expected_stderr)
 
+    def test_missing_layout_test_results(self):
+        queue = CommitQueue()
+        tool = MockTool()
+        results_path = '/mock/results.html'
+        tool.filesystem = MockFileSystem({results_path: None})
+        queue.bind_to_tool(tool)
+        # Make sure that our filesystem mock functions as we expect.
+        self.assertRaises(IOError, tool.filesystem.read_text_file, results_path)
+        # layout_test_results shouldn't raise even if the results.html file is missing.
+        self.assertEquals(queue.layout_test_results(), None)
+
     def test_layout_test_results(self):
         queue = CommitQueue()
         queue.bind_to_tool(MockTool())
@@ -383,12 +396,29 @@ The commit-queue is continuing to process your patch.
         self.assertEquals(queue.layout_test_results(), None)
         queue._read_file_contents = lambda path: ""
         self.assertEquals(queue.layout_test_results(), None)
+        queue._create_layout_test_results = lambda: LayoutTestResults([])
+        results = queue.layout_test_results()
+        self.assertNotEquals(results, None)
+        self.assertEquals(results.failure_limit_count(), 10)  # This value matches RunTests.NON_INTERACTIVE_FAILURE_LIMIT_COUNT
 
     def test_archive_last_layout_test_results(self):
         queue = CommitQueue()
         queue.bind_to_tool(MockTool())
         patch = queue._tool.bugs.fetch_attachment(128)
+        # This is just to test that the method doesn't raise.
         queue.archive_last_layout_test_results(patch)
+
+    def test_upload_results_archive_for_patch(self):
+        queue = CommitQueue()
+        queue.bind_to_tool(MockTool())
+        patch = queue._tool.bugs.fetch_attachment(128)
+        expected_stderr = """MOCK add_attachment_to_bug: bug_id=42, description=Archive of layout-test-results from bot filename=layout-test-results.zip
+-- Begin comment --
+The attached test failures were seen while running run-webkit-tests on the commit-queue.
+Port: MockPort  Platform: MockPlatform 1.0
+-- End comment --
+"""
+        OutputCapture().assert_outputs(self, queue._upload_results_archive_for_patch, [patch, Mock()], expected_stderr=expected_stderr)
 
 
 class StyleQueueTest(QueuesTest):

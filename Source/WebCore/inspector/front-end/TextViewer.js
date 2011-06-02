@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,12 +29,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.TextViewer = function(textModel, platform, url)
+WebInspector.TextViewer = function(textModel, platform, url, delegate)
 {
+    WebInspector.View.call(this);
+
     this._textModel = textModel;
     this._textModel.changeListener = this._textChanged.bind(this);
+    this._textModel.resetUndoStack();
+    this._delegate = delegate;
 
-    this.element = document.createElement("div");
     this.element.className = "text-editor monospace";
 
     var enterTextChangeMode = this._enterInternalTextChangeMode.bind(this);
@@ -49,7 +52,12 @@ WebInspector.TextViewer = function(textModel, platform, url)
     // Forward mouse wheel events from the unscrollable gutter to the main panel.
     this._gutterPanel.element.addEventListener("mousewheel", function(e) {
         this._mainPanel.element.dispatchEvent(e);
-    }.bind(this), false)
+    }.bind(this), false);
+
+    this.element.addEventListener("dblclick", this._doubleClick.bind(this), true);
+    this.element.addEventListener("keydown", this._handleKeyDown.bind(this), false);
+
+    this._registerShortcuts();
 }
 
 WebInspector.TextViewer.prototype = {
@@ -60,22 +68,15 @@ WebInspector.TextViewer.prototype = {
 
     set readOnly(readOnly)
     {
+        if (this._mainPanel.readOnly === readOnly)
+            return;
         this._mainPanel.readOnly = readOnly;
+        this._delegate.readOnlyStateChanged(readOnly);
     },
 
     get readOnly()
     {
         return this._mainPanel.readOnly;
-    },
-
-    set startEditingListener(startEditingListener)
-    {
-        this._startEditingListener = startEditingListener;
-    },
-
-    set endEditingListener(endEditingListener)
-    {
-        this._endEditingListener = endEditingListener;
     },
 
     get textModel()
@@ -164,31 +165,23 @@ WebInspector.TextViewer.prototype = {
     // WebInspector.TextModel listener
     _textChanged: function(oldRange, newRange, oldText, newText)
     {
-        if (!this._internalTextChangeMode) {
-            this._mainPanel.textChanged(oldRange, newRange);
-            this._gutterPanel.textChanged(oldRange, newRange);
-            this._updatePanelOffsets();
-        }
+        if (!this._internalTextChangeMode)
+            this._textModel.resetUndoStack();
+        this._mainPanel.textChanged(oldRange, newRange);
+        this._gutterPanel.textChanged(oldRange, newRange);
+        this._updatePanelOffsets();
     },
 
     _enterInternalTextChangeMode: function()
     {
         this._internalTextChangeMode = true;
-
-        if (this._startEditingListener)
-            this._startEditingListener();
+        this._delegate.startEditing();
     },
 
     _exitInternalTextChangeMode: function(oldRange, newRange)
     {
         this._internalTextChangeMode = false;
-
-        // Update the gutter panel.
-        this._gutterPanel.textChanged(oldRange, newRange);
-        this._updatePanelOffsets();
-
-        if (this._endEditingListener)
-            this._endEditingListener(oldRange, newRange);
+        this._delegate.endEditing(oldRange, newRange);
     },
 
     _updatePanelOffsets: function()
@@ -218,7 +211,7 @@ WebInspector.TextViewer.prototype = {
             return;
 
         var mainChunk = this._mainPanel.chunkForLine(lineNumber);
-        if (mainChunk.linesCount === 1) {
+        if (mainChunk.linesCount === 1 && mainChunk.decorated) {
             var gutterChunk = this._gutterPanel.makeLineAChunk(lineNumber);
             var height = mainChunk.height;
             if (height)
@@ -230,8 +223,124 @@ WebInspector.TextViewer.prototype = {
             if (gutterChunk.linesCount === 1)
                 gutterChunk.element.style.removeProperty("height");
         }
+    },
+
+    _doubleClick: function(event)
+    {
+        if (!this.readOnly || this._commitEditingInProgress)
+            return;
+
+        var lineRow = event.target.enclosingNodeOrSelfWithClass("webkit-line-content");
+        if (!lineRow)
+            return;  // Do not trigger editing from line numbers.
+
+        if (!this._delegate.isContentEditable())
+            return;
+
+        this.readOnly = false;
+        window.getSelection().collapseToStart();
+    },
+
+    _registerShortcuts: function()
+    {
+        var keys = WebInspector.KeyboardShortcut.Keys;
+        var modifiers = WebInspector.KeyboardShortcut.Modifiers;
+
+        this._shortcuts = {};
+        var commitEditing = this._commitEditing.bind(this);
+        var cancelEditing = this._cancelEditing.bind(this);
+        this._shortcuts[WebInspector.KeyboardShortcut.makeKey("s", modifiers.CtrlOrMeta)] = commitEditing;
+        this._shortcuts[WebInspector.KeyboardShortcut.makeKey(keys.Enter.code, modifiers.CtrlOrMeta)] = commitEditing;
+        this._shortcuts[WebInspector.KeyboardShortcut.makeKey(keys.Esc.code)] = cancelEditing;
+
+        var handleUndo = this._mainPanel.handleUndoRedo.bind(this._mainPanel, false);
+        var handleRedo = this._mainPanel.handleUndoRedo.bind(this._mainPanel, true);
+        this._shortcuts[WebInspector.KeyboardShortcut.makeKey("z", modifiers.CtrlOrMeta)] = handleUndo;
+        this._shortcuts[WebInspector.KeyboardShortcut.makeKey("z", modifiers.Shift | modifiers.CtrlOrMeta)] = handleRedo;
+
+        var handleTabKey = this._mainPanel.handleTabKeyPress.bind(this._mainPanel, false);
+        var handleShiftTabKey = this._mainPanel.handleTabKeyPress.bind(this._mainPanel, true);
+        this._shortcuts[WebInspector.KeyboardShortcut.makeKey(keys.Tab.code)] = handleTabKey;
+        this._shortcuts[WebInspector.KeyboardShortcut.makeKey(keys.Tab.code, modifiers.Shift)] = handleShiftTabKey;
+    },
+
+    _handleKeyDown: function(e)
+    {
+        var shortcutKey = WebInspector.KeyboardShortcut.makeKeyFromEvent(e);
+        var handler = this._shortcuts[shortcutKey];
+        if (handler && handler.call(this)) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    },
+
+    _commitEditing: function()
+    {
+        if (this.readOnly)
+            return false;
+
+        this.readOnly = true;
+        function didCommitEditing(error)
+        {
+            this._commitEditingInProgress = false;
+            if (error)
+                this.readOnly = false;
+        }
+        this._commitEditingInProgress = true;
+        this._delegate.commitEditing(didCommitEditing.bind(this));
+        return true;
+    },
+
+    _cancelEditing: function()
+    {
+        if (this.readOnly)
+            return false;
+
+        this.readOnly = true;
+        this._delegate.cancelEditing();
+        return true;
     }
 }
+
+WebInspector.TextViewer.prototype.__proto__ = WebInspector.View.prototype;
+
+WebInspector.TextViewerDelegate = function()
+{
+}
+
+WebInspector.TextViewerDelegate.prototype = {
+    isContentEditable: function()
+    {
+        // Should be implemented by subclasses.
+    },
+
+    readOnlyStateChanged: function(readOnly)
+    {
+        // Should be implemented by subclasses.
+    },
+
+    startEditing: function()
+    {
+        // Should be implemented by subclasses.
+    },
+
+    endEditing: function(oldRange, newRange)
+    {
+        // Should be implemented by subclasses.
+    },
+
+    commitEditing: function()
+    {
+        // Should be implemented by subclasses.
+    },
+
+    cancelEditing: function()
+    {
+        // Should be implemented by subclasses.
+    }
+}
+
+WebInspector.TextViewerDelegate.prototype.__proto__ = WebInspector.Object.prototype;
 
 WebInspector.TextEditorChunkedPanel = function(textModel)
 {
@@ -259,19 +368,20 @@ WebInspector.TextEditorChunkedPanel.prototype = {
 
     addDecoration: function(lineNumber, decoration)
     {
+        if (lineNumber >= this._textModel.linesCount)
+            return;
+
         var chunk = this.makeLineAChunk(lineNumber);
         chunk.addDecoration(decoration);
     },
 
     removeDecoration: function(lineNumber, decoration)
     {
-        var chunk = this.makeLineAChunk(lineNumber);
-        chunk.removeDecoration(decoration);
-    },
+        if (lineNumber >= this._textModel.linesCount)
+            return;
 
-    textChanged: function(oldRange, newRange)
-    {
-        this._buildChunks();
+        var chunk = this.chunkForLine(lineNumber);
+        chunk.removeDecoration(decoration);
     },
 
     _buildChunks: function()
@@ -294,16 +404,19 @@ WebInspector.TextEditorChunkedPanel.prototype = {
 
     makeLineAChunk: function(lineNumber)
     {
-        if (!this._textChunks)
-            this._buildChunks();
-
         var chunkNumber = this._chunkNumberForLine(lineNumber);
         var oldChunk = this._textChunks[chunkNumber];
         if (oldChunk.linesCount === 1)
             return oldChunk;
 
+        return this._splitChunkOnALine(lineNumber, chunkNumber);
+    },
+
+    _splitChunkOnALine: function(lineNumber, chunkNumber)
+    {
         this.beginDomUpdates();
 
+        var oldChunk = this._textChunks[chunkNumber];
         var wasExpanded = oldChunk.expanded;
         oldChunk.expanded = false;
 
@@ -447,9 +560,6 @@ WebInspector.TextEditorChunkedPanel.prototype = {
         if (this._paintCoalescingLevel || this._dirtyLines)
             return;
 
-        if (!this._textChunks)
-            this._buildChunks();
-
         var visibleFrom = this.element.scrollTop;
         var visibleTo = this.element.scrollTop + this.element.clientHeight;
 
@@ -526,10 +636,7 @@ WebInspector.TextEditorGutterPanel.prototype = {
 
     textChanged: function(oldRange, newRange)
     {
-        if (!this._textChunks) {
-            this._buildChunks();
-            return;
-        }
+        this.beginDomUpdates();
 
         var linesDiff = newRange.linesCount - oldRange.linesCount;
         if (linesDiff) {
@@ -565,6 +672,8 @@ WebInspector.TextEditorGutterPanel.prototype = {
                 chunk = this._textChunks[++chunkNumber];
             }
         }
+
+        this.endDomUpdates();
     },
 
     syncClientHeight: function(clientHeight)
@@ -744,6 +853,9 @@ WebInspector.TextEditorMainPanel.prototype = {
 
     set readOnly(readOnly)
     {
+        if (this._readOnly === readOnly)
+            return;
+
         this.beginDomUpdates();
         this._readOnly = readOnly;
         if (this._readOnly)
@@ -762,14 +874,25 @@ WebInspector.TextEditorMainPanel.prototype = {
     {
         if (this._rangeToMark) {
             var markedLine = this._rangeToMark.startLine;
-            this._rangeToMark = null;
-            this._paintLines(markedLine, markedLine + 1);
+            delete this._rangeToMark;
+            // Remove the marked region immediately.
+            if (!this._dirtyLines) {
+                this.beginDomUpdates();
+                var chunk = this.chunkForLine(markedLine);
+                var wasExpanded = chunk.expanded;
+                chunk.expanded = false;
+                chunk.updateCollapsedLineRow();
+                chunk.expanded = wasExpanded;
+                this.endDomUpdates();
+            } else
+                this._paintLines(markedLine, markedLine + 1);
         }
 
         if (range) {
             this._rangeToMark = range;
             this.revealLine(range.startLine);
-            this._paintLines(range.startLine, range.startLine + 1);
+            var chunk = this.makeLineAChunk(range.startLine);
+            this._paintLine(chunk.element);
             if (this._markedRangeElement)
                 this._markedRangeElement.scrollIntoViewIfNeeded();
         }
@@ -799,6 +922,65 @@ WebInspector.TextEditorMainPanel.prototype = {
         this._cachedRows = [];
     },
 
+    handleUndoRedo: function(redo)
+    {
+        if (this._readOnly || this._dirtyLines)
+            return false;
+
+        this.beginUpdates();
+        this._enterTextChangeMode();
+
+        var callback = function(oldRange, newRange) {
+            this._exitTextChangeMode(oldRange, newRange);
+            this._enterTextChangeMode();
+        }.bind(this);
+
+        var range = redo ? this._textModel.redo(callback) : this._textModel.undo(callback);
+        if (range)
+            this._setCaretLocation(range.endLine, range.endColumn, true);
+
+        this._exitTextChangeMode(null, null);
+        this.endUpdates();
+
+        return true;
+    },
+
+    handleTabKeyPress: function(shiftKey)
+    {
+        if (this._readOnly || this._dirtyLines)
+            return false;
+
+        var selection = this._getSelection();
+        if (!selection)
+            return false;
+
+        if (shiftKey)
+            return true;
+
+        this.beginUpdates();
+        this._enterTextChangeMode();
+
+        var range = selection;
+        if (range.startLine > range.endLine || (range.startLine === range.endLine && range.startColumn > range.endColumn))
+            range = new WebInspector.TextRange(range.endLine, range.endColumn, range.startLine, range.startColumn);
+
+        var newRange = this._setText(range, "\t");
+
+        this._exitTextChangeMode(range, newRange);
+        this.endUpdates();
+
+        this._setCaretLocation(newRange.endLine, newRange.endColumn, true);
+        return true;
+    },
+
+    _splitChunkOnALine: function(lineNumber, chunkNumber)
+    {
+        var selection = this._getSelection();
+        var chunk = WebInspector.TextEditorChunkedPanel.prototype._splitChunkOnALine.call(this, lineNumber, chunkNumber);
+        this._restoreSelection(selection);
+        return chunk;
+    },
+
     _buildChunks: function()
     {
         for (var i = 0; i < this._textModel.linesCount; ++i)
@@ -825,6 +1007,7 @@ WebInspector.TextEditorMainPanel.prototype = {
 
         this._restorePaintLinesOperationsCredit();
         WebInspector.TextEditorChunkedPanel.prototype._expandChunks.call(this, fromIndex, toIndex);
+        this._adjustPaintLinesOperationsRefreshValue();
 
         this._restoreSelection(selection);
     },
@@ -844,7 +1027,7 @@ WebInspector.TextEditorMainPanel.prototype = {
 
         if (!this._scheduledPaintLines) {
             this._scheduledPaintLines = [ { startLine: startLine, endLine: endLine } ];
-            this._paintScheduledLinesTimer = setTimeout(this._paintScheduledLines.bind(this), 10);
+            this._paintScheduledLinesTimer = setTimeout(this._paintScheduledLines.bind(this), 0);
         } else {
             for (var i = 0; i < this._scheduledPaintLines.length; ++i) {
                 var chunk = this._scheduledPaintLines[i];
@@ -879,14 +1062,31 @@ WebInspector.TextEditorMainPanel.prototype = {
 
         var scheduledPaintLines = this._scheduledPaintLines;
         delete this._scheduledPaintLines;
-        
+
         this._restorePaintLinesOperationsCredit();
         this._paintLineChunks(scheduledPaintLines, !skipRestoreSelection);
+        this._adjustPaintLinesOperationsRefreshValue();
     },
 
     _restorePaintLinesOperationsCredit: function()
     {
-        this._paintLinesOperationsCredit = 250;
+        if (!this._paintLinesOperationsRefreshValue)
+            this._paintLinesOperationsRefreshValue = 250;
+        this._paintLinesOperationsCredit = this._paintLinesOperationsRefreshValue;
+        this._paintLinesOperationsLastRefresh = Date.now();
+    },
+
+    _adjustPaintLinesOperationsRefreshValue: function()
+    {
+        var operationsDone = this._paintLinesOperationsRefreshValue - this._paintLinesOperationsCredit;
+        if (operationsDone <= 0)
+            return;
+        var timePast = Date.now() - this._paintLinesOperationsLastRefresh;
+        if (timePast <= 0)
+            return;
+        // Make the synchronous CPU chunk for painting the lines 50 msec.
+        var value = Math.floor(operationsDone / timePast * 50);
+        this._paintLinesOperationsRefreshValue = Number.constrain(value, 150, 1500);
     },
 
     _paintLines: function(fromLine, toLine, restoreSelection)
@@ -943,19 +1143,21 @@ WebInspector.TextEditorMainPanel.prototype = {
     _paintLine: function(lineRow)
     {
         var lineNumber = lineRow.lineNumber;
-        if (this._dirtyLines || this._scheduledPaintLines || this._paintLinesOperationsCredit < 0) {
+        if (this._dirtyLines) {
             this._schedulePaintLines(lineNumber, lineNumber + 1);
             return;
         }
 
         this.beginDomUpdates();
         try {
-            var highlight = this._textModel.getAttribute(lineNumber, "highlight");
-            if (!highlight) {
-                if (this._rangeToMark && this._rangeToMark.startLine === lineNumber)
-                    this._markedRangeElement = highlightSearchResult(lineRow, this._rangeToMark.startColumn, this._rangeToMark.endColumn - this._rangeToMark.startColumn);
+            if (this._scheduledPaintLines || this._paintLinesOperationsCredit < 0) {
+                this._schedulePaintLines(lineNumber, lineNumber + 1);
                 return;
             }
+
+            var highlight = this._textModel.getAttribute(lineNumber, "highlight");
+            if (!highlight)
+                return;
 
             lineRow.removeChildren();
             var line = this._textModel.line(lineNumber);
@@ -990,11 +1192,11 @@ WebInspector.TextEditorMainPanel.prototype = {
                 this._appendTextNode(lineRow, line.substring(plainTextStart, line.length));
                 --this._paintLinesOperationsCredit;
             }
-            if (this._rangeToMark && this._rangeToMark.startLine === lineNumber)
-                this._markedRangeElement = highlightSearchResult(lineRow, this._rangeToMark.startColumn, this._rangeToMark.endColumn - this._rangeToMark.startColumn);
             if (lineRow.decorationsElement)
                 lineRow.appendChild(lineRow.decorationsElement);
         } finally {
+            if (this._rangeToMark && this._rangeToMark.startLine === lineNumber)
+                this._markedRangeElement = highlightSearchResult(lineRow, this._rangeToMark.startColumn, this._rangeToMark.endColumn - this._rangeToMark.startColumn);
             this.endDomUpdates();
         }
     },
@@ -1035,13 +1237,28 @@ WebInspector.TextEditorMainPanel.prototype = {
             return new WebInspector.TextRange(end.line, end.column, start.line, start.column);
     },
 
-    _restoreSelection: function(range)
+    _restoreSelection: function(range, scrollIntoView)
     {
         if (!range)
             return;
         var start = this._positionToSelection(range.startLine, range.startColumn);
         var end = range.isEmpty() ? start : this._positionToSelection(range.endLine, range.endColumn);
         window.getSelection().setBaseAndExtent(start.container, start.offset, end.container, end.offset);
+
+        if (scrollIntoView) {
+            for (var node = end.container; node; node = node.parentElement) {
+                if (node.scrollIntoViewIfNeeded) {
+                    node.scrollIntoViewIfNeeded();
+                    break;
+                }
+            }
+        }
+    },
+
+    _setCaretLocation: function(line, column, scrollIntoView)
+    {
+        var range = new WebInspector.TextRange(line, column, line, column);
+        this._restoreSelection(range, scrollIntoView);
     },
 
     _selectionToPosition: function(container, offset)
@@ -1051,14 +1268,14 @@ WebInspector.TextEditorMainPanel.prototype = {
         if (container === this._container && offset === 1)
             return { line: this._textModel.linesCount - 1, column: this._textModel.lineLength(this._textModel.linesCount - 1) };
 
-        var lineRow = container.enclosingNodeOrSelfWithNodeName("DIV");
+        var lineRow = this._enclosingLineRowOrSelf(container);
         var lineNumber = lineRow.lineNumber;
         if (container === lineRow && offset === 0)
             return { line: lineNumber, column: 0 };
 
         // This may be chunk and chunks may contain \n.
         var column = 0;
-        var node = lineRow.traverseNextTextNode(lineRow);
+        var node = lineRow.nodeType === Node.TEXT_NODE ? lineRow : lineRow.traverseNextTextNode(lineRow);
         while (node && node !== container) {
             var text = node.textContent;
             for (var i = 0; i < text.length; ++i) {
@@ -1087,7 +1304,8 @@ WebInspector.TextEditorMainPanel.prototype = {
     _positionToSelection: function(line, column)
     {
         var chunk = this.chunkForLine(line);
-        var lineRow = chunk.getExpandedLineRow(line);
+        // One-lined collapsed chunks may still stay highlighted.
+        var lineRow = chunk.linesCount === 1 ? chunk.element : chunk.getExpandedLineRow(line);
         if (lineRow)
             var rangeBoundary = lineRow.rangeBoundaryForOffset(column);
         else {
@@ -1101,6 +1319,18 @@ WebInspector.TextEditorMainPanel.prototype = {
                 var rangeBoundary = { container: lineRow, offset: 0 };
         }
         return rangeBoundary;
+    },
+
+    _enclosingLineRowOrSelf: function(element)
+    {
+        var lineRow = element.enclosingNodeOrSelfWithClass("webkit-line-content");
+        if (lineRow)
+            return lineRow;
+        for (var lineRow = element; lineRow; lineRow = lineRow.parentElement) {
+            if (lineRow.parentElement === this._container)
+                return lineRow;
+        }
+        return null;
     },
 
     _appendSpan: function(element, content, className)
@@ -1167,7 +1397,7 @@ WebInspector.TextEditorMainPanel.prototype = {
         if (target === this._container)
             return;
 
-        var lineRow = target.enclosingNodeOrSelfWithClass("webkit-line-content");
+        var lineRow = this._enclosingLineRowOrSelf(target);
         if (!lineRow)
             return;
 
@@ -1195,7 +1425,7 @@ WebInspector.TextEditorMainPanel.prototype = {
 
         var endLine = startLine + 1;
         for (var row = lineRow.nextSibling; row; row = row.nextSibling) {
-            if (typeof row.lineNumber === "number") {
+            if (typeof row.lineNumber === "number" && row.lineNumber > startLine) {
                 endLine = row.lineNumber;
                 break;
             }
@@ -1205,7 +1435,7 @@ WebInspector.TextEditorMainPanel.prototype = {
             // Now this will no longer be valid.
             delete lineRow.lineNumber;
         }
- 
+
         if (this._dirtyLines) {
             this._dirtyLines.start = Math.min(this._dirtyLines.start, startLine);
             this._dirtyLines.end = Math.max(this._dirtyLines.end, endLine);
@@ -1258,7 +1488,7 @@ WebInspector.TextEditorMainPanel.prototype = {
             this._collectLinesFromDiv(lines, lineRow);
         }
 
-        // Try to decrease the range being replaced if possible.
+        // Try to decrease the range being replaced, if possible.
         var startOffset = 0;
         while (startLine < dirtyLines.start && startOffset < lines.length) {
             if (this._textModel.line(startLine) !== lines[startOffset])
@@ -1277,26 +1507,65 @@ WebInspector.TextEditorMainPanel.prototype = {
 
         lines = lines.slice(startOffset, endOffset);
 
-        var selection = this._getSelection();
+        // Try to decrease the range being replaced by column offsets, if possible.
+        var startColumn = 0;
+        var endColumn = this._textModel.lineLength(endLine - 1);
+        if (lines.length > 0) {
+            var line1 = this._textModel.line(startLine);
+            var line2 = lines[0];
+            while (line1[startColumn] && line1[startColumn] === line2[startColumn])
+                ++startColumn;
+            lines[0] = line2.substring(startColumn);
 
-        if (lines.length === 0 && endLine < this._textModel.linesCount) {
-            var oldRange = new WebInspector.TextRange(startLine, 0, endLine, 0);
-            var newRange = this._textModel.setText(oldRange, "");
-        } else {
-            var oldRange = new WebInspector.TextRange(startLine, 0, endLine - 1, this._textModel.lineLength(endLine - 1));
-            var newRange = this._textModel.setText(oldRange, lines.join("\n"));
+            var line1 = this._textModel.line(endLine - 1);
+            var line2 = lines[lines.length - 1];
+            for (var i = 0; i < endColumn && i < line2.length; ++i) {
+                if (startLine === endLine - 1 && endColumn - i <= startColumn)
+                    break;
+                if (line1[endColumn - i - 1] !== line2[line2.length - i - 1])
+                    break;
+            }
+            if (i) {
+                endColumn -= i;
+                lines[lines.length - 1] = line2.substring(0, line2.length - i);
+            }
         }
 
+        var selection = this._getSelection();
+
+        if (lines.length === 0 && endLine < this._textModel.linesCount)
+            var oldRange = new WebInspector.TextRange(startLine, 0, endLine, 0);
+        else if (lines.length === 0 && startLine > 0)
+            var oldRange = new WebInspector.TextRange(startLine - 1, this._textModel.lineLength(startLine - 1), endLine - 1, this._textModel.lineLength(endLine - 1));
+        else
+            var oldRange = new WebInspector.TextRange(startLine, startColumn, endLine - 1, endColumn);
+
+        var newRange = this._setText(oldRange, lines.join("\n"));
+        
+        this._paintScheduledLines(true);
+        this._restoreSelection(selection);
+
+        this._exitTextChangeMode(oldRange, newRange);
+    },
+
+    textChanged: function(oldRange, newRange)
+    {
         this.beginDomUpdates();
         this._removeDecorationsInRange(oldRange);
         this._updateChunksForRanges(oldRange, newRange);
         this._updateHighlightsForRange(newRange);
-        this._paintScheduledLines(true);
         this.endDomUpdates();
+    },
 
-        this._restoreSelection(selection);
+    _setText: function(range, text)
+    {
+        if (this._lastEditedRange && (!text || text.indexOf("\n") !== -1 || this._lastEditedRange.endLine !== range.startLine || this._lastEditedRange.endColumn !== range.startColumn))
+            this._textModel.markUndoableState();
 
-        this._exitTextChangeMode(oldRange, newRange);
+        var newRange = this._textModel.setText(range, text);
+        this._lastEditedRange = newRange;
+
+        return newRange;
     },
 
     _removeDecorationsInRange: function(range)
@@ -1342,6 +1611,8 @@ WebInspector.TextEditorMainPanel.prototype = {
         // Most frequent case: a chunk remained the same.
         for (var chunkNumber = firstChunkNumber; chunkNumber <= lastChunkNumber; ++chunkNumber) {
             var chunk = this._textChunks[chunkNumber];
+            if (chunk.startLine + chunk.linesCount > this._textModel.linesCount)
+                break;
             var lineNumber = chunk.startLine;
             for (var lineRow = firstLineRow; lineRow && lineNumber < chunk.startLine + chunk.linesCount; lineRow = lineRow.nextSibling) {
                 if (lineRow.lineNumber !== lineNumber || lineRow !== chunk.getExpandedLineRow(lineNumber) || lineRow.textContent !== this._textModel.line(lineNumber) || !lineRow.firstChild)
@@ -1428,7 +1699,7 @@ WebInspector.TextEditorMainPanel.prototype = {
     _collectLinesFromDiv: function(lines, element)
     {
         var textContents = [];
-        var node = element.traverseNextNode(element);
+        var node = element.nodeType === Node.TEXT_NODE ? element : element.traverseNextNode(element);
         while (node) {
             if (element.decorationsElement === node) {
                 node = node.nextSibling;

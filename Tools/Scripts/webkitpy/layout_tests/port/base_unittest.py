@@ -33,7 +33,7 @@ import unittest
 
 from webkitpy.common.system.executive import Executive, ScriptError
 from webkitpy.common.system import executive_mock
-from webkitpy.common.system import filesystem
+from webkitpy.common.system.filesystem_mock import MockFileSystem
 from webkitpy.common.system import outputcapture
 from webkitpy.common.system.path import abspath_to_uri
 from webkitpy.thirdparty.mock import Mock
@@ -86,8 +86,8 @@ class PortTest(unittest.TestCase):
 
     def test_pretty_patch_script_error(self):
         # FIXME: This is some ugly white-box test hacking ...
-        base._pretty_patch_available = True
         port = base.Port(executive=executive_mock.MockExecutive2(exception=ScriptError))
+        port._pretty_patch_available = True
         self.assertEqual(port.pretty_patch_text("patch.txt"),
                          port._pretty_patch_error_html)
 
@@ -232,6 +232,33 @@ class PortTest(unittest.TestCase):
         port = base.Port(port_name='foo')
         self.assertEqual(port.name(), 'foo')
 
+    def test_additional_platform_directory(self):
+        filesystem = MockFileSystem()
+        options, args = optparse.OptionParser().parse_args([])
+        port = base.Port(port_name='foo', filesystem=filesystem, options=options)
+        port.baseline_search_path = lambda: []
+        layout_test_dir = port.layout_tests_dir()
+        test_file = filesystem.join(layout_test_dir, 'fast', 'test.html')
+
+        # No additional platform directory
+        self.assertEqual(
+            port.expected_baselines(test_file, '.txt'),
+            [(None, 'fast/test-expected.txt')])
+
+        # Simple additional platform directory
+        options.additional_platform_directory = ['/tmp/local-baselines']
+        filesystem.files = {
+            '/tmp/local-baselines/fast/test-expected.txt': 'foo',
+        }
+        self.assertEqual(
+            port.expected_baselines(test_file, '.txt'),
+            [('/tmp/local-baselines', 'fast/test-expected.txt')])
+
+        # Multiple additional platform directories
+        options.additional_platform_directory = ['/foo', '/tmp/local-baselines']
+        self.assertEqual(
+            port.expected_baselines(test_file, '.txt'),
+            [('/tmp/local-baselines', 'fast/test-expected.txt')])
 
 class VirtualTest(unittest.TestCase):
     """Tests that various methods expected to be virtual are."""
@@ -247,13 +274,8 @@ class VirtualTest(unittest.TestCase):
         self.assertVirtual(port.create_driver, 0)
         self.assertVirtual(port.diff_image, None, None)
         self.assertVirtual(port.path_to_test_expectations_file)
-        self.assertVirtual(port.test_platform_name)
-        self.assertVirtual(port.results_directory)
+        self.assertVirtual(port.default_results_directory)
         self.assertVirtual(port.test_expectations)
-        self.assertVirtual(port.test_platform_name)
-        self.assertVirtual(port.test_platforms)
-        self.assertVirtual(port.test_platform_name_to_name, None)
-        self.assertVirtual(port.version)
         self.assertVirtual(port._path_to_apache)
         self.assertVirtual(port._path_to_apache_config_file)
         self.assertVirtual(port._path_to_driver)

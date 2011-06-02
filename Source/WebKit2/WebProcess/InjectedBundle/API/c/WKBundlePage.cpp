@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,8 +28,10 @@
 #include "WKBundlePagePrivate.h"
 
 #include "InjectedBundleBackForwardList.h"
+#include "InjectedBundleNodeHandle.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
+#include "WebFullScreenManager.h"
 #include "WebImage.h"
 #include "WebPage.h"
 #include "WebURL.h"
@@ -91,6 +93,43 @@ void WKBundlePageSetUIClient(WKBundlePageRef pageRef, WKBundlePageUIClient* wkCl
     if (wkClient && wkClient->version)
         return;
     toImpl(pageRef)->initializeInjectedBundleUIClient(wkClient);
+}
+
+void WKBundlePageSetFullScreenClient(WKBundlePageRef pageRef, WKBundlePageFullScreenClient* wkClient)
+{
+#if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
+    if (wkClient && wkClient->version)
+        return;
+    toImpl(pageRef)->initializeInjectedBundleFullScreenClient(wkClient);
+#endif
+}
+
+void WKBundlePageWillEnterFullScreen(WKBundlePageRef pageRef)
+{
+#if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
+    toImpl(pageRef)->fullScreenManager()->willEnterFullScreen();
+#endif
+}
+
+void WKBundlePageDidEnterFullScreen(WKBundlePageRef pageRef)
+{
+#if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
+    toImpl(pageRef)->fullScreenManager()->didEnterFullScreen();
+#endif
+}
+
+void WKBundlePageWillExitFullScreen(WKBundlePageRef pageRef)
+{
+#if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
+    toImpl(pageRef)->fullScreenManager()->willExitFullScreen();
+#endif
+}
+
+void WKBundlePageDidExitFullScreen(WKBundlePageRef pageRef)
+{
+#if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
+    toImpl(pageRef)->fullScreenManager()->didExitFullScreen();
+#endif
 }
 
 WKBundlePageGroupRef WKBundlePageGetPageGroup(WKBundlePageRef pageRef)
@@ -158,6 +197,11 @@ void WKBundlePageSetPageZoomFactor(WKBundlePageRef pageRef, double zoomFactor)
     toImpl(pageRef)->setPageZoomFactor(zoomFactor);
 }
 
+void WKBundlePageSetScaleAtOrigin(WKBundlePageRef pageRef, double scale, WKPoint origin)
+{
+    toImpl(pageRef)->scaleWebView(scale, toIntPoint(origin));
+}
+
 WKBundleBackForwardListRef WKBundlePageGetBackForwardList(WKBundlePageRef pageRef)
 {
     return toAPI(toImpl(pageRef)->backForwardList());
@@ -170,7 +214,7 @@ void WKBundlePageInstallPageOverlay(WKBundlePageRef pageRef, WKBundlePageOverlay
 
 void WKBundlePageUninstallPageOverlay(WKBundlePageRef pageRef, WKBundlePageOverlayRef pageOverlayRef)
 {
-    toImpl(pageRef)->uninstallPageOverlay(toImpl(pageOverlayRef));
+    toImpl(pageRef)->uninstallPageOverlay(toImpl(pageOverlayRef), false);
 }
 
 bool WKBundlePageHasLocalDataForURL(WKBundlePageRef pageRef, WKURLRef urlRef)
@@ -216,4 +260,19 @@ WKBundleInspectorRef WKBundlePageGetInspector(WKBundlePageRef pageRef)
 void WKBundlePageForceRepaint(WKBundlePageRef page)
 {
     toImpl(page)->forceRepaintWithoutCallback();
+}
+
+void WKBundlePageSimulateMouseDown(WKBundlePageRef page, int button, WKPoint position, int clickCount, WKEventModifiers modifiers, double time)
+{
+    toImpl(page)->simulateMouseDown(button, toIntPoint(position), clickCount, modifiers, time);
+}
+
+void WKBundlePageSimulateMouseUp(WKBundlePageRef page, int button, WKPoint position, int clickCount, WKEventModifiers modifiers, double time)
+{
+    toImpl(page)->simulateMouseUp(button, toIntPoint(position), clickCount, modifiers, time);
+}
+
+void WKBundlePageSimulateMouseMotion(WKBundlePageRef page, WKPoint position, double time)
+{
+    toImpl(page)->simulateMouseMotion(toIntPoint(position), time);
 }

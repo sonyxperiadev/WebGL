@@ -107,6 +107,9 @@ HEADERS += \
     Platform/SharedMemory.h \
     Platform/WorkItem.h \
     Platform/WorkQueue.h \
+    PluginProcess/PluginControllerProxy.h \
+    PluginProcess/PluginProcess.h \
+    PluginProcess/WebProcessConnection.h \
     Shared/ShareableBitmap.h \
     Shared/CacheModel.h \
     Shared/ChildProcess.h \
@@ -120,6 +123,7 @@ HEADERS += \
     Shared/MutableArray.h \
     Shared/MutableDictionary.h \
     Shared/NativeWebKeyboardEvent.h \
+    Shared/NativeWebMouseEvent.h \
     Shared/OriginAndDatabases.h \
     Shared/PlatformPopupMenuData.h \
     Shared/PrintInfo.h \
@@ -207,6 +211,7 @@ HEADERS += \
     UIProcess/WebGeolocationProvider.h \
     UIProcess/WebHistoryClient.h \
     UIProcess/WebIconDatabase.h \
+    UIProcess/WebIconDatabaseClient.h \
     UIProcess/WebInspectorProxy.h \
     UIProcess/WebKeyValueStorageManagerProxy.h \
     UIProcess/WebLoaderClient.h \
@@ -297,17 +302,23 @@ SOURCES += \
     Platform/CoreIPC/BinarySemaphore.cpp \
     Platform/CoreIPC/Connection.cpp \
     Platform/CoreIPC/DataReference.cpp \
-    Platform/CoreIPC/qt/AttachmentQt.cpp \
-    Platform/CoreIPC/qt/ConnectionQt.cpp \
+    Platform/CoreIPC/unix/AttachmentUnix.cpp \
+    Platform/CoreIPC/unix/ConnectionUnix.cpp \
     Platform/Logging.cpp \
     Platform/Module.cpp \
     Platform/RunLoop.cpp \
     Platform/WorkQueue.cpp \
     Platform/qt/ModuleQt.cpp \
     Platform/qt/RunLoopQt.cpp \
-    Platform/qt/SharedMemoryQt.cpp \
     Platform/qt/WorkQueueQt.cpp \
+    Platform/unix/SharedMemoryUnix.cpp \
+    PluginProcess/PluginControllerProxy.cpp \
+    PluginProcess/PluginProcess.cpp \
+    PluginProcess/WebProcessConnection.cpp \
+    PluginProcess/qt/PluginControllerProxyQt.cpp \
+    PluginProcess/qt/PluginProcessQt.cpp \
     Shared/Plugins/Netscape/NetscapePluginModule.cpp \
+    Shared/Plugins/Netscape/NetscapePluginModuleNone.cpp \
     Shared/Plugins/Netscape/x11/NetscapePluginModuleX11.cpp \
     Shared/ShareableBitmap.cpp \
     Shared/Plugins/NPRemoteObjectMap.cpp \
@@ -353,6 +364,7 @@ SOURCES += \
     Shared/WebWheelEvent.cpp \
     Shared/qt/ShareableBitmapQt.cpp \
     Shared/qt/NativeWebKeyboardEventQt.cpp \
+    Shared/qt/NativeWebMouseEventQt.cpp \
     Shared/qt/UpdateChunk.cpp \
     Shared/qt/WebCoreArgumentCodersQt.cpp \
     Shared/qt/WebEventFactoryQt.cpp \
@@ -403,6 +415,7 @@ SOURCES += \
     UIProcess/WebGeolocationProvider.cpp \
     UIProcess/WebHistoryClient.cpp \
     UIProcess/WebIconDatabase.cpp \
+    UIProcess/WebIconDatabaseClient.cpp \
     UIProcess/WebInspectorProxy.cpp \
     UIProcess/WebKeyValueStorageManagerProxy.cpp \
     UIProcess/WebLoaderClient.cpp \
@@ -466,6 +479,7 @@ SOURCES += \
     WebProcess/Plugins/Netscape/NPRuntimeUtilities.cpp \
     WebProcess/Plugins/Netscape/NetscapeBrowserFuncs.cpp \
     WebProcess/Plugins/Netscape/NetscapePlugin.cpp \
+    WebProcess/Plugins/Netscape/NetscapePluginNone.cpp \
     WebProcess/Plugins/Netscape/NetscapePluginStream.cpp \
     WebProcess/Plugins/Netscape/x11/NetscapePluginX11.cpp \
     WebProcess/Plugins/Netscape/qt/PluginProxyQt.cpp \

@@ -39,6 +39,7 @@
 #include "GOwnPtr.h"
 #include "LayoutTestController.h"
 #include "PixelDumpSupport.h"
+#include "PlainTextController.h"
 #include "TextInputController.h"
 #include "WebCoreSupport/DumpRenderTreeSupportGtk.h"
 #include "WorkQueue.h"
@@ -814,6 +815,13 @@ static void webViewOnloadEvent(WebKitWebView* view, WebKitWebFrame* frame, void*
     }
 }
 
+static void addControllerToWindow(JSContextRef context, JSObjectRef windowObject, const char* controllerName, JSValueRef controller)
+{
+    JSStringRef controllerNameStr = JSStringCreateWithUTF8CString(controllerName);
+    JSObjectSetProperty(context, windowObject, controllerNameStr, controller, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, 0);
+    JSStringRelease(controllerNameStr); 
+}
+
 static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* frame, JSGlobalContextRef context, JSObjectRef windowObject, gpointer data)
 {
     JSValueRef exception = 0;
@@ -828,15 +836,9 @@ static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* fram
     axController->makeWindowObject(context, windowObject, &exception);
     ASSERT(!exception);
 
-    JSStringRef eventSenderStr = JSStringCreateWithUTF8CString("eventSender");
-    JSValueRef eventSender = makeEventSender(context, !webkit_web_frame_get_parent(frame));
-    JSObjectSetProperty(context, windowObject, eventSenderStr, eventSender, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, 0);
-    JSStringRelease(eventSenderStr);
-
-    JSStringRef textInputControllerStr = JSStringCreateWithUTF8CString("textInputController");
-    JSValueRef textInputController = makeTextInputController(context);
-    JSObjectSetProperty(context, windowObject, textInputControllerStr, textInputController, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, 0);
-    JSStringRelease(textInputControllerStr);
+    addControllerToWindow(context, windowObject, "eventSender", makeEventSender(context, !webkit_web_frame_get_parent(frame)));
+    addControllerToWindow(context, windowObject, "plainText", makePlainTextController(context));
+    addControllerToWindow(context, windowObject, "textInputController", makeTextInputController(context));
 }
 
 static gboolean webViewConsoleMessage(WebKitWebView* view, const gchar* message, unsigned int line, const gchar* sourceId, gpointer data)
@@ -941,10 +943,8 @@ static void webViewStatusBarTextChanged(WebKitWebView* view, const gchar* messag
 {
     // Are we doing anything wrong? One test that does not call
     // dumpStatusCallbacks gets true here
-    if (gLayoutTestController->dumpStatusCallbacks()) {
-        if (message && strcmp(message, ""))
-            printf("UI DELEGATE STATUS CALLBACK: setStatusText:%s\n", message);
-    }
+    if (gLayoutTestController->dumpStatusCallbacks())
+        printf("UI DELEGATE STATUS CALLBACK: setStatusText:%s\n", message);
 }
 
 static gboolean webViewClose(WebKitWebView* view)
@@ -1048,6 +1048,9 @@ static void frameCreatedCallback(WebKitWebView* webView, WebKitWebFrame* webFram
 
 static void willSendRequestCallback(WebKitWebView* webView, WebKitWebFrame*, WebKitWebResource*, WebKitNetworkRequest* request, WebKitNetworkResponse*)
 {
+    if (!done && gLayoutTestController->willSendRequestReturnsNull())
+        return;
+
     SoupMessage* soupMessage = webkit_network_request_get_message(request);
     SoupURI* uri = soup_uri_new(webkit_network_request_get_uri(request));
 
@@ -1058,8 +1061,8 @@ static void willSendRequestCallback(WebKitWebView* webView, WebKitWebFrame*, Web
         soup_uri_free(uri);
         return;
     }
-    soup_uri_free(uri);
-
+    if (uri)
+        soup_uri_free(uri);
 
     if (soupMessage) {
         const set<string>& clearHeaders = gLayoutTestController->willSendRequestClearHeaders();

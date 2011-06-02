@@ -509,6 +509,10 @@
 			</File>
 		</Filter>
 		<File
+			RelativePath="..\..\wtf\Alignment.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\AlwaysInline.h"
 			>
 		</File>
@@ -602,6 +606,14 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\DoublyLinkedList.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\DynamicAnnotations.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\DynamicAnnotations.h"
 			>
 		</File>
 		<File

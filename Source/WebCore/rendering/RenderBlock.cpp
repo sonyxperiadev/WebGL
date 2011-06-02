@@ -52,7 +52,6 @@
 #include "Settings.h"
 #include "TextRun.h"
 #include "TransformState.h"
-#include "visible_units.h"
 #include <wtf/StdLibExtras.h>
 
 #ifdef ANDROID_LAYOUT
@@ -1550,8 +1549,9 @@ bool RenderBlock::handleRunInChild(RenderBox* child)
         runInChild = nextSibling;
     }
 
-    // Now insert the new child under |currBlock|.
-    currBlock->children()->insertChildNode(currBlock, inlineRunIn, currBlock->firstChild());
+    // Now insert the new child under |currBlock|. Use addChild instead of insertChildNode since it handles correct placement of the children, esp where we cannot insert
+    // anything before the first child. e.g. details tag. See https://bugs.webkit.org/show_bug.cgi?id=58228.
+    currBlock->addChild(inlineRunIn, currBlock->firstChild());
     
     // If the run-in had an element, we need to set the new renderer.
     if (runInNode)
@@ -2106,7 +2106,7 @@ void RenderBlock::simplifiedNormalFlowLayout()
         GlyphOverflowAndFallbackFontsMap textBoxDataMap;                  
         for (ListHashSet<RootInlineBox*>::const_iterator it = lineBoxes.begin(); it != lineBoxes.end(); ++it) {
             RootInlineBox* box = *it;
-            box->computeOverflow(box->lineTop(), box->lineBottom(), document()->inNoQuirksMode(), textBoxDataMap);
+            box->computeOverflow(box->lineTop(), box->lineBottom(), textBoxDataMap);
         }
     } else {
         for (RenderBox* box = firstChildBox(); box; box = box->nextSiblingBox()) {
@@ -2123,11 +2123,8 @@ bool RenderBlock::simplifiedLayout()
 
     LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()), hasColumns() || hasTransform() || hasReflection() || style()->isFlippedBlocksWritingMode());
     
-    if (needsPositionedMovementLayout()) {
-        tryLayoutDoingPositionedMovementOnly();
-        if (needsLayout())
-            return false;
-    }
+    if (needsPositionedMovementLayout() && !tryLayoutDoingPositionedMovementOnly())
+        return false;
 
     // Lay out positioned descendants or objects that just need to recompute overflow.
     if (needsSimplifiedNormalFlowLayout())
@@ -2190,8 +2187,8 @@ void RenderBlock::layoutPositionedObjects(bool relayoutChildren)
 
         // We don't have to do a full layout.  We just have to update our position. Try that first. If we have shrink-to-fit width
         // and we hit the available width constraint, the layoutIfNeeded() will catch it and do a full layout.
-        if (r->needsPositionedMovementLayoutOnly())
-            r->tryLayoutDoingPositionedMovementOnly();
+        if (r->needsPositionedMovementLayoutOnly() && r->tryLayoutDoingPositionedMovementOnly())
+            r->setNeedsLayout(false);
         r->layoutIfNeeded();
     }
     
@@ -2376,7 +2373,7 @@ void RenderBlock::paintContents(PaintInfo& paintInfo, int tx, int ty)
     // Avoid painting descendants of the root element when stylesheets haven't loaded.  This eliminates FOUC.
     // It's ok not to draw, because later on, when all the stylesheets do load, updateStyleSelector on the Document
     // will do a full repaint().
-    if (document()->mayCauseFlashOfUnstyledContent() && !isRenderView())
+    if (document()->didLayoutWithPendingStylesheets() && !isRenderView())
         return;
 
     if (childrenInline())
@@ -2606,7 +2603,7 @@ void RenderBlock::paintEllipsisBoxes(PaintInfo& paintInfo, int tx, int ty)
             yPos = ty + curr->y();
             h = curr->logicalHeight();
             if (curr->ellipsisBox() && yPos < paintInfo.rect.maxY() && yPos + h > paintInfo.rect.y())
-                curr->paintEllipsisBox(paintInfo, tx, ty);
+                curr->paintEllipsisBox(paintInfo, tx, ty, curr->lineTop(), curr->lineBottom());
         }
     }
 }
@@ -3336,59 +3333,6 @@ bool RenderBlock::positionNewFloats()
     return true;
 }
 
-bool RenderBlock::positionNewFloatOnLine(FloatingObject* newFloat, FloatingObject* lastFloatFromPreviousLine, bool firstLine, int& lineLeftOffset, int& lineRightOffset)
-{
-    bool didPosition = positionNewFloats();
-    if (!didPosition)
-        return didPosition;
-
-    int blockOffset = logicalHeight();
-    if (blockOffset >= logicalTopForFloat(newFloat) && blockOffset < logicalBottomForFloat(newFloat)) {
-        if (newFloat->type() == FloatingObject::FloatLeft)
-            lineLeftOffset = logicalRightForFloat(newFloat);
-        else
-            lineRightOffset = logicalLeftForFloat(newFloat);
-    }
-    
-    if (!newFloat->m_paginationStrut)
-        return didPosition;
-     
-    FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
-    ASSERT(floatingObjectSet.last() == newFloat);
-
-    int floatLogicalTop = logicalTopForFloat(newFloat);
-    int paginationStrut = newFloat->m_paginationStrut;
-    
-    if (floatLogicalTop - paginationStrut != logicalHeight())
-        return didPosition;
-
-    FloatingObjectSetIterator it = floatingObjectSet.end();
-    --it; // Last float is newFloat, skip that one.
-    FloatingObjectSetIterator begin = floatingObjectSet.begin();
-    while (it != begin) {
-        --it;
-        FloatingObject* f = *it;
-        if (f == lastFloatFromPreviousLine)
-            break;
-        if (logicalTopForFloat(f) == logicalHeight()) {
-            ASSERT(!f->m_paginationStrut);
-            f->m_paginationStrut = paginationStrut;
-            RenderBox* o = f->m_renderer;
-            setLogicalTopForChild(o, logicalTopForChild(o) + marginBeforeForChild(o) + paginationStrut);
-            if (o->isRenderBlock())
-                toRenderBlock(o)->setChildNeedsLayout(true, false);
-            o->layoutIfNeeded();
-            setLogicalTopForFloat(f, logicalTopForFloat(f) + f->m_paginationStrut);
-        }
-    }
-        
-    setLogicalHeight(blockOffset + paginationStrut);
-    lineLeftOffset = logicalLeftOffsetForLine(logicalHeight(), firstLine);
-    lineRightOffset = logicalRightOffsetForLine(logicalHeight(), firstLine);
-
-    return didPosition;
-}
-
 void RenderBlock::newLine(EClear clear)
 {
     positionNewFloats();
@@ -3721,6 +3665,7 @@ int RenderBlock::addOverhangingFloats(RenderBlock* child, int logicalLeftOffset,
     if (child->hasOverflowClip() || !child->containsFloats() || child->isRoot() || child->hasColumns() || child->isWritingModeRoot())
         return 0;
 
+    int childLogicalTop = child->logicalTop();
     int lowestFloatLogicalBottom = 0;
 
     // Floats that will remain the child's responsibility to paint should factor into its
@@ -3728,7 +3673,8 @@ int RenderBlock::addOverhangingFloats(RenderBlock* child, int logicalLeftOffset,
     FloatingObjectSetIterator childEnd = child->m_floatingObjects->set().end();
     for (FloatingObjectSetIterator childIt = child->m_floatingObjects->set().begin(); childIt != childEnd; ++childIt) {
         FloatingObject* r = *childIt;
-        int logicalBottom = child->logicalTop() + logicalBottomForFloat(r);
+        int logicalBottomForFloat = min(this->logicalBottomForFloat(r), numeric_limits<int>::max() - childLogicalTop);
+        int logicalBottom = childLogicalTop + logicalBottomForFloat;
         lowestFloatLogicalBottom = max(lowestFloatLogicalBottom, logicalBottom);
 
         if (logicalBottom > logicalHeight()) {
@@ -4277,34 +4223,15 @@ void RenderBlock::calcColumnWidth()
     int colWidth = max(1, static_cast<int>(style()->columnWidth()));
     int colCount = max(1, static_cast<int>(style()->columnCount()));
 
-    if (style()->hasAutoColumnWidth()) {
-        if ((colCount - 1) * colGap < availWidth) {
-            desiredColumnCount = colCount;
-            desiredColumnWidth = (availWidth - (desiredColumnCount - 1) * colGap) / desiredColumnCount;
-        } else if (colGap < availWidth) {
-            desiredColumnCount = availWidth / colGap;
-            if (desiredColumnCount < 1)
-                desiredColumnCount = 1;
-            desiredColumnWidth = (availWidth - (desiredColumnCount - 1) * colGap) / desiredColumnCount;
-        }
-    } else if (style()->hasAutoColumnCount()) {
-        if (colWidth < availWidth) {
-            desiredColumnCount = (availWidth + colGap) / (colWidth + colGap);
-            if (desiredColumnCount < 1)
-                desiredColumnCount = 1;
-            desiredColumnWidth = (availWidth - (desiredColumnCount - 1) * colGap) / desiredColumnCount;
-        }
+    if (style()->hasAutoColumnWidth() && !style()->hasAutoColumnCount()) {
+        desiredColumnCount = colCount;
+        desiredColumnWidth = max<int>(0, (availWidth - ((desiredColumnCount - 1) * colGap)) / desiredColumnCount);
+    } else if (!style()->hasAutoColumnWidth() && style()->hasAutoColumnCount()) {
+        desiredColumnCount = max<int>(1, (float)(availWidth + colGap) / (colWidth + colGap));
+        desiredColumnWidth = ((availWidth + colGap) / desiredColumnCount) - colGap;
     } else {
-        // Both are set.
-        if (colCount * colWidth + (colCount - 1) * colGap <= availWidth) {
-            desiredColumnCount = colCount;
-            desiredColumnWidth = colWidth;
-        } else if (colWidth < availWidth) {
-            desiredColumnCount = (availWidth + colGap) / (colWidth + colGap);
-            if (desiredColumnCount < 1)
-                desiredColumnCount = 1;
-            desiredColumnWidth = (availWidth - (desiredColumnCount - 1) * colGap) / desiredColumnCount;
-        }
+        desiredColumnCount = max(min<int>(colCount, (float)(availWidth + colGap) / (colWidth + colGap)), 1);
+        desiredColumnWidth = ((availWidth + colGap) / desiredColumnCount) - colGap;
     }
     setDesiredColumnCountAndWidth(desiredColumnCount, desiredColumnWidth);
 }
@@ -5395,7 +5322,7 @@ void RenderBlock::updateFirstLetter()
             view()->disableLayoutState();
             while (RenderObject* child = firstLetter->firstChild()) {
                 if (child->isText())
-                    toRenderText(child)->dirtyLineBoxes(true);
+                    toRenderText(child)->removeAndDestroyTextBoxes();
                 firstLetter->removeChild(child);
                 newFirstLetter->addChild(child, 0);
             }
@@ -6081,8 +6008,9 @@ void RenderBlock::adjustLinePositionForPagination(RootInlineBox* lineBox, int& d
     // line and all following lines.
     LayoutState* layoutState = view()->layoutState();
     int pageLogicalHeight = layoutState->m_pageLogicalHeight;
-    int logicalOffset = lineBox->logicalTopVisualOverflow();
-    int lineHeight = lineBox->logicalBottomVisualOverflow() - logicalOffset;
+    IntRect logicalVisualOverflow = lineBox->logicalVisualOverflowRect(lineBox->lineTop(), lineBox->lineBottom());
+    int logicalOffset = logicalVisualOverflow.y();
+    int lineHeight = logicalVisualOverflow.maxY() - logicalOffset;
     if (layoutState->m_columnInfo)
         layoutState->m_columnInfo->updateMinimumColumnHeight(lineHeight);
     logicalOffset += delta;

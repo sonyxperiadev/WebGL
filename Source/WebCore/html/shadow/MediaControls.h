@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,76 +29,59 @@
 
 #if ENABLE(VIDEO)
 
-#include "Timer.h"
-#include <wtf/RefPtr.h>
+#include "HTMLDivElement.h"
 
 namespace WebCore {
 
-class HTMLElement;
-class HTMLInputElement;
 class HTMLMediaElement;
-class Event;
-class MediaControlMuteButtonElement;
-class MediaControlPlayButtonElement;
-class MediaControlSeekButtonElement;
-class MediaControlShadowRootElement;
-class MediaControlRewindButtonElement;
-class MediaControlReturnToRealtimeButtonElement;
-class MediaControlToggleClosedCaptionsButtonElement;
-class MediaControlTimelineElement;
-class MediaControlVolumeSliderElement;
-class MediaControlFullscreenButtonElement;
-class MediaControlTimeDisplayElement;
-class MediaControlStatusDisplayElement;
-class MediaControlTimelineContainerElement;
-class MediaControlVolumeSliderContainerElement;
-class MediaControlElement;
-class MediaControlFullscreenVolumeMinButtonElement;
-class MediaControlFullscreenVolumeSliderElement;
-class MediaControlFullscreenVolumeMaxButtonElement;
-class MediaPlayer;
 
-class RenderBox;
-class RenderMedia;
+class MediaControls : public HTMLDivElement {
+  public:
+    virtual ~MediaControls() {}
 
-class MediaControls {
-public:
-    MediaControls(HTMLMediaElement*);
+    // This function is to be implemented in your port-specific media
+    // controls implementation.
+    static PassRefPtr<MediaControls> create(HTMLMediaElement*);
 
-    void reset();
+    virtual void show() = 0;
+    virtual void hide() = 0;
+    virtual void makeOpaque() = 0;
+    virtual void makeTransparent() = 0;
 
-    void playbackProgressed();
-    void playbackStarted();
-    void playbackStopped();
+    virtual void reset() = 0;
 
-    void changedMute();
-    void changedVolume();
-    void changedClosedCaptionsVisibility();
+    virtual void playbackProgressed() = 0;
+    virtual void playbackStarted() = 0;
+    virtual void playbackStopped() = 0;
 
-    void destroy();
-    void update();
-    void updateStyle();
-    void forwardEvent(Event*);
-    void updateTimeDisplay();
-
-    // FIXME: This is temporary to allow RenderMedia::layout tweak the position of controls.
-    // Once shadow DOM refactoring is complete, the tweaking will be in MediaControlsShadowRoot and this accessor will no longer be necessary.
-    RenderBox* renderBox();
-
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     void updateLastTouch();
 #endif
 
 private:
     PassRefPtr<MediaControlShadowRootElement> create(HTMLMediaElement*);
+=======
+    virtual void changedMute() = 0;
+    virtual void changedVolume() = 0;
+>>>>>>> WebKit.org at r84325
 
-    void updateControlVisibility();
-    void changeOpacity(HTMLElement*, float opacity);
-    void opacityAnimationTimerFired(Timer<MediaControls>*);
+    virtual void enteredFullscreen() = 0;
+    virtual void exitedFullscreen() = 0;
 
-    void updateVolumeSliderContainer(bool visible);
+    virtual void reportedError() = 0;
+    virtual void changedNetworkState() = 0;
+    virtual void loadedMetadata() = 0;
+    virtual void changedClosedCaptionsVisibility() = 0;
+
+    virtual void showVolumeSlider() = 0;
+    virtual void updateTimeDisplay() = 0;
+
+protected:
+    MediaControls(HTMLMediaElement*);
 
 private:
+<<<<<<< HEAD
     RefPtr<MediaControlShadowRootElement> m_controlsShadowRoot;
     RefPtr<MediaControlElement> m_panel;
     RefPtr<MediaControlMuteButtonElement> m_muteButton;
@@ -134,10 +117,13 @@ private:
 #if PLATFORM(ANDROID)
     double m_lastTouch;
 #endif
+=======
+    MediaControls();
+>>>>>>> WebKit.org at r84325
 };
-
 
 }
 
 #endif
+
 #endif

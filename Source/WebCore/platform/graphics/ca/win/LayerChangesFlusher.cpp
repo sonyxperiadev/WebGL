@@ -28,8 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "CACFLayerTreeHost.h"
-#include "WebCoreInstanceHandle.h"
+#include "AbstractCACFLayerTreeHost.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
@@ -47,7 +46,7 @@ LayerChangesFlusher::LayerChangesFlusher()
 {
 }
 
-void LayerChangesFlusher::flushPendingLayerChangesSoon(CACFLayerTreeHost* host)
+void LayerChangesFlusher::flushPendingLayerChangesSoon(AbstractCACFLayerTreeHost* host)
 {
     if (!m_hostsWithChangesToFlush.add(host).second || m_hook)
         return;
@@ -55,7 +54,7 @@ void LayerChangesFlusher::flushPendingLayerChangesSoon(CACFLayerTreeHost* host)
     setHook();
 }
 
-void LayerChangesFlusher::cancelPendingFlush(CACFLayerTreeHost* host)
+void LayerChangesFlusher::cancelPendingFlush(AbstractCACFLayerTreeHost* host)
 {
     m_hostsWithChangesToFlush.remove(host);
 
@@ -80,9 +79,8 @@ LRESULT LayerChangesFlusher::hookFired(int code, WPARAM wParam, LPARAM lParam)
     ASSERT(m_hook);
 
     // Calling out to the hosts can cause m_hostsWithChangesToFlush to be modified, so we copy it
-    // into a Vector first. We have to hold a reference to them because otherwise they could be
-    // destroyed while we're calling out to them.
-    Vector<RefPtr<CACFLayerTreeHost> > hosts;
+    // into a Vector first.
+    Vector<AbstractCACFLayerTreeHost*> hosts;
     copyToVector(m_hostsWithChangesToFlush, hosts);
     m_hostsWithChangesToFlush.clear();
 
@@ -108,7 +106,7 @@ void LayerChangesFlusher::setHook()
 
     DWORD threadID = ::GetCurrentThreadId();
 
-    m_hook = ::SetWindowsHookExW(WH_GETMESSAGE, hookCallback, instanceHandle(), threadID);
+    m_hook = ::SetWindowsHookExW(WH_GETMESSAGE, hookCallback, 0, threadID);
     ASSERT_WITH_MESSAGE(m_hook, "::SetWindowsHookExW failed with error %lu", ::GetLastError());
 
     // Post a message to the message queue to prevent ::GetMessage from blocking, which will ensure

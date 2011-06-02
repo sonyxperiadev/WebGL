@@ -150,6 +150,9 @@ bool WorkerContextExecutionProxy::initContextIfNeeded()
 
     v8::Context::Scope scope(context);
 
+    // Set DebugId for the new context.
+    context->SetData(v8::String::New("worker"));
+
     // Create a new JS object and use it as the prototype for the shadow global object.
     WrapperTypeInfo* contextType = &V8DedicatedWorkerContext::info;
 #if ENABLE(SHARED_WORKERS)
@@ -200,8 +203,10 @@ ScriptValue WorkerContextExecutionProxy::evaluate(const String& script, const St
     v8::Handle<v8::Script> compiledScript = V8Proxy::compileScript(scriptString, fileName, scriptStartPosition);
     v8::Local<v8::Value> result = runScript(compiledScript);
 
-    if (!exceptionCatcher.CanContinue())
+    if (!exceptionCatcher.CanContinue()) {
+        m_workerContext->script()->forbidExecution();
         return ScriptValue();
+    }
 
     if (exceptionCatcher.HasCaught()) {
         v8::Local<v8::Message> message = exceptionCatcher.Message();

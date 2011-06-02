@@ -39,6 +39,8 @@
 #include "WebURL.h"
 #include "WebVector.h"
 
+#define WEBCONTEXT_MEDIATYPEFILE_DEFINED
+
 namespace WebKit {
 
 // This struct is passed to WebViewClient::ShowContextMenu.
@@ -52,6 +54,8 @@ struct WebContextMenuData {
         MediaTypeVideo,
         // An audio node is selected.
         MediaTypeAudio,
+        // A file node is selected.
+        MediaTypeFile,
         // A plugin node is selected.
         MediaTypePlugin,
     };
@@ -91,7 +95,7 @@ struct WebContextMenuData {
         MediaCanSave = 0x10,
         MediaHasAudio = 0x20,
         MediaHasVideo = 0x40,
-        MediaControls = 0x80,
+        MediaControlRootElement = 0x80,
         MediaCanPrint = 0x100,
     };
 
@@ -106,6 +110,9 @@ struct WebContextMenuData {
 
     // The editable (possibily) misspelled word.
     WebString misspelledWord;
+
+    // If misspelledWord is not empty, holds suggestions from the dictionary.
+    WebVector<WebString> dictionarySuggestions;
 
     // Whether context is editable.
     bool isEditable;

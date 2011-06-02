@@ -85,6 +85,7 @@ public:
 
     // This class selects a RenderStyle for a given element based on a collection of stylesheets.
     class CSSStyleSelector {
+        friend class CSSStyleApplyProperty;
         WTF_MAKE_NONCOPYABLE(CSSStyleSelector); WTF_MAKE_FAST_ALLOCATED;
     public:
         CSSStyleSelector(Document*, StyleSheetList* authorSheets, CSSStyleSheet* mappedElementSheet,
@@ -115,6 +116,7 @@ public:
 
         RenderStyle* style() const { return m_style.get(); }
         RenderStyle* parentStyle() const { return m_parentStyle; }
+        Element* element() const { return m_element; }
 
     private:
         void initForStyleResolve(Element*, RenderStyle* parentStyle = 0, PseudoId = NOPSEUDO);

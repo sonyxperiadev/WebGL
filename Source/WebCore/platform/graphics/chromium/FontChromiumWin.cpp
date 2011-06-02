@@ -43,7 +43,7 @@
 #include "TransparencyWin.h"
 #include "UniscribeHelperTextRun.h"
 
-#include "skia/ext/platform_canvas_win.h"
+#include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_win.h"  // FIXME: remove this dependency.
 
 #include <windows.h>
@@ -165,7 +165,7 @@ void TransparencyAwareFontPainter::initializeForGDI()
 
     // Set up the DC, using the one from the transparency helper.
     if (m_transparency.platformContext()) {
-        m_hdc = m_transparency.platformContext()->canvas()->beginPlatformPaint();
+        m_hdc = skia::BeginPlatformPaint(m_transparency.platformContext()->canvas());
         SetTextColor(m_hdc, skia::SkColorToCOLORREF(color));
         SetBkMode(m_hdc, TRANSPARENT);
     }
@@ -179,7 +179,7 @@ TransparencyAwareFontPainter::~TransparencyAwareFontPainter()
     if (m_createdTransparencyLayer)
         m_graphicsContext->endTransparencyLayer();
     m_graphicsContext->restore();
-    m_platformContext->canvas()->endPlatformPaint();
+    skia::EndPlatformPaint(m_platformContext->canvas());
 }
 
 // Specialization for simple GlyphBuffer painting.
@@ -374,20 +374,13 @@ bool Font::canExpandAroundIdeographsInComplexText()
     return false;
 }
 
-void Font::drawGlyphs(GraphicsContext* graphicsContext,
-                      const SimpleFontData* font,
-                      const GlyphBuffer& glyphBuffer,
-                      int from,
-                      int numGlyphs,
-                      const FloatPoint& point) const
-{
+static void drawGlyphsWin(GraphicsContext* graphicsContext,
+                          const SimpleFontData* font,
+                          const GlyphBuffer& glyphBuffer,
+                          int from,
+                          int numGlyphs,
+                          const FloatPoint& point) {
     graphicsContext->platformContext()->prepareForSoftwareDraw();
-
-    SkColor color = graphicsContext->platformContext()->effectiveFillColor();
-    unsigned char alpha = SkColorGetA(color);
-    // Skip 100% transparent text; no need to draw anything.
-    if (!alpha && graphicsContext->platformContext()->getStrokeStyle() == NoStroke)
-        return;
 
     TransparencyAwareGlyphPainter painter(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
 
@@ -447,6 +440,39 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext,
         if (!success)
             LOG_ERROR("Unable to draw the glyphs after second attempt");
     }
+}
+
+void Font::drawGlyphs(GraphicsContext* graphicsContext,
+                      const SimpleFontData* font,
+                      const GlyphBuffer& glyphBuffer,
+                      int from,
+                      int numGlyphs,
+                      const FloatPoint& point) const
+{
+    SkColor color = graphicsContext->platformContext()->effectiveFillColor();
+    unsigned char alpha = SkColorGetA(color);
+    // Skip 100% transparent text; no need to draw anything.
+    if (!alpha && graphicsContext->platformContext()->getStrokeStyle() == NoStroke && !graphicsContext->hasShadow())
+        return;
+    if (!alpha || windowsCanHandleDrawTextShadow(graphicsContext) || !windowsCanHandleTextDrawingWithoutShadow(graphicsContext)) {
+        drawGlyphsWin(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
+        return;
+    }
+    // Draw in two passes: skia for the shadow, GDI for foreground text
+    // pass1: shadow (will use skia)
+    graphicsContext->save();
+    graphicsContext->setFillColor(Color::transparent, graphicsContext->fillColorSpace());
+    drawGlyphsWin(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
+    graphicsContext->restore();
+    // pass2: foreground text (will use GDI)
+    FloatSize shadowOffset;
+    float shadowBlur;
+    Color shadowColor;
+    ColorSpace shadowColorSpace;
+    graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
+    graphicsContext->setShadow(shadowOffset, shadowBlur, Color::transparent, shadowColorSpace);
+    drawGlyphsWin(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
+    graphicsContext->setShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
 }
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run,
@@ -516,7 +542,7 @@ void Font::drawComplexText(GraphicsContext* graphicsContext,
     // the baseline, so we have to subtract off the ascent.
     state.draw(graphicsContext, hdc, lroundf(point.x()), lroundf(point.y() - fontMetrics().ascent()), from, to);
 
-    context->canvas()->endPlatformPaint();
+    skia::EndPlatformPaint(context->canvas());
 }
 
 void Font::drawEmphasisMarksForComplexText(GraphicsContext* /* context */, const TextRun& /* run */, const AtomicString& /* mark */, const FloatPoint& /* point */, int /* from */, int /* to */) const

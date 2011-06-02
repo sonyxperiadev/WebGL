@@ -65,7 +65,6 @@ void InitWebCoreSystemInterface(void)
         INIT(GetWheelEventDeltas);
         INIT(HitTestMediaUIPart);
         INIT(InitializeMaximumHTTPConnectionCountPerHost);
-        INIT(IsLatchingWheelEvent);
         INIT(MeasureMediaUIPart);
         INIT(MediaControllerThemeAvailable);
         INIT(PopupMenu);
@@ -85,7 +84,9 @@ void InitWebCoreSystemInterface(void)
         INIT(SetCONNECTProxyForStream);
         INIT(SetCookieStoragePrivateBrowsingEnabled);
         INIT(SetDragImage);
+        INIT(SetHTTPPipeliningMaximumPriority);
         INIT(SetHTTPPipeliningPriority);
+        INIT(SetHTTPPipeliningMinimumFastLanePriority);
         INIT(SetNSURLConnectionDefersCallbacks);
         INIT(SetNSURLRequestShouldContentSniff);
         INIT(SetPatternBaseCTM);
@@ -135,9 +136,12 @@ void InitWebCoreSystemInterface(void)
         INIT(WillEndLiveResize);
         INIT(ContentAreaDidShow);
         INIT(ContentAreaDidHide);
+        INIT(DidBeginScrollGesture);
+        INIT(DidEndScrollGesture);
         INIT(ScrollbarPainterUsesOverlayScrollers);
 #else
         INIT(GetHyphenationLocationBeforeIndex);
+        INIT(GetNSEventMomentumPhase);
 #endif
         
         INIT(GetAXTextMarkerTypeID);

@@ -37,9 +37,9 @@ struct DocumentMarker {
         Spelling = 1 << 0,
         Grammar = 1 << 1,
         TextMatch = 1 << 2,
-        // Text has been modified by spell correction. On some platforms, this prevents the text
-        // to be autocorrected again. On post Snow Leopard Mac OS X, if a Replacement marker contains
-        // non-empty description, a reversion UI will be shown.
+        // Text has been modified by spell correction, reversion of spell correction or other type of substitution. 
+        // On some platforms, this prevents the text from being autocorrected again. On post Snow Leopard Mac OS X, 
+        // if a Replacement marker contains non-empty description, a reversion UI will be shown.
         Replacement = 1 << 3,
         // Renderer needs to add underline indicating that the text has been modified by spell
         // correction. Text with Replacement marker doesn't necessarily has CorrectionIndicator
@@ -49,12 +49,37 @@ struct DocumentMarker {
         CorrectionIndicator = 1 << 4,
         // Correction suggestion has been offered, but got rejected by user.
         RejectedCorrection = 1 << 5,
-        // On some platforms, this prevents the text to be spellchecked again.
-        SpellCheckingExemption = 1 << 6,
-        AllMarkers = Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | SpellCheckingExemption
+        // Text has been modified by autocorrection. The description of this marker is the original text before autocorrection.
+        Autocorrected = 1 << 6,
+        // On some platforms, this prevents the text from being spellchecked again.
+        SpellCheckingExemption = 1 << 7,
     };
+
+    class MarkerTypes {
+    public:
+        // The constructor is intentionally implicit to allow conversion from the bit-wise sum of above types
+        MarkerTypes(unsigned mask) : m_mask(mask) { }
+
+        bool contains(MarkerType type) const { return m_mask & type; }
+        bool intersects(const MarkerTypes& types) const { return (m_mask & types.m_mask); }
+        bool operator==(const MarkerTypes& other) const { return m_mask == other.m_mask; }
+
+        void add(const MarkerTypes& types) { m_mask |= types.m_mask; }
+        void remove(const MarkerTypes& types) { m_mask &= ~types.m_mask; }
+
+    private:
+        unsigned m_mask;
+    };
+
+    class AllMarkers : public MarkerTypes {
+    public:
+        AllMarkers()
+            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption)
+        {
+        }
+    };
+    
     MarkerType type;
-    typedef unsigned MarkerTypes;
     unsigned startOffset;
     unsigned endOffset;
     String description;

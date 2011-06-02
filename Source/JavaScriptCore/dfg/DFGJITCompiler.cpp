@@ -45,9 +45,6 @@ void JITCompiler::fillNumericToDouble(NodeIndex nodeIndex, FPRReg fpr, GPRReg te
     Node& node = graph()[nodeIndex];
     MacroAssembler::RegisterID tempReg = gprToRegisterID(temporary);
 
-    // Arguments can't be know to be double, would need to have been a ValueToNumber node in the way!
-    ASSERT(!node.isArgument());
-
     if (node.isConstant()) {
         ASSERT(node.op == DoubleConstant);
         move(MacroAssembler::ImmPtr(reinterpret_cast<void*>(reinterpretDoubleToIntptr(valueOfDoubleConstant(nodeIndex)))), tempReg);
@@ -70,9 +67,6 @@ void JITCompiler::fillInt32ToInteger(NodeIndex nodeIndex, GPRReg gpr)
 {
     Node& node = graph()[nodeIndex];
 
-    // Arguments can't be know to be int32, would need to have been a ValueToInt32 node in the way!
-    ASSERT(!node.isArgument());
-
     if (node.isConstant()) {
         ASSERT(node.op == Int32Constant);
         move(MacroAssembler::Imm32(valueOfInt32Constant(nodeIndex)), gprToRegisterID(gpr));
@@ -90,11 +84,6 @@ void JITCompiler::fillInt32ToInteger(NodeIndex nodeIndex, GPRReg gpr)
 void JITCompiler::fillToJS(NodeIndex nodeIndex, GPRReg gpr)
 {
     Node& node = graph()[nodeIndex];
-
-    if (node.isArgument()) {
-        loadPtr(addressForArgument(node.argumentNumber()), gprToRegisterID(gpr));
-        return;
-    }
 
     if (node.isConstant()) {
         if (isInt32Constant(nodeIndex)) {
@@ -198,8 +187,8 @@ void JITCompiler::jumpFromSpeculativeToNonSpeculative(const SpeculationCheck& ch
 void JITCompiler::linkSpeculationChecks(SpeculativeJIT& speculative, NonSpeculativeJIT& nonSpeculative)
 {
     // Iterators to walk over the set of bail outs & corresponding entry points.
-    SpeculativeJIT::SpeculationCheckVector::Iterator checksIter = speculative.speculationChecks().begin();
-    SpeculativeJIT::SpeculationCheckVector::Iterator checksEnd = speculative.speculationChecks().end();
+    SpeculationCheckVector::Iterator checksIter = speculative.speculationChecks().begin();
+    SpeculationCheckVector::Iterator checksEnd = speculative.speculationChecks().end();
     NonSpeculativeJIT::EntryLocationVector::Iterator entriesIter = nonSpeculative.entryLocations().begin();
     NonSpeculativeJIT::EntryLocationVector::Iterator entriesEnd = nonSpeculative.entryLocations().end();
 
@@ -267,25 +256,36 @@ void JITCompiler::compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWi
     // register values around, rebox values, and ensure spilled, to match the
     // non-speculative path's requirements).
 
-#if DFG_JIT_BREAK_ON_ENTRY
+#if DFG_JIT_BREAK_ON_EVERY_FUNCTION
     // Handy debug tool!
     breakpoint();
 #endif
 
     // First generate the speculative path.
+    Label speculativePathBegin = label();
     SpeculativeJIT speculative(*this);
-    speculative.compile();
+    bool compiledSpeculative = speculative.compile();
 
     // Next, generate the non-speculative path. We pass this a SpeculationCheckIndexIterator
     // to allow it to check which nodes in the graph may bail out, and may need to reenter the
     // non-speculative path.
-    SpeculationCheckIndexIterator checkIterator(speculative);
-    NonSpeculativeJIT nonSpeculative(*this);
-    nonSpeculative.compile(checkIterator);
+    if (compiledSpeculative) {
+        SpeculationCheckIndexIterator checkIterator(speculative.speculationChecks());
+        NonSpeculativeJIT nonSpeculative(*this);
+        nonSpeculative.compile(checkIterator);
 
-    // Link the bail-outs from the speculative path to the corresponding entry points into the non-speculative one.
-    linkSpeculationChecks(speculative, nonSpeculative);
+        // Link the bail-outs from the speculative path to the corresponding entry points into the non-speculative one.
+        linkSpeculationChecks(speculative, nonSpeculative);
+    } else {
+        // If compilation through the SpeculativeJIT failed, throw away the code we generated.
+        m_calls.clear();
+        rewindToLabel(speculativePathBegin);
 
+        SpeculationCheckVector noChecks;
+        SpeculationCheckIndexIterator checkIterator(noChecks);
+        NonSpeculativeJIT nonSpeculative(*this);
+        nonSpeculative.compile(checkIterator);
+    }
 
     // === Stage 3 - Function footer code generation ===
     //
@@ -348,6 +348,10 @@ void JITCompiler::compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWi
     // Link the code, populate data in CodeBlock data structures.
 
     LinkBuffer linkBuffer(this, m_globalData->executableAllocator.poolForSize(m_assembler.size()), 0);
+
+#if DFG_DEBUG_VERBOSE
+    fprintf(stderr, "JIT code start at %p\n", linkBuffer.debugAddress());
+#endif
 
     // Link all calls out from the JIT code to their respective functions.
     for (unsigned i = 0; i < m_calls.size(); ++i)

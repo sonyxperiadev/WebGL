@@ -343,6 +343,11 @@ void WebSettingsImpl::setAcceleratedCompositingForAnimationEnabled(bool enabled)
     m_settings->setAcceleratedCompositingForAnimationEnabled(enabled);
 }
 
+void WebSettingsImpl::setAcceleratedDrawingEnabled(bool enabled)
+{
+    m_settings->setAcceleratedDrawingEnabled(enabled);
+}
+
 void WebSettingsImpl::setAccelerated2dCanvasEnabled(bool enabled)
 {
     m_settings->setAccelerated2dCanvasEnabled(enabled);
@@ -371,6 +376,11 @@ void WebSettingsImpl::setCaretBrowsingEnabled(bool enabled)
 void WebSettingsImpl::setInteractiveFormValidationEnabled(bool enabled)
 {
     m_settings->setInteractiveFormValidationEnabled(enabled);
+}
+
+void WebSettingsImpl::setValidationMessageTimerMagnification(int newValue)
+{
+    m_settings->setValidationMessageTimerMagnification(newValue);
 }
 
 void WebSettingsImpl::setMinimumTimerInterval(double interval)

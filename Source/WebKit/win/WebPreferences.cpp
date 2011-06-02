@@ -28,16 +28,15 @@
 #include "WebKitDLL.h"
 #include "WebPreferences.h"
 
-#include "COMPtr.h"
-#include "WebLocalizableStrings.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferenceKeysPrivate.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <WebCore/CACFLayerTreeHost.h>
+#include <WebCore/COMPtr.h>
 #include <WebCore/FileSystem.h>
 #include <WebCore/Font.h>
-#include <WebCore/PlatformString.h>
+#include <WebCore/LocalizedStrings.h>
 #include <limits>
 #include <shlobj.h>
 #include <wchar.h>
@@ -45,8 +44,9 @@
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CoreGraphics.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
@@ -193,7 +193,8 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitMinimumLogicalFontSizePreferenceKey), CFSTR("9"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultFontSizePreferenceKey), CFSTR("16"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultFixedFontSizePreferenceKey), CFSTR("13"));
-    WTF::String defaultDefaultEncoding(LPCTSTR_UI_STRING("ISO-8859-1", "The default, default character encoding"));
+
+    String defaultDefaultEncoding(WEB_UI_STRING("ISO-8859-1", "The default, default character encoding"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultTextEncodingNamePreferenceKey), defaultDefaultEncoding.createCFString());
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitUserStyleSheetEnabledPreferenceKey), kCFBooleanFalse);
@@ -217,6 +218,7 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImagesPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImageLoopingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitDisplayImagesKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitLoadSiteIconsKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitBackForwardCacheExpirationIntervalKey), CFSTR("1800"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitTabToLinksPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitPrivateBrowsingEnabledPreferenceKey), kCFBooleanFalse);
@@ -926,6 +928,20 @@ HRESULT STDMETHODCALLTYPE WebPreferences::loadsImagesAutomatically(
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE WebPreferences::setLoadsSiteIconsIgnoringImageLoadingPreference(
+    /* [in] */ BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitLoadSiteIconsKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::loadsSiteIconsIgnoringImageLoadingPreference(
+    /* [retval][out] */ BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitLoadSiteIconsKey));
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE WebPreferences::setAutosaves( 
     /* [in] */ BOOL enabled)
 {
@@ -1085,7 +1101,7 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setFontSmoothing(
     setIntegerValue(CFSTR(WebKitFontSmoothingTypePreferenceKey), smoothingType);
     if (smoothingType == FontSmoothingTypeWindows)
         smoothingType = FontSmoothingTypeMedium;
-#if PLATFORM(CG)
+#if USE(CG)
     wkSetFontSmoothingLevel((int)smoothingType);
 #endif
     return S_OK;
@@ -1102,7 +1118,7 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setFontSmoothingContrast(
     /* [in] */ float contrast)
 {
     setFloatValue(CFSTR(WebKitFontSmoothingContrastPreferenceKey), contrast);
-#if PLATFORM(CG)
+#if USE(CG)
     wkSetFontSmoothingContrast(contrast);
 #endif
     return S_OK;

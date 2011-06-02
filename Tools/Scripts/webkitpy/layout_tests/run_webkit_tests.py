@@ -79,7 +79,7 @@ def run(port, options, args, regular_output=sys.stderr,
         printer.cleanup()
         return 0
 
-    last_unexpected_results = _gather_unexpected_results(port._filesystem, options)
+    last_unexpected_results = _gather_unexpected_results(port)
     if options.print_last_failures:
         printer.write("\n".join(last_unexpected_results) + "\n")
         printer.cleanup()
@@ -89,11 +89,7 @@ def run(port, options, args, regular_output=sys.stderr,
     # in a try/finally to ensure that we clean up the logging configuration.
     num_unexpected_results = -1
     try:
-        if options.worker_model in ('inline', 'threads', 'processes'):
-            runner = test_runner2.TestRunner2(port, options, printer)
-        else:
-            runner = test_runner.TestRunner(port, options, printer)
-
+        runner = test_runner2.TestRunner2(port, options, printer)
         runner._print_config()
 
         printer.print_update("Collecting tests ...")
@@ -135,9 +131,9 @@ def _set_up_derived_options(port_obj, options):
     if options.worker_model is None:
         options.worker_model = port_obj.default_worker_model()
 
-    if options.worker_model in ('inline', 'old-inline'):
+    if options.worker_model == 'inline':
         if options.child_processes and int(options.child_processes) > 1:
-            warnings.append("--worker-model=%s overrides --child-processes" % options.worker_model)
+            warnings.append("--worker-model=inline overrides --child-processes")
         options.child_processes = "1"
     if not options.child_processes:
         options.child_processes = os.environ.get("WEBKIT_TEST_CHILD_PROCESSES",
@@ -152,12 +148,6 @@ def _set_up_derived_options(port_obj, options):
     if not options.use_apache:
         options.use_apache = sys.platform in ('darwin', 'linux2')
 
-    if not port_obj._filesystem.isabs(options.results_directory):
-        # This normalizes the path to the build dir.
-        # FIXME: how this happens is not at all obvious; this is a dumb
-        # interface and should be cleaned up.
-        options.results_directory = port_obj.results_directory()
-
     if not options.time_out_ms:
         if options.configuration == "Debug":
             options.time_out_ms = str(2 * test_runner.TestRunner.DEFAULT_TEST_TIMEOUT_MS)
@@ -165,14 +155,27 @@ def _set_up_derived_options(port_obj, options):
             options.time_out_ms = str(test_runner.TestRunner.DEFAULT_TEST_TIMEOUT_MS)
 
     options.slow_time_out_ms = str(5 * int(options.time_out_ms))
+
+    if options.additional_platform_directory:
+        normalized_platform_directories = []
+        for path in options.additional_platform_directory:
+            if not port_obj._filesystem.isabs(path):
+                warnings.append("--additional-platform-directory=%s is ignored since it is not absolute" % path)
+                continue
+            normalized_platform_directories.append(port_obj._filesystem.normpath(path))
+        options.additional_platform_directory = normalized_platform_directories
+
     return warnings
 
 
-def _gather_unexpected_results(filesystem, options):
+def _gather_unexpected_results(port):
     """Returns the unexpected results from the previous run, if any."""
+    filesystem = port._filesystem
+    results_directory = port.results_directory()
+    options = port._options
     last_unexpected_results = []
     if options.print_last_failures or options.retest_last_failures:
-        unexpected_results_filename = filesystem.join(options.results_directory, "unexpected_results.json")
+        unexpected_results_filename = filesystem.join(results_directory, "unexpected_results.json")
         if filesystem.exists(unexpected_results_filename):
             results = json_results_generator.load_json(filesystem, unexpected_results_filename)
             last_unexpected_results = results['tests'].keys()
@@ -275,10 +278,7 @@ def parse_args(args=None):
         optparse.make_option("--tolerance",
             help="Ignore image differences less than this percentage (some "
                 "ports may ignore this option)", type="float"),
-        optparse.make_option("--results-directory",
-            default="layout-test-results",
-            help="Output results directory source dir, relative to Debug or "
-                 "Release"),
+        optparse.make_option("--results-directory", help="Location of test results"),
         optparse.make_option("--build-directory",
             help="Path to the directory under which build files are kept (should not include configuration)"),
         optparse.make_option("--new-baseline", action="store_true",
@@ -288,6 +288,13 @@ def parse_args(args=None):
         optparse.make_option("--reset-results", action="store_true",
             default=False, help="Reset any existing baselines to the "
                  "generated results"),
+        optparse.make_option("--additional-drt-flag", action="append",
+            default=[], help="Additional command line flag to pass to DumpRenderTree "
+                 "Specify multiple times to add multiple flags."),
+        optparse.make_option("--additional-platform-directory", action="append",
+            default=[], help="Additional directory where to look for test "
+                 "baselines (will take precendence over platform baselines). "
+                 "Specify multiple times to add multiple search path entries."),
         optparse.make_option("--no-show-results", action="store_false",
             default=True, dest="show_results",
             help="Don't launch a browser with results after the tests "
@@ -370,8 +377,8 @@ def parse_args(args=None):
             help="Number of DumpRenderTrees to run in parallel."),
         # FIXME: Display default number of child processes that will run.
         optparse.make_option("--worker-model", action="store",
-            default=None, help=("controls worker model. Valid values are 'old-inline', "
-                                "'old-threads', 'inline', 'threads', and 'processes'.")),
+            default=None, help=("controls worker model. Valid values are "
+                                "'inline', 'threads', and 'processes'.")),
         optparse.make_option("--experimental-fully-parallel",
             action="store_true", default=False,
             help="run all tests in parallel"),

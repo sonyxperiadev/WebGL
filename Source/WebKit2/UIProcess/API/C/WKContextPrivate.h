@@ -61,6 +61,13 @@ WK_EXPORT void WKContextSetIconDatabasePath(WKContextRef context, WKStringRef ic
 WK_EXPORT void WKContextSetDatabaseDirectory(WKContextRef context, WKStringRef databaseDirectory);
 WK_EXPORT void WKContextSetLocalStorageDirectory(WKContextRef context, WKStringRef localStorageDirectory);
 
+// FIXME: This is a workaround for testing purposes only and should be removed once a better
+// solution has been found for testing.
+WK_EXPORT void WKContextDisableProcessTermination(WKContextRef context);
+WK_EXPORT void WKContextEnableProcessTermination(WKContextRef context);
+
+WK_EXPORT void _WKContextSetHTTPPipeliningEnabled(WKContextRef context, bool enabled);
+
 #ifdef __cplusplus
 }
 #endif

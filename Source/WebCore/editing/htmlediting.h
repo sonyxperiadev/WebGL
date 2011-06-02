@@ -111,7 +111,7 @@ Position previousCandidate(const Position&);
 Position nextVisuallyDistinctCandidate(const Position&);
 Position previousVisuallyDistinctCandidate(const Position&);
 
-Position positionBeforeTabSpan(const Position&);
+Position positionOutsideTabSpan(const Position&);
 Position positionBeforeContainingSpecialElement(const Position&, Node** containingSpecialElement=0);
 Position positionAfterContainingSpecialElement(const Position&, Node** containingSpecialElement=0);
 Position positionOutsideContainingSpecialElement(const Position&, Node** containingSpecialElement=0);
@@ -224,6 +224,15 @@ inline bool isWhitespace(UChar c)
 {
     return c == noBreakSpace || c == ' ' || c == '\n' || c == '\t';
 }
+
+inline bool isAmbiguousBoundaryCharacter(UChar character)
+{
+    // These are characters that can behave as word boundaries, but can appear within words.
+    // If they are just typed, i.e. if they are immediately followed by a caret, we want to delay text checking until the next character has been typed.
+    // FIXME: this is required until 6853027 is fixed and text checking can do this for us.
+    return character == '\'' || character == rightSingleQuotationMark || character == hebrewPunctuationGershayim;
+}
+
 String stringWithRebalancedWhitespace(const String&, bool startIsStartOfParagraph, bool endIsEndOfParagraph);
 const String& nonBreakingSpaceString();
 

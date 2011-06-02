@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +23,11 @@
 #include "config.h"
 #include "WebSearchPopupMenu.h"
 
+#include "WebPage.h"
+#include "WebPageProxyMessages.h"
+#include "WebProcess.h"
+#include <wtf/text/AtomicString.h>
+
 using namespace WebCore;
 
 namespace WebKit {
@@ -42,17 +47,33 @@ PopupMenu* WebSearchPopupMenu::popupMenu()
     return m_popup.get();
 }
 
-void WebSearchPopupMenu::saveRecentSearches(const AtomicString&, const Vector<String>&)
+void WebSearchPopupMenu::saveRecentSearches(const AtomicString& name, const Vector<String>& searchItems)
 {
+    if (name.isEmpty())
+        return;
+
+    WebPage* page = m_popup->page();
+    if (!page)
+        return;
+
+    WebProcess::shared().connection()->send(Messages::WebPageProxy::SaveRecentSearches(name, searchItems), page->pageID());
 }
 
-void WebSearchPopupMenu::loadRecentSearches(const AtomicString&, Vector<String>&)
+void WebSearchPopupMenu::loadRecentSearches(const AtomicString& name, Vector<String>& resultItems)
 {
+    if (name.isEmpty())
+        return;
+
+    WebPage* page = m_popup->page();
+    if (!page)
+        return;
+
+    WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::LoadRecentSearches(name), Messages::WebPageProxy::LoadRecentSearches::Reply(resultItems), page->pageID());
 }
 
 bool WebSearchPopupMenu::enabled()
 {
-    return false;
+    return true;
 }
 
 } // namespace WebKit

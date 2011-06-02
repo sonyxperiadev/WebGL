@@ -141,6 +141,12 @@ void callMemberFunction(const Arguments4<P1, P2, P3, P4>& args, Arguments1<R1>& 
     (object->*function)(args.argument1, args.argument2, args.argument3, args.argument4, replyArgs.argument1);
 }
 
+template<typename C, typename MF, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename R1>
+void callMemberFunction(const Arguments6<P1, P2, P3, P4, P5, P6>& args, Arguments1<R1>& replyArgs, C* object, MF function)
+{
+    (object->*function)(args.argument1, args.argument2, args.argument3, args.argument4, args.argument5, args.argument6, replyArgs.argument1);
+}
+
 template<typename C, typename MF, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename R1>
 void callMemberFunction(const Arguments7<P1, P2, P3, P4, P5, P6, P7>& args, Arguments1<R1>& replyArgs, C* object, MF function)
 {
@@ -169,6 +175,13 @@ template<typename C, typename MF, typename P1, typename P2, typename P3, typenam
 void callMemberFunction(const Arguments4<P1, P2, P3, P4>& args, Arguments3<R1, R2, R3>& replyArgs, C* object, MF function)
 {
     (object->*function)(args.argument1, args.argument2, args.argument3, args.argument4, replyArgs.argument1, replyArgs.argument2, replyArgs.argument3);
+}
+
+// Dispatch functions with delayed reply arguments.
+template<typename C, typename MF, typename P1, typename R>
+void callMemberFunction(const Arguments1<P1>& args, PassRefPtr<R> delayedReply, C* object, MF function)
+{
+    (object->*function)(args.argument1, delayedReply);
 }
 
 // Variadic dispatch functions.
@@ -284,6 +297,17 @@ void handleMessageVariadic(ArgumentDecoder* argumentDecoder, ArgumentEncoder* re
     typename T::Reply::ValueType replyArguments;
     callMemberFunction(arguments, argumentDecoder, replyArguments, object, function);
     replyEncoder->encode(replyArguments);
+}
+
+template<typename T, typename C, typename MF>
+void handleMessageDelayed(Connection* connection, ArgumentDecoder* argumentDecoder, ArgumentEncoder* replyEncoder, C* object, MF function)
+{
+    typename T::DecodeType::ValueType arguments;
+    if (!argumentDecoder->decode(arguments))
+        return;
+
+    RefPtr<typename T::DelayedReply> delayedReply = adoptRef(new typename T::DelayedReply(connection, replyEncoder));
+    callMemberFunction(arguments, delayedReply.release(), object, function);
 }
 
 } // namespace CoreIPC

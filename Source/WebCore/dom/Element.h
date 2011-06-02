@@ -64,8 +64,6 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(dragstart);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(drag);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(dragend);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(formchange);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(forminput);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(input);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(invalid);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(keydown);
@@ -231,8 +229,10 @@ public:
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void recalcStyle(StyleChange = NoChange);
 
-    Node* shadowRoot();
-    void setShadowRoot(PassRefPtr<Node>);
+    ContainerNode* shadowRoot() const;
+    ContainerNode* ensureShadowRoot();
+    void removeShadowRoot();
+
     virtual const AtomicString& shadowPseudoId() const;
 
     RenderStyle* computedStyle(PseudoId = NOPSEUDO);
@@ -303,6 +303,10 @@ public:
     static bool isMathMLElement() { return false; }
 #endif
 
+#if ENABLE(INPUT_SPEECH)
+    virtual bool isInputFieldSpeechButtonElement() const { return false; }
+#endif
+
     virtual bool isFormControlElement() const { return false; }
     virtual bool isEnabledFormControl() const { return true; }
     virtual bool isReadOnlyFormControl() const { return false; }
@@ -364,13 +368,15 @@ protected:
     // They are separated to allow a different flow of control in StyledElement::attributeChanged().
     void recalcStyleIfNeededAfterAttributeChanged(Attribute*);
     void updateAfterAttributeChanged(Attribute*);
+    
+    void idAttributeChanged(Attribute*);
 
 private:
     void scrollByUnits(int units, ScrollGranularity);
 
     virtual void setPrefix(const AtomicString&, ExceptionCode&);
     virtual NodeType nodeType() const;
-    virtual bool childTypeAllowed(NodeType);
+    virtual bool childTypeAllowed(NodeType) const;
 
     virtual PassRefPtr<Attribute> createAttribute(const QualifiedName&, const AtomicString& value);
     
@@ -407,7 +413,6 @@ private:
     ElementRareData* ensureRareData();
 
     SpellcheckAttributeState spellcheckAttributeState() const;
-    void removeShadowRoot();
 
 private:
     mutable RefPtr<NamedNodeMap> m_attributeMap;

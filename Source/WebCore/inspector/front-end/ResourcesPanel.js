@@ -111,10 +111,6 @@ WebInspector.ResourcesPanel.prototype = {
 
     _initDefaultSelection: function()
     {
-        if (this._initializedDefaultSelection)
-            return;
-
-        this._initializedDefaultSelection = true;
         var itemURL = WebInspector.settings.resourcesLastSelectedItem;
         if (itemURL) {
             for (var treeElement = this.sidebarTree.children[0]; treeElement; treeElement = treeElement.traverseNextTreeElement(false, this.sidebarTree, true)) {
@@ -177,6 +173,7 @@ WebInspector.ResourcesPanel.prototype = {
         WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameNavigated, this._frameNavigated, this);
         WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.FrameDetached, this._frameDetached, this);
         WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.ResourceAdded, this._resourceAdded, this);
+        WebInspector.resourceTreeModel.addEventListener(WebInspector.ResourceTreeModel.EventTypes.CachedResourcesLoaded, this._cachedResourcesLoaded, this); 
 
         function populateFrame(frameId)
         {
@@ -191,7 +188,6 @@ WebInspector.ResourcesPanel.prototype = {
                 this._resourceAdded({data:resources[i]});
         }
         populateFrame.call(this, 0);
-        this._initDefaultSelection();
     },
 
     _frameAdded: function(event)
@@ -205,7 +201,11 @@ WebInspector.ResourcesPanel.prototype = {
         
         var frameTreeElement = this._treeElementForFrameId[frameId];
         if (frameTreeElement) {
+            // Maintain sorted order.
+            var parent = frameTreeElement.parent;
+            parent.removeChild(frameTreeElement);
             frameTreeElement.setTitles(title, subtitle);
+            parent.appendChild(frameTreeElement);
             return;
         }
 
@@ -217,20 +217,6 @@ WebInspector.ResourcesPanel.prototype = {
 
         var frameTreeElement = new WebInspector.FrameTreeElement(this, frameId, title, subtitle);
         this._treeElementForFrameId[frameId] = frameTreeElement;
-
-        // Insert in the alphabetical order, first frames, then resources.
-        var children = parentTreeElement.children;
-        for (var i = 0; i < children.length; ++i) {
-            var child = children[i];
-            if (!(child instanceof WebInspector.FrameTreeElement)) {
-                parentTreeElement.insertChild(frameTreeElement, i);
-                return;
-            }
-            if (child.displayName.localeCompare(frameTreeElement.displayName) > 0) {
-                parentTreeElement.insertChild(frameTreeElement, i);
-                return;
-            }
-        }
         parentTreeElement.appendChild(frameTreeElement);
     },
 
@@ -260,22 +246,7 @@ WebInspector.ResourcesPanel.prototype = {
             return;
         }
 
-        var resourceTreeElement = new WebInspector.FrameResourceTreeElement(this, resource);
-
-        // Insert in the alphabetical order, first frames, then resources. Document resource goes first.
-        var children = frameTreeElement.children;
-        for (var i = 0; i < children.length; ++i) {
-            var child = children[i];
-            if (!(child instanceof WebInspector.FrameResourceTreeElement))
-                continue;
-
-            if (resource.type === WebInspector.Resource.Type.Document ||
-                    (child._resource.type !== WebInspector.Resource.Type.Document && child._resource.displayName.localeCompare(resource.displayName) > 0)) {
-                frameTreeElement.insertChild(resourceTreeElement, i);
-                return;
-            }
-        }
-        frameTreeElement.appendChild(resourceTreeElement);
+        frameTreeElement.appendResource(resource);
     },
 
     _frameNavigated: function(event)
@@ -292,6 +263,11 @@ WebInspector.ResourcesPanel.prototype = {
         var frameTreeElement = this._treeElementForFrameId[frameId];
         if (frameTreeElement)
             frameTreeElement.removeChildren();        
+    },
+
+    _cachedResourcesLoaded: function()
+    {
+        this._initDefaultSelection();
     },
 
     _refreshResource: function(event)
@@ -365,23 +341,23 @@ WebInspector.ResourcesPanel.prototype = {
         }
     },
 
-    canShowSourceLine: function(url, line)
+    canShowAnchorLocation: function(anchor)
     {
-        return !!WebInspector.resourceForURL(url);
+        return !!WebInspector.resourceForURL(anchor.href);
     },
 
-    showSourceLine: function(url, line)
+    showAnchorLocation: function(anchor)
     {
-        var resource = WebInspector.resourceForURL(url);
+        var resource = WebInspector.resourceForURL(anchor.href);
         if (resource.type === WebInspector.Resource.Type.XHR) {
             // Show XHRs in the network panel only.
-            if (WebInspector.panels.network && WebInspector.panels.network.canShowSourceLine(url, line)) {
+            if (WebInspector.panels.network && WebInspector.panels.network.canShowAnchorLocation(anchor)) {
                 WebInspector.currentPanel = WebInspector.panels.network;
-                WebInspector.panels.network.showSourceLine(url, line);
+                WebInspector.panels.network.showAnchorLocation(anchor);
             }
             return;
         }
-        this.showResource(WebInspector.resourceForURL(url), line);
+        this.showResource(resource, anchor.getAttribute("line_number") - 1);
     },
 
     showResource: function(resource, line)
@@ -392,10 +368,8 @@ WebInspector.ResourcesPanel.prototype = {
             resourceTreeElement.select();
         }
 
-        if (line) {
+        if (line !== undefined) {
             var view = WebInspector.ResourceView.resourceViewForResource(resource);
-            if (view.revealLine)
-                view.revealLine(line);
             if (view.highlightLine)
                 view.highlightLine(line);
         }
@@ -405,17 +379,38 @@ WebInspector.ResourcesPanel.prototype = {
     _showResourceView: function(resource)
     {
         var view = WebInspector.ResourceView.resourceViewForResource(resource);
-
-        // Consider rendering diff markup here.
-        if (resource.baseRevision && view instanceof WebInspector.SourceFrame) {
-            function callback(baseContent)
-            {
-                if (baseContent)
-                    this._applyDiffMarkup(view, baseContent, resource.content);
-            }
-            resource.baseRevision.requestContent(callback.bind(this));
-        }
+        this._fetchAndApplyDiffMarkup(view, resource);
         this._innerShowView(view);
+    },
+
+    _showRevisionView: function(revision)
+    {
+        if (!revision._view)
+            revision._view = new WebInspector.RevisionSourceFrame(revision);
+        var view = revision._view;
+        this._fetchAndApplyDiffMarkup(view, revision.resource, revision);
+        this._innerShowView(view);
+    },
+
+    _fetchAndApplyDiffMarkup: function(view, resource, revision)
+    {
+        var baseRevision = resource.history[0];
+        if (!baseRevision)
+            return;
+        if (!(view instanceof WebInspector.SourceFrame))
+            return;
+
+        baseRevision.requestContent(step1.bind(this));
+
+        function step1(baseContent)
+        {
+            (revision ? revision : resource).requestContent(step2.bind(this, baseContent));
+        }
+
+        function step2(baseContent, revisionContent)
+        {
+            this._applyDiffMarkup(view, baseContent, revisionContent);
+        }
     },
 
     _applyDiffMarkup: function(view, baseContent, newContent) {
@@ -695,7 +690,7 @@ WebInspector.ResourcesPanel.prototype = {
         var views = [];
 
         const visibleView = this.visibleView;
-        if (visibleView.performSearch)
+        if (visibleView && visibleView.performSearch)
             views.push(visibleView);
 
         function callback(resourceTreeElement)
@@ -810,12 +805,13 @@ WebInspector.ResourcesPanel.prototype = {
 
 WebInspector.ResourcesPanel.prototype.__proto__ = WebInspector.Panel.prototype;
 
-WebInspector.BaseStorageTreeElement = function(storagePanel, representedObject, title, iconClasses, hasChildren)
+WebInspector.BaseStorageTreeElement = function(storagePanel, representedObject, title, iconClasses, hasChildren, noIcon)
 {
     TreeElement.call(this, "", representedObject, hasChildren);
     this._storagePanel = storagePanel;
     this._titleText = title;
     this._iconClasses = iconClasses;
+    this._noIcon = noIcon;
 }
 
 WebInspector.BaseStorageTreeElement.prototype = {
@@ -831,9 +827,11 @@ WebInspector.BaseStorageTreeElement.prototype = {
         selectionElement.className = "selection";
         this.listItemElement.appendChild(selectionElement);
 
-        this.imageElement = document.createElement("img");
-        this.imageElement.className = "icon";
-        this.listItemElement.appendChild(this.imageElement);
+        if (!this._noIcon) {
+            this.imageElement = document.createElement("img");
+            this.imageElement.className = "icon";
+            this.listItemElement.appendChild(this.imageElement);
+        }
 
         this.titleElement = document.createElement("div");
         this.titleElement.className = "base-storage-tree-element-title";
@@ -879,9 +877,9 @@ WebInspector.BaseStorageTreeElement.prototype = {
 
 WebInspector.BaseStorageTreeElement.prototype.__proto__ = TreeElement.prototype;
 
-WebInspector.StorageCategoryTreeElement = function(storagePanel, categoryName, settingsKey, iconClasses)
+WebInspector.StorageCategoryTreeElement = function(storagePanel, categoryName, settingsKey, iconClasses, noIcon)
 {
-    WebInspector.BaseStorageTreeElement.call(this, storagePanel, null, categoryName, iconClasses, true);
+    WebInspector.BaseStorageTreeElement.call(this, storagePanel, null, categoryName, iconClasses, true, noIcon);
     this._expandedSettingKey = "resources" + settingsKey + "Expanded";
     WebInspector.settings.installApplicationSetting(this._expandedSettingKey, settingsKey === "Frames");
     this._categoryName = categoryName;
@@ -923,6 +921,7 @@ WebInspector.FrameTreeElement = function(storagePanel, frameId, title, subtitle)
     WebInspector.BaseStorageTreeElement.call(this, storagePanel, null, "", ["frame-storage-tree-item"]);
     this._frameId = frameId;
     this.setTitles(title, subtitle);
+    this._categoryElements = {};
 }
 
 WebInspector.FrameTreeElement.prototype = {
@@ -957,15 +956,16 @@ WebInspector.FrameTreeElement.prototype = {
 
     setTitles: function(title, subtitle)
     {
-        this._displayName = "";
+        this._displayName = title || "";
+        if (subtitle)
+            this._displayName += " (" + subtitle + ")";
+
         if (this.parent) {
             this.titleElement.textContent = title || "";
-            this._displayName = title || "";
             if (subtitle) {
                 var subtitleElement = document.createElement("span");
                 subtitleElement.className = "base-storage-tree-element-subtitle";
                 subtitleElement.textContent = "(" + subtitle + ")";
-                this._displayName += " (" + subtitle + ")";
                 this.titleElement.appendChild(subtitleElement);
             }
         } else {
@@ -983,8 +983,67 @@ WebInspector.FrameTreeElement.prototype = {
             this.listItemElement.removeStyleClass("hovered");
             DOMAgent.hideFrameHighlight();
         }
+    },
+
+    appendResource: function(resource)
+    {
+        var categoryName = resource.category.name;
+        var categoryElement = resource.category === WebInspector.resourceCategories.documents ? this : this._categoryElements[categoryName];
+        if (!categoryElement) {
+            categoryElement = new WebInspector.StorageCategoryTreeElement(this._storagePanel, resource.category.title, categoryName, null, true);
+            this._categoryElements[resource.category.name] = categoryElement;
+            this._insertInPresentationOrder(this, categoryElement);
+        }
+        var resourceTreeElement = new WebInspector.FrameResourceTreeElement(this._storagePanel, resource);
+        this._insertInPresentationOrder(categoryElement, resourceTreeElement);
+        resourceTreeElement._populateRevisions();
+    },
+
+    appendChild: function(treeElement)
+    {
+        this._insertInPresentationOrder(this, treeElement);
+    },
+
+    _insertInPresentationOrder: function(parentTreeElement, childTreeElement)
+    {
+        // Insert in the alphabetical order, first frames, then resources. Document resource goes last.
+        function typeWeight(treeElement)
+        {
+            if (treeElement instanceof WebInspector.StorageCategoryTreeElement)
+                return 2;
+            if (treeElement instanceof WebInspector.FrameTreeElement)
+                return 1;
+            return 3;
+        }
+
+        function compare(treeElement1, treeElement2)
+        {
+            var typeWeight1 = typeWeight(treeElement1);
+            var typeWeight2 = typeWeight(treeElement2);
+
+            var result;
+            if (typeWeight1 > typeWeight2)
+                result = 1;
+            else if (typeWeight1 < typeWeight2)
+                result = -1;
+            else {
+                var title1 = treeElement1.displayName || treeElement1.titleText;
+                var title2 = treeElement2.displayName || treeElement2.titleText;
+                result = title1.localeCompare(title2);
+            }
+            return result;            
+        }
+
+        var children = parentTreeElement.children;
+        var i;
+        for (i = 0; i < children.length; ++i) {
+            if (compare(childTreeElement, children[i]) < 0)
+                break;
+        }
+        parentTreeElement.insertChild(childTreeElement, i);
     }
 }
+
 WebInspector.FrameTreeElement.prototype.__proto__ = WebInspector.BaseStorageTreeElement.prototype;
 
 WebInspector.FrameResourceTreeElement = function(storagePanel, resource)
@@ -992,7 +1051,7 @@ WebInspector.FrameResourceTreeElement = function(storagePanel, resource)
     WebInspector.BaseStorageTreeElement.call(this, storagePanel, resource, resource.displayName, ["resource-sidebar-tree-item", "resources-category-" + resource.category.name]);
     this._resource = resource;
     this._resource.addEventListener("errors-warnings-updated", this._errorsWarningsUpdated, this);
-    this._resource.addEventListener("content-changed", this._contentChanged, this);
+    this._resource.addEventListener(WebInspector.Resource.Events.RevisionAdded, this._revisionAdded, this);
     this.tooltip = resource.url;
 }
 
@@ -1104,9 +1163,20 @@ WebInspector.FrameResourceTreeElement.prototype = {
             this._bubbleElement.addStyleClass("error");
     },
 
-    _contentChanged: function(event)
+    _populateRevisions: function()
     {
-        this.insertChild(new WebInspector.ResourceRevisionTreeElement(this._storagePanel, event.data.revision), 0);
+        for (var i = 0; i < this._resource.history.length; ++i)
+            this._appendRevision(this._resource.history[i]);
+    },
+
+    _revisionAdded: function(event)
+    {
+        this._appendRevision(event.data);
+    },
+
+    _appendRevision: function(revision)
+    {
+        this.insertChild(new WebInspector.ResourceRevisionTreeElement(this._storagePanel, revision), 0);
         var oldView = WebInspector.ResourceView.existingResourceViewForResource(this._resource);
         if (oldView) {
             var newView = WebInspector.ResourceView.recreateResourceView(this._resource);
@@ -1243,13 +1313,18 @@ WebInspector.ApplicationCacheTreeElement.prototype.__proto__ = WebInspector.Base
 WebInspector.ResourceRevisionTreeElement = function(storagePanel, revision)
 {
     var title = revision.timestamp ? revision.timestamp.toLocaleTimeString() : WebInspector.UIString("(original)");
-    WebInspector.BaseStorageTreeElement.call(this, storagePanel, null, title, ["resource-sidebar-tree-item", "resources-category-" + revision.category.name]);
+    WebInspector.BaseStorageTreeElement.call(this, storagePanel, null, title, ["resource-sidebar-tree-item", "resources-category-" + revision.resource.category.name]);
     if (revision.timestamp)
         this.tooltip = revision.timestamp.toLocaleString();
-    this._resource = revision;
+    this._revision = revision;
 }
 
 WebInspector.ResourceRevisionTreeElement.prototype = {
+    get itemURL()
+    {
+        return this._revision.resource.url;
+    },
+
     onattach: function()
     {
         WebInspector.BaseStorageTreeElement.prototype.onattach.call(this);
@@ -1261,20 +1336,22 @@ WebInspector.ResourceRevisionTreeElement.prototype = {
     onselect: function()
     {
         WebInspector.BaseStorageTreeElement.prototype.onselect.call(this);
-        this._storagePanel._showResourceView(this._resource);
+        this._storagePanel._showRevisionView(this._revision);
     },
 
     _ondragstart: function(event)
     {
-        event.dataTransfer.setData("text/plain", this._resource.content);
-        event.dataTransfer.effectAllowed = "copy";
-        return true;
+        if (this._revision.content) {
+            event.dataTransfer.setData("text/plain", this._revision.content);
+            event.dataTransfer.effectAllowed = "copy";
+            return true;
+        }
     },
 
     _handleContextMenuEvent: function(event)
     {
         var contextMenu = new WebInspector.ContextMenu();
-        contextMenu.appendItem(WebInspector.UIString("Revert to this revision"), this._resource.revertToThis.bind(this._resource));
+        contextMenu.appendItem(WebInspector.UIString("Revert to this revision"), this._revision.revertToThis.bind(this._revision));
         contextMenu.show(event);
     }
 }

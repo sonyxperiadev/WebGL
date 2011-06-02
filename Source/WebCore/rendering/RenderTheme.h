@@ -181,9 +181,10 @@ public:
 
 #if ENABLE(VIDEO)
     // Media controls
-    virtual bool hitTestMediaControlPart(RenderObject*, const IntPoint& absPoint);
-    virtual bool shouldRenderMediaControlPart(ControlPart, Element*);
+    virtual bool supportsClosedCaptioning() const { return false; }
+    virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const { return false; }
     virtual bool usesMediaControlStatusDisplay() { return false; }
+    virtual bool usesMediaControlVolumeSlider() const { return true; }
     virtual double mediaControlsFadeInDuration() { return 0.1; }
     virtual double mediaControlsFadeOutDuration() { return 0.3; }
     virtual String formatMediaControlsTime(float time) const;
@@ -196,7 +197,7 @@ public:
 
 #if ENABLE(METER_TAG)
     virtual IntSize meterSizeForBounds(const RenderMeter*, const IntRect&) const;
-    virtual bool supportsMeter(ControlPart, bool isHorizontal) const;
+    virtual bool supportsMeter(ControlPart) const;
 #endif
     
     virtual bool shouldShowPlaceholderWhenFocused() const { return false; }

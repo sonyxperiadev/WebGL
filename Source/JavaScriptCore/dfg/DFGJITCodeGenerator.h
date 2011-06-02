@@ -59,7 +59,6 @@ protected:
         SpillOrderNone,
         SpillOrderConstant = 1, // no spill, and cheap fill
         SpillOrderSpilled = 2,  // no spill
-        SpillOrderArgument = 3, // no spill, but we may lose typeinfo
         SpillOrderJS = 4,       // needs spill
         SpillOrderCell = 4,     // needs spill
         SpillOrderInteger = 5,  // needs spill and box
@@ -152,6 +151,7 @@ protected:
         , m_isSpeculative(isSpeculative)
         , m_compileIndex(0)
         , m_generationInfo(m_jit.codeBlock()->m_numCalleeRegisters)
+        , m_blockHeads(jit.graph().m_blocks.size())
     {
     }
 
@@ -237,6 +237,7 @@ protected:
     }
 
     // Checks/accessors for constant values.
+    bool isConstant(NodeIndex nodeIndex) { return m_jit.isConstant(nodeIndex); }
     bool isInt32Constant(NodeIndex nodeIndex) { return m_jit.isInt32Constant(nodeIndex); }
     bool isDoubleConstant(NodeIndex nodeIndex) { return m_jit.isDoubleConstant(nodeIndex); }
     bool isJSConstant(NodeIndex nodeIndex) { return m_jit.isJSConstant(nodeIndex); }
@@ -444,11 +445,6 @@ protected:
         Node& node = m_jit.graph()[nodeIndex];
         m_generationInfo[node.virtualRegister].initConstant(nodeIndex, node.refCount);
     }
-    void initArgumentInfo(NodeIndex nodeIndex)
-    {
-        Node& node = m_jit.graph()[nodeIndex];
-        m_generationInfo[node.virtualRegister].initArgument(nodeIndex, node.refCount);
-    }
 
     // These methods used to sort arguments into the correct registers.
     template<GPRReg destA, GPRReg destB>
@@ -607,6 +603,26 @@ protected:
         appendCallWithExceptionCheck(operation);
         m_jit.move(JITCompiler::returnValueRegister, JITCompiler::gprToRegisterID(result));
     }
+    void callOperation(Z_DFGOperation_EJ operation, GPRReg result, GPRReg arg1)
+    {
+        ASSERT(isFlushed());
+
+        m_jit.move(JITCompiler::gprToRegisterID(arg1), JITCompiler::argumentRegister1);
+        m_jit.move(JITCompiler::callFrameRegister, JITCompiler::argumentRegister0);
+
+        appendCallWithExceptionCheck(operation);
+        m_jit.move(JITCompiler::returnValueRegister, JITCompiler::gprToRegisterID(result));
+    }
+    void callOperation(Z_DFGOperation_EJJ operation, GPRReg result, GPRReg arg1, GPRReg arg2)
+    {
+        ASSERT(isFlushed());
+
+        setupStubArguments(arg1, arg2);
+        m_jit.move(JITCompiler::callFrameRegister, JITCompiler::argumentRegister0);
+
+        appendCallWithExceptionCheck(operation);
+        m_jit.move(JITCompiler::returnValueRegister, JITCompiler::gprToRegisterID(result));
+    }
     void callOperation(J_DFGOperation_EJJ operation, GPRReg result, GPRReg arg1, GPRReg arg2)
     {
         ASSERT(isFlushed());
@@ -655,6 +671,19 @@ protected:
         m_jit.appendCallWithExceptionCheck(function, m_jit.graph()[m_compileIndex].exceptionInfo);
     }
 
+    void addBranch(const MacroAssembler::Jump& jump, BlockIndex destination)
+    {
+        m_branches.append(BranchRecord(jump, destination));
+    }
+
+    void linkBranches()
+    {
+        for (size_t i = 0; i < m_branches.size(); ++i) {
+            BranchRecord& branch = m_branches[i];
+            branch.jump.linkTo(m_blockHeads[branch.destination], &m_jit);
+        }
+    }
+
 #ifndef NDEBUG
     void dump(const char* label = 0);
 #endif
@@ -679,11 +708,25 @@ protected:
     // the value may have been boxed differently on the two paths.
     bool m_isSpeculative;
     // The current node being generated.
+    BlockIndex m_block;
     NodeIndex m_compileIndex;
     // Virtual and physical register maps.
     Vector<GenerationInfo, 32> m_generationInfo;
     RegisterBank<GPRReg, numberOfGPRs, SpillOrder, SpillOrderNone, SpillOrderMax> m_gprs;
     RegisterBank<FPRReg, numberOfFPRs, SpillOrder, SpillOrderNone, SpillOrderMax> m_fprs;
+
+    Vector<MacroAssembler::Label> m_blockHeads;
+    struct BranchRecord {
+        BranchRecord(MacroAssembler::Jump jump, BlockIndex destination)
+            : jump(jump)
+            , destination(destination)
+        {
+        }
+
+        MacroAssembler::Jump jump;
+        BlockIndex destination;
+    };
+    Vector<BranchRecord, 8> m_branches;
 };
 
 // === Operand types ===

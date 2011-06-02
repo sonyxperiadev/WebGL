@@ -69,16 +69,6 @@ public:
     {
     }
 
-    // Used to set the generation info according the the result
-    // of various operations.
-    void initArgument(NodeIndex nodeIndex, uint32_t useCount)
-    {
-        m_nodeIndex = nodeIndex;
-        m_useCount = useCount;
-        m_registerFormat = DataFormatNone;
-        m_spillFormat = DataFormatNone;
-        m_canFill = true;
-    }
     void initConstant(NodeIndex nodeIndex, uint32_t useCount)
     {
         m_nodeIndex = nodeIndex;
@@ -168,12 +158,12 @@ public:
     {
         // This should only be called on values that are currently in a register.
         ASSERT(m_registerFormat != DataFormatNone);
-        // Constants and arguments do not need spilling, nor do values
-        // that have already been spilled to the RegisterFile.
+        // Constants do not need spilling, nor do values that have already been
+        // spilled to the RegisterFile.
         return !m_canFill;
     }
 
-    // Called when a VirtualRegister is being spilled †o the RegisterFile for the first time.
+    // Called when a VirtualRegister is being spilled to the RegisterFile for the first time.
     void spill(DataFormat spillFormat)
     {
         // We shouldn't be spill values that don't need spilling.
@@ -190,9 +180,8 @@ public:
         m_canFill = true;
     }
 
-    // Called on values that don't need spilling (constants, arguments,
-    // values that have already been spilled), to mark them as no longer
-    // being in machine registers.
+    // Called on values that don't need spilling (constants and values that have
+    // already been spilled), to mark them as no longer being in machine registers.
     void setSpilled()
     {
         // Should only be called on values that don't need spilling, and are currently in registers.

@@ -36,7 +36,7 @@ SET(WebKit_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/assembler"
     "${JAVASCRIPTCORE_DIR}/bytecode"
     "${JAVASCRIPTCORE_DIR}/bytecompiler"
-    "${JAVASCRIPTCORE_DIR}/collector/handles"
+    "${JAVASCRIPTCORE_DIR}/heap"
     "${JAVASCRIPTCORE_DIR}/debugger"
     "${JAVASCRIPTCORE_DIR}/interpreter"
     "${JAVASCRIPTCORE_DIR}/jit"
@@ -45,7 +45,7 @@ SET(WebKit_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/runtime"
     "${JAVASCRIPTCORE_DIR}/wtf"
     "${JAVASCRIPTCORE_DIR}/wtf/unicode"
-    "${DERIVED_SOURCES_DIR}"
+    "${DERIVED_SOURCES_WEBCORE_DIR}"
     "${CMAKE_BINARY_DIR}"
 )
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +30,8 @@
 #include "PageClient.h"
 #include <wtf/RetainPtr.h>
 
+@class WKEditorUndoTargetObjC;
 @class WKView;
-@class WebEditorUndoTargetObjC;
 
 namespace WebKit {
 
@@ -63,16 +63,18 @@ private:
     virtual void processDidCrash();
     virtual void pageClosed();
     virtual void didRelaunchProcess();
-    virtual void setFocus(bool focused);
-    virtual void takeFocus(bool direction);
     virtual void toolTipChanged(const String& oldToolTip, const String& newToolTip);
     virtual void setCursor(const WebCore::Cursor&);
     virtual void setViewportArguments(const WebCore::ViewportArguments&);
 
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo);
     virtual void clearAllEditCommands();
-    virtual void interceptKeyEvent(const NativeWebKeyboardEvent& event, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines);
+    virtual bool canUndoRedo(WebPageProxy::UndoOrRedo);
+    virtual void executeUndoRedo(WebPageProxy::UndoOrRedo);
+    virtual bool interpretKeyEvent(const NativeWebKeyboardEvent&, Vector<WebCore::KeypressCommand>&);
+    virtual bool executeSavedCommandBySelector(const String& selector);
     virtual void setDragImage(const WebCore::IntPoint& clientPosition, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag);
+    virtual void updateSecureInputState();
 
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
@@ -100,10 +102,13 @@ private:
 
     virtual double customRepresentationZoomFactor();
     virtual void setCustomRepresentationZoomFactor(double);
+    virtual void findStringInCustomRepresentation(const String&, FindOptions, unsigned maxMatchCount);
+    virtual void countStringMatchesInCustomRepresentation(const String&, FindOptions, unsigned maxMatchCount);
 
     virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
 
     virtual void didPerformDictionaryLookup(const String&, double scaleFactor, const DictionaryPopupInfo&);
+    virtual void dismissDictionaryLookupPanel();
 
     virtual void showCorrectionPanel(WebCore::CorrectionPanelInfo::PanelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings);
     virtual void dismissCorrectionPanel(WebCore::ReasonForDismissingCorrectionPanel);
@@ -113,7 +118,7 @@ private:
     virtual float userSpaceScaleFactor() const;
 
     WKView* m_wkView;
-    RetainPtr<WebEditorUndoTargetObjC> m_undoTarget;
+    RetainPtr<WKEditorUndoTargetObjC> m_undoTarget;
 #if !defined(BUILDING_ON_SNOW_LEOPARD)
     CorrectionPanel m_correctionPanel;
 #endif

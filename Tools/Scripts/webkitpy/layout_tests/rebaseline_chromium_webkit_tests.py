@@ -41,6 +41,8 @@ The script does the following for each platform specified:
 At the end, the script generates a html that compares old and new baselines.
 """
 
+from __future__ import with_statement
+
 import copy
 import logging
 import optparse
@@ -55,27 +57,26 @@ from webkitpy.common.system import urlfetcher
 from webkitpy.common.system.executive import ScriptError
 
 from webkitpy.layout_tests import port
+from webkitpy.layout_tests import read_checksum_from_png
 from webkitpy.layout_tests.layout_package import test_expectations
 
 _log = logging.getLogger(__name__)
 
 BASELINE_SUFFIXES = ('.txt', '.png', '.checksum')
-REBASELINE_PLATFORM_ORDER = ('mac', 'win', 'win-xp', 'win-vista', 'linux')
-ARCHIVE_DIR_NAME_DICT = {'win': 'Webkit_Win__deps_',
-                         'win-vista': 'webkit-dbg-vista',
-                         'win-xp': 'Webkit_Win__deps_',
-                         'mac': 'Webkit_Mac10_5__deps_',
-                         'linux': 'Webkit_Linux__deps_',
 
-                         'win-canary': 'Webkit_Win',
-                         'win-vista-canary': 'webkit-dbg-vista',
-                         'win-xp-canary': 'Webkit_Win',
-                         'mac-canary': 'Webkit_Mac10_5',
-                         'linux-canary': 'Webkit_Linux',
-
-                         'gpu-mac-canary': 'Webkit_Mac10_5_-_GPU',
-                         'gpu-win-canary': 'Webkit_Win_-_GPU',
-                         'gpu-linux-canary': 'Webkit_Linux_-_GPU',
+ARCHIVE_DIR_NAME_DICT = {
+    'chromium-win-win7': 'Webkit_Win7',
+    'chromium-win-vista': 'Webkit_Vista',
+    'chromium-win-xp': 'Webkit_Win',
+    'chromium-mac-leopard': 'Webkit_Mac10_5',
+    'chromium-mac-snowleopard': 'Webkit_Mac10_6',
+    'chromium-linux-x86': 'Webkit_Linux',
+    'chromium-linux-x86_64': 'Webkit_Linux_64',
+    'chromium-gpu-mac-snowleopard': 'Webkit_Mac10_6_-_GPU',
+    'chromium-gpu-win-xp': 'Webkit_Win_-_GPU',
+    'chromium-gpu-win-win7': 'Webkit_Win7_-_GPU',
+    'chromium-gpu-linux': 'Webkit_Linux_-_GPU',
+    'chromium-gpu-linux-x86_64': 'Webkit_Linux_64_-_GPU',
 }
 
 
@@ -166,11 +167,7 @@ class Rebaseliner(object):
         self._filesystem = running_port._filesystem
         self._target_port = target_port
 
-        # FIXME: See the comments in chromium_{win,mac}.py about why we need
-        # the 'rebaselining' keyword.
-        self._rebaseline_port = port.get(
-            self._target_port.test_platform_name_to_name(platform), options,
-            filesystem=self._filesystem, rebaselining=True)
+        self._rebaseline_port = port.get(platform, options, filesystem=self._filesystem)
         self._rebaselining_tests = set()
         self._rebaselined_tests = []
 
@@ -185,13 +182,13 @@ class Rebaseliner(object):
         self._zip_factory = zip_factory
         self._scm = scm
 
-    def run(self, backup):
+    def run(self):
         """Run rebaseline process."""
 
         log_dashed_string('Compiling rebaselining tests', self._platform)
         if not self._compile_rebaselining_tests():
             return False
-        if not self.get_rebaselining_tests():
+        if not self._rebaselining_tests:
             return True
 
         log_dashed_string('Downloading archive', self._platform)
@@ -209,8 +206,6 @@ class Rebaseliner(object):
         archive_file.close()
 
         log_dashed_string('Updating rebaselined tests in file', self._platform)
-        self._update_rebaselined_tests_in_file(backup)
-        _log.info('')
 
         if len(self._rebaselining_tests) != len(self._rebaselined_tests):
             _log.warning('NOT ALL TESTS THAT NEED REBASELINING HAVE BEEN REBASELINED.')
@@ -222,8 +217,23 @@ class Rebaseliner(object):
 
         return True
 
-    def get_rebaselining_tests(self):
-        return self._rebaselining_tests
+    def remove_rebaselining_expectations(self, tests, backup):
+        """if backup is True, we backup the original test expectations file."""
+        new_expectations = self._test_expectations.remove_rebaselined_tests(tests)
+        path = self._target_port.path_to_test_expectations_file()
+        if backup:
+            date_suffix = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+            backup_file = '%s.orig.%s' % (path, date_suffix)
+            if self._filesystem.exists(backup_file):
+                self._filesystem.remove(backup_file)
+            _log.info('Saving original file to "%s"', backup_file)
+            self._filesystem.move(path, backup_file)
+
+        self._filesystem.write_text_file(path, new_expectations)
+        # self._scm.add(path)
+
+    def get_rebaselined_tests(self):
+        return self._rebaselined_tests
 
     def _compile_rebaselining_tests(self):
         """Compile list of tests that need rebaselining for the platform.
@@ -232,8 +242,7 @@ class Rebaseliner(object):
           False if reftests are wrongly marked as 'needs rebaselining' or True
         """
 
-        self._rebaselining_tests = \
-            self._test_expectations.get_rebaselining_failures()
+        self._rebaselining_tests = self._test_expectations.get_rebaselining_failures()
         if not self._rebaselining_tests:
             _log.warn('No tests found that need rebaselining.')
             return True
@@ -307,13 +316,7 @@ class Rebaseliner(object):
         if self._options.force_archive_url:
             return self._options.force_archive_url
 
-        platform = self._platform
-        if self._options.webkit_canary:
-            platform += '-canary'
-        if self._options.gpu:
-            platform = 'gpu-' + platform
-
-        dir_name = self._get_archive_dir_name(platform)
+        dir_name = self._get_archive_dir_name(self._platform)
         if not dir_name:
             return None
 
@@ -349,8 +352,7 @@ class Rebaseliner(object):
         for name in zip_namelist:
             _log.debug('  ' + name)
 
-        platform = self._rebaseline_port.test_platform_name_to_name(self._platform)
-        _log.debug('Platform dir: "%s"', platform)
+        _log.debug('Platform dir: "%s"', self._platform)
 
         self._rebaselined_tests = []
         for test_no, test in enumerate(self._rebaselining_tests):
@@ -392,6 +394,12 @@ class Rebaseliner(object):
                 self._delete_baseline(expected_fullpath)
                 continue
 
+            if suffix == '.checksum' and self._png_has_same_checksum(temp_name, test, expected_fullpath):
+                self._filesystem.remove(temp_name)
+                # If an old checksum exists, delete it.
+                self._delete_baseline(expected_fullpath)
+                continue
+
             self._filesystem.maybe_make_directory(self._filesystem.dirname(expected_fullpath))
             self._filesystem.move(temp_name, expected_fullpath)
 
@@ -419,15 +427,40 @@ class Rebaseliner(object):
         tempfile.close()
         return temp_name
 
-    def _is_dup_baseline(self, new_baseline, baseline_path, test, suffix,
-                         platform):
+    def _png_has_same_checksum(self, checksum_path, test, checksum_expected_fullpath):
+        """Returns True if the fallback png for |checksum_expected_fullpath|
+        contains the same checksum."""
+        fs = self._filesystem
+        png_fullpath = self._first_fallback_png_for_test(test)
+
+        if not fs.exists(png_fullpath):
+            _log.error('  Checksum without png file found! Expected %s to exist.' % png_fullpath)
+            return False
+
+        with fs.open_binary_file_for_reading(png_fullpath) as filehandle:
+            checksum_in_png = read_checksum_from_png.read_checksum(filehandle)
+            checksum_in_text_file = fs.read_text_file(checksum_path)
+            if checksum_in_png and checksum_in_png != checksum_in_text_file:
+                _log.error("  checksum in %s and %s don't match!  Continuing"
+                           " to copy but please investigate." % (
+                           checksum_expected_fullpath, png_fullpath))
+            return checksum_in_text_file == checksum_in_png
+
+    def _first_fallback_png_for_test(self, test):
+        test_filepath = self._filesystem.join(self._target_port.layout_tests_dir(), test)
+        all_baselines = self._rebaseline_port.expected_baselines(
+            test_filepath, '.png', True)
+        return self._filesystem.join(all_baselines[0][0], all_baselines[0][1])
+
+    def _is_dup_baseline(self, new_baseline, baseline_path, test, suffix, platform):
         """Check whether a baseline is duplicate and can fallback to same
            baseline for another platform. For example, if a test has same
            baseline on linux and windows, then we only store windows
            baseline and linux baseline will fallback to the windows version.
 
         Args:
-          expected_filename: baseline expectation file name.
+          new_baseline: temp filename containing the new baseline results
+          baseline_path: baseline expectation file name.
           test: test name.
           suffix: file suffix of the expected results, including dot;
                   e.g. '.txt' or '.png'.
@@ -486,33 +519,6 @@ class Rebaseliner(object):
         if not filename or not self._filesystem.isfile(filename):
             return
         self._scm.delete(filename)
-
-    def _update_rebaselined_tests_in_file(self, backup):
-        """Update the rebaselined tests in test expectations file.
-
-        Args:
-          backup: if True, backup the original test expectations file.
-
-        Returns:
-          no
-        """
-
-        if self._rebaselined_tests:
-            new_expectations = self._test_expectations.remove_platform_from_expectations(
-                self._rebaselined_tests, self._platform)
-            path = self._target_port.path_to_test_expectations_file()
-            if backup:
-                date_suffix = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
-                backup_file = '%s.orig.%s' % (path, date_suffix)
-                if self._filesystem.exists(backup_file):
-                    self._filesystem.remove(backup_file)
-                _log.info('Saving original file to "%s"', backup_file)
-                self._filesystem.move(path, backup_file)
-
-            self._filesystem.write_text_file(path, new_expectations)
-            # self._scm.add(path)
-        else:
-            _log.info('No test was rebaselined so nothing to remove.')
 
     def _create_html_baseline_files(self, baseline_fullpath):
         """Create baseline files (old, new and diff) in html directory.
@@ -792,10 +798,6 @@ def parse_options(args):
                              action='store_true',
                              help='Suppress result HTML viewing')
 
-    option_parser.add_option('-g', '--gpu',
-                            action='store_true', default=False,
-                            help='Rebaseline the GPU versions')
-
     option_parser.add_option('-p', '--platforms',
                              default=None,
                              help=('Comma delimited list of platforms '
@@ -809,12 +811,6 @@ def parse_options(args):
     option_parser.add_option('-U', '--force_archive_url',
                              help=('Url of result zip file. This option is for debugging '
                                    'purposes'))
-
-    option_parser.add_option('-w', '--webkit_canary',
-                             action='store_true',
-                             default=False,
-                             help=('If True, pull baselines from webkit.org '
-                                   'canary bot.'))
 
     option_parser.add_option('-b', '--backup',
                              action='store_true',
@@ -833,17 +829,21 @@ def parse_options(args):
                              help=('Use ImageDiff from DumpRenderTree instead '
                                    'of image_diff for pixel tests.'))
 
+    option_parser.add_option('-w', '--webkit_canary',
+                             action='store_true',
+                             default=False,
+                             help=('DEPRECATED. This flag no longer has any effect.'
+                                   '  The canaries are always used.'))
+
     option_parser.add_option('', '--target-platform',
                              default='chromium',
                              help=('The target platform to rebaseline '
                                    '("mac", "chromium", "qt", etc.). Defaults '
                                    'to "chromium".'))
+
     options = option_parser.parse_args(args)[0]
-    if options.platforms == None:
-        if options.gpu:
-            options.platforms = 'mac,win,linux'
-        else:
-            options.platforms = 'mac,win,win-xp,win-vista,linux'
+    if options.webkit_canary:
+        print "-w/--webkit-canary is no longer necessary, ignoring."
 
     target_options = copy.copy(options)
     if options.target_platform == 'chromium':
@@ -866,10 +866,7 @@ def main(args):
                                 '%(levelname)s %(message)s'),
                         datefmt='%y%m%d %H:%M:%S')
 
-    target_port_name = None
-    if options.gpu and options.target_platform == 'chromium':
-        target_port_name = 'chromium-gpu'
-    target_port_obj = port.get(target_port_name, target_options)
+    target_port_obj = port.get(None, target_options)
     host_port_obj = get_host_port_object(options)
     if not host_port_obj or not target_port_obj:
         return 1
@@ -906,30 +903,21 @@ def real_main(options, target_options, host_port_obj, target_port_obj, url_fetch
             the archives.
         scm_obj: object used to add new baselines to the source control system.
     """
-    # Verify 'platforms' option is valid.
-    if not options.platforms:
-        _log.error('Invalid "platforms" option. --platforms must be '
-                   'specified in order to rebaseline.')
-        return 1
-    platforms = [p.strip().lower() for p in options.platforms.split(',')]
-    for platform in platforms:
-        if not platform in REBASELINE_PLATFORM_ORDER:
-            _log.error('Invalid platform: "%s"' % (platform))
-            return 1
-
-    # Adjust the platform order so rebaseline tool is running at the order of
-    # 'mac', 'win' and 'linux'. This is in same order with layout test baseline
-    # search paths. It simplifies how the rebaseline tool detects duplicate
-    # baselines. Check _IsDupBaseline method for details.
-    rebaseline_platforms = []
-    for platform in REBASELINE_PLATFORM_ORDER:
-        if platform in platforms:
-            rebaseline_platforms.append(platform)
-
     options.html_directory = setup_html_directory(host_port_obj._filesystem, options.html_directory)
+    all_platforms = target_port_obj.all_baseline_variants()
+    if options.platforms:
+        bail = False
+        for platform in options.platforms:
+            if not platform in all_platforms:
+                _log.error('Invalid platform: "%s"' % (platform))
+                bail = True
+        if bail:
+            return 1
+        rebaseline_platforms = options.platforms
+    else:
+        rebaseline_platforms = all_platforms
 
-    rebaselining_tests = set()
-    backup = options.backup
+    rebaselined_tests = set()
     for platform in rebaseline_platforms:
         rebaseliner = Rebaseliner(host_port_obj, target_port_obj,
                                   platform, options, url_fetcher, zip_factory,
@@ -937,14 +925,16 @@ def real_main(options, target_options, host_port_obj, target_port_obj, url_fetch
 
         _log.info('')
         log_dashed_string('Rebaseline started', platform)
-        if rebaseliner.run(backup):
-            # Only need to backup one original copy of test expectation file.
-            backup = False
+        if rebaseliner.run():
             log_dashed_string('Rebaseline done', platform)
         else:
             log_dashed_string('Rebaseline failed', platform, logging.ERROR)
 
-        rebaselining_tests |= set(rebaseliner.get_rebaselining_tests())
+        rebaselined_tests |= set(rebaseliner.get_rebaselined_tests())
+
+    if rebaselined_tests:
+        rebaseliner.remove_rebaselining_expectations(rebaselined_tests,
+                                                     options.backup)
 
     _log.info('')
     log_dashed_string('Rebaselining result comparison started', None)
@@ -952,7 +942,7 @@ def real_main(options, target_options, host_port_obj, target_port_obj, url_fetch
                                    target_port_obj,
                                    options,
                                    rebaseline_platforms,
-                                   rebaselining_tests)
+                                   rebaselined_tests)
     html_generator.generate_html()
     if not options.quiet:
         html_generator.show_html()

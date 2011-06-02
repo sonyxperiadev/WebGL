@@ -22,7 +22,7 @@ HEADERS += \
     webview.h \
     fpstimer.h \
 
-CONFIG += uitools
+!isEqual(QT_ARCH,sh4): CONFIG += uitools
 
 isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../..
 include(../../Source/WebKit.pri)
@@ -34,7 +34,7 @@ DESTDIR = $$OUTPUT_DIR/bin
 QT += network
 macx:QT+=xml
 
-unix:!mac:!symbian {
+unix:!mac:!symbian:!embedded {
     CONFIG += link_pkgconfig
     PKGCONFIG += fontconfig
 }

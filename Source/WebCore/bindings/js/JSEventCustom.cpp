@@ -101,6 +101,8 @@
 #if ENABLE(WEB_AUDIO)
 #include "AudioProcessingEvent.h"
 #include "JSAudioProcessingEvent.h"
+#include "JSOfflineAudioCompletionEvent.h"
+#include "OfflineAudioCompletionEvent.h"
 #endif
 
 using namespace JSC;
@@ -119,7 +121,7 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
     if (!event)
         return jsNull();
 
-    DOMObject* wrapper = getCachedDOMObjectWrapper(exec, event);
+    JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), event);
     if (wrapper)
         return wrapper;
 
@@ -190,6 +192,8 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
 #if ENABLE(WEB_AUDIO)
     else if (event->isAudioProcessingEvent())
         wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, AudioProcessingEvent, event);
+    else if (event->isOfflineAudioCompletionEvent())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, OfflineAudioCompletionEvent, event);
 #endif
 #if ENABLE(INPUT_SPEECH)
     else if (event->isSpeechInputEvent())

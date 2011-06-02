@@ -83,7 +83,7 @@ public:
 #if ENABLE(METER_TAG)
     virtual IntSize meterSizeForBounds(const RenderMeter*, const IntRect&) const;
     virtual bool paintMeter(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool supportsMeter(ControlPart, bool isHorizontal) const;
+    virtual bool supportsMeter(ControlPart) const;
 #endif
 
 #if ENABLE(PROGRESS_TAG)
@@ -166,8 +166,10 @@ protected:
     virtual String extraFullScreenStyleSheet();
 #endif
 
-    virtual bool shouldRenderMediaControlPart(ControlPart, Element*);
+    virtual bool supportsClosedCaptioning() const { return true; }
+    virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const;
     virtual bool usesMediaControlStatusDisplay();
+    virtual bool usesMediaControlVolumeSlider() const;
     virtual void adjustMediaSliderThumbSize(RenderObject*) const;
     virtual IntPoint volumeSliderOffsetFromMuteButton(RenderBox*, const IntSize&) const;
 #endif

@@ -60,7 +60,7 @@ public:
     virtual void dispatchDidReceiveAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidCancelAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::ResourceResponse&);
-    virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int lengthReceived);
+    virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int dataLength);
     virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long  identifier);
     virtual void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::ResourceError&);
     virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int length);
@@ -76,7 +76,7 @@ public:
     virtual void dispatchWillClose();
     virtual void dispatchDidReceiveIcon();
     virtual void dispatchDidStartProvisionalLoad();
-    virtual void dispatchDidReceiveTitle(const WTF::String&);
+    virtual void dispatchDidReceiveTitle(const WebCore::StringWithDirection&);
     virtual void dispatchDidChangeIcons();
     virtual void dispatchDidCommitLoad();
     virtual void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&);
@@ -169,7 +169,7 @@ public:
     virtual void prepareForDataSourceReplacement();
 
     virtual WTF::PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
-    virtual void setTitle(const WTF::String& title, const WebCore::KURL&);
+    virtual void setTitle(const WebCore::StringWithDirection&, const WebCore::KURL&);
 
     virtual WTF::String userAgent(const WebCore::KURL&);
 

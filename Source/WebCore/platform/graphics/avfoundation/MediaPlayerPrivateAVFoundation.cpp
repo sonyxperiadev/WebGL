@@ -74,6 +74,8 @@ MediaPlayerPrivateAVFoundation::MediaPlayerPrivateAVFoundation(MediaPlayer* play
     , m_cachedHasVideo(false)
     , m_cachedHasCaptions(false)
     , m_ignoreLoadStateChanges(false)
+    , m_haveReportedFirstVideoFrame(false)
+    , m_playWhenFramesAvailable(false)
 {
     LOG(Media, "MediaPlayerPrivateAVFoundation::MediaPlayerPrivateAVFoundation(%p)", this);
 }
@@ -248,6 +250,25 @@ void MediaPlayerPrivateAVFoundation::prepareToPlay()
     checkPlayability();
 }
 
+void MediaPlayerPrivateAVFoundation::play()
+{
+    LOG(Media, "MediaPlayerPrivateAVFoundation::play(%p)", this);
+
+    // If the file has video, don't request playback until the first frame of video is ready to display
+    // or the audio may start playing before we can render video.
+    if (!m_cachedHasVideo || hasAvailableVideoFrame())
+        platformPlay();
+    else
+        m_playWhenFramesAvailable = true;
+}
+
+void MediaPlayerPrivateAVFoundation::pause()
+{
+    LOG(Media, "MediaPlayerPrivateAVFoundation::pause(%p)", this);
+    m_playWhenFramesAvailable = false;
+    platformPause();
+}
+
 void MediaPlayerPrivateAVFoundation::paint(GraphicsContext*, const IntRect&)
 {
     // This is the base class, only need to remember that a frame has been drawn.
@@ -285,6 +306,8 @@ void MediaPlayerPrivateAVFoundation::setRate(float rate)
 {
     LOG(Media, "MediaPlayerPrivateAVFoundation::setRate(%p) - seting to %f", this, rate);
     m_requestedRate = rate;
+
+    updateRate();
 }
 
 bool MediaPlayerPrivateAVFoundation::paused() const
@@ -464,11 +487,21 @@ void MediaPlayerPrivateAVFoundation::updateStates()
     if (isReadyForVideoSetup() && currentRenderingMode() != preferredRenderingMode())
         setUpVideoRendering();
 
+    if (!m_haveReportedFirstVideoFrame && m_cachedHasVideo && hasAvailableVideoFrame()) {
+        m_haveReportedFirstVideoFrame = true;
+        m_player->firstVideoFrameAvailable();
+    }
+
     if (m_networkState != oldNetworkState)
         m_player->networkStateChanged();
 
     if (m_readyState != oldReadyState)
         m_player->readyStateChanged();
+
+    if (m_playWhenFramesAvailable && hasAvailableVideoFrame()) {
+        m_playWhenFramesAvailable = false;
+        platformPlay();
+    }
 
     LOG(Media, "MediaPlayerPrivateAVFoundation::updateStates(%p) - exiting with networkState = %i, readyState = %i", 
         this, static_cast<int>(m_networkState), static_cast<int>(m_readyState));
@@ -566,6 +599,14 @@ void MediaPlayerPrivateAVFoundation::timeChanged(double time)
     }
 }
 
+void MediaPlayerPrivateAVFoundation::seekCompleted(bool finished)
+{
+    LOG(Media, "MediaPlayerPrivateAVFoundation::seekCompleted(%p) - finished = %d", this, finished);
+    
+    if (finished)
+        m_seekTo = invalidTime;
+}
+
 void MediaPlayerPrivateAVFoundation::didEnd()
 {
     // Hang onto the current time and use it as duration from now on since we are definitely at
@@ -629,12 +670,22 @@ void MediaPlayerPrivateAVFoundation::clearMainThreadPendingFlag()
 
 void MediaPlayerPrivateAVFoundation::scheduleMainThreadNotification(Notification::Type type, double time)
 {
-    LOG(Media, "MediaPlayerPrivateAVFoundation::scheduleMainThreadNotification(%p) - notification %d", this, static_cast<int>(type));
+    scheduleMainThreadNotification(Notification(type, time));
+}
+
+void MediaPlayerPrivateAVFoundation::scheduleMainThreadNotification(Notification::Type type, bool finished)
+{
+    scheduleMainThreadNotification(Notification(type, finished));
+}
+
+void MediaPlayerPrivateAVFoundation::scheduleMainThreadNotification(Notification notification)
+{
+    LOG(Media, "MediaPlayerPrivateAVFoundation::scheduleMainThreadNotification(%p) - notification %d", this, static_cast<int>(notification.type()));
     m_queueMutex.lock();
 
     // It is important to always process the properties in the order that we are notified, 
     // so always go through the queue because notifications happen on different threads.
-    m_queuedNotifications.append(Notification(type, time));
+    m_queuedNotifications.append(notification);
 
     bool delayDispatch = m_delayCallbacks || !isMainThread();
     if (delayDispatch && !m_mainThreadCallPending) {
@@ -713,6 +764,9 @@ void MediaPlayerPrivateAVFoundation::dispatchNotification()
         break;
     case Notification::PlayerTimeChanged:
         timeChanged(notification.time());
+        break;
+    case Notification::SeekCompleted:
+        seekCompleted(notification.finished());
         break;
     case Notification::AssetMetadataLoaded:
         metadataLoaded();

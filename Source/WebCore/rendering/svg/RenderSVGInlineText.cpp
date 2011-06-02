@@ -179,8 +179,11 @@ VisiblePosition RenderSVGInlineText::positionForPoint(const IntPoint& point)
     const SVGTextFragment* closestDistanceFragment = 0;
     SVGInlineTextBox* closestDistanceBox = 0;
 
+    AffineTransform fragmentTransform;
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox()) {
-        ASSERT(box->isSVGInlineTextBox());
+        if (!box->isSVGInlineTextBox())
+            continue;
+
         SVGInlineTextBox* textBox = static_cast<SVGInlineTextBox*>(box);
         Vector<SVGTextFragment>& fragments = textBox->textFragments();
 
@@ -188,8 +191,9 @@ VisiblePosition RenderSVGInlineText::positionForPoint(const IntPoint& point)
         for (unsigned i = 0; i < textFragmentsSize; ++i) {
             const SVGTextFragment& fragment = fragments.at(i);
             FloatRect fragmentRect(fragment.x, fragment.y - baseline, fragment.width, fragment.height);
-            if (!fragment.transform.isIdentity())
-                fragmentRect = fragment.transform.mapRect(fragmentRect);
+            fragment.buildFragmentTransform(fragmentTransform);
+            if (!fragmentTransform.isIdentity())
+                fragmentRect = fragmentTransform.mapRect(fragmentRect);
 
             float distance = powf(fragmentRect.x() - absolutePoint.x(), 2) +
                              powf(fragmentRect.y() + fragmentRect.height() / 2 - absolutePoint.y(), 2);

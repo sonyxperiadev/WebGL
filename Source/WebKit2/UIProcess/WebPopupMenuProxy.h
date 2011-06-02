@@ -39,6 +39,7 @@ namespace WebKit {
 
 struct PlatformPopupMenuData;
 struct WebPopupItem;
+class NativeWebMouseEvent;
 
 class WebPopupMenuProxy : public RefCounted<WebPopupMenuProxy> {
 public:
@@ -51,6 +52,7 @@ public:
     public:
         virtual void valueChangedForPopupMenu(WebPopupMenuProxy*, int32_t newSelectedIndex) = 0;
         virtual void setTextFromItemForPopupMenu(WebPopupMenuProxy*, int32_t index) = 0;
+        virtual NativeWebMouseEvent* currentlyProcessedMouseDownEvent() = 0;
     };
 
     virtual ~WebPopupMenuProxy()

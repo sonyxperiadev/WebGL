@@ -65,12 +65,20 @@ PluginControllerProxy::PluginControllerProxy(WebProcessConnection* connection, u
 #if PLATFORM(MAC)
     , m_isComplexTextInputEnabled(false)
 #endif
+    , m_windowNPObject(0)
+    , m_pluginElementNPObject(0)
 {
 }
 
 PluginControllerProxy::~PluginControllerProxy()
 {
     ASSERT(!m_plugin);
+
+    if (m_windowNPObject)
+        releaseNPObject(m_windowNPObject);
+
+    if (m_pluginElementNPObject)
+        releaseNPObject(m_pluginElementNPObject);
 }
 
 bool PluginControllerProxy::initialize(const Plugin::Parameters& parameters)
@@ -210,28 +218,40 @@ void PluginControllerProxy::cancelManualStreamLoad()
 
 NPObject* PluginControllerProxy::windowScriptNPObject()
 {
-    uint64_t windowScriptNPObjectID = 0;
+    if (!m_windowNPObject) {
+        uint64_t windowScriptNPObjectID = 0;
 
-    if (!m_connection->connection()->sendSync(Messages::PluginProxy::GetWindowScriptNPObject(), Messages::PluginProxy::GetWindowScriptNPObject::Reply(windowScriptNPObjectID), m_pluginInstanceID))
-        return 0;
+        if (!m_connection->connection()->sendSync(Messages::PluginProxy::GetWindowScriptNPObject(), Messages::PluginProxy::GetWindowScriptNPObject::Reply(windowScriptNPObjectID), m_pluginInstanceID))
+            return 0;
 
-    if (!windowScriptNPObjectID)
-        return 0;
+        if (!windowScriptNPObjectID)
+            return 0;
 
-    return m_connection->npRemoteObjectMap()->createNPObjectProxy(windowScriptNPObjectID, m_plugin.get());
+        m_windowNPObject = m_connection->npRemoteObjectMap()->createNPObjectProxy(windowScriptNPObjectID, m_plugin.get());
+        ASSERT(m_windowNPObject);
+    }
+
+    retainNPObject(m_windowNPObject);
+    return m_windowNPObject;
 }
 
 NPObject* PluginControllerProxy::pluginElementNPObject()
 {
-    uint64_t pluginElementNPObjectID = 0;
+    if (!m_pluginElementNPObject) {
+        uint64_t pluginElementNPObjectID = 0;
 
-    if (!m_connection->connection()->sendSync(Messages::PluginProxy::GetPluginElementNPObject(), Messages::PluginProxy::GetPluginElementNPObject::Reply(pluginElementNPObjectID), m_pluginInstanceID))
-        return 0;
+        if (!m_connection->connection()->sendSync(Messages::PluginProxy::GetPluginElementNPObject(), Messages::PluginProxy::GetPluginElementNPObject::Reply(pluginElementNPObjectID), m_pluginInstanceID))
+            return 0;
 
-    if (!pluginElementNPObjectID)
-        return 0;
+        if (!pluginElementNPObjectID)
+            return 0;
 
-    return m_connection->npRemoteObjectMap()->createNPObjectProxy(pluginElementNPObjectID, m_plugin.get());
+        m_pluginElementNPObject = m_connection->npRemoteObjectMap()->createNPObjectProxy(pluginElementNPObjectID, m_plugin.get());
+        ASSERT(m_pluginElementNPObject);
+    }
+
+    retainNPObject(m_pluginElementNPObject);
+    return m_pluginElementNPObject;
 }
 
 bool PluginControllerProxy::evaluate(NPObject* npObject, const String& scriptString, NPVariant* result, bool allowPopups)
@@ -273,6 +293,7 @@ void PluginControllerProxy::pluginProcessCrashed()
     ASSERT_NOT_REACHED();
 }
 
+#if PLATFORM(MAC)
 void PluginControllerProxy::setComplexTextInputEnabled(bool complexTextInputEnabled)
 {
     if (m_isComplexTextInputEnabled == complexTextInputEnabled)
@@ -287,6 +308,7 @@ mach_port_t PluginControllerProxy::compositingRenderServerPort()
 {
     return PluginProcess::shared().compositingRenderServerPort();
 }
+#endif
 
 String PluginControllerProxy::proxiesForURL(const String& urlString)
 {
@@ -347,14 +369,14 @@ void PluginControllerProxy::geometryDidChange(const IntRect& frameRect, const In
 
     ASSERT(m_plugin);
 
+    platformGeometryDidChange();
+
     if (!backingStoreHandle.isNull()) {
         // Create a new backing store.
         m_backingStore = ShareableBitmap::create(backingStoreHandle);
     }
 
     m_plugin->geometryDidChange(frameRect, clipRect);
-
-    platformGeometryDidChange(frameRect, clipRect);
 }
 
 void PluginControllerProxy::didEvaluateJavaScript(uint64_t requestID, const String& requestURLString, const String& result)
@@ -414,9 +436,17 @@ void PluginControllerProxy::manualStreamDidFail(bool wasCancelled)
     m_plugin->manualStreamDidFail(wasCancelled);
 }
     
-void PluginControllerProxy::handleMouseEvent(const WebMouseEvent& mouseEvent, bool& handled)
+void PluginControllerProxy::handleMouseEvent(const WebMouseEvent& mouseEvent, PassRefPtr<Messages::PluginControllerProxy::HandleMouseEvent::DelayedReply> reply)
 {
-    handled = m_plugin->handleMouseEvent(mouseEvent);
+    // Always let the web process think that we've handled this mouse event, even before passing it along to the plug-in.
+    // This is a workaround for 
+    // <rdar://problem/9299901> UI process thinks the page is unresponsive when a plug-in is showing a context menu.
+    // The web process sends a synchronous HandleMouseEvent message and the plug-in process spawns a nested
+    // run loop when showing the context menu, so eventually the unresponsiveness timer kicks in in the UI process.
+    // FIXME: We should come up with a better way to do this.
+    reply->send(true);
+
+    m_plugin->handleMouseEvent(mouseEvent);
 }
 
 void PluginControllerProxy::handleWheelEvent(const WebWheelEvent& wheelEvent, bool& handled)
@@ -480,29 +510,6 @@ void PluginControllerProxy::getPluginScriptableNPObject(uint64_t& pluginScriptab
     pluginScriptableNPObjectID = m_connection->npRemoteObjectMap()->registerNPObject(pluginScriptableNPObject, m_plugin.get());
     releaseNPObject(pluginScriptableNPObject);
 }
-
-#if PLATFORM(MAC)
-void PluginControllerProxy::windowFocusChanged(bool hasFocus)
-{
-    m_plugin->windowFocusChanged(hasFocus);
-}
-
-void PluginControllerProxy::windowAndViewFramesChanged(const IntRect& windowFrameInScreenCoordinates, const IntRect& viewFrameInWindowCoordinates)
-{
-    m_plugin->windowAndViewFramesChanged(windowFrameInScreenCoordinates, viewFrameInWindowCoordinates);
-}
-
-void PluginControllerProxy::windowVisibilityChanged(bool isVisible)
-{
-    m_plugin->windowVisibilityChanged(isVisible);
-}
-
-void PluginControllerProxy::sendComplexTextInput(const String& textInput)
-{
-    m_plugin->sendComplexTextInput(textInput);
-}
-
-#endif
 
 void PluginControllerProxy::privateBrowsingStateChanged(bool isPrivateBrowsingEnabled)
 {

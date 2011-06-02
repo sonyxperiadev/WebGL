@@ -72,12 +72,12 @@ class PlatformContextSkia {
 public:
     // For printing, there shouldn't be any canvas. canvas can be NULL. If you
     // supply a NULL canvas, you can also call setCanvas later.
-    PlatformContextSkia(skia::PlatformCanvas*);
+    PlatformContextSkia(SkCanvas*);
     ~PlatformContextSkia();
 
     // Sets the canvas associated with this context. Use when supplying NULL
     // to the constructor.
-    void setCanvas(skia::PlatformCanvas*);
+    void setCanvas(SkCanvas*);
 
     // If false we're rendering to a GraphicsContext for a web page, if false
     // we're not (as is the case when rendering to a canvas object).
@@ -146,7 +146,8 @@ public:
     // by the current alpha.
     SkColor effectiveStrokeColor() const;
 
-    skia::PlatformCanvas* canvas() { return m_canvas; }
+    // Returns the canvas used for painting, NOT guaranteed to be non-null.
+    SkCanvas* canvas() { return m_canvas; }
 
     InterpolationQuality interpolationQuality() const;
     void setInterpolationQuality(InterpolationQuality interpolationQuality);
@@ -159,17 +160,16 @@ public:
 
     const SkBitmap* bitmap() const;
 
-    // Returns the canvas used for painting, NOT guaranteed to be non-NULL.
-    //
-    // Warning: This function is deprecated so the users are reminded that they
-    // should use this layer of indirection instead of using the canvas
-    // directly. This is to help with the eventual serialization.
-    skia::PlatformCanvas* canvas() const;
-
     // Returns if the context is a printing context instead of a display
     // context. Bitmap shouldn't be resampled when printing to keep the best
     // possible quality.
-    bool isPrinting();
+    bool printing() const { return m_printing; }
+    void setPrinting(bool p) { m_printing = p; }
+
+    // Returns if the context allows rendering of fonts using native platform
+    // APIs. If false is returned font rendering is performed using the skia
+    // text drawing APIs.
+    bool isNativeFontRenderingAllowed();
 
     void getImageResamplingHint(IntSize* srcSize, FloatSize* dstSize) const;
     void setImageResamplingHint(const IntSize& srcSize, const FloatSize& dstSize);
@@ -186,10 +186,10 @@ public:
     GLES2Canvas* gpuCanvas() const { return 0; }
 #endif
     // Call these before making a call that manipulates the underlying
-    // skia::PlatformCanvas or WebCore::GLES2Canvas
+    // SkCanvas or WebCore::GLES2Canvas
     void prepareForSoftwareDraw() const;
     void prepareForHardwareDraw() const;
-    // Call to force the skia::PlatformCanvas to contain all rendering results.
+    // Call to force the SkCanvas to contain all rendering results.
     void syncSoftwareCanvas() const;
     void markDirtyRect(const IntRect& rect);
 
@@ -206,7 +206,7 @@ private:
     struct State;
 
     // NULL indicates painting is disabled. Never delete this object.
-    skia::PlatformCanvas* m_canvas;
+    SkCanvas* m_canvas;
 
     // States stack. Enables local drawing state change with save()/restore()
     // calls.
@@ -219,6 +219,7 @@ private:
     // Values are used in ImageSkia.cpp
     IntSize m_imageResamplingHintSrcSize;
     FloatSize m_imageResamplingHintDstSize;
+    bool m_printing;
     bool m_drawingToImageBuffer;
     bool m_useGPU;
 #if ENABLE(ACCELERATED_2D_CANVAS)

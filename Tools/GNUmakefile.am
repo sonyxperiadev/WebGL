@@ -56,6 +56,8 @@ Programs_DumpRenderTree_SOURCES = \
 	Tools/DumpRenderTree/AccessibilityTextMarker.h \
 	Tools/DumpRenderTree/AccessibilityUIElement.cpp \
 	Tools/DumpRenderTree/AccessibilityUIElement.h \
+	Tools/DumpRenderTree/CyclicRedundancyCheck.cpp \
+	Tools/DumpRenderTree/CyclicRedundancyCheck.h \
 	Tools/DumpRenderTree/GCController.cpp \
 	Tools/DumpRenderTree/GCController.h \
 	Tools/DumpRenderTree/JavaScriptThreading.h \
@@ -82,6 +84,8 @@ Programs_DumpRenderTree_SOURCES = \
 	Tools/DumpRenderTree/gtk/GCControllerGtk.cpp \
 	Tools/DumpRenderTree/gtk/LayoutTestControllerGtk.cpp \
 	Tools/DumpRenderTree/gtk/PixelDumpSupportGtk.cpp \
+	Tools/DumpRenderTree/gtk/PlainTextController.cpp \
+	Tools/DumpRenderTree/gtk/PlainTextController.h \
 	Tools/DumpRenderTree/gtk/TextInputController.h \
 	Tools/DumpRenderTree/gtk/TextInputController.cpp \
 	Tools/DumpRenderTree/gtk/WorkQueueItemGtk.cpp \
@@ -181,6 +185,7 @@ TestNetscapePlugin_libtestnetscapeplugin_la_SOURCES = \
 	Tools/DumpRenderTree/TestNetscapePlugIn/Tests/GetURLWithJavaScriptURLDestroyingPlugin.cpp \
 	Tools/DumpRenderTree/TestNetscapePlugIn/Tests/GetUserAgentWithNullNPPFromNPPNew.cpp \
 	Tools/DumpRenderTree/TestNetscapePlugIn/Tests/NPDeallocateCalledBeforeNPShutdown.cpp \
+	Tools/DumpRenderTree/TestNetscapePlugIn/Tests/NPPSetWindowCalledDuringDestruction.cpp \
 	Tools/DumpRenderTree/TestNetscapePlugIn/Tests/NPRuntimeObjectFromDestroyedPlugin.cpp \
 	Tools/DumpRenderTree/TestNetscapePlugIn/Tests/NPRuntimeRemoveProperty.cpp \
 	Tools/DumpRenderTree/TestNetscapePlugIn/Tests/NullNPPGetValuePointer.cpp \

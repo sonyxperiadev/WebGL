@@ -23,6 +23,7 @@
 #define BidiResolver_h
 
 #include "BidiContext.h"
+#include "BidiRunList.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
@@ -147,17 +148,15 @@ enum VisualDirectionOverride {
     VisualRightToLeftOverride
 };
 
+// BidiResolver is WebKit's implementation of the Unicode Bidi Algorithm
+// http://unicode.org/reports/tr9
 template <class Iterator, class Run> class BidiResolver {
     WTF_MAKE_NONCOPYABLE(BidiResolver);
 public:
     BidiResolver()
         : m_direction(WTF::Unicode::OtherNeutral)
         , m_reachedEndOfLine(false)
-        , emptyRun(true)
-        , m_firstRun(0)
-        , m_lastRun(0)
-        , m_logicallyLastRun(0)
-        , m_runCount(0)
+        , m_emptyRun(true)
     {
     }
 
@@ -186,22 +185,16 @@ public:
 
     void createBidiRunsForLine(const Iterator& end, VisualDirectionOverride = NoVisualOverride, bool hardLineBreak = false);
 
-    Run* firstRun() const { return m_firstRun; }
-    Run* lastRun() const { return m_lastRun; }
-    Run* logicallyLastRun() const { return m_logicallyLastRun; }
-    unsigned runCount() const { return m_runCount; }
+    BidiRunList<Run>& runs() { return m_runs; }
 
-    void addRun(Run*);
-    void prependRun(Run*);
-
-    void moveRunToEnd(Run*);
-    void moveRunToBeginning(Run*);
-
-    void deleteRuns();
+    // FIXME: This used to be part of deleteRuns() but was a layering violation.
+    // It's unclear if this is still needed.
+    void markCurrentRunEmpty() { m_emptyRun = true; }
 
 protected:
+    // FIXME: Instead of InlineBidiResolvers subclassing this method, we should
+    // pass in some sort of Traits object which knows how to create runs for appending.
     void appendRun();
-    void reverseRuns(unsigned start, unsigned end);
 
     Iterator m_current;
     // sor and eor are "start of run" and "end of run" respectively and correpond
@@ -213,13 +206,13 @@ protected:
     WTF::Unicode::Direction m_direction;
     Iterator endOfLine;
     bool m_reachedEndOfLine;
-    Iterator lastBeforeET;
-    bool emptyRun;
+    Iterator m_lastBeforeET; // Before a EuropeanNumberTerminator
+    bool m_emptyRun;
 
-    Run* m_firstRun;
-    Run* m_lastRun;
-    Run* m_logicallyLastRun;
-    unsigned m_runCount;
+    // FIXME: This should not belong to the resolver, but rather be passed
+    // into createBidiRunsForLine by the caller.
+    BidiRunList<Run> m_runs;
+
     MidpointState<Iterator> m_midpointState;
 
 private:
@@ -234,79 +227,9 @@ private:
 };
 
 template <class Iterator, class Run>
-inline void BidiResolver<Iterator, Run>::addRun(Run* run)
-{
-    if (!m_firstRun)
-        m_firstRun = run;
-    else
-        m_lastRun->m_next = run;
-    m_lastRun = run;
-    m_runCount++;
-}
-
-template <class Iterator, class Run>
-inline void BidiResolver<Iterator, Run>::prependRun(Run* run)
-{
-    ASSERT(!run->m_next);
-
-    if (!m_lastRun)
-        m_lastRun = run;
-    else
-        run->m_next = m_firstRun;
-    m_firstRun = run;
-    m_runCount++;
-}
-
-template <class Iterator, class Run>
-inline void BidiResolver<Iterator, Run>::moveRunToEnd(Run* run)
-{
-    ASSERT(m_firstRun);
-    ASSERT(m_lastRun);
-    ASSERT(run->m_next);
-
-    Run* current = 0;
-    Run* next = m_firstRun;
-    while (next != run) {
-        current = next;
-        next = current->next();
-    }
-
-    if (!current)
-        m_firstRun = run->next();
-    else
-        current->m_next = run->m_next;
-
-    run->m_next = 0;
-    m_lastRun->m_next = run;
-    m_lastRun = run;
-}
-
-template <class Iterator, class Run>
-inline void BidiResolver<Iterator, Run>::moveRunToBeginning(Run* run)
-{
-    ASSERT(m_firstRun);
-    ASSERT(m_lastRun);
-    ASSERT(run != m_firstRun);
-
-    Run* current = m_firstRun;
-    Run* next = current->next();
-    while (next != run) {
-        current = next;
-        next = current->next();
-    }
-
-    current->m_next = run->m_next;
-    if (run == m_lastRun)
-        m_lastRun = current;
-
-    run->m_next = m_firstRun;
-    m_firstRun = run;
-}
-
-template <class Iterator, class Run>
 void BidiResolver<Iterator, Run>::appendRun()
 {
-    if (!emptyRun && !m_eor.atEnd()) {
+    if (!m_emptyRun && !m_eor.atEnd()) {
         unsigned startOffset = m_sor.offset();
         unsigned endOffset = m_eor.offset();
 
@@ -316,7 +239,7 @@ void BidiResolver<Iterator, Run>::appendRun()
         }
 
         if (endOffset >= startOffset)
-            addRun(new Run(startOffset, endOffset + 1, context(), m_direction));
+            m_runs.addRun(new Run(startOffset, endOffset + 1, context(), m_direction));
 
         m_eor.increment();
         m_sor = m_eor;
@@ -357,7 +280,7 @@ void BidiResolver<Iterator, Run>::lowerExplicitEmbeddingLevel(WTF::Unicode::Dire
 {
     using namespace WTF::Unicode;
 
-    if (!emptyRun && m_eor != m_last) {
+    if (!m_emptyRun && m_eor != m_last) {
         checkDirectionInLowerRaiseEmbeddingLevel();
         // bidi.sor ... bidi.eor ... bidi.last eor; need to append the bidi.sor-bidi.eor run or extend it through bidi.last
         if (from == LeftToRight) {
@@ -380,8 +303,10 @@ void BidiResolver<Iterator, Run>::lowerExplicitEmbeddingLevel(WTF::Unicode::Dire
         }
         m_eor = m_last;
     }
+
     appendRun();
-    emptyRun = true;
+    m_emptyRun = true;
+
     // sor for the new run is determined by the higher level (rule X10)
     setLastDir(from);
     setLastStrongDir(from);
@@ -393,7 +318,7 @@ void BidiResolver<Iterator, Run>::raiseExplicitEmbeddingLevel(WTF::Unicode::Dire
 {
     using namespace WTF::Unicode;
 
-    if (!emptyRun && m_eor != m_last) {
+    if (!m_emptyRun && m_eor != m_last) {
         checkDirectionInLowerRaiseEmbeddingLevel();
         // bidi.sor ... bidi.eor ... bidi.last eor; need to append the bidi.sor-bidi.eor run or extend it through bidi.last
         if (to == LeftToRight) {
@@ -418,8 +343,10 @@ void BidiResolver<Iterator, Run>::raiseExplicitEmbeddingLevel(WTF::Unicode::Dire
         }
         m_eor = m_last;
     }
+
     appendRun();
-    emptyRun = true;
+    m_emptyRun = true;
+
     setLastDir(to);
     setLastStrongDir(to);
     m_eor = Iterator();
@@ -463,75 +390,6 @@ bool BidiResolver<Iterator, Run>::commitExplicitEmbedding()
     m_currentExplicitEmbeddingSequence.clear();
 
     return fromLevel != toLevel;
-}
-
-template <class Iterator, class Run>
-void BidiResolver<Iterator, Run>::deleteRuns()
-{
-    emptyRun = true;
-    if (!m_firstRun)
-        return;
-
-    Run* curr = m_firstRun;
-    while (curr) {
-        Run* s = curr->next();
-        curr->destroy();
-        curr = s;
-    }
-
-    m_firstRun = 0;
-    m_lastRun = 0;
-    m_runCount = 0;
-}
-
-template <class Iterator, class Run>
-void BidiResolver<Iterator, Run>::reverseRuns(unsigned start, unsigned end)
-{
-    if (start >= end)
-        return;
-
-    ASSERT(end < m_runCount);
-    
-    // Get the item before the start of the runs to reverse and put it in
-    // |beforeStart|.  |curr| should point to the first run to reverse.
-    Run* curr = m_firstRun;
-    Run* beforeStart = 0;
-    unsigned i = 0;
-    while (i < start) {
-        i++;
-        beforeStart = curr;
-        curr = curr->next();
-    }
-
-    Run* startRun = curr;
-    while (i < end) {
-        i++;
-        curr = curr->next();
-    }
-    Run* endRun = curr;
-    Run* afterEnd = curr->next();
-
-    i = start;
-    curr = startRun;
-    Run* newNext = afterEnd;
-    while (i <= end) {
-        // Do the reversal.
-        Run* next = curr->next();
-        curr->m_next = newNext;
-        newNext = curr;
-        curr = next;
-        i++;
-    }
-
-    // Now hook up beforeStart and afterEnd to the startRun and endRun.
-    if (beforeStart)
-        beforeStart->m_next = endRun;
-    else
-        m_firstRun = endRun;
-
-    startRun->m_next = afterEnd;
-    if (!afterEnd)
-        m_lastRun = startRun;
 }
 
 template <class Iterator, class Run>
@@ -581,7 +439,7 @@ inline void BidiResolver<Iterator, Run>::reorderRunsFromLevels()
 {
     unsigned char levelLow = 128;
     unsigned char levelHigh = 0;
-    for (Run* run = firstRun(); run; run = run->next()) {
+    for (Run* run = m_runs.firstRun(); run; run = run->next()) {
         levelHigh = std::max(run->level(), levelHigh);
         levelLow = std::min(run->level(), levelLow);
     }
@@ -595,11 +453,11 @@ inline void BidiResolver<Iterator, Run>::reorderRunsFromLevels()
     if (!(levelLow % 2))
         levelLow++;
 
-    unsigned count = runCount() - 1;
+    unsigned count = m_runs.runCount() - 1;
 
     while (levelHigh >= levelLow) {
         unsigned i = 0;
-        Run* run = firstRun();
+        Run* run = m_runs.firstRun();
         while (i < count) {
             for (;i < count && run && run->level() < levelHigh; i++)
                 run = run->next();
@@ -607,7 +465,7 @@ inline void BidiResolver<Iterator, Run>::reorderRunsFromLevels()
             for (;i <= count && run && run->level() >= levelHigh; i++)
                 run = run->next();
             unsigned end = i - 1;
-            reverseRuns(start, end);
+            m_runs.reverseRuns(start, end);
         }
         levelHigh--;
     }
@@ -621,7 +479,7 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
     ASSERT(m_direction == OtherNeutral);
 
     if (override != NoVisualOverride) {
-        emptyRun = false;
+        m_emptyRun = false;
         m_sor = m_current;
         m_eor = Iterator();
         while (m_current != end && !m_current.atEnd()) {
@@ -630,13 +488,13 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
         }
         m_direction = override == VisualLeftToRightOverride ? LeftToRight : RightToLeft;
         appendRun();
-        m_logicallyLastRun = m_lastRun;
+        m_runs.setLogicallyLastRun(m_runs.lastRun());
         if (override == VisualRightToLeftOverride)
-            reverseRuns(0, runCount() - 1);
+            m_runs.reverseRuns(0, m_runs.runCount() - 1);
         return;
     }
 
-    emptyRun = true;
+    m_emptyRun = true;
 
     m_eor = Iterator();
 
@@ -818,7 +676,7 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
                                 // Terminate the EN run.
                                 appendRun();
                                 // Make an R run.
-                                m_eor = m_status.last == EuropeanNumberTerminator ? lastBeforeET : m_last;
+                                m_eor = m_status.last == EuropeanNumberTerminator ? m_lastBeforeET : m_last;
                                 m_direction = RightToLeft;
                                 appendRun();
                                 // Begin a new EN run.
@@ -829,7 +687,7 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
                             appendRun();
                             if (m_status.lastStrong == RightToLeft || context()->dir() == RightToLeft) {
                                 // Make an R run.
-                                m_eor = m_status.last == EuropeanNumberTerminator ? lastBeforeET : m_last;
+                                m_eor = m_status.last == EuropeanNumberTerminator ? m_lastBeforeET : m_last;
                                 m_direction = RightToLeft;
                                 appendRun();
                                 // Begin a new EN run.
@@ -837,7 +695,7 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
                             }
                         } else if (m_status.lastStrong == RightToLeft) {
                             // Extend the R run to include the neutrals.
-                            m_eor = m_status.last == EuropeanNumberTerminator ? lastBeforeET : m_last;
+                            m_eor = m_status.last == EuropeanNumberTerminator ? m_lastBeforeET : m_last;
                             m_direction = RightToLeft;
                             appendRun();
                             // Begin a new EN run.
@@ -905,7 +763,7 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
                 m_eor = m_current;
                 m_status.eor = dirCurrent;
             } else if (m_status.last != EuropeanNumberTerminator)
-                lastBeforeET = emptyRun ? m_eor : m_last;
+                m_lastBeforeET = m_emptyRun ? m_eor : m_last;
             break;
 
         // boundary neutrals should be ignored
@@ -951,8 +809,8 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
             m_eor = stateAtEnd.m_eor;
             m_last = stateAtEnd.m_last;
             m_reachedEndOfLine = stateAtEnd.m_reachedEndOfLine;
-            lastBeforeET = stateAtEnd.lastBeforeET;
-            emptyRun = stateAtEnd.emptyRun;
+            m_lastBeforeET = stateAtEnd.m_lastBeforeET;
+            m_emptyRun = stateAtEnd.m_emptyRun;
             m_direction = OtherNeutral;
             break;
         }
@@ -960,9 +818,9 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
         updateStatusLastFromCurrentDirection(dirCurrent);
         m_last = m_current;
 
-        if (emptyRun) {
+        if (m_emptyRun) {
             m_sor = m_current;
-            emptyRun = false;
+            m_emptyRun = false;
         }
 
         increment();
@@ -975,29 +833,29 @@ void BidiResolver<Iterator, Run>::createBidiRunsForLine(const Iterator& end, Vis
                 m_eor = stateAtEnd.m_eor;
                 m_last = stateAtEnd.m_last;
                 m_reachedEndOfLine = stateAtEnd.m_reachedEndOfLine;
-                lastBeforeET = stateAtEnd.lastBeforeET;
-                emptyRun = stateAtEnd.emptyRun;
+                m_lastBeforeET = stateAtEnd.m_lastBeforeET;
+                m_emptyRun = stateAtEnd.m_emptyRun;
                 m_direction = OtherNeutral;
                 break;
             }
         }
 
         if (!pastEnd && (m_current == end || m_current.atEnd())) {
-            if (emptyRun)
+            if (m_emptyRun)
                 break;
             stateAtEnd.m_status = m_status;
             stateAtEnd.m_sor = m_sor;
             stateAtEnd.m_eor = m_eor;
             stateAtEnd.m_last = m_last;
             stateAtEnd.m_reachedEndOfLine = m_reachedEndOfLine;
-            stateAtEnd.lastBeforeET = lastBeforeET;
-            stateAtEnd.emptyRun = emptyRun;
+            stateAtEnd.m_lastBeforeET = m_lastBeforeET;
+            stateAtEnd.m_emptyRun = m_emptyRun;
             endOfLine = m_last;
             pastEnd = true;
         }
     }
 
-    m_logicallyLastRun = m_lastRun;
+    m_runs.setLogicallyLastRun(m_runs.lastRun());
     reorderRunsFromLevels();
     endOfLine = Iterator();
 }

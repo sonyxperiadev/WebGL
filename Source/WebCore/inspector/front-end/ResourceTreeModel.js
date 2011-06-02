@@ -31,8 +31,9 @@
 
 WebInspector.ResourceTreeModel = function(networkManager)
 {
-    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceFinished, this._onResourceUpdated, this);
+    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceStarted, this._onResourceStarted, this);
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceUpdated, this._onResourceUpdated, this);
+    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceFinished, this._onResourceUpdated, this);
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.FrameDetached, this._onFrameDetachedFromParent, this);
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.FrameCommittedLoad, this._onCommitLoad, this);
 
@@ -43,7 +44,8 @@ WebInspector.ResourceTreeModel.EventTypes = {
     FrameAdded: "FrameAdded",
     FrameNavigated: "FrameNavigated",
     FrameDetached: "FrameDetached",
-    ResourceAdded: "ResourceAdded"
+    ResourceAdded: "ResourceAdded",
+    CachedResourcesLoaded: "CachedResourcesLoaded"
 }
 
 WebInspector.ResourceTreeModel.prototype = {
@@ -64,6 +66,8 @@ WebInspector.ResourceTreeModel.prototype = {
 
         WebInspector.mainResource = this._addFramesRecursively(mainFramePayload);
         this._cachedResourcesProcessed = true;
+
+        this.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.CachedResourcesLoaded);
     },
 
     _addOrUpdateFrame: function(frame)
@@ -129,6 +133,13 @@ WebInspector.ResourceTreeModel.prototype = {
         var frameId = event.data;
         this._clearChildFramesAndResources(frameId, 0);
         this.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.FrameDetached, frameId);
+    },
+
+    _onResourceStarted: function(event)
+    {
+        if (!this._cachedResourcesProcessed)
+            return;
+        this._bindResourceURL(event.data);
     },
 
     _onResourceUpdated: function(event)
@@ -238,8 +249,6 @@ WebInspector.ResourceTreeModel.prototype = {
     _callForFrameResources: function(frameId, callback)
     {
         var resources = this._resourcesByFrameId[frameId];
-        if (!resources)
-            return;
 
         for (var url in resources) {
             if (callback(resources[url]))
@@ -293,6 +302,7 @@ WebInspector.ResourceTreeModel.prototype = {
         var resource = new WebInspector.Resource(null, url);
         resource.frameId = frame.id;
         resource.loaderId = frame.loaderId;
+        resource.documentURL = frame.url;
         return resource;
     }
 }

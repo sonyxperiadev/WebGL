@@ -67,11 +67,10 @@ String ScriptDebugServer::setBreakpoint(const String& sourceID, const ScriptBrea
     v8::Context::Scope contextScope(debuggerContext);
 
     v8::Local<v8::Object> args = v8::Object::New();
-    args->Set(v8::String::New("scriptId"), v8String(sourceID));
+    args->Set(v8::String::New("sourceID"), v8String(sourceID));
     args->Set(v8::String::New("lineNumber"), v8::Integer::New(scriptBreakpoint.lineNumber));
     args->Set(v8::String::New("columnNumber"), v8::Integer::New(scriptBreakpoint.columnNumber));
     args->Set(v8::String::New("condition"), v8String(scriptBreakpoint.condition));
-    args->Set(v8::String::New("enabled"), v8::Boolean::New(scriptBreakpoint.enabled));
 
     v8::Handle<v8::Function> setBreakpointFunction = v8::Local<v8::Function>::Cast(m_debuggerScript.get()->Get(v8::String::New("setBreakpoint")));
     v8::Handle<v8::Value> breakpointId = v8::Debug::Call(setBreakpointFunction, args);
@@ -212,7 +211,7 @@ void ScriptDebugServer::stepOutOfFunction()
     continueProgram();
 }
 
-bool ScriptDebugServer::editScriptSource(const String& sourceID, const String& newContent, String& newSourceOrErrorMessage)
+bool ScriptDebugServer::editScriptSource(const String& sourceID, const String& newContent, String* error)
 {
     ensureDebuggerScriptCompiled();
     v8::HandleScope scope;
@@ -230,11 +229,12 @@ bool ScriptDebugServer::editScriptSource(const String& sourceID, const String& n
     if (tryCatch.HasCaught()) {
         v8::Local<v8::Message> message = tryCatch.Message();
         if (!message.IsEmpty())
-            newSourceOrErrorMessage = toWebCoreStringWithNullOrUndefinedCheck(message->Get());
+            *error = toWebCoreStringWithNullOrUndefinedCheck(message->Get());
+        else
+            *error = "Unknown error.";
         return false;
     }
     ASSERT(!result.IsEmpty());
-    newSourceOrErrorMessage = toWebCoreStringWithNullOrUndefinedCheck(result);
 
     // Call stack may have changed after if the edited function was on the stack.
     if (m_currentCallFrame)
@@ -351,7 +351,7 @@ void ScriptDebugServer::dispatchDidParseSource(ScriptDebugListener* listener, v8
         toWebCoreStringWithNullOrUndefinedCheck(object->Get(v8::String::New("source"))),
         object->Get(v8::String::New("lineOffset"))->ToInteger()->Value(),
         object->Get(v8::String::New("columnOffset"))->ToInteger()->Value(),
-        static_cast<ScriptWorldType>(object->Get(v8::String::New("scriptWorldType"))->Int32Value()));
+        object->Get(v8::String::New("isContentScript"))->ToBoolean()->Value());
 }
 
 void ScriptDebugServer::ensureDebuggerScriptCompiled()

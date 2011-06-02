@@ -22,7 +22,7 @@
 
 #include "PlatformString.h"
 #include "JSDOMBinding.h"
-#include <collector/handles/Global.h>
+#include <heap/Strong.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
@@ -44,7 +44,7 @@ namespace WebCore {
     class JSDOMWindowBase : public JSDOMGlobalObject {
         typedef JSDOMGlobalObject Base;
     protected:
-        JSDOMWindowBase(NonNullPassRefPtr<JSC::Structure>, PassRefPtr<DOMWindow>, JSDOMWindowShell*);
+        JSDOMWindowBase(JSC::JSGlobalData&, JSC::Structure*, PassRefPtr<DOMWindow>, JSDOMWindowShell*);
 
     public:
         void updateDocument();
@@ -57,7 +57,7 @@ namespace WebCore {
 
         static const JSC::ClassInfo s_info;
 
-        static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
+        static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
         {
             return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }

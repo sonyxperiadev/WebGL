@@ -25,6 +25,7 @@
 
 #include "PluginTest.h"
 
+#include "PluginObject.h"
 #include <assert.h>
 #include <string.h>
 
@@ -67,6 +68,18 @@ void PluginTest::registerNPShutdownFunction(void (*func)())
 {
     assert(!shutdownFunction);
     shutdownFunction = func;
+}
+
+void PluginTest::indicateTestFailure()
+{
+    // This should really be an assert, but there's no way for the test framework
+    // to know that the plug-in process crashed, so we'll just sleep for a while
+    // to ensure that the test times out.
+#if defined(XP_WIN)
+    ::Sleep(100000);
+#else
+    sleep(1000);
+#endif
 }
 
 NPError PluginTest::NPP_New(NPMIMEType pluginType, uint16_t mode, int16_t argc, char *argn[], char *argv[], NPSavedData *saved)
@@ -135,6 +148,13 @@ bool PluginTest::NPN_RemoveProperty(NPObject* npObject, NPIdentifier propertyNam
     return browser->removeproperty(m_npp, npObject, propertyName);
 }
 
+#ifdef XP_MACOSX
+bool PluginTest::NPN_ConvertPoint(double sourceX, double sourceY, NPCoordinateSpace sourceSpace, double *destX, double *destY, NPCoordinateSpace destSpace)
+{
+    return browser->convertpoint(m_npp, sourceX, sourceY, sourceSpace, destX, destY, destSpace);
+}
+#endif
+
 void PluginTest::executeScript(const char* script)
 {
     NPObject* windowScriptObject;
@@ -147,6 +167,14 @@ void PluginTest::executeScript(const char* script)
     NPVariant browserResult;
     browser->evaluate(m_npp, windowScriptObject, &npScript, &browserResult);
     browser->releasevariantvalue(&browserResult);
+}
+
+void PluginTest::log(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    pluginLogWithArguments(m_npp, format, args);
+    va_end(args);
 }
 
 void PluginTest::waitUntilDone()

@@ -90,18 +90,24 @@ class Port(object):
                  config=None,
                  **kwargs):
         self._name = port_name
+
+        # These are default values that should be overridden in a subclasses.
+        # FIXME: These should really be passed in.
+        self._operating_system = 'mac'
+        self._version = ''
         self._architecture = 'x86'
-        self._options = options
-        if self._options is None:
-            # FIXME: Ideally we'd have a package-wide way to get a
-            # well-formed options object that had all of the necessary
-            # options defined on it.
-            self._options = DummyOptions()
+        self._graphics_type = 'cpu'
+
+        # FIXME: Ideally we'd have a package-wide way to get a
+        # well-formed options object that had all of the necessary
+        # options defined on it.
+        self._options = options or DummyOptions()
+
         self._executive = executive or Executive()
         self._user = user or User()
         self._filesystem = filesystem or system.filesystem.FileSystem()
-        self._config = config or port_config.Config(self._executive,
-                                                    self._filesystem)
+        self._config = config or port_config.Config(self._executive, self._filesystem)
+
         self._helper = None
         self._http_server = None
         self._webkit_base_dir = None
@@ -123,16 +129,22 @@ class Port(object):
         # http://bugs.python.org/issue3210
         self._wdiff_available = True
 
+        # FIXME: prettypatch.py knows this path, why is it copied here?
         self._pretty_patch_path = self.path_from_webkit_base("Websites",
             "bugs.webkit.org", "PrettyPatch", "prettify.rb")
-        # If we're running on a mocked-out filesystem, this file almost
-        # certainly won't be available, so it's a good test to keep us
-        # from erroring out later.
-        self._pretty_patch_available = self._filesystem.exists(self._pretty_patch_path)
+        self._pretty_patch_available = None
+
         if not hasattr(self._options, 'configuration') or self._options.configuration is None:
             self._options.configuration = self.default_configuration()
         self._test_configuration = None
         self._multiprocessing_is_available = (multiprocessing is not None)
+        self._results_directory = None
+
+    def wdiff_available(self):
+        return bool(self._wdiff_available)
+
+    def pretty_patch_available(self):
+        return bool(self._pretty_patch_available)
 
     def default_child_processes(self):
         """Return the number of DumpRenderTree instances to use for this
@@ -171,23 +183,22 @@ class Port(object):
         """This routine is used to check whether image_diff binary exists."""
         raise NotImplementedError('Port.check_image_diff')
 
-    def check_pretty_patch(self):
+    def check_pretty_patch(self, logging=True):
         """Checks whether we can use the PrettyPatch ruby script."""
-
         # check if Ruby is installed
         try:
             result = self._executive.run_command(['ruby', '--version'])
         except OSError, e:
             if e.errno in [errno.ENOENT, errno.EACCES, errno.ECHILD]:
-                _log.error("Ruby is not installed; "
-                           "can't generate pretty patches.")
-                _log.error('')
+                if logging:
+                    _log.error("Ruby is not installed; can't generate pretty patches.")
+                    _log.error('')
                 return False
 
         if not self.path_exists(self._pretty_patch_path):
-            _log.error('Unable to find %s .' % self._pretty_patch_path)
-            _log.error("Can't generate pretty patches.")
-            _log.error('')
+            if logging:
+                _log.error("Unable to find %s; can't generate pretty patches." % self._pretty_patch_path)
+                _log.error('')
             return False
 
         return True
@@ -199,6 +210,10 @@ class Port(object):
         While this is a generic routine, we include it in the Port
         interface so that it can be overriden for testing purposes."""
         return expected_text != actual_text
+
+    def compare_audio(self, expected_audio, actual_audio):
+        """Return whether the two audio files are *not* equal."""
+        return expected_audio != actual_audio
 
     def diff_image(self, expected_contents, actual_contents,
                    diff_filename=None, tolerance=0):
@@ -276,7 +291,7 @@ class Port(object):
 
         baseline_filename = testname + '-expected' + suffix
 
-        baseline_search_path = self.baseline_search_path()
+        baseline_search_path = self.get_option('additional_platform_directory', []) + self.baseline_search_path()
 
         baselines = []
         for platform_dir in baseline_search_path:
@@ -345,15 +360,22 @@ class Port(object):
             return None
         return self._filesystem.read_binary_file(path)
 
+    def expected_audio(self, test):
+        path = self.expected_filename(test, '.wav')
+        if not self.path_exists(path):
+            return None
+        return self._filesystem.read_binary_file(path)
+
     def expected_text(self, test):
-        """Returns the text output we expect the test to produce.
+        """Returns the text output we expect the test to produce, or None
+        if we don't expect there to be any text output.
         End-of-line characters are normalized to '\n'."""
         # FIXME: DRT output is actually utf-8, but since we don't decode the
         # output from DRT (instead treating it as a binary string), we read the
         # baselines as a binary string, too.
         path = self.expected_filename(test, '.txt')
         if not self.path_exists(path):
-            return ''
+            return None
         text = self._filesystem.read_binary_file(path)
         return text.replace("\r\n", "\n")
 
@@ -481,16 +503,27 @@ class Port(object):
         self._filesystem.maybe_make_directory(*path)
 
     def name(self):
-        """Return the name of the port (e.g., 'mac', 'chromium-win-xp').
-
-        Note that this is different from the test_platform_name(), which
-        may be different (e.g., 'win-xp' instead of 'chromium-win-xp'."""
+        """Return the name of the port (e.g., 'mac', 'chromium-win-xp')."""
         return self._name
+
+    def operating_system(self):
+        return self._operating_system
+
+    def version(self):
+        """Returns a string indicating the version of a given platform, e.g.
+        'leopard' or 'xp'.
+
+        This is used to help identify the exact port when parsing test
+        expectations, determining search paths, and logging information."""
+        return self._version
 
     def graphics_type(self):
         """Returns whether the port uses accelerated graphics ('gpu') or not
         ('cpu')."""
-        return 'cpu'
+        return self._graphics_type
+
+    def architecture(self):
+        return self._architecture
 
     def real_name(self):
         """Returns the actual name of the port, not the delegate's."""
@@ -541,8 +574,15 @@ class Port(object):
         return self._filesystem.normpath(self._filesystem.join(self.layout_tests_dir(), test_name))
 
     def results_directory(self):
-        """Absolute path to the place to store the test results."""
-        raise NotImplementedError('Port.results_directory')
+        """Absolute path to the place to store the test results (uses --results-directory)."""
+        if not self._results_directory:
+            option_val = self.get_option('results_directory') or self.default_results_directory()
+            self._results_directory = self._filesystem.abspath(option_val)
+        return self._results_directory
+
+    def default_results_directory(self):
+        """Absolute path to the default place to store the test results."""
+        raise NotImplementedError()
 
     def setup_test_run(self):
         """Perform port-specific work at the beginning of a test run."""
@@ -578,18 +618,16 @@ class Port(object):
         is already running."""
         if self.get_option('use_apache'):
             self._http_server = apache_http_server.LayoutTestApacheHttpd(self,
-                self.get_option('results_directory'))
+                self.results_directory())
         else:
-            self._http_server = http_server.Lighttpd(self,
-                self.get_option('results_directory'))
+            self._http_server = http_server.Lighttpd(self, self.results_directory())
         self._http_server.start()
 
     def start_websocket_server(self):
         """Start a websocket server if it is available. Do nothing if
         it isn't. This routine is allowed to (and may) fail if a server
         is already running."""
-        self._websocket_server = websocket_server.PyWebSocket(self,
-            self.get_option('results_directory'))
+        self._websocket_server = websocket_server.PyWebSocket(self, self.results_directory())
         self._websocket_server.start()
 
     def acquire_http_lock(self):
@@ -631,6 +669,14 @@ class Port(object):
     def all_test_configurations(self):
         return self.test_configuration().all_test_configurations()
 
+    def all_baseline_variants(self):
+        """Returns a list of platform names sufficient to cover all the baselines.
+
+        The list should be sorted so that a later platform  will reuse
+        an earlier platform's baselines if they are the same (e.g.,
+        'snowleopard' should precede 'leopard')."""
+        raise NotImplementedError
+
     def test_expectations(self):
         """Returns the test expectations for this port.
 
@@ -646,39 +692,6 @@ class Port(object):
         temporarily override the "upstream" expectations until the port can
         sync up the two repos."""
         return None
-
-    def test_platform_name(self):
-        """Returns the string that corresponds to the given platform name
-        in the test expectations. This may be the same as name(), or it
-        may be different. For example, chromium returns 'mac' for
-        'chromium-mac'."""
-        raise NotImplementedError('Port.test_platform_name')
-
-    def test_platforms(self):
-        """Returns the list of test platform identifiers as used in the
-        test_expectations and on dashboards, the rebaselining tool, etc.
-
-        Note that this is not necessarily the same as the list of ports,
-        which must be globally unique (e.g., both 'chromium-mac' and 'mac'
-        might return 'mac' as a test_platform name'."""
-        raise NotImplementedError('Port.platforms')
-
-    def test_platform_name_to_name(self, test_platform_name):
-        """Returns the Port platform name that corresponds to the name as
-        referenced in the expectations file. E.g., "mac" returns
-        "chromium-mac" on the Chromium ports."""
-        raise NotImplementedError('Port.test_platform_name_to_name')
-
-    def architecture(self):
-        return self._architecture
-
-    def version(self):
-        """Returns a string indicating the version of a given platform, e.g.
-        'leopard' or 'xp'.
-
-        This is used to help identify the exact port when parsing test
-        expectations, determining search paths, and logging information."""
-        raise NotImplementedError('Port.version')
 
     def test_repository_paths(self):
         """Returns a list of (repository_name, repository_path) tuples
@@ -748,6 +761,8 @@ class Port(object):
     _pretty_patch_error_html = "Failed to run PrettyPatch, see error log."
 
     def pretty_patch_text(self, diff_path):
+        if self._pretty_patch_available is None:
+            self._pretty_patch_available = self.check_pretty_patch(logging=False)
         if not self._pretty_patch_available:
             return self._pretty_patch_error_html
         command = ("ruby", "-I", self._filesystem.dirname(self._pretty_patch_path),
@@ -875,22 +890,24 @@ class DriverInput(object):
 class DriverOutput(object):
     """Groups information about a output from driver for easy passing of data."""
 
-    def __init__(self, text, image, image_hash,
-                 crash=False, test_time=None, timeout=False, error=''):
+    def __init__(self, text, image, image_hash, audio,
+                 crash=False, test_time=0, timeout=False, error=''):
         """Initializes a TestOutput object.
 
         Args:
           text: a text output
           image: an image output
           image_hash: a string containing the checksum of the image
+          audio: contents of an audio stream, if any (in WAV format)
           crash: a boolean indicating whether the driver crashed on the test
-          test_time: a time which the test has taken
+          test_time: the time the test took to execute
           timeout: a boolean indicating whehter the test timed out
           error: any unexpected or additional (or error) text output
         """
         self.text = text
         self.image = image
         self.image_hash = image_hash
+        self.audio = audio
         self.crash = crash
         self.test_time = test_time
         self.timeout = timeout
@@ -956,15 +973,8 @@ class Driver:
 class TestConfiguration(object):
     def __init__(self, port=None, os=None, version=None, architecture=None,
                  build_type=None, graphics_type=None):
-
-        # FIXME: We can get the O/S and version from test_platform_name()
-        # and version() for now, but those should go away and be cleaned up
-        # with more generic methods like operation_system() and os_version()
-        # or something.
-        if port:
-            port_version = port.version()
-        self.os = os or port.test_platform_name().replace('-' + port_version, '')
-        self.version = version or port_version
+        self.os = os or port.operating_system()
+        self.version = version or port.version()
         self.architecture = architecture or port.architecture()
         self.build_type = build_type or port._options.configuration.lower()
         self.graphics_type = graphics_type or port.graphics_type()

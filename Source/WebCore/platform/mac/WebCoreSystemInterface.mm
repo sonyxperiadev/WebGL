@@ -91,11 +91,12 @@ void (*wkSetNSURLRequestShouldContentSniff)(NSMutableURLRequest *, BOOL);
 id (*wkCreateNSURLConnectionDelegateProxy)(void);
 unsigned (*wkInitializeMaximumHTTPConnectionCountPerHost)(unsigned preferredConnectionCount);
 int (*wkGetHTTPPipeliningPriority)(NSURLRequest *);
+void (*wkSetHTTPPipeliningMaximumPriority)(int priority);
 void (*wkSetHTTPPipeliningPriority)(NSMutableURLRequest *, int priority);
+void (*wkSetHTTPPipeliningMinimumFastLanePriority)(int priority);
 void (*wkSetCONNECTProxyForStream)(CFReadStreamRef, CFStringRef proxyHost, CFNumberRef proxyPort);
 void (*wkSetCONNECTProxyAuthorizationForStream)(CFReadStreamRef, CFStringRef proxyAuthorizationString);
 CFHTTPMessageRef (*wkCopyCONNECTProxyResponse)(CFReadStreamRef, CFURLRef responseURL);
-BOOL (*wkIsLatchingWheelEvent)(NSEvent *);
 
 #ifndef BUILDING_ON_TIGER
 void (*wkGetGlyphsForCharacters)(CGFontRef, const UniChar[], CGGlyph[], size_t);
@@ -120,6 +121,7 @@ BOOL (*wkSupportsMultipartXMixedReplace)(NSMutableURLRequest *);
 void* wkGetHyphenationLocationBeforeIndex;
 #else
 CFIndex (*wkGetHyphenationLocationBeforeIndex)(CFStringRef string, CFIndex index);
+int (*wkGetNSEventMomentumPhase)(NSEvent *);
 #endif
 
 CTLineRef (*wkCreateCTLineWithUniCharProvider)(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*);
@@ -159,6 +161,8 @@ void (*wkContentAreaResized)(WKScrollbarPainterControllerRef);
 void (*wkWillEndLiveResize)(WKScrollbarPainterControllerRef);
 void (*wkContentAreaDidShow)(WKScrollbarPainterControllerRef);
 void (*wkContentAreaDidHide)(WKScrollbarPainterControllerRef);
+void (*wkDidBeginScrollGesture)(WKScrollbarPainterControllerRef);
+void (*wkDidEndScrollGesture)(WKScrollbarPainterControllerRef);
 
 bool (*wkScrollbarPainterUsesOverlayScrollers)(void);
 #endif

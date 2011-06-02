@@ -104,8 +104,10 @@ public:
         TypeBundleScriptWorld,
 
         // Platform specific
-        TypeView,
-        TypeEditCommandProxy
+        TypeEditCommandProxy,
+        TypeGrammarDetail,
+        TypeTextChecker,
+        TypeView
     };
 
     virtual ~APIObject()

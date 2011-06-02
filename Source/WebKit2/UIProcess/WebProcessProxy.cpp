@@ -37,7 +37,6 @@
 #include "WebPageProxy.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxyMessages.h"
-#include "WebProcessProxyMessageKinds.h"
 #include <WebCore/KURL.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
@@ -59,12 +58,12 @@ static uint64_t generatePageID()
     return uniquePageID++;
 }
 
-PassRefPtr<WebProcessProxy> WebProcessProxy::create(WebContext* context)
+PassRefPtr<WebProcessProxy> WebProcessProxy::create(PassRefPtr<WebContext> context)
 {
     return adoptRef(new WebProcessProxy(context));
 }
 
-WebProcessProxy::WebProcessProxy(WebContext* context)
+WebProcessProxy::WebProcessProxy(PassRefPtr<WebContext> context)
     : m_responsivenessTimer(this)
     , m_context(context)
 {
@@ -163,17 +162,17 @@ void WebProcessProxy::terminate()
 
 WebPageProxy* WebProcessProxy::webPage(uint64_t pageID) const
 {
-    return m_pageMap.get(pageID).get();
+    return m_pageMap.get(pageID);
 }
 
-WebPageProxy* WebProcessProxy::createWebPage(PageClient* pageClient, WebContext* context, WebPageGroup* pageGroup)
+PassRefPtr<WebPageProxy> WebProcessProxy::createWebPage(PageClient* pageClient, WebContext* context, WebPageGroup* pageGroup)
 {
     ASSERT(context->process() == this);
 
     unsigned pageID = generatePageID();
-    RefPtr<WebPageProxy> webPage = WebPageProxy::create(pageClient, context, pageGroup, pageID);
-    m_pageMap.set(pageID, webPage);
-    return webPage.get();
+    RefPtr<WebPageProxy> webPage = WebPageProxy::create(pageClient, this, pageGroup, pageID);
+    m_pageMap.set(pageID, webPage.get());
+    return webPage.release();
 }
 
 void WebProcessProxy::addExistingWebPage(WebPageProxy* webPage, uint64_t pageID)
@@ -184,21 +183,6 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy* webPage, uint64_t pageID)
 void WebProcessProxy::removeWebPage(uint64_t pageID)
 {
     m_pageMap.remove(pageID);
-}
-
-WebProcessProxy::pages_const_iterator WebProcessProxy::pages_begin()
-{
-    return m_pageMap.begin().values();
-}
-
-WebProcessProxy::pages_const_iterator WebProcessProxy::pages_end()
-{
-    return m_pageMap.end().values();
-}
-
-size_t WebProcessProxy::numberOfPages()
-{
-    return m_pageMap.size();
 }
 
 WebBackForwardListItem* WebProcessProxy::webBackForwardItem(uint64_t itemID) const
@@ -232,9 +216,14 @@ void WebProcessProxy::addBackForwardItem(uint64_t itemID, const String& original
 }
 
 #if ENABLE(PLUGIN_PROCESS)
-void WebProcessProxy::getPluginProcessConnection(const String& pluginPath, CoreIPC::ArgumentEncoder* reply)
+void WebProcessProxy::getPluginProcessConnection(const String& pluginPath, PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply)
 {
-    PluginProcessManager::shared().getPluginProcessConnection(pluginPath, this, reply);
+    PluginProcessManager::shared().getPluginProcessConnection(context()->pluginInfoStore(), pluginPath, reply);
+}
+
+void WebProcessProxy::pluginSyncMessageSendTimedOut(const String& pluginPath)
+{
+    PluginProcessManager::shared().pluginSyncMessageSendTimedOut(pluginPath);
 }
 #endif
 
@@ -276,22 +265,6 @@ CoreIPC::SyncReplyMode WebProcessProxy::didReceiveSyncMessage(CoreIPC::Connectio
     if (messageID.is<CoreIPC::MessageClassWebProcessProxy>())
         return didReceiveSyncWebProcessProxyMessage(connection, messageID, arguments, reply);
 
-#if ENABLE(PLUGIN_PROCESS)
-    if (messageID.is<CoreIPC::MessageClassWebProcessProxyLegacy>()) {
-        switch (messageID.get<WebProcessProxyLegacyMessage::Kind>()) {
-            case WebProcessProxyLegacyMessage::GetPluginProcessConnection: {
-                String pluginPath;
-                
-                if (!arguments->decode(CoreIPC::Out(pluginPath)))
-                    return CoreIPC::AutomaticReply;
-
-                getPluginProcessConnection(pluginPath, reply);
-                return CoreIPC::ManualReply;
-            }
-        }
-    }
-#endif
-
     if (messageID.is<CoreIPC::MessageClassWebContext>() || messageID.is<CoreIPC::MessageClassWebContextLegacy>() 
         || messageID.is<CoreIPC::MessageClassDownloadProxy>() || messageID.is<CoreIPC::MessageClassWebIconDatabase>())
         return m_context->didReceiveSyncMessage(connection, messageID, arguments, reply);
@@ -331,6 +304,10 @@ void WebProcessProxy::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::Me
     terminate();
 }
 
+void WebProcessProxy::syncMessageSendTimedOut(CoreIPC::Connection*)
+{
+}
+
 void WebProcessProxy::didBecomeUnresponsive(ResponsivenessTimer*)
 {
     Vector<RefPtr<WebPageProxy> > pages;
@@ -364,7 +341,7 @@ void WebProcessProxy::didFinishLaunching(CoreIPC::Connection::Identifier connect
     m_connection = CoreIPC::Connection::createServerConnection(connectionIdentifier, this, RunLoop::main());
 #if PLATFORM(MAC)
     m_connection->setShouldCloseConnectionOnMachExceptions();
-#elif PLATFORM(QT)
+#elif PLATFORM(QT) || PLATFORM(GTK)
     m_connection->setShouldCloseConnectionOnProcessTermination(processIdentifier());
 #endif
 

@@ -29,7 +29,7 @@
 
 #include "FloatPoint.h"
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
 typedef struct CGRect CGRect;
 #endif
 
@@ -59,7 +59,7 @@ class BRect;
 struct SkRect;
 #endif
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
 typedef struct _cairo_rectangle cairo_rectangle_t;
 #endif
 
@@ -112,6 +112,7 @@ public:
 
     void intersect(const FloatRect&);
     void unite(const FloatRect&);
+    void uniteIfNonZero(const FloatRect&);
 
     // Note, this doesn't match what IntRect::contains(IntPoint&) does; the int version
     // is really checking for containment of 1x1 rect, but that doesn't make sense with floats.
@@ -136,7 +137,7 @@ public:
     void fitToPoints(const FloatPoint& p0, const FloatPoint& p1, const FloatPoint& p2);
     void fitToPoints(const FloatPoint& p0, const FloatPoint& p1, const FloatPoint& p2, const FloatPoint& p3);
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
     FloatRect(const CGRect&);
     operator CGRect() const;
 #endif
@@ -172,7 +173,7 @@ public:
     operator VGRect() const;
 #endif
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
     FloatRect(const cairo_rectangle_t&);
     operator cairo_rectangle_t() const;
 #endif

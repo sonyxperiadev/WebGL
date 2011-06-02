@@ -207,6 +207,10 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/fileapi/%.cpp : $(intermediates)/
 
 # HTML
 GEN := \
+<<<<<<< HEAD
+=======
+    $(intermediates)/html/JSBlob.h \
+>>>>>>> WebKit.org at r84325
     $(intermediates)/html/JSDOMFormData.h \
     $(intermediates)/html/JSDOMSettableTokenList.h \
     $(intermediates)/html/JSDOMTokenList.h \
@@ -293,7 +297,8 @@ GEN := \
     $(intermediates)/html/JSTextMetrics.h \
     $(intermediates)/html/JSTimeRanges.h \
     $(intermediates)/html/JSValidityState.h \
-    $(intermediates)/html/JSVoidCallback.h
+    $(intermediates)/html/JSVoidCallback.h \
+    $(intermediates)/html/JSWebKitBlobBuilder.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
@@ -374,6 +379,9 @@ GEN := \
     $(intermediates)/page/JSLocation.h \
     $(intermediates)/page/JSMemoryInfo.h \
     $(intermediates)/page/JSNavigator.h \
+    $(intermediates)/page/JSNavigatorUserMediaError.h \
+    $(intermediates)/page/JSNavigatorUserMediaErrorCallback.h \
+    $(intermediates)/page/JSNavigatorUserMediaSuccessCallback.h \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSScreen.h \
     $(intermediates)/page/JSSpeechInputEvent.h \

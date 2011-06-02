@@ -455,6 +455,7 @@ static void resetDefaultsToConsistentValues()
     [preferences setOfflineWebApplicationCacheEnabled:YES];
     [preferences setDeveloperExtrasEnabled:NO];
     [preferences setLoadsImagesAutomatically:YES];
+    [preferences setLoadsSiteIconsIgnoringImageLoadingPreference:NO];
     [preferences setFrameFlatteningEnabled:NO];
     [preferences setSpatialNavigationEnabled:NO];
     [preferences setEditingBehavior:WebKitEditingMacBehavior];
@@ -468,6 +469,10 @@ static void resetDefaultsToConsistentValues()
     // So, turn it off for now, but we might want to turn it back on some day.
     [preferences setUsesPageCache:NO];
     [preferences setAcceleratedCompositingEnabled:YES];
+#if USE(CA) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    [preferences setCanvasUsesAcceleratedDrawing:YES];
+    [preferences setAcceleratedDrawingEnabled:NO];
+#endif
     [preferences setWebGLEnabled:NO];
     [preferences setUsePreHTML5ParserQuirks:NO];
     [preferences setAsynchronousSpellCheckingEnabled:NO];
@@ -730,6 +735,14 @@ static NSInteger compareHistoryItems(id item1, id item2, void *context)
     return [[item1 target] caseInsensitiveCompare:[item2 target]];
 }
 
+static NSData *dumpAudio()
+{
+    const char *encodedAudioData = gLayoutTestController->encodedAudioData().c_str();
+    
+    NSData *data = [NSData dataWithBytes:encodedAudioData length:gLayoutTestController->encodedAudioData().length()];
+    return data;
+}
+
 static void dumpHistoryItem(WebHistoryItem *item, int indent, BOOL current)
 {
     int start = 0;
@@ -933,7 +946,10 @@ void dump()
             gLayoutTestController->setDumpAsText(true);
             gLayoutTestController->setGeneratePixelResults(false);
         }
-        if (gLayoutTestController->dumpAsText()) {
+        if (gLayoutTestController->dumpAsAudio()) {
+            resultData = dumpAudio();
+            resultMimeType = @"audio/wav";
+        } else if (gLayoutTestController->dumpAsText()) {
             resultString = dumpFramesAsText(mainFrame);
         } else if (gLayoutTestController->dumpAsPDF()) {
             resultData = dumpFrameAsPDF(mainFrame);
@@ -956,6 +972,9 @@ void dump()
 
         printf("Content-Type: %s\n", [resultMimeType UTF8String]);
 
+        if (gLayoutTestController->dumpAsAudio())
+            printf("Content-Transfer-Encoding: base64\n");            
+        
         if (resultData) {
             fwrite([resultData bytes], 1, [resultData length], stdout);
 
@@ -1022,6 +1041,7 @@ static void resetWebViewToConsistentStateBeforeTesting()
     [(EditingDelegate *)[webView editingDelegate] setAcceptsEditing:YES];
     [webView makeTextStandardSize:nil];
     [webView resetPageZoom:nil];
+    [webView _scaleWebView:1.0 atOrigin:NSZeroPoint];
     [webView setTabKeyCyclesThroughElements:YES];
     [webView setPolicyDelegate:nil];
     [policyDelegate setPermissive:NO];

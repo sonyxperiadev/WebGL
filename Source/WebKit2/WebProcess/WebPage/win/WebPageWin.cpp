@@ -28,17 +28,22 @@
 
 #include "FontSmoothingLevel.h"
 #include "WebEvent.h"
+#include "WebPageProxyMessages.h"
 #include "WebPreferencesStore.h"
 #include <WebCore/FocusController.h>
 #include <WebCore/FontRenderingMode.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
+#include <WebCore/HitTestRequest.h>
+#include <WebCore/HitTestResult.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformKeyboardEvent.h>
+#include <WebCore/RenderLayer.h>
+#include <WebCore/RenderView.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/Settings.h>
-#if PLATFORM(CG)
+#if USE(CG)
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
 #include <WinUser.h>
@@ -62,7 +67,7 @@ void WebPage::platformPreferencesDidChange(const WebPreferencesStore& store)
 {
     FontSmoothingLevel fontSmoothingLevel = static_cast<FontSmoothingLevel>(store.getUInt32ValueForKey(WebPreferencesKey::fontSmoothingLevelKey()));
 
-#if PLATFORM(CG)
+#if USE(CG)
     FontSmoothingLevel adjustedLevel = fontSmoothingLevel;
     if (adjustedLevel == FontSmoothingLevelWindows)
         adjustedLevel = FontSmoothingLevelMedium;
@@ -349,6 +354,91 @@ void WebPage::getSelectedText(String& text)
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
     RefPtr<Range> selectedRange = frame->selection()->toNormalizedRange();
     text = selectedRange->text();
+}
+
+void WebPage::gestureWillBegin(const WebCore::IntPoint& point, bool& canBeginPanning)
+{
+    m_gestureReachedScrollingLimit = false;
+
+    bool hitScrollbar = false;
+
+    HitTestRequest request(HitTestRequest::ReadOnly);
+    for (Frame* childFrame = m_page->mainFrame(); childFrame; childFrame = EventHandler::subframeForTargetNode(m_gestureTargetNode.get())) {
+        ScrollView* scollView = childFrame->view();
+        if (!scollView)
+            break;
+        
+        RenderView* renderView = childFrame->document()->renderView();
+        if (!renderView)
+            break;
+
+        RenderLayer* layer = renderView->layer();
+        if (!layer)
+            break;
+
+        HitTestResult result = scollView->windowToContents(point);
+        layer->hitTest(request, result);
+        m_gestureTargetNode = result.innerNode();
+
+        if (!hitScrollbar)
+            hitScrollbar = result.scrollbar();
+    }
+
+    if (hitScrollbar) {
+        canBeginPanning = false;
+        return;
+    }
+
+    if (!m_gestureTargetNode) {
+        canBeginPanning = false;
+        return;
+    }
+
+    for (RenderObject* renderer = m_gestureTargetNode->renderer(); renderer; renderer = renderer->parent()) {
+        if (renderer->isBox() && toRenderBox(renderer)->canBeScrolledAndHasScrollableArea()) {
+            canBeginPanning = true;
+            return;
+        }
+    }
+
+    canBeginPanning = false;
+}
+
+static bool scrollbarAtTopOrBottomOfDocument(Scrollbar* scrollbar)
+{
+    ASSERT_ARG(scrollbar, scrollbar);
+    return !scrollbar->currentPos() || scrollbar->currentPos() >= scrollbar->maximum();
+}
+
+void WebPage::gestureDidScroll(const IntSize& size)
+{
+    ASSERT_ARG(size, !size.isZero());
+
+    if (!m_gestureTargetNode || !m_gestureTargetNode->renderer() || !m_gestureTargetNode->renderer()->enclosingLayer())
+        return;
+
+    Scrollbar* verticalScrollbar = 0;
+    if (Frame* frame = m_page->mainFrame()) {
+        if (ScrollView* view = frame->view())
+            verticalScrollbar = view->verticalScrollbar();
+    }
+
+    m_gestureTargetNode->renderer()->enclosingLayer()->scrollByRecursively(size.width(), size.height());
+    bool gestureReachedScrollingLimit = verticalScrollbar && scrollbarAtTopOrBottomOfDocument(verticalScrollbar);
+
+    // FIXME: We really only want to update this state if the state was updated via scrolling the main frame,
+    // not scrolling something in a main frame when the main frame had already reached its scrolling limit.
+
+    if (gestureReachedScrollingLimit == m_gestureReachedScrollingLimit)
+        return;
+
+    send(Messages::WebPageProxy::SetGestureReachedScrollingLimit(gestureReachedScrollingLimit));
+    m_gestureReachedScrollingLimit = gestureReachedScrollingLimit;
+}
+
+void WebPage::gestureDidEnd()
+{
+    m_gestureTargetNode = nullptr;
 }
 
 } // namespace WebKit

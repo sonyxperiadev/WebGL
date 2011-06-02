@@ -26,6 +26,7 @@
 #include "ApplicationCacheStorage.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "ChromeClientQt.h"
+#include "ContainerNode.h"
 #include "ContextMenu.h"
 #include "ContextMenuClientQt.h"
 #include "ContextMenuController.h"
@@ -82,7 +83,7 @@
 #include "qwebpage_p.h"
 #include "qwebscriptworld.h"
 
-#if ENABLE(VIDEO) && ENABLE(QT_MULTIMEDIA)
+#if ENABLE(VIDEO) && USE(QT_MULTIMEDIA)
 #include "HTMLVideoElement.h"
 #include "MediaPlayerPrivateQt.h"
 #endif
@@ -822,6 +823,17 @@ void DumpRenderTreeSupportQt::setMockGeolocationError(QWebPage* page, int errorC
 #endif
 }
 
+int DumpRenderTreeSupportQt::numberOfPendingGeolocationPermissionRequests(QWebPage* page)
+{
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    Page* corePage = QWebPagePrivate::core(page);
+    GeolocationClientMock* mockClient = toGeolocationClientMock(corePage->geolocationController()->client());
+    return mockClient->numberOfPendingPermissionRequests();
+#else
+    return -1;
+#endif
+}
+
 bool DumpRenderTreeSupportQt::isTargetItem(const QWebHistoryItem& historyItem)
 {
     QWebHistoryItem it = historyItem;
@@ -1014,7 +1026,7 @@ QUrl DumpRenderTreeSupportQt::mediaContentUrlByElementId(QWebFrame* frame, const
 {
     QUrl res;
 
-#if ENABLE(VIDEO) && ENABLE(QT_MULTIMEDIA)
+#if ENABLE(VIDEO) && USE(QT_MULTIMEDIA)
     Frame* coreFrame = QWebFramePrivate::core(frame);
     if (!coreFrame)
         return res;
@@ -1050,6 +1062,19 @@ void DumpRenderTreeSupportQt::setAlternateHtml(QWebFrame* frame, const QString& 
     WTF::RefPtr<WebCore::SharedBuffer> data = WebCore::SharedBuffer::create(utf8.constData(), utf8.length());
     WebCore::SubstituteData substituteData(data, WTF::String("text/html"), WTF::String("utf-8"), failingUrl);
     coreFrame->loader()->load(request, substituteData, false);
+}
+
+QVariant DumpRenderTreeSupportQt::shadowRoot(const QWebElement& element)
+{
+    WebCore::Element* webElement = element.m_element;
+    if (!webElement)
+        return QVariant();
+
+    ContainerNode* webShadowRoot = webElement->shadowRoot();
+    if (!webShadowRoot)
+        return QVariant();
+
+    return QVariant::fromValue(QDRTNode(webShadowRoot));
 }
 
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release

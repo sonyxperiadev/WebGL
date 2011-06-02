@@ -36,6 +36,7 @@
 		1A215A8211F2609C008AD0F5 /* PluginTest.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A215A8011F2609C008AD0F5 /* PluginTest.h */; };
 		1A215BE711F27658008AD0F5 /* DocumentOpenInDestroyStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A215A7511F26072008AD0F5 /* DocumentOpenInDestroyStream.cpp */; };
 		1A24BAA9120734EE00FBB059 /* NPRuntimeObjectFromDestroyedPlugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A24BAA8120734EE00FBB059 /* NPRuntimeObjectFromDestroyedPlugin.cpp */; };
+		1A31EB3813466AC100017372 /* ConvertPoint.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A31EB3713466AC100017372 /* ConvertPoint.cpp */; };
 		1A3E28AA1311D73B00501349 /* GetURLWithJavaScriptURLDestroyingPlugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A3E28A91311D73B00501349 /* GetURLWithJavaScriptURLDestroyingPlugin.cpp */; };
 		1A8F02E80BB9B4EC008CFA34 /* TestObject.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A8F024C0BB9B056008CFA34 /* TestObject.h */; };
 		1AC6C8490D07638600CD3161 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1AC6C77F0D07589B00CD3161 /* main.cpp */; };
@@ -58,6 +59,8 @@
 		4437730F125CBC4D00AAE02C /* WebArchiveDumpSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 44A997820FCDE86400580F10 /* WebArchiveDumpSupport.h */; };
 		5185F6B210714E07007AA393 /* HistoryDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5185F69F10714A57007AA393 /* HistoryDelegate.mm */; };
 		5185F6B310714E12007AA393 /* HistoryDelegate.h in Headers */ = {isa = PBXBuildFile; fileRef = 5185F69E10714A57007AA393 /* HistoryDelegate.h */; };
+		53CBB832134E42F3001CE6A4 /* CyclicRedundancyCheck.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 53CBB830134E42F3001CE6A4 /* CyclicRedundancyCheck.cpp */; };
+		53CBB833134E42F3001CE6A4 /* CyclicRedundancyCheck.h in Headers */ = {isa = PBXBuildFile; fileRef = 53CBB831134E42F3001CE6A4 /* CyclicRedundancyCheck.h */; };
 		5DB9AC970F722C3600684641 /* AHEM____.TTF in Copy Font Files */ = {isa = PBXBuildFile; fileRef = AA7F10C20CB3C1030003BDC9 /* AHEM____.TTF */; };
 		5DB9AC980F722C3600684641 /* WebKitWeightWatcher100.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09710DAC3CB600C8B4E5 /* WebKitWeightWatcher100.ttf */; };
 		5DB9AC990F722C3600684641 /* WebKitWeightWatcher200.ttf in Copy Font Files */ = {isa = PBXBuildFile; fileRef = 375F09720DAC3CB600C8B4E5 /* WebKitWeightWatcher200.ttf */; };
@@ -136,6 +139,7 @@
 		BCD08B3A0E1057EF00A7D0C1 /* AccessibilityController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BCD08B390E1057EF00A7D0C1 /* AccessibilityController.cpp */; };
 		BCD08B710E1059D200A7D0C1 /* AccessibilityControllerMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = BCD08B700E1059D200A7D0C1 /* AccessibilityControllerMac.mm */; };
 		BCF6C6500C98E9C000AC063E /* GCController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BCF6C64F0C98E9C000AC063E /* GCController.cpp */; };
+		C031182B134E4A2B00919757 /* NPPSetWindowCalledDuringDestruction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C031182A134E4A2B00919757 /* NPPSetWindowCalledDuringDestruction.cpp */; };
 		C06F9ABC1267A7060058E1F6 /* PassDifferentNPPStruct.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C06F9ABB1267A7060058E1F6 /* PassDifferentNPPStruct.cpp */; };
 		C0E720751281C828004EF533 /* EvaluateJSAfterRemovingPluginElement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C0E720741281C828004EF533 /* EvaluateJSAfterRemovingPluginElement.cpp */; };
 		C0EC3C9C12787F0500939164 /* NullNPPGetValuePointer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C0EC3C9B12787F0500939164 /* NullNPPGetValuePointer.cpp */; };
@@ -209,6 +213,7 @@
 		1A215A7F11F2609C008AD0F5 /* PluginTest.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PluginTest.cpp; sourceTree = "<group>"; };
 		1A215A8011F2609C008AD0F5 /* PluginTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PluginTest.h; sourceTree = "<group>"; };
 		1A24BAA8120734EE00FBB059 /* NPRuntimeObjectFromDestroyedPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NPRuntimeObjectFromDestroyedPlugin.cpp; sourceTree = "<group>"; };
+		1A31EB3713466AC100017372 /* ConvertPoint.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ConvertPoint.cpp; sourceTree = "<group>"; };
 		1A3E28A91311D73B00501349 /* GetURLWithJavaScriptURLDestroyingPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GetURLWithJavaScriptURLDestroyingPlugin.cpp; sourceTree = "<group>"; };
 		1A8F024C0BB9B056008CFA34 /* TestObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TestObject.h; sourceTree = "<group>"; };
 		1AC6C77F0D07589B00CD3161 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
@@ -241,6 +246,8 @@
 		44A997830FCDE86400580F10 /* WebArchiveDumpSupport.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = WebArchiveDumpSupport.cpp; path = cf/WebArchiveDumpSupport.cpp; sourceTree = "<group>"; };
 		5185F69E10714A57007AA393 /* HistoryDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = HistoryDelegate.h; path = mac/HistoryDelegate.h; sourceTree = "<group>"; };
 		5185F69F10714A57007AA393 /* HistoryDelegate.mm */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; fileEncoding = 4; name = HistoryDelegate.mm; path = mac/HistoryDelegate.mm; sourceTree = "<group>"; };
+		53CBB830134E42F3001CE6A4 /* CyclicRedundancyCheck.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CyclicRedundancyCheck.cpp; sourceTree = "<group>"; };
+		53CBB831134E42F3001CE6A4 /* CyclicRedundancyCheck.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CyclicRedundancyCheck.h; sourceTree = "<group>"; };
 		8465E2C60FFA8DF2003B8342 /* PixelDumpSupport.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = PixelDumpSupport.cpp; sourceTree = "<group>"; };
 		9335435F03D75502008635CE /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = WebKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		933BF5A90F93FA5C000F0441 /* PlainTextController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PlainTextController.h; path = mac/PlainTextController.h; sourceTree = "<group>"; };
@@ -317,6 +324,7 @@
 		BCD08B390E1057EF00A7D0C1 /* AccessibilityController.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AccessibilityController.cpp; sourceTree = "<group>"; };
 		BCD08B700E1059D200A7D0C1 /* AccessibilityControllerMac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = AccessibilityControllerMac.mm; path = mac/AccessibilityControllerMac.mm; sourceTree = "<group>"; };
 		BCF6C64F0C98E9C000AC063E /* GCController.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = GCController.cpp; sourceTree = "<group>"; };
+		C031182A134E4A2B00919757 /* NPPSetWindowCalledDuringDestruction.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NPPSetWindowCalledDuringDestruction.cpp; sourceTree = "<group>"; };
 		C06F9ABB1267A7060058E1F6 /* PassDifferentNPPStruct.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PassDifferentNPPStruct.cpp; sourceTree = "<group>"; };
 		C0E720741281C828004EF533 /* EvaluateJSAfterRemovingPluginElement.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EvaluateJSAfterRemovingPluginElement.cpp; sourceTree = "<group>"; };
 		C0EC3C9B12787F0500939164 /* NullNPPGetValuePointer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NullNPPGetValuePointer.cpp; sourceTree = "<group>"; };
@@ -475,11 +483,13 @@
 		1A215A6E11F25FF1008AD0F5 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				1A31EB3613466AC100017372 /* mac */,
 				1A215A7511F26072008AD0F5 /* DocumentOpenInDestroyStream.cpp */,
 				C0E720741281C828004EF533 /* EvaluateJSAfterRemovingPluginElement.cpp */,
 				1A3E28A91311D73B00501349 /* GetURLWithJavaScriptURLDestroyingPlugin.cpp */,
 				1AD4CB2012A6D1350027A7AF /* GetUserAgentWithNullNPPFromNPPNew.cpp */,
 				1ACF898B132EF41C00E915D4 /* NPDeallocateCalledBeforeNPShutdown.cpp */,
+				C031182A134E4A2B00919757 /* NPPSetWindowCalledDuringDestruction.cpp */,
 				1A24BAA8120734EE00FBB059 /* NPRuntimeObjectFromDestroyedPlugin.cpp */,
 				1AC77DCE120605B6005C19EF /* NPRuntimeRemoveProperty.cpp */,
 				C0EC3C9B12787F0500939164 /* NullNPPGetValuePointer.cpp */,
@@ -487,6 +497,14 @@
 				1AD9D2FD12028409001A70D1 /* PluginScriptableNPObjectInvokeDefault.cpp */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		1A31EB3613466AC100017372 /* mac */ = {
+			isa = PBXGroup;
+			children = (
+				1A31EB3713466AC100017372 /* ConvertPoint.cpp */,
+			);
+			path = mac;
 			sourceTree = "<group>";
 		};
 		9340995508540CAF007F3BC8 /* Products */ = {
@@ -570,6 +588,8 @@
 		BCB284870CFA81ED007E533E /* PixelDump */ = {
 			isa = PBXGroup;
 			children = (
+				53CBB830134E42F3001CE6A4 /* CyclicRedundancyCheck.cpp */,
+				53CBB831134E42F3001CE6A4 /* CyclicRedundancyCheck.h */,
 				BCB284F30CFA84F2007E533E /* ImageDiffCG.cpp */,
 				8465E2C60FFA8DF2003B8342 /* PixelDumpSupport.cpp */,
 				BCB2848A0CFA820F007E533E /* PixelDumpSupport.h */,
@@ -600,6 +620,7 @@
 				BC0E24E00E2D9451001B6BC2 /* AccessibilityUIElement.h in Headers */,
 				BCA18B380C9B021900114369 /* AppleScriptController.h in Headers */,
 				A8B91BFF0CF522B4008F91FF /* CheckedMalloc.h in Headers */,
+				53CBB833134E42F3001CE6A4 /* CyclicRedundancyCheck.h in Headers */,
 				BCA18B7A0C9B08F100114369 /* DumpRenderTreeDraggingInfo.h in Headers */,
 				A8D79CEA0FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.h in Headers */,
 				BCA18C0B0C9B59EF00114369 /* DumpRenderTreeMac.h in Headers */,
@@ -774,6 +795,8 @@
 				1AD4CB2212A6D1350027A7AF /* GetUserAgentWithNullNPPFromNPPNew.cpp in Sources */,
 				1A3E28AA1311D73B00501349 /* GetURLWithJavaScriptURLDestroyingPlugin.cpp in Sources */,
 				1ACF898D132EF41C00E915D4 /* NPDeallocateCalledBeforeNPShutdown.cpp in Sources */,
+				1A31EB3813466AC100017372 /* ConvertPoint.cpp in Sources */,
+				C031182B134E4A2B00919757 /* NPPSetWindowCalledDuringDestruction.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -787,6 +810,7 @@
 				BC0E26150E2DA4C6001B6BC2 /* AccessibilityUIElementMac.mm in Sources */,
 				BCA18B390C9B021900114369 /* AppleScriptController.m in Sources */,
 				A8B91BFD0CF522B4008F91FF /* CheckedMalloc.cpp in Sources */,
+				53CBB832134E42F3001CE6A4 /* CyclicRedundancyCheck.cpp in Sources */,
 				BCA18C470C9B5B9400114369 /* DumpRenderTree.mm in Sources */,
 				BCA18B7B0C9B08F100114369 /* DumpRenderTreeDraggingInfo.mm in Sources */,
 				A8D79CEB0FC28B2C004AC8FE /* DumpRenderTreeFileDraggingSource.m in Sources */,

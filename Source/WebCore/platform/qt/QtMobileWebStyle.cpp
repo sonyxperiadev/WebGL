@@ -34,12 +34,13 @@ static inline void drawRectangularControlBackground(QPainter* painter, const QPe
 {
     QPen oldPen = painter->pen();
     QBrush oldBrush = painter->brush();
+    painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(pen);
     painter->setBrush(brush);
 
     int line = 1;
-    painter->drawRect(rect.adjusted(line, line, -line, -line));
-
+    painter->drawRoundedRect(rect.adjusted(line, line, -line, -line),
+            /* xRadius */ 5.0, /* yRadious */ 5.0);
     painter->setPen(oldPen);
     painter->setBrush(oldBrush);
 }
@@ -71,8 +72,8 @@ QPixmap QtMobileWebStyle::findChecker(const QRect& rect, bool disabled) const
 {
     int size = qMin(rect.width(), rect.height());
     QPixmap result;
-    static const QString prefix = "$qt-maemo5-" + QLatin1String(metaObject()->className()) + "-checker-";
-    QString key = prefix + QString::number(size) + "-" + (disabled ? "disabled" : "enabled");
+    static const QString prefix = QLatin1String("$qt-maemo5-") + QLatin1String(metaObject()->className())+ QLatin1String("-checker-");
+    QString key = prefix + QString::number(size) + QLatin1String("-") + (disabled ? QLatin1String("disabled") : QLatin1String("enabled"));
     if (!QPixmapCache::find(key, result)) {
         result = QPixmap(size, size);
         result.fill(Qt::transparent);
@@ -87,8 +88,10 @@ void QtMobileWebStyle::drawRadio(QPainter* painter, const QSize& size, bool chec
 {
     painter->setRenderHint(QPainter::Antialiasing, true);
 
+    // get minor size to do not paint a wide elipse
+    qreal squareSize = qMin(size.width(), size.height());
     // deflate one pixel
-    QRect rect = QRect(QPoint(1, 1), QSize(size.width() - 2, size.height() - 2));
+    QRect rect = QRect(QPoint(1, 1), QSize(squareSize - 2, squareSize - 2));
     const QPoint centerGradient(rect.bottomRight() * 0.7);
 
     QRadialGradient radialGradient(centerGradient, centerGradient.x() - 1);
@@ -115,9 +118,9 @@ void QtMobileWebStyle::drawRadio(QPainter* painter, const QSize& size, bool chec
 QPixmap QtMobileWebStyle::findRadio(const QSize& size, bool checked, bool disabled) const
 {
     QPixmap result;
-    static const QString prefix = "$qt-maemo5-" + QLatin1String(metaObject()->className()) + "-radio-";
-    QString key = prefix + QString::number(size.width()) + "-" + QString::number(size.height()) +
-                   + "-" + (disabled ? "disabled" : "enabled") + (checked ? "-checked" : "");
+    static const QString prefix = QLatin1String("$qt-maemo5-") + QLatin1String(metaObject()->className()) + QLatin1String("-radio-");
+    QString key = prefix + QString::number(size.width()) + QLatin1String("-") + QString::number(size.height()) + QLatin1String("-")
+        + (disabled ? QLatin1String("disabled") : QLatin1String("enabled")) + (checked ? QLatin1String("-checked") : QLatin1String(""));
     if (!QPixmapCache::find(key, result)) {
         result = QPixmap(size);
         result.fill(Qt::transparent);
@@ -144,7 +147,9 @@ void QtMobileWebStyle::drawControl(ControlElement element, const QStyleOption* o
             linearGradient.setColorAt(0.5, Qt::white);
         }
 
-        drawRectangularControlBackground(painter, QPen(disabled ? Qt::lightGray : Qt::darkGray), rect, linearGradient);
+        painter->setPen(QPen(disabled ? Qt::lightGray : Qt::darkGray));
+        painter->setBrush(linearGradient);
+        painter->drawRect(rect);
         rect.adjust(1, 1, -1, -1);
 
         if (option->state & State_Off)
@@ -167,8 +172,73 @@ void QtMobileWebStyle::drawControl(ControlElement element, const QStyleOption* o
         painter->drawPixmap(option->rect.x(), option->rect.y(), radio);
         break;
     }
+    case CE_PushButton: {
+        const bool disabled = !(option->state & State_Enabled);
+        QRect rect = option->rect;
+        QPen pen(Qt::darkGray, 1.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        painter->setPen(pen);
+
+        const bool sunken = (option->state & State_Sunken);
+        if (sunken) {
+            drawRectangularControlBackground(painter, pen, rect, QBrush(Qt::darkGray));
+            break;
+        }
+
+        QLinearGradient linearGradient;
+        if (disabled) {
+            linearGradient.setStart(rect.bottomLeft());
+            linearGradient.setFinalStop(rect.topLeft());
+            linearGradient.setColorAt(0.0, Qt::gray);
+            linearGradient.setColorAt(1.0, Qt::white);
+        } else {
+            linearGradient.setStart(rect.bottomLeft());
+            linearGradient.setFinalStop(QPoint(rect.bottomLeft().x(),
+                        rect.bottomLeft().y() - /* offset limit for gradient */ 20));
+            linearGradient.setColorAt(0.0, Qt::gray);
+            linearGradient.setColorAt(0.4, Qt::white);
+        }
+
+        drawRectangularControlBackground(painter, pen, rect, linearGradient);
+        break;
+    }
     default:
         QWindowsStyle::drawControl(element, option, painter, widget);
+    }
+}
+void QtMobileWebStyle::drawPrimitive(PrimitiveElement element, const QStyleOption* option, QPainter* painter, const QWidget* widget) const
+{
+    switch (element) {
+    case QStyle::PE_PanelLineEdit: {
+        const bool disabled = !(option->state & State_Enabled);
+        const bool sunken = (option->state & State_Sunken);
+        QRect rect = option->rect;
+        QPen pen(Qt::darkGray, 1.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        painter->setPen(pen);
+
+        if (sunken) {
+            drawRectangularControlBackground(painter, pen, rect, QBrush(Qt::darkGray));
+            break;
+        }
+
+        QLinearGradient linearGradient;
+        if (disabled) {
+            linearGradient.setStart(rect.topLeft());
+            linearGradient.setFinalStop(rect.bottomLeft());
+            linearGradient.setColorAt(0.0, Qt::lightGray);
+            linearGradient.setColorAt(1.0, Qt::white);
+        } else {
+            linearGradient.setStart(rect.topLeft());
+            linearGradient.setFinalStop(QPoint(rect.topLeft().x(),
+                        rect.topLeft().y() + /* offset limit for gradient */ 20));
+            linearGradient.setColorAt(0.0, Qt::darkGray);
+            linearGradient.setColorAt(0.35, Qt::white);
+        }
+
+        drawRectangularControlBackground(painter, pen, rect, linearGradient);
+        break;
+    }
+    default:
+        QWindowsStyle::drawPrimitive(element, option, painter, widget);
     }
 }
 
@@ -230,10 +300,10 @@ QPixmap QtMobileWebStyle::findComboButton(const QSize& size, bool multiple, bool
 
     if (imageSize.isNull())
         return QPixmap();
-    static const QString prefix = "$qt-maemo5-" + QLatin1String(metaObject()->className()) + "-combo-";
-    QString key = prefix + (multiple ? "multiple-" : "simple-") +
-                  QString::number(imageSize.width()) + "-" + QString::number(imageSize.height()) +
-                   + "-" + (disabled ? "disabled" : "enabled");
+    static const QString prefix = QLatin1String("$qt-maemo5-") + QLatin1String(metaObject()->className()) + QLatin1String("-combo-");
+    QString key = prefix + (multiple ? QLatin1String("multiple-") : QLatin1String("simple-"))
+        + QString::number(imageSize.width()) + QLatin1String("-") + QString::number(imageSize.height())
+        + QLatin1String("-") + (disabled ? QLatin1String("disabled") : QLatin1String("enabled"));
     if (!QPixmapCache::find(key, result)) {
         result = QPixmap(imageSize);
         result.fill(Qt::transparent);
@@ -251,7 +321,6 @@ void QtMobileWebStyle::drawComplexControl(ComplexControl control, const QStyleOp
 {
     switch (control) {
     case CC_ComboBox: {
-
         bool multiple = false;
         const bool disabled = !(option->state & State_Enabled);
 
@@ -272,7 +341,25 @@ void QtMobileWebStyle::drawComplexControl(ComplexControl control, const QStyleOp
         if (!(cmb->subControls & SC_ComboBoxArrow))
             break;
 
-        QRect rect = subControlRect(CC_ComboBox, cmb, SC_ComboBoxArrow, widget);
+        QRect rect = option->rect;
+        QPen pen(Qt::darkGray, 1.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        QLinearGradient linearGradient;
+        if (disabled) {
+            linearGradient.setStart(rect.bottomLeft());
+            linearGradient.setFinalStop(rect.topLeft());
+            linearGradient.setColorAt(0.0, Qt::gray);
+            linearGradient.setColorAt(1.0, Qt::white);
+        } else {
+            linearGradient.setStart(rect.bottomLeft());
+            linearGradient.setFinalStop(QPoint(rect.bottomLeft().x(),
+                        rect.bottomLeft().y() - /* offset limit for gradient */ 20));
+            linearGradient.setColorAt(0.0, Qt::gray);
+            linearGradient.setColorAt(0.4, Qt::white);
+        }
+
+        drawRectangularControlBackground(painter, pen, rect, linearGradient);
+
+        rect = subControlRect(CC_ComboBox, cmb, SC_ComboBoxArrow, widget);
         QPixmap pic = findComboButton(rect.size(), multiple, disabled);
 
         if (pic.isNull())
@@ -291,3 +378,4 @@ void QtMobileWebStyle::drawComplexControl(ComplexControl control, const QStyleOp
         QWindowsStyle::drawComplexControl(control, option, painter, widget);
     }
 }
+

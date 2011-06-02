@@ -313,7 +313,7 @@ void QWebFramePrivate::renderFromTiledBackingStore(GraphicsContext* context, con
 
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
     renderCompositedLayers(context, IntRect(clip.boundingRect()));
-    renderRelativeCoords(context, (QWebFrame::RenderLayer)(QWebFrame::ScrollBarLayer | QWebFrame::PanIconLayer), clip);
+    renderFrameExtras(context, QFlags<QWebFrame::RenderLayer>(QWebFrame::ScrollBarLayer) | QWebFrame::PanIconLayer, clip);
 #endif
 }
 #endif
@@ -342,7 +342,7 @@ void QWebFramePrivate::renderCompositedLayers(GraphicsContext* context, const In
 }
 #endif
 
-void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame::RenderLayer layer, const QRegion& clip)
+void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QFlags<QWebFrame::RenderLayer> layers, const QRegion& clip)
 {
     if (!frame->view() || !frame->contentRenderer())
         return;
@@ -356,7 +356,7 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame:
     WebCore::FrameView* view = frame->view();
     view->updateLayoutAndStyleIfNeededRecursive();
 
-    if (layer & QWebFrame::ContentsLayer) {
+    if (layers & QWebFrame::ContentsLayer) {
         for (int i = 0; i < vector.size(); ++i) {
             const QRect& clipRect = vector.at(i);
 
@@ -385,47 +385,67 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame:
         renderCompositedLayers(context, IntRect(clip.boundingRect()));
 #endif
     }
-    if (layer & (QWebFrame::PanIconLayer | QWebFrame::ScrollBarLayer)) {
-        for (int i = 0; i < vector.size(); ++i) {
-            const QRect& clipRect = vector.at(i);
+    renderFrameExtras(context, layers, clip);
+#if ENABLE(INSPECTOR)
+    if (frame->page()->inspectorController()->highlightedNode()) {
+        context->save();
+        frame->page()->inspectorController()->drawNodeHighlight(*context);
+        context->restore();
+    }
+#endif
+}
 
-            QRect intersectedRect = clipRect.intersected(view->frameRect());
+void QWebFramePrivate::renderFrameExtras(GraphicsContext* context, QFlags<QWebFrame::RenderLayer> layers, const QRegion& clip)
+{
+    if (!(layers & (QWebFrame::PanIconLayer | QWebFrame::ScrollBarLayer)))
+        return;
+    QPainter* painter = context->platformContext();
+    WebCore::FrameView* view = frame->view();
+    QVector<QRect> vector = clip.rects();
+    for (int i = 0; i < vector.size(); ++i) {
+        const QRect& clipRect = vector.at(i);
 
-            painter->save();
-            painter->setClipRect(clipRect, Qt::IntersectClip);
+        QRect intersectedRect = clipRect.intersected(view->frameRect());
 
-            int x = view->x();
-            int y = view->y();
+        painter->save();
+        painter->setClipRect(clipRect, Qt::IntersectClip);
 
-            if (layer & QWebFrame::ScrollBarLayer
-                && !view->scrollbarsSuppressed()
-                && (view->horizontalScrollbar() || view->verticalScrollbar())) {
-                QRect rect = intersectedRect;
-                context->translate(x, y);
-                rect.translate(-x, -y);
+        int x = view->x();
+        int y = view->y();
 
-                view->paintScrollbars(context, rect);
+        if (layers & QWebFrame::ScrollBarLayer
+            && !view->scrollbarsSuppressed()
+            && (view->horizontalScrollbar() || view->verticalScrollbar())) {
 
-                context->translate(-x, -y);
-            }
+            QRect rect = intersectedRect;
+            context->translate(x, y);
+            rect.translate(-x, -y);
+            view->paintScrollbars(context, rect);
+            context->translate(-x, -y);
+        }
 
 #if ENABLE(PAN_SCROLLING)
-            if (layer & QWebFrame::PanIconLayer)
-                view->paintPanScrollIcon(context);
+        if (layers & QWebFrame::PanIconLayer)
+            view->paintPanScrollIcon(context);
 #endif
 
-            painter->restore();
-        }
+        painter->restore();
     }
 }
 
-void QWebFrame::orientationChanged()
+void QWebFramePrivate::emitUrlChanged()
+{
+    url = frame->document()->url();
+    emit q->urlChanged(url);
+}
+
+void QWebFramePrivate::_q_orientationChanged()
 {
 #if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
     int orientation;
-    WebCore::Frame* frame = QWebFramePrivate::core(this);
+    WebCore::Frame* frame = core(q);
 
-    switch (d->m_orientation.reading()->orientation()) {
+    switch (m_orientation.reading()->orientation()) {
     case QtMobility::QOrientationReading::TopUp:
         orientation = 0;
         break;
@@ -522,7 +542,7 @@ QWebFrame::QWebFrame(QWebPage *parent, QWebFrameData *frameData)
         d->frame->loader()->load(request, frameData->name, false);
     }
 #if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
-    connect(&d->m_orientation, SIGNAL(readingChanged()), this, SLOT(orientationChanged()));
+    connect(&d->m_orientation, SIGNAL(readingChanged()), this, SLOT(_q_orientationChanged()));
     d->m_orientation.start();
 #endif
 }
@@ -534,7 +554,7 @@ QWebFrame::QWebFrame(QWebFrame *parent, QWebFrameData *frameData)
     d->page = parent->d->page;
     d->init(this, frameData);
 #if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
-    connect(&d->m_orientation, SIGNAL(readingChanged()), this, SLOT(orientationChanged()));
+    connect(&d->m_orientation, SIGNAL(readingChanged()), this, SLOT(_q_orientationChanged()));
     d->m_orientation.start();
 #endif
 }
@@ -678,7 +698,7 @@ QString QWebFrame::renderTreeDump() const
 QString QWebFrame::title() const
 {
     if (d->frame->document())
-        return d->frame->loader()->documentLoader()->title();
+        return d->frame->loader()->documentLoader()->title().string();
     return QString();
 }
 
@@ -729,6 +749,17 @@ QMultiMap<QString, QString> QWebFrame::metaData() const
     return map;
 }
 
+static inline void clearCoreFrame(WebCore::Frame* frame)
+{
+    frame->loader()->activeDocumentLoader()->writer()->begin();
+    frame->loader()->activeDocumentLoader()->writer()->end();
+}
+
+static inline bool isCoreFrameClear(WebCore::Frame* frame)
+{
+    return frame->document()->url().isEmpty();
+}
+
 static inline QUrl ensureAbsoluteUrl(const QUrl &url)
 {
     if (!url.isValid() || !url.isRelative())
@@ -758,15 +789,15 @@ static inline QUrl ensureAbsoluteUrl(const QUrl &url)
 
 void QWebFrame::setUrl(const QUrl &url)
 {
+    clearCoreFrame(d->frame);
     const QUrl absolute = ensureAbsoluteUrl(url);
-    d->frame->loader()->activeDocumentLoader()->writer()->begin(absolute);
-    d->frame->loader()->activeDocumentLoader()->writer()->end();
+    d->url = absolute;
     load(absolute);
 }
 
 QUrl QWebFrame::url() const
 {
-    return d->frame->document()->url();
+    return d->url;
 }
 
 /*!
@@ -791,7 +822,9 @@ QUrl QWebFrame::requestedUrl() const
 
 QUrl QWebFrame::baseUrl() const
 {
-    return d->frame->loader()->baseURL();
+    if (isCoreFrameClear(d->frame))
+        return QUrl(d->url).resolved(QUrl());
+    return d->frame->document()->baseURL();
 }
 
 /*!
@@ -1913,3 +1946,5 @@ QWebFrame *QWebHitTestResult::frame() const
         return 0;
     return d->frame;
 }
+
+#include "moc_qwebframe.cpp"

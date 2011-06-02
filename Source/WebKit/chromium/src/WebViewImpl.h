@@ -109,6 +109,7 @@ public:
     virtual bool confirmComposition(const WebString& text);
     virtual WebTextInputType textInputType();
     virtual WebRect caretOrSelectionBounds();
+    virtual bool selectionRange(WebPoint& start, WebPoint& end) const;
     virtual void setTextDirection(WebTextDirection direction);
     virtual bool isAcceleratedCompositingActive() const;
 
@@ -156,11 +157,6 @@ public:
         const WebPoint& screenPoint,
         WebDragOperation operation);
     virtual void dragSourceSystemDragEnded();
-    virtual WebDragOperation dragTargetDragEnter(
-        const WebDragData&, int identity, // FIXME: remove identity from this function signature.
-        const WebPoint& clientPoint,
-        const WebPoint& screenPoint,
-        WebDragOperationsMask operationsAllowed);
     virtual WebDragOperation dragTargetDragEnter(
         const WebDragData&,
         const WebPoint& clientPoint,

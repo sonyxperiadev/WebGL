@@ -350,15 +350,15 @@ public:
 
     // Called when a positioned object moves but doesn't necessarily change size.  A simplified layout is attempted
     // that just updates the object's position. If the size does change, the object remains dirty.
-    void tryLayoutDoingPositionedMovementOnly()
+    bool tryLayoutDoingPositionedMovementOnly()
     {
         int oldWidth = width();
         computeLogicalWidth();
         // If we shrink to fit our width may have changed, so we still need full layout.
         if (oldWidth != width())
-            return;
+            return false;
         computeLogicalHeight();
-        setNeedsLayout(false);
+        return true;
     }
 
     IntRect maskClipRect();
@@ -398,9 +398,13 @@ public:
     IntRect logicalLayoutOverflowRectForPropagation(RenderStyle*) const;
     IntRect layoutOverflowRectForPropagation(RenderStyle*) const;
 
+<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
     int getVisibleWidth() const { return m_visibleWidth; }
 #endif
+=======
+    RenderOverflow* hasRenderOverflow() const { return m_overflow.get(); }
+>>>>>>> WebKit.org at r84325
 
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);

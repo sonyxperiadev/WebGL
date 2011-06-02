@@ -39,6 +39,7 @@
 #include "InsertTextCommand.h"
 #include "RenderObject.h"
 #include "SelectionController.h"
+#include "TextIterator.h"
 #include "VisiblePosition.h"
 #include "htmlediting.h"
 #include "visible_units.h"
@@ -49,29 +50,34 @@ using namespace HTMLNames;
 
 static bool canAppendNewLineFeed(const VisibleSelection& selection)
 {
-    ExceptionCode ec = 0;
+    Node* node = selection.rootEditableElement();
+    if (!node)
+        return false;
+
     RefPtr<BeforeTextInsertedEvent> event = BeforeTextInsertedEvent::create(String("\n"));
-    selection.rootEditableElement()->dispatchEvent(event, ec);
+    ExceptionCode ec = 0;
+    node->dispatchEvent(event, ec);
     return event->text().length();
 }
 
-TypingCommand::TypingCommand(Document *document, ETypingCommand commandType, const String &textToInsert, TypingCommandOptions options, TextGranularity granularity, TextCompositionType compositionType)
+TypingCommand::TypingCommand(Document *document, ETypingCommand commandType, const String &textToInsert, Options options, TextGranularity granularity, TextCompositionType compositionType)
     : CompositeEditCommand(document)
     , m_commandType(commandType)
     , m_textToInsert(textToInsert)
     , m_openForMoreTyping(true)
     , m_selectInsertedText(options & SelectInsertedText)
-    , m_smartDelete(false)
+    , m_smartDelete(options & SmartDelete)
     , m_granularity(granularity)
     , m_compositionType(compositionType)
     , m_killRing(options & KillRing)
     , m_openedByBackwardDelete(false)
     , m_shouldRetainAutocorrectionIndicator(options & RetainAutocorrectionIndicator)
+    , m_shouldPreventSpellChecking(options & PreventSpellChecking)
 {
     updatePreservesTypingStyle(m_commandType);
 }
 
-void TypingCommand::deleteSelection(Document* document, bool smartDelete)
+void TypingCommand::deleteSelection(Document* document, Options options)
 {
     ASSERT(document);
     
@@ -83,16 +89,16 @@ void TypingCommand::deleteSelection(Document* document, bool smartDelete)
     
     EditCommand* lastEditCommand = frame->editor()->lastEditCommand();
     if (isOpenForMoreTypingCommand(lastEditCommand)) {
-        static_cast<TypingCommand*>(lastEditCommand)->deleteSelection(smartDelete);
+        TypingCommand* lastTypingCommand = static_cast<TypingCommand*>(lastEditCommand);
+        lastTypingCommand->setShouldPreventSpellChecking(options & PreventSpellChecking);
+        lastTypingCommand->deleteSelection(options & SmartDelete);
         return;
     }
 
-    RefPtr<TypingCommand> typingCommand = TypingCommand::create(document, DeleteSelection, "", 0);
-    typingCommand->setSmartDelete(smartDelete);
-    typingCommand->apply();
+    TypingCommand::create(document, DeleteSelection, "", options)->apply();
 }
 
-void TypingCommand::deleteKeyPressed(Document *document, bool smartDelete, TextGranularity granularity, bool killRing)
+void TypingCommand::deleteKeyPressed(Document *document, Options options, TextGranularity granularity)
 {
     ASSERT(document);
     
@@ -101,18 +107,17 @@ void TypingCommand::deleteKeyPressed(Document *document, bool smartDelete, TextG
     
     EditCommand* lastEditCommand = frame->editor()->lastEditCommand();
     if (granularity == CharacterGranularity && isOpenForMoreTypingCommand(lastEditCommand)) {
-        updateSelectionIfDifferentFromCurrentSelection(static_cast<TypingCommand*>(lastEditCommand), frame);
-        static_cast<TypingCommand*>(lastEditCommand)->deleteKeyPressed(granularity, killRing);
+        TypingCommand* lastTypingCommand = static_cast<TypingCommand*>(lastEditCommand);
+        updateSelectionIfDifferentFromCurrentSelection(lastTypingCommand, frame);
+        lastTypingCommand->setShouldPreventSpellChecking(options & PreventSpellChecking);
+        lastTypingCommand->deleteKeyPressed(granularity, options & KillRing);
         return;
     }
 
-    TypingCommandOptions options = killRing ? KillRing : 0;
-    RefPtr<TypingCommand> typingCommand = TypingCommand::create(document, DeleteKey, "", options, granularity);
-    typingCommand->setSmartDelete(smartDelete);
-    typingCommand->apply();
+    TypingCommand::create(document, DeleteKey, "", options, granularity)->apply();
 }
 
-void TypingCommand::forwardDeleteKeyPressed(Document *document, bool smartDelete, TextGranularity granularity, bool killRing)
+void TypingCommand::forwardDeleteKeyPressed(Document *document, Options options, TextGranularity granularity)
 {
     // FIXME: Forward delete in TextEdit appears to open and close a new typing command.
     ASSERT(document);
@@ -122,15 +127,14 @@ void TypingCommand::forwardDeleteKeyPressed(Document *document, bool smartDelete
     
     EditCommand* lastEditCommand = frame->editor()->lastEditCommand();
     if (granularity == CharacterGranularity && isOpenForMoreTypingCommand(lastEditCommand)) {
-        updateSelectionIfDifferentFromCurrentSelection(static_cast<TypingCommand*>(lastEditCommand), frame);
-        static_cast<TypingCommand*>(lastEditCommand)->forwardDeleteKeyPressed(granularity, killRing);
+        TypingCommand* lastTypingCommand = static_cast<TypingCommand*>(lastEditCommand);
+        updateSelectionIfDifferentFromCurrentSelection(lastTypingCommand, frame);
+        lastTypingCommand->setShouldPreventSpellChecking(options & PreventSpellChecking);
+        lastTypingCommand->forwardDeleteKeyPressed(granularity, options & KillRing);
         return;
     }
 
-    TypingCommandOptions options = killRing ? KillRing : 0;
-    RefPtr<TypingCommand> typingCommand = TypingCommand::create(document, ForwardDeleteKey, "", options, granularity);
-    typingCommand->setSmartDelete(smartDelete);
-    typingCommand->apply();
+    TypingCommand::create(document, ForwardDeleteKey, "", options, granularity)->apply();
 }
 
 void TypingCommand::updateSelectionIfDifferentFromCurrentSelection(TypingCommand* typingCommand, Frame* frame)
@@ -144,23 +148,21 @@ void TypingCommand::updateSelectionIfDifferentFromCurrentSelection(TypingCommand
     typingCommand->setEndingSelection(currentSelection);
 }
 
-void TypingCommand::insertText(Document* document, const String& text, TypingCommandOptions options, TextCompositionType composition)
+void TypingCommand::insertText(Document* document, const String& text, Options options, TextCompositionType composition)
 {
     ASSERT(document);
 
     Frame* frame = document->frame();
     ASSERT(frame);
 
-#if REMOVE_MARKERS_UPON_EDITING
     if (!text.isEmpty())
-        document->frame()->editor()->removeSpellAndCorrectionMarkersFromWordsToBeEdited(isSpaceOrNewline(text.characters()[0]));
-#endif
-
+        document->frame()->editor()->updateMarkersForWordsAffectedByEditing(isSpaceOrNewline(text.characters()[0]));
+    
     insertText(document, text, frame->selection()->selection(), options, composition);
 }
 
 // FIXME: We shouldn't need to take selectionForInsertion. It should be identical to SelectionController's current selection.
-void TypingCommand::insertText(Document* document, const String& text, const VisibleSelection& selectionForInsertion, TypingCommandOptions options, TextCompositionType compositionType)
+void TypingCommand::insertText(Document* document, const String& text, const VisibleSelection& selectionForInsertion, Options options, TextCompositionType compositionType)
 {
     ASSERT(document);
 
@@ -196,6 +198,7 @@ void TypingCommand::insertText(Document* document, const String& text, const Vis
 
         lastTypingCommand->setCompositionType(compositionType);
         lastTypingCommand->setShouldRetainAutocorrectionIndicator(options & RetainAutocorrectionIndicator);
+        lastTypingCommand->setShouldPreventSpellChecking(options & PreventSpellChecking);
         lastTypingCommand->insertText(newText, options & SelectInsertedText);
         return;
     }
@@ -212,7 +215,7 @@ void TypingCommand::insertText(Document* document, const String& text, const Vis
     }
 }
 
-void TypingCommand::insertLineBreak(Document *document, TypingCommandOptions options)
+void TypingCommand::insertLineBreak(Document *document, Options options)
 {
     ASSERT(document);
 
@@ -246,7 +249,7 @@ void TypingCommand::insertParagraphSeparatorInQuotedContent(Document *document)
     applyCommand(TypingCommand::create(document, InsertParagraphSeparatorInQuotedContent));
 }
 
-void TypingCommand::insertParagraphSeparator(Document *document, TypingCommandOptions options)
+void TypingCommand::insertParagraphSeparator(Document *document, Options options)
 {
     ASSERT(document);
 
@@ -338,14 +341,14 @@ void TypingCommand::markMisspellingsAfterTyping(ETypingCommand commandType)
     if (previous.isNotNull()) {
         VisiblePosition p1 = startOfWord(previous, LeftWordIfOnBoundary);
         VisiblePosition p2 = startOfWord(start, LeftWordIfOnBoundary);
-        if (p1 != p2)
-            document()->frame()->editor()->markMisspellingsAfterTypingToWord(p1, endingSelection());
-#if SUPPORT_AUTOCORRECTION_PANEL
-        else if (commandType == TypingCommand::InsertText)
-            document()->frame()->editor()->startCorrectionPanelTimer(CorrectionPanelInfo::PanelTypeCorrection);
-#else
-    UNUSED_PARAM(commandType);
-#endif
+        if (p1 != p2) {
+            RefPtr<Range> range = makeRange(p1, p2);
+            String strippedPreviousWord;
+            if (range && (commandType == TypingCommand::InsertText || commandType == TypingCommand::InsertLineBreak || commandType == TypingCommand::InsertParagraphSeparator || commandType == TypingCommand::InsertParagraphSeparatorInQuotedContent))
+                strippedPreviousWord = plainText(range.get()).stripWhiteSpace();
+            document()->frame()->editor()->markMisspellingsAfterTypingToWord(p1, endingSelection(), !strippedPreviousWord.isEmpty());
+        } else if (commandType == TypingCommand::InsertText)
+            document()->frame()->editor()->startCorrectionPanelTimer();
     }
 }
 
@@ -356,7 +359,8 @@ void TypingCommand::typingAddedToOpenCommand(ETypingCommand commandTypeForAddedT
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     document()->frame()->editor()->appliedEditing(this);
     // Since the spellchecking code may also perform corrections and other replacements, it should happen after the typing changes.
-    markMisspellingsAfterTyping(commandTypeForAddedTyping);
+    if (!m_shouldPreventSpellChecking)
+        markMisspellingsAfterTyping(commandTypeForAddedTyping);
 #else
     // The old spellchecking code requires that checking be done first, to prevent issues like that in 6864072, where <doesn't> is marked as misspelled.
     markMisspellingsAfterTyping(commandTypeForAddedTyping);
@@ -463,9 +467,8 @@ bool TypingCommand::makeEditableRootEmpty()
 
 void TypingCommand::deleteKeyPressed(TextGranularity granularity, bool killRing)
 {
-#if REMOVE_MARKERS_UPON_EDITING
-    document()->frame()->editor()->removeSpellAndCorrectionMarkersFromWordsToBeEdited(false);
-#endif
+    document()->frame()->editor()->updateMarkersForWordsAffectedByEditing(false);
+
     VisibleSelection selectionToDelete;
     VisibleSelection selectionAfterUndo;
 
@@ -562,9 +565,8 @@ void TypingCommand::deleteKeyPressed(TextGranularity granularity, bool killRing)
 
 void TypingCommand::forwardDeleteKeyPressed(TextGranularity granularity, bool killRing)
 {
-#if REMOVE_MARKERS_UPON_EDITING
-    document()->frame()->editor()->removeSpellAndCorrectionMarkersFromWordsToBeEdited(false);
-#endif
+    document()->frame()->editor()->updateMarkersForWordsAffectedByEditing(false);
+
     VisibleSelection selectionToDelete;
     VisibleSelection selectionAfterUndo;
 

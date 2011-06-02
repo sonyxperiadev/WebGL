@@ -124,17 +124,16 @@ void AssociatedURLLoader::ClientAdapter::didReceiveData(const char* data, int da
     if (!m_client)
         return;
 
-    // FIXME(vsevik): add -1 to params once migrated.
-    m_client->didReceiveData(m_loader, data, dataLength);
+    m_client->didReceiveData(m_loader, data, dataLength, -1);
     m_downloadLength += dataLength;
 }
 
-void AssociatedURLLoader::ClientAdapter::didReceiveCachedMetadata(const char* data, int lengthReceived)
+void AssociatedURLLoader::ClientAdapter::didReceiveCachedMetadata(const char* data, int dataLength)
 {
     if (!m_client)
         return;
 
-    m_client->didReceiveCachedMetadata(m_loader, data, lengthReceived);
+    m_client->didReceiveCachedMetadata(m_loader, data, dataLength);
 }
 
 void AssociatedURLLoader::ClientAdapter::didFinishLoading(unsigned long identifier, double finishTime)
@@ -169,7 +168,7 @@ AssociatedURLLoader::AssociatedURLLoader(PassRefPtr<WebFrameImpl> frameImpl)
     m_options.sniffContent = false;
     m_options.allowCredentials = true;
     m_options.forcePreflight = false;
-    m_options.crossOriginRequestPolicy = AllowCrossOriginRequests; // TODO(bbudge) Default should be DenyCrossOriginRequests, but this would break some tests.
+    m_options.crossOriginRequestPolicy = WebURLLoaderOptions::CrossOriginRequestPolicyAllow; // FIXME We should deny by default, but this would break some tests.
 }
 
 AssociatedURLLoader::AssociatedURLLoader(PassRefPtr<WebFrameImpl> frameImpl, const WebURLLoaderOptions& options)
@@ -189,9 +188,9 @@ AssociatedURLLoader::~AssociatedURLLoader()
 #define COMPILE_ASSERT_MATCHING_ENUM(webkit_name, webcore_name) \
     COMPILE_ASSERT(static_cast<int>(WebKit::webkit_name) == static_cast<int>(WebCore::webcore_name), mismatching_enums)
 
-COMPILE_ASSERT_MATCHING_ENUM(DenyCrossOriginRequests, DenyCrossOriginRequests);
-COMPILE_ASSERT_MATCHING_ENUM(UseAccessControl, UseAccessControl);
-COMPILE_ASSERT_MATCHING_ENUM(AllowCrossOriginRequests, AllowCrossOriginRequests);
+COMPILE_ASSERT_MATCHING_ENUM(WebURLLoaderOptions::CrossOriginRequestPolicyDeny, DenyCrossOriginRequests);
+COMPILE_ASSERT_MATCHING_ENUM(WebURLLoaderOptions::CrossOriginRequestPolicyUseAccessControl, UseAccessControl);
+COMPILE_ASSERT_MATCHING_ENUM(WebURLLoaderOptions::CrossOriginRequestPolicyAllow, AllowCrossOriginRequests);
 
 void AssociatedURLLoader::loadSynchronously(const WebURLRequest& request, WebURLResponse& response, WebURLError& error, WebData& data)
 {

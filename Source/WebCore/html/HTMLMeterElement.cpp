@@ -29,7 +29,9 @@
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "MeterShadowElement.h"
 #include "RenderMeter.h"
+#include "ShadowRoot.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
@@ -42,9 +44,15 @@ HTMLMeterElement::HTMLMeterElement(const QualifiedName& tagName, Document* docum
     ASSERT(hasTagName(meterTag));
 }
 
+HTMLMeterElement::~HTMLMeterElement()
+{
+}
+
 PassRefPtr<HTMLMeterElement> HTMLMeterElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
 {
-    return adoptRef(new HTMLMeterElement(tagName, document, form));
+    RefPtr<HTMLMeterElement> meter = adoptRef(new HTMLMeterElement(tagName, document, form));
+    meter->createShadowSubtree();
+    return meter;
 }
 
 RenderObject* HTMLMeterElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -60,18 +68,16 @@ const AtomicString& HTMLMeterElement::formControlType() const
 
 void HTMLMeterElement::parseMappedAttribute(Attribute* attribute)
 {
-    if (attribute->name() == valueAttr || attribute->name() == minAttr || attribute->name() == maxAttr || attribute->name() == lowAttr || attribute->name() == highAttr || attribute->name() == optimumAttr) {
-        if (renderer())
-            renderer()->updateFromElement();
-    } else
+    if (attribute->name() == valueAttr || attribute->name() == minAttr || attribute->name() == maxAttr || attribute->name() == lowAttr || attribute->name() == highAttr || attribute->name() == optimumAttr)
+        didElementStateChange();
+    else
         HTMLFormControlElement::parseMappedAttribute(attribute);
 }
 
 void HTMLMeterElement::attach()
 {
     HTMLFormControlElement::attach();
-    if (renderer())
-        renderer()->updateFromElement();
+    didElementStateChange();
 }
 
 double HTMLMeterElement::min() const
@@ -201,6 +207,31 @@ HTMLMeterElement::GaugeRegion HTMLMeterElement::gaugeRegion() const
     if (lowValue <= theValue && theValue <= highValue)
         return GaugeRegionOptimum;
     return GaugeRegionSuboptimal;
+}
+
+double HTMLMeterElement::valueRatio() const
+{
+    double min = this->min();
+    double max = this->max();
+    double value = this->value();
+
+    if (max <= min)
+        return 0;
+    return (value - min) / (max - min);
+}
+
+void HTMLMeterElement::didElementStateChange()
+{
+    m_value->setWidthPercentage(valueRatio()*100);
+}
+
+void HTMLMeterElement::createShadowSubtree()
+{
+    RefPtr<MeterBarElement> bar = MeterBarElement::create(document());
+    m_value = MeterValueElement::create(document());
+    ExceptionCode ec = 0;
+    bar->appendChild(m_value, ec);
+    ensureShadowRoot()->appendChild(bar, ec);
 }
 
 } // namespace

@@ -71,7 +71,11 @@ class RenderBox;
 class RenderBoxModelObject;
 class RenderObject;
 class RenderStyle;
+#if ENABLE(SVG)
+class SVGUseElement;
+#endif
 class TagNodeList;
+class TreeScope;
 
 typedef int ExceptionCode;
 
@@ -89,6 +93,8 @@ enum StyleChangeType {
 
 class Node : public EventTarget, public TreeShared<ContainerNode>, public ScriptWrappable {
     friend class Document;
+    friend class TreeScope;
+
 public:
     enum NodeType {
         ELEMENT_NODE = 1,
@@ -188,6 +194,10 @@ public:
     bool isHTMLElement() const { return getFlag(IsHTMLFlag); }
 
     bool isSVGElement() const { return getFlag(IsSVGFlag); }
+    virtual bool isSVGShadowRoot() const { return false; }
+#if ENABLE(SVG)
+    SVGUseElement* svgShadowHost() const;
+#endif
 
 #if ENABLE(WML)
     virtual bool isWMLElement() const { return false; }
@@ -203,12 +213,16 @@ public:
     virtual bool isCharacterDataNode() const { return false; }
     bool isDocumentNode() const;
     bool isShadowRoot() const { return getFlag(IsShadowRootFlag); }
+    // FIXME: Remove this when all shadow roots are ShadowRoots.
+    virtual bool isShadowBoundary() const { return false; }
+    virtual bool canHaveLightChildRendererWithShadow() const { return false; }
+
     Node* shadowAncestorNode();
     Node* shadowTreeRootNode();
     bool isInShadowTree();
-    // Node's parent or shadow tree host.
+    // Node's parent, shadow tree host, or SVG use.
     ContainerNode* parentOrHostNode() const;
-    // Use when it's guaranteed to that shadowHost is 0.
+    // Use when it's guaranteed to that shadowHost is 0 and svgShadowHost is 0.
     ContainerNode* parentNodeGuaranteedHostFree() const;
 
     Element* shadowHost() const;
@@ -319,10 +333,8 @@ public:
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
 
-#if PLATFORM(MAC)
-    // Objective-C extensions
-    bool isContentEditable() const { return rendererIsEditable(Editable); }
-#endif
+    bool isContentEditable() const;
+
     bool rendererIsEditable() const { return rendererIsEditable(Editable); }
     bool rendererIsRichlyEditable() const { return rendererIsEditable(RichlyEditable); }
     virtual bool shouldUseInputMethod() const;
@@ -351,12 +363,14 @@ public:
         return m_document;
     }
 
-    // Do not use this method to change the document of a node until after the node has been
-    // removed from its previous document.
-    void setDocument(Document*);
+    TreeScope* treeScope() const;
+
+    // Do not use this method to change the scope of a node until after the node has been
+    // removed from its previous scope. Do not use to change documents.
+    void setTreeScope(TreeScope*);
 
     // Used by the basic DOM methods (e.g., appendChild()).
-    void setDocumentRecursively(Document*);
+    void setTreeScopeRecursively(TreeScope*);
 
     // Returns true if this node is associated with a document and is in its associated document's
     // node tree, false otherwise.
@@ -367,7 +381,7 @@ public:
     }
 
     bool isReadOnlyNode() const { return nodeType() == ENTITY_REFERENCE_NODE; }
-    virtual bool childTypeAllowed(NodeType) { return false; }
+    virtual bool childTypeAllowed(NodeType) const { return false; }
     unsigned childNodeCount() const;
     Node* childNode(unsigned index) const;
 
@@ -446,6 +460,7 @@ public:
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual bool childShouldCreateRenderer(Node*) const { return true; }
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    ContainerNode* parentNodeForRenderingAndStyle() const;
     
     // Wrapper for nodes that don't have a renderer, but still cache the style (like HTMLOptionElement).
     RenderStyle* renderStyle() const;
@@ -547,14 +562,14 @@ public:
     void dispatchSubtreeModifiedEvent();
     void dispatchUIEvent(const AtomicString& eventType, int detail, PassRefPtr<Event> underlyingEvent);
     bool dispatchKeyEvent(const PlatformKeyboardEvent&);
-    void dispatchWheelEvent(PlatformWheelEvent&);
+    bool dispatchWheelEvent(const PlatformWheelEvent&);
     bool dispatchMouseEvent(const PlatformMouseEvent&, const AtomicString& eventType, int clickCount = 0, Node* relatedTarget = 0);
     void dispatchSimulatedClick(PassRefPtr<Event> underlyingEvent, bool sendMouseEvents = false, bool showPressedLook = true);
 
     virtual void dispatchFocusEvent();
     virtual void dispatchBlurEvent();
-    virtual void dispatchChangeEvents();
-    virtual void dispatchInputEvents();
+    virtual void dispatchChangeEvent();
+    virtual void dispatchInputEvent();
 
     // Perform the default action for an event.
     virtual void defaultEventHandler(Event*);
@@ -568,17 +583,6 @@ public:
 
     virtual EventTargetData* eventTargetData();
     virtual EventTargetData* ensureEventTargetData();
-
-#if USE(JSC)
-    void markCachedNodeLists(JSC::MarkStack& markStack, JSC::JSGlobalData& globalData)
-    {
-        // NodeLists may be present.  If so, they need to be marked.
-        if (!hasRareData())
-            return;
-
-        markCachedNodeListsSlow(markStack, globalData);
-    }
-#endif
 
 private:
     enum NodeFlags {
@@ -644,6 +648,11 @@ protected:
     };
     Node(Document*, ConstructionType);
 
+    // Do not use this method to change the document of a node until after the node has been
+    // removed from its previous document.
+    void setDocument(Document*);
+    void setDocumentRecursively(Document*);
+
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
     
@@ -657,10 +666,6 @@ protected:
     NodeRareData* ensureRareData();
 
 private:
-#if USE(JSC)
-    void markCachedNodeListsSlow(JSC::MarkStack&, JSC::JSGlobalData&);
-#endif
-
     enum EditableLevel { Editable, RichlyEditable };
     bool rendererIsEditable(EditableLevel) const;
 
@@ -734,7 +739,7 @@ inline void addSubresourceURL(ListHashSet<KURL>& urls, const KURL& url)
 
 inline ContainerNode* Node::parentNode() const
 {
-    return getFlag(IsShadowRootFlag) ? 0 : parent();
+    return getFlag(IsShadowRootFlag) || isSVGShadowRoot() ? 0 : parent();
 }
 
 inline ContainerNode* Node::parentOrHostNode() const
@@ -744,7 +749,7 @@ inline ContainerNode* Node::parentOrHostNode() const
 
 inline ContainerNode* Node::parentNodeGuaranteedHostFree() const
 {
-    ASSERT(!getFlag(IsShadowRootFlag));
+    ASSERT(!getFlag(IsShadowRootFlag) && !isSVGShadowRoot());
     return parentOrHostNode();
 }
 

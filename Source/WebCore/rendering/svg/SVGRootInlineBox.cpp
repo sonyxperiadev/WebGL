@@ -35,7 +35,7 @@
 
 namespace WebCore {
 
-void SVGRootInlineBox::paint(PaintInfo& paintInfo, int, int)
+void SVGRootInlineBox::paint(PaintInfo& paintInfo, int, int, int, int)
 {
     ASSERT(paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection);
     ASSERT(!paintInfo.context->paintingDisabled());
@@ -63,7 +63,7 @@ void SVGRootInlineBox::paint(PaintInfo& paintInfo, int, int)
             if (child->isSVGInlineTextBox())
                 SVGInlineFlowBox::computeTextMatchMarkerRectForRenderer(toRenderSVGInlineText(static_cast<SVGInlineTextBox*>(child)->textRenderer()));
 
-            child->paint(childPaintInfo, 0, 0);
+            child->paint(childPaintInfo, 0, 0, 0, 0);
         }
     }
 
@@ -103,12 +103,12 @@ void SVGRootInlineBox::layoutCharactersInTextBoxes(InlineFlowBox* start, SVGText
             SVGInlineTextBox* textBox = static_cast<SVGInlineTextBox*>(child);
             characterLayout.layoutInlineTextBox(textBox);
         } else {
-            ASSERT(child->isInlineFlowBox());
-
             // Skip generated content.
             Node* node = child->renderer()->node();
             if (!node)
                 continue;
+
+            ASSERT(child->isInlineFlowBox());
 
             SVGInlineFlowBox* flowBox = static_cast<SVGInlineFlowBox*>(child);
             bool isTextPath = node->hasTagName(SVGNames::textPathTag);
@@ -146,11 +146,11 @@ void SVGRootInlineBox::layoutChildBoxes(InlineFlowBox* start)
             textBox->setLogicalWidth(boxRect.width());
             textBox->setLogicalHeight(boxRect.height());
         } else {
-            ASSERT(child->isInlineFlowBox());
-
             // Skip generated content.
             if (!child->renderer()->node())
                 continue;
+
+            ASSERT(child->isInlineFlowBox());
 
             SVGInlineFlowBox* flowBox = static_cast<SVGInlineFlowBox*>(child);
             layoutChildBoxes(flowBox);
@@ -214,6 +214,8 @@ InlineBox* SVGRootInlineBox::closestLeafChildForPosition(const IntPoint& point)
     // FIXME: Check for vertical text!
     InlineBox* closestLeaf = 0;
     for (InlineBox* leaf = firstLeaf; leaf; leaf = leaf->nextLeafChild()) {
+        if (!leaf->isSVGInlineTextBox())
+            continue;
         if (point.y() < leaf->m_y)
             continue;
         if (point.y() > leaf->m_y + leaf->virtualLogicalHeight())
@@ -274,8 +276,13 @@ static inline void reverseInlineBoxRangeAndValueListsIfNeeded(void* userData, Ve
         if (first == last || first == --last)
             return;
 
-        ASSERT((*first)->isSVGInlineTextBox());
-        ASSERT((*last)->isSVGInlineTextBox());
+        if (!(*last)->isSVGInlineTextBox() || !(*first)->isSVGInlineTextBox()) {
+            InlineBox* temp = *first;
+            *first = *last;
+            *last = temp;
+            ++first;
+            continue;
+        }
 
         SVGInlineTextBox* firstTextBox = static_cast<SVGInlineTextBox*>(*first);
         SVGInlineTextBox* lastTextBox = static_cast<SVGInlineTextBox*>(*last);

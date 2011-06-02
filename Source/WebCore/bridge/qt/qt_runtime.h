@@ -22,7 +22,7 @@
 
 #include "BridgeJSC.h"
 #include "Completion.h"
-#include "Global.h"
+#include "Strong.h"
 #include "runtime_method.h"
 
 #include <qbytearray.h>
@@ -153,7 +153,7 @@ public:
         return globalObject->functionPrototype();
     }
 
-    static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
     {
         return Structure::create(globalData, prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount, &s_info);
     }
@@ -229,8 +229,8 @@ private:
     RefPtr<QtInstance> m_instance;
     int m_signalIndex;
     QObject* m_originalObject; // only used as a key, not dereferenced
-    Global<JSObject> m_thisObject;
-    Global<JSObject> m_funcObject;
+    Strong<JSObject> m_thisObject;
+    Strong<JSObject> m_funcObject;
 };
 
 QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type hint, int *distance);

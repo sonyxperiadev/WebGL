@@ -57,8 +57,6 @@ public:
 
     virtual bool supportsFocus() const;
 
-    bool isContentEditable() const;
-
     String contentEditable() const;
     void setContentEditable(const String&, ExceptionCode&);
 
@@ -83,9 +81,6 @@ public:
 
     HTMLFormElement* findFormAncestor() const;
 
-    virtual void dispatchChangeEvents();
-    virtual void dispatchInputEvents();
-
     TextDirection directionalityIfhasDirAutoAttribute(bool& isAuto) const;
 
 protected:
@@ -107,8 +102,6 @@ private:
 
     Node* insertAdjacent(const String& where, Node* newChild, ExceptionCode&);
     PassRefPtr<DocumentFragment> textToFragment(const String&, ExceptionCode&);
-
-    HTMLFormElement* shadowAncestorOwnerForm();
 
     void dirAttributeChanged(Attribute*);
     void adjustDirectionalityIfNeededAfterChildAttributeChanged(Element* child);

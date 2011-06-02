@@ -62,6 +62,9 @@ SOURCES += \
     assembler/ARMAssembler.cpp \
     assembler/ARMv7Assembler.cpp \
     assembler/MacroAssemblerARM.cpp \
+    assembler/MacroAssemblerSH4.h \
+    assembler/MacroAssemblerSH4.cpp \
+    assembler/SH4Assembler.h \
     bytecode/CodeBlock.cpp \
     bytecode/JumpTable.cpp \
     bytecode/Opcode.cpp \
@@ -69,8 +72,17 @@ SOURCES += \
     bytecode/StructureStubInfo.cpp \
     bytecompiler/BytecodeGenerator.cpp \
     bytecompiler/NodesCodegen.cpp \
-    collector/handles/HandleHeap.cpp \
-    collector/handles/HandleStack.cpp \
+    heap/ConservativeRoots.cpp \
+    heap/HandleHeap.cpp \
+    heap/HandleStack.cpp \
+    heap/Heap.cpp \
+    heap/MachineStackMarker.cpp \
+    heap/MarkStack.cpp \
+    heap/MarkStackPosix.cpp \
+    heap/MarkStackSymbian.cpp \
+    heap/MarkStackWin.cpp \
+    heap/MarkedBlock.cpp \
+    heap/MarkedSpace.cpp \
     debugger/DebuggerActivation.cpp \
     debugger/DebuggerCallFrame.cpp \
     debugger/Debugger.cpp \
@@ -115,9 +127,6 @@ SOURCES += \
     runtime/BooleanObject.cpp \
     runtime/BooleanPrototype.cpp \
     runtime/CallData.cpp \
-    runtime/MarkedBlock.cpp \
-    runtime/MarkedSpace.cpp \
-    runtime/Heap.cpp \
     runtime/CommonIdentifiers.cpp \
     runtime/Completion.cpp \
     runtime/ConstructData.cpp \
@@ -147,10 +156,8 @@ SOURCES += \
     runtime/JSGlobalData.cpp \
     runtime/JSGlobalObject.cpp \
     runtime/JSGlobalObjectFunctions.cpp \
-    runtime/JSImmediate.cpp \
     runtime/JSLock.cpp \
     runtime/JSNotAnObject.cpp \
-    runtime/JSNumberCell.cpp \
     runtime/JSObject.cpp \
     runtime/JSObjectWithGlobalObject.cpp \
     runtime/JSONObject.cpp \
@@ -162,12 +169,6 @@ SOURCES += \
     runtime/JSWrapperObject.cpp \
     runtime/LiteralParser.cpp \
     runtime/Lookup.cpp \
-    runtime/MachineStackMarker.cpp \
-    runtime/MarkStackPosix.cpp \
-    runtime/MarkStackSymbian.cpp \
-    runtime/MarkStackWin.cpp \
-    runtime/ConservativeSet.cpp \
-    runtime/MarkStack.cpp \
     runtime/MathObject.cpp \
     runtime/NativeErrorConstructor.cpp \
     runtime/NativeErrorPrototype.cpp \
@@ -198,6 +199,11 @@ SOURCES += \
     runtime/TimeoutChecker.cpp \
     runtime/UString.cpp \
     yarr/YarrJIT.cpp \
+
+*sh4* {
+    QMAKE_CXXFLAGS += -mieee -w
+    QMAKE_CFLAGS   += -mieee -w
+}
 
 # Generated files, simply list them for JavaScriptCore
 

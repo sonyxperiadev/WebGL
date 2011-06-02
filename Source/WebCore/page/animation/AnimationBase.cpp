@@ -142,6 +142,9 @@ static inline ShadowStyle blendFunc(const AnimationBase* anim, ShadowStyle from,
 static inline ShadowData* blendFunc(const AnimationBase* anim, const ShadowData* from, const ShadowData* to, double progress)
 {  
     ASSERT(from && to);
+    if (from->style() != to->style())
+        return new ShadowData(*to);
+
     return new ShadowData(blendFunc(anim, from->x(), to->x(), progress),
                           blendFunc(anim, from->y(), to->y(), progress), 
                           blendFunc(anim, from->blur(), to->blur(), progress),
@@ -360,14 +363,15 @@ public:
         const ShadowData* shadowA = (a->*m_getter)();
         const ShadowData* shadowB = (b->*m_getter)();
         ShadowData defaultShadowData(0, 0, 0, 0, Normal, property() == CSSPropertyWebkitBoxShadow, Color::transparent);
+        ShadowData defaultInsetShadowData(0, 0, 0, 0, Inset, property() == CSSPropertyWebkitBoxShadow, Color::transparent);
 
         ShadowData* newShadowData = 0;
         ShadowData* lastShadow = 0;
         
         while (shadowA || shadowB) {
-            const ShadowData* srcShadow = shadowA ? shadowA : &defaultShadowData;
-            const ShadowData* dstShadow = shadowB ? shadowB : &defaultShadowData;
-            
+            const ShadowData* srcShadow = shadowA ? shadowA : (shadowB->style() == Inset ? &defaultInsetShadowData : &defaultShadowData);
+            const ShadowData* dstShadow = shadowB ? shadowB : (shadowA->style() == Inset ? &defaultInsetShadowData : &defaultShadowData);
+
             ShadowData* blendedShadow = blendFunc(anim, srcShadow, dstShadow, progress);
             if (!lastShadow)
                 newShadowData = blendedShadow;
@@ -926,6 +930,9 @@ bool AnimationBase::animationsMatch(const Animation* anim) const
 
 void AnimationBase::updateStateMachine(AnimStateInput input, double param)
 {
+    if (!m_compAnim)
+        return;
+
     // If we get AnimationStateInputRestartAnimation then we force a new animation, regardless of state.
     if (input == AnimationStateInputMakeNew) {
         if (m_animState == AnimationStateStartWaitStyleAvailable)
@@ -1194,6 +1201,9 @@ void AnimationBase::updateStateMachine(AnimStateInput input, double param)
     
 void AnimationBase::fireAnimationEventsIfNeeded()
 {
+    if (!m_compAnim)
+        return;
+
     // If we are waiting for the delay time to expire and it has, go to the next state
     if (m_animState != AnimationStateStartWaitTimer && m_animState != AnimationStateLooping && m_animState != AnimationStateEnding)
         return;
@@ -1248,6 +1258,9 @@ void AnimationBase::fireAnimationEventsIfNeeded()
 
 void AnimationBase::updatePlayState(EAnimPlayState playState)
 {
+    if (!m_compAnim)
+        return;
+
     // When we get here, we can have one of 4 desired states: running, paused, suspended, paused & suspended.
     // The state machine can be in one of two states: running, paused.
     // Set the state machine to the desired state.
@@ -1357,6 +1370,9 @@ void AnimationBase::goIntoEndingOrLoopingState()
   
 void AnimationBase::freezeAtTime(double t)
 {
+    if (!m_compAnim)
+        return;
+
     if (!m_startTime) {
         // If we haven't started yet, just generate the start event now
         m_compAnim->animationController()->receivedStartTimeResponse(currentTime());
@@ -1376,6 +1392,9 @@ void AnimationBase::freezeAtTime(double t)
 
 double AnimationBase::beginAnimationUpdateTime() const
 {
+    if (!m_compAnim)
+        return 0;
+
     return m_compAnim->animationController()->beginAnimationUpdateTime();
 }
 

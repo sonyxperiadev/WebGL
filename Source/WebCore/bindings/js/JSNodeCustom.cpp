@@ -35,7 +35,15 @@
 #include "Entity.h"
 #include "EntityReference.h"
 #include "ExceptionCode.h"
+#include "HTMLAudioElement.h"
+#include "HTMLCanvasElement.h"
 #include "HTMLElement.h"
+#include "HTMLFrameElementBase.h"
+#include "HTMLImageElement.h"
+#include "HTMLLinkElement.h"
+#include "HTMLNames.h"
+#include "HTMLScriptElement.h"
+#include "HTMLStyleElement.h"
 #include "JSAttr.h"
 #include "JSCDATASection.h"
 #include "JSComment.h"
@@ -55,6 +63,8 @@
 #include "Notation.h"
 #include "ProcessingInstruction.h"
 #include "RegisteredEventListener.h"
+#include "StyleSheet.h"
+#include "StyledElement.h"
 #include "Text.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
@@ -67,6 +77,114 @@
 using namespace JSC;
 
 namespace WebCore {
+
+using namespace HTMLNames;
+
+static bool isObservable(JSNode* jsNode, Node* node, DOMWrapperWorld* world)
+{
+    // Certain conditions implicitly make existence of a JS DOM node wrapper observable
+    // through the DOM, even if no explicit reference to it remains.
+    
+    // The DOM doesn't know how to keep a tree of nodes alive without the root
+    // being explicitly referenced. So, we artificially treat the root of
+    // every tree as observable.
+    // FIXME: Resolve this lifetime issue in the DOM, and remove this inefficiency.
+    if (!node->parentNode())
+        return true;
+
+    // If a node is in the document, and its wrapper has custom properties,
+    // the wrapper is observable because future access to the node through the
+    // DOM must reflect those properties.
+    if (jsNode->hasCustomProperties())
+        return true;
+
+    // If a node is in the document, and has event listeners, its wrapper is
+    // observable because its wrapper is responsible for marking those event listeners.
+    if (node->hasEventListeners())
+        return true;
+
+    // If a node owns another object with a wrapper with custom properties,
+    // the wrapper must be treated as observable, because future access to
+    // those objects through the DOM must reflect those properties.
+    // FIXME: It would be better if this logic could be in the node next to
+    // the custom markChildren functions rather than here.
+    // Note that for some compound objects like stylesheets and CSSStyleDeclarations,
+    // we don't descend to check children for custom properties, and just conservatively
+    // keep the node wrappers protecting them alive.
+    if (node->isElementNode()) {
+        if (node->isStyledElement()) {
+            if (CSSMutableStyleDeclaration* style = static_cast<StyledElement*>(node)->inlineStyleDecl()) {
+                if (world->m_wrappers.get(style))
+                    return true;
+            }
+        }
+        if (static_cast<Element*>(node)->hasTagName(canvasTag)) {
+            if (CanvasRenderingContext* context = static_cast<HTMLCanvasElement*>(node)->renderingContext()) {
+                if (JSDOMWrapper* wrapper = world->m_wrappers.get(context).get()) {
+                    if (wrapper->hasCustomProperties())
+                        return true;
+                }
+            }
+        } else if (static_cast<Element*>(node)->hasTagName(linkTag)) {
+            if (StyleSheet* sheet = static_cast<HTMLLinkElement*>(node)->sheet()) {
+                if (world->m_wrappers.get(sheet))
+                    return true;
+            }
+        } else if (static_cast<Element*>(node)->hasTagName(styleTag)) {
+            if (StyleSheet* sheet = static_cast<HTMLStyleElement*>(node)->sheet()) {
+                if (world->m_wrappers.get(sheet))
+                    return true;
+            }
+        }
+    } else if (node->nodeType() == Node::PROCESSING_INSTRUCTION_NODE) {
+        if (StyleSheet* sheet = static_cast<ProcessingInstruction*>(node)->sheet()) {
+            if (world->m_wrappers.get(sheet))
+                return true;
+        }
+    }
+
+    return false;
+}
+
+static inline bool isReachableFromDOM(JSNode* jsNode, Node* node, DOMWrapperWorld* world, MarkStack& markStack)
+{
+    if (!node->inDocument()) {
+        // If a wrapper is the last reference to an image or script element
+        // that is loading but not in the document, the wrapper is observable
+        // because it is the only thing keeping the image element alive, and if
+        // the image element is destroyed, its load event will not fire.
+        // FIXME: The DOM should manage this issue without the help of JavaScript wrappers.
+        if (node->hasTagName(imgTag) && !static_cast<HTMLImageElement*>(node)->haveFiredLoadEvent())
+            return true;
+        if (node->hasTagName(scriptTag) && !static_cast<HTMLScriptElement*>(node)->haveFiredLoadEvent())
+            return true;
+    #if ENABLE(VIDEO)
+        if (node->hasTagName(audioTag) && !static_cast<HTMLAudioElement*>(node)->paused())
+            return true;
+    #endif
+
+        // If a node is firing event listeners, its wrapper is observable because
+        // its wrapper is responsible for marking those event listeners.
+        if (node->isFiringEventListeners())
+            return true;
+    }
+
+    return isObservable(jsNode, node, world) && markStack.containsOpaqueRoot(root(node));
+}
+
+bool JSNodeOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void* context, MarkStack& markStack)
+{
+    JSNode* jsNode = static_cast<JSNode*>(handle.get().asCell());
+    DOMWrapperWorld* world = static_cast<DOMWrapperWorld*>(context);
+    return isReachableFromDOM(jsNode, jsNode->impl(), world, markStack);
+}
+
+void JSNodeOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
+{
+    JSNode* jsNode = static_cast<JSNode*>(handle.get().asCell());
+    DOMWrapperWorld* world = static_cast<DOMWrapperWorld*>(context);
+    uncacheWrapper(world, jsNode->impl(), jsNode);
+}
 
 JSValue JSNode::insertBefore(ExecState* exec)
 {
@@ -124,47 +242,13 @@ void JSNode::markChildren(MarkStack& markStack)
     Node* node = m_impl.get();
     node->markJSEventListeners(markStack);
 
-    // Nodes in the document are kept alive by JSDocument::mark, so, if we're in
-    // the document, we need to mark the document, but we don't need to explicitly
-    // mark any other nodes.
-    if (node->inDocument()) {
-        // FIXME: Do we really want to call a virtual function, ownerDocument here,
-        // when the non-virtual inline function, document, is so much faster?!
-        if (Document* doc = node->ownerDocument())
-            markDOMNodeWrapper(markStack, doc, doc);
-        return;
-    }
-
-    // This is a node outside the document.
-    // Find the the root, and the highest ancestor with a wrapper.
-    Node* root = node;
-    Node* outermostNodeWithWrapper = node;
-    for (Node* current = m_impl.get(); current; current = current->parentNode()) {
-        root = current;
-        if (hasCachedDOMNodeWrapperUnchecked(current->document(), current))
-            outermostNodeWithWrapper = current;
-    }
-
-    // Only nodes that have no ancestors with wrappers mark the subtree. In the common
-    // case, the root of the detached subtree has a wrapper, so the tree will only
-    // get marked once. Nodes that aren't outermost need to mark the outermost
-    // in case it is otherwise unreachable.
-    // FIXME: In the non-common case of root not having a wrapper, this is still an O(n^2) algorithm,
-    // as we will traverse the whole tree as many times as there are nodes with wrappers in it.
-    if (node != outermostNodeWithWrapper) {
-        markDOMNodeWrapper(markStack, m_impl->document(), outermostNodeWithWrapper);
-        return;
-    }
-
-    // Mark the whole tree subtree.
-    for (Node* nodeToMark = root; nodeToMark; nodeToMark = nodeToMark->traverseNextNode())
-        markDOMNodeWrapper(markStack, m_impl->document(), nodeToMark);
+    markStack.addOpaqueRoot(root(node));
 }
 
 static ALWAYS_INLINE JSValue createWrapperInline(ExecState* exec, JSDOMGlobalObject* globalObject, Node* node)
 {
     ASSERT(node);
-    ASSERT(!getCachedDOMNodeWrapper(exec, node->document(), node));
+    ASSERT(!getCachedWrapper(currentWorld(exec), node));
     
     JSNode* wrapper;    
     switch (node->nodeType()) {

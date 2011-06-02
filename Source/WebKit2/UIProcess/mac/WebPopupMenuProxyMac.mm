@@ -26,6 +26,7 @@
 #import "config.h"
 #import "WebPopupMenuProxyMac.h"
 
+#import "NativeWebMouseEvent.h"
 #import "PageClientImpl.h"
 #import "PlatformPopupMenuData.h"
 #import "WKView.h"
@@ -61,7 +62,7 @@ void WebPopupMenuProxyMac::populate(const Vector<WebPopupItem>& items, NSFont *f
     int size = items.size();
 
     for (int i = 0; i < size; i++) {
-        if (items[i].m_type == WebPopupItem::Seperator)
+        if (items[i].m_type == WebPopupItem::Separator)
             [[m_popup.get() menu] addItem:[NSMenuItem separatorItem]];
         else {
             [m_popup.get() addItemWithTitle:@""];
@@ -108,11 +109,20 @@ void WebPopupMenuProxyMac::showPopupMenu(const IntRect& rect, TextDirection text
 
     // These values were borrowed from AppKit to match their placement of the menu.
     const int popOverHorizontalAdjust = -10;
-    NSRect titleFrame = [m_popup.get()  titleRectForBounds:rect];
-    if (titleFrame.size.width <= 0 || titleFrame.size.height <= 0)
-        titleFrame = rect;
-    float vertOffset = roundf((NSMaxY(rect) - NSMaxY(titleFrame)) + NSHeight(titleFrame));
-    NSPoint location = NSMakePoint(NSMinX(rect) + popOverHorizontalAdjust, NSMaxY(rect) - vertOffset);
+    const int popUnderHorizontalAdjust = 6;
+    const int popUnderVerticalAdjust = 6;
+    
+    // Menus that pop-over directly obscure the node that generated the popup menu.
+    // Menus that pop-under are offset underneath it.
+    NSPoint location;
+    if (data.shouldPopOver) {
+        NSRect titleFrame = [m_popup.get()  titleRectForBounds:rect];
+        if (titleFrame.size.width <= 0 || titleFrame.size.height <= 0)
+            titleFrame = rect;
+        float vertOffset = roundf((NSMaxY(rect) - NSMaxY(titleFrame)) + NSHeight(titleFrame));
+        location = NSMakePoint(NSMinX(rect) + popOverHorizontalAdjust, NSMaxY(rect) - vertOffset);
+    } else
+        location = NSMakePoint(NSMinX(rect) + popUnderHorizontalAdjust, NSMaxY(rect) + popUnderVerticalAdjust);  
 
     RetainPtr<NSView> dummyView(AdoptNS, [[NSView alloc] initWithFrame:rect]);
     [m_webView addSubview:dummyView.get()];
@@ -122,9 +132,41 @@ void WebPopupMenuProxyMac::showPopupMenu(const IntRect& rect, TextDirection text
 
     [m_popup.get() dismissPopUp];
     [dummyView.get() removeFromSuperview];
-
-    if (m_client)
-        m_client->valueChangedForPopupMenu(this, [m_popup.get() indexOfSelectedItem]);
+    
+    if (!m_client)
+        return;
+    
+    m_client->valueChangedForPopupMenu(this, [m_popup.get() indexOfSelectedItem]);
+    
+    // <https://bugs.webkit.org/show_bug.cgi?id=57904> This code is adopted from EventHandler::sendFakeEventsAfterWidgetTracking().
+    if (!m_client->currentlyProcessedMouseDownEvent())
+        return;
+    
+    NSEvent* initiatingNSEvent = m_client->currentlyProcessedMouseDownEvent()->nativeEvent();
+    if ([initiatingNSEvent type] != NSLeftMouseDown)
+        return;
+    
+    NSEvent *fakeEvent = [NSEvent mouseEventWithType:NSLeftMouseUp
+                                            location:[initiatingNSEvent locationInWindow]
+                                       modifierFlags:[initiatingNSEvent modifierFlags]
+                                           timestamp:[initiatingNSEvent timestamp]
+                                        windowNumber:[initiatingNSEvent windowNumber]
+                                             context:[initiatingNSEvent context]
+                                         eventNumber:[initiatingNSEvent eventNumber]
+                                          clickCount:[initiatingNSEvent clickCount]
+                                            pressure:[initiatingNSEvent pressure]];
+    
+    [NSApp postEvent:fakeEvent atStart:YES];
+    fakeEvent = [NSEvent mouseEventWithType:NSMouseMoved
+                                   location:[[m_webView window] convertScreenToBase:[NSEvent mouseLocation]]
+                              modifierFlags:[initiatingNSEvent modifierFlags]
+                                  timestamp:[initiatingNSEvent timestamp]
+                               windowNumber:[initiatingNSEvent windowNumber]
+                                    context:[initiatingNSEvent context]
+                                eventNumber:0
+                                 clickCount:0
+                                   pressure:0];
+    [NSApp postEvent:fakeEvent atStart:YES];
 }
 
 void WebPopupMenuProxyMac::hidePopupMenu()

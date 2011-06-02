@@ -29,14 +29,17 @@
 #include "InjectedBundle.h"
 #include "InjectedBundlePage.h"
 #include "JSLayoutTestController.h"
+#include "PlatformWebView.h"
 #include "StringFunctions.h"
+#include "TestController.h"
 #include <WebKit2/WKBundleBackForwardList.h>
 #include <WebKit2/WKBundleFrame.h>
 #include <WebKit2/WKBundleFramePrivate.h>
 #include <WebKit2/WKBundleInspector.h>
+#include <WebKit2/WKBundleNodeHandlePrivate.h>
 #include <WebKit2/WKBundlePagePrivate.h>
-#include <WebKit2/WKBundleScriptWorld.h>
 #include <WebKit2/WKBundlePrivate.h>
+#include <WebKit2/WKBundleScriptWorld.h>
 #include <WebKit2/WKRetainPtr.h>
 #include <WebKit2/WebKit2.h>
 #include <wtf/HashMap.h>
@@ -96,6 +99,7 @@ LayoutTestController::LayoutTestController()
     , m_dumpStatusCallbacks(false)
     , m_dumpTitleChanges(false)
     , m_dumpPixels(true)
+    , m_dumpFullScreenCallbacks(false)
     , m_waitToDump(false)
     , m_testRepaint(false)
     , m_testRepaintSweepHorizontally(false)
@@ -286,6 +290,16 @@ bool LayoutTestController::findString(JSStringRef target, JSValueRef optionsArra
     return WKBundlePageFindString(InjectedBundle::shared().page()->page(), toWK(target).get(), options);
 }
 
+void LayoutTestController::clearAllDatabases()
+{
+    WKBundleClearAllDatabases(InjectedBundle::shared().bundle());
+}
+
+void LayoutTestController::setDatabaseQuota(uint64_t quota)
+{
+    return WKBundleSetDatabaseQuota(InjectedBundle::shared().bundle(), quota);
+}
+
 bool LayoutTestController::isCommandEnabled(JSStringRef name)
 {
     return WKBundlePageIsEditingCommandEnabled(InjectedBundle::shared().page()->page(), toWK(name).get());
@@ -307,9 +321,57 @@ void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
     WKBundleOverrideAllowUniversalAccessFromFileURLsForTestRunner(InjectedBundle::shared().bundle(), InjectedBundle::shared().pageGroup(), enabled);
 }
 
+void LayoutTestController::setAllowFileAccessFromFileURLs(bool enabled)
+{
+    WKBundleSetAllowFileAccessFromFileURLs(InjectedBundle::shared().bundle(), InjectedBundle::shared().pageGroup(), enabled);
+}
+
+int LayoutTestController::numberOfPages(double pageWidthInPixels, double pageHeightInPixels)
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    return WKBundleNumberOfPages(InjectedBundle::shared().bundle(), mainFrame, pageWidthInPixels, pageHeightInPixels);
+}
+
+int LayoutTestController::pageNumberForElementById(JSStringRef id, double pageWidthInPixels, double pageHeightInPixels)
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    return WKBundlePageNumberForElementById(InjectedBundle::shared().bundle(), mainFrame, toWK(id).get(), pageWidthInPixels, pageHeightInPixels);
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::pageSizeAndMarginsInPixels(int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft)
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    return toJS(WKBundlePageSizeAndMarginsInPixels(InjectedBundle::shared().bundle(), mainFrame, pageIndex, width, height, marginTop, marginRight, marginBottom, marginLeft));
+}
+
+bool LayoutTestController::isPageBoxVisible(int pageIndex)
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    return WKBundleIsPageBoxVisible(InjectedBundle::shared().bundle(), mainFrame, pageIndex);
+}
+
 unsigned LayoutTestController::windowCount()
 {
     return InjectedBundle::shared().pageCount();
+}
+
+JSValueRef LayoutTestController::shadowRoot(JSValueRef element)
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    JSContextRef context = WKBundleFrameGetJavaScriptContext(mainFrame);
+
+    if (!element || !JSValueIsObject(context, element))
+        return JSValueMakeNull(context);
+
+    WKRetainPtr<WKBundleNodeHandleRef> domElement = adoptWK(WKBundleNodeHandleCreate(context, const_cast<JSObjectRef>(element)));
+    if (!domElement)
+        return JSValueMakeNull(context);
+
+    WKRetainPtr<WKBundleNodeHandleRef> shadowRootDOMElement = adoptWK(WKBundleNodeHandleCopyElementShadowRoot(domElement.get()));
+    if (!shadowRootDOMElement)
+        return JSValueMakeNull(context);
+
+    return WKBundleFrameGetJavaScriptWrapperForNodeForWorld(mainFrame, shadowRootDOMElement.get(), WKBundleScriptWorldNormalWorld());
 }
 
 void LayoutTestController::clearBackForwardList()

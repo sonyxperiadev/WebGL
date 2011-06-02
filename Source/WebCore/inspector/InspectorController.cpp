@@ -55,7 +55,7 @@
 namespace WebCore {
 
 InspectorController::InspectorController(Page* page, InspectorClient* inspectorClient)
-    : m_injectedScriptManager(InjectedScriptManager::create())
+    : m_injectedScriptManager(InjectedScriptManager::createForPage())
     , m_inspectorAgent(new InspectorAgent(page, inspectorClient, m_injectedScriptManager.get()))
     , m_inspectorClient(inspectorClient)
     , m_openingFrontend(false)
@@ -132,7 +132,6 @@ void InspectorController::connectFrontend()
 #if ENABLE(JAVASCRIPT_DEBUGGER)
         m_inspectorAgent->debuggerAgent(),
 #endif
-        m_inspectorAgent.get(),
         m_inspectorAgent->resourceAgent(),
         m_inspectorAgent->pageAgent(),
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -253,6 +252,11 @@ void InspectorController::hideHighlight()
 {
     ErrorString error;
     m_inspectorAgent->domAgent()->hideHighlight(&error);
+}
+
+Node* InspectorController::highlightedNode() const
+{
+    return m_inspectorAgent->domAgent()->highlightedNode();
 }
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)

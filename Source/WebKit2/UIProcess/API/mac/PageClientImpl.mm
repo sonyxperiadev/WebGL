@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,20 +52,24 @@
 @end
 
 using namespace WebCore;
+using namespace WebKit;
 
-@interface WebEditCommandObjC : NSObject
+@interface WKEditCommandObjC : NSObject
 {
-    RefPtr<WebKit::WebEditCommandProxy> m_command;
+    RefPtr<WebEditCommandProxy> m_command;
 }
-
-- (id)initWithWebEditCommandProxy:(PassRefPtr<WebKit::WebEditCommandProxy>)command;
-- (WebKit::WebEditCommandProxy*)command;
-
+- (id)initWithWebEditCommandProxy:(PassRefPtr<WebEditCommandProxy>)command;
+- (WebEditCommandProxy*)command;
 @end
 
-@implementation WebEditCommandObjC
+@interface WKEditorUndoTargetObjC : NSObject
+- (void)undoEditing:(id)sender;
+- (void)redoEditing:(id)sender;
+@end
 
-- (id)initWithWebEditCommandProxy:(PassRefPtr<WebKit::WebEditCommandProxy>)command
+@implementation WKEditCommandObjC
+
+- (id)initWithWebEditCommandProxy:(PassRefPtr<WebEditCommandProxy>)command
 {
     self = [super init];
     if (!self)
@@ -75,31 +79,24 @@ using namespace WebCore;
     return self;
 }
 
-- (WebKit::WebEditCommandProxy*)command
+- (WebEditCommandProxy*)command
 {
     return m_command.get();
 }
 
 @end
 
-@interface WebEditorUndoTargetObjC : NSObject
-
-- (void)undoEditing:(id)sender;
-- (void)redoEditing:(id)sender;
-
-@end
-
-@implementation WebEditorUndoTargetObjC
+@implementation WKEditorUndoTargetObjC
 
 - (void)undoEditing:(id)sender
 {
-    ASSERT([sender isKindOfClass:[WebEditCommandObjC class]]);
+    ASSERT([sender isKindOfClass:[WKEditCommandObjC class]]);
     [sender command]->unapply();
 }
 
 - (void)redoEditing:(id)sender
 {
-    ASSERT([sender isKindOfClass:[WebEditCommandObjC class]]);
+    ASSERT([sender isKindOfClass:[WKEditCommandObjC class]]);
     [sender command]->reapply();
 }
 
@@ -119,7 +116,7 @@ PassOwnPtr<PageClientImpl> PageClientImpl::create(WKView* wkView)
 
 PageClientImpl::PageClientImpl(WKView* wkView)
     : m_wkView(wkView)
-    , m_undoTarget(AdoptNS, [[WebEditorUndoTargetObjC alloc] init])
+    , m_undoTarget(AdoptNS, [[WKEditorUndoTargetObjC alloc] init])
 {
 }
 
@@ -157,7 +154,7 @@ IntSize PageClientImpl::viewSize()
 
 bool PageClientImpl::isViewWindowActive()
 {
-    return [[m_wkView window] isKeyWindow];
+    return [[m_wkView window] isKeyWindow] || [NSApp keyWindow] == [m_wkView window];
 }
 
 bool PageClientImpl::isViewFocused()
@@ -168,6 +165,9 @@ bool PageClientImpl::isViewFocused()
 bool PageClientImpl::isViewVisible()
 {
     if (![m_wkView window])
+        return false;
+
+    if (![[m_wkView window] isVisible])
         return false;
 
     if ([m_wkView isHiddenOrHasHiddenAncestor])
@@ -196,20 +196,6 @@ void PageClientImpl::didRelaunchProcess()
     [m_wkView _didRelaunchProcess];
 }
 
-void PageClientImpl::setFocus(bool focused)
-{
-    if (focused)
-        [[m_wkView window] makeFirstResponder:m_wkView];
-    else
-        // takeFocus in this context means take focus away from the WKView.
-        takeFocus(true);
-}
-    
-void PageClientImpl::takeFocus(bool direction)
-{
-    [m_wkView _takeFocus:direction];
-}
-
 void PageClientImpl::toolTipChanged(const String& oldToolTip, const String& newToolTip)
 {
     [m_wkView _toolTipChangedFrom:nsStringFromWebCoreString(oldToolTip) to:nsStringFromWebCoreString(newToolTip)];
@@ -223,67 +209,19 @@ void PageClientImpl::setCursor(const WebCore::Cursor& cursor)
 
 void PageClientImpl::setViewportArguments(const WebCore::ViewportArguments&)
 {
-
-}
-
-static NSString* nameForEditAction(EditAction editAction)
-{
-    // FIXME: Use localized strings.
-    // FIXME: Move this to a platform independent location.
-
-    switch (editAction) {
-    case EditActionUnspecified: return nil;
-    case EditActionSetColor: return @"Set Color";
-    case EditActionSetBackgroundColor: return @"Set Background Color";
-    case EditActionTurnOffKerning: return @"Turn Off Kerning";
-    case EditActionTightenKerning: return @"Tighten Kerning";
-    case EditActionLoosenKerning: return @"Loosen Kerning";
-    case EditActionUseStandardKerning: return @"Use Standard Kerning";
-    case EditActionTurnOffLigatures: return @"Turn Off Ligatures";
-    case EditActionUseStandardLigatures: return @"Use Standard Ligatures";
-    case EditActionUseAllLigatures: return @"Use All Ligatures";
-    case EditActionRaiseBaseline: return @"Raise Baseline";
-    case EditActionLowerBaseline: return @"Lower Baseline";
-    case EditActionSetTraditionalCharacterShape: return @"Set Traditional Character Shape";
-    case EditActionSetFont: return @"Set Font";
-    case EditActionChangeAttributes: return @"Change Attributes";
-    case EditActionAlignLeft: return @"Align Left";
-    case EditActionAlignRight: return @"Align Right";
-    case EditActionCenter: return @"Center";
-    case EditActionJustify: return @"Justify";
-    case EditActionSetWritingDirection: return @"Set Writing Direction";
-    case EditActionSubscript: return @"Subscript";
-    case EditActionSuperscript: return @"Superscript";
-    case EditActionUnderline: return @"Underline";
-    case EditActionOutline: return @"Outline";
-    case EditActionUnscript: return @"Unscript";
-    case EditActionDrag: return @"Drag";
-    case EditActionCut: return @"Cut";
-    case EditActionPaste: return @"Paste";
-    case EditActionPasteFont: return @"Paste Font";
-    case EditActionPasteRuler: return @"Paste Ruler";
-    case EditActionTyping: return @"Typing";
-    case EditActionCreateLink: return @"Create Link";
-    case EditActionUnlink: return @"Unlink";
-    case EditActionInsertList: return @"Insert List";
-    case EditActionFormatBlock: return @"Formatting";
-    case EditActionIndent: return @"Indent";
-    case EditActionOutdent: return @"Outdent";
-    }
-    return nil;
 }
 
 void PageClientImpl::registerEditCommand(PassRefPtr<WebEditCommandProxy> prpCommand, WebPageProxy::UndoOrRedo undoOrRedo)
 {
     RefPtr<WebEditCommandProxy> command = prpCommand;
 
-    RetainPtr<WebEditCommandObjC> commandObjC(AdoptNS, [[WebEditCommandObjC alloc] initWithWebEditCommandProxy:command]);
-    NSString *actionName = nameForEditAction(command->editAction());
+    RetainPtr<WKEditCommandObjC> commandObjC(AdoptNS, [[WKEditCommandObjC alloc] initWithWebEditCommandProxy:command]);
+    String actionName = WebEditCommandProxy::nameForEditAction(command->editAction());
 
     NSUndoManager *undoManager = [m_wkView undoManager];
     [undoManager registerUndoWithTarget:m_undoTarget.get() selector:((undoOrRedo == WebPageProxy::Undo) ? @selector(undoEditing:) : @selector(redoEditing:)) object:commandObjC.get()];
-    if (actionName)
-        [undoManager setActionName:actionName];
+    if (!actionName.isEmpty())
+        [undoManager setActionName:(NSString *)actionName];
 }
 
 void PageClientImpl::clearAllEditCommands()
@@ -291,10 +229,19 @@ void PageClientImpl::clearAllEditCommands()
     [[m_wkView undoManager] removeAllActionsWithTarget:m_undoTarget.get()];
 }
 
-void PageClientImpl::interceptKeyEvent(const NativeWebKeyboardEvent& event, Vector<WebCore::KeypressCommand>& commandsList, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines)
+bool PageClientImpl::canUndoRedo(WebPageProxy::UndoOrRedo undoOrRedo)
 {
-    commandsList = [m_wkView _interceptKeyEvent:event.nativeEvent()];
-    [m_wkView _getTextInputState:selectionStart selectionEnd:selectionEnd underlines:underlines];
+    return (undoOrRedo == WebPageProxy::Undo) ? [[m_wkView undoManager] canUndo] : [[m_wkView undoManager] canRedo];
+}
+
+void PageClientImpl::executeUndoRedo(WebPageProxy::UndoOrRedo undoOrRedo)
+{
+    return (undoOrRedo == WebPageProxy::Undo) ? [[m_wkView undoManager] undo] : [[m_wkView undoManager] redo];
+}
+
+bool PageClientImpl::interpretKeyEvent(const NativeWebKeyboardEvent& event, Vector<WebCore::KeypressCommand>& commands)
+{
+    return [m_wkView _interpretKeyEvent:event.nativeEvent() savingCommandsTo:commands];
 }
 
 void PageClientImpl::setDragImage(const IntPoint& clientPosition, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag)
@@ -304,7 +251,12 @@ void PageClientImpl::setDragImage(const IntPoint& clientPosition, PassRefPtr<Sha
 
     [m_wkView _setDragImage:dragNSImage.get() at:clientPosition linkDrag:isLinkDrag];
 }
-    
+
+void PageClientImpl::updateSecureInputState()
+{
+    [m_wkView _updateSecureInputState];
+}
+
 FloatRect PageClientImpl::convertToDeviceSpace(const FloatRect& rect)
 {
     return [m_wkView _convertToDeviceSpace:rect];
@@ -408,6 +360,16 @@ void PageClientImpl::setCustomRepresentationZoomFactor(double zoomFactor)
     [m_wkView _setCustomRepresentationZoomFactor:zoomFactor];
 }
 
+void PageClientImpl::findStringInCustomRepresentation(const String& string, FindOptions options, unsigned maxMatchCount)
+{
+    [m_wkView _findStringInCustomRepresentation:string withFindOptions:options maxMatchCount:maxMatchCount];
+}
+
+void PageClientImpl::countStringMatchesInCustomRepresentation(const String& string, FindOptions options, unsigned maxMatchCount)
+{
+    [m_wkView _countStringMatchesInCustomRepresentation:string withFindOptions:options maxMatchCount:maxMatchCount];
+}
+
 void PageClientImpl::flashBackingStoreUpdates(const Vector<IntRect>&)
 {
     notImplemented();
@@ -434,6 +396,13 @@ void PageClientImpl::didPerformDictionaryLookup(const String& text, double scale
     // If the dictionary lookup is being triggered by a hot key, force the overlay style.
     NSDictionary *options = (dictionaryPopupInfo.type == DictionaryPopupInfo::HotKey) ? [NSDictionary dictionaryWithObject:NSDefinitionPresentationTypeOverlay forKey:NSDefinitionPresentationTypeKey] : 0;
     [m_wkView showDefinitionForAttributedString:attributedString.get() range:NSMakeRange(0, [attributedString.get() length]) options:options baselineOriginProvider:^(NSRange adjustedRange) { return (NSPoint)textBaselineOrigin; }];
+#endif
+}
+
+void PageClientImpl::dismissDictionaryLookupPanel()
+{
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    WKHideWordDefinitionWindow();
 #endif
 }
 
@@ -482,6 +451,11 @@ float PageClientImpl::userSpaceScaleFactor() const
         return [window userSpaceScaleFactor];
     return [[NSScreen mainScreen] userSpaceScaleFactor];
 #endif
+}
+
+bool PageClientImpl::executeSavedCommandBySelector(const String& selectorString)
+{
+    return [m_wkView _executeSavedCommandBySelector:NSSelectorFromString(selectorString)];
 }
 
 } // namespace WebKit

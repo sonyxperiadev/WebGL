@@ -34,6 +34,7 @@
 #include "ResponsivenessTimer.h"
 #include "ThreadLauncher.h"
 #include "WebPageProxy.h"
+#include "WebProcessProxyMessages.h"
 #include <WebCore/LinkHash.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
@@ -53,12 +54,10 @@ struct WebNavigationDataStore;
 
 class WebProcessProxy : public RefCounted<WebProcessProxy>, CoreIPC::Connection::Client, ResponsivenessTimer::Client, ProcessLauncher::Client, ThreadLauncher::Client {
 public:
-    typedef HashMap<uint64_t, RefPtr<WebPageProxy> > WebPageProxyMap;
-    typedef WebPageProxyMap::const_iterator::Values pages_const_iterator;
     typedef HashMap<uint64_t, RefPtr<WebFrameProxy> > WebFrameProxyMap;
     typedef HashMap<uint64_t, RefPtr<WebBackForwardListItem> > WebBackForwardListItemMap;
 
-    static PassRefPtr<WebProcessProxy> create(WebContext*);
+    static PassRefPtr<WebProcessProxy> create(PassRefPtr<WebContext>);
     ~WebProcessProxy();
 
     void terminate();
@@ -73,18 +72,14 @@ public:
         return m_connection.get(); 
     }
 
-    WebContext* context() const { return m_context; }
+    WebContext* context() const { return m_context.get(); }
 
     PlatformProcessIdentifier processIdentifier() const { return m_processLauncher->processIdentifier(); }
 
     WebPageProxy* webPage(uint64_t pageID) const;
-    WebPageProxy* createWebPage(PageClient*, WebContext*, WebPageGroup*);
+    PassRefPtr<WebPageProxy> createWebPage(PageClient*, WebContext*, WebPageGroup*);
     void addExistingWebPage(WebPageProxy*, uint64_t pageID);
     void removeWebPage(uint64_t pageID);
-
-    pages_const_iterator pages_begin();
-    pages_const_iterator pages_end();
-    size_t numberOfPages();
 
     WebBackForwardListItem* webBackForwardItem(uint64_t itemID) const;
 
@@ -108,7 +103,7 @@ public:
     template<typename E, typename T> bool deprecatedSend(E messageID, uint64_t destinationID, const T& arguments);
 
 private:
-    explicit WebProcessProxy(WebContext*);
+    explicit WebProcessProxy(PassRefPtr<WebContext>);
 
     // Initializes the process or thread launcher which will begin launching the process.
     void connect();
@@ -126,14 +121,20 @@ private:
     void shouldTerminate(bool& shouldTerminate);
 
 #if ENABLE(PLUGIN_PROCESS)
-    void getPluginProcessConnection(const String& pluginPath, CoreIPC::ArgumentEncoder* reply);
+    void getPluginProcessConnection(const String& pluginPath, PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>);
+    void pluginSyncMessageSendTimedOut(const String& pluginPath);
 #endif
 
     // CoreIPC::Connection::Client
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    CoreIPC::SyncReplyMode didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
-    void didClose(CoreIPC::Connection*);
-    void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    virtual CoreIPC::SyncReplyMode didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
+    virtual void didClose(CoreIPC::Connection*);
+    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
+    virtual void syncMessageSendTimedOut(CoreIPC::Connection*);
+
+#if PLATFORM(WIN)
+    Vector<HWND> windowsToReceiveSentMessagesWhileWaitingForSyncReply();
+#endif
 
     // ResponsivenessTimer::Client
     void didBecomeUnresponsive(ResponsivenessTimer*);
@@ -158,9 +159,9 @@ private:
     RefPtr<ProcessLauncher> m_processLauncher;
     RefPtr<ThreadLauncher> m_threadLauncher;
 
-    WebContext* m_context;
+    RefPtr<WebContext> m_context;
 
-    WebPageProxyMap m_pageMap;
+    HashMap<uint64_t, WebPageProxy*> m_pageMap;
     WebFrameProxyMap m_frameMap;
     WebBackForwardListItemMap m_backForwardListItemMap;
 };

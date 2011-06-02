@@ -37,9 +37,9 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 typedef struct CGContext PlatformGraphicsContext;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 namespace WebCore {
 class ContextShadow;
 class PlatformContextCairo;
@@ -99,8 +99,9 @@ typedef void PlatformGraphicsContext;
 #endif
 
 #if PLATFORM(WIN)
+#include "DIBPixelData.h"
 typedef struct HDC__* HDC;
-#if !PLATFORM(CG)
+#if !USE(CG)
 // UInt8 is defined in CoreFoundation/CFBase.h
 typedef unsigned char UInt8;
 #endif
@@ -161,7 +162,7 @@ namespace WebCore {
         GraphicsContextState()
             : strokeThickness(0)
             , shadowBlur(0)
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
             , globalAlpha(1)
 #endif
             , textDrawingMode(TextModeFill)
@@ -177,7 +178,7 @@ namespace WebCore {
             , shouldSmoothFonts(true)
             , paintingDisabled(false)
             , shadowsIgnoreTransforms(false)
-#if PLATFORM(CG)
+#if USE(CG)
             // Core Graphics incorrectly renders shadows with radius > 8px (<rdar://problem/8103442>),
             // but we need to preserve this buggy behavior for canvas and -webkit-box-shadow.
             , shadowsUseLegacyRadius(false)
@@ -196,7 +197,7 @@ namespace WebCore {
         float strokeThickness;
         float shadowBlur;
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
         float globalAlpha;
 #endif
         TextDrawingModeFlags textDrawingMode;
@@ -218,7 +219,7 @@ namespace WebCore {
         bool shouldSmoothFonts : 1;
         bool paintingDisabled : 1;
         bool shadowsIgnoreTransforms : 1;
-#if PLATFORM(CG)
+#if USE(CG)
         bool shadowsUseLegacyRadius : 1;
 #endif
     };
@@ -270,7 +271,7 @@ namespace WebCore {
 
         const GraphicsContextState& state() const;
 
-#if PLATFORM(CG)
+#if USE(CG)
         void applyStrokePattern();
         void applyFillPattern();
         void drawPath(const Path&);
@@ -383,7 +384,11 @@ namespace WebCore {
         void drawBidiText(const Font&, const TextRun&, const FloatPoint&);
         void drawHighlightForText(const Font&, const TextRun&, const FloatPoint&, int h, const Color& backgroundColor, ColorSpace, int from = 0, int to = -1);
 
-        FloatRect roundToDevicePixels(const FloatRect&);
+        enum RoundingMode {
+            RoundAllSides,
+            RoundOriginAndDimensions
+        };
+        FloatRect roundToDevicePixels(const FloatRect&, RoundingMode = RoundAllSides);
 
         void drawLineForText(const FloatPoint&, float width, bool printing);
         enum TextCheckingLineStyle {
@@ -420,7 +425,7 @@ namespace WebCore {
         void setMiterLimit(float);
 
         void setAlpha(float);
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
         float getAlpha();
 #endif
 
@@ -486,18 +491,17 @@ namespace WebCore {
             ~WindowsBitmap();
 
             HDC hdc() const { return m_hdc; }
-            UInt8* buffer() const { return m_bitmapBuffer; }
-            unsigned bufferLength() const { return m_bitmapBufferLength; }
-            IntSize size() const { return m_size; }
-            unsigned bytesPerRow() const { return m_bytesPerRow; }
+            UInt8* buffer() const { return m_pixelData.buffer(); }
+            unsigned bufferLength() const { return m_pixelData.bufferLength(); }
+            const IntSize& size() const { return m_pixelData.size(); }
+            unsigned bytesPerRow() const { return m_pixelData.bytesPerRow(); }
+            unsigned short bitsPerPixel() const { return m_pixelData.bitsPerPixel(); }
+            const DIBPixelData& windowsDIB() const { return m_pixelData; }
 
         private:
             HDC m_hdc;
             HBITMAP m_bitmap;
-            UInt8* m_bitmapBuffer;
-            unsigned m_bitmapBufferLength;
-            IntSize m_size;
-            unsigned m_bytesPerRow;
+            DIBPixelData m_pixelData;
         };
 
         WindowsBitmap* createWindowsBitmap(IntSize);
@@ -521,13 +525,12 @@ namespace WebCore {
         void takeOwnershipOfPlatformContext();
 #endif
 
-#if PLATFORM(QT) || PLATFORM(CAIRO)
+#if PLATFORM(QT) || USE(CAIRO)
         ContextShadow* contextShadow();
 #endif
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
         GraphicsContext(cairo_t*);
-        void pushImageMask(cairo_surface_t*, const FloatRect&);
 #endif
 
 #if PLATFORM(GTK)

@@ -22,7 +22,7 @@
 
 #include "JSDOMBinding.h"
 #include "PlatformString.h"
-#include <collector/handles/Global.h>
+#include <heap/Strong.h>
 #include <runtime/JSCell.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
@@ -34,6 +34,7 @@ namespace JSC {
 namespace WebCore {
 
     class Document;
+    class ContentSecurityPolicy;
     class ScriptExecutionContext;
     class WorkerContext;
 
@@ -44,7 +45,7 @@ namespace WebCore {
     class ScheduledAction {
         WTF_MAKE_NONCOPYABLE(ScheduledAction); WTF_MAKE_FAST_ALLOCATED;
     public:
-        static PassOwnPtr<ScheduledAction> create(JSC::ExecState*, DOMWrapperWorld* isolatedWorld);
+        static PassOwnPtr<ScheduledAction> create(JSC::ExecState*, DOMWrapperWorld* isolatedWorld, ContentSecurityPolicy*);
 
         void execute(ScriptExecutionContext*);
 
@@ -63,8 +64,8 @@ namespace WebCore {
         void execute(WorkerContext*);
 #endif
 
-        JSC::Global<JSC::Unknown> m_function;
-        Vector<JSC::Global<JSC::Unknown> > m_args;
+        JSC::Strong<JSC::Unknown> m_function;
+        Vector<JSC::Strong<JSC::Unknown> > m_args;
         String m_code;
         RefPtr<DOMWrapperWorld> m_isolatedWorld;
     };

@@ -28,7 +28,6 @@
 
 #if ENABLE(PLUGIN_PROCESS)
 
-#include "MachPort.h"
 #include "PluginProcessCreationParameters.h"
 #include "PluginProcessManager.h"
 #include "PluginProcessMessages.h"
@@ -36,6 +35,10 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebPluginSiteDataManager.h"
 #include "WebProcessProxy.h"
+
+#if PLATFORM(MAC)
+#include "MachPort.h"
+#endif
 
 namespace WebKit {
 
@@ -51,6 +54,7 @@ PluginProcessProxy::PluginProcessProxy(PluginProcessManager* PluginProcessManage
 #if PLATFORM(MAC)
     , m_modalWindowIsShowing(false)
     , m_fullscreenWindowIsShowing(false)
+    , m_preFullscreenAppPresentationOptions(0)
 #endif
 {
     ProcessLauncher::LaunchOptions launchOptions;
@@ -69,15 +73,15 @@ PluginProcessProxy::~PluginProcessProxy()
 
 // Asks the plug-in process to create a new connection to a web process. The connection identifier will be 
 // encoded in the given argument encoder and sent back to the connection of the given web process.
-void PluginProcessProxy::createWebProcessConnection(WebProcessProxy* webProcessProxy, CoreIPC::ArgumentEncoder* reply)
+void PluginProcessProxy::getPluginProcessConnection(PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply)
 {
-    m_pendingConnectionReplies.append(make_pair(webProcessProxy, reply));
+    m_pendingConnectionReplies.append(reply);
 
     if (m_processLauncher->isLaunching()) {
         m_numPendingConnectionRequests++;
         return;
     }
-
+    
     // Ask the plug-in process to create a connection. Since the plug-in can be waiting for a synchronous reply
     // we need to make sure that this message is always processed, even when the plug-in is waiting for a synchronus reply.
     m_connection->send(Messages::PluginProcess::CreateWebProcessConnection(), 0, CoreIPC::DispatchMessageEvenWhenWaitingForSyncReply);
@@ -116,17 +120,23 @@ void PluginProcessProxy::clearSiteData(WebPluginSiteDataManager* webPluginSiteDa
     m_connection->send(Messages::PluginProcess::ClearSiteData(sites, flags, maxAgeInSeconds, callbackID), 0);
 }
 
+void PluginProcessProxy::terminate()
+{
+     m_processLauncher->terminateProcess();
+}
+
 void PluginProcessProxy::pluginProcessCrashedOrFailedToLaunch()
 {
     // The plug-in process must have crashed or exited, send any pending sync replies we might have.
     while (!m_pendingConnectionReplies.isEmpty()) {
-        RefPtr<WebProcessProxy> replyWebProcessProxy = m_pendingConnectionReplies.first().first.release();
-        CoreIPC::ArgumentEncoder* reply = m_pendingConnectionReplies.first().second;
-        m_pendingConnectionReplies.removeFirst();
+        RefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply = m_pendingConnectionReplies.takeFirst();
 
-        // FIXME: This is Mac specific.
-        reply->encode(CoreIPC::MachPort(0, MACH_MSG_TYPE_MOVE_SEND));
-        replyWebProcessProxy->connection()->sendSyncReply(reply);
+#if PLATFORM(MAC)
+        reply->send(CoreIPC::MachPort(0, MACH_MSG_TYPE_MOVE_SEND));
+#else
+        // FIXME: Implement.
+        ASSERT_NOT_REACHED();
+#endif
     }
 
     while (!m_pendingGetSitesReplies.isEmpty())
@@ -159,6 +169,10 @@ void PluginProcessProxy::didClose(CoreIPC::Connection*)
 }
 
 void PluginProcessProxy::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID)
+{
+}
+
+void PluginProcessProxy::syncMessageSendTimedOut(CoreIPC::Connection*)
 {
 }
 
@@ -200,19 +214,17 @@ void PluginProcessProxy::didFinishLaunching(ProcessLauncher*, CoreIPC::Connectio
     m_numPendingConnectionRequests = 0;
 }
 
+#if PLATFORM(MAC)
 void PluginProcessProxy::didCreateWebProcessConnection(const CoreIPC::MachPort& machPort)
 {
     ASSERT(!m_pendingConnectionReplies.isEmpty());
 
     // Grab the first pending connection reply.
-    RefPtr<WebProcessProxy> replyWebProcessProxy = m_pendingConnectionReplies.first().first.release();
-    CoreIPC::ArgumentEncoder* reply = m_pendingConnectionReplies.first().second;
-    m_pendingConnectionReplies.removeFirst();
+    RefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply = m_pendingConnectionReplies.takeFirst();
 
-    // FIXME: This is Mac specific.
-    reply->encode(CoreIPC::MachPort(machPort.port(), MACH_MSG_TYPE_MOVE_SEND));
-    replyWebProcessProxy->connection()->sendSyncReply(reply);
+    reply->send(CoreIPC::MachPort(machPort.port(), MACH_MSG_TYPE_MOVE_SEND));
 }
+#endif
 
 void PluginProcessProxy::didGetSitesWithData(const Vector<String>& sites, uint64_t callbackID)
 {

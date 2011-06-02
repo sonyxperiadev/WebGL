@@ -224,6 +224,11 @@ namespace WebCore {
         // Asynchronous request to load an icon for specified filenames.
         virtual void chooseIconForFiles(const Vector<String>&, FileChooser*) = 0;
 
+#if ENABLE(DIRECTORY_UPLOAD)
+        // Asychronous request to enumerate all files in a directory chosen by the user.
+        virtual void enumerateChosenDirectory(const String&, FileChooser*) = 0;
+#endif
+
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*) = 0;
@@ -303,9 +308,20 @@ namespace WebCore {
 
         virtual void didCompleteRubberBandForMainFrame(const IntSize&) const { }
 
+<<<<<<< HEAD
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
         virtual void webAppCanBeInstalled() = 0;
 #endif
+=======
+        enum DialogType {
+            AlertDialog = 0,
+            ConfirmDialog = 1,
+            PromptDialog = 2,
+            HTMLDialog = 3,
+            NumDialogTypes = 4
+        };
+        virtual void willRunModalDialogDuringPageDismissal(const DialogType&) const { }
+>>>>>>> WebKit.org at r84325
 
     protected:
         virtual ~ChromeClient() { }

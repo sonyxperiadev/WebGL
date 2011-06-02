@@ -35,6 +35,8 @@
 
 namespace WebCore {
 
+class SliderThumbElement;
+
 class RangeInputType : public InputType {
 public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
@@ -67,9 +69,14 @@ private:
     virtual String fallbackValue();
     virtual String sanitizeValue(const String& proposedValue);
     virtual bool shouldRespectListAttribute();
+<<<<<<< HEAD
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
     virtual void handleTouchStartEvent(TouchEvent*);
 #endif
+=======
+
+    SliderThumbElement* shadowSliderThumb() const;
+>>>>>>> WebKit.org at r84325
 };
 
 } // namespace WebCore

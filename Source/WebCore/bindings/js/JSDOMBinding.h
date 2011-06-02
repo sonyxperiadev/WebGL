@@ -26,9 +26,9 @@
 #include "JSDOMWrapper.h"
 #include "DOMWrapperWorld.h"
 #include "Document.h"
+#include <heap/Weak.h>
 #include <runtime/Completion.h>
 #include <runtime/Lookup.h>
-#include <runtime/WeakGCMap.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
@@ -49,13 +49,13 @@ namespace WebCore {
 
     typedef int ExceptionCode;
 
-    // FIXME: This class should collapse into DOMObject once all DOMObjects are
+    // FIXME: This class should collapse into JSDOMWrapper once all JSDOMWrappers are
     // updated to store a globalObject pointer.
-    class DOMObjectWithGlobalPointer : public DOMObject {
+    class JSDOMWrapperWithGlobalPointer : public JSDOMWrapper {
     public:
         JSDOMGlobalObject* globalObject() const
         {
-            return static_cast<JSDOMGlobalObject*>(DOMObject::globalObject());
+            return static_cast<JSDOMGlobalObject*>(JSDOMWrapper::globalObject());
         }
 
         ScriptExecutionContext* scriptExecutionContext() const
@@ -64,14 +64,14 @@ namespace WebCore {
             return globalObject()->scriptExecutionContext();
         }
 
-        static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
+        static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
         {
             return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
-        DOMObjectWithGlobalPointer(NonNullPassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
-            : DOMObject(globalObject, structure)
+        JSDOMWrapperWithGlobalPointer(JSC::Structure* structure, JSDOMGlobalObject* globalObject)
+            : JSDOMWrapper(globalObject, structure)
         {
             // FIXME: This ASSERT is valid, but fires in fast/dom/gc-6.html when trying to create
             // new JavaScript objects on detached windows due to DOMWindow::document()
@@ -81,17 +81,17 @@ namespace WebCore {
     };
 
     // Base class for all constructor objects in the JSC bindings.
-    class DOMConstructorObject : public DOMObjectWithGlobalPointer {
+    class DOMConstructorObject : public JSDOMWrapperWithGlobalPointer {
     public:
-        static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
+        static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
         {
             return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
-        static const unsigned StructureFlags = JSC::ImplementsHasInstance | JSC::OverridesMarkChildren | DOMObjectWithGlobalPointer::StructureFlags;
-        DOMConstructorObject(NonNullPassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
-            : DOMObjectWithGlobalPointer(structure, globalObject)
+        static const unsigned StructureFlags = JSC::ImplementsHasInstance | JSC::OverridesMarkChildren | JSDOMWrapperWithGlobalPointer::StructureFlags;
+        DOMConstructorObject(JSC::Structure* structure, JSDOMGlobalObject* globalObject)
+            : JSDOMWrapperWithGlobalPointer(structure, globalObject)
         {
         }
     };
@@ -106,30 +106,18 @@ namespace WebCore {
         }
 
     protected:
-        DOMConstructorWithDocument(NonNullPassRefPtr<JSC::Structure> structure, JSDOMGlobalObject* globalObject)
+        DOMConstructorWithDocument(JSC::Structure* structure, JSDOMGlobalObject* globalObject)
             : DOMConstructorObject(structure, globalObject)
         {
             ASSERT(globalObject->scriptExecutionContext()->isDocument());
         }
     };
-
-    DOMObject* getCachedDOMObjectWrapper(JSC::ExecState*, void* objectHandle);
-    bool hasCachedDOMObjectWrapper(JSC::JSGlobalData*, void* objectHandle);
-    void cacheDOMObjectWrapper(JSC::ExecState*, void* objectHandle, DOMObject* wrapper);
-
-    JSNode* getCachedDOMNodeWrapper(JSC::ExecState*, Document*, Node*);
-    void cacheDOMNodeWrapper(JSC::ExecState*, Document*, Node*, JSNode* wrapper);
-    void updateDOMNodeDocument(Node*, Document* oldDocument, Document* newDocument);
-
-    void markDOMNodesForDocument(JSC::MarkStack&, Document*);
+    
     void markActiveObjectsForContext(JSC::MarkStack&, JSC::JSGlobalData&, ScriptExecutionContext*);
     void markDOMObjectWrapper(JSC::MarkStack&, JSC::JSGlobalData& globalData, void* object);
-    void markDOMNodeWrapper(JSC::MarkStack& markStack, Document* document, Node* node);
-    bool hasCachedDOMObjectWrapperUnchecked(JSC::JSGlobalData*, void* objectHandle);
-    bool hasCachedDOMNodeWrapperUnchecked(Document*, Node*);
 
     JSC::Structure* getCachedDOMStructure(JSDOMGlobalObject*, const JSC::ClassInfo*);
-    JSC::Structure* cacheDOMStructure(JSDOMGlobalObject*, NonNullPassRefPtr<JSC::Structure>, const JSC::ClassInfo*);
+    JSC::Structure* cacheDOMStructure(JSDOMGlobalObject*, JSC::Structure*, const JSC::ClassInfo*);
 
     inline JSDOMGlobalObject* deprecatedGlobalObjectForPrototype(JSC::ExecState* exec)
     {
@@ -145,52 +133,70 @@ namespace WebCore {
             return structure;
         return cacheDOMStructure(globalObject, WrapperClass::createStructure(exec->globalData(), WrapperClass::createPrototype(exec, globalObject)), &WrapperClass::s_info);
     }
+
     template<class WrapperClass> inline JSC::Structure* deprecatedGetDOMStructure(JSC::ExecState* exec)
     {
         // FIXME: This function is wrong.  It uses the wrong global object for creating the prototype structure.
         return getDOMStructure<WrapperClass>(exec, deprecatedGlobalObjectForPrototype(exec));
     }
+
     template<class WrapperClass> inline JSC::JSObject* getDOMPrototype(JSC::ExecState* exec, JSC::JSGlobalObject* globalObject)
     {
         return static_cast<JSC::JSObject*>(asObject(getDOMStructure<WrapperClass>(exec, static_cast<JSDOMGlobalObject*>(globalObject))->storedPrototype()));
     }
-    #define CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, className, object) createDOMObjectWrapper<JS##className>(exec, globalObject, static_cast<className*>(object))
-    template<class WrapperClass, class DOMClass> inline DOMObject* createDOMObjectWrapper(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, DOMClass* object)
+
+    // Overload these functions to provide a fast path for wrapper access.
+    inline JSDOMWrapper* getInlineCachedWrapper(DOMWrapperWorld*, void*) { return 0; }
+    inline bool setInlineCachedWrapper(DOMWrapperWorld*, void*, JSDOMWrapper*) { return false; }
+    inline bool clearInlineCachedWrapper(DOMWrapperWorld*, void*, JSDOMWrapper*) { return false; }
+
+    // Overload these functions to provide a custom WeakHandleOwner.
+    inline JSC::WeakHandleOwner* wrapperOwner(DOMWrapperWorld* world, void*) { return world->defaultWrapperOwner(); }
+    inline void* wrapperContext(DOMWrapperWorld*, void* domObject) { return domObject; }
+
+    template <typename DOMClass> inline JSDOMWrapper* getCachedWrapper(DOMWrapperWorld* world, DOMClass* domObject)
     {
-        ASSERT(object);
-        ASSERT(!getCachedDOMObjectWrapper(exec, object));
-        // FIXME: new (exec) could use a different globalData than the globalData this wrapper is cached on.
-        WrapperClass* wrapper = new (exec) WrapperClass(getDOMStructure<WrapperClass>(exec, globalObject), globalObject, object);
-        cacheDOMObjectWrapper(exec, object, wrapper);
-        return wrapper;
-    }
-    template<class WrapperClass, class DOMClass> inline JSC::JSValue getDOMObjectWrapper(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, DOMClass* object)
-    {
-        if (!object)
-            return JSC::jsNull();
-        if (DOMObject* wrapper = getCachedDOMObjectWrapper(exec, object))
+        if (JSDOMWrapper* wrapper = getInlineCachedWrapper(world, domObject))
             return wrapper;
-        return createDOMObjectWrapper<WrapperClass>(exec, globalObject, object);
+        return world->m_wrappers.get(domObject).get();
     }
 
-    #define CREATE_DOM_NODE_WRAPPER(exec, globalObject, className, object) createDOMNodeWrapper<JS##className>(exec, globalObject, static_cast<className*>(object))
-    template<class WrapperClass, class DOMClass> inline JSNode* createDOMNodeWrapper(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, DOMClass* node)
+    template <typename DOMClass> inline void cacheWrapper(DOMWrapperWorld* world, DOMClass* domObject, JSDOMWrapper* wrapper)
+    {
+        if (setInlineCachedWrapper(world, domObject, wrapper))
+            return;
+        ASSERT(!world->m_wrappers.contains(domObject));
+        world->m_wrappers.set(domObject, JSC::Weak<JSDOMWrapper>(*world->globalData(), wrapper, wrapperOwner(world, domObject), wrapperContext(world, domObject)));
+    }
+
+    template <typename DOMClass> inline void uncacheWrapper(DOMWrapperWorld* world, DOMClass* domObject, JSDOMWrapper* wrapper)
+    {
+        if (clearInlineCachedWrapper(world, domObject, wrapper))
+            return;
+        ASSERT(world->m_wrappers.find(domObject)->second.get() == wrapper);
+        world->m_wrappers.remove(domObject);
+    }
+    
+    #define CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, className, object) createWrapper<JS##className>(exec, globalObject, static_cast<className*>(object))
+    #define CREATE_DOM_NODE_WRAPPER(exec, globalObject, className, object) static_cast<JSNode*>(createWrapper<JS##className>(exec, globalObject, static_cast<className*>(object)))
+    template<class WrapperClass, class DOMClass> inline JSDOMWrapper* createWrapper(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, DOMClass* node)
     {
         ASSERT(node);
-        ASSERT(!getCachedDOMNodeWrapper(exec, node->document(), node));
+        ASSERT(!getCachedWrapper(currentWorld(exec), node));
         WrapperClass* wrapper = new (exec) WrapperClass(getDOMStructure<WrapperClass>(exec, globalObject), globalObject, node);
         // FIXME: The entire function can be removed, once we fix caching.
         // This function is a one-off hack to make Nodes cache in the right global object.
-        cacheDOMNodeWrapper(exec, node->document(), node, wrapper);
+        cacheWrapper(currentWorld(exec), node, wrapper);
         return wrapper;
     }
-    template<class WrapperClass, class DOMClass> inline JSC::JSValue getDOMNodeWrapper(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, DOMClass* node)
+
+    template<class WrapperClass, class DOMClass> inline JSC::JSValue wrap(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, DOMClass* domObject)
     {
-        if (!node)
+        if (!domObject)
             return JSC::jsNull();
-        if (JSC::JSCell* wrapper = getCachedDOMNodeWrapper(exec, node->document(), node))
+        if (JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), domObject))
             return wrapper;
-        return createDOMNodeWrapper<WrapperClass>(exec, globalObject, node);
+        return createWrapper<WrapperClass>(exec, globalObject, domObject);
     }
 
     const JSC::HashTable* getHashTableForGlobalData(JSC::JSGlobalData&, const JSC::HashTable* staticTable);

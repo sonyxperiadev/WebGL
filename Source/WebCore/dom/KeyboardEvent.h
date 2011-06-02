@@ -36,10 +36,10 @@ namespace WebCore {
 #if PLATFORM(MAC)
     struct KeypressCommand {
         KeypressCommand() { }
-        KeypressCommand(const String& commandName) : commandName(commandName) { }
-        KeypressCommand(const String& commandName, const String& text) : commandName(commandName), text(text) { }
+        KeypressCommand(const String& commandName) : commandName(commandName) { ASSERT(isASCIILower(commandName[0U])); }
+        KeypressCommand(const String& commandName, const String& text) : commandName(commandName), text(text) { ASSERT(commandName == "insertText:"); }
 
-        String commandName;
+        String commandName; // Actually, a selector name - it may have a trailing colon, and a name that can be different from an editor command name.
         String text;
     };
 #endif
@@ -101,19 +101,27 @@ namespace WebCore {
         KeyboardEvent(const AtomicString& type, bool canBubble, bool cancelable, AbstractView*,
                       const String& keyIdentifier, unsigned keyLocation,
                       bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool altGraphKey);
-        virtual bool dispatch(EventDispatcher*);
 
         OwnPtr<PlatformKeyboardEvent> m_keyEvent;
         String m_keyIdentifier;
         unsigned m_keyLocation;
         bool m_altGraphKey : 1;
 
-#if PLATFORM(MAC)        
+#if PLATFORM(MAC)
+        // Commands that were sent by AppKit when interpreting the event. Doesn't include input method commands.
         Vector<KeypressCommand> m_keypressCommands;
 #endif
     };
 
     KeyboardEvent* findKeyboardEvent(Event*);
+
+class KeyboardEventDispatchMediator : public EventDispatchMediator {
+public:
+    explicit KeyboardEventDispatchMediator(PassRefPtr<KeyboardEvent>);
+
+private:
+    virtual bool dispatchEvent(EventDispatcher*) const;
+};
 
 } // namespace WebCore
 

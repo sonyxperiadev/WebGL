@@ -131,6 +131,7 @@ namespace WebCore {
 #endif
 #if ENABLE(WEB_AUDIO)
         virtual bool isAudioProcessingEvent() const;
+        virtual bool isOfflineAudioCompletionEvent() const;
 #endif
         virtual bool isErrorEvent() const;
 #if ENABLE(TOUCH_EVENTS)
@@ -166,7 +167,6 @@ namespace WebCore {
 
         virtual Clipboard* clipboard() const { return 0; }
 
-        virtual bool dispatch(EventDispatcher*);
 
     protected:
         Event();
@@ -193,6 +193,37 @@ namespace WebCore {
 
         RefPtr<Event> m_underlyingEvent;
     };
+
+class EventDispatchMediator {
+public:
+    explicit EventDispatchMediator(PassRefPtr<Event>);
+    virtual ~EventDispatchMediator();
+
+    virtual bool dispatchEvent(EventDispatcher*) const;
+
+protected:
+    EventDispatchMediator();
+
+    Event* event() const;
+    void setEvent(PassRefPtr<Event>);
+
+private:
+    RefPtr<Event> m_event;
+};
+
+inline EventDispatchMediator::EventDispatchMediator()
+{
+}
+
+inline Event* EventDispatchMediator::event() const
+{
+    return m_event.get();
+}
+
+inline void EventDispatchMediator::setEvent(PassRefPtr<Event> event)
+{
+    m_event = event;
+}
 
 } // namespace WebCore
 

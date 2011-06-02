@@ -73,10 +73,16 @@ public:
     NPError NPN_GetValue(NPNVariable, void* value);
     NPObject* NPN_CreateObject(NPClass*);
     bool NPN_RemoveProperty(NPObject*, NPIdentifier propertyName);
-    
+#ifdef XP_MACOSX
+    bool NPN_ConvertPoint(double sourceX, double sourceY, NPCoordinateSpace sourceSpace, double *destX, double *destY, NPCoordinateSpace destSpace);
+#endif
+
     void executeScript(const char*);
+    void log(const char* format, ...);
 
     void registerNPShutdownFunction(void (*)());
+
+    static void indicateTestFailure();
 
     template<typename TestClassTy> class Register {
     public:

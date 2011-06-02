@@ -34,7 +34,7 @@
 #include "PlatformContextSkia.h"
 #include "SkColorPriv.h"
 #include "skia/ext/platform_canvas.h"
-#elif PLATFORM(CG)
+#elif USE(CG)
 #include <CoreGraphics/CGBitmapContext.h>
 #endif
 
@@ -52,8 +52,8 @@ void PlatformCanvas::resize(const IntSize& size)
 {
     m_size = size;
 #if USE(SKIA)
-    m_skiaCanvas = new skia::PlatformCanvas(size.width(), size.height(), false);
-#elif PLATFORM(CG)
+    m_skiaCanvas = skia::CreateBitmapCanvas(size.width(), size.height(), false);
+#elif USE(CG)
     size_t bufferSize = size.width() * size.height() * 4;
     m_pixelData = adoptArrayPtr(new uint8_t[bufferSize]);
     memset(m_pixelData.get(), 0, bufferSize);
@@ -73,8 +73,9 @@ PlatformCanvas::AutoLocker::AutoLocker(PlatformCanvas* canvas)
             m_pixels = static_cast<uint8_t*>(m_bitmap->getPixels());
     } else
         m_bitmap = 0;
-#elif PLATFORM(CG)
-    m_pixels = &canvas->m_pixelData[0];
+#elif USE(CG)
+    if (canvas->m_pixelData)
+        m_pixels = &canvas->m_pixelData[0];
 #endif
 }
 
@@ -86,16 +87,15 @@ PlatformCanvas::AutoLocker::~AutoLocker()
 #endif
 }
 
-PlatformCanvas::Painter::Painter(PlatformCanvas* canvas)
+PlatformCanvas::Painter::Painter(PlatformCanvas* canvas, PlatformCanvas::Painter::TextOption option)
 {
 #if USE(SKIA)
     m_skiaContext = adoptPtr(new PlatformContextSkia(canvas->m_skiaCanvas.get()));
 
-    // This is needed to get text to show up correctly.
-    m_skiaContext->setDrawingToImageBuffer(true);
+    m_skiaContext->setDrawingToImageBuffer(option == GrayscaleText);
 
     m_context = adoptPtr(new GraphicsContext(reinterpret_cast<PlatformGraphicsContext*>(m_skiaContext.get())));
-#elif PLATFORM(CG)
+#elif USE(CG)
 
     m_colorSpace = CGColorSpaceCreateDeviceRGB();
     size_t rowBytes = canvas->size().width() * 4;

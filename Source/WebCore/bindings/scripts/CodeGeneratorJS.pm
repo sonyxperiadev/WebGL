@@ -200,7 +200,7 @@ sub GetParentClassName
     my $dataNode = shift;
 
     return $dataNode->extendedAttributes->{"LegacyParent"} if $dataNode->extendedAttributes->{"LegacyParent"};
-    return "DOMObjectWithGlobalPointer" if (@{$dataNode->parents} eq 0);
+    return "JSDOMWrapperWithGlobalPointer" if (@{$dataNode->parents} eq 0);
     return "JS" . $codeGenerator->StripModule($dataNode->parents(0));
 }
 
@@ -682,11 +682,11 @@ sub GenerateHeader
 
     # Constructor
     if ($interfaceName eq "DOMWindow") {
-        push(@headerContent, "    $className(NonNullPassRefPtr<JSC::Structure>, PassRefPtr<$implType>, JSDOMWindowShell*);\n");
+        push(@headerContent, "    $className(JSC::JSGlobalData&, JSC::Structure*, PassRefPtr<$implType>, JSDOMWindowShell*);\n");
     } elsif ($dataNode->extendedAttributes->{"IsWorkerContext"}) {
-        push(@headerContent, "    $className(NonNullPassRefPtr<JSC::Structure>, PassRefPtr<$implType>);\n");
+        push(@headerContent, "    $className(JSC::JSGlobalData&, JSC::Structure*, PassRefPtr<$implType>);\n");
     } else {
-        push(@headerContent, "    $className(NonNullPassRefPtr<JSC::Structure>, JSDOMGlobalObject*, PassRefPtr<$implType>);\n");
+        push(@headerContent, "    $className(JSC::Structure*, JSDOMGlobalObject*, PassRefPtr<$implType>);\n");
     }
 
     # Prototype
@@ -746,7 +746,7 @@ sub GenerateHeader
         $structureFlags{"JSC::NeedsThisConversion"} = 1;
     }
     push(@headerContent,
-        "    static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)\n" .
+        "    static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)\n" .
         "    {\n" .
         "        return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);\n" .
         "    }\n\n");
@@ -923,7 +923,7 @@ sub GenerateHeader
     }
     if (!$hasParent || $dataNode->extendedAttributes->{"GenerateNativeConverter"}) {
         if ($interfaceName eq "NodeFilter") {
-            push(@headerContent, "PassRefPtr<NodeFilter> toNodeFilter(JSC::JSValue);\n");
+            push(@headerContent, "PassRefPtr<NodeFilter> toNodeFilter(JSC::JSGlobalData&, JSC::JSValue);\n");
         } else {
             push(@headerContent, "$implType* to${interfaceName}(JSC::JSValue);\n");
         }
@@ -958,7 +958,7 @@ sub GenerateHeader
         $structureFlags{"JSC::OverridesMarkChildren"} = 1;
     }
     push(@headerContent,
-        "    static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)\n" .
+        "    static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)\n" .
         "    {\n" .
         "        return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);\n" .
         "    }\n");
@@ -970,7 +970,7 @@ sub GenerateHeader
     # Custom defineGetter function
     push(@headerContent, "    virtual void defineGetter(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSObject* getterFunction, unsigned attributes);\n") if $dataNode->extendedAttributes->{"CustomPrototypeDefineGetter"};
 
-    push(@headerContent, "    ${className}Prototype(JSC::JSGlobalObject* globalObject, NonNullPassRefPtr<JSC::Structure> structure) : JSC::JSObjectWithGlobalObject(globalObject, structure) { }\n");
+    push(@headerContent, "    ${className}Prototype(JSC::JSGlobalData& globalData, JSC::JSGlobalObject* globalObject, JSC::Structure* structure) : JSC::JSObjectWithGlobalObject(globalData, globalObject, structure) { }\n");
 
     # structure flags
     push(@headerContent, "protected:\n");
@@ -1304,7 +1304,7 @@ sub GenerateImplementation
         push(@implContent, "static const HashTable* get${className}PrototypeTable(ExecState* exec)\n");
         push(@implContent, "{\n");
         push(@implContent, "    return getHashTableForGlobalData(exec->globalData(), &${className}PrototypeTable);\n");
-        push(@implContent, "}\n");
+        push(@implContent, "}\n\n");
         push(@implContent, "const ClassInfo ${className}Prototype::s_info = { \"${visibleClassName}Prototype\", &JSC::JSObjectWithGlobalObject::s_info, 0, get${className}PrototypeTable };\n\n");
     } else {
         push(@implContent, "const ClassInfo ${className}Prototype::s_info = { \"${visibleClassName}Prototype\", &JSC::JSObjectWithGlobalObject::s_info, &${className}PrototypeTable, 0 };\n\n");
@@ -1379,7 +1379,7 @@ sub GenerateImplementation
         push(@implContent, "static const HashTable* get${className}Table(ExecState* exec)\n");
         push(@implContent, "{\n");
         push(@implContent, "    return getHashTableForGlobalData(exec->globalData(), &${className}Table);\n");
-        push(@implContent, "}\n");
+        push(@implContent, "}\n\n");
     }
 
     push(@implContent, "const ClassInfo $className" . "::s_info = { \"${visibleClassName}\", &" . $parentClassName . "::s_info, ");
@@ -1407,14 +1407,14 @@ sub GenerateImplementation
     # Constructor
     if ($interfaceName eq "DOMWindow") {
         AddIncludesForType("JSDOMWindowShell");
-        push(@implContent, "${className}::$className(NonNullPassRefPtr<Structure> structure, PassRefPtr<$implType> impl, JSDOMWindowShell* shell)\n");
-        push(@implContent, "    : $parentClassName(structure, impl, shell)\n");
+        push(@implContent, "${className}::$className(JSGlobalData& globalData, Structure* structure, PassRefPtr<$implType> impl, JSDOMWindowShell* shell)\n");
+        push(@implContent, "    : $parentClassName(globalData, structure, impl, shell)\n");
     } elsif ($dataNode->extendedAttributes->{"IsWorkerContext"}) {
         AddIncludesForType($interfaceName);
-        push(@implContent, "${className}::$className(NonNullPassRefPtr<Structure> structure, PassRefPtr<$implType> impl)\n");
-        push(@implContent, "    : $parentClassName(structure, impl)\n");
+        push(@implContent, "${className}::$className(JSGlobalData& globalData, Structure* structure, PassRefPtr<$implType> impl)\n");
+        push(@implContent, "    : $parentClassName(globalData, structure, impl)\n");
     } else {
-        push(@implContent, "${className}::$className(NonNullPassRefPtr<Structure> structure, JSDOMGlobalObject* globalObject, PassRefPtr<$implType> impl)\n");
+        push(@implContent, "${className}::$className(Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<$implType> impl)\n");
         if ($hasParent) {
             push(@implContent, "    : $parentClassName(structure, globalObject, impl)\n");
         } else {
@@ -1442,9 +1442,9 @@ sub GenerateImplementation
         push(@implContent, "JSObject* ${className}::createPrototype(ExecState* exec, JSGlobalObject* globalObject)\n");
         push(@implContent, "{\n");
         if ($hasParent && $parentClassName ne "JSC::DOMNodeFilter") {
-            push(@implContent, "    return new (exec) ${className}Prototype(globalObject, ${className}Prototype::createStructure(exec->globalData(), ${parentClassName}Prototype::self(exec, globalObject)));\n");
+            push(@implContent, "    return new (exec) ${className}Prototype(exec->globalData(), globalObject, ${className}Prototype::createStructure(exec->globalData(), ${parentClassName}Prototype::self(exec, globalObject)));\n");
         } else {
-            push(@implContent, "    return new (exec) ${className}Prototype(globalObject, ${className}Prototype::createStructure(globalObject->globalData(), globalObject->objectPrototype()));\n");
+            push(@implContent, "    return new (exec) ${className}Prototype(exec->globalData(), globalObject, ${className}Prototype::createStructure(globalObject->globalData(), globalObject->objectPrototype()));\n");
         }
         push(@implContent, "}\n\n");
     }
@@ -1540,7 +1540,7 @@ sub GenerateImplementation
                     my $constructorType = $codeGenerator->StripModule($attribute->signature->type);
                     $constructorType =~ s/Constructor$//;
                     # Constructor attribute is only used by DOMWindow.idl, so it's correct to pass castedThis as the global object
-                    # Once DOMObjects have a back-pointer to the globalObject we can pass castedThis->globalObject()
+                    # Once JSDOMWrappers have a back-pointer to the globalObject we can pass castedThis->globalObject()
                     push(@implContent, "    return JS" . $constructorType . "::getConstructor(exec, castedThis);\n");
                 } elsif (!@{$attribute->getterExceptions}) {
                     push(@implContent, "    UNUSED_PARAM(exec);\n");
@@ -1590,7 +1590,7 @@ sub GenerateImplementation
                     push(@implContent, "    return result;\n");
                 }
 
-                push(@implContent, "}\n");
+                push(@implContent, "}\n\n");
 
                 push(@implContent, "#endif\n") if $attributeConditionalString;
 
@@ -1610,8 +1610,7 @@ sub GenerateImplementation
                 }
 
                 push(@implContent, "    return ${className}::getConstructor(exec, domObject->globalObject());\n");
-                push(@implContent, "}\n");
-                push(@implContent, "\n");
+                push(@implContent, "}\n\n");
             }
         }
 
@@ -1769,7 +1768,7 @@ sub GenerateImplementation
                             }
                         }
                         
-                        push(@implContent, "}\n");
+                        push(@implContent, "}\n\n");
 
                         push(@implContent, "#endif\n") if $attributeConditionalString;
 
@@ -1799,8 +1798,7 @@ sub GenerateImplementation
                 } else {
                     push(@implContent, "    static_cast<$className*>(thisObject)->putDirect(exec->globalData(), Identifier(exec, \"$name\"), value);\n");
                 }
-                push(@implContent, "}\n");
-                push(@implContent, "\n");
+                push(@implContent, "}\n\n");
             }        
         }
     }
@@ -2095,7 +2093,7 @@ sub GenerateImplementation
         } else {
             push(@implContent, "    return toJS(exec, thisObj->globalObject(), static_cast<$implClassName*>(thisObj->impl())->item(index));\n");
         }
-        push(@implContent, "}\n");
+        push(@implContent, "}\n\n");
         if ($interfaceName eq "HTMLCollection" or $interfaceName eq "HTMLAllCollection") {
             $implIncludes{"JSNode.h"} = 1;
             $implIncludes{"Node.h"} = 1;
@@ -2106,7 +2104,7 @@ sub GenerateImplementation
         push(@implContent, "\nJSValue ${className}::getByIndex(ExecState*, unsigned index)\n");
         push(@implContent, "{\n");
         push(@implContent, "    return jsNumber(static_cast<$implClassName*>(impl())->item(index));\n");
-        push(@implContent, "}\n");
+        push(@implContent, "}\n\n");
         if ($interfaceName eq "HTMLCollection" or $interfaceName eq "HTMLAllCollection") {
             $implIncludes{"JSNode.h"} = 1;
             $implIncludes{"Node.h"} = 1;
@@ -2115,17 +2113,17 @@ sub GenerateImplementation
 
     if ((!$hasParent or $dataNode->extendedAttributes->{"GenerateToJS"}) and !$dataNode->extendedAttributes->{"CustomToJS"}) {
         if ($svgPropertyType) {
-            push(@implContent, "JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, $implType* object)\n");
+            push(@implContent, "JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, $implType* impl)\n");
         } else {
-            push(@implContent, "JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, $implType* object)\n");
+            push(@implContent, "JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, $implType* impl)\n");
         }
         push(@implContent, "{\n");
         if ($svgPropertyType) {
-            push(@implContent, "    return getDOMObjectWrapper<$className, $implType>(exec, globalObject, object);\n");
+            push(@implContent, "    return wrap<$className, $implType>(exec, globalObject, impl);\n");
         } else {
-            push(@implContent, "    return getDOMObjectWrapper<$className>(exec, globalObject, object);\n");
+            push(@implContent, "    return wrap<$className>(exec, globalObject, impl);\n");
         }
-        push(@implContent, "}\n");
+        push(@implContent, "}\n\n");
     }
 
     if ((!$hasParent or $dataNode->extendedAttributes->{"GenerateNativeConverter"}) and !$dataNode->extendedAttributes->{"CustomNativeConverter"}) {
@@ -2466,6 +2464,11 @@ sub JSValueToNative
         return "exec->globalData(), $value";
     }
 
+    if ($type eq "NodeFilter") {
+        $implIncludes{"JS$type.h"} = 1;
+        return "to$type(exec->globalData(), $value)";
+    }
+
     if ($type eq "MediaQueryListListener") {
         $implIncludes{"MediaQueryListListener.h"} = 1;
         return "MediaQueryListListener::create(ScriptValue(exec->globalData(), " . $value ."))";
@@ -2514,7 +2517,6 @@ sub NativeToJSValue
     }
 
     if ($codeGenerator->IsPrimitiveType($type) or $type eq "DOMTimeStamp") {
-        $implIncludes{"<runtime/JSNumberCell.h>"} = 1;
         return "jsNumber($value)";
     }
 
@@ -2873,7 +2875,7 @@ sub GenerateConstructorDeclaration
     push(@$outputArray, "    virtual bool getOwnPropertyDescriptor(JSC::ExecState*, const JSC::Identifier&, JSC::PropertyDescriptor&);\n");
     push(@$outputArray, "    static const JSC::ClassInfo s_info;\n");
 
-    push(@$outputArray, "    static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)\n");
+    push(@$outputArray, "    static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)\n");
     push(@$outputArray, "    {\n");
     push(@$outputArray, "        return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);\n");
     push(@$outputArray, "    }\n");
@@ -2920,12 +2922,12 @@ sub GenerateConstructorDefinition
 
     push(@$outputArray, "bool ${constructorClassName}::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)\n");
     push(@$outputArray, "{\n");
-    push(@$outputArray, "    return getStaticValueSlot<${constructorClassName}, DOMObject>(exec, &${constructorClassName}Table, this, propertyName, slot);\n");
+    push(@$outputArray, "    return getStaticValueSlot<${constructorClassName}, JSDOMWrapper>(exec, &${constructorClassName}Table, this, propertyName, slot);\n");
     push(@$outputArray, "}\n\n");
 
     push(@$outputArray, "bool ${constructorClassName}::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)\n");
     push(@$outputArray, "{\n");
-    push(@$outputArray, "    return getStaticValueDescriptor<${constructorClassName}, DOMObject>(exec, &${constructorClassName}Table, this, propertyName, descriptor);\n");
+    push(@$outputArray, "    return getStaticValueDescriptor<${constructorClassName}, JSDOMWrapper>(exec, &${constructorClassName}Table, this, propertyName, descriptor);\n");
     push(@$outputArray, "}\n\n");
 
     if ($canConstruct) {

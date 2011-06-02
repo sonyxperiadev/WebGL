@@ -448,9 +448,7 @@ sub GetInternalFields
         push(@customInternalFields, "eventListenerCacheIndex");
     }
 
-    if (IsSubType($dataNode, "Document")) {
-        push(@customInternalFields, "implementationIndex");
-    } elsif ($name eq "DOMWindow") {
+    if ($name eq "DOMWindow") {
         push(@customInternalFields, "enteredIsolatedWorldIndex");
     }
     return @customInternalFields;
@@ -2348,6 +2346,7 @@ sub GenerateCallbackImplementation
     push(@implFixedHeader, GenerateImplementationContentHeader($dataNode));
          
     $implIncludes{"ScriptExecutionContext.h"} = 1;
+    $implIncludes{"V8Binding.h"} = 1;
     $implIncludes{"V8CustomVoidCallback.h"} = 1;
     $implIncludes{"V8Proxy.h"} = 1;
 
@@ -2553,6 +2552,7 @@ sub HasCustomToV8Implementation {
     return 0 if $interfaceName eq "AbstractWorker";
     return 0 if $interfaceName eq "CanvasRenderingContext";
     return 0 if $interfaceName eq "SVGElementInstance";
+    return 0 if $interfaceName eq "NodeList";
 
     # For everything else, do what JSC does.
     return $dataNode->extendedAttributes->{"CustomToJS"};

@@ -25,11 +25,9 @@
 #ifndef AudioDestinationNode_h
 #define AudioDestinationNode_h
 
-#include "AudioDestination.h"
+#include "AudioBuffer.h"
 #include "AudioNode.h"
 #include "AudioSourceProvider.h"
-#include <wtf/OwnPtr.h>
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -38,32 +36,25 @@ class AudioContext;
     
 class AudioDestinationNode : public AudioNode, public AudioSourceProvider {
 public:
-    static PassRefPtr<AudioDestinationNode> create(AudioContext* context)
-    {
-        return adoptRef(new AudioDestinationNode(context));        
-    }
-
+    AudioDestinationNode(AudioContext*, double sampleRate);
     virtual ~AudioDestinationNode();
     
     // AudioNode   
     virtual void process(size_t) { }; // we're pulled by hardware so this is never called
     virtual void reset() { m_currentTime = 0.0; };
-    virtual void initialize();
-    virtual void uninitialize();
     
     // The audio hardware calls here periodically to gets its input stream.
     virtual void provideInput(AudioBus*, size_t numberOfFrames);
 
     double currentTime() { return m_currentTime; }
 
-    double sampleRate() const { return m_destination->sampleRate(); }
+    virtual double sampleRate() const = 0;
 
-    unsigned numberOfChannels() const { return 2; } // FIXME: update when multi-channel (more than stereo) is supported
+    virtual unsigned numberOfChannels() const { return 2; } // FIXME: update when multi-channel (more than stereo) is supported
+
+    virtual void startRendering() = 0;
     
-private:
-    AudioDestinationNode(AudioContext*);
-
-    OwnPtr<AudioDestination> m_destination;
+protected:
     double m_currentTime;
 };
 

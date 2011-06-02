@@ -44,6 +44,7 @@
 
 #if ENABLE(SKIA_GPU)
 class GrContext;
+struct GrPlatformSurfaceDesc;
 #endif
 
 namespace WebCore {
@@ -60,7 +61,10 @@ public:
     
     ~DrawingBuffer();
 
-    void reset(const IntSize&);
+    void clearFramebuffer();
+
+    // Returns true if the buffer was successfully resized.
+    bool reset(const IntSize&);
     void bind();
     IntSize size() const { return m_size; }
     Platform3DObject colorBuffer() const { return m_colorBuffer; }
@@ -101,6 +105,7 @@ public:
 
 #if ENABLE(SKIA_GPU)
     void setGrContext(GrContext* ctx);
+    void getGrPlatformSurfaceDesc(GrPlatformSurfaceDesc*);
 #endif
 
     PassRefPtr<GraphicsContext3D> graphicsContext3D() const { return m_context; }

@@ -26,7 +26,7 @@
 #include "config.h"
 #include "SpellingCorrectionCommand.h"
 
-#include "CorrectionPanelInfo.h"
+#include "SpellingCorrectionController.h"
 #include "DocumentFragment.h"
 #include "Frame.h"
 #include "ReplaceSelectionCommand.h"
@@ -94,7 +94,7 @@ void SpellingCorrectionCommand::doApply()
     if (!fragment)
         return;
 
-    applyCommandToComposite(SetSelectionCommand::create(m_selectionToBeCorrected, SelectionController::CloseTyping | SelectionController::ClearTypingStyle));
+    applyCommandToComposite(SetSelectionCommand::create(m_selectionToBeCorrected, SelectionController::SpellCorrectionTriggered | SelectionController::CloseTyping | SelectionController::ClearTypingStyle));
 #if SUPPORT_AUTOCORRECTION_PANEL
     applyCommandToComposite(SpellingCorrectionRecordUndoCommand::create(document(), m_corrected, m_correction));
 #endif

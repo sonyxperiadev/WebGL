@@ -100,6 +100,7 @@ enum MediaPlayerAVFoundationObservationContext {
 -(void)playableKnown;
 -(void)metadataLoaded;
 -(void)timeChanged:(double)time;
+-(void)seekCompleted:(BOOL)finished;
 -(void)didEnd:(NSNotification *)notification;
 -(void)observeValueForKeyPath:keyPath ofObject:(id)object change:(NSDictionary *)change context:(MediaPlayerAVFoundationObservationContext)context;
 @end
@@ -200,7 +201,7 @@ void MediaPlayerPrivateAVFoundationObjC::destroyContextVideoRenderer()
     if (!m_imageGenerator)
         return;
 
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::destroyContextVideoRenderer(%p) - destroying", this, m_imageGenerator.get());
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::destroyContextVideoRenderer(%p) - destroying  %p", this, m_imageGenerator.get());
 
     m_imageGenerator = 0;
 }
@@ -213,7 +214,7 @@ void MediaPlayerPrivateAVFoundationObjC::createVideoLayer()
     if (!m_videoLayer) {
         m_videoLayer.adoptNS([[AVPlayerLayer alloc] init]);
         [m_videoLayer.get() setPlayer:m_avPlayer.get()];
-        LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createVideoLayer(%p) - returning", this, m_videoLayer.get());
+        LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createVideoLayer(%p) - returning %p", this, m_videoLayer.get());
     }
 }
 
@@ -327,9 +328,9 @@ MediaPlayerPrivateAVFoundation::ItemStatus MediaPlayerPrivateAVFoundationObjC::p
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusFailed;
     if ([m_avPlayerItem.get() isPlaybackLikelyToKeepUp])
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackLikelyToKeepUp;
-    if ([m_avPlayerItem.get() isPlaybackBufferFull])
+    if (buffered()->contain(duration()))
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackBufferFull;
-    if ([m_avPlayerItem.get() isPlaybackBufferEmpty])
+    if (buffered()->contain(currentTime()))
         return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusPlaybackBufferEmpty;
 
     return MediaPlayerPrivateAVFoundation::MediaPlayerAVPlayerItemStatusReadyToPlay;
@@ -350,9 +351,9 @@ PlatformLayer* MediaPlayerPrivateAVFoundationObjC::platformLayer() const
     return m_videoLayer.get();
 }
 
-void MediaPlayerPrivateAVFoundationObjC::play()
+void MediaPlayerPrivateAVFoundationObjC::platformPlay()
 {
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::play(%p)", this);
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::platformPlay(%p)", this);
     if (!metaDataAvailable())
         return;
 
@@ -361,9 +362,9 @@ void MediaPlayerPrivateAVFoundationObjC::play()
     setDelayCallbacks(false);
 }
 
-void MediaPlayerPrivateAVFoundationObjC::pause()
+void MediaPlayerPrivateAVFoundationObjC::platformPause()
 {
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::pause(%p)", this);
+    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::platformPause(%p)", this);
     if (!metaDataAvailable())
         return;
 
@@ -408,14 +409,10 @@ void MediaPlayerPrivateAVFoundationObjC::seekToTime(float time)
     // setCurrentTime generates several event callbacks, update afterwards.
     setDelayCallbacks(true);
 
-    float now = currentTime();
-    if (time != now)
-        [m_avPlayerItem.get() seekToTime:CMTimeMakeWithSeconds(time, 600) toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero];
-    else {
-        // Force a call to the "time changed" notifier manually because a seek to the current time is a noop 
-        // so the seek will never seem to complete.
-        [m_objcObserver.get() timeChanged:now];
-    }
+    WebCoreAVFMovieObserver *observer = m_objcObserver.get();
+    [m_avPlayerItem.get() seekToTime:CMTimeMakeWithSeconds(time, 600) toleranceBefore:kCMTimeZero toleranceAfter:kCMTimeZero completionHandler:^(BOOL finished) {
+        [observer seekCompleted:finished];
+    }];
 
     setDelayCallbacks(false);
 }
@@ -435,6 +432,13 @@ void MediaPlayerPrivateAVFoundationObjC::setClosedCaptionsVisible(bool closedCap
 
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::setClosedCaptionsVisible(%p) - setting to %s", this, boolString(closedCaptionsVisible));
     [m_avPlayer.get() setClosedCaptionDisplayEnabled:closedCaptionsVisible];
+}
+
+void MediaPlayerPrivateAVFoundationObjC::updateRate()
+{
+    setDelayCallbacks(true);
+    [m_avPlayer.get() setRate:requestedRate()];
+    setDelayCallbacks(false);
 }
 
 float MediaPlayerPrivateAVFoundationObjC::rate() const
@@ -621,12 +625,16 @@ void MediaPlayerPrivateAVFoundationObjC::getSupportedTypes(HashSet<String>& supp
 
 MediaPlayer::SupportsType MediaPlayerPrivateAVFoundationObjC::supportsType(const String& type, const String& codecs)
 {
-    // Only return "IsSupported" if there is no codecs parameter for now as there is no way to ask if it supports an
-    // extended MIME type until rdar://6220037 is fixed.
-    if (mimeTypeCache().contains(type))
-        return codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported;
+    if (!mimeTypeCache().contains(type))
+        return MediaPlayer::IsNotSupported;
 
-    return MediaPlayer::IsNotSupported;
+    // The spec says:
+    // "Implementors are encouraged to return "maybe" unless the type can be confidently established as being supported or not."
+    if (codecs.isEmpty())
+        return MediaPlayer::MayBeSupported;
+
+    NSString *typeString = [NSString stringWithFormat:@"%@; codecs=\"%@\"", (NSString *)type, (NSString *)codecs];
+    return [AVURLAsset isPlayableExtendedMIMEType:typeString] ? MediaPlayer::IsSupported : MediaPlayer::MayBeSupported;;
 }
 
 bool MediaPlayerPrivateAVFoundationObjC::isAvailable()
@@ -756,6 +764,14 @@ NSArray* itemKVOProperties()
         return;
 
     m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::PlayerTimeChanged, time);
+}
+
+- (void)seekCompleted:(BOOL)finished
+{
+    if (!m_callback)
+        return;
+    
+    m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::SeekCompleted, static_cast<bool>(finished));
 }
 
 - (void)didEnd:(NSNotification *)unusedNotification

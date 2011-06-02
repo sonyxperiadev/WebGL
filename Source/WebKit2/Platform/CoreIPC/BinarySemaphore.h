@@ -41,6 +41,10 @@ public:
     void signal();
     bool wait(double absoluteTime);
 
+#if PLATFORM(WIN)
+    HANDLE event() const { return m_event; }
+#endif
+
 private:
 #if PLATFORM(WIN)
     HANDLE m_event;

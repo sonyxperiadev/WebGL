@@ -37,6 +37,7 @@
 #include <wtf/MathExtras.h>
 #include <wtf/PassOwnPtr.h>
 
+using namespace icu;
 using namespace std;
 
 namespace WebCore {

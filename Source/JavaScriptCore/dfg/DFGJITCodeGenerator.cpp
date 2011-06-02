@@ -60,9 +60,6 @@ GPRReg JITCodeGenerator::fillInteger(NodeIndex nodeIndex, DataFormat& returnForm
                 JSValue jsValue = valueOfJSConstant(nodeIndex);
                 m_jit.move(MacroAssembler::ImmPtr(JSValue::encode(jsValue)), reg);
             }
-        } else if (node.isArgument()) {
-            m_gprs.retain(gpr, virtualRegister, SpillOrderArgument);
-            m_jit.loadPtr(m_jit.addressForArgument(m_jit.graph()[nodeIndex].argumentNumber()), reg);
         } else {
             ASSERT(info.spillFormat() == DataFormatJS || info.spillFormat() == DataFormatJSInteger);
             m_gprs.retain(gpr, virtualRegister, SpillOrderSpilled);
@@ -143,11 +140,6 @@ FPRReg JITCodeGenerator::fillDouble(NodeIndex nodeIndex)
                 info.fillJSValue(gpr, DataFormatJS);
                 unlock(gpr);
             }
-        } else if (node.isArgument()) {
-            m_gprs.retain(gpr, virtualRegister, SpillOrderArgument);
-            m_jit.loadPtr(m_jit.addressForArgument(m_jit.graph()[nodeIndex].argumentNumber()), reg);
-            info.fillJSValue(gpr, DataFormatJS);
-            unlock(gpr);
         } else {
             DataFormat spillFormat = info.spillFormat();
             ASSERT(spillFormat & DataFormatJS);
@@ -267,10 +259,6 @@ GPRReg JITCodeGenerator::fillJSValue(NodeIndex nodeIndex)
             }
 
             m_gprs.retain(gpr, virtualRegister, SpillOrderConstant);
-        } else if (node.isArgument()) {
-            m_gprs.retain(gpr, virtualRegister, SpillOrderArgument);
-            m_jit.loadPtr(m_jit.addressForArgument(m_jit.graph()[nodeIndex].argumentNumber()), reg);
-            info.fillJSValue(gpr, DataFormatJS);
         } else {
             DataFormat spillFormat = info.spillFormat();
             ASSERT(spillFormat & DataFormatJS);
@@ -283,6 +271,13 @@ GPRReg JITCodeGenerator::fillJSValue(NodeIndex nodeIndex)
 
     case DataFormatInteger: {
         GPRReg gpr = info.gpr();
+        // If the register has already been locked we need to take a copy.
+        // If not, we'll zero extend in place, so mark on the info that this is now type DataFormatInteger, not DataFormatJSInteger.
+        if (m_gprs.isLocked(gpr)) {
+            GPRReg result = allocate();
+            m_jit.orPtr(JITCompiler::tagTypeNumberRegister, JITCompiler::gprToRegisterID(gpr), JITCompiler::gprToRegisterID(result));
+            return result;
+        }
         m_gprs.lock(gpr);
         m_jit.orPtr(JITCompiler::tagTypeNumberRegister, JITCompiler::gprToRegisterID(gpr));
         info.fillJSValue(gpr, DataFormatJSInteger);

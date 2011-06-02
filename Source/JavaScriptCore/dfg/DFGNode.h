@@ -26,10 +26,6 @@
 #ifndef DFGNode_h
 #define DFGNode_h
 
-#if ENABLE(DFG_JIT)
-
-#include <wtf/Vector.h>
-
 // Emit various logging information for debugging, including dumping the dataflow graphs.
 #define DFG_DEBUG_VERBOSE 0
 // Enable generation of dynamic checks into the instruction stream.
@@ -37,8 +33,20 @@
 // Consistency check contents compiler data structures.
 #define DFG_CONSISTENCY_CHECK 0
 // Emit a breakpoint into the head of every generated function, to aid debugging in GDB.
-#define DFG_JIT_BREAK_ON_ENTRY 0
+#define DFG_JIT_BREAK_ON_EVERY_FUNCTION 0
+// Emit a breakpoint into the head of every generated node, to aid debugging in GDB.
+#define DFG_JIT_BREAK_ON_EVERY_BLOCK 0
+// Emit a breakpoint into the head of every generated node, to aid debugging in GDB.
+#define DFG_JIT_BREAK_ON_EVERY_NODE 0
+// Disable the DFG JIT without having to touch Platform.h!
+#define DFG_DEBUG_LOCAL_DISBALE 0
+// Generate stats on how successful we were in making use of the DFG jit, and remaining on the hot path.
+#define DFG_SUCCESS_STATS 0
 
+
+#if ENABLE(DFG_JIT)
+
+#include <wtf/Vector.h>
 
 namespace JSC { namespace DFG {
 
@@ -61,6 +69,8 @@ typedef uint32_t ExceptionInfo;
 #define NodeResultMask     0xF000
 #define NodeMustGenerate  0x10000 // set on nodes that have side effects, and may not trivially be removed by DCE.
 #define NodeIsConstant    0x20000
+#define NodeIsJump        0x40000
+#define NodeIsBranch      0x80000
 
 // These values record the result type of the node (as checked by NodeResultMask, above), 0 for no result.
 #define NodeResultJS      0x1000
@@ -73,8 +83,11 @@ typedef uint32_t ExceptionInfo;
     macro(JSConstant, NodeResultJS | NodeIsConstant) \
     macro(Int32Constant, NodeResultJS | NodeIsConstant) \
     macro(DoubleConstant, NodeResultJS | NodeIsConstant) \
-    macro(Argument, NodeResultJS) \
     macro(ConvertThis, NodeResultJS) \
+    \
+    /* Nodes for local variable access. */\
+    macro(GetLocal, NodeResultJS) \
+    macro(SetLocal, NodeMustGenerate) \
     \
     /* Nodes for bitwise operations. */\
     macro(BitAnd, NodeResultInt32) \
@@ -115,6 +128,18 @@ typedef uint32_t ExceptionInfo;
     macro(GetGlobalVar, NodeResultJS | NodeMustGenerate) \
     macro(PutGlobalVar, NodeMustGenerate) \
     \
+    /* Nodes for comparison operations. */\
+    macro(CompareLess, NodeResultJS | NodeMustGenerate) \
+    macro(CompareLessEq, NodeResultJS | NodeMustGenerate) \
+    macro(CompareEq, NodeResultJS | NodeMustGenerate) \
+    macro(CompareStrictEq, NodeResultJS) \
+    \
+    /* Nodes for misc operations. */\
+    macro(LogicalNot, NodeResultJS) \
+    \
+    /* Block terminals. */\
+    macro(Jump, NodeMustGenerate | NodeIsJump) \
+    macro(Branch, NodeMustGenerate | NodeIsBranch) \
     macro(Return, NodeMustGenerate)
 
 // This enum generates a monotonically increasing id for all Node types,
@@ -170,6 +195,20 @@ struct Node {
     {
     }
 
+    // Construct a node with up to 3 children and two immediate values.
+    Node(NodeType op, ExceptionInfo exceptionInfo, OpInfo imm1, OpInfo imm2, NodeIndex child1 = NoNode, NodeIndex child2 = NoNode, NodeIndex child3 = NoNode)
+        : op(op)
+        , exceptionInfo(exceptionInfo)
+        , child1(child1)
+        , child2(child2)
+        , child3(child3)
+        , virtualRegister(InvalidVirtualRegister)
+        , refCount(0)
+        , m_opInfo(imm1.m_value)
+    {
+        m_constantValue.opInfo2 = imm2.m_value;
+    }
+
     bool mustGenerate()
     {
         return op & NodeMustGenerate;
@@ -186,15 +225,15 @@ struct Node {
         return m_opInfo;
     }
 
-    bool isArgument()
+    bool hasLocal()
     {
-        return op == Argument;
+        return op == GetLocal || op == SetLocal;
     }
 
-    unsigned argumentNumber()
+    VirtualRegister local()
     {
-        ASSERT(isArgument());
-        return m_opInfo;
+        ASSERT(hasLocal());
+        return (VirtualRegister)m_opInfo;
     }
 
     bool hasIdentifier()
@@ -266,6 +305,28 @@ struct Node {
         m_constantValue.asDouble = value;
     }
 
+    bool isJump()
+    {
+        return op & NodeIsJump;
+    }
+
+    bool isBranch()
+    {
+        return op & NodeIsBranch;
+    }
+
+    unsigned takenBytecodeOffset()
+    {
+        ASSERT(isBranch() || isJump());
+        return m_opInfo;
+    }
+
+    unsigned notTakenBytecodeOffset()
+    {
+        ASSERT(isBranch());
+        return m_constantValue.opInfo2;
+    }
+
     // This enum value describes the type of the node.
     NodeType op;
     // Used to look up exception handling information (currently implemented as a bytecode index).
@@ -284,6 +345,7 @@ private:
     union {
         int32_t asInt32;
         double asDouble;
+        unsigned opInfo2;
     } m_constantValue;
 };
 

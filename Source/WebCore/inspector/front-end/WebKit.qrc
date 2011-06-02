@@ -9,8 +9,6 @@
     <file>AuditRules.js</file>
     <file>AuditsPanel.js</file>
     <file>BottomUpProfileDataGridTree.js</file>
-    <file>Breakpoint.js</file>
-    <file>BreakpointManager.js</file>
     <file>BreakpointsSidebarPane.js</file>
     <file>CallStackSidebarPane.js</file>
     <file>Checkbox.js</file>
@@ -34,6 +32,7 @@
     <file>DebuggerPresentationModel.js</file>
     <file>SourceFile.js</file>
     <file>DOMAgent.js</file>
+    <file>DOMBreakpointsSidebarPane.js</file>
     <file>DOMStorage.js</file>
     <file>DOMStorageItemsView.js</file>
     <file>DOMSyntaxHighlighter.js</file>
@@ -51,6 +50,7 @@
     <file>GoToLineDialog.js</file>
     <file>HAREntry.js</file>
     <file>HeapSnapshot.js</file>
+    <file>HeapSnapshotProxy.js</file>
     <file>HeapSnapshotView.js</file>
     <file>HelpScreen.js</file>
     <file>ImageView.js</file>
@@ -98,7 +98,6 @@
     <file>SidebarTreeElement.js</file>
     <file>SourceCSSTokenizer.js</file>
     <file>SourceFrame.js</file>
-    <file>SourceFrameContent.js</file>
     <file>SourceHTMLTokenizer.js</file>
     <file>SourceJavaScriptTokenizer.js</file>
     <file>SourceTokenizer.js</file>

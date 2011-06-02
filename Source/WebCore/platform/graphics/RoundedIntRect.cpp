@@ -30,6 +30,8 @@
 #include "IntRect.h"
 #include <algorithm>
 
+using namespace std;
+
 namespace WebCore {
 
 bool RoundedIntRect::Radii::isZero() const
@@ -60,17 +62,17 @@ void RoundedIntRect::Radii::scale(float factor)
 
 void RoundedIntRect::Radii::expand(int topWidth, int bottomWidth, int leftWidth, int rightWidth)
 {
-    m_topLeft.setWidth(std::max(0, m_topLeft.width() + leftWidth));
-    m_topLeft.setHeight(std::max(0, m_topLeft.height() + topWidth));
+    m_topLeft.setWidth(max(0, m_topLeft.width() + leftWidth));
+    m_topLeft.setHeight(max(0, m_topLeft.height() + topWidth));
 
-    m_topRight.setWidth(std::max(0, m_topRight.width() + rightWidth));
-    m_topRight.setHeight(std::max(0, m_topRight.height() + topWidth));
+    m_topRight.setWidth(max(0, m_topRight.width() + rightWidth));
+    m_topRight.setHeight(max(0, m_topRight.height() + topWidth));
 
-    m_bottomLeft.setWidth(std::max(0, m_bottomLeft.width() + leftWidth));
-    m_bottomLeft.setHeight(std::max(0, m_bottomLeft.height() + bottomWidth));
+    m_bottomLeft.setWidth(max(0, m_bottomLeft.width() + leftWidth));
+    m_bottomLeft.setHeight(max(0, m_bottomLeft.height() + bottomWidth));
 
-    m_bottomRight.setWidth(std::max(0, m_bottomRight.width() + rightWidth));
-    m_bottomRight.setHeight(std::max(0, m_bottomRight.height() + bottomWidth));
+    m_bottomRight.setWidth(max(0, m_bottomRight.width() + rightWidth));
+    m_bottomRight.setHeight(max(0, m_bottomRight.height() + bottomWidth));
 }
 
 void RoundedIntRect::Radii::includeLogicalEdges(const RoundedIntRect::Radii& edges, bool isHorizontal, bool includeLogicalLeftEdge, bool includeLogicalRightEdge)
@@ -136,6 +138,14 @@ void RoundedIntRect::includeLogicalEdges(const Radii& edges, bool isHorizontal, 
 void RoundedIntRect::excludeLogicalEdges(bool isHorizontal, bool excludeLogicalLeftEdge, bool excludeLogicalRightEdge)
 {
     m_radii.excludeLogicalEdges(isHorizontal, excludeLogicalLeftEdge, excludeLogicalRightEdge);
+}
+
+bool RoundedIntRect::isRenderable() const
+{
+    return m_radii.topLeft().width() + m_radii.topRight().width() <= m_rect.width()
+        && m_radii.bottomLeft().width() + m_radii.bottomRight().width() <= m_rect.width()
+        && m_radii.topLeft().height() + m_radii.topRight().height() <= m_rect.height()
+        && m_radii.bottomLeft().height() + m_radii.bottomRight().height() <= m_rect.height();
 }
 
 } // namespace WebCore

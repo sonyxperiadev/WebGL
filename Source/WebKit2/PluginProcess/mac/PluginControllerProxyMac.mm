@@ -67,15 +67,35 @@ uint32_t PluginControllerProxy::remoteLayerClientID() const
     return WKCARemoteLayerClientGetClientId(m_remoteLayerClient.get());
 }
 
-void PluginControllerProxy::platformGeometryDidChange(const IntRect& frameRect, const IntRect&)
+void PluginControllerProxy::platformGeometryDidChange()
 {
     CALayer * pluginLayer = m_plugin->pluginLayer();
 
     // We don't want to animate to the new size so we disable actions for this transaction.
     [CATransaction begin];
     [CATransaction setValue:[NSNumber numberWithBool:YES] forKey:kCATransactionDisableActions];
-    [pluginLayer setFrame:CGRectMake(0, 0, frameRect.width(), frameRect.height())];
+    [pluginLayer setFrame:CGRectMake(0, 0, m_frameRect.width(), m_frameRect.height())];
     [CATransaction commit];
+}
+
+void PluginControllerProxy::windowFocusChanged(bool hasFocus)
+{
+    m_plugin->windowFocusChanged(hasFocus);
+}
+
+void PluginControllerProxy::windowAndViewFramesChanged(const IntRect& windowFrameInScreenCoordinates, const IntRect& viewFrameInWindowCoordinates)
+{
+    m_plugin->windowAndViewFramesChanged(windowFrameInScreenCoordinates, viewFrameInWindowCoordinates);
+}
+
+void PluginControllerProxy::windowVisibilityChanged(bool isVisible)
+{
+    m_plugin->windowVisibilityChanged(isVisible);
+}
+
+void PluginControllerProxy::sendComplexTextInput(const String& textInput)
+{
+    m_plugin->sendComplexTextInput(textInput);
 }
 
 } // namespace WebKit

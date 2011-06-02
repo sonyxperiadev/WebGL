@@ -24,18 +24,18 @@
 #define JSCell_h
 
 #include "CallData.h"
+#include "CallFrame.h"
 #include "ConstructData.h"
 #include "Heap.h"
-#include "JSImmediate.h"
 #include "JSLock.h"
-#include "JSValue.h"
+#include "JSValueInlineMethods.h"
 #include "MarkStack.h"
-#include "Structure.h"
 #include <wtf/Noncopyable.h>
 
 namespace JSC {
 
     class JSGlobalObject;
+    class Structure;
 
 #if COMPILER(MSVC)
     // If WTF_MAKE_NONCOPYABLE is applied to JSCell we end up with a bunch of
@@ -68,17 +68,19 @@ namespace JSC {
         friend class MarkedSpace;
         friend class MarkedBlock;
         friend class ScopeChainNode;
+        friend class Structure;
         friend class StructureChain;
 
+    protected:
+        enum VPtrStealingHackType { VPtrStealingHack };
+
     private:
-        explicit JSCell(Structure*);
+        explicit JSCell(VPtrStealingHackType) { }
+        JSCell(JSGlobalData&, Structure*);
         virtual ~JSCell();
 
     public:
-        static PassRefPtr<Structure> createDummyStructure(JSGlobalData& globalData)
-        {
-            return Structure::create(globalData, jsNull(), TypeInfo(UnspecifiedType), AnonymousSlotCount, 0);
-        }
+        static Structure* createDummyStructure(JSGlobalData&);
 
         // Querying the type.
         bool isString() const;
@@ -122,7 +124,7 @@ namespace JSC {
 #endif
 
         // Object operations, with the toObject operation included.
-        const ClassInfo* classInfo() const { return m_structure->classInfo(); }
+        const ClassInfo* classInfo() const;
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual void put(ExecState*, unsigned propertyName, JSValue);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
@@ -144,7 +146,7 @@ namespace JSC {
             return OBJECT_OFFSETOF(JSCell, m_structure);
         }
 
-        Structure* const * addressOfStructure() const
+        const void* addressOfStructure() const
         {
             return &m_structure;
         }
@@ -157,35 +159,28 @@ namespace JSC {
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
         
-        Structure* m_structure;
+        WriteBarrier<Structure> m_structure;
     };
 
-    inline JSCell::JSCell(Structure* structure)
-        : m_structure(structure)
+    inline JSCell::JSCell(JSGlobalData& globalData, Structure* structure)
+        : m_structure(globalData, this, structure)
     {
+        // Very first set of allocations won't have a real structure.
+        ASSERT(m_structure || !globalData.dummyMarkableCellStructure);
     }
 
     inline JSCell::~JSCell()
     {
     }
 
-    inline bool JSCell::isObject() const
-    {
-        return m_structure->typeInfo().type() == ObjectType;
-    }
-
-    inline bool JSCell::isString() const
-    {
-        return m_structure->typeInfo().type() == StringType;
-    }
-
     inline Structure* JSCell::structure() const
     {
-        return m_structure;
+        return m_structure.get();
     }
 
-    inline void JSCell::markChildren(MarkStack&)
+    inline void JSCell::markChildren(MarkStack& markStack)
     {
+        markStack.append(&m_structure);
     }
 
     // --- JSValue inlines ----------------------------
@@ -254,14 +249,6 @@ namespace JSC {
         return false;
     }
 
-#if USE(JSVALUE64)
-    ALWAYS_INLINE JSCell* JSValue::asCell() const
-    {
-        ASSERT(isCell());
-        return m_ptr;
-    }
-#endif // USE(JSVALUE64)
-
     inline JSValue JSValue::toPrimitive(ExecState* exec, PreferredPrimitiveType preferredType) const
     {
         return isCell() ? asCell()->toPrimitive(exec, preferredType) : asValue();
@@ -321,13 +308,6 @@ namespace JSC {
         return isUndefined() ? nonInlineNaN() : 0; // null and false both convert to 0.
     }
 
-    inline bool JSValue::needsThisConversion() const
-    {
-        if (UNLIKELY(!isCell()))
-            return true;
-        return asCell()->structure()->typeInfo().needsThisConversion();
-    }
-
     inline JSValue JSValue::getJSNumber()
     {
         if (isInt32() || isDouble())
@@ -351,16 +331,6 @@ namespace JSC {
     {
         return isCell() ? asCell()->toThisObject(exec) : toThisObjectSlowCase(exec);
     }
-    
-    ALWAYS_INLINE void MarkStack::internalAppend(JSCell* cell)
-    {
-        ASSERT(!m_isCheckingForDefaultMarkViolation);
-        ASSERT(cell);
-        if (Heap::testAndSetMarked(cell))
-            return;
-        if (cell->structure()->typeInfo().type() >= CompoundType)
-            m_values.append(cell);
-    }
 
     inline Heap* Heap::heap(JSValue v)
     {
@@ -377,7 +347,7 @@ namespace JSC {
 #if ENABLE(JSC_ZOMBIES)
     inline bool JSValue::isZombie() const
     {
-        return isCell() && asCell() && asCell()->isZombie();
+        return isCell() && asCell() > (JSCell*)0x1ffffffffL && asCell()->isZombie();
     }
 #endif
 

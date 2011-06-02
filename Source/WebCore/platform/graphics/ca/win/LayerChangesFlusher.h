@@ -34,15 +34,15 @@
 
 namespace WebCore {
 
-class CACFLayerTreeHost;
+class AbstractCACFLayerTreeHost;
 
 class LayerChangesFlusher {
     WTF_MAKE_NONCOPYABLE(LayerChangesFlusher);
 public:
     static LayerChangesFlusher& shared();
 
-    void flushPendingLayerChangesSoon(CACFLayerTreeHost*);
-    void cancelPendingFlush(CACFLayerTreeHost*);
+    void flushPendingLayerChangesSoon(AbstractCACFLayerTreeHost*);
+    void cancelPendingFlush(AbstractCACFLayerTreeHost*);
 
 private:
     LayerChangesFlusher();
@@ -53,7 +53,7 @@ private:
     void setHook();
     void removeHook();
 
-    HashSet<CACFLayerTreeHost*> m_hostsWithChangesToFlush;
+    HashSet<AbstractCACFLayerTreeHost*> m_hostsWithChangesToFlush;
     HHOOK m_hook;
     bool m_isCallingHosts;
 };

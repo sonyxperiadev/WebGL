@@ -5,7 +5,7 @@
  *                     2000 Simon Hausmann <hausmann@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
  *                     2001 George Staikos <staikos@kde.org>
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2005 Alexey Proskuryakov <ap@nypop.com>
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
@@ -72,6 +72,7 @@
 #include "RenderView.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
+#include "ScriptValue.h"
 #include "Settings.h"
 #include "TextIterator.h"
 #include "TextResourceDecoder.h"
@@ -522,9 +523,9 @@ void Frame::injectUserScripts(UserScriptInjectionTime injectionTime)
     if (!m_page)
         return;
 
-    if (loader()->stateMachine()->creatingInitialEmptyDocument())
+    if (loader()->stateMachine()->creatingInitialEmptyDocument() && !settings()->shouldInjectUserScriptsInInitialEmptyDocument())
         return;
-    
+
     // Walk the hashtable. Inject by world.
     const UserScriptMap* userScripts = m_page->group().userScripts();
     if (!userScripts)
@@ -808,6 +809,31 @@ Document* Frame::documentAtPoint(const IntPoint& point)
     return result.innerNode() ? result.innerNode()->document() : 0;
 }
 
+PassRefPtr<Range> Frame::rangeForPoint(const IntPoint& framePoint)
+{
+    VisiblePosition position = visiblePositionForPoint(framePoint);
+    if (position.isNull())
+        return 0;
+
+    VisiblePosition previous = position.previous();
+    if (previous.isNotNull()) {
+        RefPtr<Range> previousCharacterRange = makeRange(previous, position);
+        IntRect rect = editor()->firstRectForRange(previousCharacterRange.get());
+        if (rect.contains(framePoint))
+            return previousCharacterRange.release();
+    }
+
+    VisiblePosition next = position.next();
+    if (next.isNotNull()) {
+        RefPtr<Range> nextCharacterRange = makeRange(position, next);
+        IntRect rect = editor()->firstRectForRange(nextCharacterRange.get());
+        if (rect.contains(framePoint))
+            return nextCharacterRange.release();
+    }
+
+    return 0;
+}
+
 void Frame::createView(const IntSize& viewportSize,
                        const Color& backgroundColor, bool transparent,
                        const IntSize& fixedLayoutSize, bool useFixedLayout,
@@ -947,6 +973,8 @@ void Frame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomFactor
     if (!document)
         return;
 
+    m_editor.dismissCorrectionPanelAsIgnored();
+
 #if ENABLE(SVG)
     // Respect SVGs zoomAndPan="disabled" property in standalone SVG documents.
     // FIXME: How to handle compound documents + zoomAndPan="disabled"? Needs SVG WG clarification.
@@ -999,16 +1027,18 @@ void Frame::scalePage(float scale, const IntPoint& origin)
     if (!document)
         return;
 
-    m_pageScaleFactor = scale;
+    if (scale != m_pageScaleFactor) {
+        m_pageScaleFactor = scale;
 
-    if (document->renderer())
-        document->renderer()->setNeedsLayout(true);
+        if (document->renderer())
+            document->renderer()->setNeedsLayout(true);
 
-    document->recalcStyle(Node::Force);
+        document->recalcStyle(Node::Force);
 
 #if USE(ACCELERATED_COMPOSITING)
-    updateContentsScale(scale);
+        updateContentsScale(scale);
 #endif
+    }
 
     if (FrameView* view = this->view()) {
         if (document->renderer() && document->renderer()->needsLayout() && view->didFirstLayout())

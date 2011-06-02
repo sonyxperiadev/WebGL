@@ -30,13 +30,17 @@
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
-#include "ProgressBarValueElement.h"
+#include "ProgressShadowElement.h"
 #include "RenderProgress.h"
+#include "ShadowRoot.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
+
+const double HTMLProgressElement::IndeterminatePosition = -1;
+const double HTMLProgressElement::InvalidPosition = -2;
 
 HTMLProgressElement::HTMLProgressElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
     : HTMLFormControlElement(tagName, document, form)
@@ -44,9 +48,15 @@ HTMLProgressElement::HTMLProgressElement(const QualifiedName& tagName, Document*
     ASSERT(hasTagName(progressTag));
 }
 
+HTMLProgressElement::~HTMLProgressElement()
+{
+}
+
 PassRefPtr<HTMLProgressElement> HTMLProgressElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
 {
-    return adoptRef(new HTMLProgressElement(tagName, document, form));
+    RefPtr<HTMLProgressElement> progress = adoptRef(new HTMLProgressElement(tagName, document, form));
+    progress->createShadowSubtree();
+    return progress;
 }
 
 RenderObject* HTMLProgressElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -72,7 +82,6 @@ void HTMLProgressElement::parseMappedAttribute(Attribute* attribute)
 
 void HTMLProgressElement::attach()
 {
-    createShadowSubtreeIfNeeded();
     HTMLFormControlElement::attach();
     didElementStateChange();
 }
@@ -117,21 +126,24 @@ void HTMLProgressElement::setMax(double max, ExceptionCode& ec)
 double HTMLProgressElement::position() const
 {
     if (!hasAttribute(valueAttr))
-        return -1;
+        return HTMLProgressElement::IndeterminatePosition;
     return value() / max();
 }
 
 void HTMLProgressElement::didElementStateChange()
 {
+    m_value->setWidthPercentage(position()*100);
     if (renderer())
         renderer()->updateFromElement();
 }
 
-void HTMLProgressElement::createShadowSubtreeIfNeeded()
+void HTMLProgressElement::createShadowSubtree()
 {
-    if (shadowRoot())
-        return;
-    setShadowRoot(ProgressBarValueElement::create(document()).get());
+    RefPtr<ProgressBarElement> bar = ProgressBarElement::create(document());
+    m_value = ProgressValueElement::create(document());
+    ExceptionCode ec = 0;
+    bar->appendChild(m_value, ec);
+    ensureShadowRoot()->appendChild(bar, ec);
 }
 
 } // namespace

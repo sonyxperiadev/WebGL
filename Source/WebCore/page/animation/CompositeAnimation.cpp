@@ -43,7 +43,10 @@ namespace WebCore {
 
 CompositeAnimation::~CompositeAnimation()
 {
-    // Toss the refs to all animations
+    // Toss the refs to all animations, but make sure we remove them from
+    // any waiting lists first.
+
+    clearRenderer();
     m_transitions.clear();
     m_keyframeAnimations.clear();
 }
@@ -57,7 +60,7 @@ void CompositeAnimation::clearRenderer()
         for (CSSPropertyTransitionsMap::const_iterator it = m_transitions.begin(); it != transitionsEnd; ++it) {
             ImplicitAnimation* transition = it->second.get();
             animationController()->animationWillBeRemoved(transition);
-            transition->clearRenderer();
+            transition->clear();
         }
     }
     if (!m_keyframeAnimations.isEmpty()) {
@@ -66,7 +69,7 @@ void CompositeAnimation::clearRenderer()
         for (AnimationNameMap::const_iterator it = m_keyframeAnimations.begin(); it != animationsEnd; ++it) {
             KeyframeAnimation* anim = it->second.get();
             animationController()->animationWillBeRemoved(anim);
-            anim->clearRenderer();
+            anim->clear();
         }
     }
 }
@@ -261,7 +264,7 @@ void CompositeAnimation::updateKeyframeAnimations(RenderObject* renderer, Render
         if (keyframeAnim->index() < 0) {
             animsToBeRemoved.append(keyframeAnim->name().impl());
             animationController()->animationWillBeRemoved(keyframeAnim);
-            keyframeAnim->clearRenderer();
+            keyframeAnim->clear();
         }
     }
     

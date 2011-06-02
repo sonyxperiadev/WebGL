@@ -37,10 +37,11 @@ WebInspector.HeapSnapshotContainmentDataGrid = function()
     };
     WebInspector.DataGrid.call(this, columns);
     this.addEventListener("sorting changed", this.sort, this);
-    this._defaultPopulateCount = 100;
 }
 
 WebInspector.HeapSnapshotContainmentDataGrid.prototype = {
+    _defaultPopulateCount: 100,
+
     setDataSource: function(snapshotView, snapshot)
     {
         this.snapshotView = snapshotView;
@@ -65,6 +66,10 @@ WebInspector.HeapSnapshotSortableDataGrid.prototype = {
     {
         var sortAscending = this.sortOrder === "ascending";
         var sortColumnIdentifier = this.sortColumnIdentifier;
+        if (this._lastSortColumnIdentifier === sortColumnIdentifier && this._lastSortAscending === sortAscending)
+            return;
+        this._lastSortColumnIdentifier = sortColumnIdentifier;
+        this._lastSortAscending = sortAscending;
         var sortFields = this._sortFields(sortColumnIdentifier, sortAscending);
 
         function SortByTwoFields(nodeA, nodeB)
@@ -89,6 +94,7 @@ WebInspector.HeapSnapshotSortableDataGrid.prototype = {
 
     _performSorting: function(sortFunction)
     {
+        this.dispatchEventToListeners("start sorting");
         var children = this.children;
         this.removeChildren();
         children.sort(sortFunction);
@@ -98,6 +104,7 @@ WebInspector.HeapSnapshotSortableDataGrid.prototype = {
             if (child.expanded)
                 child.sort();
         }
+        this.dispatchEventToListeners("sorting complete");
     }
 };
 
@@ -115,6 +122,8 @@ WebInspector.HeapSnapshotConstructorsDataGrid = function()
 }
 
 WebInspector.HeapSnapshotConstructorsDataGrid.prototype = {
+    _defaultPopulateCount: 100,
+
     _sortFields: function(sortColumn, sortAscending)
     {
         return {
@@ -130,14 +139,17 @@ WebInspector.HeapSnapshotConstructorsDataGrid.prototype = {
         this.snapshotView = snapshotView;
         this.snapshot = snapshot;
         this.populateChildren();
-        this.sortingChanged();
     },
 
     populateChildren: function()
     {
-        var aggregates = this.snapshot.aggregates();
-        for (var constructor in aggregates)
-            this.appendChild(new WebInspector.HeapSnapshotConstructorNode(this, constructor, aggregates[constructor]));
+        function aggregatesReceived(aggregates)
+        {
+            for (var constructor in aggregates)
+                this.appendChild(new WebInspector.HeapSnapshotConstructorNode(this, constructor, aggregates[constructor]));
+            this.sortingChanged();
+        }
+        this.snapshot.aggregates(false, aggregatesReceived.bind(this));
     }
 };
 
@@ -147,7 +159,6 @@ WebInspector.HeapSnapshotDiffDataGrid = function()
 {
     var columns = {
         object: { title: WebInspector.UIString("Constructor"), disclosure: true, sortable: true },
-        // \xb1 is a "plus-minus" sign.
         addedCount: { title: WebInspector.UIString("# New"), width: "72px", sortable: true, sort: "descending" },
         removedCount: { title: WebInspector.UIString("# Deleted"), width: "72px", sortable: true },
         // \u0394 is a Greek delta letter.
@@ -160,6 +171,8 @@ WebInspector.HeapSnapshotDiffDataGrid = function()
 }
 
 WebInspector.HeapSnapshotDiffDataGrid.prototype = {
+    _defaultPopulateCount: 50,
+
     _sortFields: function(sortColumn, sortAscending)
     {
         return {
@@ -183,28 +196,41 @@ WebInspector.HeapSnapshotDiffDataGrid.prototype = {
     {
         this.baseSnapshot = baseSnapshot;
         this.removeChildren();
-        if (this.baseSnapshot !== this.snapshot) {
-            this.populateChildren();
-            this.sortingChanged();
-        }
+        if (this.baseSnapshot === this.snapshot)
+            return;
+        this.populateChildren();        
     },
 
     populateChildren: function()
     {
-        var baseClasses = this.baseSnapshot.aggregates(true);
-        var classes = this.snapshot.aggregates(true);
-        for (var clss in baseClasses) {
-            var node = new WebInspector.HeapSnapshotDiffNode(this, clss, baseClasses[clss], classes[clss]);
-            if (!node.zeroDiff)
-                this.appendChild(node);
-        }
-        for (clss in classes) {
-            if (!(clss in baseClasses)) {
-                var node = new WebInspector.HeapSnapshotDiffNode(this, clss, null, classes[clss]);
-                if (!node.zeroDiff)
-                    this.appendChild(node);
+        function baseAggregatesReceived(baseClasses)
+        {
+            function aggregatesReceived(classes)
+            {
+                var nodeCount = 0;
+                function addNodeIfNonZeroDiff(node, zeroDiff)
+                {
+                    if (!zeroDiff)
+                        this.appendChild(node);
+                    if (!--nodeCount)
+                        this.sortingChanged();
+                }
+                for (var clss in baseClasses) {
+                    var node = new WebInspector.HeapSnapshotDiffNode(this, clss, baseClasses[clss], classes[clss]);
+                    ++nodeCount;
+                    node.calculateDiff(this, addNodeIfNonZeroDiff.bind(this, node));
+                }
+                for (clss in classes) {
+                    if (!(clss in baseClasses)) {
+                        var node = new WebInspector.HeapSnapshotDiffNode(this, clss, null, classes[clss]);
+                        ++nodeCount;
+                        node.calculateDiff(this, addNodeIfNonZeroDiff.bind(this, node));
+                    }
+                }
             }
+            this.snapshot.aggregates(true, aggregatesReceived.bind(this));
         }
+        this.baseSnapshot.aggregates(true, baseAggregatesReceived.bind(this));
     }
 };
 
@@ -219,10 +245,11 @@ WebInspector.HeapSnapshotDominatorsDataGrid = function()
     };
     WebInspector.DataGrid.call(this, columns);
     this.addEventListener("sorting changed", this.sort, this);
-    this._defaultPopulateCount = 25;
 }
 
 WebInspector.HeapSnapshotDominatorsDataGrid.prototype = {
+    _defaultPopulateCount: 25,
+
     setDataSource: function(snapshotView, snapshot)
     {
         this.snapshotView = snapshotView;
@@ -243,6 +270,7 @@ WebInspector.HeapSnapshotRetainingPathsList = function()
         len: { title: WebInspector.UIString("Length"), width: "90px", sortable: true, sort: "ascending" }
     };
     WebInspector.HeapSnapshotSortableDataGrid.call(this, columns);
+    this._defaultPopulateCount = 100;
 }
 
 WebInspector.HeapSnapshotRetainingPathsList.prototype = {
@@ -254,6 +282,14 @@ WebInspector.HeapSnapshotRetainingPathsList.prototype = {
         }[sortColumn];
     },
 
+    _resetPaths: function()
+    {
+        this._setRootChildrenForFinder();
+        this.removeChildren();
+        this._counter = 0;
+        this.showNext(this._defaultPopulateCount);
+    },
+
     setDataSource: function(snapshotView, snapshot, nodeIndex, prefix)
     {
         this.snapshotView = snapshotView;
@@ -261,53 +297,49 @@ WebInspector.HeapSnapshotRetainingPathsList.prototype = {
 
         if (this.pathFinder)
             this.searchCancelled();
-
-        this.pathFinder = new WebInspector.HeapSnapshotPathFinder(snapshot, nodeIndex);
-        this._setRootChildrenForFinder();
-
-        this.removeChildren();
-
-        this._counter = 0;
-        this.showNext(100);
+        this.pathFinder = snapshot.createPathFinder(nodeIndex);
+        this._resetPaths();
     },
 
     refresh: function()
     {
-        this.removeChildren();
-        this._counter = 0;
         delete this._cancel;
-        this._setRootChildrenForFinder();
-        this.showNext(100);
+        this._resetPaths();
     },
 
     showNext: function(pathsCount)
     {
         WebInspector.PleaseWaitMessage.prototype.show(this.element, this.searchCancelled.bind(this, pathsCount));
-        window.setTimeout(startSearching.bind(this), 500);
+
+        function pathFound(result)
+        {
+            if (result === null) {
+                WebInspector.PleaseWaitMessage.prototype.hide();
+                if (!this.children.length)
+                    this.appendChild(new WebInspector.DataGridNode({path:WebInspector.UIString("Can't find any paths."), len:""}, false));
+                return;
+            } else if (result !== false) {
+                if (this._prefix)
+                    result.path = this._prefix + result.path;
+                this.appendChild(new WebInspector.DataGridNode(result, false));
+                ++this._counter;
+            }
+            setTimeout(startSearching.bind(this), 0);
+        }
 
         function startSearching()
         {
-            if (this._cancel !== this.pathFinder) {
-                if (this._counter < pathsCount) {
-                    var result = this.pathFinder.findNext();
-                    if (result === null) {
-                        WebInspector.PleaseWaitMessage.prototype.hide();
-                        if (!this.children.length)
-                            this.appendChild(new WebInspector.DataGridNode({path:WebInspector.UIString("Can't find any paths."), len:""}, false));
-                        return;
-                    } else if (result !== false) {
-                        if (this._prefix)
-                            result.path = this._prefix + result.path;
-                        this.appendChild(new WebInspector.DataGridNode(result, false));
-                        ++this._counter;
-                    }
-                    window.setTimeout(startSearching.bind(this), 0);
-                    return;
-                } else
-                    this.searchCancelled.call(this, pathsCount);
+            if (this._cancel === this.pathFinder)
+                return;
+            delete this._cancel;
+            if (this._counter < pathsCount)
+                this.pathFinder.findNext(pathFound.bind(this));
+            else {
+                this.searchCancelled.call(this, pathsCount);
+                delete this._cancel;
             }
-            this._cancel = false;
         }
+        setTimeout(startSearching.bind(this), 0);
     },
 
     searchCancelled: function(pathsCount)
@@ -419,20 +451,17 @@ WebInspector.DetailedHeapshotView = function(parent, profile)
     this.viewSelectElement.className = "status-bar-item";
     this.viewSelectElement.addEventListener("change", this._changeView.bind(this), false);
 
-    var classesViewOption = document.createElement("option");
-    classesViewOption.label = WebInspector.UIString("Summary");
-    var diffViewOption = document.createElement("option");
-    diffViewOption.label = WebInspector.UIString("Comparison");
-    var containmentViewOption = document.createElement("option");
-    containmentViewOption.label = WebInspector.UIString("Containment");
-    var dominatorsViewOption = document.createElement("option");
-    dominatorsViewOption.label = WebInspector.UIString("Dominators");
-    this.viewSelectElement.appendChild(classesViewOption);
-    this.viewSelectElement.appendChild(diffViewOption);
-    this.viewSelectElement.appendChild(containmentViewOption);
-    this.viewSelectElement.appendChild(dominatorsViewOption);
-    this.views = ["Summary", "Comparison", "Containment", "Dominators"];
+    this.views = [{title: "Summary", view: this.constructorsView, grid: this.constructorsDataGrid},
+                  {title: "Comparison", view: this.diffView, grid: this.diffDataGrid},
+                  {title: "Containment", view: this.containmentView, grid: this.containmentDataGrid},
+                  {title: "Dominators", view: this.dominatorView, grid: this.dominatorDataGrid}];
     this.views.current = 0;
+    for (var i = 0; i < this.views.length; ++i) {
+        var view = this.views[i];
+        var option = document.createElement("option");
+        option.label = WebInspector.UIString(view.title);
+        this.viewSelectElement.appendChild(option);
+    }
 
     this._profileUid = profile.uid;
 
@@ -450,12 +479,12 @@ WebInspector.DetailedHeapshotView = function(parent, profile)
 
     this._loadProfile(this._profileUid, profileCallback.bind(this));
 
-    function profileCallback(profile)
+    function profileCallback()
     {
         var list = this._profiles();
         var profileIndex;
         for (var i = 0; i < list.length; ++i)
-            if (list[i].uid === profile.uid) {
+            if (list[i].uid === this._profileUid) {
                 profileIndex = i;
                 break;
             }
@@ -490,7 +519,7 @@ WebInspector.DetailedHeapshotView.prototype = {
     get profileWrapper()
     {
         if (!this._profileWrapper)
-            this._profileWrapper = new WebInspector.HeapSnapshot(this.profile);
+            this._profileWrapper = this.profile.proxy;
         return this._profileWrapper;
     },
 
@@ -501,34 +530,27 @@ WebInspector.DetailedHeapshotView.prototype = {
 
     get baseProfileWrapper()
     {
-        if (!this._baseProfileWrapper) {
-            if (this.baseProfile !== this.profile)
-                this._baseProfileWrapper = new WebInspector.HeapSnapshot(this.baseProfile);
-            else
-                this._baseProfileWrapper = this.profileWrapper;
-        }
+        if (!this._baseProfileWrapper)
+            this._baseProfileWrapper = this.baseProfile.proxy;
         return this._baseProfileWrapper;
     },
 
     show: function(parentElement)
     {
         WebInspector.View.prototype.show.call(this, parentElement);
-        if (!this.profile._loaded)
+        if (!this.profileWrapper.loaded)
             this._loadProfile(this._profileUid, profileCallback1.bind(this));
         else
-            profileCallback1.call(this, this.profile);
+            profileCallback1.call(this);
 
-        function profileCallback1(profile) {
-            this.profileWrapper.restore(profile);
-            if (this.baseProfile && !this.baseProfile._loaded)
+        function profileCallback1() {
+            if (this.baseProfile && !this.baseProfileWrapper.loaded)
                 this._loadProfile(this._baseProfileUid, profileCallback2.bind(this));
             else
-                profileCallback2.call(this, this.baseProfile);
+                profileCallback2.call(this);
         }
 
-        function profileCallback2(profile) {
-            if (profile)
-                this.baseProfileWrapper.restore(profile);
+        function profileCallback2() {
             this.currentView.show();
             this.dataGrid.updateWidths();
         }
@@ -697,7 +719,7 @@ WebInspector.DetailedHeapshotView.prototype = {
         this._baseProfileUid = this._profiles()[this.baseSelectElement.selectedIndex].uid;
         this._loadProfile(this._baseProfileUid, baseProfileLoaded.bind(this));
 
-        function baseProfileLoaded(profile)
+        function baseProfileLoaded()
         {
             delete this._baseProfileWrapper;
             this.baseProfile._lastShown = Date.now();
@@ -770,19 +792,9 @@ WebInspector.DetailedHeapshotView.prototype = {
 
         this.views.current = event.target.selectedIndex;
         this.currentView.hide();
-        if (this.views[this.views.current] === "Containment") {
-            this.currentView = this.containmentView;
-            this.dataGrid = this.containmentDataGrid;
-        } else if (this.views[this.views.current] === "Summary") {
-            this.currentView = this.constructorsView;
-            this.dataGrid = this.constructorsDataGrid;
-        } else if (this.views[this.views.current] === "Comparison") {
-            this.currentView = this.diffView;
-            this.dataGrid = this.diffDataGrid;
-        } else if (this.views[this.views.current] === "Dominators") {
-            this.currentView = this.dominatorView;
-            this.dataGrid = this.dominatorDataGrid;
-        }
+        var view = this.views[this.views.current];
+        this.currentView = view.view;
+        this.dataGrid = view.grid;
         this.currentView.show();
         this.refreshVisibleData();
         if (this.currentView === this.diffView) {

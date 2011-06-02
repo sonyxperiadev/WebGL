@@ -64,6 +64,7 @@ namespace WebCore {
     class Screen;
     class SerializedScriptValue;
     class Storage;
+    class StorageInfo;
     class StyleMedia;
     class WebKitPoint;
 
@@ -284,8 +285,6 @@ namespace WebCore {
         DEFINE_ATTRIBUTE_EVENT_LISTENER(ended);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(focus);
-        DEFINE_ATTRIBUTE_EVENT_LISTENER(formchange);
-        DEFINE_ATTRIBUTE_EVENT_LISTENER(forminput);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(hashchange);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(input);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(invalid);
@@ -391,9 +390,10 @@ namespace WebCore {
         enum FileSystemType {
             TEMPORARY,
             PERSISTENT,
+            EXTERNAL,
         };
-        void requestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback>, PassRefPtr<ErrorCallback>);
-        void resolveLocalFileSystemURL(const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
+        void webkitRequestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback>, PassRefPtr<ErrorCallback>);
+        void webkitResolveLocalFileSystemURL(const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
 #endif
 
 #if ENABLE(INDEXED_DATABASE)
@@ -402,6 +402,10 @@ namespace WebCore {
 
 #if ENABLE(NOTIFICATIONS)
         NotificationCenter* webkitNotifications() const;
+#endif
+
+#if ENABLE(QUOTA)
+        StorageInfo* webkitStorageInfo() const;
 #endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -495,6 +499,10 @@ namespace WebCore {
 
 #if ENABLE(BLOB)
         mutable RefPtr<DOMURL> m_domURL;
+#endif
+
+#if ENABLE(QUOTA)
+        mutable RefPtr<StorageInfo> m_storageInfo;
 #endif
     };
 

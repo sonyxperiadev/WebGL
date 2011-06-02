@@ -59,6 +59,7 @@
 #include <WebCore/Logging.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/Page.h>
+#include <WebCore/PageCache.h>
 #include <WebCore/PageGroup.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/SchemeRegistry.h>
@@ -69,7 +70,6 @@
 #include <wtf/RandomNumber.h>
 
 #ifndef NDEBUG
-#include <WebCore/MemoryCache.h>
 #include <WebCore/GCController.h>
 #endif
 
@@ -117,8 +117,11 @@ WebProcess& WebProcess::shared()
     return process;
 }
 
+static const double shutdownTimeout = 60;
+
 WebProcess::WebProcess()
-    : m_inDidClose(false)
+    : ChildProcess(shutdownTimeout)
+    , m_inDidClose(false)
     , m_hasSetCacheModel(false)
     , m_cacheModel(CacheModelDocumentViewer)
 #if USE(ACCELERATED_COMPOSITING) && PLATFORM(MAC)
@@ -145,6 +148,7 @@ void WebProcess::initialize(CoreIPC::Connection::Identifier serverIdentifier, Ru
 
     m_connection = CoreIPC::Connection::createClientConnection(serverIdentifier, this, runLoop);
     m_connection->setDidCloseOnConnectionWorkQueueCallback(didCloseOnConnectionWorkQueue);
+    m_connection->setShouldExitOnSyncMessageSendFailure(true);
 
     m_connection->open();
 
@@ -214,11 +218,6 @@ void WebProcess::initializeWebProcess(const WebProcessCreationParameters& parame
 
     for (size_t i = 0; i < parameters.mimeTypesWithCustomRepresentation.size(); ++i)
         m_mimeTypesWithCustomRepresentations.add(parameters.mimeTypesWithCustomRepresentation[i]);
-
-    if (parameters.clearResourceCaches)
-        clearResourceCaches();
-    if (parameters.clearApplicationCache)
-        clearApplicationCache();
     
 #if PLATFORM(MAC)
     m_presenterApplicationPid = parameters.presenterApplicationPid;
@@ -276,20 +275,28 @@ void WebProcess::setVisitedLinkTable(const SharedMemory::Handle& handle)
     m_visitedLinkTable.setSharedMemory(sharedMemory.release());
 }
 
-PageGroup* WebProcess::sharedPageGroup()
-{
-    return PageGroup::pageGroup("WebKit2Group");
-}
-
 void WebProcess::visitedLinkStateChanged(const Vector<WebCore::LinkHash>& linkHashes)
 {
-    for (size_t i = 0; i < linkHashes.size(); ++i)
-        Page::visitedStateChanged(sharedPageGroup(), linkHashes[i]);
+    // FIXME: We may want to track visited links per WebPageGroup rather than per WebContext.
+    for (size_t i = 0; i < linkHashes.size(); ++i) {
+        HashMap<uint64_t, RefPtr<WebPageGroupProxy> >::const_iterator it = m_pageGroupMap.begin();
+        HashMap<uint64_t, RefPtr<WebPageGroupProxy> >::const_iterator end = m_pageGroupMap.end();
+        for (; it != end; ++it)
+            Page::visitedStateChanged(PageGroup::pageGroup(it->second->identifier()), linkHashes[i]);
+    }
+
+    pageCache()->markPagesForVistedLinkStyleRecalc();
 }
 
 void WebProcess::allVisitedLinkStateChanged()
 {
-    Page::allVisitedStateChanged(sharedPageGroup());
+    // FIXME: We may want to track visited links per WebPageGroup rather than per WebContext.
+    HashMap<uint64_t, RefPtr<WebPageGroupProxy> >::const_iterator it = m_pageGroupMap.begin();
+    HashMap<uint64_t, RefPtr<WebPageGroupProxy> >::const_iterator end = m_pageGroupMap.end();
+    for (; it != end; ++it)
+        Page::allVisitedStateChanged(PageGroup::pageGroup(it->second->identifier()));
+
+    pageCache()->markPagesForVistedLinkStyleRecalc();
 }
 
 bool WebProcess::isLinkVisited(LinkHash linkHash) const
@@ -490,6 +497,9 @@ void WebProcess::createWebPage(uint64_t pageID, const WebPageCreationParameters&
     if (result.second) {
         ASSERT(!result.first->second);
         result.first->second = WebPage::create(pageID, parameters);
+
+        // Balanced by an enableTermination in removeWebPage.
+        disableTermination();
     }
 
     ASSERT(result.first->second);
@@ -497,8 +507,11 @@ void WebProcess::createWebPage(uint64_t pageID, const WebPageCreationParameters&
 
 void WebProcess::removeWebPage(uint64_t pageID)
 {
+    ASSERT(m_pageMap.contains(pageID));
+
     m_pageMap.remove(pageID);
-    terminateIfPossible();
+
+    enableTermination();
 }
 
 bool WebProcess::isSeparateProcess() const
@@ -507,29 +520,26 @@ bool WebProcess::isSeparateProcess() const
     return m_runLoop == RunLoop::main();
 }
  
-void WebProcess::terminateIfPossible()
+bool WebProcess::shouldTerminate()
 {
-    if (!m_pageMap.isEmpty())
-        return;
-
-    if (m_inDidClose)
-        return;
-
-    if (DownloadManager::shared().isDownloading())
-        return;
-
     // Keep running forever if we're running in the same process.
     if (!isSeparateProcess())
-        return;
+        return false;
+
+    ASSERT(m_pageMap.isEmpty());
+    ASSERT(!DownloadManager::shared().isDownloading());
 
     // FIXME: the ShouldTerminate message should also send termination parameters, such as any session cookies that need to be preserved.
     bool shouldTerminate = false;
     if (m_connection->sendSync(Messages::WebProcessProxy::ShouldTerminate(), Messages::WebProcessProxy::ShouldTerminate::Reply(shouldTerminate), 0)
         && !shouldTerminate)
-        return;
+        return false;
 
-    // Actually terminate the process.
+    return true;
+}
 
+void WebProcess::terminate()
+{
 #ifndef NDEBUG
     gcController().garbageCollectNow();
     memoryCache()->setDisabled(true);
@@ -656,11 +666,8 @@ void WebProcess::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::Message
     // we'll let it slide.
 }
 
-NO_RETURN void WebProcess::didFailToSendSyncMessage(CoreIPC::Connection*)
+void WebProcess::syncMessageSendTimedOut(CoreIPC::Connection*)
 {
-    // We were making a synchronous call to a UI process that doesn't exist any more.
-    // Callers are unlikely to be prepared for an error like this, so it's best to exit immediately.
-    exit(0);
 }
 
 WebFrame* WebProcess::webFrame(uint64_t frameID) const
@@ -702,10 +709,8 @@ WebPageGroupProxy* WebProcess::webPageGroup(const WebPageGroupData& pageGroupDat
     return result.first->second.get();
 }
 
-void WebProcess::clearResourceCaches(uint32_t cachesToClear)
+void WebProcess::clearResourceCaches(ResourceCachesToClear resourceCachesToClear)
 {
-    ResourceCachesToClear resourceCachesToClear = static_cast<ResourceCachesToClear>(cachesToClear);
-
     platformClearResourceCaches(resourceCachesToClear);
 
     // Toggling the cache model like this forces the cache to evict all its in-memory resources.
@@ -731,6 +736,8 @@ void WebProcess::clearApplicationCache()
 #if !ENABLE(PLUGIN_PROCESS)
 void WebProcess::getSitesWithPluginData(const Vector<String>& pluginPaths, uint64_t callbackID)
 {
+    LocalTerminationDisabler terminationDisabler(*this);
+
     HashSet<String> sitesSet;
 
     for (size_t i = 0; i < pluginPaths.size(); ++i) {
@@ -747,11 +754,12 @@ void WebProcess::getSitesWithPluginData(const Vector<String>& pluginPaths, uint6
     copyToVector(sitesSet, sites);
 
     m_connection->send(Messages::WebContext::DidGetSitesWithPluginData(sites, callbackID), 0);
-    terminateIfPossible();
 }
 
 void WebProcess::clearPluginSiteData(const Vector<String>& pluginPaths, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID)
 {
+    LocalTerminationDisabler terminationDisabler(*this);
+
     for (size_t i = 0; i < pluginPaths.size(); ++i) {
         RefPtr<NetscapePluginModule> netscapePluginModule = NetscapePluginModule::getOrCreate(pluginPaths[i]);
         if (!netscapePluginModule)
@@ -768,7 +776,6 @@ void WebProcess::clearPluginSiteData(const Vector<String>& pluginPaths, const Ve
     }
 
     m_connection->send(Messages::WebContext::DidClearPluginSiteData(callbackID), 0);
-    terminateIfPossible();
 }
 #endif
 
@@ -805,7 +812,22 @@ void WebProcess::stopMemorySampler()
 
 void WebProcess::setTextCheckerState(const TextCheckerState& textCheckerState)
 {
+    bool continuousSpellCheckingTurnedOff = !textCheckerState.isContinuousSpellCheckingEnabled && m_textCheckerState.isContinuousSpellCheckingEnabled;
+    bool grammarCheckingTurnedOff = !textCheckerState.isGrammarCheckingEnabled && m_textCheckerState.isGrammarCheckingEnabled;
+
     m_textCheckerState = textCheckerState;
+
+    if (!continuousSpellCheckingTurnedOff && !grammarCheckingTurnedOff)
+        return;
+
+    HashMap<uint64_t, RefPtr<WebPage> >::iterator end = m_pageMap.end();
+    for (HashMap<uint64_t, RefPtr<WebPage> >::iterator it = m_pageMap.begin(); it != end; ++it) {
+        WebPage* page = (*it).second.get();
+        if (continuousSpellCheckingTurnedOff)
+            page->unmarkAllMisspellings();
+        if (grammarCheckingTurnedOff)
+            page->unmarkAllBadGrammar();
+    }
 }
 
 } // namespace WebKit

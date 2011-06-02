@@ -74,6 +74,7 @@ WebInspector.Panel.prototype = {
 
         this.restoreSidebarWidth();
         this._restoreScrollPositions();
+        WebInspector.extensionServer.notifyPanelShown(this.name);
     },
 
     hide: function()
@@ -86,6 +87,7 @@ WebInspector.Panel.prototype = {
         delete this._statusBarItemContainer;
         if ("_toolbarItem" in this)
             this._toolbarItem.removeStyleClass("toggled-on");
+        WebInspector.extensionServer.notifyPanelHidden(this.name);
     },
 
     reset: function()
@@ -235,7 +237,7 @@ WebInspector.Panel.prototype = {
 
         if (currentView !== this.visibleView) {
             this.showView(currentView);
-            WebInspector.focusSearchField();
+            WebInspector.searchController.focusSearchField();
         }
 
         if (showFirstResult)
@@ -268,7 +270,7 @@ WebInspector.Panel.prototype = {
 
         if (currentView !== this.visibleView) {
             this.showView(currentView);
-            WebInspector.focusSearchField();
+            WebInspector.searchController.focusSearchField();
         }
 
         if (showLastResult)
@@ -384,12 +386,12 @@ WebInspector.Panel.prototype = {
             visibleView.resize();
     },
 
-    canShowSourceLine: function(url, line)
+    canShowAnchorLocation: function(anchor)
     {
         return false;
     },
 
-    showSourceLine: function(url, line)
+    showAnchorLocation: function(anchor)
     {
         return false;
     },

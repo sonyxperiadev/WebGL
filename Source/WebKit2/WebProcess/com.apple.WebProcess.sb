@@ -11,6 +11,7 @@
 ;; Read-only preferences and data
 (allow file-read*
     ;; Basic system paths
+    (subpath "/Library/Dictionaries")
     (subpath "/Library/Fonts")
     (subpath "/Library/Frameworks")
     (subpath "/Library/Keychains")
@@ -46,6 +47,28 @@
     ;; FIXME: This should be removed when <rdar://problem/8957845> is fixed.
     (subpath (string-append (param "HOME_DIR") "/Library/Fonts"))
 
+    ;; FIXME: These should be removed when <rdar://problem/9217757> is fixed.
+    (subpath (string-append (param "HOME_DIR") "/Library/Audio/Plug-Ins/Components"))
+    (subpath (string-append (param "HOME_DIR") "/Library/Preferences/QuickTime Preferences"))
+    (subpath "/Library/Audio/Plug-Ins/Components")
+    (subpath "/Library/Audio/Plug-Ins/HAL")
+    (subpath "/Library/Video/Plug-Ins")
+    (subpath "/Library/QuickTime")
+
+    ;; FIXME: This should be removed when <rdar://problem/9237619> is fixed.
+    (literal (string-append (param "HOME_DIR") "/Library/Preferences/com.apple.universalaccess.plist"))
+
+    ;; FIXME: This should be removed when <rdar://problem/9276253> is fixed.
+    (subpath (string-append (param "HOME_DIR") "/Library/Keyboard Layouts"))
+
+    ;; FIXME: This should be removed when <rdar://problem/9276268> is fixed.
+    (subpath (string-append (param "HOME_DIR") "/Library/Input Methods"))
+
+    ;; FIXME: This should be removed when <rdar://problem/9276430> is fixed.
+    (literal (string-append (param "HOME_DIR") "/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2"))
+
+    (subpath (string-append (param "HOME_DIR") "/Library/Dictionaries"))
+
     ;; Extensions from UIProcess
     (extension)
 )
@@ -61,6 +84,9 @@
     (regex (string-append "^" (param "HOME_DIR") "/Library/Preferences/ByHost/com\.apple\.HIToolbox\."))
     (regex (string-append "^" (param "HOME_DIR") "/Library/Preferences/com\.apple\.WebProcess\."))
     (subpath (string-append (param "HOME_DIR") "/Library/Keychains"))
+
+    ;; FIXME: This should be removed when <rdar://problem/9217757> is fixed.
+    (literal (string-append (param "HOME_DIR") "/Library/Caches/com.apple.coreaudio.components.plist"))
 )
 
 ;; Darwin temporary files and caches, if present
@@ -94,56 +120,44 @@
 
 ;; Various services required by AppKit and other frameworks
 (allow mach-lookup
-   (global-name "com.apple.CoreServices.coreservicesd")
-   (global-name "com.apple.DiskArbitration.diskarbitrationd")
-   (global-name "com.apple.FileCoordination")
-   (global-name "com.apple.FontObjectsServer")
-   (global-name "com.apple.FontServer")
-   (global-name "com.apple.SecurityServer")
-   (global-name "com.apple.SystemConfiguration.configd")
-   (global-name "com.apple.audio.VDCAssistant")
-   (global-name "com.apple.audio.audiohald")
-   (global-name "com.apple.audio.coreaudiod")
-   (global-name "com.apple.cookied")
-   (global-name "com.apple.cvmsServ")
-   (global-name "com.apple.dock.server")
-   (global-name "com.apple.ocspd")
-   (global-name "com.apple.pasteboard.1")
-   (global-name "com.apple.system.opendirectoryd.api")
-   (global-name "com.apple.window_proxies")
-   (global-name "com.apple.windowserver.active")
-   (global-name-regex #"^com\.apple\.WebKit\.WebProcess-")
-   (global-name-regex #"^com\.apple\.qtkitserver\.")
+    (global-name "com.apple.CoreServices.coreservicesd")
+    (global-name "com.apple.DiskArbitration.diskarbitrationd")
+    (global-name "com.apple.FileCoordination")
+    (global-name "com.apple.FontObjectsServer")
+    (global-name "com.apple.FontServer")
+    (global-name "com.apple.SecurityServer")
+    (global-name "com.apple.SystemConfiguration.configd")
+    (global-name "com.apple.audio.VDCAssistant")
+    (global-name "com.apple.audio.audiohald")
+    (global-name "com.apple.audio.coreaudiod")
+    (global-name "com.apple.cookied")
+    (global-name "com.apple.cvmsServ")
+    (global-name "com.apple.networkd")
+    (global-name "com.apple.dock.server")
+    (global-name "com.apple.ocspd")
+    (global-name "com.apple.pasteboard.1")
+    (global-name "com.apple.system.opendirectoryd.api")
+    (global-name "com.apple.window_proxies")
+    (global-name "com.apple.windowserver.active")
+    (global-name-regex #"^com\.apple\.WebKit\.WebProcess-")
+    (global-name-regex #"^com\.apple\.qtkitserver\.")
+
+    ;; FIXME: This should be removed when <rdar://problem/9276393> is fixed.
+    (global-name "com.apple.metadata.mds")
 )
 
-;; FIXME: These rules are required until <rdar://problem/8448410> is addressed. See <rdar://problem/8349882> for discussion.
+;; FIXME: <rdar://problem/9263428> These rules are required to avoid
+;; sandbox violation spam, but some narrower rule should be
+;; sufficient.
 (allow network-outbound)
 (deny network-outbound (regex ""))
 (deny network-outbound (local ip))
+
 (allow network-outbound
    ;; Local mDNSResponder for DNS, arbitrary outbound TCP
    (literal "/private/var/run/mDNSResponder")
    (remote tcp)
 )
-
-;; FIXME: These rules are required until plug-ins are moved out of the web process.
-(allow file-read*
-   (regex (string-append "^" (param "HOME_DIR") "/Library/Preferences/ByHost/com\.apple\.ist\."))
-   (literal (string-append (param "HOME_DIR") "/Library/Preferences/edu.mit.Kerberos"))
-   (literal "/Library/Preferences/edu.mit.Kerberos")
-)
-
-(allow mach-lookup
-   (global-name "org.h5l.kcm")
-   (global-name "com.apple.tsm.uiserver")
-   (global-name-regex #"^com\.apple\.ist")
-)
-
-(allow network-outbound (remote ip))
-
-;; These rules are required while QTKitServer is being launched directly via posix_spawn (<rdar://problem/6912494>).
-(allow process-fork)
-(allow process-exec (literal "/System/Library/Frameworks/QTKit.framework/Versions/A/Resources/QTKitServer") (with no-sandbox))
 
 ;; FIXME: Once <rdar://problem/8900275> has been fixed, these rules can be removed.
 (allow mach-lookup (global-name "com.apple.pubsub.ipc"))

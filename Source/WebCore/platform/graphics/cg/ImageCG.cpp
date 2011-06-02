@@ -26,7 +26,7 @@
 #include "config.h"
 #include "BitmapImage.h"
 
-#if PLATFORM(CG)
+#if USE(CG)
 
 #include "AffineTransform.h"
 #include "FloatConversion.h"
@@ -154,6 +154,19 @@ CGImageRef BitmapImage::getCGImageRef()
     return frameAtIndex(0);
 }
 
+CGImageRef BitmapImage::getFirstCGImageRefOfSize(const IntSize& size)
+{
+    size_t count = frameCount();
+    for (size_t i = 0; i < count; ++i) {
+        CGImageRef cgImage = frameAtIndex(i);
+        if (IntSize(CGImageGetWidth(cgImage), CGImageGetHeight(cgImage)) == size)
+            return cgImage;
+    }
+
+    // Fallback to the default CGImageRef if we can't find the right size
+    return getCGImageRef();
+}
+
 void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator compositeOp)
 {
     startAnimation();
@@ -186,7 +199,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
         // containing only the portion we want to display. We need to do this because high-quality
         // interpolation smoothes sharp edges, causing pixels from outside the source rect to bleed
         // into the destination rect. See <rdar://problem/6112909>.
-        shouldUseSubimage = (interpolationQuality == kCGInterpolationHigh || interpolationQuality == kCGInterpolationDefault) && (srcRect.size() != destRect.size() || !ctxt->getCTM().isIdentityOrTranslationOrFlipped());
+        shouldUseSubimage = (interpolationQuality != kCGInterpolationNone) && (srcRect.size() != destRect.size() || !ctxt->getCTM().isIdentityOrTranslationOrFlipped());
         float xScale = srcRect.width() / destRect.width();
         float yScale = srcRect.height() / destRect.height();
         if (shouldUseSubimage) {
@@ -254,6 +267,11 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     if (!patternTransform.isInvertible())
         // Avoid a hang under CGContextDrawTiledImage on release builds.
         return;
+
+#if !ASSERT_DISABLED
+    if (this->isBitmapImage())
+        ASSERT(static_cast<BitmapImage*>(this)->notSolidColor());
+#endif
 
     CGContextRef context = ctxt->platformContext();
     ctxt->save();
@@ -346,4 +364,4 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
 
 }
 
-#endif // PLATFORM(CG)
+#endif // USE(CG)

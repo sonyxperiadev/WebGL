@@ -28,6 +28,7 @@
 
 #include "BrowserWindow.h"
 
+#include "UrlLoader.h"
 #include "qwkpreferences.h"
 
 static QWKPage* newPageFunction(QWKPage* page)
@@ -41,6 +42,7 @@ QVector<qreal> BrowserWindow::m_zoomLevels;
 BrowserWindow::BrowserWindow(QWKContext* context, WindowOptions* options)
     : m_isZoomTextOnly(false)
     , m_currentZoom(1)
+    , m_urlLoader(0)
     , m_context(context)
 {
     if (options)
@@ -106,6 +108,8 @@ BrowserWindow::BrowserWindow(QWKContext* context, WindowOptions* options)
     toggleFrameFlattening->setChecked(false);
     toolsMenu->addSeparator();
     toolsMenu->addAction("Change User Agent", this, SLOT(showUserAgentDialog()));
+    toolsMenu->addSeparator();
+    toolsMenu->addAction("Load URLs from file", this, SLOT(loadURLListFromFile()));
 
     QMenu* settingsMenu = menuBar()->addMenu("&Settings");
     QAction* toggleAutoLoadImages = settingsMenu->addAction("Disable Auto Load Images", this, SLOT(toggleAutoLoadImages(bool)));
@@ -137,7 +141,10 @@ BrowserWindow::BrowserWindow(QWKContext* context, WindowOptions* options)
         m_zoomLevels << 1.1 << 1.2 << 1.33 << 1.5 << 1.7 << 2 << 2.4 << 3;
     }
 
-    resize(800, 600);
+    if (m_windowOptions.startMaximized)
+        setWindowState(windowState() | Qt::WindowMaximized);
+    else
+        resize(800, 600);
     show();
 }
 
@@ -294,10 +301,9 @@ void BrowserWindow::toggleZoomTextOnly(bool b)
 
 void BrowserWindow::toggleFullScreenMode(bool enable)
 {
-    if (enable)
-        setWindowState(Qt::WindowFullScreen);
-    else
-        setWindowState(Qt::WindowNoState);
+    bool alreadyEnabled = windowState() & Qt::WindowFullScreen;
+    if (enable ^ alreadyEnabled)
+        setWindowState(windowState() ^ Qt::WindowFullScreen);
 }
 
 void BrowserWindow::toggleFrameFlattening(bool toggle)
@@ -333,6 +339,20 @@ void BrowserWindow::showUserAgentDialog()
 
     if (dialog.exec() && !combo->currentText().isEmpty())
         page()->setCustomUserAgent(combo->currentText());
+}
+
+void BrowserWindow::loadURLListFromFile()
+{
+    QString selectedFile;
+#ifndef QT_NO_FILEDIALOG
+    selectedFile = QFileDialog::getOpenFileName(this, tr("Load URL list from file")
+                                                       , QString(), tr("Text Files (*.txt);;All Files (*)"));
+#endif
+    if (selectedFile.isEmpty())
+       return;
+
+    m_urlLoader = new UrlLoader(this, selectedFile, 0, 0);
+    m_urlLoader->loadNext();
 }
 
 void BrowserWindow::printURL(const QUrl& url)
@@ -380,6 +400,7 @@ void BrowserWindow::applyZoom()
 
 BrowserWindow::~BrowserWindow()
 {
+    delete m_urlLoader;
     delete m_addressBar;
     delete m_browser;
 }

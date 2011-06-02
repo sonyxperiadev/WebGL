@@ -44,7 +44,6 @@
 #include "JSEventException.h"
 #include "JSExceptionBase.h"
 #include "JSMainThreadExecState.h"
-#include "JSNode.h"
 #include "JSRangeException.h"
 #include "JSXMLHttpRequestException.h"
 #include "KURL.h"
@@ -94,9 +93,6 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-typedef Document::JSWrapperCache JSWrapperCache;
-typedef Document::JSWrapperCacheMap JSWrapperCacheMap;
-
 class JSGlobalDataWorldIterator {
 public:
     JSGlobalDataWorldIterator(JSGlobalData* globalData)
@@ -138,163 +134,6 @@ const JSC::HashTable* getHashTableForGlobalData(JSGlobalData& globalData, const 
     return DOMObjectHashTableMap::mapFor(globalData).get(staticTable);
 }
 
-bool hasCachedDOMObjectWrapperUnchecked(JSGlobalData* globalData, void* objectHandle)
-{
-    for (JSGlobalDataWorldIterator worldIter(globalData); worldIter; ++worldIter) {
-        if (worldIter->m_wrappers.get(objectHandle))
-            return true;
-    }
-    return false;
-}
-
-bool hasCachedDOMObjectWrapper(JSGlobalData* globalData, void* objectHandle)
-{
-    for (JSGlobalDataWorldIterator worldIter(globalData); worldIter; ++worldIter) {
-        if (worldIter->m_wrappers.get(objectHandle))
-            return true;
-    }
-    return false;
-}
-
-DOMObject* getCachedDOMObjectWrapper(JSC::ExecState* exec, void* objectHandle) 
-{
-    return domObjectWrapperMapFor(exec).get(objectHandle);
-}
-
-void cacheDOMObjectWrapper(JSC::ExecState* exec, void* objectHandle, DOMObject* wrapper) 
-{
-    domObjectWrapperMapFor(exec).set(exec->globalData(), objectHandle, wrapper);
-}
-
-bool hasCachedDOMNodeWrapperUnchecked(Document* document, Node* node)
-{
-    if (!document)
-        return hasCachedDOMObjectWrapperUnchecked(JSDOMWindow::commonJSGlobalData(), node);
-
-    JSWrapperCacheMap& wrapperCacheMap = document->wrapperCacheMap();
-    for (JSWrapperCacheMap::iterator iter = wrapperCacheMap.begin(); iter != wrapperCacheMap.end(); ++iter) {
-        if (iter->second->get(node))
-            return true;
-    }
-    return false;
-}
-
-void cacheDOMNodeWrapper(JSC::ExecState* exec, Document* document, Node* node, JSNode* wrapper)
-{
-    if (!document)
-        domObjectWrapperMapFor(exec).set(exec->globalData(), node, wrapper);
-    else
-        document->getWrapperCache(currentWorld(exec))->set(exec->globalData(), node, wrapper);
-
-    if (currentWorld(exec)->isNormal())
-        node->setWrapper(exec->globalData(), wrapper);
-}
-
-static inline bool isObservableThroughDOM(JSNode* jsNode, DOMWrapperWorld* world)
-{
-    // Certain conditions implicitly make existence of a JS DOM node wrapper observable
-    // through the DOM, even if no explicit reference to it remains.
-
-    Node* node = jsNode->impl();
-
-    if (node->inDocument()) {
-        // If a node is in the document, and its wrapper has custom properties,
-        // the wrapper is observable because future access to the node through the
-        // DOM must reflect those properties.
-        if (jsNode->hasCustomProperties())
-            return true;
-
-        // If a node is in the document, and has event listeners, its wrapper is
-        // observable because its wrapper is responsible for marking those event listeners.
-        if (node->hasEventListeners())
-            return true; // Technically, we may overzealously mark a wrapper for a node that has only non-JS event listeners. Oh well.
-
-        // If a node owns another object with a wrapper with custom properties,
-        // the wrapper must be treated as observable, because future access to
-        // those objects through the DOM must reflect those properties.
-        // FIXME: It would be better if this logic could be in the node next to
-        // the custom markChildren functions rather than here.
-        // Note that for some compound objects like stylesheets and CSSStyleDeclarations,
-        // we don't descend to check children for custom properties, and just conservatively
-        // keep the node wrappers protecting them alive.
-        if (node->isElementNode()) {
-            if (NamedNodeMap* attributes = static_cast<Element*>(node)->attributeMap()) {
-                if (DOMObject* wrapper = world->m_wrappers.get(attributes)) {
-                    // FIXME: This check seems insufficient, because NamedNodeMap items can have custom properties themselves.
-                    // Maybe it would be OK to just keep the wrapper alive, as it is done for CSSOM objects below.
-                    if (wrapper->hasCustomProperties())
-                        return true;
-                }
-            }
-            if (node->isStyledElement()) {
-                if (CSSMutableStyleDeclaration* style = static_cast<StyledElement*>(node)->inlineStyleDecl()) {
-                    if (world->m_wrappers.get(style))
-                        return true;
-                }
-            }
-            if (static_cast<Element*>(node)->hasTagName(canvasTag)) {
-                if (CanvasRenderingContext* context = static_cast<HTMLCanvasElement*>(node)->renderingContext()) {
-                    if (DOMObject* wrapper = world->m_wrappers.get(context)) {
-                        if (wrapper->hasCustomProperties())
-                            return true;
-                    }
-                }
-            } else if (static_cast<Element*>(node)->hasTagName(linkTag)) {
-                if (StyleSheet* sheet = static_cast<HTMLLinkElement*>(node)->sheet()) {
-                    if (world->m_wrappers.get(sheet))
-                        return true;
-                }
-            } else if (static_cast<Element*>(node)->hasTagName(styleTag)) {
-                if (StyleSheet* sheet = static_cast<HTMLStyleElement*>(node)->sheet()) {
-                    if (world->m_wrappers.get(sheet))
-                        return true;
-                }
-            }
-        } else if (node->nodeType() == Node::PROCESSING_INSTRUCTION_NODE) {
-            if (StyleSheet* sheet = static_cast<ProcessingInstruction*>(node)->sheet()) {
-                if (world->m_wrappers.get(sheet))
-                    return true;
-            }
-        }
-    } else {
-        // If a wrapper is the last reference to an image or script element
-        // that is loading but not in the document, the wrapper is observable
-        // because it is the only thing keeping the image element alive, and if
-        // the image element is destroyed, its load event will not fire.
-        // FIXME: The DOM should manage this issue without the help of JavaScript wrappers.
-        if (node->hasTagName(imgTag) && !static_cast<HTMLImageElement*>(node)->haveFiredLoadEvent())
-            return true;
-        if (node->hasTagName(scriptTag) && !static_cast<HTMLScriptElement*>(node)->haveFiredLoadEvent())
-            return true;
-#if ENABLE(VIDEO)
-        if (node->hasTagName(audioTag) && !static_cast<HTMLAudioElement*>(node)->paused())
-            return true;
-#endif
-    }
-
-    // If a node is firing event listeners, its wrapper is observable because
-    // its wrapper is responsible for marking those event listeners.
-    if (node->isFiringEventListeners())
-        return true;
-
-    return false;
-}
-
-void markDOMNodesForDocument(MarkStack& markStack, Document* document)
-{
-    JSWrapperCacheMap& wrapperCacheMap = document->wrapperCacheMap();
-    for (JSWrapperCacheMap::iterator wrappersIter = wrapperCacheMap.begin(); wrappersIter != wrapperCacheMap.end(); ++wrappersIter) {
-        DOMWrapperWorld* world = wrappersIter->first;
-        JSWrapperCache* nodeDict = wrappersIter->second;
-
-        JSWrapperCache::iterator nodeEnd = nodeDict->end();
-        for (JSWrapperCache::iterator nodeIt = nodeDict->begin(); nodeIt != nodeEnd; ++nodeIt) {
-            if (isObservableThroughDOM(nodeIt.get().second, world))
-                markStack.deprecatedAppend(nodeIt.getSlot().second);
-        }
-    }
-}
-
 void markActiveObjectsForContext(MarkStack& markStack, JSGlobalData& globalData, ScriptExecutionContext* scriptExecutionContext)
 {
     // If an element has pending activity that may result in event listeners being called
@@ -319,42 +158,6 @@ void markActiveObjectsForContext(MarkStack& markStack, JSGlobalData& globalData,
     }
 }
 
-typedef std::pair<JSNode*, DOMWrapperWorld*> WrapperAndWorld;
-typedef WTF::Vector<WrapperAndWorld, 8> WrapperSet;
-
-static inline void takeWrappers(Node* node, Document* document, WrapperSet& wrapperSet)
-{
-    if (document) {
-        JSWrapperCacheMap& wrapperCacheMap = document->wrapperCacheMap();
-        for (JSWrapperCacheMap::iterator iter = wrapperCacheMap.begin(); iter != wrapperCacheMap.end(); ++iter) {
-            if (JSNode* wrapper = iter->second->take(node))
-                wrapperSet.append(WrapperAndWorld(wrapper, iter->first));
-        }
-    } else {
-        for (JSGlobalDataWorldIterator worldIter(JSDOMWindow::commonJSGlobalData()); worldIter; ++worldIter) {
-            DOMWrapperWorld* world = *worldIter;
-            if (JSNode* wrapper = static_cast<JSNode*>(world->m_wrappers.take(node)))
-                wrapperSet.append(WrapperAndWorld(wrapper, world));
-        }
-    }
-}
-
-void updateDOMNodeDocument(Node* node, Document* oldDocument, Document* newDocument)
-{
-    ASSERT(oldDocument != newDocument);
-
-    WrapperSet wrapperSet;
-    takeWrappers(node, oldDocument, wrapperSet);
-
-    for (unsigned i = 0; i < wrapperSet.size(); ++i) {
-        JSNode* wrapper = wrapperSet[i].first;
-        if (newDocument)
-            newDocument->getWrapperCache(wrapperSet[i].second)->set(*wrapperSet[i].second->globalData(), node, wrapper);
-        else
-            wrapperSet[i].second->m_wrappers.set(*wrapperSet[i].second->globalData(), node, wrapper);
-    }
-}
-
 void markDOMObjectWrapper(MarkStack& markStack, JSGlobalData& globalData, void* object)
 {
     // FIXME: This could be changed to only mark wrappers that are "observable"
@@ -364,25 +167,8 @@ void markDOMObjectWrapper(MarkStack& markStack, JSGlobalData& globalData, void* 
         return;
 
     for (JSGlobalDataWorldIterator worldIter(&globalData); worldIter; ++worldIter) {
-        if (HandleSlot wrapperSlot = worldIter->m_wrappers.getSlot(object))
-            markStack.deprecatedAppend(wrapperSlot);
-    }
-}
-
-void markDOMNodeWrapper(MarkStack& markStack, Document* document, Node* node)
-{
-    if (document) {
-        JSWrapperCacheMap& wrapperCacheMap = document->wrapperCacheMap();
-        for (JSWrapperCacheMap::iterator iter = wrapperCacheMap.begin(); iter != wrapperCacheMap.end(); ++iter) {
-            if (HandleSlot wrapperSlot = iter->second->getSlot(node))
-                markStack.deprecatedAppend(wrapperSlot);
-        }
-        return;
-    }
-
-    for (JSGlobalDataWorldIterator worldIter(JSDOMWindow::commonJSGlobalData()); worldIter; ++worldIter) {
-        if (HandleSlot wrapperSlot = worldIter->m_wrappers.getSlot(node))
-            markStack.deprecatedAppend(wrapperSlot);
+        if (JSDOMWrapper* wrapper = worldIter->m_wrappers.get(object).get())
+            markStack.deprecatedAppend(reinterpret_cast<JSCell**>(&wrapper));
     }
 }
 
@@ -646,11 +432,11 @@ Structure* getCachedDOMStructure(JSDOMGlobalObject* globalObject, const ClassInf
     return structures.get(classInfo).get();
 }
 
-Structure* cacheDOMStructure(JSDOMGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, const ClassInfo* classInfo)
+Structure* cacheDOMStructure(JSDOMGlobalObject* globalObject, Structure* structure, const ClassInfo* classInfo)
 {
     JSDOMStructureMap& structures = globalObject->structures();
     ASSERT(!structures.contains(classInfo));
-    return structures.set(classInfo, structure).first->second.get();
+    return structures.set(classInfo, WriteBarrier<Structure>(globalObject->globalData(), globalObject, structure)).first->second.get();
 }
 
 JSC::JSObject* toJSSequence(ExecState* exec, JSValue value, unsigned& length)

@@ -780,10 +780,19 @@ void LayoutTestController::setGeolocationPermission(bool allow)
     DumpRenderTreeSupportQt::setMockGeolocationPermission(m_drt->webPage(), allow);
 }
 
+QVariant LayoutTestController::shadowRoot(const QWebElement& element)
+{
+    return DumpRenderTreeSupportQt::shadowRoot(element);
+}
+
 int LayoutTestController::numberOfPendingGeolocationPermissionRequests()
 {
-    // FIXME: Implement for Geolocation layout tests.
-    return -1;
+    int pendingPermissionCount = 0;
+    QList<WebCore::WebPage*> pages = m_drt->getAllPages();
+    foreach (WebCore::WebPage* page, pages)
+        pendingPermissionCount += DumpRenderTreeSupportQt::numberOfPendingGeolocationPermissionRequests(page);
+
+    return pendingPermissionCount;
 }
 
 void LayoutTestController::setGeolocationPermissionCommon(bool allow)

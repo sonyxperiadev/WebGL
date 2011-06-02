@@ -61,7 +61,7 @@
 #include "WebViewImpl.h"
 #include "WebWorkerClientImpl.h"
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CGContext.h>
 #endif
 
@@ -176,6 +176,12 @@ void PlatformBridge::clipboardReadHTML(
     *htmlText = webKitClient()->clipboard()->readHTML(
         static_cast<WebClipboard::Buffer>(buffer), &url);
     *sourceURL = url;
+}
+
+PassRefPtr<SharedBuffer> PlatformBridge::clipboardReadImage(
+    PasteboardPrivate::ClipboardBuffer buffer)
+{
+    return webKitClient()->clipboard()->readImage(static_cast<WebClipboard::Buffer>(buffer));
 }
 
 void PlatformBridge::clipboardWriteSelection(const String& htmlText,

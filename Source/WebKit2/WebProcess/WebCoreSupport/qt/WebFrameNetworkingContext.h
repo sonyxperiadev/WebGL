@@ -33,8 +33,10 @@ private:
 
     virtual QObject* originatingObject() const;
     virtual QNetworkAccessManager* networkAccessManager() const;
+    virtual bool mimeSniffingEnabled() const;
 
     QObject* m_originatingObject;
+    bool m_mimeSniffingEnabled;
 };
 
 }

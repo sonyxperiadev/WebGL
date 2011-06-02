@@ -55,7 +55,7 @@ class WorkerMixin(object):
         self._batch_count = 0
         self._batch_size = self._options.batch_size
         self._driver = None
-        tests_run_filename = self._filesystem.join(self._options.results_directory,
+        tests_run_filename = self._filesystem.join(port.results_directory(),
                                                    "tests_run%d.txt" % self._worker_number)
         self._tests_run_file = self._filesystem.open_text_file_for_writing(tests_run_filename)
 
@@ -159,18 +159,18 @@ class WorkerMixin(object):
           A TestResult
         """
         worker = self
-        result = None
 
         driver = worker._port.create_driver(worker._worker_number)
         driver.start()
 
         class SingleTestThread(threading.Thread):
             def run(self):
-                result = worker._run_single_test(driver, test_input)
+                self.result = worker._run_single_test(driver, test_input)
 
         thread = SingleTestThread()
         thread.start()
         thread.join(thread_timeout_sec)
+        result = getattr(thread, 'result', None)
         if thread.isAlive():
             # If join() returned with the thread still running, the
             # DumpRenderTree is completely hung and there's nothing

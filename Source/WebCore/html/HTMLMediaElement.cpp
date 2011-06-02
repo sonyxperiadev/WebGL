@@ -33,6 +33,7 @@
 #include "ChromeClient.h"
 #include "ClientRect.h"
 #include "ClientRectList.h"
+#include "ContentSecurityPolicy.h"
 #include "ContentType.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
@@ -54,12 +55,14 @@
 #include "MediaList.h"
 #include "MediaPlayer.h"
 #include "MediaQueryEvaluator.h"
+#include "MouseEvent.h"
 #include "MIMETypeRegistry.h"
 #include "Page.h"
 #include "RenderVideo.h"
 #include "RenderView.h"
 #include "ScriptEventListener.h"
 #include "Settings.h"
+#include "ShadowRoot.h"
 #include "TimeRanges.h"
 #include <limits>
 #include <wtf/CurrentTime.h>
@@ -161,6 +164,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
     , m_sendProgressEvents(true)
     , m_isFullscreen(false)
     , m_closedCaptionsVisible(false)
+    , m_mouseOver(false)
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_needWidgetUpdate(false)
 #endif
@@ -223,12 +227,14 @@ void HTMLMediaElement::attributeChanged(Attribute* attr, bool preserveDecls)
     }
     else if (attrName == controlsAttr) {
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-        if (!isVideo() && attached() && (controls() != (renderer() != 0))) {
-            detach();
-            attach();
-        }
-        if (hasMediaControls())
-            mediaControls()->reset();
+        if (controls()) {
+            if (!hasMediaControls()) {
+                ensureMediaControls();
+                mediaControls()->reset();
+            }
+            mediaControls()->show();
+        } else if (hasMediaControls())
+            mediaControls()->hide();
 #else
         if (m_player)
             m_player->setControls(controls());
@@ -743,6 +749,9 @@ bool HTMLMediaElement::isSafeToLoadURL(const KURL& url, InvalidSourceAction acti
         return false;
     }
 
+    if (!document()->contentSecurityPolicy()->allowMediaFromSource(url))
+        return false;
+
     return true;
 }
 
@@ -900,6 +909,8 @@ void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
             noneSupported();
 
         updateDisplayState();
+        if (hasMediaControls())
+            mediaControls()->reportedError();
         return;
     }
 
@@ -929,6 +940,9 @@ void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
         m_networkState = NETWORK_IDLE;
         m_completelyLoaded = true;
     }
+
+    if (hasMediaControls())
+        mediaControls()->changedNetworkState();
 }
 
 void HTMLMediaElement::mediaPlayerReadyStateChanged(MediaPlayer*)
@@ -978,6 +992,8 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
     if (m_readyState >= HAVE_METADATA && oldState < HAVE_METADATA) {
         scheduleEvent(eventNames().durationchangeEvent);
         scheduleEvent(eventNames().loadedmetadataEvent);
+        if (hasMediaControls())
+            mediaControls()->loadedMetadata();
         if (renderer())
             renderer()->updateFromElement();
         m_player->seek(0);
@@ -1491,6 +1507,10 @@ bool HTMLMediaElement::controls() const
     if (isVideo() && document()->page() && document()->page()->chrome()->requiresFullscreenForVideoPlayback())
         return true;
 
+    // Always show controls when in full screen mode.
+    if (isFullscreen())
+        return true;
+
     return hasAttribute(controlsAttr);
 }
 
@@ -1605,9 +1625,11 @@ void HTMLMediaElement::playbackProgressTimerFired(Timer<HTMLMediaElement>*)
         return;
 
     scheduleTimeupdateEvent(true);
-    if (hasMediaControls())
+    if (hasMediaControls()) {
+        if (!m_mouseOver && controls())
+            mediaControls()->makeTransparent();
         mediaControls()->playbackProgressed();
-
+    }
     // FIXME: deal with cue ranges here
 }
 
@@ -1997,10 +2019,23 @@ void HTMLMediaElement::mediaPlayerRenderingModeChanged(MediaPlayer*)
 
 void HTMLMediaElement::mediaPlayerEngineUpdated(MediaPlayer*)
 {
-    beginProcessingMediaPlayerCallback();
     LOG(Media, "HTMLMediaElement::mediaPlayerEngineUpdated");
+    beginProcessingMediaPlayerCallback();
     if (renderer())
         renderer()->updateFromElement();
+    endProcessingMediaPlayerCallback();
+}
+
+void HTMLMediaElement::mediaPlayerFirstVideoFrameAvailable(MediaPlayer*)
+{
+    LOG(Media, "HTMLMediaElement::mediaPlayerFirstVideoFrameAvailable");
+    beginProcessingMediaPlayerCallback();
+    if (displayMode() == PosterWaitingForVideo) {
+        setDisplayMode(Video);
+#if USE(ACCELERATED_COMPOSITING)
+        mediaPlayerRenderingModeChanged(m_player.get());
+#endif
+    }
     endProcessingMediaPlayerCallback();
 }
 
@@ -2148,9 +2183,11 @@ void HTMLMediaElement::updatePlayState()
             if (!m_isFullscreen && isVideo() && document() && document()->page() && document()->page()->chrome()->requiresFullscreenForVideoPlayback())
                 enterFullscreen();
 
-            // Set rate before calling play in case the rate was set before the media engine was setup.
-            // The media engine should just stash the rate since it isn't already playing.
+            // Set rate, muted before calling play in case they were set before the media engine was setup.
+            // The media engine should just stash the rate and muted values since it isn't already playing.
             m_player->setRate(m_playbackRate);
+            m_player->setMuted(m_muted);
+
             m_player->play();
         }
 
@@ -2323,10 +2360,18 @@ void HTMLMediaElement::defaultEventHandler(Event* event)
     if (widget)
         widget->handleEvent(event);
 #else
-    if (hasMediaControls())
-        mediaControls()->forwardEvent(event);
-    if (event->defaultHandled())
-        return;
+    if (event->isMouseEvent()) {
+        MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
+        if (mouseEvent->relatedTarget() != this) {
+            if (event->type() == eventNames().mouseoverEvent) {
+                m_mouseOver = true;
+                if (hasMediaControls() && controls() && !canPlay())
+                    mediaControls()->makeOpaque();
+            } else if (event->type() == eventNames().mouseoutEvent)
+                m_mouseOver = false;
+        }
+    }
+
     HTMLElement::defaultEventHandler(event);
 #endif
 }
@@ -2459,9 +2504,16 @@ bool HTMLMediaElement::isFullscreen() const
 void HTMLMediaElement::enterFullscreen()
 {
     LOG(Media, "HTMLMediaElement::enterFullscreen");
-
+#if ENABLE(FULLSCREEN_API)
+    if (document() && document()->settings() && document()->settings()->fullScreenEnabled()) {
+        webkitRequestFullScreen(0);
+        return;
+    }
+#endif
     ASSERT(!m_isFullscreen);
     m_isFullscreen = true;
+    if (hasMediaControls())
+        mediaControls()->enteredFullscreen();
     if (document() && document()->page()) {
         document()->page()->chrome()->client()->enterFullscreenForNode(this);
         scheduleEvent(eventNames().webkitbeginfullscreenEvent);
@@ -2471,9 +2523,17 @@ void HTMLMediaElement::enterFullscreen()
 void HTMLMediaElement::exitFullscreen()
 {
     LOG(Media, "HTMLMediaElement::exitFullscreen");
-
+#if ENABLE(FULLSCREEN_API)
+    if (document() && document()->settings() && document()->settings()->fullScreenEnabled()) {
+        if (document()->webkitIsFullScreen() && document()->webkitCurrentFullScreenElement() == this)
+            document()->webkitCancelFullScreen();
+        return;
+    }
+#endif
     ASSERT(m_isFullscreen);
     m_isFullscreen = false;
+    if (hasMediaControls())
+        mediaControls()->exitedFullscreen();
     if (document() && document()->page()) {
         if (document()->page()->chrome()->requiresFullscreenForVideoPlayback())
             pauseInternal();
@@ -2606,14 +2666,43 @@ void HTMLMediaElement::privateBrowsingStateDidChange()
 
 MediaControls* HTMLMediaElement::mediaControls()
 {
-    ASSERT(renderer());
-    return toRenderMedia(renderer())->controls();
+    if (!shadowRoot())
+        return 0;
+
+    Node* node = shadowRoot()->firstChild();
+    ASSERT(node->isHTMLElement());
+    return static_cast<MediaControls*>(node);
 }
 
-bool HTMLMediaElement::hasMediaControls() const
+bool HTMLMediaElement::hasMediaControls()
 {
-    return renderer() && renderer()->isMedia();
+    return shadowRoot();
 }
+
+void HTMLMediaElement::ensureMediaControls()
+{
+    if (hasMediaControls())
+        return;
+
+    ExceptionCode ec;
+    ensureShadowRoot()->appendChild(MediaControls::create(this), ec);
+}
+
+void* HTMLMediaElement::preDispatchEventHandler(Event* event)
+{
+    if (event && event->type() == eventNames().webkitfullscreenchangeEvent) {
+        if (controls()) {
+            if (!hasMediaControls()) {
+                ensureMediaControls();
+                mediaControls()->reset();
+            }
+            mediaControls()->show();
+        } else if (hasMediaControls())
+            mediaControls()->hide();
+    }
+    return 0;
+}
+
 
 }
 

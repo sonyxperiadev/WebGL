@@ -38,16 +38,18 @@ protected:
     virtual bool paintMediaMuteButton(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaControlsBackground(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual bool shouldRenderMediaControlPart(ControlPart, Element*);
     virtual String extraMediaControlsStyleSheet();
-
+#if ENABLE(FULLSCREEN_API)
+    virtual String extraFullScreenStyleSheet();
+#endif
+  
     virtual bool paintMediaSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaVolumeSliderContainer(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaVolumeSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
     virtual IntPoint volumeSliderOffsetFromMuteButton(RenderBox*, const IntSize&) const;
     virtual bool usesMediaControlStatusDisplay() { return false; }
-
+    virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const { return true; }
 #endif
 
     virtual bool usesTestModeFocusRingColor() const;

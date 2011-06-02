@@ -133,7 +133,42 @@ void WKBundleOverrideAllowUniversalAccessFromFileURLsForTestRunner(WKBundleRef b
     toImpl(bundleRef)->overrideAllowUniversalAccessFromFileURLsForTestRunner(toImpl(pageGroupRef), enabled);
 }
 
+void WKBundleSetAllowFileAccessFromFileURLs(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+{
+    toImpl(bundleRef)->setAllowFileAccessFromFileURLs(toImpl(pageGroupRef), enabled);
+}
+
 void WKBundleReportException(JSContextRef context, JSValueRef exception)
 {
     InjectedBundle::reportException(context, exception);
+}
+
+void WKBundleClearAllDatabases(WKBundleRef bundleRef)
+{
+    toImpl(bundleRef)->clearAllDatabases();
+}
+
+void WKBundleSetDatabaseQuota(WKBundleRef bundleRef, uint64_t quota)
+{
+    toImpl(bundleRef)->setDatabaseQuota(quota);
+}
+
+int WKBundleNumberOfPages(WKBundleRef bundleRef, WKBundleFrameRef frameRef, double pageWidthInPixels, double pageHeightInPixels)
+{
+    return toImpl(bundleRef)->numberOfPages(toImpl(frameRef), pageWidthInPixels, pageHeightInPixels);
+}
+
+int WKBundlePageNumberForElementById(WKBundleRef bundleRef, WKBundleFrameRef frameRef, WKStringRef idRef, double pageWidthInPixels, double pageHeightInPixels)
+{
+    return toImpl(bundleRef)->pageNumberForElementById(toImpl(frameRef), toImpl(idRef)->string(), pageWidthInPixels, pageHeightInPixels);
+}
+
+WKStringRef WKBundlePageSizeAndMarginsInPixels(WKBundleRef bundleRef, WKBundleFrameRef frameRef, int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft)
+{
+    return toCopiedAPI(toImpl(bundleRef)->pageSizeAndMarginsInPixels(toImpl(frameRef), pageIndex, width, height, marginTop, marginRight, marginBottom, marginLeft));
+}
+
+WK_EXPORT bool WKBundleIsPageBoxVisible(WKBundleRef bundleRef, WKBundleFrameRef frameRef, int pageIndex)
+{
+    return toImpl(bundleRef)->isPageBoxVisible(toImpl(frameRef), pageIndex);
 }

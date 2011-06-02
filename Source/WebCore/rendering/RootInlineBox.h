@@ -83,8 +83,7 @@ public:
 
     EllipsisBox* ellipsisBox() const;
 
-    void paintEllipsisBox(PaintInfo&, int tx, int ty) const;
-    bool hitTestEllipsisBox(HitTestResult&, int x, int y, int tx, int ty, HitTestAction, bool);
+    void paintEllipsisBox(PaintInfo&, int tx, int ty, int lineTop, int lineBottom) const;
 
     virtual void clearTruncation();
 
@@ -96,8 +95,8 @@ public:
     void paintCustomHighlight(PaintInfo&, int tx, int ty, const AtomicString& highlightType);
 #endif
 
-    virtual void paint(PaintInfo&, int tx, int ty);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int, int, int, int);
+    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, int lineTop, int lineBottom);
 
     bool hasSelectedChildren() const { return m_hasSelectedChildrenOrCanHaveLeadingExpansion; }
     void setHasSelectedChildren(bool hasSelectedChildren) { m_hasSelectedChildrenOrCanHaveLeadingExpansion = hasSelectedChildren; }
@@ -112,12 +111,13 @@ public:
 
     InlineBox* closestLeafChildForLogicalLeftPosition(int, bool onlyEditableLeaves = false);
 
-    Vector<RenderBox*>& floats()
+    void appendFloat(RenderBox* floatingBox)
     {
         ASSERT(!isDirty());
-        if (!m_floats)
-            m_floats= adoptPtr(new Vector<RenderBox*>);
-        return *m_floats;
+        if (m_floats)
+            m_floats->append(floatingBox);
+        else
+            m_floats= adoptPtr(new Vector<RenderBox*>(1, floatingBox));
     }
 
     Vector<RenderBox*>* floatsPtr() { ASSERT(!isDirty()); return m_floats.get(); }
@@ -141,9 +141,26 @@ public:
     bool includeMarginForBox(InlineBox*) const;
     bool fitsToGlyphs() const;
     bool includesRootLineBoxFontOrLeading() const;
+    
+    int logicalTopVisualOverflow() const
+    {
+        return InlineFlowBox::logicalTopVisualOverflow(lineTop());
+    }
+    int logicalBottomVisualOverflow() const
+    {
+        return InlineFlowBox::logicalBottomVisualOverflow(lineBottom());
+    }
+    int logicalTopLayoutOverflow() const
+    {
+        return InlineFlowBox::logicalTopLayoutOverflow(lineTop());
+    }
+    int logicalBottomLayoutOverflow() const
+    {
+        return InlineFlowBox::logicalBottomLayoutOverflow(lineBottom());
+    }
 
-    Node* getLogicalStartBoxWithNode(InlineBox*&);
-    Node* getLogicalEndBoxWithNode(InlineBox*&);
+    Node* getLogicalStartBoxWithNode(InlineBox*&) const;
+    Node* getLogicalEndBoxWithNode(InlineBox*&) const;
 private:
     bool hasEllipsisBox() const { return m_hasEllipsisBoxOrHyphen; }
     void setHasEllipsisBox(bool hasEllipsisBox) { m_hasEllipsisBoxOrHyphen = hasEllipsisBox; }

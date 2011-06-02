@@ -190,6 +190,7 @@ void WebPage::resetSettings()
     settings()->resetAttribute(QWebSettings::LinksIncludedInFocusChain);
     settings()->resetAttribute(QWebSettings::OfflineWebApplicationCacheEnabled);
     settings()->resetAttribute(QWebSettings::LocalContentCanAccessRemoteUrls);
+    settings()->resetAttribute(QWebSettings::LocalContentCanAccessFileUrls);
     settings()->resetAttribute(QWebSettings::PluginsEnabled);
     settings()->resetAttribute(QWebSettings::JavascriptCanAccessClipboard);
     settings()->resetAttribute(QWebSettings::AutoLoadImages);
@@ -997,6 +998,8 @@ void DumpRenderTree::dump()
         }
 
         if (dumpImage) {
+            image.setText("checksum", actualHash);
+
             QBuffer buffer;
             buffer.open(QBuffer::WriteOnly);
             image.save(&buffer, "PNG");
@@ -1134,6 +1137,17 @@ void DumpRenderTree::switchFocus(bool focused)
             view->scene()->sendEvent(view->graphicsView(), &event);
     }
 
+}
+
+QList<WebPage*> DumpRenderTree::getAllPages() const
+{
+    QList<WebPage*> pages;
+    pages.append(m_page);
+    foreach (QObject* widget, windows) {
+        if (WebPage* page = widget->findChild<WebPage*>())
+            pages.append(page);
+    }
+    return pages;
 }
 
 #if defined(Q_WS_X11)

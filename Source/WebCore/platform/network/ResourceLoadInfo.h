@@ -33,12 +33,16 @@ namespace WebCore {
 
 struct ResourceLoadInfo : RefCounted<ResourceLoadInfo> {
     ResourceLoadInfo()
-        : httpStatusCode(0) { }
+        : httpStatusCode(0)
+        , encodedDataLength(-1) { }
 
     int httpStatusCode;
     String httpStatusText;
+    long long encodedDataLength;
     HTTPHeaderMap requestHeaders;
     HTTPHeaderMap responseHeaders;
+    String requestHeadersText;
+    String responseHeadersText;
 };
 
 }

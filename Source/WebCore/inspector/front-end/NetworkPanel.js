@@ -827,14 +827,14 @@ WebInspector.NetworkPanel.prototype = {
             this._appendResource(resourcesToPreserve[i]);
     },
 
-    canShowSourceLine: function(url, line)
+    canShowAnchorLocation: function(anchor)
     {
-        return !!this._resourcesByURL[url];
+        return !!this._resourcesByURL[anchor.href];
     },
 
-    showSourceLine: function(url, line)
+    showAnchorLocation: function(anchor)
     {
-        this._showResource(this._resourcesByURL[url], line);
+        this._showResource(this._resourcesByURL[anchor.href], anchor.getAttribute("line_number") - 1);
     },
 
     _showResource: function(resource, line)
@@ -1506,6 +1506,15 @@ WebInspector.NetworkDataGridNode.prototype = {
     {
         this._statusCell.removeChildren();
 
+        if (this._resource.failed) {
+            if (this._resource.canceled) 
+                this._statusCell.textContent = WebInspector.UIString("(canceled)");
+            else
+                this._statusCell.textContent = WebInspector.UIString("(failed)");
+            this._statusCell.addStyleClass("network-dim-cell");
+            return;
+        }
+
         var fromCache = this._resource.cached;
         if (fromCache) {
             this._statusCell.textContent = WebInspector.UIString("(from cache)");
@@ -1520,8 +1529,11 @@ WebInspector.NetworkDataGridNode.prototype = {
             this._appendSubtitle(this._statusCell, this._resource.statusText);
             this._statusCell.title = this._resource.statusCode + " " + this._resource.statusText;
         } else {
+            if (this._resource.isDataURL() && this._resource.finished)
+                this._statusCell.textContent = WebInspector.UIString("(data url)");
+            else
+                this._statusCell.textContent = WebInspector.UIString("Pending");
             this._statusCell.addStyleClass("network-dim-cell");
-            this._statusCell.textContent = WebInspector.UIString("Pending");
         }
     },
 

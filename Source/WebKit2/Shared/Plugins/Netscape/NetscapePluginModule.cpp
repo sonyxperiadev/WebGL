@@ -32,10 +32,6 @@
 #include <wtf/PassOwnPtr.h>
 #include <wtf/text/CString.h>
 
-#if !PLUGIN_ARCHITECTURE(MAC) && !PLUGIN_ARCHITECTURE(WIN) && !PLUGIN_ARCHITECTURE(X11)
-#error Unknown plug-in architecture
-#endif
-
 namespace WebKit {
 
 static Vector<NetscapePluginModule*>& initializedNetscapePluginModules()
@@ -88,6 +84,11 @@ bool NetscapePluginModule::tryGetSitesWithData(Vector<String>& sites)
         return false;
 
     char** siteArray = m_pluginFuncs.getsiteswithdata();
+
+    // There were no sites with data.
+    if (!siteArray)
+        return true;
+
     for (int i = 0; siteArray[i]; ++i) {
         char* site = siteArray[i];
 

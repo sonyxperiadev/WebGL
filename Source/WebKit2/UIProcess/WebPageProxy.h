@@ -31,9 +31,9 @@
 #include "ContextMenuState.h"
 #include "DragControllerAction.h"
 #include "DrawingAreaProxy.h"
+#include "EditorState.h"
 #include "GeolocationPermissionRequestManagerProxy.h"
 #include "SandboxExtension.h"
-#include "SelectionState.h"
 #include "SharedMemory.h"
 #include "WKBase.h"
 #include "WKPagePrivate.h"
@@ -78,6 +78,7 @@ namespace WebCore {
 namespace WebKit {
 
 class NativeWebKeyboardEvent;
+class NativeWebMouseEvent;
 class PageClient;
 class PlatformCertificateInfo;
 class StringPairVector;
@@ -94,7 +95,9 @@ class WebPageGroup;
 class WebProcessProxy;
 class WebURLRequest;
 class WebWheelEvent;
+struct AttributedString;
 struct DictionaryPopupInfo;
+struct EditorState;
 struct PlatformPopupMenuData;
 struct PrintInfo;
 struct WebPageCreationParameters;
@@ -156,7 +159,7 @@ class WebPageProxy : public APIObject, public WebPopupMenuProxy::Client {
 public:
     static const Type APIType = TypePage;
 
-    static PassRefPtr<WebPageProxy> create(PageClient*, WebContext*, WebPageGroup*, uint64_t pageID);
+    static PassRefPtr<WebPageProxy> create(PageClient*, PassRefPtr<WebProcessProxy>, WebPageGroup*, uint64_t pageID);
     virtual ~WebPageProxy();
 
     uint64_t pageID() const { return m_pageID; }
@@ -239,23 +242,34 @@ public:
 
     WebCore::IntSize viewSize() const;
     bool isViewVisible() const { return m_isVisible; }
+    bool isViewWindowActive() const;
 
     void executeEditCommand(const String& commandName);
     void validateCommand(const String& commandName, PassRefPtr<ValidateCommandCallback>);
 
-    const SelectionState& selectionState() const { return m_selectionState; }
+    const EditorState& editorState() const { return m_editorState; }
     bool canDelete() const { return hasSelectedRange() && isContentEditable(); }
-    bool hasSelectedRange() const { return m_selectionState.selectedRangeLength; }
-    bool isContentEditable() const { return m_selectionState.isContentEditable; }
+    bool hasSelectedRange() const { return m_editorState.selectionIsRange; }
+    bool isContentEditable() const { return m_editorState.isContentEditable; }
 
 #if PLATFORM(MAC)
     void updateWindowIsVisible(bool windowIsVisible);
     void windowAndViewFramesChanged(const WebCore::IntRect& windowFrameInScreenCoordinates, const WebCore::IntRect& viewFrameInWindowCoordinates, const WebCore::IntPoint& accessibilityViewCoordinates);
+
+    void setComposition(const String& text, Vector<WebCore::CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd);
+    void confirmComposition();
+    bool insertText(const String& text, uint64_t replacementRangeStart, uint64_t replacementRangeEnd);
     void getMarkedRange(uint64_t& location, uint64_t& length);
+    void getSelectedRange(uint64_t& location, uint64_t& length);
+    void getAttributedSubstringFromRange(uint64_t location, uint64_t length, AttributedString&);
     uint64_t characterIndexForPoint(const WebCore::IntPoint);
     WebCore::IntRect firstRectForCharacterRange(uint64_t, uint64_t);
+    bool executeKeypressCommands(const Vector<WebCore::KeypressCommand>&);
+
     void sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdentifier, const String& textInput);
     CGContextRef containingWindowGraphicsContext();
+    bool shouldDelayWindowOrderingForEvent(const WebMouseEvent&);
+    bool acceptsFirstMouse(int eventNumber, const WebMouseEvent&);
 #endif
 #if PLATFORM(WIN)
     void didChangeCompositionSelection(bool);
@@ -263,12 +277,18 @@ public:
     void setComposition(const String&, Vector<WebCore::CompositionUnderline>&, int);
     WebCore::IntRect firstRectForCharacterInSelectedRange(int);
     String getSelectedText();
+
+    bool gestureWillBegin(const WebCore::IntPoint&);
+    void gestureDidScroll(const WebCore::IntSize&);
+    void gestureDidEnd();
+
+    void setGestureReachedScrollingLimit(bool);
 #endif
 #if ENABLE(TILED_BACKING_STORE)
     void setActualVisibleContentRect(const WebCore::IntRect& rect);
 #endif
 
-    void handleMouseEvent(const WebMouseEvent&);
+    void handleMouseEvent(const NativeWebMouseEvent&);
     void handleWheelEvent(const WebWheelEvent&);
     void handleKeyboardEvent(const NativeWebKeyboardEvent&);
 #if ENABLE(GESTURE_EVENTS)
@@ -340,6 +360,10 @@ public:
     void findString(const String&, FindOptions, unsigned maxMatchCount);
     void hideFindUI();
     void countStringMatches(const String&, FindOptions, unsigned maxMatchCount);
+    void didCountStringMatches(const String&, uint32_t matchCount);
+    void setFindIndicator(const WebCore::FloatRect& selectionRectInWindowCoordinates, const Vector<WebCore::FloatRect>& textRectsInSelectionRectCoordinates, const ShareableBitmap::Handle& contentImageHandle, bool fadeOut);
+    void didFindString(const String&, uint32_t matchCount);
+    void didFailToFindString(const String&);
 
     void getContentsAsString(PassRefPtr<StringCallback>);
     void getMainResourceDataOfFrame(WebFrameProxy*, PassRefPtr<DataCallback>);
@@ -366,7 +390,11 @@ public:
     void backForwardRemovedItem(uint64_t itemID);
 
     // Drag and drop support.
-    void performDragControllerAction(DragControllerAction, WebCore::DragData*, const String& = String());
+    void dragEntered(WebCore::DragData*, const String& dragStorageName = String());
+    void dragUpdated(WebCore::DragData*, const String& dragStorageName = String());
+    void dragExited(WebCore::DragData*, const String& dragStorageName = String());
+    void performDrag(WebCore::DragData*, const String& dragStorageName, const SandboxExtension::Handle&);
+
     void didPerformDragControllerAction(uint64_t resultOperation);
     void dragEnded(const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, uint64_t operation);
 #if PLATFORM(MAC)
@@ -396,7 +424,6 @@ public:
     void registerEditCommand(PassRefPtr<WebEditCommandProxy>, UndoOrRedo);
 
     WebProcessProxy* process() const;
-    WebContext* context() const { return m_context.get(); }
 
     WebPageGroup* pageGroup() const { return m_pageGroup.get(); }
 
@@ -404,9 +431,6 @@ public:
     
     WebCore::DragOperation dragOperation() { return m_currentDragOperation; }
     void resetDragOperation() { m_currentDragOperation = WebCore::DragOperationNone; }
-
-    // REMOVE: For demo purposes only.
-    const String& urlAtProcessExit() const { return m_urlAtProcessExit; }
 
     void preferencesDidChange();
 
@@ -427,10 +451,8 @@ public:
     void findZoomableAreaForPoint(const WebCore::IntPoint&);
 #endif
 
-    void advanceToNextMisspelling(bool startBeforeSelection);
-    void changeSpellingToWord(const String& word);
-    void unmarkAllMisspellings();
-    void unmarkAllBadGrammar();
+    void advanceToNextMisspelling(bool startBeforeSelection) const;
+    void changeSpellingToWord(const String& word) const;
 #if PLATFORM(MAC)
     void uppercaseWord();
     void lowercaseWord();
@@ -467,14 +489,17 @@ public:
 
     void saveDataToFileInDownloadsFolder(const String& suggestedFilename, const String& mimeType, const String& originatingURLString, WebData*);
 
+    void linkClicked(const String&, const WebMouseEvent&);
+ 
 private:
-    WebPageProxy(PageClient*, WebContext*, WebPageGroup*, uint64_t pageID);
+    WebPageProxy(PageClient*, PassRefPtr<WebProcessProxy>, WebPageGroup*, uint64_t pageID);
 
     virtual Type type() const { return APIType; }
 
     // WebPopupMenuProxy::Client
     virtual void valueChangedForPopupMenu(WebPopupMenuProxy*, int32_t newSelectedIndex);
     virtual void setTextFromItemForPopupMenu(WebPopupMenuProxy*, int32_t index);
+    virtual NativeWebMouseEvent* currentlyProcessedMouseDownEvent();
 
     // Implemented in generated WebPageProxyMessageReceiver.cpp
     void didReceiveWebPageProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
@@ -564,8 +589,7 @@ private:
     void didFindZoomableArea(const WebCore::IntRect&);
 #endif
 
-    // Selection
-    void selectionStateChanged(const SelectionState&);
+    void editorStateChanged(const EditorState&);
 
     // Back/Forward list management
     void backForwardAddItem(uint64_t itemID);
@@ -578,24 +602,33 @@ private:
     // Undo management
     void registerEditCommandForUndo(uint64_t commandID, uint32_t editAction);
     void clearAllEditCommands();
+    void canUndoRedo(uint32_t action, bool& result);
+    void executeUndoRedo(uint32_t action, bool& result);
 
     // Keyboard handling
 #if PLATFORM(MAC)
-    void interpretKeyEvent(uint32_t eventType, Vector<WebCore::KeypressCommand>&, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines);
+    void interpretQueuedKeyEvent(const EditorState&, bool& handled, Vector<WebCore::KeypressCommand>&);
+    void executeSavedCommandBySelector(const String& selector, bool& handled);
 #endif
-    
-    // Find.
-    void didCountStringMatches(const String&, uint32_t matchCount);
-    void setFindIndicator(const WebCore::FloatRect& selectionRectInWindowCoordinates, const Vector<WebCore::FloatRect>& textRectsInSelectionRectCoordinates, const ShareableBitmap::Handle& contentImageHandle, bool fadeOut);
-    void didFindString(const String&, uint32_t matchCount);
-    void didFailToFindString(const String&);
+
+#if PLATFORM(GTK)
+    void getEditorCommandsForKeyEvent(Vector<String>&);
+#endif
 
     // Popup Menu.
     void showPopupMenu(const WebCore::IntRect& rect, uint64_t textDirection, const Vector<WebPopupItem>& items, int32_t selectedIndex, const PlatformPopupMenuData&);
     void hidePopupMenu();
+#if PLATFORM(WIN)
+    void setPopupMenuSelectedIndex(int32_t);
+#endif
 
     // Context Menu.
     void showContextMenu(const WebCore::IntPoint& menuLocation, const ContextMenuState&, const Vector<WebContextMenuItemData>&, CoreIPC::ArgumentDecoder*);
+    void internalShowContextMenu(const WebCore::IntPoint& menuLocation, const ContextMenuState&, const Vector<WebContextMenuItemData>&, CoreIPC::ArgumentDecoder*);
+
+    // Search popup results
+    void saveRecentSearches(const String&, const Vector<String>&);
+    void loadRecentSearches(const String&, Vector<String>&);
 
 #if PLATFORM(MAC)
     // Speech.
@@ -603,13 +636,21 @@ private:
     void speak(const String&);
     void stopSpeaking();
 
+    // Spotlight.
+    void searchWithSpotlight(const String&);
+
     // Dictionary.
     void didPerformDictionaryLookup(const String&, const DictionaryPopupInfo&);
 #endif
 
     // Spelling and grammar.
     int64_t spellDocumentTag();
+#if USE(UNIFIED_TEXT_CHECKING)
     void checkTextOfParagraph(const String& text, uint64_t checkingTypes, Vector<WebCore::TextCheckingResult>& results);
+#endif
+    void checkSpellingOfString(const String& text, int32_t& misspellingLocation, int32_t& misspellingLength);
+    void checkGrammarOfString(const String& text, Vector<WebCore::GrammarDetail>&, int32_t& badGrammarLocation, int32_t& badGrammarLength);
+    void spellingUIIsShowing(bool&);
     void updateSpellingUIWithMisspelledWord(const String& misspelledWord);
     void updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const WebCore::GrammarDetail&);
     void getGuessesForWord(const String& word, const String& context, Vector<String>& guesses);
@@ -617,7 +658,7 @@ private:
     void ignoreWord(const String& word);
 
     void setFocus(bool focused);
-    void takeFocus(bool direction);
+    void takeFocus(uint32_t direction);
     void setToolTip(const String&);
     void setCursor(const WebCore::Cursor&);
 
@@ -649,14 +690,19 @@ private:
 
     void initializeSandboxExtensionHandle(const WebCore::KURL&, SandboxExtension::Handle&);
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if PLATFORM(MAC)
+    void substitutionsPanelIsShowing(bool&);
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
     void showCorrectionPanel(int32_t panelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings);
     void dismissCorrectionPanel(int32_t reason);
     void dismissCorrectionPanelSoon(int32_t reason, String& result);
     void recordAutocorrectionResponse(int32_t responseType, const String& replacedString, const String& replacementString);
-#endif
+#endif // !defined(BUILDING_ON_SNOW_LEOPARD)
+#endif // PLATFORM(MAC)
 
     void clearLoadDependentCallbacks();
+
+    void performDragControllerAction(DragControllerAction, WebCore::DragData*, const String& dragStorageName, const SandboxExtension::Handle&);
 
     PageClient* m_pageClient;
     WebLoaderClient m_loaderClient;
@@ -668,7 +714,7 @@ private:
     WebPageContextMenuClient m_contextMenuClient;
 
     OwnPtr<DrawingAreaProxy> m_drawingArea;
-    RefPtr<WebContext> m_context;
+    RefPtr<WebProcessProxy> m_process;
     RefPtr<WebPageGroup> m_pageGroup;
     RefPtr<WebFrameProxy> m_mainFrame;
     RefPtr<WebFrameProxy> m_focusedFrame;
@@ -717,10 +763,7 @@ private:
 
     String m_toolTip;
 
-    SelectionState m_selectionState;
-
-    // REMOVE: For demo purposes only.
-    String m_urlAtProcessExit;
+    EditorState m_editorState;
 
     double m_textZoomFactor;
     double m_pageZoomFactor;
@@ -758,7 +801,8 @@ private:
     OwnPtr<WebWheelEvent> m_nextWheelEvent;
 
     bool m_processingMouseMoveEvent;
-    OwnPtr<WebMouseEvent> m_nextMouseMoveEvent;
+    OwnPtr<NativeWebMouseEvent> m_nextMouseMoveEvent;
+    OwnPtr<NativeWebMouseEvent> m_currentlyProcessedMouseDownEvent;
 
     uint64_t m_pageID;
 

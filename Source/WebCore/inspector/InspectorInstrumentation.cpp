@@ -457,10 +457,31 @@ void InspectorInstrumentation::didReceiveResourceResponseImpl(const InspectorIns
     }
 }
 
-void InspectorInstrumentation::didReceiveContentLengthImpl(InspectorAgent* inspectorAgent, unsigned long identifier, int dataLength, int lengthReceived)
+void InspectorInstrumentation::didReceiveResourceResponseButCanceledImpl(Frame* frame, DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r)
+{
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceResponse(frame, identifier, r);
+    InspectorInstrumentation::didReceiveResourceResponse(cookie, identifier, loader, r);
+}
+
+void InspectorInstrumentation::continueAfterXFrameOptionsDeniedImpl(Frame* frame, DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r)
+{
+    didReceiveResourceResponseButCanceledImpl(frame, loader, identifier, r);
+}
+
+void InspectorInstrumentation::continueWithPolicyDownloadImpl(Frame* frame, DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r)
+{
+    didReceiveResourceResponseButCanceledImpl(frame, loader, identifier, r);
+}
+
+void InspectorInstrumentation::continueWithPolicyIgnoreImpl(Frame* frame, DocumentLoader* loader, unsigned long identifier, const ResourceResponse& r)
+{
+    didReceiveResourceResponseButCanceledImpl(frame, loader, identifier, r);
+}
+
+void InspectorInstrumentation::didReceiveContentLengthImpl(InspectorAgent* inspectorAgent, unsigned long identifier, int dataLength, int encodedDataLength)
 {
     if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
-        resourceAgent->didReceiveContentLength(identifier, dataLength, lengthReceived);
+        resourceAgent->didReceiveContentLength(identifier, dataLength, encodedDataLength);
 }
 
 void InspectorInstrumentation::didFinishLoadingImpl(InspectorAgent* inspectorAgent, unsigned long identifier, double finishTime)
@@ -484,13 +505,13 @@ void InspectorInstrumentation::resourceRetrievedByXMLHttpRequestImpl(InspectorAg
 {
     inspectorAgent->consoleAgent()->resourceRetrievedByXMLHttpRequest(url, sendURL, sendLineNumber);
     if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
-        resourceAgent->setInitialContent(identifier, sourceString, "XHR");
+        resourceAgent->setInitialXHRContent(identifier, sourceString);
 }
 
 void InspectorInstrumentation::scriptImportedImpl(InspectorAgent* inspectorAgent, unsigned long identifier, const String& sourceString)
 {
     if (InspectorResourceAgent* resourceAgent = retrieveResourceAgent(inspectorAgent))
-        resourceAgent->setInitialContent(identifier, sourceString, "Script");
+        resourceAgent->setInitialScriptContent(identifier, sourceString);
 }
 
 void InspectorInstrumentation::domContentLoadedEventFiredImpl(InspectorAgent* inspectorAgent, Frame* frame, const KURL& url)
@@ -509,6 +530,9 @@ void InspectorInstrumentation::domContentLoadedEventFiredImpl(InspectorAgent* in
     if (InspectorTimelineAgent* timelineAgent = inspectorAgent->instrumentingAgents()->inspectorTimelineAgent())
         timelineAgent->didMarkDOMContentEvent();
 
+    if (InspectorResourceAgent* resourceAgent = inspectorAgent->instrumentingAgents()->inspectorResourceAgent())
+        resourceAgent->domContentEventFired();
+
     if (InspectorPageAgent* pageAgent = inspectorAgent->instrumentingAgents()->inspectorPageAgent())
         pageAgent->domContentEventFired();
 }
@@ -526,6 +550,9 @@ void InspectorInstrumentation::loadEventFiredImpl(InspectorAgent* inspectorAgent
 
     if (InspectorTimelineAgent* timelineAgent = inspectorAgent->instrumentingAgents()->inspectorTimelineAgent())
         timelineAgent->didMarkLoadEvent();
+
+    if (InspectorResourceAgent* resourceAgent = inspectorAgent->instrumentingAgents()->inspectorResourceAgent())
+        resourceAgent->loadEventFired();
 
     if (InspectorPageAgent* pageAgent = inspectorAgent->instrumentingAgents()->inspectorPageAgent())
         pageAgent->loadEventFired();

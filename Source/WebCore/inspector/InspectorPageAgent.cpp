@@ -32,7 +32,7 @@
 
 #include "InspectorPageAgent.h"
 
-#if ENABLE(INSPECTOR) && ENABLE(JAVASCRIPT_DEBUGGER)
+#if ENABLE(INSPECTOR)
 
 #include "CachedResourceLoader.h"
 #include "Cookie.h"
@@ -93,9 +93,9 @@ void InspectorPageAgent::removeAllScriptsToEvaluateOnLoad(ErrorString*)
     m_scriptsToEvaluateOnLoad.clear();
 }
 
-void InspectorPageAgent::reloadPage(ErrorString*, bool ignoreCache)
+void InspectorPageAgent::reloadPage(ErrorString*, const bool* const optionalIgnoreCache)
 {
-    m_inspectedPage->mainFrame()->loader()->reload(ignoreCache);
+    m_inspectedPage->mainFrame()->loader()->reload(optionalIgnoreCache ? *optionalIgnoreCache : false);
 }
 
 void InspectorPageAgent::openInInspectedWindow(ErrorString*, const String& url)
@@ -255,4 +255,4 @@ void InspectorPageAgent::didClearWindowObjectInWorld(Frame* frame, DOMWrapperWor
 
 } // namespace WebCore
 
-#endif // ENABLE(INSPECTOR) && ENABLE(JAVASCRIPT_DEBUGGER)
+#endif // ENABLE(INSPECTOR)

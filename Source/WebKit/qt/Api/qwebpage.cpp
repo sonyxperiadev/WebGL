@@ -747,7 +747,7 @@ void QWebPagePrivate::handleClipboard(QEvent* ev, Qt::MouseButton button)
         WebCore::Frame* focusFrame = page->focusController()->focusedOrMainFrame();
         if (button == Qt::LeftButton) {
             if (focusFrame && (focusFrame->editor()->canCopy() || focusFrame->editor()->canDHTMLCopy())) {
-                focusFrame->editor()->copy();
+                Pasteboard::generalPasteboard()->writeSelection(focusFrame->editor()->selectedRange().get(), focusFrame->editor()->canSmartCopyOrDelete(), focusFrame);
                 ev->setAccepted(true);
             }
         } else if (button == Qt::MidButton) {
@@ -979,8 +979,7 @@ void QWebPagePrivate::dragEnterEvent(T* ev)
             QCursor::pos(), dropActionToDragOp(ev->possibleActions()));
     Qt::DropAction action = dragOpToDropAction(page->dragController()->dragEntered(&dragData));
     ev->setDropAction(action);
-    if (action != Qt::IgnoreAction)
-        ev->acceptProposedAction();
+    ev->acceptProposedAction();
 #endif
 }
 

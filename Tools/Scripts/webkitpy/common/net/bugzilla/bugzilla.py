@@ -46,7 +46,7 @@ from webkitpy.common.config import committers
 from webkitpy.common.net.credentials import Credentials
 from webkitpy.common.system.user import User
 from webkitpy.thirdparty.autoinstalled.mechanize import Browser
-from webkitpy.thirdparty.BeautifulSoup import BeautifulSoup, SoupStrainer
+from webkitpy.thirdparty.BeautifulSoup import BeautifulSoup, BeautifulStoneSoup, SoupStrainer
 
 
 # FIXME: parse_bug_id should not be a free function.
@@ -74,7 +74,9 @@ def parse_bug_id_from_changelog(message):
     match = re.search("^\s*" + Bugzilla.bug_url_long + "$", message, re.MULTILINE)
     if match:
         return int(match.group('bug_id'))
-    return None
+    # We weren't able to find a bug URL in the format used by prepare-ChangeLog. Fall back to the
+    # first bug URL found anywhere in the message.
+    return parse_bug_id(message)
 
 def timestamp():
     return datetime.now().strftime("%Y%m%d%H%M%S")
@@ -218,7 +220,8 @@ class Bugzilla(object):
         # script.
         self.browser.set_handle_robots(False)
 
-    # FIXME: Much of this should go into some sort of config module:
+    # FIXME: Much of this should go into some sort of config module,
+    # such as common.config.urls.
     bug_server_host = "bugs.webkit.org"
     bug_server_regex = "https?://%s/" % re.sub('\.', '\\.', bug_server_host)
     bug_server_url = "https://%s/" % bug_server_host
@@ -270,7 +273,7 @@ class Bugzilla(object):
 
     def _string_contents(self, soup):
         # WebKit's bugzilla instance uses UTF-8.
-        # BeautifulSoup always returns Unicode strings, however
+        # BeautifulStoneSoup always returns Unicode strings, however
         # the .string method returns a (unicode) NavigableString.
         # NavigableString can confuse other parts of the code, so we
         # convert from NavigableString to a real unicode() object using unicode().
@@ -317,7 +320,7 @@ class Bugzilla(object):
         return [Bug(self._parse_bug_dictionary_from_xml(unicode(bug_xml)), self) for bug_xml in soup('bug')]
 
     def _parse_bug_dictionary_from_xml(self, page):
-        soup = BeautifulSoup(page)
+        soup = BeautifulStoneSoup(page, convertEntities=BeautifulStoneSoup.XML_ENTITIES)
         bug = {}
         bug["id"] = int(soup.find("bug_id").string)
         bug["title"] = self._string_contents(soup.find("short_desc"))

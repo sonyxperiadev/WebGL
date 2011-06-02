@@ -830,10 +830,6 @@ bool RenderThemeMac::paintMeter(RenderObject* renderObject, const PaintInfo& pai
 
     LocalCurrentGraphicsContext localContext(paintInfo.context);
 
-    // Becaue NSLevelIndicatorCell doesn't support vertical gauge, we use a portable version 
-    if (rect.width() < rect.height())
-        return RenderTheme::paintMeter(renderObject, paintInfo, rect);
-
     NSLevelIndicatorCell* cell = levelIndicatorFor(toRenderMeter(renderObject));
     paintInfo.context->save();
     [cell drawWithFrame:rect inView:documentViewFor(renderObject)];
@@ -843,7 +839,7 @@ bool RenderThemeMac::paintMeter(RenderObject* renderObject, const PaintInfo& pai
     return false;
 }
 
-bool RenderThemeMac::supportsMeter(ControlPart part, bool isHorizontal) const
+bool RenderThemeMac::supportsMeter(ControlPart part) const
 {
     switch (part) {
     case RelevancyLevelIndicatorPart:
@@ -851,7 +847,7 @@ bool RenderThemeMac::supportsMeter(ControlPart part, bool isHorizontal) const
     case RatingLevelIndicatorPart:
     case MeterPart:
     case ContinuousCapacityLevelIndicatorPart:
-        return isHorizontal;
+        return true;
     default:
         return false;
     }
@@ -1976,38 +1972,20 @@ String RenderThemeMac::extraFullScreenStyleSheet()
 }
 #endif
 
-bool RenderThemeMac::shouldRenderMediaControlPart(ControlPart part, Element* element)
+bool RenderThemeMac::hasOwnDisabledStateHandlingFor(ControlPart part) const
 {
-    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(element);
-    switch (part) {
-    case MediaVolumeSliderContainerPart:
-    case MediaVolumeSliderPart:
-    case MediaVolumeSliderMuteButtonPart:
-    case MediaVolumeSliderThumbPart: {
-        return mediaControllerTheme() == MediaControllerThemeQuickTime && mediaElement->hasAudio();
-    }
-    case MediaToggleClosedCaptionsButtonPart:
-        // We rely on QTKit to render captions so don't enable the button unless it will be able to do so.
-        if (!element->hasTagName(videoTag))
-            return false;
-        break;
-    case MediaRewindButtonPart:
-        if (mediaElement->isFullscreen())
-            return mediaElement->movieLoadType() == MediaPlayer::LiveStream 
-                || mediaElement->movieLoadType() == MediaPlayer::StoredStream;
-    case MediaSeekForwardButtonPart:
-    case MediaSeekBackButtonPart:
-        if (mediaElement->isFullscreen())
-            return mediaElement->movieLoadType() != MediaPlayer::StoredStream 
-                && mediaElement->movieLoadType() != MediaPlayer::LiveStream;
-    default:
-        break;
-    }
+    if (part == MediaMuteButtonPart)
+        return false;
 
-    return RenderTheme::shouldRenderMediaControlPart(part, element);
+    return mediaControllerTheme() == MediaControllerThemeClassic;
 }
 
 bool RenderThemeMac::usesMediaControlStatusDisplay()
+{
+    return mediaControllerTheme() == MediaControllerThemeQuickTime;
+}
+
+bool RenderThemeMac::usesMediaControlVolumeSlider() const
 {
     return mediaControllerTheme() == MediaControllerThemeQuickTime;
 }

@@ -27,6 +27,7 @@
 #define StructureChain_h
 
 #include "JSCell.h"
+#include "Structure.h"
 
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/PassRefPtr.h>
@@ -41,14 +42,17 @@ namespace JSC {
         friend class JIT;
 
     public:
-        static StructureChain* create(JSGlobalData& globalData, Structure* head) { return new (&globalData) StructureChain(globalData.structureChainStructure, head); }
-        RefPtr<Structure>* head() { return m_vector.get(); }
+        static StructureChain* create(JSGlobalData& globalData, Structure* head) { return new (&globalData) StructureChain(globalData, globalData.structureChainStructure.get(), head); }
+        WriteBarrier<Structure>* head() { return m_vector.get(); }
+        void markChildren(MarkStack&);
 
-        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype) { return Structure::create(globalData, prototype, TypeInfo(CompoundType, OverridesMarkChildren), 0, 0); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype) { return Structure::create(globalData, prototype, TypeInfo(CompoundType, OverridesMarkChildren), 0, &s_info); }
+
     private:
-        StructureChain(NonNullPassRefPtr<Structure>, Structure* head);
-
-        OwnArrayPtr<RefPtr<Structure> > m_vector;
+        StructureChain(JSGlobalData&, Structure*, Structure* head);
+        ~StructureChain();
+        OwnArrayPtr<WriteBarrier<Structure> > m_vector;
+        static ClassInfo s_info;
     };
 
 } // namespace JSC

@@ -170,7 +170,15 @@ static Node* deepFocusableNode(FocusDirection direction, Node* node, KeyboardEve
 
 bool FocusController::setInitialFocus(FocusDirection direction, KeyboardEvent* event)
 {
-    return advanceFocus(direction, event, true);
+    bool didAdvanceFocus = advanceFocus(direction, event, true);
+    
+    // If focus is being set initially, accessibility needs to be informed that system focus has moved 
+    // into the web area again, even if focus did not change within WebCore. PostNotification is called instead
+    // of handleFocusedUIElementChanged, because this will send the notification even if the element is the same.
+    if (AXObjectCache::accessibilityEnabled())
+        focusedOrMainFrame()->document()->axObjectCache()->postNotification(focusedOrMainFrame()->document()->renderer(), AXObjectCache::AXFocusedUIElementChanged, true);
+
+    return didAdvanceFocus;
 }
 
 bool FocusController::advanceFocus(FocusDirection direction, KeyboardEvent* event, bool initialFocus)
@@ -589,6 +597,9 @@ bool FocusController::advanceFocusDirectionally(FocusDirection direction, Keyboa
     Node* focusedNode = focusedDocument->focusedNode();
     Node* container = focusedDocument;
 
+    if (container->isDocumentNode())
+        static_cast<Document*>(container)->updateLayoutIgnorePendingStylesheets();
+        
     // Figure out the starting rect.
     IntRect startingRect;
     if (focusedNode) {
@@ -604,11 +615,11 @@ bool FocusController::advanceFocusDirectionally(FocusDirection direction, Keyboa
 
     bool consumed = false;
     do {
-        if (container->isDocumentNode())
-            static_cast<Document*>(container)->updateLayoutIgnorePendingStylesheets();
         consumed = advanceFocusDirectionallyInContainer(container, startingRect, direction, event);
         startingRect = nodeRectInAbsoluteCoordinates(container, true /* ignore border */);
         container = scrollableEnclosingBoxOrParentFrameForNodeInDirection(direction, container);
+        if (container && container->isDocumentNode())
+            static_cast<Document*>(container)->updateLayoutIgnorePendingStylesheets();
     } while (!consumed && container);
 
     return consumed;

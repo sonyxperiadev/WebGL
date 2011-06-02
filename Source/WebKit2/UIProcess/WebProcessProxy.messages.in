@@ -26,4 +26,9 @@ messages -> WebProcessProxy {
     DidDestroyFrame(uint64_t frameID) 
 
     ShouldTerminate() -> (bool shouldTerminate)
+
+#if ENABLE(PLUGIN_PROCESS)
+    GetPluginProcessConnection(WTF::String pluginPath) -> (CoreIPC::MachPort connectionHandle) Delayed
+    PluginSyncMessageSendTimedOut(WTF::String pluginPath)
+#endif
 }

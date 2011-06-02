@@ -58,7 +58,7 @@ void TextChecker::setGrammarCheckingEnabled(bool isGrammarCheckingEnabled)
     notImplemented();
 }
 
-int64_t TextChecker::uniqueSpellDocumentTag()
+int64_t TextChecker::uniqueSpellDocumentTag(WebPageProxy*)
 {
     notImplemented();
     return 0;
@@ -69,18 +69,33 @@ void TextChecker::closeSpellDocumentWithTag(int64_t)
     notImplemented();
 }
 
-Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocumentTag, const UChar* text, int length, uint64_t checkingTypes)
-{
-    notImplemented();
-    return Vector<WebCore::TextCheckingResult>();
-}
-
-void TextChecker::updateSpellingUIWithMisspelledWord(const String& misspelledWord)
+void TextChecker::checkSpellingOfString(int64_t, const UChar*, uint32_t, int32_t&, int32_t&)
 {
     notImplemented();
 }
 
-void TextChecker::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
+void TextChecker::checkGrammarOfString(int64_t, const UChar*, uint32_t, Vector<WebCore::GrammarDetail>&, int32_t&, int32_t&)
+{
+    notImplemented();
+}
+
+bool TextChecker::spellingUIIsShowing()
+{
+    notImplemented();
+    return false;
+}
+
+void TextChecker::toggleSpellingUIIsShowing()
+{
+    notImplemented();
+}
+
+void TextChecker::updateSpellingUIWithMisspelledWord(int64_t, const String&)
+{
+    notImplemented();
+}
+
+void TextChecker::updateSpellingUIWithGrammarString(int64_t, const String&, const GrammarDetail&)
 {
     notImplemented();
 }
@@ -90,7 +105,7 @@ void TextChecker::getGuessesForWord(int64_t spellDocumentTag, const String& word
     notImplemented();
 }
 
-void TextChecker::learnWord(const String& word)
+void TextChecker::learnWord(int64_t, const String&)
 {
     notImplemented();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, Google Inc.
+ * Copyright (c) 2008, 2011 Google Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 #ifndef ScriptState_h
 #define ScriptState_h
 
-#include <collector/handles/Global.h>
+#include <heap/Strong.h>
 #include <wtf/Noncopyable.h>
 
 namespace JSC {
@@ -45,6 +45,7 @@ class DOMWrapperWorld;
 class Frame;
 class Node;
 class Page;
+class WorkerContext;
 
 // The idea is to expose "state-like" methods (hadException, and any other
 // methods where ExecState just dips into globalData) of JSC::ExecState as a
@@ -59,13 +60,17 @@ public:
     ~ScriptStateProtectedPtr();
     ScriptState* get() const;
 private:
-    JSC::Global<JSC::JSGlobalObject> m_globalObject;
+    JSC::Strong<JSC::JSGlobalObject> m_globalObject;
 };
 
 ScriptState* mainWorldScriptState(Frame*);
 
 ScriptState* scriptStateFromNode(DOMWrapperWorld*, Node*);
 ScriptState* scriptStateFromPage(DOMWrapperWorld*, Page*);
+
+#if ENABLE(WORKERS)
+ScriptState* scriptStateFromWorkerContext(WorkerContext*);
+#endif
 
 } // namespace WebCore
 

@@ -126,12 +126,12 @@ bool CCLayerImpl::descendantsDrawsContent()
 // These belong on CCLayerImpl, but should be overridden by each type and not defer to the LayerChromium subtypes.
 bool CCLayerImpl::drawsContent() const
 {
-    return m_owner->drawsContent();
+    return m_owner && m_owner->drawsContent();
 }
 
-void CCLayerImpl::draw()
+void CCLayerImpl::draw(const IntRect& targetSurfaceRect)
 {
-    return m_owner->draw();
+    return m_owner->draw(targetSurfaceRect);
 }
 
 void CCLayerImpl::updateCompositorResources()
@@ -215,4 +215,3 @@ void CCLayerImpl::dumpLayerProperties(TextStream& ts, int indent) const
 }
 
 #endif // USE(ACCELERATED_COMPOSITING)
-

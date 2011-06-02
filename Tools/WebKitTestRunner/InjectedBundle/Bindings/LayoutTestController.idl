@@ -39,6 +39,7 @@ module WTR {
         void dumpSelectionRect();
         void dumpStatusCallbacks();
         void dumpTitleChanges();
+        void dumpFullScreenCallbacks();
 
         // Special options.
         void keepWebHistory();
@@ -46,6 +47,8 @@ module WTR {
         void setCanOpenWindows(in boolean value);
         void setCloseRemainingWindowsWhenComplete(in boolean value);
         void setXSSAuditorEnabled(in boolean value);
+        void setAllowUniversalAccessFromFileURLs(in boolean value);
+        void setAllowFileAccessFromFileURLs(in boolean value);
 
         // Special DOM functions.
         void clearBackForwardList();
@@ -55,11 +58,18 @@ module WTR {
         boolean isCommandEnabled(in DOMString name);
         DOMString markerTextForListItem(in object element);
         unsigned long windowCount();
+        object shadowRoot(in object element);
 
         // Repaint testing.
         void testRepaint();
         void repaintSweepHorizontally();
         void display();
+
+        // Printing
+        int numberOfPages(in double pageWidthInPixels, in double pageHeightInPixels);
+        int pageNumberForElementById(in DOMString id, in double pageWidthInPixels, in double pageHeightInPixels);
+        DOMString pageSizeAndMarginsInPixels(in int pageIndex, in int width, in int height, in int marginTop, in int marginRight, in int marginBottom, in int marginLeft);
+        boolean isPageBoxVisible(in int pageIndex);
 
         // Animation testing.
         int numberOfActiveAnimations();
@@ -70,7 +80,12 @@ module WTR {
         // UserContent testing.
         void addUserScript(in DOMString source, in boolean runAtStart, in boolean allFrames);
         void addUserStyleSheet(in DOMString source, in boolean allFrames);
-        
+
+        // Local storage API
+        void clearAllDatabases();
+        void setDatabaseQuota(in unsigned long long quota);
+        DOMString pathToLocalResource(in DOMString url);
+
         // Compositing testing.
         DOMString layerTreeAsText();
 

@@ -31,6 +31,7 @@
 #include "Connection.h"
 #include "PluginInfoStore.h"
 #include "ProcessLauncher.h"
+#include "WebProcessProxyMessages.h"
 #include <wtf/Deque.h>
 
 #if PLATFORM(MAC)
@@ -63,13 +64,16 @@ public:
 
     // Asks the plug-in process to create a new connection to a web process. The connection identifier will be 
     // encoded in the given argument encoder and sent back to the connection of the given web process.
-    void createWebProcessConnection(WebProcessProxy*, CoreIPC::ArgumentEncoder* reply);
-
+    void getPluginProcessConnection(PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>);
+    
     // Asks the plug-in process to get a list of domains for which the plug-in has data stored.
     void getSitesWithData(WebPluginSiteDataManager*, uint64_t callbackID);
 
     // Asks the plug-in process to clear the data for the given sites.
     void clearSiteData(WebPluginSiteDataManager*, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID);
+
+    // Terminates the plug-in process.
+    void terminate();
 
 private:
     PluginProcessProxy(PluginProcessManager*, const PluginInfoStore::Plugin&);
@@ -80,13 +84,16 @@ private:
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
     virtual void didClose(CoreIPC::Connection*);
     virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
+    virtual void syncMessageSendTimedOut(CoreIPC::Connection*);
 
     // ProcessLauncher::Client
     virtual void didFinishLaunching(ProcessLauncher*, CoreIPC::Connection::Identifier);
 
     // Message handlers
     void didReceivePluginProcessProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+#if PLATFORM(MAC)
     void didCreateWebProcessConnection(const CoreIPC::MachPort&);
+#endif
     void didGetSitesWithData(const Vector<String>& sites, uint64_t callbackID);
     void didClearSiteData(uint64_t callbackID);
 
@@ -120,7 +127,7 @@ private:
     // The process launcher for the plug-in host process.
     RefPtr<ProcessLauncher> m_processLauncher;
 
-    Deque<std::pair<RefPtr<WebProcessProxy>, CoreIPC::ArgumentEncoder*> > m_pendingConnectionReplies;
+    Deque<RefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> > m_pendingConnectionReplies;
 
     Vector<uint64_t> m_pendingGetSitesRequests;
     HashMap<uint64_t, RefPtr<WebPluginSiteDataManager> > m_pendingGetSitesReplies;
@@ -143,6 +150,7 @@ private:
     RetainPtr<WKPlaceholderModalWindow *> m_placeholderWindow;
     bool m_modalWindowIsShowing;
     bool m_fullscreenWindowIsShowing;
+    unsigned m_preFullscreenAppPresentationOptions;
 #endif
 };
 

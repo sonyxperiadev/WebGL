@@ -147,7 +147,7 @@ namespace WebCore {
 #endif
 
     private:
-#if PLATFORM(CG)
+#if USE(CG)
         typedef RetainPtr<CFMutableDataRef> NativeBackingStore;
 #else
         typedef Vector<PixelData> NativeBackingStore;

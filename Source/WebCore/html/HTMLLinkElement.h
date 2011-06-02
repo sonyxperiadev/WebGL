@@ -48,6 +48,7 @@ public:
 #endif
 #if ENABLE(LINK_PREFETCH)
         bool m_isLinkPrefetch;
+        bool m_isLinkSubresource;
 #endif
 
         RelAttribute()
@@ -57,6 +58,7 @@ public:
             , m_isDNSPrefetch(false)
 #if ENABLE(LINK_PREFETCH)
             , m_isLinkPrefetch(false)
+            , m_isLinkSubresource(false)
 #endif
             { 
             }
@@ -138,7 +140,7 @@ private:
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
 #if ENABLE(LINK_PREFETCH)
-    CachedResourceHandle<CachedResource> m_cachedLinkPrefetch;
+    CachedResourceHandle<CachedResource> m_cachedLinkResource;
     Timer<HTMLLinkElement> m_onloadTimer;
 #endif
     KURL m_url;

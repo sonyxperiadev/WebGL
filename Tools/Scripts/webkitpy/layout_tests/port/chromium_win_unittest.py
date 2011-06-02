@@ -58,13 +58,6 @@ class ChromiumWinTest(port_testcase.PortTestCase):
     def _mock_path_from_chromium_base(self, *comps):
         return self._port._filesystem.join("/chromium/src", *comps)
 
-    def test_default_worker_model(self):
-        port = self.make_port()
-        if not port:
-            return
-
-        self.assertEqual(port.default_worker_model(), 'old-threads')
-
     def test_setup_environ_for_server(self):
         port = self.make_port()
         if not port:
@@ -126,16 +119,6 @@ class ChromiumWinTest(port_testcase.PortTestCase):
         self.assertRaises(KeyError, self.assert_name, None, (5, 0), 'chromium-win-xp')
         self.assertRaises(KeyError, self.assert_name, None, (5, 2), 'chromium-win-xp')
         self.assertRaises(KeyError, self.assert_name, None, (7, 1), 'chromium-win-xp')
-
-    def test_generic_rebaselining_port(self):
-        port = chromium_win.ChromiumWinPort(rebaselining=True)
-        self.assertEquals(port.name(), 'chromium-win')
-        self.assertEquals(port.version(), '')
-        self.assertEquals(port.baseline_path(), port._webkit_baseline_path(port.name()))
-
-        port = chromium_win.ChromiumWinPort(port_name='chromium-win-xp', rebaselining=True)
-        self.assertEquals(port.name(), 'chromium-win-xp')
-        self.assertEquals(port.baseline_path(), port._webkit_baseline_path(port.name()))
 
     def test_baseline_path(self):
         port = chromium_win.ChromiumWinPort(port_name='chromium-win-xp')

@@ -30,6 +30,7 @@
 
 #include "GraphicsContext3D.h"
 
+#include "BitmapImage.h"
 #include "Image.h"
 #include "ImageSource.h"
 #include "NativeImageSkia.h"
@@ -50,15 +51,17 @@ bool GraphicsContext3D::getImageData(Image* image,
     if (!image)
         return false;
     OwnPtr<NativeImageSkia> pixels;
-    NativeImageSkia* skiaImage = 0;
+    NativeImageSkia* skiaImage = image->nativeImageForCurrentFrame();
     AlphaOp neededAlphaOp = AlphaDoNothing;
-    if (image->data()) {
+    bool hasAlpha = skiaImage ? !skiaImage->isOpaque() : true;
+    if ((!skiaImage || ignoreGammaAndColorProfile || (hasAlpha && !premultiplyAlpha)) && image->data()) {
         ImageSource decoder(ImageSource::AlphaNotPremultiplied,
                             ignoreGammaAndColorProfile ? ImageSource::GammaAndColorProfileIgnored : ImageSource::GammaAndColorProfileApplied);
+        // Attempt to get raw unpremultiplied image data 
         decoder.setData(image->data(), true);
         if (!decoder.frameCount() || !decoder.frameIsCompleteAtIndex(0))
             return false;
-        bool hasAlpha = decoder.frameHasAlphaAtIndex(0);
+        hasAlpha = decoder.frameHasAlphaAtIndex(0);
         pixels = adoptPtr(decoder.createFrameAtIndex(0));
         if (!pixels.get() || !pixels->isDataComplete() || !pixels->width() || !pixels->height())
             return false;
@@ -68,12 +71,8 @@ bool GraphicsContext3D::getImageData(Image* image,
         skiaImage = pixels.get();
         if (hasAlpha && premultiplyAlpha)
             neededAlphaOp = AlphaDoPremultiply;
-    } else {
-        // This is a special case for texImage2D with HTMLCanvasElement input.
-        skiaImage = image->nativeImageForCurrentFrame();
-        if (!premultiplyAlpha)
-            neededAlphaOp = AlphaDoUnmultiply;
-    }
+    } else if (!premultiplyAlpha && hasAlpha)
+        neededAlphaOp = AlphaDoUnmultiply;
     if (!skiaImage)
         return false;
     SkBitmap& skiaImageRef = *skiaImage;

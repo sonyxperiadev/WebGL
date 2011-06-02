@@ -39,7 +39,6 @@ _log = logging.getLogger("webkitpy.layout_tests.port.mac")
 
 
 def os_version(os_version_string=None, supported_versions=None):
-    # We only support Tiger, Leopard, and Snow Leopard.
     if not os_version_string:
         if hasattr(platform, 'mac_ver') and platform.mac_ver()[0]:
             os_version_string = platform.mac_ver()[0]
@@ -52,7 +51,8 @@ def os_version(os_version_string=None, supported_versions=None):
         5: 'leopard',
         6: 'snowleopard',
     }
-    version_string = version_strings[release_version]
+    assert release_version >= min(version_strings.keys())
+    version_string = version_strings.get(release_version, 'future')
     if supported_versions:
         assert version_string in supported_versions
     return version_string
@@ -62,26 +62,28 @@ class MacPort(WebKitPort):
     """WebKit Mac implementation of the Port class."""
     # FIXME: 'wk2' probably shouldn't be a version, it should probably be
     # a modifier, like 'chromium-gpu' is to 'chromium'.
-    SUPPORTED_VERSIONS = ('tiger', 'leopard', 'snowleopard', 'wk2')
+    SUPPORTED_VERSIONS = ('tiger', 'leopard', 'snowleopard', 'future', 'wk2')
 
     FALLBACK_PATHS = {
         'tiger': ['mac-tiger', 'mac-leopard', 'mac-snowleopard', 'mac'],
         'leopard': ['mac-leopard', 'mac-snowleopard', 'mac'],
         'snowleopard': ['mac-snowleopard', 'mac'],
+        'future': ['mac'],
         'wk2': ['mac-wk2', 'mac'],
     }
 
     def __init__(self, port_name=None, os_version_string=None, **kwargs):
         port_name = port_name or 'mac'
-
+        WebKitPort.__init__(self, port_name=port_name, **kwargs)
         if port_name == 'mac':
             self._version = os_version(os_version_string)
-            port_name = port_name + '-' + self._version
+            self._name = port_name + '-' + self._version
         else:
             self._version = port_name[4:]
             assert self._version in self.SUPPORTED_VERSIONS
-
-        WebKitPort.__init__(self, port_name=port_name, **kwargs)
+        self._operating_system = 'mac'
+        if not hasattr(self._options, 'time-out-ms') or self._options.time_out_ms is None:
+            self._options.time_out_ms = 35000
 
     def default_child_processes(self):
         # FIXME: new-run-webkit-tests is unstable on Mac running more than
@@ -92,10 +94,12 @@ class MacPort(WebKitPort):
             return 4
         return child_processes
 
-    def default_worker_model(self):
-        if self._multiprocessing_is_available:
-            return 'processes'
-        return 'threads'
+    def baseline_path(self):
+        if self.version() != 'future':
+            return WebKitPort.baseline_path(self)
+
+        assert(self._name[-7:] == '-future')
+        return self._webkit_baseline_path(self._name[:-7])
 
     def baseline_search_path(self):
         return map(self._webkit_baseline_path, self.FALLBACK_PATHS[self._version])
@@ -115,12 +119,6 @@ class MacPort(WebKitPort):
                                           'Skipped'))
         return skipped_files
 
-    def test_platform_name(self):
-        return 'mac-' + self.version()
-
-    def version(self):
-        return self._version
-
     def _build_java_test_support(self):
         java_tests_path = self._filesystem.join(self.layout_tests_dir(), "java")
         build_java = ["/usr/bin/make", "-C", java_tests_path]
@@ -132,23 +130,12 @@ class MacPort(WebKitPort):
     def _check_port_build(self):
         return self._build_java_test_support()
 
-    def _tests_for_other_platforms(self):
-        # The original run-webkit-tests builds up a "whitelist" of tests to
-        # run, and passes that to DumpRenderTree. new-run-webkit-tests assumes
-        # we run *all* tests and test_expectations.txt functions as a
-        # blacklist.
-        # FIXME: This list could be dynamic based on platform name and
-        # pushed into base.Port.
-        return [
-            "platform/chromium",
-            "platform/gtk",
-            "platform/qt",
-            "platform/win",
-        ]
-
     def _path_to_apache_config_file(self):
         return self._filesystem.join(self.layout_tests_dir(), 'http', 'conf',
                                      'apache2-httpd.conf')
+
+    def _path_to_webcore_library(self):
+        return self._build_path('WebCore.framework/Versions/A/WebCore')
 
     # FIXME: This doesn't have anything to do with WebKit.
     def _shut_down_http_server(self, server_pid):

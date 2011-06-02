@@ -64,8 +64,8 @@
 #else
 #define WEBKIT_EXPORTDATA __declspec(dllimport)
 #endif
-#define WTF_EXPORT_PRIVATE JS_EXPORTDATA
-#define JS_EXPORT_PRIVATE JS_EXPORTDATA
+#define WTF_EXPORT_PRIVATE
+#define JS_EXPORT_PRIVATE
 #define JS_EXPORTCLASS JS_EXPORTDATA
 #else
 #define JS_EXPORTDATA
@@ -272,15 +272,15 @@
 
 #if PLATFORM(WIN)
 #if defined(WIN_CAIRO)
-#undef WTF_PLATFORM_CG
-#define WTF_PLATFORM_CAIRO 1
+#undef WTF_USE_CG
+#define WTF_USE_CAIRO 1
 #define WTF_USE_CURL 1
 #ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
 #endif
 #elif !OS(WINCE)
-#define WTF_PLATFORM_CG 1
-#undef WTF_PLATFORM_CAIRO
+#define WTF_USE_CG 1
+#undef WTF_USE_CAIRO
 #undef WTF_USE_CURL
 #endif
 #endif
@@ -322,7 +322,7 @@
 #define WTF_USE_JSC !WTF_USE_V8
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG)
 #ifndef CGFLOAT_DEFINED
 #ifdef __LP64__
 typedef double CGFloat;
@@ -331,20 +331,20 @@ typedef float CGFloat;
 #endif
 #define CGFLOAT_DEFINED 1
 #endif
-#endif /* PLATFORM(CG) */
+#endif /* USE(CG) */
 
 #ifdef BUILDING_ON_TIGER
 #undef ENABLE_FTPDIR
 #define ENABLE_FTPDIR 0
 #endif
 
-#if PLATFORM(WIN) && PLATFORM(CG)
+#if PLATFORM(WIN) && USE(CG)
 #define WTF_USE_SAFARI_THEME 1
 #endif
 
 // CoreAnimation is available to IOS, Mac and Windows if using CG
-#if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WIN) && PLATFORM(CG))
-#define WTF_PLATFORM_CA 1
+#if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WIN) && USE(CG))
+#define WTF_USE_CA 1
 #endif
 
 #if PLATFORM(QT) && USE(V8) && defined(Q_WS_X11)

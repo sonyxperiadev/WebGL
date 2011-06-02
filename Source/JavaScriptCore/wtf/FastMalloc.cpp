@@ -245,7 +245,8 @@ void* fastMalloc(size_t n)
 #if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
     TryMallocReturnValue returnValue = tryFastMalloc(n);
     void* result;
-    returnValue.getValue(result);
+    if (!returnValue.getValue(result))
+        CRASH();
 #else
     void* result = malloc(n);
 #endif
@@ -293,7 +294,8 @@ void* fastCalloc(size_t n_elements, size_t element_size)
 #if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
     TryMallocReturnValue returnValue = tryFastCalloc(n_elements, element_size);
     void* result;
-    returnValue.getValue(result);
+    if (!returnValue.getValue(result))
+        CRASH();
 #else
     void* result = calloc(n_elements, element_size);
 #endif
@@ -362,7 +364,8 @@ void* fastRealloc(void* p, size_t n)
 #if ENABLE(FAST_MALLOC_MATCH_VALIDATION)
     TryMallocReturnValue returnValue = tryFastRealloc(p, n);
     void* result;
-    returnValue.getValue(result);
+    if (!returnValue.getValue(result))
+        CRASH();
 #else
     void* result = realloc(p, n);
 #endif
@@ -1615,10 +1618,10 @@ void TCMalloc_PageHeap::initializeScavenger()
 
 void* TCMalloc_PageHeap::runScavengerThread(void* context)
 {
-  static_cast<TCMalloc_PageHeap*>(context)->scavengerThread();
-#if COMPILER(MSVC)
-  // Without this, Visual Studio will complain that this method does not return a value.
-  return 0;
+    static_cast<TCMalloc_PageHeap*>(context)->scavengerThread();
+#if (COMPILER(MSVC) || COMPILER(SUNCC))
+    // Without this, Visual Studio and Sun Studio will complain that this method does not return a value.
+    return 0;
 #endif
 }
 

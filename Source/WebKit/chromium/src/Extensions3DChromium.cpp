@@ -57,6 +57,11 @@ void Extensions3DChromium::ensureEnabled(const String& name)
     ASSERT(result);
 }
 
+bool Extensions3DChromium::isEnabled(const String& name)
+{
+    return m_internal->isExtensionEnabled(name);
+}
+
 int Extensions3DChromium::getGraphicsResetStatusARB()
 {
     return m_internal->isContextLost() ? static_cast<int>(Extensions3D::UNKNOWN_CONTEXT_RESET_ARB) : static_cast<int>(GraphicsContext3D::NO_ERROR);
@@ -95,6 +100,26 @@ void Extensions3DChromium::unmapTexSubImage2DCHROMIUM(const void* data)
 void Extensions3DChromium::copyTextureToParentTextureCHROMIUM(unsigned texture, unsigned parentTexture)
 {
     m_internal->copyTextureToParentTextureCHROMIUM(texture, parentTexture);
+}
+
+void Extensions3DChromium::getParentToChildLatchCHROMIUM(GC3Duint* latchId)
+{
+    m_internal->getParentToChildLatchCHROMIUM(latchId);
+}
+
+void Extensions3DChromium::getChildToParentLatchCHROMIUM(GC3Duint* latchId)
+{
+    m_internal->getChildToParentLatchCHROMIUM(latchId);
+}
+
+void Extensions3DChromium::waitLatchCHROMIUM(GC3Duint latchId)
+{
+    m_internal->waitLatchCHROMIUM(latchId);
+}
+
+void Extensions3DChromium::setLatchCHROMIUM(GC3Duint latchId)
+{
+    m_internal->setLatchCHROMIUM(latchId);
 }
 
 Platform3DObject Extensions3DChromium::createVertexArrayOES()

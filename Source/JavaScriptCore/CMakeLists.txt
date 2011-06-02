@@ -6,7 +6,7 @@ SET(JavaScriptCore_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/assembler"
     "${JAVASCRIPTCORE_DIR}/bytecode"
     "${JAVASCRIPTCORE_DIR}/bytecompiler"
-    "${JAVASCRIPTCORE_DIR}/collector/handles"
+    "${JAVASCRIPTCORE_DIR}/heap"
     "${JAVASCRIPTCORE_DIR}/debugger"
     "${JAVASCRIPTCORE_DIR}/interpreter"
     "${JAVASCRIPTCORE_DIR}/jit"
@@ -41,8 +41,14 @@ SET(JavaScriptCore_SOURCES
     bytecompiler/BytecodeGenerator.cpp
     bytecompiler/NodesCodegen.cpp
 
-    collector/handles/HandleHeap.cpp
-    collector/handles/HandleStack.cpp
+    heap/Heap.cpp
+    heap/HandleHeap.cpp
+    heap/HandleStack.cpp
+    heap/MachineStackMarker.cpp
+    heap/MarkedBlock.cpp
+    heap/MarkedSpace.cpp
+    heap/ConservativeRoots.cpp
+    heap/MarkStack.cpp
 
     debugger/Debugger.cpp
     debugger/DebuggerActivation.cpp
@@ -85,9 +91,6 @@ SET(JavaScriptCore_SOURCES
     runtime/BooleanObject.cpp
     runtime/BooleanPrototype.cpp
     runtime/CallData.cpp
-    runtime/MarkedBlock.cpp
-    runtime/MarkedSpace.cpp
-    runtime/Heap.cpp
     runtime/CommonIdentifiers.cpp
     runtime/Completion.cpp
     runtime/ConstructData.cpp
@@ -117,10 +120,8 @@ SET(JavaScriptCore_SOURCES
     runtime/JSGlobalData.cpp
     runtime/JSGlobalObject.cpp
     runtime/JSGlobalObjectFunctions.cpp
-    runtime/JSImmediate.cpp
     runtime/JSLock.cpp
     runtime/JSNotAnObject.cpp
-    runtime/JSNumberCell.cpp
     runtime/JSObject.cpp
     runtime/JSObjectWithGlobalObject.cpp
     runtime/JSONObject.cpp
@@ -133,9 +134,6 @@ SET(JavaScriptCore_SOURCES
     runtime/JSZombie.cpp
     runtime/LiteralParser.cpp
     runtime/Lookup.cpp
-    runtime/MachineStackMarker.cpp
-    runtime/ConservativeSet.cpp
-    runtime/MarkStack.cpp
     runtime/MathObject.cpp
     runtime/NativeErrorConstructor.cpp
     runtime/NativeErrorPrototype.cpp
@@ -197,28 +195,29 @@ SET(JavaScriptCore_LIBRARIES
 # GENERATOR 1-A: LUT creator
 FOREACH (_file ${JavaScriptCore_LUT_FILES})
     GET_FILENAME_COMPONENT(_name ${_file} NAME_WE)
-    GENERATE_HASH_LUT(${JAVASCRIPTCORE_DIR}/${_file} ${DERIVED_SOURCES_DIR}/${_name}.lut.h)
-    LIST(APPEND JavaScriptCore_HEADERS ${DERIVED_SOURCES_DIR}/${_name}.lut.h)
+    GENERATE_HASH_LUT(${JAVASCRIPTCORE_DIR}/${_file} ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/${_name}.lut.h)
+    LIST(APPEND JavaScriptCore_HEADERS ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/${_name}.lut.h)
 ENDFOREACH ()
 
 
 # GENERATOR 1-B: particular LUT creator (for 1 file only)
-GENERATE_HASH_LUT(${JAVASCRIPTCORE_DIR}/parser/Keywords.table ${DERIVED_SOURCES_DIR}/Lexer.lut.h MAIN_DEPENDENCY)
-LIST(APPEND JavaScriptCore_HEADERS ${DERIVED_SOURCES_DIR}/Lexer.lut.h)
+GENERATE_HASH_LUT(${JAVASCRIPTCORE_DIR}/parser/Keywords.table ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/Lexer.lut.h MAIN_DEPENDENCY)
+LIST(APPEND JavaScriptCore_HEADERS ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/Lexer.lut.h)
 
 #GENERATOR: "RegExpJitTables.h": tables used by Yarr
 ADD_CUSTOM_COMMAND(
-    OUTPUT ${DERIVED_SOURCES_DIR}/RegExpJitTables.h
+    OUTPUT ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/RegExpJitTables.h
     MAIN_DEPENDENCY ${JAVASCRIPTCORE_DIR}/create_regex_tables
-    COMMAND ${PYTHON_EXECUTABLE} ${JAVASCRIPTCORE_DIR}/create_regex_tables > ${DERIVED_SOURCES_DIR}/RegExpJitTables.h
+    COMMAND ${PYTHON_EXECUTABLE} ${JAVASCRIPTCORE_DIR}/create_regex_tables > ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/RegExpJitTables.h
     VERBATIM)
-ADD_SOURCE_DEPENDENCIES(${JAVASCRIPTCORE_DIR}/yarr/YarrPattern.cpp ${DERIVED_SOURCES_DIR}/RegExpJitTables.h)
+ADD_SOURCE_DEPENDENCIES(${JAVASCRIPTCORE_DIR}/yarr/YarrPattern.cpp ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/RegExpJitTables.h)
 
 
 
 IF (WTF_CPU_ARM)
     LIST(APPEND JavaScriptCore_SOURCES
         assembler/ARMAssembler.cpp
+        assembler/ARMv7Assembler.cpp
         assembler/MacroAssemblerARM.cpp
     )
 ELSEIF (WTF_CPU_MIPS)

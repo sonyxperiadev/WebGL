@@ -29,6 +29,7 @@
 #include "ResourceRequest.h"
 
 #if PLATFORM(MAC)
+#include "ResourceLoadPriority.h"
 #include "WebCoreSystemInterface.h"
 #endif
 
@@ -39,6 +40,8 @@
 #endif
 
 namespace WebCore {
+
+bool ResourceRequest::s_httpPipeliningEnabled = false;
 
 #if USE(CFNETWORK)
 
@@ -208,6 +211,16 @@ void ResourceRequest::setStorageSession(CFURLStorageSessionRef storageSession)
 
 #endif // USE(CFNETWORK)
 
+bool ResourceRequest::httpPipeliningEnabled()
+{
+    return s_httpPipeliningEnabled;
+}
+
+void ResourceRequest::setHTTPPipeliningEnabled(bool flag)
+{
+    s_httpPipeliningEnabled = flag;
+}
+
 unsigned initializeMaximumHTTPConnectionCountPerHost()
 {
     static const unsigned preferredConnectionCount = 6;
@@ -217,32 +230,15 @@ unsigned initializeMaximumHTTPConnectionCountPerHost()
     unsigned maximumHTTPConnectionCountPerHost = wkInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
 
 #if PLATFORM(MAC)
-    if (isHTTPPipeliningEnabled()) {
+    if (ResourceRequest::httpPipeliningEnabled()) {
+        wkSetHTTPPipeliningMaximumPriority(ResourceLoadPriorityHighest);
+        wkSetHTTPPipeliningMinimumFastLanePriority(ResourceLoadPriorityMedium);
         // When pipelining do not rate-limit requests sent from WebCore since CFNetwork handles that.
         return unlimitedConnectionCount;
     }
 #endif
 
     return maximumHTTPConnectionCountPerHost;
-}
-
-static inline bool readBooleanPreference(CFStringRef key)
-{
-    Boolean keyExistsAndHasValidFormat;
-    Boolean result = CFPreferencesGetAppBooleanValue(key, kCFPreferencesCurrentApplication, &keyExistsAndHasValidFormat);
-    return keyExistsAndHasValidFormat ? result : false;
-}
-
-bool isHTTPPipeliningEnabled()
-{
-    static bool isEnabled = readBooleanPreference(CFSTR("WebKitEnableHTTPPipelining"));
-    return isEnabled;
-}
-
-bool shouldForceHTTPPipeliningPriorityHigh()
-{
-    static bool shouldForcePriorityHigh = readBooleanPreference(CFSTR("WebKitForceHTTPPipeliningPriorityHigh"));
-    return shouldForcePriorityHigh;
 }
 
 } // namespace WebCore

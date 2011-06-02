@@ -26,10 +26,10 @@
 #ifndef WebView_H
 #define WebView_H
 
-#include "COMPtr.h"
 #include "WebKit.h"
 #include "WebFrame.h"
 #include "WebPreferences.h"
+#include <WebCore/COMPtr.h>
 #include <WebCore/DragActions.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/RefCountedGDIHandle.h>
@@ -883,7 +883,7 @@ public:
 
     static WTF::String standardUserAgentWithApplicationName(const WTF::String&);
 
-    void setIsBeingDestroyed() { m_isBeingDestroyed = true; }
+    void setIsBeingDestroyed();
     bool isBeingDestroyed() const { return m_isBeingDestroyed; }
 
     const char* interpretKeyEvent(const WebCore::KeyboardEvent*);

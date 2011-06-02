@@ -33,7 +33,7 @@ WebInspector.Resource = function(identifier, url)
     this._endTime = -1;
     this._category = WebInspector.resourceCategories.other;
     this._pendingContentCallbacks = [];
-    this._responseHeadersSize = 0;
+    this.history = [];
 }
 
 // Keep these in sync with WebCore::InspectorResource::Type
@@ -99,6 +99,17 @@ WebInspector.Resource.Type = {
                 return "other";
         }
     }
+}
+
+WebInspector.Resource._domainModelBindings = [];
+
+WebInspector.Resource.registerDomainModelBinding = function(type, binding)
+{
+    WebInspector.Resource._domainModelBindings[type] = binding;
+}
+
+WebInspector.Resource.Events = {
+    RevisionAdded: 0
 }
 
 WebInspector.Resource.prototype = {
@@ -240,7 +251,7 @@ WebInspector.Resource.prototype = {
         if (this.cached)
             return 0;
         if (this.statusCode === 304) // Not modified
-            return this._responseHeadersSize;
+            return this.responseHeadersSize;
         if (this._transferSize !== undefined)
             return this._transferSize;
         // If we did not receive actual transfer size from network
@@ -254,7 +265,7 @@ WebInspector.Resource.prototype = {
         // work for chunks with non-trivial encodings. We need a way to
         // get actual transfer size from the network stack.
         var bodySize = Number(this.responseHeaders["Content-Length"] || this.resourceSize);
-        return this._responseHeadersSize + bodySize;
+        return this.responseHeadersSize + bodySize;
     },
 
     increaseTransferSize: function(x)
@@ -290,6 +301,16 @@ WebInspector.Resource.prototype = {
     set failed(x)
     {
         this._failed = x;
+    },
+
+    get canceled()
+    {
+        return this._canceled;
+    },
+
+    set canceled(x)
+    {
+        this._canceled = x;
     },
 
     get category()
@@ -393,8 +414,33 @@ WebInspector.Resource.prototype = {
         this._requestHeaders = x;
         delete this._sortedRequestHeaders;
         delete this._requestCookies;
+        delete this._responseHeadersSize;
 
         this.dispatchEventToListeners("requestHeaders changed");
+    },
+
+    get requestHeadersText()
+    {
+        return this._requestHeadersText;
+    },
+
+    set requestHeadersText(x)
+    {
+        this._requestHeadersText = x;
+        delete this._responseHeadersSize;
+
+        this.dispatchEventToListeners("requestHeaders changed");
+    },
+
+    get requestHeadersSize()
+    {
+        if (typeof(this._requestHeadersSize) === "undefined") {
+            if (this._requestHeadersText)
+                this._requestHeadersSize = this._requestHeadersText.length;
+            else 
+                this._requestHeadersSize = this._headersSize(this._requestHeaders)
+        }
+        return this._requestHeadersSize;
     },
 
     get sortedRequestHeaders()
@@ -441,13 +487,37 @@ WebInspector.Resource.prototype = {
     set responseHeaders(x)
     {
         this._responseHeaders = x;
-        // FIXME: we should take actual headers size from network stack, when possible.
-        this._responseHeadersSize = this._headersSize(x);
+        delete this._responseHeadersSize;
         delete this._sortedResponseHeaders;
         delete this._responseCookies;
 
         this.dispatchEventToListeners("responseHeaders changed");
     },
+    
+    get responseHeadersText()
+    {
+        return this._responseHeadersText;
+    },
+
+    set responseHeadersText(x)
+    {
+        this._responseHeadersText = x;
+        delete this._responseHeadersSize;
+
+        this.dispatchEventToListeners("responseHeaders changed");
+    },
+    
+    get responseHeadersSize()
+    {
+        if (typeof(this._responseHeadersSize) === "undefined") {
+            if (this._responseHeadersText)
+                this._responseHeadersSize = this._responseHeadersText.length;
+            else 
+                this._responseHeadersSize = this._headersSize(this._responseHeaders)
+        }
+        return this._responseHeadersSize;
+    },
+    
 
     get sortedResponseHeaders()
     {
@@ -526,9 +596,11 @@ WebInspector.Resource.prototype = {
 
     _headersSize: function(headers)
     {
+        // We should take actual headers size from network stack, when possible, but fall back to
+        // this lousy computation when no headers text is available.
         var size = 0;
         for (var header in headers)
-            size += header.length + headers[header].length + 3; // _typical_ overhead per herader is ": ".length + "\n".length.
+            size += header.length + headers[header].length + 4; // _typical_ overhead per header is ": ".length + "\r\n".length.
         return size;
     },
 
@@ -566,7 +638,10 @@ WebInspector.Resource.prototype = {
         // If status is an error, content is likely to be of an inconsistent type,
         // as it's going to be an error message. We do not want to emit a warning
         // for this, though, as this will already be reported as resource loading failure.
-        if (this.statusCode >= 400)
+        // Also, if a URL like http://localhost/wiki/load.php?debug=true&lang=en produces text/css and gets reloaded,
+        // it is 304 Not Modified and its guessed mime-type is text/php, which is wrong.
+        // Don't check for mime-types in 304-resources.
+        if (this.statusCode >= 400 || this.statusCode === 304)
             return true;
 
         if (typeof this.type === "undefined"
@@ -627,59 +702,34 @@ WebInspector.Resource.prototype = {
         this._content = content;
     },
 
-    isLocallyModified: function()
+    isEditable: function()
     {
-        return !!this._baseRevision;
+        if (this._actualResource)
+            return false;
+        var binding = WebInspector.Resource._domainModelBindings[this.type];
+        return binding && binding.canSetContent(this);
     },
 
-    setContent: function(newContent, onRevert)
+    setContent: function(newContent, majorChange, callback)
     {
-        var revisionResource = new WebInspector.Resource(null, this.url);
-        revisionResource.type = this.type;
-        revisionResource.loader = this.loader;
-        revisionResource.timestamp = this.timestamp;
-        revisionResource._content = this._content;
-        revisionResource._actualResource = this;
-        revisionResource._fireOnRevert = onRevert;
-
-        if (this.finished)
-            revisionResource.finished = true;
-        else {
-            function finished()
-            {
-                this.removeEventListener("finished", finished);
-                revisionResource.finished = true;
-            }
-            this.addEventListener("finished", finished.bind(this));
-        }
-
-        if (!this._baseRevision)
-            this._baseRevision = revisionResource;
-        else
-            revisionResource._baseRevision = this._baseRevision;
-
-        var data = { revision: revisionResource };
-        this._content = newContent;
-        this.timestamp = new Date();
-        this.dispatchEventToListeners("content-changed", data);
-    },
-
-    revertToThis: function()
-    {
-        if (!this._actualResource || !this._fireOnRevert)
+        if (!this.isEditable(this)) {
+            if (callback)
+                callback("Resource is not editable");
             return;
-
-        function callback(content)
-        {
-            if (content)
-                this._fireOnRevert(content);
         }
-        this.requestContent(callback.bind(this));
+        var binding = WebInspector.Resource._domainModelBindings[this.type];
+        binding.setContent(this, newContent, majorChange, callback);
     },
 
-    get baseRevision()
+    addRevision: function(newContent)
     {
-        return this._baseRevision;
+        var revision = new WebInspector.ResourceRevision(this, this._content, this._contentTimestamp);
+        this.history.push(revision);
+
+        this._content = newContent;
+        this._contentTimestamp = new Date();
+
+        this.dispatchEventToListeners(WebInspector.Resource.Events.RevisionAdded, revision);
     },
 
     requestContent: function(callback)
@@ -713,6 +763,11 @@ WebInspector.Resource.prototype = {
             image.src = this.url;
     },
 
+    isDataURL: function()
+    {
+        return this.url.match(/^data:/i);
+    },
+    
     _contentURL: function()
     {
         const maxDataUrlSize = 1024 * 1024;
@@ -733,6 +788,7 @@ WebInspector.Resource.prototype = {
         function onResourceContent(data)
         {
             this._content = data;
+            this._originalContent = data;
             var callbacks = this._pendingContentCallbacks.slice();
             for (var i = 0; i < callbacks.length; ++i)
                 callbacks[i](this._content, this._contentEncoded);
@@ -744,3 +800,76 @@ WebInspector.Resource.prototype = {
 }
 
 WebInspector.Resource.prototype.__proto__ = WebInspector.Object.prototype;
+
+WebInspector.ResourceRevision = function(resource, content, timestamp)
+{
+    this._resource = resource;
+    this._content = content;
+    this._timestamp = timestamp;
+}
+
+WebInspector.ResourceRevision.prototype = {
+    get resource()
+    {
+        return this._resource;
+    },
+
+    get timestamp()
+    {
+        return this._timestamp;
+    },
+
+    get content()
+    {
+        return this._content;
+    },
+
+    revertToThis: function()
+    {
+        function revert(content)
+        {
+            this._resource.setContent(content, true);
+        }
+        this.requestContent(revert.bind(this));
+    },
+
+    requestContent: function(callback)
+    {
+        if (typeof this._content === "string") {
+            callback(this._content);
+            return;
+        }
+
+        // If we are here, this is initial revision. First, look up content fetched over the wire.
+        if (typeof this.resource._originalContent === "string") {
+            this._content = this._resource._originalContent;
+            callback(this._content);
+            return;
+        }
+
+        // If unsuccessful, request the content.
+        function mycallback(content)
+        {
+            this._content = content;
+            callback(content);
+        }
+        WebInspector.networkManager.requestContent(this._resource, false, mycallback.bind(this));
+    }
+}
+
+WebInspector.ResourceDomainModelBinding = function()
+{
+}
+
+WebInspector.ResourceDomainModelBinding.prototype = {
+    canSetContent: function()
+    {
+        // Implemented by the domains.
+        return true;
+    },
+
+    setContent: function(resource, content, majorChange, callback)
+    {
+        // Implemented by the domains.
+    }
+}

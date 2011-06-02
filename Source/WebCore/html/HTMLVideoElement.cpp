@@ -129,6 +129,11 @@ bool HTMLVideoElement::supportsFullscreen() const
         return false;
 
     // Check with the platform client.
+#if ENABLE(FULLSCREEN_API)
+    if (page->chrome()->client()->supportsFullScreenForElement(this, false))
+        return true;
+#endif
+
     return page->chrome()->client()->supportsFullscreenForNode(this);
 }
 
@@ -183,7 +188,7 @@ void HTMLVideoElement::setDisplayMode(DisplayMode mode)
             if (oldMode != Video && player())
                 player()->prepareForRendering();
             if (!hasAvailableVideoFrame())
-                mode = Poster;
+                mode = PosterWaitingForVideo;
         }
     } else if (oldMode != Video && player())
         player()->prepareForRendering();

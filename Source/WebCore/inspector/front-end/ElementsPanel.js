@@ -38,7 +38,7 @@ WebInspector.ElementsPanel = function()
     if (!WebInspector.settings.domWordWrap)
         this.contentElement.classList.add("nowrap");
 
-    this.element.addEventListener("contextmenu", this._contextMenuEventFired.bind(this), true);
+    this.contentElement.addEventListener("contextmenu", this._contextMenuEventFired.bind(this), true);
 
     this.treeOutline = new WebInspector.ElementsTreeOutline();
     this.treeOutline.panel = this;
@@ -79,7 +79,7 @@ WebInspector.ElementsPanel = function()
     this.sidebarPanes.metrics = new WebInspector.MetricsSidebarPane();
     this.sidebarPanes.properties = new WebInspector.PropertiesSidebarPane();
     if (Preferences.nativeInstrumentationEnabled)
-        this.sidebarPanes.domBreakpoints = WebInspector.createDOMBreakpointsSidebarPane();
+        this.sidebarPanes.domBreakpoints = WebInspector.domBreakpointsSidebarPane;
     this.sidebarPanes.eventListeners = new WebInspector.EventListenersSidebarPane();
 
     this.sidebarPanes.styles.onexpand = this.updateStyles.bind(this);
@@ -153,6 +153,9 @@ WebInspector.ElementsPanel.prototype = {
         if (this.recentlyModifiedNodes.length)
             this.updateModifiedNodes();
 
+        if (Preferences.nativeInstrumentationEnabled)
+            this.sidebarElement.insertBefore(this.sidebarPanes.domBreakpoints.element, this.sidebarPanes.eventListeners.element);
+
         if (!this.rootDOMNode)
             WebInspector.domAgent.requestDocument();
     },
@@ -199,8 +202,8 @@ WebInspector.ElementsPanel.prototype = {
         if (!inspectedRootDocument)
             return;
 
-        WebInspector.breakpointManager.restoreDOMBreakpoints();
-
+        if (Preferences.nativeInstrumentationEnabled)
+            this.sidebarPanes.domBreakpoints.restoreBreakpoints();
 
         this.rootDOMNode = inspectedRootDocument;
 
@@ -483,7 +486,7 @@ WebInspector.ElementsPanel.prototype = {
                     nodeItem.updateTitle();
                 continue;
             }
-            
+
             if (!parent)
                 continue;
 
@@ -768,13 +771,13 @@ WebInspector.ElementsPanel.prototype = {
         var i = 0;
         var crumb = crumbs.firstChild;
         while (crumb) {
-            // Find the selected crumb and index. 
+            // Find the selected crumb and index.
             if (!selectedCrumb && crumb.hasStyleClass("selected")) {
                 selectedCrumb = crumb;
                 selectedIndex = i;
             }
 
-            // Find the focused crumb index. 
+            // Find the focused crumb index.
             if (crumb === focusedCrumb)
                 focusedIndex = i;
 
@@ -883,7 +886,7 @@ WebInspector.ElementsPanel.prototype = {
             while (crumb) {
                 var hidden = crumb.hasStyleClass("hidden");
                 if (!hidden) {
-                    var collapsed = crumb.hasStyleClass("collapsed"); 
+                    var collapsed = crumb.hasStyleClass("collapsed");
                     if (collapsedRun && collapsed) {
                         crumb.addStyleClass("hidden");
                         crumb.removeStyleClass("compact");
@@ -1120,15 +1123,14 @@ WebInspector.ElementsPanel.prototype = {
         this._nodeSearchButton.toggled = false;
     },
 
-    _setSearchingForNode: function(error, enabled)
+    _setSearchingForNode: function(enabled)
     {
-        if (!error)
-            this._nodeSearchButton.toggled = enabled;
+        this._nodeSearchButton.toggled = enabled;
     },
 
     setSearchingForNode: function(enabled)
     {
-        DOMAgent.setSearchingForNode(enabled, this._setSearchingForNode.bind(this));
+        DOMAgent.setSearchingForNode(enabled, this._setSearchingForNode.bind(this, enabled));
     },
 
     toggleSearchingForNode: function()

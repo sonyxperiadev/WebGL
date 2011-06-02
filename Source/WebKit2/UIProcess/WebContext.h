@@ -75,20 +75,22 @@ public:
 
     ProcessModel processModel() const { return m_processModel; }
     WebProcessProxy* process() const { return m_process.get(); }
-    bool hasValidProcess() const { return m_process && m_process->isValid(); }
 
+    template<typename U> bool sendToAllProcesses(const U& message);
+    template<typename U> bool sendToAllProcessesRelaunchingThemIfNecessary(const U& message);
+    
     void processDidFinishLaunching(WebProcessProxy*);
 
     // Disconnect the process from the context.
     void disconnectProcess(WebProcessProxy*);
 
-    WebPageProxy* createWebPage(PageClient*, WebPageGroup*);
+    PassRefPtr<WebPageProxy> createWebPage(PageClient*, WebPageGroup*);
 
-    void relaunchProcessIfNecessary();
+    WebProcessProxy* relaunchProcessIfNecessary();
 
     const String& injectedBundlePath() const { return m_injectedBundlePath; }
 
-    void download(WebPageProxy* initiatingPage, const WebCore::ResourceRequest&);
+    DownloadProxy* download(WebPageProxy* initiatingPage, const WebCore::ResourceRequest&);
 
     void setInjectedBundleInitializationUserData(PassRefPtr<APIObject> userData) { m_injectedBundleInitializationUserData = userData; }
     APIObject* injectedBundleInitializationUserData() const { return m_injectedBundleInitializationUserData.get(); }
@@ -120,8 +122,6 @@ public:
 
     void setCacheModel(CacheModel);
     CacheModel cacheModel() const { return m_cacheModel; }
-    void clearResourceCaches(ResourceCachesToClear);
-    void clearApplicationCache();
 
     void setDefaultRequestTimeoutInterval(double);
 
@@ -137,7 +137,7 @@ public:
     void setEnhancedAccessibility(bool);
     
     // Downloads.
-    uint64_t createDownloadProxy();
+    DownloadProxy* createDownloadProxy();
     WebDownloadClient& downloadClient() { return m_downloadClient; }
     void downloadFinished(DownloadProxy*);
 
@@ -167,6 +167,13 @@ public:
     void ensureWebProcess();
 
     bool shouldTerminate(WebProcessProxy*);
+
+    void disableProcessTermination() { m_processTerminationEnabled = false; }
+    void enableProcessTermination();
+
+    // Defaults to false.
+    void setHTTPPipeliningEnabled(bool);
+    bool httpPipeliningEnabled();
 
 private:
     WebContext(ProcessModel, const String& injectedBundlePath);
@@ -205,7 +212,7 @@ private:
 
     String localStorageDirectory() const;
     String platformDefaultLocalStorageDirectory() const;
-    
+
     ProcessModel m_processModel;
     
     // FIXME: In the future, this should be one or more WebProcessProxies.
@@ -234,9 +241,6 @@ private:
 
     WebDownloadClient m_downloadClient;
     HashMap<uint64_t, RefPtr<DownloadProxy> > m_downloads;
-
-    bool m_clearResourceCachesForNewWebProcess;
-    bool m_clearApplicationCacheForNewWebProcess;
     
     bool m_memorySamplerEnabled;
     double m_memorySamplerInterval;
@@ -263,7 +267,24 @@ private:
     String m_overrideDatabaseDirectory;
     String m_overrideIconDatabasePath;
     String m_overrideLocalStorageDirectory;
+
+    bool m_processTerminationEnabled;
 };
+
+template<typename U> inline bool WebContext::sendToAllProcesses(const U& message)
+{
+    if (!m_process || !m_process->canSendMessage())
+        return false;
+
+    return m_process->send(message, 0);
+}
+
+template<typename U> bool WebContext::sendToAllProcessesRelaunchingThemIfNecessary(const U& message)
+{
+    relaunchProcessIfNecessary();
+
+    return m_process->send(message, 0);
+}
 
 } // namespace WebKit
 

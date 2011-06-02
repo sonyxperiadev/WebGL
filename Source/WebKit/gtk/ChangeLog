@@ -1,6 +1,143 @@
-2011-03-30  Martin Robinson  <mrobinson@igalia.com>
+2011-04-19  Vsevolod Vlasov  <vsevik@chromium.org>
 
-        Reviewed by Dirk Schulze.
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Rename lengthReceived to encodedDataLength/dataLength
+        https://bugs.webkit.org/show_bug.cgi?id=58883
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidReceiveContentLength):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+        * webkit/webkitdownload.cpp:
+        (DownloadClient::didReceiveData):
+
+2011-04-18  Zan Dobersek  <zandobersek@gmail.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Need support for dumping focus rectangles in pixel results
+        https://bugs.webkit.org/show_bug.cgi?id=53647
+
+        Add a support function that returns the rectangle of the current
+        selection in frame.
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::rectangleForSelection):
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2011-04-12  Xan Lopez  <xlopez@igalia.com>
+
+        Unreviewed build fix.
+
+        * webkit/webkitwebhistoryitem.cpp:
+
+2011-04-12  Stephanie Lewis  <slewis@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=58280
+        <rdar://problem/9252824> javascript in an inconsistent state due to serialization returning an un-handled exception.
+
+        Add a header include.  Fallout from untangling some header files in WebCore.
+
+        * webkit/webkitwebhistoryitem.cpp:
+
+2011-02-03  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Eric Seidel.
+
+        [GTK] The GTK+ DRT needs an implementation of the PlainTextController
+        https://bugs.webkit.org/show_bug.cgi?id=53605
+
+        Added jsValueToDOMRange to DumpRenderTreeSupportGtk. This static method can convert
+        a JSValueRef to a WebKitDOMRange. When it's possible to do this with the public
+        API, we can remove this method.
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::jsValueToDOMRange): Added.
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h: Added declaration.
+
+2011-04-11  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        [Gtk] Implement support for Embedded Objects
+        https://bugs.webkit.org/show_bug.cgi?id=52148
+
+        New accessibility unit test for embedded objects.
+
+        * tests/testatk.c:
+        (testWebkitAtkEmbeddedObjects): New unit test.
+        (main): Added the new unit test.
+
+2011-04-08  Dominic Cooney  <dominicc@google.com>
+
+        Reviewed by Adam Roben.
+
+        Make layoutTestController.shadowRoot return null, not undefined,
+        when its argument is invalid.
+        https://bugs.webkit.org/show_bug.cgi?id=58121
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::shadowRoot):
+
+2011-04-08  Dominic Cooney  <dominicc@google.com>
+
+        Reviewed by Kent Tamura.
+
+        layoutTestController.shadowRoot should return undefined if its
+        argument is not an element.
+        https://bugs.webkit.org/show_bug.cgi?id=58119
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::shadowRoot):
+
+2011-04-08  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Implement increment() and decrement() functions in DRT's AccessibilityUIElement
+        https://bugs.webkit.org/show_bug.cgi?id=58039
+
+        Implemented missing functions in GTK's DRT.
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (modifyAccessibilityValue): Helper function to increment or decrement
+        the current value for an object through the AccessibilityObject's API.
+        (DumpRenderTreeSupportGtk::incrementAccessibilityValue): New function,
+        to be used from GTK's DRT.
+        (DumpRenderTreeSupportGtk::decrementAccessibilityValue): Ditto.
+
+2011-04-06  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Need a way to get the path to a WebKitWebPlugin
+        https://bugs.webkit.org/show_bug.cgi?id=57968
+
+        Expose the path of the plugin through the WebKitWebPlugin object.
+
+        * webkit/webkitwebplugin.cpp:
+        (webkit_web_plugin_get_path):
+        * webkit/webkitwebplugin.h:
+        * webkit/webkitwebpluginprivate.h:
+
+2011-04-07  Alice Boxhall  <aboxhall@chromium.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Move the MouseEventWithHitTestResults::targetNode() method on to EventHandler.
+        https://bugs.webkit.org/show_bug.cgi?id=57921
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_forward_context_menu_event):
+        Call subframeForHitTestResult rather than subframeForTargetNode as the targetNode()
+        method has moved on to EventHandler.
+
+2011-04-05  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Eric Seidel.
 
         [Cairo] Better separate the concerns of GraphicsContextCairo
         https://bugs.webkit.org/show_bug.cgi?id=55150
@@ -14,6 +151,124 @@
         * webkit/webkitwebview.cpp:
         (webkit_web_view_expose_event):
         (webkit_web_view_draw):
+
+2011-04-04  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        [Refactoring] SpellCheckingResult should be replaced with TextCheckingResult
+        https://bugs.webkit.org/show_bug.cgi?id=56085
+
+        * WebCoreSupport/TextCheckerClientEnchant.h:
+        (WebKit::TextCheckerClientEnchant::requestCheckingOfString):
+
+2011-04-04  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] WebGL support
+        https://bugs.webkit.org/show_bug.cgi?id=31517
+
+        Add support for toggling WebGL at runtime when it's enabled.
+
+        * webkit/webkitwebsettings.cpp: Add the enable-webgl property. When ENABLE_WEBGL
+        is not enabled, it's a no-op.
+        (webkit_web_settings_class_init): Update to support enable-webgl.
+        (webkit_web_settings_set_property): Ditto.
+        (webkit_web_settings_get_property): Ditto.
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings): Ditto.
+
+2011-04-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        REGRESSION (WebKit2): Caps-Lock indicator sometimes doesn't appear in WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=51230
+        <rdar://problem/8780989>
+
+        * webkit/webkitwebview.cpp: (webkit_web_view_key_release_event): Moved Caps Lock handling from
+        WebKits to WebCore, because WebKit shouldn't be smart.
+
+2011-04-04  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] webkit_web_view_popup_menu_handler should call SelectionController::localCaretRect
+        https://bugs.webkit.org/show_bug.cgi?id=54633
+
+        Remove use of legacy editing positions when positioning keyboard-driven context
+        menus. Simplify the code greatly.
+
+        * webkit/webkitwebview.cpp:
+        (getLocationForKeyboardGeneratedContextMenu): Added this helper which calculates
+        the context menu position.
+        (webkit_web_view_popup_menu_handler): Simplify code preventing the menu from bumping
+        into the edges of the view. Remove (0,-1) hack as it no longer seems to be important.
+
+2011-04-02  Dominic Cooney  <dominicc@google.com>
+
+        Reviewed by Martin Robinson.
+
+        Add layoutTestController.shadowRoot to GTK DumpRenderTree.
+        https://bugs.webkit.org/show_bug.cgi?id=57551
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::shadowRoot):
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2011-04-01  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r82721.
+        http://trac.webkit.org/changeset/82721
+        https://bugs.webkit.org/show_bug.cgi?id=57687
+
+        This patch introduced assertion failures on the GTK+ bots.
+        (Requested by mrobinson on #webkit).
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2011-04-01  Dominic Cooney  <dominicc@google.com>
+
+        Reviewed by Martin Robinson.
+
+        Add layoutTestController.shadowRoot to GTK DumpRenderTree.
+        https://bugs.webkit.org/show_bug.cgi?id=57551
+
+        * WebCoreSupport/DumpRenderTreeSupportGtk.cpp:
+        (DumpRenderTreeSupportGtk::shadowRoot):
+        * WebCoreSupport/DumpRenderTreeSupportGtk.h:
+
+2011-03-31  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Link explicitly with XRender on Linux/Unix
+        https://bugs.webkit.org/show_bug.cgi?id=57558
+
+        * GNUmakefile.am: add XRender LIBS.
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Build fix from previous change.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidReceiveTitle):
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        <title> should support dir attribute
+        https://bugs.webkit.org/show_bug.cgi?id=50961
+
+        Update to new FrameLoaderClient interface.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidReceiveTitle):
+        (WebKit::FrameLoaderClient::setTitle):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
 
 2011-03-29  Philippe Normand  <pnormand@igalia.com>
 

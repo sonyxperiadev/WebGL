@@ -1,0 +1,555 @@
+<!DocType html>
+<style>
+body {
+    margin: 4px;
+}
+
+body > p:first-of-type {
+    margin-top: 0;
+}
+
+tr:first-of-type:hover {
+    opacity: 0.7
+}
+
+thead, tbody {
+    background-color: #E3E9FF;
+}
+
+td {
+    padding: 0 4px;
+}
+
+th:empty, td:empty {
+    padding: 0;
+}
+
+th {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+}
+
+label {
+    margin-left: 10px;
+}
+
+.results-row {
+    background-color: white;
+}
+
+.results-row iframe {
+    width: 800px;
+    height: 600px;
+}
+
+#options {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+}
+
+.expand-button {
+    background-color: white;
+    color: blue;
+    width: 11px;
+    height: 11px;
+    border: 1px solid blue;
+    display: inline-block;
+    margin: 0 3px 0 0;
+    position: relative;
+}
+
+.expand-button-text {
+    position: absolute;
+    top: -0.3em;
+    left: 1px;
+}
+
+.result-container {
+    display: inline-block;
+    border: 1px solid gray;
+}
+
+.result-container iframe, .result-container img {
+    border: 0;
+    border-top: 1px solid lightgray;
+    vertical-align: top;
+}
+
+.label {
+    padding-left: 3px;
+    font-weight: bold;
+    font-size: small;
+}
+
+.pixel-zoom-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: -webkit-box;
+}
+
+.pixel-zoom-container > * {
+    display: -webkit-box;
+    -webkit-box-flex: 1;
+    border: 1px inset lightgray;
+    height: 100px;
+    overflow: hidden;
+    zoom: 300%;
+    background-color: white;
+}
+
+.pixel-zoom-container img {
+    width: 800px;
+    height: 600px;
+    vertical-align: top;
+}
+</style>
+
+<script>
+var g_results;
+function ADD_RESULTS(input)
+{
+    g_results = input;
+}
+</script>
+
+<script src="full_results.json"></script>
+
+<script>
+function stripExtension(test)
+{
+    var index = test.lastIndexOf('.');
+    return test.substring(0, index);
+}
+
+function parentOfType(node, selector)
+{
+    while (node = node.parentElement) {
+        if (node.webkitMatchesSelector(selector))
+            return node;
+    }
+    return null;
+}
+
+function appendResultIframe(src, parent)
+{
+    // FIXME: use audio tags for AUDIO tests?
+    var layoutTestsIndex = src.indexOf('LayoutTests');
+    var name;
+    if (layoutTestsIndex != -1) {
+        var hasTrac = src.indexOf('trac.webkit.org') != -1;
+        var prefix = hasTrac ? 'trac.webkit.org/.../' : '';
+        name = prefix + src.substring(layoutTestsIndex + 'LayoutTests/'.length);
+    } else {
+        var lastDashIndex = src.lastIndexOf('-pretty');
+        if (lastDashIndex == -1)
+            lastDashIndex = src.lastIndexOf('-');
+        name = src.substring(lastDashIndex + 1);
+    }
+
+    var tagName = (src.lastIndexOf('.png') == -1) ? 'iframe' : 'img';
+
+    var container = document.createElement('div');
+    container.className = 'result-container';
+    container.innerHTML = '<div class=label>' + name + '</div><' + tagName + ' src="' + src + '?format=txt"></' + tagName + '>';
+    parent.appendChild(container);
+}
+
+function expandExpectations(e)
+{
+    var expandLink = e.target;
+    if (expandLink.className != 'expand-button-text')
+        expandLink = expandLink.querySelector('.expand-button-text');
+
+    var isExpand = expandLink.textContent == '+';
+    var row = parentOfType(expandLink, 'tr');
+    var parentTbody = row.parentNode;
+    var existingResultsRow = parentTbody.querySelector('.results-row');
+    
+    if (!isExpand) {
+        expandLink.textContent = '+';
+        existingResultsRow.style.display = 'none';
+        return;
+    }
+    
+    var enDash = '\u2013';
+    expandLink.textContent = enDash;
+    if (existingResultsRow) {
+        existingResultsRow.style.display = '';
+        return;
+    }
+    
+    var newRow = document.createElement('tr');
+    newRow.className = 'results-row';
+    var newCell = document.createElement('td');
+    newCell.colSpan = row.querySelectorAll('td').length;
+
+    appendResultIframe(row.querySelector('.test-link').href, newCell);
+
+    var resultLinks = row.querySelectorAll('.result-link');
+    for (var i = 0; i < resultLinks.length; i++)
+        appendResultIframe(resultLinks[i].href, newCell);
+
+    newRow.appendChild(newCell);
+    parentTbody.appendChild(newRow);
+}
+
+function testLink(test)
+{
+    var basePath;
+    if (g_results.layout_tests_dir && location.toString().indexOf('file://') == 0)
+        basePath = g_results.layout_tests_dir + '/';
+    else
+        basePath = 'http://trac.webkit.org/browser/trunk/LayoutTests/';
+    return '<span class=expand-button onclick="expandExpectations(event)"><span class=expand-button-text>+</span></span>' +
+        '<a class=test-link href="' + basePath + test + '">' + test + '</a>';
+}
+
+function resultLink(testPrefix, suffix, contents)
+{
+    return '<a class=result-link href="' + testPrefix + suffix + '">' + contents + '</a> ';
+}
+
+var g_hasTextFailures = false;
+var g_hasImageFailures = false;
+
+var g_testsWithStderr = [];
+var g_newTests = [];
+var g_hasHttpTests = false;
+
+function tableRows()
+{
+    var html = '';
+    for (var test in g_results.tests) {
+        if (g_results.tests[test].has_stderr)
+            g_testsWithStderr.push(test);
+
+        g_hasHttpTests = g_hasHttpTests || test.indexOf('http/') == 0;
+
+        var actual = g_results.tests[test].actual;
+        if (actual == 'MISSING') {
+            // FIXME: make sure that new-run-webkit-tests spits out an -actual.txt file for
+            // tests with MISSING results.
+            g_newTests.push(test);
+            continue;
+        }
+
+        var expected = g_results.tests[test].expected || 'PASS';
+        if (actual == 'PASS' && (!g_results.uses_expectations_file || expected == 'PASS'))
+          continue;
+
+        // FIXME: put unexpected passes in a separate table.
+
+        var row = '<td>' + testLink(test) + '</td>';
+        var test_prefix = stripExtension(test);
+
+        row += '<td>';
+        if (actual == 'CRASH')
+            row += resultLink(test_prefix, '-stack.txt', 'stack');
+        else if (actual == 'AUDIO') {
+            row += resultLink(test_prefix, '-expected.wav', 'expected');
+            row += resultLink(test_prefix, '-actual.wav', 'actual');
+        } else if (actual.indexOf('TEXT') != -1 || actual == 'TIMEOUT') {
+            // FIXME: only include timeout actual/expected results here if we actually spit out results for timeout tests.
+            g_hasTextFailures = true;
+            row += resultLink(test_prefix, '-expected.txt', 'expected') +
+                resultLink(test_prefix, '-actual.txt', 'actual') +
+                resultLink(test_prefix, '-diff.txt', 'diff');
+      
+            if (g_results.has_pretty_patch)
+                row += resultLink(test_prefix, '-pretty-diff.html', 'pretty diff');
+
+            if (g_results.has_wdiff)
+                row += resultLink(test_prefix, '-wdiff.html', 'wdiff');
+        }
+
+        row += '</td><td>';
+
+        if (actual.indexOf('IMAGE') != -1) {
+            g_hasImageFailures = true;
+
+            if (g_results.tests[test].is_mismatch_reftest) {
+                row += resultLink(test_prefix, '-expected-mismatch.html', 'ref mismatch html') +
+                    resultLink(test_prefix, '-actual.png', 'actual');
+            } else {
+                if (g_results.tests[test].is_reftest)
+                    row += resultLink(test_prefix, '-expected.html', 'ref html');
+
+                row += resultLink(test_prefix, '-expected.png', 'expected') +
+                    resultLink(test_prefix, '-actual.png', 'actual') +
+                    resultLink(test_prefix, '-diff.png', 'diff');
+            }
+        }
+
+        row += '</td>';
+        row += '<td>' + actual + '</td>';
+
+        if (g_results.uses_expectations_file)
+          row += '<td>' + expected + '</td>';
+
+        var isExpected = actual == 'SKIP';
+        if (!isExpected && g_results.uses_expectations_file) {
+            var expectedArray = expected.split(' ');
+            if (expectedArray.indexOf(actual) != -1)
+                isExpected = true;
+            else if (expectedArray.indexOf('FAIL') != -1)
+                isExpected = actual == 'IMAGE' || actual == 'TEXT' || actual == 'IMAGE+TEXT';
+        }
+        html += '<tbody class="' + (isExpected ? 'expected' : '') + '"><tr>' + row + '</tr></tbody>';
+    }
+    return html;
+}
+
+var html = '';
+if (g_results.uses_expectations_file)
+    html += '<div id=options><label><input class="unexpected-results" type=checkbox checked>Only show unexpected results</label></div>';
+
+var tableRowsHtml = tableRows();
+
+if (tableRowsHtml) {
+    html += '<p>Tests where results did not match expected results:</p>' +
+        '<table id="results-table"><thead><tr>' +
+        '<th>test</th>' +
+        '<th id="text-results-header">text results</th>' +
+        '<th id="image-results-header">image results</th>' +
+        '<th>failure type</th>';
+        
+    if (g_results.uses_expectations_file)
+        html += '<th>expected failure type</th>';
+
+    html += '</tr></thead>' + tableRowsHtml + '</table>';
+}
+
+function appendTestList(tests, header, tableId, fileSuffix, linkName)
+{
+    tests.sort();
+
+    html += '<p>' + header + '</p><table id="' + tableId + '">';
+    for (var i = 0; i < tests.length; i++) {
+        var test = tests[i];
+        html += '<tbody><tr><td>' + testLink(test) + '</td><td>';
+        
+        if (fileSuffix.indexOf('actual') == -1)
+            html += resultLink(stripExtension(test), fileSuffix, linkName);
+        else {
+            var testObject = g_results.tests[test];
+            if (testObject.is_missing_audio)
+                html += resultLink(stripExtension(test), '-actual.wav', 'audio result');
+            if (testObject.is_missing_text)
+                html += resultLink(stripExtension(test), fileSuffix, linkName);
+            if (testObject.is_missing_image)
+                html += resultLink(stripExtension(test), '-actual.png', 'png result');
+        } 
+        
+        html += '</td></tr></tbody>';
+    }
+    html += '</table>'
+}
+
+if (g_newTests.length)
+    appendTestList(g_newTests, 'Tests that had no expected results (probably new):', 'new-tests-table', '-actual.txt', 'result');
+
+if (g_testsWithStderr.length)
+    appendTestList(g_testsWithStderr, 'Tests that had stderr output:', 'stderr-table', '-stderr.txt', 'stderr');
+
+if (g_hasHttpTests) {
+    html += '<p>httpd access log: <a href="access_log.txt">access_log.txt</a></p>' +
+        '<p>httpd error log: <a href="error_log.txt">error_log.txt</a></p>';
+}
+
+document.write(html);
+
+function toArray(nodeList)
+{
+    return Array.prototype.slice.call(nodeList);
+}
+
+function trim(string)
+{
+    return string.replace(/^[\s\xa0]+|[\s\xa0]+$/g, '');
+}
+
+// Just a namespace for code management.
+var TableSorter = {};
+
+TableSorter._forwardArrow = '<svg style="width:10px;height:10px"><polygon points="0,0 10,0 5,10" style="fill:#aaa"></svg>';
+
+TableSorter._backwardArrow = '<svg style="width:10px;height:10px"><polygon points="0,10 10,10 5,0" style="fill:#aaa"></svg>';
+
+TableSorter._sortedContents = function(header, arrow)
+{
+    return arrow + ' ' + trim(header.textContent) + ' ' + arrow;
+}
+
+TableSorter._updateHeaderClassNames = function(newHeader)
+{
+    var sortHeader = document.querySelector('.sortHeader');
+    if (sortHeader) {
+        if (sortHeader == newHeader) {
+            var isAlreadyReversed = sortHeader.classList.contains('reversed');
+            if (isAlreadyReversed)
+                sortHeader.classList.remove('reversed');
+            else
+                sortHeader.classList.add('reversed');
+        } else {
+            sortHeader.textContent = sortHeader.textContent;
+            sortHeader.classList.remove('sortHeader');
+            sortHeader.classList.remove('reversed');
+        }
+    }
+
+    newHeader.classList.add('sortHeader');
+}
+
+TableSorter._textContent = function(tbodyRow, column)
+{
+    return tbodyRow.querySelectorAll('td')[column].textContent;
+}
+
+TableSorter._sortRows = function(newHeader, reversed)
+{
+    var testsTable = document.getElementById('results-table');
+    var headers = toArray(testsTable.querySelectorAll('th'));
+    var sortColumn = headers.indexOf(newHeader);
+
+    var rows = toArray(testsTable.querySelectorAll('tbody'));
+
+    rows.sort(function(a, b) {
+        // Only need to support lexicographic sort for now.
+        var aText = TableSorter._textContent(a, sortColumn);
+        var bText = TableSorter._textContent(b, sortColumn);
+        
+        // Forward sort equal values by test name.
+        if (sortColumn && aText == bText) {
+            var aTestName = TableSorter._textContent(a, 0);
+            var bTestName = TableSorter._textContent(b, 0);
+            if (aTestName == bTestName)
+                return 0;
+            return aTestName < bTestName ? -1 : 1;
+        }
+
+        if (reversed)
+            return aText < bText ? 1 : -1;
+        else
+            return aText < bText ? -1 : 1;
+    });
+
+    for (var i = 0; i < rows.length; i++)
+        testsTable.appendChild(rows[i]);
+}
+
+TableSorter.sortColumn = function(columnNumber)
+{
+    var newHeader = document.getElementById('results-table').querySelectorAll('th')[columnNumber];
+    TableSorter._sort(newHeader);
+}
+
+TableSorter.handleClick = function(e)
+{
+    var newHeader = e.target;
+    if (newHeader.localName != 'th')
+        return;
+    TableSorter._sort(newHeader);
+}
+
+TableSorter._sort = function(newHeader)
+{
+    TableSorter._updateHeaderClassNames(newHeader);
+    
+    var reversed = newHeader.classList.contains('reversed');
+    var sortArrow = reversed ? TableSorter._backwardArrow : TableSorter._forwardArrow;
+    newHeader.innerHTML = TableSorter._sortedContents(newHeader, sortArrow);
+    
+    TableSorter._sortRows(newHeader, reversed);
+}
+
+if (document.getElementById('results-table'))
+    document.getElementById('results-table').addEventListener('click', TableSorter.handleClick, false);
+TableSorter.sortColumn(0);
+
+var PixelZoomer = {};
+
+PixelZoomer._createContainer = function(e)
+{
+    var tbody = parentOfType(e.target, 'tbody');
+    var imageDiffLinks = tbody.querySelector('tr').querySelectorAll('a[href$=".png"]');
+    
+    var container = document.createElement('div');
+    container.className = 'pixel-zoom-container';
+    
+    var html = '';
+    for (var i = 0; i < imageDiffLinks.length; i++)
+        html += '<div class=zoom-image-container><img src="' + imageDiffLinks[i].href + '"></div>';
+    
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    PixelZoomer._position(e);
+}
+
+PixelZoomer._position = function(e)
+{
+    var pageX = e.clientX;
+    var pageY = e.clientY;
+    var targetLocation = e.target.getBoundingClientRect();
+    var x = pageX - targetLocation.left;
+    var y = pageY - targetLocation.top;
+
+    var zoomContainers = document.querySelectorAll('.pixel-zoom-container > .zoom-image-container');
+    for (var i = 0; i < zoomContainers.length; i++) {
+        var container = zoomContainers[i];
+        container.scrollLeft = x - container.offsetWidth / 2;
+        container.scrollTop = y - container.offsetHeight / 2;
+    }
+}
+
+PixelZoomer.handleMouseMove = function(e) {
+    if (PixelZoomer._mouseMoveTimeout)
+        clearTimeout(PixelZoomer._mouseMoveTimeout);
+
+    if (parentOfType(e.target, '.pixel-zoom-container'))
+        return;
+
+    var container = document.querySelector('.pixel-zoom-container');
+    if (!e.target.src || e.target.src.indexOf('.png') == -1) {
+        if (container)
+            container.parentNode.removeChild(container);
+        return;
+    }
+    
+    if (!container) {
+        PixelZoomer._mouseMoveTimeout = setTimeout(function() {
+            PixelZoomer._createContainer(e);
+        }, 200);
+        return;
+    }
+    
+    PixelZoomer._position(e);
+}
+
+document.body.addEventListener('mousemove', PixelZoomer.handleMouseMove, false);
+
+
+var unexpectedStyleNode = document.createElement('style');
+document.body.appendChild(unexpectedStyleNode);
+
+function updateExpectedResults()
+{
+    var checkBox = document.querySelector('.unexpected-results');
+    if (!checkBox || checkBox.checked)
+        unexpectedStyleNode.innerText = '.expected { display: none; }';
+    else
+        unexpectedStyleNode.innerText = '';
+}
+
+updateExpectedResults();
+if (document.querySelector('.unexpected-results'))
+    document.querySelector('.unexpected-results').addEventListener('change', updateExpectedResults, false);
+
+if (!g_hasTextFailures)
+  document.body.getElementById('text-results-header').textContent = '';
+if (!g_hasImageFailures)
+  document.body.getElementById('image-results-header').textContent = '';
+</script>

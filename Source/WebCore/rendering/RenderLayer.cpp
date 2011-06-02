@@ -1420,7 +1420,7 @@ void RenderLayer::scrollTo(int x, int y)
         renderer()->repaintUsingContainer(repaintContainer, rectForRepaint);
 
     // Schedule the scroll DOM event.
-    renderer()->node()->document()->eventQueue()->enqueueScrollEvent(renderer()->node(), EventQueue::ScrollEventElementTarget);
+    renderer()->node()->document()->eventQueue()->enqueueOrDispatchScrollEvent(renderer()->node(), EventQueue::ScrollEventElementTarget);
 }
 
 void RenderLayer::scrollRectToVisible(const IntRect& rect, bool scrollToAnchor, const ScrollAlignment& alignX, const ScrollAlignment& alignY)
@@ -1716,17 +1716,17 @@ static IntRect cornerRect(const RenderLayer* layer, const IntRect& bounds)
                    horizontalThickness, verticalThickness);
 }
 
-static IntRect scrollCornerRect(const RenderLayer* layer, const IntRect& bounds)
+IntRect RenderLayer::scrollCornerRect() const
 {
     // We have a scrollbar corner when a scrollbar is visible and not filling the entire length of the box.
     // This happens when:
     // (a) A resizer is present and at least one scrollbar is present
     // (b) Both scrollbars are present.
-    bool hasHorizontalBar = layer->horizontalScrollbar();
-    bool hasVerticalBar = layer->verticalScrollbar();
-    bool hasResizer = layer->renderer()->style()->resize() != RESIZE_NONE;
+    bool hasHorizontalBar = horizontalScrollbar();
+    bool hasVerticalBar = verticalScrollbar();
+    bool hasResizer = renderer()->style()->resize() != RESIZE_NONE;
     if ((hasHorizontalBar && hasVerticalBar) || (hasResizer && (hasHorizontalBar || hasVerticalBar)))
-        return cornerRect(layer, bounds);
+        return cornerRect(this, renderBox()->borderBoxRect());
     return IntRect();
 }
 
@@ -1738,10 +1738,21 @@ static IntRect resizerCornerRect(const RenderLayer* layer, const IntRect& bounds
     return cornerRect(layer, bounds);
 }
 
-bool RenderLayer::scrollbarCornerPresent() const
+IntRect RenderLayer::scrollCornerAndResizerRect() const
+{
+    RenderBox* box = renderBox();
+    if (!box)
+        return IntRect();
+    IntRect scrollCornerAndResizer = scrollCornerRect();
+    if (scrollCornerAndResizer.isEmpty())
+        scrollCornerAndResizer = resizerCornerRect(this, box->borderBoxRect());
+    return scrollCornerAndResizer;
+}
+
+bool RenderLayer::isScrollCornerVisible() const
 {
     ASSERT(renderer()->isBox());
-    return !scrollCornerRect(this, renderBox()->borderBoxRect()).isEmpty();
+    return !scrollCornerRect().isEmpty();
 }
 
 IntRect RenderLayer::convertFromScrollbarToContainingView(const Scrollbar* scrollbar, const IntRect& scrollbarRect) const
@@ -1834,6 +1845,19 @@ IntSize RenderLayer::scrollbarOffset(const Scrollbar* scrollbar) const
 
 void RenderLayer::invalidateScrollbarRect(Scrollbar* scrollbar, const IntRect& rect)
 {
+#if USE(ACCELERATED_COMPOSITING)
+    if (scrollbar == m_vBar.get()) {
+        if (GraphicsLayer* layer = layerForVerticalScrollbar()) {
+            layer->setNeedsDisplayInRect(rect);
+            return;
+        }
+    } else {
+        if (GraphicsLayer* layer = layerForHorizontalScrollbar()) {
+            layer->setNeedsDisplayInRect(rect);
+            return;
+        }
+    }
+#endif
     IntRect scrollRect = rect;
     RenderBox* box = renderBox();
     ASSERT(box);
@@ -1842,6 +1866,20 @@ void RenderLayer::invalidateScrollbarRect(Scrollbar* scrollbar, const IntRect& r
     else
         scrollRect.move(box->borderLeft(), box->height() - box->borderBottom() - scrollbar->height());
     renderer()->repaintRectangle(scrollRect);
+}
+
+void RenderLayer::invalidateScrollCornerRect(const IntRect& rect)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (GraphicsLayer* layer = layerForScrollCorner()) {
+        layer->setNeedsDisplayInRect(rect);
+        return;
+    }
+#endif
+    if (m_scrollCorner)
+        m_scrollCorner->repaintRectangle(rect);
+    if (m_resizer)
+        m_resizer->repaintRectangle(rect);
 }
 
 PassRefPtr<Scrollbar> RenderLayer::createScrollbar(ScrollbarOrientation orientation)
@@ -1972,8 +2010,8 @@ void RenderLayer::positionOverflowControls(int tx, int ty)
     if (!box)
         return;
 
-    IntRect borderBox = box->borderBoxRect();
-    IntRect scrollCorner(scrollCornerRect(this, borderBox));
+    const IntRect& borderBox = box->borderBoxRect();
+    const IntRect& scrollCorner = scrollCornerRect();
     IntRect absBounds(borderBox.x() + tx, borderBox.y() + ty, borderBox.width(), borderBox.height());
     if (m_vBar)
         m_vBar->setFrameRect(IntRect(absBounds.maxX() - box->borderRight() - m_vBar->width(),
@@ -1986,7 +2024,31 @@ void RenderLayer::positionOverflowControls(int tx, int ty)
                                      absBounds.maxY() - box->borderBottom() - m_hBar->height(),
                                      absBounds.width() - (box->borderLeft() + box->borderRight()) - scrollCorner.width(),
                                      m_hBar->height()));
-    
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (GraphicsLayer* layer = layerForHorizontalScrollbar()) {
+        if (m_hBar) {
+            layer->setPosition(IntPoint(m_hBar->frameRect().x() - tx, m_hBar->frameRect().y() - ty));
+            layer->setSize(m_hBar->frameRect().size());
+        }
+        layer->setDrawsContent(m_hBar);
+    }
+    if (GraphicsLayer* layer = layerForVerticalScrollbar()) {
+        if (m_vBar) {
+            layer->setPosition(IntPoint(m_vBar->frameRect().x() - tx, m_vBar->frameRect().y() - ty));
+            layer->setSize(m_vBar->frameRect().size());
+        }
+        layer->setDrawsContent(m_vBar);
+    }
+
+    if (GraphicsLayer* layer = layerForScrollCorner()) {
+        const IntRect& scrollCornerAndResizer = scrollCornerAndResizerRect();
+        layer->setPosition(scrollCornerAndResizer.location());
+        layer->setSize(scrollCornerAndResizer.size());
+        layer->setDrawsContent(!scrollCornerAndResizer.isEmpty());
+    }
+#endif
+
     if (m_scrollCorner)
         m_scrollCorner->setFrameRect(scrollCorner);
     if (m_resizer)
@@ -2239,9 +2301,10 @@ void RenderLayer::paintOverflowControls(GraphicsContext* context, int tx, int ty
     // and we'll paint the scrollbars then. In the meantime, cache tx and ty so that the 
     // second pass doesn't need to re-enter the RenderTree to get it right.
     if (hasOverlayScrollbars() && !paintingOverlayControls) {
-        RenderLayer* rootLayer = renderer()->view()->layer();
-        rootLayer->setContainsDirtyOverlayScrollbars(true);
+        RenderView* renderView = renderer()->view();
+        renderView->layer()->setContainsDirtyOverlayScrollbars(true);
         m_cachedOverlayScrollbarOffset = IntPoint(tx, ty);
+        renderView->frameView()->setContainsScrollableAreaWithOverlayScrollbars(true);
         return;
     }
 
@@ -2258,10 +2321,23 @@ void RenderLayer::paintOverflowControls(GraphicsContext* context, int tx, int ty
     positionOverflowControls(offsetX, offsetY);
 
     // Now that we're sure the scrollbars are in the right place, paint them.
-    if (m_hBar)
+    if (m_hBar
+#if USE(ACCELERATED_COMPOSITING)
+        && !layerForHorizontalScrollbar()
+#endif
+              )
         m_hBar->paint(context, damageRect);
-    if (m_vBar)
+    if (m_vBar
+#if USE(ACCELERATED_COMPOSITING)
+        && !layerForVerticalScrollbar()
+#endif
+              )
         m_vBar->paint(context, damageRect);
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (layerForScrollCorner())
+        return;
+#endif
 
     // We fill our scroll corner with white if we have a scrollbar that doesn't run all the way up to the
     // edge of the box.
@@ -2276,7 +2352,7 @@ void RenderLayer::paintScrollCorner(GraphicsContext* context, int tx, int ty, co
     RenderBox* box = renderBox();
     ASSERT(box);
 
-    IntRect cornerRect = scrollCornerRect(this, box->borderBoxRect());
+    IntRect cornerRect = scrollCornerRect();
     IntRect absRect = IntRect(cornerRect.x() + tx, cornerRect.y() + ty, cornerRect.width(), cornerRect.height());
     if (!absRect.intersects(damageRect))
         return;
@@ -2327,7 +2403,7 @@ void RenderLayer::paintResizer(GraphicsContext* context, int tx, int ty, const I
 
     // Draw a frame around the resizer (1px grey line) if there are any scrollbars present.
     // Clipping will exclude the right and bottom edges of this frame.
-    if (m_hBar || m_vBar) {
+    if (!hasOverlayScrollbars() && (m_vBar || m_hBar)) {
         context->save();
         context->clip(absRect);
         IntRect largerCorner = absRect;
@@ -2479,7 +2555,7 @@ void RenderLayer::paintLayer(RenderLayer* rootLayer, GraphicsContext* p,
     // Avoid painting layers when stylesheets haven't loaded.  This eliminates FOUC.
     // It's ok not to draw, because later on, when all the stylesheets do load, updateStyleSelector on the Document
     // will do a full repaint().
-    if (renderer()->document()->mayCauseFlashOfUnstyledContent() && !renderer()->isRenderView() && !renderer()->isRoot())
+    if (renderer()->document()->didLayoutWithPendingStylesheets() && !renderer()->isRenderView() && !renderer()->isRoot())
         return;
     
     // If this layer is totally invisible then there is nothing to paint.
@@ -2921,6 +2997,7 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
 #if USE(ACCELERATED_COMPOSITING)
     useTemporaryClipRects = compositor()->inCompositingMode();
 #endif
+    useTemporaryClipRects |= renderer()->view()->frameView()->containsScrollableAreaWithOverlayScrollbars();
 
     IntRect hitTestArea = result.rectForPoint(hitTestPoint);
 
@@ -2928,7 +3005,7 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     if (transform() && !appliedTransform) {
         // Make sure the parent's clip rects have been calculated.
         if (parent()) {
-            IntRect clipRect = backgroundClipRect(rootLayer, useTemporaryClipRects);
+            IntRect clipRect = backgroundClipRect(rootLayer, useTemporaryClipRects, IncludeOverlayScrollbarSize);
             // Go ahead and test the enclosing clip now.
             if (!clipRect.intersects(hitTestArea))
                 return 0;
@@ -2996,7 +3073,7 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     IntRect bgRect;
     IntRect fgRect;
     IntRect outlineRect;
-    calculateRects(rootLayer, hitTestRect, layerBounds, bgRect, fgRect, outlineRect, useTemporaryClipRects);
+    calculateRects(rootLayer, hitTestRect, layerBounds, bgRect, fgRect, outlineRect, useTemporaryClipRects, IncludeOverlayScrollbarSize);
     
     // The following are used for keeping track of the z-depth of the hit point of 3d-transformed
     // descendants.
@@ -3265,7 +3342,7 @@ RenderLayer* RenderLayer::hitTestChildLayerColumns(RenderLayer* childLayer, Rend
     return 0;
 }
 
-void RenderLayer::updateClipRects(const RenderLayer* rootLayer)
+void RenderLayer::updateClipRects(const RenderLayer* rootLayer, OverlayScrollbarSizeRelevancy relevancy)
 {
     if (m_clipRects) {
         ASSERT(rootLayer == m_clipRectsRoot);
@@ -3276,10 +3353,10 @@ void RenderLayer::updateClipRects(const RenderLayer* rootLayer)
     // examine the parent.  We want to cache clip rects with us as the root.
     RenderLayer* parentLayer = rootLayer != this ? parent() : 0;
     if (parentLayer)
-        parentLayer->updateClipRects(rootLayer);
+        parentLayer->updateClipRects(rootLayer, relevancy);
 
     ClipRects clipRects;
-    calculateClipRects(rootLayer, clipRects, true);
+    calculateClipRects(rootLayer, clipRects, true, relevancy);
 
     if (parentLayer && parentLayer->clipRects() && clipRects == *parentLayer->clipRects())
         m_clipRects = parentLayer->clipRects();
@@ -3291,7 +3368,7 @@ void RenderLayer::updateClipRects(const RenderLayer* rootLayer)
 #endif
 }
 
-void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& clipRects, bool useCached) const
+void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& clipRects, bool useCached, OverlayScrollbarSizeRelevancy relevancy) const
 {
     if (!parent()) {
         // The root layer's clip rect is always infinite.
@@ -3339,6 +3416,7 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
         }
         
         if (renderer()->hasOverflowClip()) {
+<<<<<<< HEAD
             IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y);
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
             clipRects.setHitTestClip(intersection(clipRects.fixed() ? clipRects.fixedClipRect()
@@ -3350,6 +3428,9 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
                             m_scrollWidth, m_scrollHeight);
             }
 #endif
+=======
+            IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y, relevancy);
+>>>>>>> WebKit.org at r84325
             clipRects.setOverflowClipRect(intersection(newOverflowClip, clipRects.overflowClipRect()));
             if (renderer()->isPositioned() || renderer()->isRelPositioned())
                 clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));
@@ -3363,24 +3444,24 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
     }
 }
 
-void RenderLayer::parentClipRects(const RenderLayer* rootLayer, ClipRects& clipRects, bool temporaryClipRects) const
+void RenderLayer::parentClipRects(const RenderLayer* rootLayer, ClipRects& clipRects, bool temporaryClipRects, OverlayScrollbarSizeRelevancy relevancy) const
 {
     ASSERT(parent());
     if (temporaryClipRects) {
-        parent()->calculateClipRects(rootLayer, clipRects);
+        parent()->calculateClipRects(rootLayer, clipRects, false, relevancy);
         return;
     }
 
-    parent()->updateClipRects(rootLayer);
+    parent()->updateClipRects(rootLayer, relevancy);
     clipRects = *parent()->clipRects();
 }
 
-IntRect RenderLayer::backgroundClipRect(const RenderLayer* rootLayer, bool temporaryClipRects) const
+IntRect RenderLayer::backgroundClipRect(const RenderLayer* rootLayer, bool temporaryClipRects, OverlayScrollbarSizeRelevancy relevancy) const
 {
     IntRect backgroundRect;
     if (parent()) {
         ClipRects parentRects;
-        parentClipRects(rootLayer, parentRects, temporaryClipRects);
+        parentClipRects(rootLayer, parentRects, temporaryClipRects, relevancy);
         backgroundRect = renderer()->style()->position() == FixedPosition ? parentRects.fixedClipRect() :
                          (renderer()->isPositioned() ? parentRects.posClipRect() : 
                                                        parentRects.overflowClipRect());
@@ -3393,10 +3474,11 @@ IntRect RenderLayer::backgroundClipRect(const RenderLayer* rootLayer, bool tempo
 }
 
 void RenderLayer::calculateRects(const RenderLayer* rootLayer, const IntRect& paintDirtyRect, IntRect& layerBounds,
-                                 IntRect& backgroundRect, IntRect& foregroundRect, IntRect& outlineRect, bool temporaryClipRects) const
+                                 IntRect& backgroundRect, IntRect& foregroundRect, IntRect& outlineRect, bool temporaryClipRects,
+                                 OverlayScrollbarSizeRelevancy relevancy) const
 {
     if (rootLayer != this && parent()) {
-        backgroundRect = backgroundClipRect(rootLayer, temporaryClipRects);
+        backgroundRect = backgroundClipRect(rootLayer, temporaryClipRects, relevancy);
         backgroundRect.intersect(paintDirtyRect);
     } else
         backgroundRect = paintDirtyRect;
@@ -3422,7 +3504,7 @@ void RenderLayer::calculateRects(const RenderLayer* rootLayer, const IntRect& pa
         } else
 #endif
         if (renderer()->hasOverflowClip())
-            foregroundRect.intersect(toRenderBox(renderer())->overflowClipRect(x, y));
+            foregroundRect.intersect(toRenderBox(renderer())->overflowClipRect(x, y, relevancy));
         if (renderer()->hasClip()) {
             // Clip applies to *us* as well, so go ahead and update the damageRect.
             IntRect newPosClip = toRenderBox(renderer())->clipRect(x, y);
@@ -3628,6 +3710,21 @@ void RenderLayer::clearBacking()
 bool RenderLayer::hasCompositedMask() const
 {
     return m_backing && m_backing->hasMaskLayer();
+}
+
+GraphicsLayer* RenderLayer::layerForHorizontalScrollbar() const
+{
+    return m_backing ? m_backing->layerForHorizontalScrollbar() : 0;
+}
+
+GraphicsLayer* RenderLayer::layerForVerticalScrollbar() const
+{
+    return m_backing ? m_backing->layerForVerticalScrollbar() : 0;
+}
+
+GraphicsLayer* RenderLayer::layerForScrollCorner() const
+{
+    return m_backing ? m_backing->layerForScrollCorner() : 0;
 }
 #endif
 
@@ -3957,7 +4054,7 @@ bool RenderLayer::isSelfPaintingLayer() const
         || renderer()->isRenderIFrame();
 }
 
-void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle*)
+void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle)
 {
     bool isNormalFlowOnly = shouldBeNormalFlowOnly();
     if (isNormalFlowOnly != m_isNormalFlowOnly) {
@@ -4002,7 +4099,11 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle*)
         compositor()->setCompositingLayersNeedRebuild();
     else if (m_backing)
         m_backing->updateGraphicsLayerGeometry();
-
+    else if (oldStyle && oldStyle->overflowX() != renderer()->style()->overflowX()) {
+        if (stackingContext()->hasCompositingDescendant())
+            compositor()->setCompositingLayersNeedRebuild();
+    }
+    
     if (m_backing && diff >= StyleDifferenceRepaint)
         m_backing->setContentsNeedDisplay();
 #else

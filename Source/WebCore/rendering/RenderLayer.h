@@ -207,7 +207,7 @@ public:
     void repaintIncludingNonCompositingDescendants(RenderBoxModelObject* repaintContainer);
 #endif
 
-    void styleChanged(StyleDifference, const RenderStyle*);
+    void styleChanged(StyleDifference, const RenderStyle* oldStyle);
 
     RenderMarquee* marquee() const { return m_marquee; }
 
@@ -279,18 +279,22 @@ public:
     PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
     void destroyScrollbar(ScrollbarOrientation);
 
-    Scrollbar* horizontalScrollbar() const { return m_hBar.get(); }
-    Scrollbar* verticalScrollbar() const { return m_vBar.get(); }
+    // ScrollableArea overrides
+    virtual Scrollbar* horizontalScrollbar() const { return m_hBar.get(); }
+    virtual Scrollbar* verticalScrollbar() const { return m_vBar.get(); }
 
-    int verticalScrollbarWidth(OverlayScrollbarSizeRelevancy relevancy = IgnoreOverlayScrollbarSize) const;
-    int horizontalScrollbarHeight(OverlayScrollbarSizeRelevancy relevancy = IgnoreOverlayScrollbarSize) const;
+    int verticalScrollbarWidth(OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize) const;
+    int horizontalScrollbarHeight(OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize) const;
 
     bool hasOverflowControls() const;
+<<<<<<< HEAD
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     bool hasOverflowScroll() const { return m_hasOverflowScroll; }
     bool hasOverflowParent() const;
 #endif
     void positionOverflowControls(int tx, int ty);
+=======
+>>>>>>> WebKit.org at r84325
     bool isPointInResizeControl(const IntPoint& absolutePoint) const;
     bool hitTestOverflowControls(HitTestResult&, const IntPoint& localPoint);
     IntSize offsetFromResizeCorner(const IntPoint& absolutePoint) const;
@@ -414,13 +418,14 @@ public:
     // |rootLayer}.  It also computes our background and foreground clip rects
     // for painting/event handling.
     void calculateRects(const RenderLayer* rootLayer, const IntRect& paintDirtyRect, IntRect& layerBounds,
-                        IntRect& backgroundRect, IntRect& foregroundRect, IntRect& outlineRect, bool temporaryClipRects = false) const;
+                        IntRect& backgroundRect, IntRect& foregroundRect, IntRect& outlineRect, bool temporaryClipRects = false,
+                        OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize) const;
 
     // Compute and cache clip rects computed with the given layer as the root
-    void updateClipRects(const RenderLayer* rootLayer);
+    void updateClipRects(const RenderLayer* rootLayer, OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize);
     // Compute and return the clip rects. If useCached is true, will used previously computed clip rects on ancestors
     // (rather than computing them all from scratch up the parent chain).
-    void calculateClipRects(const RenderLayer* rootLayer, ClipRects&, bool useCached = false) const;
+    void calculateClipRects(const RenderLayer* rootLayer, ClipRects&, bool useCached = false, OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize) const;
     ClipRects* clipRects() const { return m_clipRects; }
 
     IntRect childrenClipRect() const; // Returns the foreground clip rect of the layer in the document's coordinate space.
@@ -479,6 +484,9 @@ public:
     RenderLayerBacking* backing() const { return m_backing.get(); }
     RenderLayerBacking* ensureBacking();
     void clearBacking();
+    virtual GraphicsLayer* layerForHorizontalScrollbar() const;
+    virtual GraphicsLayer* layerForVerticalScrollbar() const;
+    virtual GraphicsLayer* layerForScrollCorner() const;
 #else
     bool isComposited() const { return false; }
     bool hasCompositedMask() const { return false; }
@@ -568,8 +576,10 @@ private:
     virtual void setScrollOffset(const IntPoint&);
     virtual int scrollPosition(Scrollbar*) const;
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
+    virtual void invalidateScrollCornerRect(const IntRect&);
     virtual bool isActive() const;
-    virtual bool scrollbarCornerPresent() const;
+    virtual bool isScrollCornerVisible() const;
+    virtual IntRect scrollCornerRect() const;
     virtual IntRect convertFromScrollbarToContainingView(const Scrollbar*, const IntRect&) const;
     virtual IntRect convertFromContainingViewToScrollbar(const Scrollbar*, const IntRect&) const;
     virtual IntPoint convertFromScrollbarToContainingView(const Scrollbar*, const IntPoint&) const;
@@ -579,6 +589,9 @@ private:
     virtual int visibleWidth() const;
     virtual IntPoint currentMousePosition() const;
     virtual bool shouldSuspendScrollAnimations() const;
+
+    // Rectangle encompassing the scroll corner and resizer rect.
+    IntRect scrollCornerAndResizerRect() const;
 
     virtual void disconnectFromPage() { m_page = 0; }
 
@@ -610,14 +623,15 @@ private:
     bool paintingInsideReflection() const { return m_paintingInsideReflection; }
     void setPaintingInsideReflection(bool b) { m_paintingInsideReflection = b; }
     
-    void parentClipRects(const RenderLayer* rootLayer, ClipRects&, bool temporaryClipRects = false) const;
-    IntRect backgroundClipRect(const RenderLayer* rootLayer, bool temporaryClipRects) const;
+    void parentClipRects(const RenderLayer* rootLayer, ClipRects&, bool temporaryClipRects = false, OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize) const;
+    IntRect backgroundClipRect(const RenderLayer* rootLayer, bool temporaryClipRects, OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize) const;
 
     RenderLayer* enclosingTransformedAncestor() const;
 
     // Convert a point in absolute coords into layer coords, taking transforms into account
     IntPoint absoluteToContents(const IntPoint&) const;
 
+    void positionOverflowControls(int tx, int ty);
     void updateScrollCornerStyle();
     void updateResizerStyle();
 
@@ -730,7 +744,7 @@ protected:
     bool m_has3DTransformedDescendant : 1;  // Set on a stacking context layer that has 3D descendants anywhere
                                             // in a preserves3D hierarchy. Hint to do 3D-aware hit testing.
 #if USE(ACCELERATED_COMPOSITING)
-    bool m_hasCompositingDescendant : 1;
+    bool m_hasCompositingDescendant : 1; // In the z-order tree.
     bool m_mustOverlapCompositedLayers : 1;
 #endif
 

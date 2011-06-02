@@ -202,6 +202,16 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
     };
     WKBundlePageSetResourceLoadClient(m_page, &resourceLoadClient);
 
+    WKBundlePagePolicyClient policyClient = {
+        0,
+        this,
+        decidePolicyForNavigationAction,
+        decidePolicyForNewWindowAction,
+        decidePolicyForResponse,
+        unableToImplementPolicy
+    };
+    WKBundlePageSetPolicyClient(m_page, &policyClient);
+
     WKBundlePageUIClient uiClient = {
         0,
         this,
@@ -234,6 +244,17 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
         didChangeSelection
     };
     WKBundlePageSetEditorClient(m_page, &editorClient);
+
+#if ENABLE(FULLSCREEN_API)
+    WKBundlePageFullScreenClient fullScreenClient = {
+        0,
+        this,
+        supportsFullScreen,
+        enterFullScreenForElement,
+        exitFullScreenForElement,
+    };
+    WKBundlePageSetFullScreenClient(m_page, &fullScreenClient);
+#endif
 }
 
 InjectedBundlePage::~InjectedBundlePage()
@@ -251,6 +272,9 @@ void InjectedBundlePage::reset()
 
     WKBundlePageSetPageZoomFactor(m_page, 1);
     WKBundlePageSetTextZoomFactor(m_page, 1);
+
+    WKPoint origin = { 0, 0 };
+    WKBundlePageSetScaleAtOrigin(m_page, 1, origin);
 
     m_previousTestBackForwardListItem = adoptWK(WKBundleBackForwardListCopyItemAtIndex(WKBundlePageGetBackForwardList(m_page), 0));
 
@@ -666,6 +690,48 @@ void InjectedBundlePage::didFailLoadForResource(WKBundlePageRef, WKBundleFrameRe
 {
 }
 
+
+// Policy Client Callbacks
+
+WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForNavigationAction(WKBundlePageRef page, WKBundleFrameRef frame, WKBundleNavigationActionRef navigationAction, WKURLRequestRef request, WKTypeRef* userData, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->decidePolicyForNavigationAction(page, frame, navigationAction, request, userData);
+}
+
+WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForNewWindowAction(WKBundlePageRef page, WKBundleFrameRef frame, WKBundleNavigationActionRef navigationAction, WKURLRequestRef request, WKStringRef frameName, WKTypeRef* userData, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->decidePolicyForNewWindowAction(page, frame, navigationAction, request, frameName, userData);
+}
+
+WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForResponse(WKBundlePageRef page, WKBundleFrameRef frame, WKURLResponseRef response, WKURLRequestRef request, WKTypeRef* userData, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->decidePolicyForResponse(page, frame, response, request, userData);
+}
+
+void InjectedBundlePage::unableToImplementPolicy(WKBundlePageRef page, WKBundleFrameRef frame, WKErrorRef error, WKTypeRef* userData, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->unableToImplementPolicy(page, frame, error, userData);
+}
+
+WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForNavigationAction(WKBundlePageRef, WKBundleFrameRef, WKBundleNavigationActionRef, WKURLRequestRef request, WKTypeRef*)
+{
+    return WKBundlePagePolicyActionUse;
+}
+
+WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForNewWindowAction(WKBundlePageRef, WKBundleFrameRef, WKBundleNavigationActionRef, WKURLRequestRef, WKStringRef, WKTypeRef*)
+{
+    return WKBundlePagePolicyActionUse;
+}
+
+WKBundlePagePolicyAction InjectedBundlePage::decidePolicyForResponse(WKBundlePageRef, WKBundleFrameRef, WKURLResponseRef, WKURLRequestRef, WKTypeRef*)
+{
+    return WKBundlePagePolicyActionUse;
+}
+
+void InjectedBundlePage::unableToImplementPolicy(WKBundlePageRef, WKBundleFrameRef, WKErrorRef, WKTypeRef*)
+{
+}
+
 // UI Client Callbacks
 
 void InjectedBundlePage::willAddMessageToConsole(WKBundlePageRef page, WKStringRef message, uint32_t lineNumber, const void *clientInfo)
@@ -693,13 +759,38 @@ void InjectedBundlePage::willRunJavaScriptPrompt(WKBundlePageRef page, WKStringR
     static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->willRunJavaScriptPrompt(message, defaultValue, frame);
 }
 
+static string lastFileURLPathComponent(const string& path)
+{
+    size_t pos = path.find("file://");
+    ASSERT(string::npos != pos);
+
+    string tmpPath = path.substr(pos + 7);
+    if (tmpPath.empty())
+        return tmpPath;
+
+    // Remove the trailing delimiter
+    if (tmpPath[tmpPath.length() - 1] == '/')
+        tmpPath.erase(tmpPath.length() - 1);
+
+    pos = tmpPath.rfind('/');
+    if (string::npos != pos)
+        return tmpPath.substr(pos + 1);
+
+    return tmpPath;
+}
+
 void InjectedBundlePage::willAddMessageToConsole(WKStringRef message, uint32_t lineNumber)
 {
     if (!InjectedBundle::shared().isTestRunning())
         return;
 
-    // FIXME: Strip file: urls.
-    InjectedBundle::shared().os() << "CONSOLE MESSAGE: line " << lineNumber << ": " << message << "\n";
+    string messageString = toSTD(message);
+    size_t fileProtocolStart = messageString.find("file://");
+    if (fileProtocolStart != string::npos)
+        // FIXME: The code below does not handle additional text after url nor multiple urls. This matches DumpRenderTree implementation.
+        messageString = messageString.substr(0, fileProtocolStart) + lastFileURLPathComponent(messageString.substr(fileProtocolStart));
+
+    InjectedBundle::shared().os() << "CONSOLE MESSAGE: line " << lineNumber << ": " << messageString << "\n";
 }
 
 void InjectedBundlePage::willSetStatusbarText(WKStringRef statusbarText)
@@ -917,6 +1008,31 @@ void InjectedBundlePage::didChangeSelection(WKStringRef notificationName)
     if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
         InjectedBundle::shared().os() << "EDITING DELEGATE: webViewDidChangeSelection:" << notificationName << "\n";
 }
+
+#if ENABLE(FULLSCREEN_API)
+bool InjectedBundlePage::supportsFullScreen(WKBundlePageRef pageRef, WKFullScreenKeyboardRequestType requestType)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpFullScreenCallbacks())
+        InjectedBundle::shared().os() << "supportsFullScreen() == true\n";
+    return true;
+}
+
+void InjectedBundlePage::enterFullScreenForElement(WKBundlePageRef pageRef, WKBundleNodeHandleRef elementRef)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpFullScreenCallbacks())
+        InjectedBundle::shared().os() << "enterFullScreenForElement()\n";
+    WKBundlePageWillEnterFullScreen(pageRef);
+    WKBundlePageDidEnterFullScreen(pageRef);
+}
+
+void InjectedBundlePage::exitFullScreenForElement(WKBundlePageRef pageRef, WKBundleNodeHandleRef elementRef)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpFullScreenCallbacks())
+        InjectedBundle::shared().os() << "exitFullScreenForElement()\n";
+    WKBundlePageWillExitFullScreen(pageRef);
+    WKBundlePageDidExitFullScreen(pageRef);
+}
+#endif
 
 static bool compareByTargetName(WKBundleBackForwardListItemRef item1, WKBundleBackForwardListItemRef item2)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -109,10 +109,18 @@ namespace WebCore {
         void setLoadsImagesAutomatically(bool);
         bool loadsImagesAutomatically() const { return m_loadsImagesAutomatically; }
 
+<<<<<<< HEAD
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
         void setBlockNetworkImage(bool);
         bool blockNetworkImage() const { return m_blockNetworkImage; }
 #endif
+=======
+        // This setting only affects site icon image loading if loadsImagesAutomatically setting is false and this setting is true.
+        // All other permutations still heed loadsImagesAutomatically setting.
+        void setLoadsSiteIconsIgnoringImageLoadingSetting(bool);
+        bool loadsSiteIconsIgnoringImageLoadingSetting() const { return m_loadsSiteIconsIgnoringImageLoadingSetting; }
+
+>>>>>>> WebKit.org at r84325
         void setJavaScriptEnabled(bool);
         // Instead of calling isJavaScriptEnabled directly, please consider calling
         // ScriptController::canExecuteScripts, which takes things like the
@@ -453,6 +461,9 @@ namespace WebCore {
 
         void setForceCompositingMode(bool flag) { m_forceCompositingMode = flag; }
         bool forceCompositingMode() { return m_forceCompositingMode; }
+        
+        void setShouldInjectUserScriptsInInitialEmptyDocument(bool flag) { m_shouldInjectUserScriptsInInitialEmptyDocument = flag; }
+        bool shouldInjectUserScriptsInInitialEmptyDocument() { return m_shouldInjectUserScriptsInInitialEmptyDocument; }
 
 #if ENABLE(WEB_AUTOFILL)
         void setAutoFillEnabled(bool flag) { m_autoFillEnabled = flag; }
@@ -505,6 +516,7 @@ namespace WebCore {
         bool m_isSpatialNavigationEnabled : 1;
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
+        bool m_loadsSiteIconsIgnoringImageLoadingSetting : 1;
         bool m_privateBrowsingEnabled : 1;
         bool m_caretBrowsingEnabled : 1;
         bool m_areImagesEnabled : 1;
@@ -577,6 +589,7 @@ namespace WebCore {
         bool m_crossOriginCheckInGetMatchedCSSRulesDisabled : 1;
         bool m_useQuickLookResourceCachingQuirks : 1;
         bool m_forceCompositingMode : 1;
+<<<<<<< HEAD
 #ifdef ANDROID_META_SUPPORT
         // default is yes
         bool m_viewport_user_scalable : 1;
@@ -606,6 +619,9 @@ namespace WebCore {
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
+=======
+        bool m_shouldInjectUserScriptsInInitialEmptyDocument : 1;
+>>>>>>> WebKit.org at r84325
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

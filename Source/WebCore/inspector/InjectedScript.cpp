@@ -43,8 +43,14 @@
 
 namespace WebCore {
 
-InjectedScript::InjectedScript(ScriptObject injectedScriptObject)
+InjectedScript::InjectedScript()
+    : m_inspectedStateAccessCheck(0)
+{
+}
+
+InjectedScript::InjectedScript(ScriptObject injectedScriptObject, InspectedStateAccessCheck accessCheck)
     : m_injectedScriptObject(injectedScriptObject)
+    , m_inspectedStateAccessCheck(accessCheck)
 {
 }
 
@@ -75,17 +81,16 @@ void InjectedScript::evaluateOnCallFrame(ErrorString* errorString, const String&
     makeObjectCall(errorString, function, result);
 }
 
-void InjectedScript::getProperties(ErrorString* errorString, const String& objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorArray>* properties)
+void InjectedScript::getProperties(ErrorString* errorString, const String& objectId, bool ignoreHasOwnProperty, RefPtr<InspectorArray>* properties)
 {
     ScriptFunctionCall function(m_injectedScriptObject, "getProperties");
     function.appendArgument(objectId);
     function.appendArgument(ignoreHasOwnProperty);
-    function.appendArgument(abbreviate);
 
     RefPtr<InspectorValue> result; 
     makeCall(function, &result);
     if (!result || result->type() != InspectorValue::TypeArray) {
-        *errorString = "Internal error.";
+        *errorString = "Internal error";
         return;
     }
     *properties = result->asArray();
@@ -179,7 +184,7 @@ void InjectedScript::releaseObjectGroup(const String& objectGroup)
 
 bool InjectedScript::canAccessInspectedWindow()
 {
-    return InjectedScriptManager::canAccessInspectedWindow(m_injectedScriptObject.scriptState());
+    return m_inspectedStateAccessCheck(m_injectedScriptObject.scriptState());
 }
 
 void InjectedScript::makeCall(ScriptFunctionCall& function, RefPtr<InspectorValue>* result)
@@ -209,7 +214,7 @@ void InjectedScript::makeObjectCall(ErrorString* errorString, ScriptFunctionCall
     }
 
     if (!result || result->type() != InspectorValue::TypeObject) {
-        *errorString = "Internal error.";
+        *errorString = "Internal error";
         return;
     }
     *objectResult = result->asObject();

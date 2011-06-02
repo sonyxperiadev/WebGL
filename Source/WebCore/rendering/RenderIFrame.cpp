@@ -124,6 +124,7 @@ void RenderIFrame::layout()
     setNeedsLayout(false);
 }
 
+<<<<<<< HEAD
 #if USE(ACCELERATED_COMPOSITING)
 bool RenderIFrame::requiresLayer() const
 {
@@ -156,4 +157,6 @@ bool RenderIFrame::requiresAcceleratedCompositing() const
 }
 #endif
 
+=======
+>>>>>>> WebKit.org at r84325
 }

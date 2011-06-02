@@ -23,12 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "DOM.h"
-#import "DOMDocument.h"
-#import "DOMRange.h"
+@class DOMDocument;
+@class DOMRange;
 
 namespace WebCore {
-class DocumentLoader;
+    class DocumentLoader;
+    class Range;
 }
 
 @interface WebHTMLConverter : NSObject {
@@ -79,10 +79,13 @@ class DocumentLoader;
     } _flags;
 }
 
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 - (id)init;
 - (id)initWithDOMRange:(DOMRange *)domRange;
 
 - (NSAttributedString *)attributedString;
+#endif
 
++ (NSAttributedString *)editingAttributedStringFromRange:(WebCore::Range*)range;
 @end
 

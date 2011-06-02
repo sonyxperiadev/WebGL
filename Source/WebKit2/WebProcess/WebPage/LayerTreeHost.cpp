@@ -26,8 +26,12 @@
 #include "config.h"
 #include "LayerTreeHost.h"
 
+#if USE(CA)
 #if PLATFORM(MAC)
-#include "LayerTreeHostCA.h"
+#include "LayerTreeHostCAMac.h"
+#elif PLATFORM(WIN)
+#include "LayerTreeHostCAWin.h"
+#endif
 #endif
 
 #if !PLATFORM(MAC) && !PLATFORM(WIN)
@@ -41,10 +45,12 @@ namespace WebKit {
 PassRefPtr<LayerTreeHost> LayerTreeHost::create(WebPage* webPage)
 {
 #if PLATFORM(MAC)
-    return LayerTreeHostCA::create(webPage);
-#endif
-
+    return LayerTreeHostCAMac::create(webPage);
+#elif PLATFORM(WIN) && HAVE(WKQCA)
+    return LayerTreeHostCAWin::create(webPage);
+#else
     return 0;
+#endif
 }
 
 LayerTreeHost::LayerTreeHost(WebPage* webPage)

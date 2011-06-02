@@ -30,15 +30,17 @@
 
 WebInspector.SourceFrame = function(delegate, url)
 {
-    WebInspector.View.call(this);
-
-    this.element.addStyleClass("script-view");
+    WebInspector.TextViewerDelegate.call(this);
 
     this._delegate = delegate;
     this._url = url;
 
     this._textModel = new WebInspector.TextEditorModel();
     this._textModel.replaceTabsWithSpaces = true;
+
+    this._textViewer = new WebInspector.TextViewer(this._textModel, WebInspector.platform, this._url, this);
+    this._textViewer.element.addStyleClass("script-view");
+    this._visible = false;
 
     this._currentSearchResultIndex = -1;
     this._searchResults = [];
@@ -47,8 +49,7 @@ WebInspector.SourceFrame = function(delegate, url)
     this._rowMessages = {};
     this._messageBubbles = {};
 
-    this._registerShortcuts();
-    this.element.addEventListener("keydown", this._handleKeyDown.bind(this), false);
+    this._breakpoints = {};
 }
 
 WebInspector.SourceFrame.Events = {
@@ -56,37 +57,52 @@ WebInspector.SourceFrame.Events = {
 }
 
 WebInspector.SourceFrame.prototype = {
+    get visible()
+    {
+        return this._textViewer.visible;
+    },
+
+    set visible(x)
+    {
+        this._textViewer.visible = x;
+    },
 
     show: function(parentElement)
     {
-        WebInspector.View.prototype.show.call(this, parentElement);
+        this._ensureContentLoaded();
 
-        if (!this._contentRequested) {
-            this._contentRequested = true;
-            this._delegate.requestContent(this._createTextViewer.bind(this));
-        }
+        this._textViewer.show(parentElement);
+        this._textViewer.resize();
 
-        if (this._textViewer) {
+        if (this.loaded) {
             if (this._scrollTop)
                 this._textViewer.scrollTop = this._scrollTop;
             if (this._scrollLeft)
                 this._textViewer.scrollLeft = this._scrollLeft;
-            this._textViewer.resize();
         }
     },
 
     hide: function()
     {
-        if (this._textViewer) {
+        if (this.loaded) {
             this._scrollTop = this._textViewer.scrollTop;
             this._scrollLeft = this._textViewer.scrollLeft;
             this._textViewer.freeCachedElements();
         }
 
-        WebInspector.View.prototype.hide.call(this);
-
+        this._textViewer.hide();
         this._hidePopup();
         this._clearLineHighlight();
+    },
+
+    detach: function()
+    {
+        this._textViewer.detach();
+    },
+
+    get element()
+    {
+        return this._textViewer.element;
     },
 
     get loaded()
@@ -99,28 +115,33 @@ WebInspector.SourceFrame.prototype = {
         return true;
     },
 
+    _ensureContentLoaded: function()
+    {
+        if (!this._contentRequested) {
+            this._contentRequested = true;
+            this.requestContent(this._initializeTextViewer.bind(this));
+        }
+    },
+
+    requestContent: function(callback)
+    {
+        this._delegate.requestContent(callback);
+    },
+
     markDiff: function(diffData)
     {
-        if (this._diffLines && this._textViewer)
+        if (this._diffLines && this.loaded)
             this._removeDiffDecorations();
 
         this._diffLines = diffData;
-        if (this._textViewer)
+        if (this.loaded)
             this._updateDiffDecorations();
-    },
-
-    revealLine: function(lineNumber)
-    {
-        if (this._textViewer)
-            this._textViewer.revealLine(lineNumber - 1, 0);
-        else
-            this._lineNumberToReveal = lineNumber;
     },
 
     addMessage: function(msg)
     {
         this._messages.push(msg);
-        if (this._textViewer)
+        if (this.loaded)
             this.addMessageToSource(msg.line - 1, msg);
     },
 
@@ -134,8 +155,8 @@ WebInspector.SourceFrame.prototype = {
         this._messages = [];
         this._rowMessages = {};
         this._messageBubbles = {};
-        if (this._textViewer)
-            this._textViewer.resize();
+
+        this._textViewer.resize();
     },
 
     get textModel()
@@ -145,36 +166,87 @@ WebInspector.SourceFrame.prototype = {
 
     get scrollTop()
     {
-        return this._textViewer ? this._textViewer.scrollTop : this._scrollTop;
+        return this.loaded ? this._textViewer.scrollTop : this._scrollTop;
     },
 
     set scrollTop(scrollTop)
     {
         this._scrollTop = scrollTop;
-        if (this._textViewer)
+        if (this.loaded)
             this._textViewer.scrollTop = scrollTop;
     },
 
     highlightLine: function(line)
     {
-        if (this._textViewer)
-            this._textViewer.highlightLine(line - 1);
+        if (this.loaded)
+            this._textViewer.highlightLine(line);
         else
             this._lineToHighlight = line;
     },
 
     _clearLineHighlight: function()
     {
-        if (this._textViewer)
+        if (this.loaded)
             this._textViewer.clearLineHighlight();
         else
             delete this._lineToHighlight;
     },
 
-    _startEditing: function()
+    _saveViewerState: function()
     {
-        if (this._originalTextModelContent === undefined) {
-            this._originalTextModelContent = this._textModel.text;
+        this._viewerState = {
+            textModelContent: this._textModel.text,
+            executionLineNumber: this._executionLineNumber,
+            messages: this._messages,
+            diffLines: this._diffLines,
+            breakpoints: this._breakpoints
+        };
+    },
+
+    _restoreViewerState: function()
+    {
+        if (!this._viewerState)
+            return;
+        this._textModel.setText(null, this._viewerState.textModelContent);
+
+        this._messages = this._viewerState.messages;
+        this._diffLines = this._viewerState.diffLines;
+        this._setTextViewerDecorations();
+
+        if (typeof this._viewerState.executionLineNumber === "number") {
+            this.clearExecutionLine();
+            this.setExecutionLine(this._viewerState.executionLineNumber);
+        }
+
+        var oldBreakpoints = this._breakpoints;
+        this._breakpoints = {};
+        for (var lineNumber in oldBreakpoints)
+            this.removeBreakpoint(Number(lineNumber));
+
+        var newBreakpoints = this._viewerState.breakpoints;
+        for (var lineNumber in newBreakpoints) {
+            lineNumber = Number(lineNumber);
+            var breakpoint = newBreakpoints[lineNumber];
+            this.addBreakpoint(lineNumber, breakpoint.resolved, breakpoint.conditional, breakpoint.enabled);
+        }
+
+        delete this._viewerState;
+    },
+
+    isContentEditable: function()
+    {
+        return this._delegate.canEditScriptSource();
+    },
+
+    readOnlyStateChanged: function(readOnly)
+    {
+        WebInspector.markBeingEdited(this._textViewer.element, !readOnly);
+    },
+
+    startEditing: function()
+    {
+        if (!this._viewerState) {
+            this._saveViewerState();
             this._delegate.setScriptSourceIsBeingEdited(true);
         }
 
@@ -182,19 +254,61 @@ WebInspector.SourceFrame.prototype = {
         this.clearMessages();
     },
 
-    _endEditing: function(oldRange, newRange)
+    endEditing: function(oldRange, newRange)
     {
-        // FIXME: Implement this.
+        if (!oldRange || !newRange)
+            return;
+
+        // Adjust execution line number.
+        if (typeof this._executionLineNumber === "number") {
+            var newExecutionLineNumber = this._lineNumberAfterEditing(this._executionLineNumber, oldRange, newRange);
+            this.clearExecutionLine();
+            this.setExecutionLine(newExecutionLineNumber, true);
+        }
+
+        // Adjust breakpoints.
+        var oldBreakpoints = this._breakpoints;
+        this._breakpoints = {};
+        for (var lineNumber in oldBreakpoints) {
+            lineNumber = Number(lineNumber);
+            var breakpoint = oldBreakpoints[lineNumber];
+            var newLineNumber = this._lineNumberAfterEditing(lineNumber, oldRange, newRange);
+            if (lineNumber === newLineNumber)
+                this._breakpoints[lineNumber] = breakpoint;
+            else {
+                this.removeBreakpoint(lineNumber);
+                this.addBreakpoint(newLineNumber, breakpoint.resolved, breakpoint.conditional, breakpoint.enabled);
+            }
+        }
     },
 
-    _createTextViewer: function(mimeType, content)
+    _lineNumberAfterEditing: function(lineNumber, oldRange, newRange)
     {
-        this._content = content;
-        this._textModel.setText(null, content.text);
+        var shiftOffset = lineNumber <= oldRange.startLine ? 0 : newRange.linesCount - oldRange.linesCount;
 
-        this._textViewer = new WebInspector.TextViewer(this._textModel, WebInspector.platform, this._url);
-        this._textViewer.startEditingListener = this._startEditing.bind(this);
-        this._textViewer.endEditingListener = this._endEditing.bind(this);
+        // Special case of editing the line itself. We should decide whether the line number should move below or not.
+        if (lineNumber === oldRange.startLine) {
+            var whiteSpacesRegex = /^[\s\xA0]*$/;
+            for (var i = 0; lineNumber + i <= newRange.endLine; ++i) {
+                if (!whiteSpacesRegex.test(this._textModel.line(lineNumber + i))) {
+                    shiftOffset = i;
+                    break;
+                }
+            }
+        }
+
+        var newLineNumber = Math.max(0, lineNumber + shiftOffset);
+        if (oldRange.startLine < lineNumber && lineNumber < oldRange.endLine)
+            newLineNumber = oldRange.startLine;
+        return newLineNumber;
+    },
+
+    _initializeTextViewer: function(mimeType, content)
+    {
+        this._textViewer.mimeType = mimeType;
+
+        this._content = content;
+        this._textModel.setText(null, content);
 
         var element = this._textViewer.element;
         if (this._delegate.debuggingSupported()) {
@@ -204,23 +318,12 @@ WebInspector.SourceFrame.prototype = {
             element.addEventListener("scroll", this._scroll.bind(this), true);
         }
 
-        if (this._delegate.canEditScriptSource())
-            element.addEventListener("dblclick", this._doubleClick.bind(this), true);
-
-        this.element.appendChild(element);
-
         this._textViewer.beginUpdates();
 
-        this._textViewer.mimeType = mimeType;
         this._setTextViewerDecorations();
 
-        if ("_executionLineNumber" in this)
+        if (typeof this._executionLineNumber === "number")
             this.setExecutionLine(this._executionLineNumber);
-
-        if (this._lineNumberToReveal) {
-            this.revealLine(this._lineNumberToReveal);
-            delete this._lineNumberToReveal;
-        }
 
         if (this._lineToHighlight) {
             this.highlightLine(this._lineToHighlight);
@@ -235,6 +338,9 @@ WebInspector.SourceFrame.prototype = {
         this.dispatchEventToListeners(WebInspector.SourceFrame.Events.Loaded);
 
         this._textViewer.endUpdates();
+
+        if (this._parentElement)
+            this.show(this._parentElement)
     },
 
     _setTextViewerDecorations: function()
@@ -277,17 +383,18 @@ WebInspector.SourceFrame.prototype = {
             callback(this, this._searchResults.length);
         }
 
-        if (this._textViewer)
+        if (this.loaded)
             doFindSearchMatches.call(this, query);
         else
             this._delayedFindSearchMatches = doFindSearchMatches.bind(this, query);
 
+        this._ensureContentLoaded();
     },
 
     searchCanceled: function()
     {
         delete this._delayedFindSearchMatches;
-        if (!this._textViewer)
+        if (!this.loaded)
             return;
 
         this._currentSearchResultIndex = -1;
@@ -327,7 +434,7 @@ WebInspector.SourceFrame.prototype = {
 
     _jumpToSearchResult: function(index)
     {
-        if (!this._textViewer || !this._searchResults.length)
+        if (!this.loaded || !this._searchResults.length)
             return;
         this._currentSearchResultIndex = (index + this._searchResults.length) % this._searchResults.length;
         this._textViewer.markAndRevealRange(this._searchResults[this._currentSearchResultIndex]);
@@ -365,18 +472,19 @@ WebInspector.SourceFrame.prototype = {
         msg._resourceMessageRepeatCountElement.textContent = WebInspector.UIString(" (repeated %d times)", msg.repeatCount);
     },
 
-    setExecutionLine: function(lineNumber)
+    setExecutionLine: function(lineNumber, skipRevealLine)
     {
         this._executionLineNumber = lineNumber;
-        if (this._textViewer) {
+        if (this.loaded) {
             this._textViewer.addDecoration(lineNumber, "webkit-execution-line");
-            this._textViewer.revealLine(lineNumber);
+            if (!skipRevealLine)
+                this._textViewer.revealLine(lineNumber);
         }
     },
 
     clearExecutionLine: function()
     {
-        if (this._textViewer)
+        if (this.loaded)
             this._textViewer.removeDecoration(this._executionLineNumber, "webkit-execution-line");
         delete this._executionLineNumber;
     },
@@ -418,7 +526,9 @@ WebInspector.SourceFrame.prototype = {
     addMessageToSource: function(lineNumber, msg)
     {
         if (lineNumber >= this._textModel.linesCount)
-            return;
+            lineNumber = this._textModel.linesCount - 1;
+        if (lineNumber < 0)
+            lineNumber = 0;
 
         var messageBubbleElement = this._messageBubbles[lineNumber];
         if (!messageBubbleElement || messageBubbleElement.nodeType !== Node.ELEMENT_NODE || !messageBubbleElement.hasStyleClass("webkit-html-message-bubble")) {
@@ -471,6 +581,11 @@ WebInspector.SourceFrame.prototype = {
 
     addBreakpoint: function(lineNumber, resolved, conditional, enabled)
     {
+        this._breakpoints[lineNumber] = {
+            resolved: resolved,
+            conditional: conditional,
+            enabled: enabled
+        };
         this._textViewer.beginUpdates();
         this._textViewer.addDecoration(lineNumber, "webkit-breakpoint");
         if (!enabled)
@@ -482,6 +597,7 @@ WebInspector.SourceFrame.prototype = {
 
     removeBreakpoint: function(lineNumber)
     {
+        delete this._breakpoints[lineNumber];
         this._textViewer.beginUpdates();
         this._textViewer.removeDecoration(lineNumber, "webkit-breakpoint");
         this._textViewer.removeDecoration(lineNumber, "webkit-breakpoint-disabled");
@@ -491,13 +607,17 @@ WebInspector.SourceFrame.prototype = {
 
     _contextMenu: function(event)
     {
-        var target = event.target.enclosingNodeOrSelfWithClass("webkit-line-number");
-        if (!target)
-            return;
-        var lineNumber = target.lineNumber;
-
         var contextMenu = new WebInspector.ContextMenu();
+        var target = event.target.enclosingNodeOrSelfWithClass("webkit-line-number");
+        if (target)
+            this._populateLineGutterContextMenu(target.lineNumber, contextMenu);
+        else
+            this._populateTextAreaContextMenu(contextMenu);
+        contextMenu.show(event);
+    },
 
+    _populateLineGutterContextMenu: function(lineNumber, contextMenu)
+    {
         contextMenu.appendItem(WebInspector.UIString("Continue to Here"), this._delegate.continueToLine.bind(this._delegate, lineNumber));
 
         var breakpoint = this._delegate.findBreakpoint(lineNumber);
@@ -539,7 +659,11 @@ WebInspector.SourceFrame.prototype = {
             else
                 contextMenu.appendItem(WebInspector.UIString("Enable Breakpoint"), setBreakpointEnabled.bind(this, true));
         }
-        contextMenu.show(event);
+    },
+
+    _populateTextAreaContextMenu: function(contextMenu)
+    {
+        contextMenu.appendCheckboxItem(WebInspector.UIString("De-obfuscate Source"), this._delegate.toggleFormatSourceFiles.bind(this._delegate), this._delegate.formatSourceFilesToggled());
     },
 
     _scroll: function(event)
@@ -764,107 +888,64 @@ WebInspector.SourceFrame.prototype = {
 
     resize: function()
     {
-        if (this._textViewer)
-            this._textViewer.resize();
+        this._textViewer.resize();
     },
 
-    formatSource: function()
+    commitEditing: function(callback)
     {
-        if (!this._content)
-            return;
-
-        function didFormat(formattedContent)
-        {
-            this._content = formattedContent;
-            this._textModel.setText(null, formattedContent.text);
-            this._setTextViewerDecorations();
-        }
-        var formatter = new WebInspector.ScriptFormatter();
-        formatter.formatContent(this._content, didFormat.bind(this))
-    },
-
-    _registerShortcuts: function()
-    {
-        this._shortcuts = {};
-        var handleSaveCallback = this._handleSave.bind(this);
-        this._shortcuts[WebInspector.KeyboardShortcut.makeKey("s", WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)] = handleSaveCallback;
-        this._shortcuts[WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.Keys.Enter.code, WebInspector.KeyboardShortcut.Modifiers.CtrlOrMeta)] = handleSaveCallback;
-        this._shortcuts[WebInspector.KeyboardShortcut.makeKey(WebInspector.KeyboardShortcut.Keys.Esc.code)] = this._handleRevertEditing.bind(this);
-    },
-
-    _handleKeyDown: function(e)
-    {
-        var shortcutKey = WebInspector.KeyboardShortcut.makeKeyFromEvent(e);
-        var handler = this._shortcuts[shortcutKey];
-        if (handler && handler.call(this)) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-    },
-
-    _handleSave: function()
-    {
-        if (this._textViewer.readOnly || !this._delegate.canEditScriptSource())
-            return false;
-
-        if (this._originalTextModelContent === undefined) {
+        if (!this._viewerState) {
             // No editing was actually done.
-            this._textViewer.readOnly = true;
             this._delegate.setScriptSourceIsBeingEdited(false);
-            return true;
-        }
-
-        var originalTextModelContent = this._originalTextModelContent;
-        var newSource = this._textModel.text;
-
-        delete this._originalTextModelContent;
-        this._textViewer.readOnly = true;
-        this._delegate.setScriptSourceIsBeingEdited(false);
-
-        function didEditScriptSource(success, newBodyOrErrorMessage)
-        {
-            if (!success && this._originalTextModelContent === undefined && this._textModel.text === newSource) {
-                this._originalTextModelContent = originalTextModelContent;
-                this._textViewer.readOnly = false;
-                this._delegate.setScriptSourceIsBeingEdited(true);
-                WebInspector.log(newBodyOrErrorMessage, WebInspector.ConsoleMessage.MessageLevel.Error);
-                WebInspector.showConsole();
-            }
-        }
-        this._delegate.editScriptSource(newSource, didEditScriptSource.bind(this));
-        return true;
-    },
-
-    _handleRevertEditing: function()
-    {
-        if (this._textViewer.readOnly)
-            return false;
-
-        if (this._originalTextModelContent !== undefined)
-            this._textModel.setText(null, this._originalTextModelContent);
-        delete this._originalTextModelContent;
-        this._textViewer.readOnly = true;
-        this._delegate.setScriptSourceIsBeingEdited(false);
-        return true;
-    },
-
-    _doubleClick: function(event)
-    {
-        if (!this._delegate.canEditScriptSource())
+            callback();
             return;
-
-        var lineRow = event.target.enclosingNodeOrSelfWithClass("webkit-line-content");
-        if (!lineRow)
-            return;  // Do not trigger editing from line numbers.
-
-        if (this._textViewer.readOnly) {
-            this._textViewer.readOnly = false;
-            window.getSelection().collapseToStart();
         }
+
+        function didEditContent(error)
+        {
+            if (error) {
+                if (error.data && error.data[0]) {
+                    WebInspector.log(error.data[0], WebInspector.ConsoleMessage.MessageLevel.Error);
+                    WebInspector.showConsole();
+                }
+                callback(error);
+                return;
+            }
+
+            var newBreakpoints = {};
+            for (var lineNumber in this._breakpoints) {
+                newBreakpoints[lineNumber] = this._breakpoints[lineNumber];
+                this.removeBreakpoint(Number(lineNumber));
+            }
+
+            for (var lineNumber in this._viewerState.breakpoints)
+                this._delegate.removeBreakpoint(Number(lineNumber));
+
+            for (var lineNumber in newBreakpoints) {
+                var breakpoint = newBreakpoints[lineNumber];
+                this._delegate.setBreakpoint(Number(lineNumber), breakpoint.condition, breakpoint.enabled);
+            }
+
+            delete this._viewerState;
+            this._delegate.setScriptSourceIsBeingEdited(false);
+
+            callback();
+        }
+        this.editContent(this._textModel.text, didEditContent.bind(this));
+    },
+
+    editContent: function(newContent, callback)
+    {
+        this._delegate.editScriptSource(newContent, callback);
+    },
+
+    cancelEditing: function()
+    {
+        this._restoreViewerState();
+        this._delegate.setScriptSourceIsBeingEdited(false);
     }
 }
 
-WebInspector.SourceFrame.prototype.__proto__ = WebInspector.View.prototype;
+WebInspector.SourceFrame.prototype.__proto__ = WebInspector.TextViewerDelegate.prototype;
 
 
 WebInspector.SourceFrameDelegate = function()
@@ -933,6 +1014,16 @@ WebInspector.SourceFrameDelegate.prototype = {
     },
 
     releaseEvaluationResult: function()
+    {
+        // Should be implemented by subclasses.
+    },
+
+    toggleFormatSourceFiles: function()
+    {
+        // Should be implemented by subclasses.
+    },
+
+    formatSourceFilesToggled: function()
     {
         // Should be implemented by subclasses.
     }

@@ -1,8 +1,11 @@
 
-Tests the keygen element.
+This tests the keygen element.
 
-On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
+PASS keygen.options is undefined
+PASS shadow.firstChild.tagName is "SELECT"
+PASS layoutTestController.shadowRoot(shadow) is null
+PASS layoutTestController.shadowRoot(shadow.firstChild) is null
+PASS successfullyParsed is true
 
-
-PASS document.getElementById("keys").options is undefined
+TEST COMPLETE
 

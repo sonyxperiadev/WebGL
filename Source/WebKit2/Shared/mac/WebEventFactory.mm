@@ -207,8 +207,9 @@ static WebWheelEvent::Phase phaseForEvent(NSEvent *event)
 
 static WebWheelEvent::Phase momentumPhaseForEvent(NSEvent *event)
 {
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
     uint32_t phase = WebWheelEvent::PhaseNone; 
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
     if ([event momentumPhase] & NSEventPhaseBegan)
         phase |= WebWheelEvent::PhaseBegan;
     if ([event momentumPhase] & NSEventPhaseStationary)
@@ -219,10 +220,24 @@ static WebWheelEvent::Phase momentumPhaseForEvent(NSEvent *event)
         phase |= WebWheelEvent::PhaseEnded;
     if ([event momentumPhase] & NSEventPhaseCancelled)
         phase |= WebWheelEvent::PhaseCancelled;
-    return static_cast<WebWheelEvent::Phase>(phase);
 #else
-    return WebWheelEvent::PhaseNone;
+    switch (WKGetNSEventMomentumPhase(event)) {
+    case WKEventPhaseNone:
+        phase = WebWheelEvent::PhaseNone;
+        break;
+    case WKEventPhaseBegan:
+        phase = WebWheelEvent::PhaseBegan;
+        break;
+    case WKEventPhaseChanged:
+        phase = WebWheelEvent::PhaseChanged;
+        break;
+    case WKEventPhaseEnded:
+        phase = WebWheelEvent::PhaseEnded;
+        break;
+    }
 #endif
+
+    return static_cast<WebWheelEvent::Phase>(phase);
 }
 
 #if ENABLE(GESTURE_EVENTS)
@@ -1015,6 +1030,8 @@ static inline bool isKeyUpEvent(NSEvent *event)
 static inline WebEvent::Modifiers modifiersForEvent(NSEvent *event)
 {
     unsigned modifiers = 0;
+    if ([event modifierFlags] & NSAlphaShiftKeyMask)
+        modifiers |= WebEvent::CapsLockKey;
     if ([event modifierFlags] & NSShiftKeyMask)
         modifiers |= WebEvent::ShiftKey;
     if ([event modifierFlags] & NSControlKeyMask)

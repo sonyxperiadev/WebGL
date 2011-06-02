@@ -58,7 +58,6 @@
 #include "WebPluginHalterClient.h"
 #include "WebPreferences.h"
 #include "WebScriptWorld.h"
-#include "WindowsTouch.h"
 #include "resource.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/InitializeThreading.h>
@@ -131,6 +130,7 @@
 #include <WebCore/SystemInfo.h>
 #include <WebCore/TypingCommand.h>
 #include <WebCore/WindowMessageBroadcaster.h>
+#include <WebCore/WindowsTouch.h>
 #include <wtf/Threading.h>
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
@@ -138,7 +138,7 @@
 #include <WebCore/GeolocationError.h>
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CGContext.h>
 #endif
 
@@ -1079,9 +1079,9 @@ void WebView::paint(HDC dc, LPARAM options)
 
 void WebView::paintIntoBackingStore(FrameView* frameView, HDC bitmapDC, const IntRect& dirtyRect, WindowsToPaint windowsToPaint)
 {
-#if USE(ACCELERATED_COMPOSITING)
-    ASSERT(!isAcceleratedCompositing());
-#endif
+    // FIXME: This function should never be called in accelerated compositing mode, and we should
+    // assert as such. But currently it *is* sometimes called, so we can't assert yet. See
+    // <http://webkit.org/b/58539>.
 
     LOCAL_GDI_COUNTER(0, __FUNCTION__);
 
@@ -1122,9 +1122,9 @@ void WebView::paintIntoBackingStore(FrameView* frameView, HDC bitmapDC, const In
 
 void WebView::paintIntoWindow(HDC bitmapDC, HDC windowDC, const IntRect& dirtyRect)
 {
-#if USE(ACCELERATED_COMPOSITING)
-    ASSERT(!isAcceleratedCompositing());
-#endif
+    // FIXME: This function should never be called in accelerated compositing mode, and we should
+    // assert as such. But currently it *is* sometimes called, so we can't assert yet. See
+    // <http://webkit.org/b/58539>.
 
     LOCAL_GDI_COUNTER(0, __FUNCTION__);
 #if FLASH_WINDOW_REDRAW
@@ -1935,8 +1935,6 @@ bool WebView::handleEditingKeyboardEvent(KeyboardEvent* evt)
 bool WebView::keyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
-    if (virtualKeyCode == VK_CAPITAL)
-        frame->eventHandler()->capsLockStateMayHaveChanged();
 
     PlatformKeyboardEvent keyEvent(m_viewWindow, virtualKeyCode, keyData, PlatformKeyboardEvent::RawKeyDown, systemKeyDown);
     bool handled = frame->eventHandler()->keyEvent(keyEvent);
@@ -1955,10 +1953,12 @@ bool WebView::keyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
         return true;
     }
 
-    // We need to handle back/forward using either Backspace(+Shift) or Ctrl+Left/Right Arrow keys.
-    if ((virtualKeyCode == VK_BACK && keyEvent.shiftKey()) || (virtualKeyCode == VK_RIGHT && keyEvent.ctrlKey()))
+    // We need to handle back/forward using either Ctrl+Left/Right Arrow keys.
+    // FIXME: This logic should probably be in EventHandler::defaultArrowEventHandler().
+    // FIXME: Should check that other modifiers aren't pressed.
+    if (virtualKeyCode == VK_RIGHT && keyEvent.ctrlKey())
         return m_page->goForward();
-    if (virtualKeyCode == VK_BACK || (virtualKeyCode == VK_LEFT && keyEvent.ctrlKey()))
+    if (virtualKeyCode == VK_LEFT && keyEvent.ctrlKey())
         return m_page->goBack();
 
     // Need to scroll the page if the arrow keys, pgup/dn, or home/end are hit.
@@ -2015,6 +2015,15 @@ bool WebView::keyPress(WPARAM charCode, LPARAM keyData, bool systemKeyDown)
     return frame->eventHandler()->keyEvent(keyEvent);
 }
 
+void WebView::setIsBeingDestroyed()
+{
+    m_isBeingDestroyed = true;
+
+    // Remove our this pointer from the window so we won't try to handle any more window messages.
+    // See <http://webkit.org/b/55054>.
+    ::SetWindowLongPtrW(m_viewWindow, 0, 0);
+}
+
 bool WebView::registerWebViewWindowClass()
 {
     static bool haveRegisteredWindowClass = false;
@@ -2061,8 +2070,12 @@ LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam,
     LONG_PTR longPtr = GetWindowLongPtr(hWnd, 0);
     WebView* webView = reinterpret_cast<WebView*>(longPtr);
     WebFrame* mainFrameImpl = webView ? webView->topLevelFrame() : 0;
-    if (!mainFrameImpl || webView->isBeingDestroyed())
+    if (!mainFrameImpl)
         return DefWindowProc(hWnd, message, wParam, lParam);
+
+    // We shouldn't be trying to handle any window messages after WM_DESTROY.
+    // See <http://webkit.org/b/55054>.
+    ASSERT(!webView->isBeingDestroyed());
 
     // hold a ref, since the WebView could go away in an event handler.
     COMPtr<WebView> protector(webView);
@@ -3182,7 +3195,7 @@ HRESULT STDMETHODCALLTYPE WebView::preferencesIdentifier(
 
 static void systemParameterChanged(WPARAM parameter)
 {
-#if PLATFORM(CG)
+#if USE(CG)
     if (parameter == SPI_SETFONTSMOOTHING || parameter == SPI_SETFONTSMOOTHINGTYPE || parameter == SPI_SETFONTSMOOTHINGCONTRAST || parameter == SPI_SETFONTSMOOTHINGORIENTATION)
         wkSystemFontSmoothingChanged();
 #endif
@@ -4777,6 +4790,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     if (FAILED(hr))
         return hr;
     settings->setHyperlinkAuditingEnabled(enabled);
+
+    hr = prefsPrivate->loadsSiteIconsIgnoringImageLoadingPreference(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setLoadsSiteIconsIgnoringImageLoadingSetting(!!enabled);
 
     if (!m_closeWindowTimer)
         m_mainFrame->invalidate(); // FIXME

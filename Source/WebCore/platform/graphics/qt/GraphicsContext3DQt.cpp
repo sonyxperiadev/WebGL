@@ -447,6 +447,12 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(GraphicsContext3D::Attribut
 
 GraphicsContext3DInternal::~GraphicsContext3DInternal()
 {
+    m_glWidget->makeCurrent();
+    if (m_glWidget->isValid()) {
+        ::glDeleteTextures(1, &m_texture);
+        deleteRenderbuffers(1, &m_depthBuffer);
+        deleteFramebuffers(1, &m_canvasFbo);
+    }
     delete m_glWidget;
     m_glWidget = 0;
 }
@@ -588,7 +594,7 @@ void* GraphicsContext3DInternal::getProcAddress(const String& proc)
     for (int i = 0; i < 3; i++) {
         String nameWithExt = proc + ext[i];
 
-        void* addr = m_glWidget->context()->getProcAddress(nameWithExt.utf8().data());
+        void* addr = m_glWidget->context()->getProcAddress(QString(nameWithExt));
         if (addr) 
             return addr;
     }
@@ -656,7 +662,7 @@ PassRefPtr<ImageData> GraphicsContext3D::paintRenderingResultsToImageData()
 
 void GraphicsContext3D::reshape(int width, int height)
 {
-    if (width == m_currentWidth && height == m_currentHeight || (!m_internal))
+    if ((width == m_currentWidth && height == m_currentHeight) || (!m_internal))
         return;
 
     m_currentWidth = width;

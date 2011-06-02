@@ -28,10 +28,11 @@
 #ifndef Path_h
 #define Path_h
 
+#include "RoundedIntRect.h"
 #include <wtf/FastAllocBase.h>
 #include <wtf/Forward.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 typedef struct CGPath PlatformPath;
 #elif PLATFORM(OPENVG)
 namespace WebCore {
@@ -44,7 +45,7 @@ typedef QPainterPath PlatformPath;
 #elif PLATFORM(WX) && USE(WXGC)
 class wxGraphicsPath;
 typedef wxGraphicsPath PlatformPath;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 namespace WebCore {
 class CairoPath;
 }
@@ -137,6 +138,7 @@ namespace WebCore {
         void addEllipse(const FloatRect&);
         void addRoundedRect(const FloatRect&, const FloatSize& roundingRadii);
         void addRoundedRect(const FloatRect&, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius);
+        void addRoundedRect(const RoundedIntRect&);
 
         void translate(const FloatSize&);
 

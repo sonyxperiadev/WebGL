@@ -28,9 +28,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-var parse = loadModule("parse-js.js");
-var process = loadModule("process.js");
-
 onmessage = function(event) {
     var source = event.data;
     var formattedSource = beautify(source);
@@ -53,34 +50,31 @@ function beautify(source)
 function buildMapping(source, formattedSource)
 {
     var mapping = { original: [], formatted: [] };
-    var lastCodePosition = 0;
-    var regexp = /[\$\.\w]+|{|}/g;
+    var lastPosition = 0;
+    var regexp = /(^|[^\\])\b((?=\D)[\$\.\w]+)\b/g;
     while (true) {
         var match = regexp.exec(formattedSource);
         if (!match)
             break;
-        var position = source.indexOf(match[0], lastCodePosition);
+        var position = source.indexOf(match[2], lastPosition);
         if (position === -1)
-            continue;
+            throw "No match found in original source for " + match[2];
         mapping.original.push(position);
-        mapping.formatted.push(match.index);
-        lastCodePosition = position + match[0].length;
+        mapping.formatted.push(match.index + match[1].length);
+        lastPosition = position + match[2].length;
     }
     return mapping;
-}
-
-function loadModule(src)
-{
-    var request = new XMLHttpRequest();
-    request.open("GET", src, false);
-    request.send();
-
-    var exports = {};
-    eval(request.responseText);
-    return exports;
 }
 
 function require()
 {
     return parse;
 }
+
+var exports = {};
+importScripts("UglifyJS/parse-js.js");
+var parse = exports;
+
+var exports = {};
+importScripts("UglifyJS/process.js");
+var process = exports;

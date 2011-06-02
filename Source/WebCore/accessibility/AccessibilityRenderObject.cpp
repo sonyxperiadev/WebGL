@@ -77,6 +77,7 @@
 #include "htmlediting.h"
 #include "visible_units.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
 
 using namespace std;
@@ -661,7 +662,7 @@ bool AccessibilityRenderObject::isReadOnly() const
             return true;
         
         HTMLElement* body = document->body();
-        if (body && body->rendererIsEditable())
+        if (body && body->isContentEditable())
             return false;
 
         return !document->rendererIsEditable();
@@ -1010,6 +1011,19 @@ unsigned AccessibilityRenderObject::hierarchicalLevel() const
     return level;
 }
 
+static TextIteratorBehavior textIteratorBehaviorForTextRange()
+{
+    TextIteratorBehavior behavior = TextIteratorIgnoresStyleVisibility;
+
+#if PLATFORM(GTK)
+    // We need to emit replaced elements for GTK, and present
+    // them with the 'object replacement character' (0xFFFC).
+    behavior = static_cast<TextIteratorBehavior>(behavior | TextIteratorEmitsObjectReplacementCharacters);
+#endif
+
+    return behavior;
+}
+
 String AccessibilityRenderObject::textUnderElement() const
 {
     if (!m_renderer)
@@ -1024,7 +1038,8 @@ String AccessibilityRenderObject::textUnderElement() const
             // catch stale WebCoreAXObject (see <rdar://problem/3960196>)
             if (frame->document() != node->document())
                 return String();
-            return plainText(rangeOfContents(node).get(), TextIteratorIgnoresStyleVisibility);
+
+            return plainText(rangeOfContents(node).get(), textIteratorBehaviorForTextRange());
         }
     }
     
@@ -1138,8 +1153,9 @@ String AccessibilityRenderObject::stringValue() const
         VisiblePosition endVisiblePosition = m_renderer->positionForCoordinates(INT_MAX, INT_MAX);
         if (startVisiblePosition.isNull() || endVisiblePosition.isNull())
             return String();
-        
-        return plainText(makeRange(startVisiblePosition, endVisiblePosition).get(), TextIteratorIgnoresStyleVisibility);
+
+        return plainText(makeRange(startVisiblePosition, endVisiblePosition).get(),
+                         textIteratorBehaviorForTextRange());
     }
     
     if (isTextControl())
@@ -1176,25 +1192,21 @@ static String accessibleNameForNode(Node* node)
 
 String AccessibilityRenderObject::accessibilityDescriptionForElements(Vector<Element*> &elements) const
 {
-    Vector<UChar> ariaLabel;
+    StringBuilder builder;
     unsigned size = elements.size();
     for (unsigned i = 0; i < size; ++i) {
         Element* idElement = elements[i];
-        
-        String nameFragment = accessibleNameForNode(idElement);
-        ariaLabel.append(nameFragment.characters(), nameFragment.length());
-        for (Node* n = idElement->firstChild(); n; n = n->traverseNextNode(idElement)) {
-            nameFragment = accessibleNameForNode(n);
-            ariaLabel.append(nameFragment.characters(), nameFragment.length());
-        }
-            
+
+        builder.append(accessibleNameForNode(idElement));
+        for (Node* n = idElement->firstChild(); n; n = n->traverseNextNode(idElement))
+            builder.append(accessibleNameForNode(n));
+
         if (i != size - 1)
-            ariaLabel.append(' ');
+            builder.append(' ');
     }
-    return String::adopt(ariaLabel);
+    return builder.toString();
 }
 
-    
 void AccessibilityRenderObject::elementsFromAttribute(Vector<Element*>& elements, const QualifiedName& attribute) const
 {
     Node* node = m_renderer->node();
@@ -2495,7 +2507,14 @@ int AccessibilityRenderObject::indexForVisiblePosition(const VisiblePosition& po
     RefPtr<Range> range = Range::create(m_renderer->document());
     range->setStart(node, 0, ec);
     range->setEnd(indexPosition.anchorNode(), indexPosition.deprecatedEditingOffset(), ec);
+
+#if PLATFORM(GTK)
+    // We need to consider replaced elements for GTK, as they will be
+    // presented with the 'object replacement character' (0xFFFC).
+    return TextIterator::rangeLength(range.get(), true);
+#else
     return TextIterator::rangeLength(range.get());
+#endif
 }
 
 IntRect AccessibilityRenderObject::boundsForVisiblePositionRange(const VisiblePositionRange& visiblePositionRange) const
@@ -2955,18 +2974,25 @@ AccessibilityRole AccessibilityRenderObject::determineAriaRoleAttribute() const
     
     if (role)
         return role;
+
+    AccessibilityObject* parentObject = parentObjectUnignored();
+    if (!parentObject)
+        return UnknownRole;
+
+    AccessibilityRole parentAriaRole = parentObject->ariaRoleAttribute();
+
     // selects and listboxes both have options as child roles, but they map to different roles within WebCore
     if (equalIgnoringCase(ariaRole, "option")) {
-        if (parentObjectUnignored()->ariaRoleAttribute() == MenuRole)
+        if (parentAriaRole == MenuRole)
             return MenuItemRole;
-        if (parentObjectUnignored()->ariaRoleAttribute() == ListBoxRole)
+        if (parentAriaRole == ListBoxRole)
             return ListBoxOptionRole;
     }
     // an aria "menuitem" may map to MenuButton or MenuItem depending on its parent
     if (equalIgnoringCase(ariaRole, "menuitem")) {
-        if (parentObjectUnignored()->ariaRoleAttribute() == GroupRole)
+        if (parentAriaRole == GroupRole)
             return MenuButtonRole;
-        if (parentObjectUnignored()->ariaRoleAttribute() == MenuRole)
+        if (parentAriaRole == MenuRole || parentAriaRole == MenuBarRole)
             return MenuItemRole;
     }
     

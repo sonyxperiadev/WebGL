@@ -39,7 +39,7 @@ RecentBuildsLoader.prototype = {
                 var build = data[buildNumber];
 
                 var buildInfo = {
-                    revision: build.sourceStamp.changes[0].rev,
+                    revision: parseInt(build.properties.first(function(property) { return property[0] === "got_revision"; })[1], 10),
                     leakCount: 0,
                     url: null,
                 };
@@ -61,7 +61,8 @@ RecentBuildsLoader.prototype = {
                             return;
                         if (!("view results" in step.urls))
                             return;
-                        buildInfo.url = self._buildbotBaseURL + step.urls["view results"] + "/";
+                        var url = step.urls["view results"];
+                        buildInfo.url = self._buildbotBaseURL + url.replace(/\/results\.html$/, "") + "/";
                     }
 
                     if (buildInfo.leakCount && buildInfo.url) {

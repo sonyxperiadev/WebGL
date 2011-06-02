@@ -64,11 +64,14 @@ private:
     PluginProcess();
     ~PluginProcess();
 
+    // ChildProcess
+    virtual bool shouldTerminate();
+
     // CoreIPC::Connection::Client
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
     virtual void didClose(CoreIPC::Connection*);
     virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
-    virtual void didFailToSendSyncMessage(CoreIPC::Connection*);
+    virtual void syncMessageSendTimedOut(CoreIPC::Connection*);
 
     // Message handlers.
     void didReceivePluginProcessMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
@@ -76,9 +79,6 @@ private:
     void createWebProcessConnection();
     void getSitesWithData(uint64_t callbackID);
     void clearSiteData(const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID);
-
-    void startShutdownTimerIfNecessary();
-    void shutdownTimerFired();
 
     void platformInitialize(const PluginProcessCreationParameters&);
 
@@ -94,9 +94,6 @@ private:
     // The plug-in module.
     RefPtr<NetscapePluginModule> m_pluginModule;
     
-    // A timer used for the shutdown timeout.
-    RunLoop::Timer<PluginProcess> m_shutdownTimer;
-
 #if USE(ACCELERATED_COMPOSITING) && PLATFORM(MAC)
     // The Mach port used for accelerated compositing.
     mach_port_t m_compositingRenderServerPort;

@@ -778,6 +778,8 @@ void LayoutTestController::overridePreference(JSStringRef key, JSStringRef value
         propertyName = "enable-plugins";
     else if (g_str_equal(originalName.get(), "WebKitHyperlinkAuditingEnabled"))
         propertyName = "enable-hyperlink-auditing";
+    else if (g_str_equal(originalName.get(), "WebKitWebGLEnabled"))
+        propertyName = "enable-webgl";
     else if (g_str_equal(originalName.get(), "WebKitTabToLinksPreferenceKey")) {
         DumpRenderTreeSupportGtk::setLinksIncludedInFocusChain(!g_ascii_strcasecmp(valueAsString.get(), "true") || !g_ascii_strcasecmp(valueAsString.get(), "1"));
         return;
@@ -915,6 +917,11 @@ void LayoutTestController::setEditingBehavior(const char* editingBehavior)
         g_object_set(G_OBJECT(settings), "editing-behavior", WEBKIT_EDITING_BEHAVIOR_MAC, NULL);
     else if (!strcmp(editingBehavior, "unix"))
         g_object_set(G_OBJECT(settings), "editing-behavior", WEBKIT_EDITING_BEHAVIOR_UNIX, NULL);
+}
+
+JSValueRef LayoutTestController::shadowRoot(JSContextRef context, JSValueRef element)
+{
+    return DumpRenderTreeSupportGtk::shadowRoot(context, element);
 }
 
 void LayoutTestController::abortModal()

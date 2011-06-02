@@ -40,7 +40,7 @@
 #include "Debugger.h"
 #include "ExceptionHelpers.h"
 #include "GetterSetter.h"
-#include "Global.h"
+#include "Strong.h"
 #include "JIT.h"
 #include "JSActivation.h"
 #include "JSArray.h"
@@ -67,7 +67,7 @@ using namespace std;
 
 namespace JSC {
 
-#if OS(DARWIN) || OS(WINDOWS)
+#if OS(DARWIN) || (OS(WINDOWS) && CPU(X86))
 #define SYMBOL_STRING(name) "_" #name
 #else
 #define SYMBOL_STRING(name) #name
@@ -81,7 +81,7 @@ namespace JSC {
 
 #if (OS(LINUX) || OS(FREEBSD)) && CPU(X86_64)
 #define SYMBOL_STRING_RELOCATION(name) #name "@plt"
-#elif OS(DARWIN)
+#elif OS(DARWIN) || (CPU(X86_64) && COMPILER(MINGW) && !GCC_VERSION_AT_LEAST(4, 5, 0))
 #define SYMBOL_STRING_RELOCATION(name) "_" #name
 #elif CPU(X86) && COMPILER(MINGW)
 #define SYMBOL_STRING_RELOCATION(name) "@" #name "@4"
@@ -314,7 +314,79 @@ extern "C" {
 #define ENABLE_PROFILER_REFERENCE_OFFSET 96
 #define GLOBAL_DATA_OFFSET         100
 #define STACK_LENGTH               104
+#elif CPU(SH4)
+#define SYMBOL_STRING(name) #name
+/* code (r4), RegisterFile* (r5), CallFrame* (r6), JSValue* exception (r7), Profiler**(sp), JSGlobalData (sp)*/
 
+asm volatile (
+".text\n"
+".globl " SYMBOL_STRING(ctiTrampoline) "\n"
+HIDE_SYMBOL(ctiTrampoline) "\n"
+SYMBOL_STRING(ctiTrampoline) ":" "\n"
+    "mov.l r7, @-r15" "\n"
+    "mov.l r6, @-r15" "\n"
+    "mov.l r5, @-r15" "\n"
+    "mov.l r8, @-r15" "\n"
+    "mov #127, r8" "\n"
+    "mov.l r14, @-r15" "\n"
+    "sts.l pr, @-r15" "\n"
+    "mov.l r13, @-r15" "\n"
+    "mov.l r11, @-r15" "\n"
+    "mov.l r10, @-r15" "\n"
+    "add #-60, r15" "\n"
+    "mov r6, r14" "\n"
+    "jsr @r4" "\n"
+    "nop" "\n"
+    "add #60, r15" "\n"
+    "mov.l @r15+,r10" "\n"
+    "mov.l @r15+,r11" "\n"
+    "mov.l @r15+,r13" "\n"
+    "lds.l @r15+,pr" "\n"
+    "mov.l @r15+,r14" "\n"
+    "mov.l @r15+,r8" "\n"
+    "add #12, r15" "\n"
+    "rts" "\n"
+    "nop" "\n"
+);
+
+asm volatile (
+".globl " SYMBOL_STRING(ctiVMThrowTrampoline) "\n"
+HIDE_SYMBOL(ctiVMThrowTrampoline) "\n"
+SYMBOL_STRING(ctiVMThrowTrampoline) ":" "\n"
+    "mov.l .L2"SYMBOL_STRING(cti_vm_throw)",r0" "\n"
+    "mov r15, r4" "\n"
+    "mov.l @(r0,r12),r11" "\n"
+    "jsr @r11" "\n"
+    "nop" "\n"
+    "add #60, r15" "\n"
+    "mov.l @r15+,r10" "\n"
+    "mov.l @r15+,r11" "\n"
+    "mov.l @r15+,r13" "\n"
+    "lds.l @r15+,pr" "\n"
+    "mov.l @r15+,r14" "\n"
+    "mov.l @r15+,r8" "\n"
+    "add #12, r15" "\n"
+    "rts" "\n"
+    "nop" "\n"
+    ".align 2" "\n"
+    ".L2"SYMBOL_STRING(cti_vm_throw)":.long " SYMBOL_STRING(cti_vm_throw)"@GOT \n"
+);
+
+asm volatile (
+".globl " SYMBOL_STRING(ctiOpThrowNotCaught) "\n"
+HIDE_SYMBOL(ctiOpThrowNotCaught) "\n"
+SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
+    "add #60, r15" "\n"
+    "mov.l @r15+,r10" "\n"
+    "mov.l @r15+,r11" "\n"
+    "mov.l @r15+,r13" "\n"
+    "lds.l @r15+,pr" "\n"
+    "mov.l @r15+,r14" "\n"
+    "mov.l @r15+,r8" "\n"
+    "add #12, r15" "\n"
+    "rts" "\n"
+    "nop" "\n"
+);
 #else
     #error "JIT not supported on this platform."
 #endif
@@ -771,12 +843,12 @@ NEVER_INLINE void JITThunks::tryCachePutByID(CallFrame* callFrame, CodeBlock* co
         normalizePrototypeChain(callFrame, baseCell);
 
         StructureChain* prototypeChain = structure->prototypeChain(callFrame);
-        stubInfo->initPutByIdTransition(structure->previousID(), structure, prototypeChain);
+        stubInfo->initPutByIdTransition(callFrame->globalData(), codeBlock->ownerExecutable(), structure->previousID(), structure, prototypeChain);
         JIT::compilePutByIdTransition(callFrame->scopeChain()->globalData, codeBlock, stubInfo, structure->previousID(), structure, slot.cachedOffset(), prototypeChain, returnAddress, direct);
         return;
     }
     
-    stubInfo->initPutByIdReplace(structure);
+    stubInfo->initPutByIdReplace(callFrame->globalData(), codeBlock->ownerExecutable(), structure);
 
     JIT::patchPutByIdReplace(codeBlock, stubInfo, structure, slot.cachedOffset(), returnAddress, direct);
 }
@@ -824,7 +896,7 @@ NEVER_INLINE void JITThunks::tryCacheGetByID(CallFrame* callFrame, CodeBlock* co
 
     if (slot.slotBase() == baseValue) {
         // set this up, so derefStructures can do it's job.
-        stubInfo->initGetByIdSelf(structure);
+        stubInfo->initGetByIdSelf(callFrame->globalData(), codeBlock->ownerExecutable(), structure);
         if (slot.cachedPropertyType() != PropertySlot::Value)
             ctiPatchCallByReturnAddress(codeBlock, returnAddress, FunctionPtr(cti_op_get_by_id_self_fail));
         else
@@ -847,10 +919,10 @@ NEVER_INLINE void JITThunks::tryCacheGetByID(CallFrame* callFrame, CodeBlock* co
         // should not be treated as a dictionary.
         if (slotBaseObject->structure()->isDictionary()) {
             slotBaseObject->flattenDictionaryObject(callFrame->globalData());
-            offset = slotBaseObject->structure()->get(propertyName);
+            offset = slotBaseObject->structure()->get(callFrame->globalData(), propertyName);
         }
         
-        stubInfo->initGetByIdProto(structure, slotBaseObject->structure());
+        stubInfo->initGetByIdProto(callFrame->globalData(), codeBlock->ownerExecutable(), structure, slotBaseObject->structure());
 
         ASSERT(!structure->isDictionary());
         ASSERT(!slotBaseObject->structure()->isDictionary());
@@ -866,7 +938,7 @@ NEVER_INLINE void JITThunks::tryCacheGetByID(CallFrame* callFrame, CodeBlock* co
     }
 
     StructureChain* prototypeChain = structure->prototypeChain(callFrame);
-    stubInfo->initGetByIdChain(structure, prototypeChain);
+    stubInfo->initGetByIdChain(callFrame->globalData(), codeBlock->ownerExecutable(), structure, prototypeChain);
     JIT::compileGetByIdChain(callFrame->scopeChain()->globalData, callFrame, codeBlock, stubInfo, structure, prototypeChain, count, propertyName, slot, offset, returnAddress);
 }
 
@@ -1156,6 +1228,29 @@ MSVC()
 MSVC_END(    END)
 */
 
+#elif CPU(SH4)
+#define DEFINE_STUB_FUNCTION(rtype, op) \
+    extern "C" { \
+        rtype JITStubThunked_##op(STUB_ARGS_DECLARATION); \
+    }; \
+    asm volatile( \
+    ".align 2" "\n" \
+    ".globl " SYMBOL_STRING(cti_##op) "\n" \
+    SYMBOL_STRING(cti_##op) ":" "\n" \
+    "sts pr, r11" "\n" \
+    "mov.l r11, @(0x38, r15)" "\n" \
+    "mov.l .L2"SYMBOL_STRING(JITStubThunked_##op)",r0" "\n" \
+    "mov.l @(r0,r12),r11" "\n" \
+    "jsr @r11" "\n" \
+    "nop" "\n" \
+    "mov.l @(0x38, r15), r11 " "\n" \
+    "lds r11, pr " "\n" \
+    "rts" "\n" \
+    "nop" "\n" \
+    ".align 2" "\n" \
+    ".L2"SYMBOL_STRING(JITStubThunked_##op)":.long " SYMBOL_STRING(JITStubThunked_##op)"@GOT \n" \
+    ); \
+    rtype JITStubThunked_##op(STUB_ARGS_DECLARATION)
 #else
 #define DEFINE_STUB_FUNCTION(rtype, op) rtype JIT_STUB cti_##op(STUB_ARGS_DECLARATION)
 #endif
@@ -1465,7 +1560,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_method_check)
 
         // Check to see if the function is on the object's prototype.  Patch up the code to optimize.
         if (slot.slotBase() == structure->prototypeForLookup(callFrame)) {
-            JIT::patchMethodCallProto(codeBlock, methodCallLinkInfo, callee, structure, slotBaseObject, STUB_RETURN_ADDRESS);
+            JIT::patchMethodCallProto(callFrame->globalData(), codeBlock, methodCallLinkInfo, callee, structure, slotBaseObject, STUB_RETURN_ADDRESS);
             return JSValue::encode(result);
         }
 
@@ -1476,7 +1571,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_method_check)
         // for now.  For now it performs a check on a special object on the global object only used for this
         // purpose.  The object is in no way exposed, and as such the check will always pass.
         if (slot.slotBase() == baseValue) {
-            JIT::patchMethodCallProto(codeBlock, methodCallLinkInfo, callee, structure, callFrame->scopeChain()->globalObject->methodCallDummy(), STUB_RETURN_ADDRESS);
+            JIT::patchMethodCallProto(callFrame->globalData(), codeBlock, methodCallLinkInfo, callee, structure, callFrame->scopeChain()->globalObject->methodCallDummy(), STUB_RETURN_ADDRESS);
             return JSValue::encode(result);
         }
     }
@@ -1535,7 +1630,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_self_fail)
 
         if (stubInfo->accessType == access_get_by_id_self) {
             ASSERT(!stubInfo->stubRoutine);
-            polymorphicStructureList = new PolymorphicAccessStructureList(CodeLocationLabel(), stubInfo->u.getByIdSelf.baseObjectStructure);
+            polymorphicStructureList = new PolymorphicAccessStructureList(callFrame->globalData(), codeBlock->ownerExecutable(), CodeLocationLabel(), stubInfo->u.getByIdSelf.baseObjectStructure.get());
             stubInfo->initGetByIdSelfList(polymorphicStructureList, 1);
         } else {
             polymorphicStructureList = stubInfo->u.getByIdSelfList.structureList;
@@ -1560,12 +1655,12 @@ static PolymorphicAccessStructureList* getPolymorphicAccessStructureListSlot(JSG
 
     switch (stubInfo->accessType) {
     case access_get_by_id_proto:
-        prototypeStructureList = new PolymorphicAccessStructureList(stubInfo->stubRoutine, stubInfo->u.getByIdProto.baseObjectStructure, stubInfo->u.getByIdProto.prototypeStructure);
+        prototypeStructureList = new PolymorphicAccessStructureList(globalData, owner, stubInfo->stubRoutine, stubInfo->u.getByIdProto.baseObjectStructure.get(), stubInfo->u.getByIdProto.prototypeStructure.get());
         stubInfo->stubRoutine = CodeLocationLabel();
         stubInfo->initGetByIdProtoList(prototypeStructureList, 2);
         break;
     case access_get_by_id_chain:
-        prototypeStructureList = new PolymorphicAccessStructureList(globalData, owner, stubInfo->stubRoutine, stubInfo->u.getByIdChain.baseObjectStructure, stubInfo->u.getByIdChain.chain);
+        prototypeStructureList = new PolymorphicAccessStructureList(globalData, owner, stubInfo->stubRoutine, stubInfo->u.getByIdChain.baseObjectStructure.get(), stubInfo->u.getByIdChain.chain.get());
         stubInfo->stubRoutine = CodeLocationLabel();
         stubInfo->initGetByIdProtoList(prototypeStructureList, 2);
         break;
@@ -1649,7 +1744,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_get_by_id_proto_list)
         // should not be treated as a dictionary.
         if (slotBaseObject->structure()->isDictionary()) {
             slotBaseObject->flattenDictionaryObject(callFrame->globalData());
-            offset = slotBaseObject->structure()->get(propertyName);
+            offset = slotBaseObject->structure()->get(callFrame->globalData(), propertyName);
         }
 
         int listIndex;
@@ -2658,10 +2753,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_resolve_global)
         JSValue result = slot.getValue(callFrame, ident);
         if (slot.isCacheableValue() && !globalObject->structure()->isUncacheableDictionary() && slot.slotBase() == globalObject) {
             GlobalResolveInfo& globalResolveInfo = codeBlock->globalResolveInfo(globalResolveInfoIndex);
-            if (globalResolveInfo.structure)
-                globalResolveInfo.structure->deref();
-            globalObject->structure()->ref();
-            globalResolveInfo.structure = globalObject->structure();
+            globalResolveInfo.structure.set(callFrame->globalData(), codeBlock->ownerExecutable(), globalObject->structure());
             globalResolveInfo.offset = slot.cachedOffset();
             return JSValue::encode(result);
         }
@@ -3495,7 +3587,7 @@ MacroAssemblerCodePtr JITThunks::ctiStub(JSGlobalData* globalData, ThunkGenerato
 
 NativeExecutable* JITThunks::hostFunctionStub(JSGlobalData* globalData, NativeFunction function)
 {
-    std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap->add(function, Global<NativeExecutable>(Global<NativeExecutable>::EmptyValue));
+    std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap->add(function, Strong<NativeExecutable>());
     if (entry.second)
         entry.first->second.set(*globalData, NativeExecutable::create(*globalData, JIT::compileCTINativeCall(globalData, m_executablePool, function), function, ctiNativeConstruct(), callHostFunctionAsConstructor));
     return entry.first->second.get();
@@ -3503,7 +3595,7 @@ NativeExecutable* JITThunks::hostFunctionStub(JSGlobalData* globalData, NativeFu
 
 NativeExecutable* JITThunks::hostFunctionStub(JSGlobalData* globalData, NativeFunction function, ThunkGenerator generator)
 {
-    std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap->add(function, Global<NativeExecutable>(Global<NativeExecutable>::EmptyValue));
+    std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap->add(function, Strong<NativeExecutable>());
     if (entry.second) {
         MacroAssemblerCodePtr code = globalData->canUseJIT() ? generator(globalData, m_executablePool.get()) : MacroAssemblerCodePtr();
         entry.first->second.set(*globalData, NativeExecutable::create(*globalData, code, function, ctiNativeConstruct(), callHostFunctionAsConstructor));

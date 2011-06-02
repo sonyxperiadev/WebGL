@@ -1,3 +1,1452 @@
+2011-04-19  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] didReceiveTitle API signature should not change
+        https://bugs.webkit.org/show_bug.cgi?id=58909
+
+        My previous attempt at a temporary shim was wrong.
+        This second try should correctly work with older clients.
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::didReceiveTitle):
+
+2011-04-19  Jungshik Shin  <jshin@chromium.org>
+
+        Reviewed by Adam Barth
+
+        Fix the compile failure in UniscribeHelperTest.cpp due to
+        a change in UniscribeHelper made by the CL for bug 48860
+        (r84264)
+
+        http://bugs.webkit.org/show_bug.cgi?id=48860
+
+        * tests/UniscribeHelperTest.cpp:
+        (TEST_F):
+
+2011-04-19  Stuart Morgan  <stuartmorgan@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Clicking on plugin for first time blocks focus shift
+        https://bugs.webkit.org/show_bug.cgi?id=58419
+
+        Switched to using FocusController when moving focus to a plugin
+        so that cross-frame focus changes are handled correctly.
+
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::handleMouseEvent):
+
+2011-04-19  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Rename lengthReceived to encodedDataLength/dataLength
+        https://bugs.webkit.org/show_bug.cgi?id=58883
+
+        Renamed lengthReceived to encodedDataLength/dataLength.
+
+        * public/WebURLLoaderClient.h:
+        (WebKit::WebURLLoaderClient::didReceiveData):
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveCachedMetadata):
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidReceiveContentLength):
+        * src/FrameLoaderClientImpl.h:
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didReceiveData):
+
+2011-04-19  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Chromium DevTools: Network panel timing test is flaky
+        https://bugs.webkit.org/show_bug.cgi?id=58699
+
+        Fixed network timing test flakiness.
+
+        * src/js/Tests.js:
+        (.TestSuite.prototype.testNetworkTiming.finishResource):
+
+2011-04-19  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: add chrome.devTools alias to webInspector namespace for chromium port
+        https://bugs.webkit.org/show_bug.cgi?id=58894
+
+        * src/js/DevTools.js:
+        (WebInspector.platformExtensionAPI):
+
+2011-04-19  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Not reviewed; another build fix attempt.
+
+        * src/StorageInfoChromium.cpp:
+        (WebCore::StorageInfo::queryUsageAndQuota):
+        (WebCore::StorageInfo::requestQuota):
+        * src/WebStorageQuotaCallbacksImpl.cpp:
+        (WebKit::WebStorageQuotaCallbacksImpl::WebStorageQuotaCallbacksImpl):
+        * src/WebStorageQuotaCallbacksImpl.h:
+
+2011-04-19  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Enable QUOTA API at runtime if enable-quota flag is given
+        https://bugs.webkit.org/show_bug.cgi?id=58784
+
+        * features.gypi: Added ENABLE_QUOTA=1.
+        * public/WebRuntimeFeatures.h:
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableQuota): Added.
+        (WebKit::WebRuntimeFeatures::isQuotaEnabled): Added.
+
+2011-04-19  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Enable folder drag-n-drop when using a "webkitdirectory" file input
+        https://bugs.webkit.org/show_bug.cgi?id=58401
+
+        This uses a new ChromeClient API to enumerate the directory and 
+        return all the files, as if the user had selected that directory
+        by clicking the control in the normal way.
+
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::enumerateChosenDirectory):
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::enumerateChosenDirectory):
+        * src/ChromeClientImpl.h:
+
+2011-04-18  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] expose title direction to webkit client
+        https://bugs.webkit.org/show_bug.cgi?id=58823
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::didReceiveTitle):
+        Add new param to API.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidReceiveTitle):
+        Pass new param in API.
+
+2011-04-17  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Rename PLATFORM(CG) to USE(CG)
+        https://bugs.webkit.org/show_bug.cgi?id=58729
+
+        * src/GraphicsContext3DChromium.cpp:
+        (WebCore::GraphicsContext3DInternal::GraphicsContext3DInternal):
+        (WebCore::GraphicsContext3DInternal::~GraphicsContext3DInternal):
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas):
+        (WebCore::GraphicsContext3DInternal::reshape):
+        * src/GraphicsContext3DInternal.h:
+        * src/PlatformBridge.cpp:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::doPixelReadbackToCanvas):
+
+2011-04-15  John Bates  <jbates@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Change WebGraphicsContext3D virtuals to pure virtuals as intended
+        https://bugs.webkit.org/show_bug.cgi?id=58479
+
+        * public/WebGraphicsContext3D.h:
+
+2011-04-15  Shishir Agrawal  <shishir@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Add a flag to guard Page Visibility API changes.
+        https://bugs.webkit.org/show_bug.cgi?id=58464
+
+        * features.gypi:
+
+2011-04-15  Charlie Reis  <creis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] fast/events/popup-allowed-from-gesture-initiated-form-submit.html causing debug ASSERT
+        https://bugs.webkit.org/show_bug.cgi?id=44079
+
+        Remove an assert whose invariant doesn't hold.
+
+        * src/FrameLoaderClientImpl.cpp:
+
+2011-04-15  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by David Levin.
+
+        Expose unified Quota API if QUOTA build flag is enabled
+        https://bugs.webkit.org/show_bug.cgi?id=58648
+
+        * src/AssertMatchingEnums.cpp: Added enum assertions.
+        * src/StorageInfoChromium.cpp: Made a build fix.
+
+2011-04-15  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Rename rawRequestHeadersText and RawResponseHeadersText to requestHeadersText and responseHeadersText
+        https://bugs.webkit.org/show_bug.cgi?id=58650
+
+        * public/WebHTTPLoadInfo.h:
+        * src/WebHTTPLoadInfo.cpp:
+        (WebKit::WebHTTPLoadInfo::requestHeadersText):
+        (WebKit::WebHTTPLoadInfo::setRequestHeadersText):
+        (WebKit::WebHTTPLoadInfo::responseHeadersText):
+        (WebKit::WebHTTPLoadInfo::setResponseHeadersText):
+
+2011-04-15  Zelidrag Hornung  <zelidrag@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Added enums for external file system type and exposed factory function
+        for creating File- and DirectoryEntry objects from Chromium side.
+        https://bugs.webkit.org/show_bug.cgi?id=58456
+
+        * public/WebFileSystem.h:
+        * public/WebFrame.h:
+        * src/AssertMatchingEnums.cpp:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::createFileSystem):
+        (WebKit::WebFrameImpl::createFileEntry):
+        * src/WebFrameImpl.h:
+
+2011-04-15  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: [Chromium] Create tests for network panel timing, size and raw headers text
+        https://bugs.webkit.org/show_bug.cgi?id=58566
+
+        Added network timing, size and raw headers tests for Inspector
+        Since chromium used different version of network stack for layout
+        tests, these are interactive ui tests (DevToolsSanityTest.TestNetwork*)
+
+        * src/js/Tests.js:
+        (.TestSuite.prototype.testNetworkSize.finishResource):
+        (.TestSuite.prototype.testNetworkSyncSize.finishResource):
+        (.TestSuite.prototype.testNetworkRawHeadersText.finishResource):
+        (.TestSuite.prototype.testNetworkTiming.finishResource):
+
+2011-04-14  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Enable raw HTTP headers support
+        https://bugs.webkit.org/show_bug.cgi?id=58259
+
+        Added raw headers text support to inspector.
+
+        * public/WebHTTPLoadInfo.h:
+        * src/WebHTTPLoadInfo.cpp:
+        (WebKit::WebHTTPLoadInfo::rawRequestHeadersText):
+        (WebKit::WebHTTPLoadInfo::setRawRequestHeadersText):
+        (WebKit::WebHTTPLoadInfo::rawResponseHeadersText):
+        (WebKit::WebHTTPLoadInfo::setRawResponseHeadersText):
+
+2011-04-14  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: ResourceResponse should have encodedDataLength field for synchronous requests transfer size
+        https://bugs.webkit.org/show_bug.cgi?id=58447
+
+        FrameLoader now takes encoded data length for synchronous requests from the field with the same name.
+
+        * public/WebHTTPLoadInfo.h:
+        * src/WebHTTPLoadInfo.cpp:
+        (WebKit::WebHTTPLoadInfo::encodedDataLength):
+        (WebKit::WebHTTPLoadInfo::setEncodedDataLength):
+
+2011-04-14  Alok Priyadarshi  <alokp@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Remove dependency on chromium skia::PlatformCanvas
+        https://bugs.webkit.org/show_bug.cgi?id=57563
+
+        * public/WebCanvas.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::printPage):
+        * tests/TransparencyWinTest.cpp:
+        (WebCore::drawNativeRect):
+        (WebCore::getPixelAt):
+        (WebCore::clearTopLayerAlphaChannel):
+        (WebCore::clearTopLayerAlphaPixel):
+        (WebCore::TEST):
+
+2011-04-14  Brian Salomon  <bsalomon@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        In skia platform call SkBitmap::notifyPixelsChanged on WebGL readback
+        https://bugs.webkit.org/show_bug.cgi?id=58543
+
+        No new tests. Tested by fast/canvas/webgl/canvas-test.html
+
+        * src/GraphicsContext3DChromium.cpp:
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas):
+
+2011-04-14  Adrienne Walker  <enne@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] TilingData should return 1 tile if tile size is texture size.
+        https://bugs.webkit.org/show_bug.cgi?id=58364
+
+        Update test to properly handle this case.
+
+        * tests/TilingDataTest.cpp:
+        (WebCore::TEST):
+
+2011-04-14  Bill Budge  <bbudge@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Make WebURLLoaderOptions disallow cross origin requests by default.
+        https://bugs.webkit.org/show_bug.cgi?id=58475
+
+        No new tests. Exposes no new functionality.
+
+        * public/WebURLLoaderOptions.h:
+        (WebKit::WebURLLoaderOptions::WebURLLoaderOptions):
+
+2011-04-13  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Allow setting composited backing stores for scrollbars and scroll corners
+        https://bugs.webkit.org/show_bug.cgi?id=57202
+
+        Remove a lot of scrollbar hacks from the chromium compositor implementation now that
+        scrollbars go to real layers.
+
+        * src/WebScrollbarImpl.cpp:
+        (WebKit::WebScrollbarImpl::invalidateScrollCornerRect):
+        (WebKit::WebScrollbarImpl::scrollCornerPresent):
+        * src/WebScrollbarImpl.h:
+        (WebKit::WebScrollbarImpl::scrollCornerRect):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::reallocateRenderer):
+
+2011-04-13  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Jian Li.
+
+        [chromium] Remove unnecessary #define now that chrome has rolled to the latest WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=58474
+
+        * DEPS:
+        * public/WebSpellCheckClient.h:
+
+2011-04-13  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Extension3D needs to provide a way to check if an extension is enabled
+        https://bugs.webkit.org/show_bug.cgi?id=58410
+
+        Implement isEnabled() in chromium port.
+
+        * src/Extensions3DChromium.cpp:
+        (WebCore::Extensions3DChromium::isEnabled):
+        * src/GraphicsContext3DChromium.cpp:
+        (WebCore::GraphicsContext3DInternal::isExtensionEnabled):
+        * src/GraphicsContext3DInternal.h:
+
+2011-04-13  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add mock implementation and plumbing code for unified Quota API
+        https://bugs.webkit.org/show_bug.cgi?id=57927
+
+        Added plumbing code for the quota API, that is based on the
+        discussion on public-webapps:
+        http://lists.w3.org/Archives/Public/public-webapps/2011JanMar/0346.html
+
+        * WebKit.gyp: Added new file entries.
+        * src/StorageInfoChromium.cpp: Added.
+        * src/WebStorageQuotaCallbacksImpl.cpp: Added. An implementation of
+        WebStorageQuotaCallbacks.
+        * src/WebStorageQuotaCallbacksImpl.h: Added.
+
+2011-04-12  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Chromium: Set ENABLE_LEVELDB=1 and add leveldb and snappy to DEPS
+        https://bugs.webkit.org/show_bug.cgi?id=58343
+
+        Set ENABLE_LEVELDB=1 so that code gets compiled by the EWS bots.
+        Add the necessary dependencies to the DEPS file.
+
+        * DEPS:
+        * features.gypi:
+
+2011-04-12  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Add WebSettings::setValidationMessageTimerMagnification()
+        https://bugs.webkit.org/show_bug.cgi?id=57426
+
+        * public/WebSettings.h: Declare new function.
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setValidationMessageTimerMagnification):
+         Passing the specified value to WebCore::Settings.
+        * src/WebSettingsImpl.h: Declare new function.
+
+2011-04-12  Antoine Labour  <piman@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        Allow WebView users to recreate dependent contexts after a context lost
+        event. Similarly to the startup case, a temporary context gets created,
+        that gets used by the layer renderer once it itself gets recreated.
+        https://bugs.webkit.org/show_bug.cgi?id=58385
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::reallocateRenderer): use the temporary context to
+        recreate the layer renderer if it's valid.
+        (WebKit::WebViewImpl::graphicsContext3D): create a temporary context if
+        the layer renderer's context is lost.
+
+2011-04-12  Adrienne Walker  <enne@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] TilingData mishandles very small texture sizes
+        https://bugs.webkit.org/show_bug.cgi?id=58364
+
+        Update test to properly handle texture sizes of 0-3.
+
+        * tests/TilingDataTest.cpp:
+        (WebCore::TEST):
+
+2011-04-12  Jian Li  <jianli@chromium.org>
+
+        Unreviewed, rolling out r83649.
+        http://trac.webkit.org/changeset/83649
+        https://bugs.webkit.org/show_bug.cgi?id=57563
+
+        This patch causes compiling errors for chromium
+
+        * public/WebCanvas.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::printPage):
+        * tests/TransparencyWinTest.cpp:
+        (WebCore::drawNativeRect):
+        (WebCore::getPixelAt):
+        (WebCore::clearTopLayerAlphaChannel):
+        (WebCore::clearTopLayerAlphaPixel):
+        (WebCore::TEST):
+
+2011-04-12  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Jian Li.
+
+        [chromium] Fix spellcheck regression in context menus
+        https://bugs.webkit.org/show_bug.cgi?id=58386
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+
+2011-04-12  Noel Gordon  <noel.gordon@gmail.com>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Use new dragTargetDragEnter() function signature
+        https://bugs.webkit.org/show_bug.cgi?id=58303
+
+        After WebKit/chromium/DEPS rolls to chromium r80907, the drag identity
+        based version of dragTargetDragEnter() is no longer used; remove it.
+
+        * public/WebView.h:
+        * src/WebViewImpl.cpp:
+        * src/WebViewImpl.h:
+
+2011-04-12  Alok Priyadarshi  <alokp@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Remove dependency on chromium skia::PlatformCanvas
+        https://bugs.webkit.org/show_bug.cgi?id=57563
+
+        * public/WebCanvas.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::printPage):
+        * tests/TransparencyWinTest.cpp:
+        (WebCore::drawNativeRect):
+        (WebCore::getPixelAt):
+        (WebCore::clearTopLayerAlphaChannel):
+        (WebCore::clearTopLayerAlphaPixel):
+        (WebCore::TEST):
+
+2011-04-12  Adam Barth  <abarth@webkit.org>
+
+        Revert unintentional changes to WebKit.
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        * src/WebSettingsImpl.h:
+
+2011-04-11  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium]: Get the list of misspelled words in the WebKit code insetad of in chromium's RenderView
+        https://bugs.webkit.org/show_bug.cgi?id=58260
+
+        * public/WebContextMenuData.h:
+        * public/WebSpellCheckClient.h:
+        (WebKit::WebSpellCheckClient::spellCheck):
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::checkSpellingOfString):
+
+2011-04-12  Bill Budge  <bbudge@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Move the WebURLLoaderOptions struct into its own file and rename the CrossOriginRequestPolicy enum to conform to the WebKit coding standard.
+        https://bugs.webkit.org/show_bug.cgi?id=58287
+
+        No new tests. No new functionality exposed.
+
+        * WebKit.gyp:
+        * public/WebURLLoader.h:
+        * public/WebURLLoaderOptions.h: Added.
+        (WebKit::WebURLLoaderOptions::WebURLLoaderOptions):
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::AssociatedURLLoader):
+        * src/AssociatedURLLoader.h:
+
+2011-04-11  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: [chromium] script formatting doesn't work when chromium is built with debug_devtools=1.
+        https://bugs.webkit.org/show_bug.cgi?id=58232
+
+        * WebKit.gyp:
+
+2011-04-11  John Bates  <jbates@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        chromium support for glSetLatch and glWaitLatch between 3D contexts
+        https://bugs.webkit.org/show_bug.cgi?id=58003
+
+        * public/WebGraphicsContext3D.h:
+        (WebKit::WebGraphicsContext3D::getParentToChildLatchCHROMIUM):
+        (WebKit::WebGraphicsContext3D::getChildToParentLatchCHROMIUM):
+        (WebKit::WebGraphicsContext3D::waitLatchCHROMIUM):
+        (WebKit::WebGraphicsContext3D::setLatchCHROMIUM):
+        * src/Extensions3DChromium.cpp:
+        (WebCore::Extensions3DChromium::waitLatchCHROMIUM):
+        (WebCore::Extensions3DChromium::setLatchCHROMIUM):
+        * src/GraphicsContext3DChromium.cpp:
+        * src/GraphicsContext3DInternal.h:
+
+2011-04-11  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Crash in WebViewImpl::caretOrSelectionBounds
+        https://bugs.webkit.org/show_bug.cgi?id=58269
+
+        The bug was caused by caretOrSelectionBounds's incorrectly assuming
+        SelectionController::toNormalizedRange to always return a non-null Range.
+
+        Fixed the bug by adding a null pointer check. Also replaced calls to deprecatedNode
+        by containerNode() and calls to SelectionController::start() and SelectionController::end()
+        by calls to SelectionController::base() and SelectionController::extent() because
+        selection extends from base to extent, not from start to end.
+
+        Test: editing/selection/extend-over-file-input-by-drag-crash.html
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::caretOrSelectionBounds):
+
+2011-04-11  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Rename MediaControls to MediaControlRootElement.
+        https://bugs.webkit.org/show_bug.cgi?id=58250
+
+        Mechanical move using do-webcore-rename.
+
+2011-04-11  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        [chromium] Implement image/png support in DataTransferItems
+        https://bugs.webkit.org/show_bug.cgi?id=58106
+
+        Add glue for reading image data from clipboard.
+
+        * DEPS:
+        * src/PlatformBridge.cpp:
+        (WebCore::PlatformBridge::clipboardReadImage):
+
+2011-04-05  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Steve Block.
+
+        IndexedDB: Introduce skeleton for LevelDB backend
+        https://bugs.webkit.org/show_bug.cgi?id=57827
+
+        * features.gypi:
+            Add ENABLE_LEVELDB=0.
+        * public/WebIDBFactory.h:
+        (WebKit::WebIDBFactory::open):
+            Remove pre-roll open() function.
+
+2011-04-10  Kent Tamura  <tkent@chromium.org>
+
+        [Chromium] Fix build errors on "Win Shared Builder (dbg)"
+
+        * WebKit.gyp: Exclude WebFrameTest.cpp for WEBKIT_DLL.
+
+2011-04-10  Kent Tamura  <tkent@chromium.org>
+
+        Unreviewed, rolling out r83353.
+        http://trac.webkit.org/changeset/83353
+        https://bugs.webkit.org/show_bug.cgi?id=58106
+
+        The new test doesn't pass on all Chromium platforms.
+
+        * DEPS:
+        * src/PlatformBridge.cpp:
+
+2011-04-09  Sreeram Ramachandran  <sreeram@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        Gather data on modal dialogs shown during unload events
+        https://bugs.webkit.org/show_bug.cgi?id=58115
+
+        Implementation of the new API to receive notifications of modal dialogs
+        dispatched during unload events. Count the notifications through a histogram.
+
+        No tests because it's not clear how to test chromium histograms from webkit.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::willRunModalDialogDuringPageDismissal):
+        * src/ChromeClientImpl.h:
+
+2011-04-08  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Re-land http://trac.webkit.org/changeset/83007. This works
+        without changes after https://bugs.webkit.org/show_bug.cgi?id=58110.
+
+        https://bugs.webkit.org/show_bug.cgi?id=58096
+
+        * WebKit.gyp:
+        * WebKit.gypi:
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrame::frameForContext):
+        * tests/WebFrameTest.cpp:
+        (WebKit::WebFrameTest::WebFrameTest):
+        (WebKit::WebFrameTest::registerMockedURLLoad):
+        (WebKit::WebFrameTest::loadFrame):
+        (WebKit::TEST_F):
+
+2011-04-08  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        [chromium] Implement image/png support in DataTransferItems
+        https://bugs.webkit.org/show_bug.cgi?id=58106
+
+        Add glue for reading image data from clipboard.
+
+        * DEPS:
+        * src/PlatformBridge.cpp:
+        (WebCore::PlatformBridge::clipboardReadImage):
+
+2011-04-08  Alpha Lam  <hclam@chromium.org>
+
+        Unreviewed, rolling out r83335.
+        http://trac.webkit.org/changeset/83335
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        GTK and QT bots are broken
+
+        * features.gypi:
+
+2011-04-07  Anna Cavender  <annacc@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Setup ENABLE(TRACK) feature define
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        * features.gypi:
+
+2011-04-08  Dmitry Titov  <dimich@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [Chromium] Remove unneeded usage of V8::Lockers in IDB tests.
+        https://bugs.webkit.org/show_bug.cgi?id=58110
+        Since they are simple one-thread tests.
+        This code parallels the code in Chromium's idb bindings that uses v8 Lockers in utility process,
+        which is equally not needed since there is only one thread running v8 in that process.
+
+        * tests/IDBBindingUtilitiesTest.cpp:
+
+2011-04-07  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: add test for script formatter worker.
+        https://bugs.webkit.org/show_bug.cgi?id=57447
+
+        * WebKit.gyp:
+
+2011-04-08  Kent Tamura  <tkent@chromium.org>
+
+        [Chromium] The second attempt of fixing for Windows (dbg)(shared) build.
+
+        * WebKit.gyp: webkit should not depend on webkit_support.
+
+2011-04-08  Kent Tamura  <tkent@chromium.org>
+
+        [Chromium] Build fix for Windows (dbg)(shared).
+
+        * WebKit.gyp: Add webkit_support dependency, which is required for webkit_unittest_files.
+
+2011-04-07  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Add WebKit API to query and request unified offline-storage quota
+        https://bugs.webkit.org/show_bug.cgi?id=57849
+        Just adding the API, this does not do anything yet.
+
+        The API is based on the public discussion for unified quota API:
+        http://lists.w3.org/Archives/Public/public-webapps/2011JanMar/0346.html
+        (The detail is not yet fully specified and might be subject to change.)
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::queryStorageUsageAndQuota): Added.
+        (WebKit::WebFrameClient::requestStorageQuota): Added.
+        * public/WebStorageQuotaCallbacks.h: Added.
+        (WebKit::WebStorageQuotaCallbacks::~WebStorageQuotaCallbacks):
+        * public/WebStorageQuotaType.h: Added.
+
+2011-04-07  Dominic Cooney  <dominicc@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Let shadow DOM have a list of nodes at the top level of a shadow.
+        https://bugs.webkit.org/show_bug.cgi?id=57813
+
+        * src/WebElement.cpp:
+        (WebKit::WebElement::shadowRoot): shadow roots are ContainerNodes now
+
+2011-04-07  Magnus Danielsson  <public@fuzzac.com>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] WebPageSerializerImpl doesn't serialize sub-frames correctly
+        https://bugs.webkit.org/show_bug.cgi?id=53897
+
+        When serializing a web page using 'save page as', sub-frames and resources gets
+        saved in a sub-directory. However, frame elements didn't get updated to reference
+        these saved sub-frames, but were still referencing the original url. So when opening
+        a saved web page, any sub-frames would get pulled in from the original url rather than 
+        what was saved.
+
+        In addition to this, sub-frames in the sub-directory erroneously had the name of the
+        sub-directory prepended to the path of resources located in the same sub-directory.
+
+        * src/WebPageSerializerImpl.cpp:
+        (WebKit::WebPageSerializerImpl::openTagToStrne: Fixed resource paths in sub-frames. 
+        Also made sure sub-frames are referenced correctly from parent frame.
+        (WebKit::WebPageSerializerImpl::endTagToString): Removed constness from argument.
+        (WebKit::WebPageSerializerImpl::buildContentForNode): Ditto.
+        * src/WebPageSerializerImpl.h:
+
+2011-04-07  Nat Duca  <nduca@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] Compositor thread infrastructure
+        https://bugs.webkit.org/show_bug.cgi?id=56131
+
+        Tests for chrome compositor thread and related infrastructure.
+
+        * WebKit.gyp:
+        * WebKit.gypi:
+        * tests/CCThreadTaskTest.cpp: Added.
+        (WebCore::TEST):
+        * tests/CCThreadTest.cpp: Added.
+        (WebCore::TEST):
+        (WebCore::PingPongUsingCondition::ping):
+        (WebCore::PingPongTestUsingTasks::ping):
+        (WebCore::PingPongTestUsingTasks::pong):
+        * tests/RunAllTests.cpp:
+        (main):
+
+2011-04-07  Andrew Scherkus  <scherkus@chromium.org>
+
+        Revert ENABLE_TRACK patch due to compile failures.
+
+        * features.gypi:
+
+2011-04-07  Pavel Feldman  <pfeldman@google.com>
+
+        Not reviewed: rolling chromium DEPS 80421:80767.
+
+        * DEPS:
+
+2011-04-07  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: [Chromium] Rename didReceiveData2 to didReceiveData as part of enabling transfer size support.
+        https://bugs.webkit.org/show_bug.cgi?id=58036
+
+        Renamed didReceiveData2 to didReceiveData.
+
+        * public/WebURLLoaderClient.h:
+        (WebKit::WebURLLoaderClient::didReceiveData):
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveData):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didReceiveData):
+
+2011-04-07  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: [Chromium] Migrate didReceiveData in upstream for plugins as part of enabling transfer size support.
+        https://bugs.webkit.org/show_bug.cgi?id=58034
+
+        Migrated didReceiveData to support new lengthReceived parameter.
+
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveData):
+
+2011-04-06  Asanka Herath  <asanka@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add new TargetType: TargetIsFavicon
+
+        https://bugs.webkit.org/show_bug.cgi?id=57659
+
+        * public/WebURLRequest.h:
+
+2011-04-06  Alok Priyadarshi  <alokp@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] Add settings API to enable accelerated drawing
+        https://bugs.webkit.org/show_bug.cgi?id=57863
+        
+        If accelerated drawing is enabled we try to render content and
+        root layers using GPU. Please note that this setting is ignored if
+        accelerated compositing is disabled.
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setAcceleratedDrawingEnabled):
+        * src/WebSettingsImpl.h:
+
+2011-04-05  Zelidrag Hornung  <zelidrag@chromium.org>
+
+        Reviewed by David Levin.
+
+        Added MediaTypeFile enum value to WebContextMenuData::MediaType.
+        https://bugs.webkit.org/show_bug.cgi?id=57566
+
+        * public/WebContextMenuData.h:
+
+2011-04-05  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r83007.
+        http://trac.webkit.org/changeset/83007
+        https://bugs.webkit.org/show_bug.cgi?id=57920
+
+        Broke WebFrameTest.FrameForEnteredContext on Chromium-win and
+        Chromium-mac (Requested by tkent on #webkit).
+
+        * WebKit.gyp:
+        * WebKit.gypi:
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        * tests/WebFrameTest.cpp:
+        (WebKit::WebFrameTest::WebFrameTest):
+        (WebKit::WebFrameTest::registerMockedURLLoad):
+        (WebKit::WebFrameTest::serveRequests):
+        (WebKit::TEST_F):
+
+2011-04-05  James Kozianski  <koz@chromium.org>
+
+        Unreviewed, rolling out r82976.
+        http://trac.webkit.org/changeset/82976
+        https://bugs.webkit.org/show_bug.cgi?id=57566
+
+        Breaks chromium canary build
+
+        * public/WebContextMenuData.h:
+
+2011-04-05  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add ability to get frame from v8 context to chromium WebKit API
+        https://bugs.webkit.org/show_bug.cgi?id=57516
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrame::frameForV8Context):
+
+2011-04-05  Nico Weber  <thakis@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] Don't have 'using namespace' declarations in header files
+        https://bugs.webkit.org/show_bug.cgi?id=57882
+
+        * src/EventListenerWrapper.cpp:
+        * src/EventListenerWrapper.h:
+        * src/VideoFrameChromiumImpl.h:
+        * src/WebDOMEventListener.cpp:
+        * src/WebDOMEventListenerPrivate.cpp:
+        * src/WebDOMEventListenerPrivate.h:
+        (WebKit::WebDOMEventListenerPrivate::ListenerInfo::ListenerInfo):
+
+2011-04-05  Zelidrag Hornung  <zelidrag@chromium.org>
+
+        Reviewed by David Levin.
+
+        Added MediaTypeFile enum value to WebContextMenuData::MediaType.
+        https://bugs.webkit.org/show_bug.cgi?id=57566
+
+        * public/WebContextMenuData.h:
+
+2011-04-04  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        [Refactoring] SpellCheckingResult should be replaced with TextCheckingResult
+        https://bugs.webkit.org/show_bug.cgi?id=56085
+
+        Followed the signature change.
+        
+        * src/EditorClientImpl.h:
+        * src/EditorClientImpl.cpp:
+        * src/WebTextCheckingCompletionImpl.cpp
+
+2011-04-05  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Adam Barth
+
+        Clean up IndexedDB WebKit API
+        https://bugs.webkit.org/show_bug.cgi?id=57507
+
+        Rename the backend proxy files that didn't have Backend in their name.
+        Everything in WebKit should be in the WebKit namespace.
+        Put everything behind the feature flag so we're consistient.
+        Put the feature flag #if above includes.
+
+        * WebKit.gyp:
+        * src/IDBCallbacksProxy.cpp:
+        (WebKit::IDBCallbacksProxy::create):
+        (WebKit::IDBCallbacksProxy::IDBCallbacksProxy):
+        (WebKit::IDBCallbacksProxy::onError):
+        (WebKit::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBCursorBackendProxy.cpp:
+        (WebKit::IDBCursorBackendProxy::create):
+        (WebKit::IDBCursorBackendProxy::IDBCursorBackendProxy):
+        * src/IDBCursorBackendProxy.h:
+        * src/IDBDatabaseBackendProxy.cpp:
+        (WebKit::IDBDatabaseBackendProxy::create):
+        (WebKit::IDBDatabaseBackendProxy::IDBDatabaseBackendProxy):
+        (WebKit::IDBDatabaseBackendProxy::~IDBDatabaseBackendProxy):
+        (WebKit::IDBDatabaseBackendProxy::name):
+        (WebKit::IDBDatabaseBackendProxy::version):
+        (WebKit::IDBDatabaseBackendProxy::objectStoreNames):
+        (WebKit::IDBDatabaseBackendProxy::createObjectStore):
+        (WebKit::IDBDatabaseBackendProxy::deleteObjectStore):
+        (WebKit::IDBDatabaseBackendProxy::setVersion):
+        (WebKit::IDBDatabaseBackendProxy::transaction):
+        (WebKit::IDBDatabaseBackendProxy::close):
+        (WebKit::IDBDatabaseBackendProxy::open):
+        * src/IDBDatabaseCallbacksProxy.cpp:
+        (WebKit::IDBDatabaseCallbacksProxy::create):
+        (WebKit::IDBDatabaseCallbacksProxy::IDBDatabaseCallbacksProxy):
+        * src/IDBDatabaseCallbacksProxy.h:
+        * src/IDBFactoryBackendProxy.cpp:
+        (WebKit::IDBFactoryBackendProxy::IDBFactoryBackendProxy):
+        (WebKit::IDBFactoryBackendProxy::open):
+        * src/IDBFactoryBackendProxy.h:
+        * src/IDBIndexBackendProxy.cpp:
+        (WebKit::IDBIndexBackendProxy::create):
+        (WebKit::IDBIndexBackendProxy::IDBIndexBackendProxy):
+        * src/IDBIndexBackendProxy.h:
+        * src/IDBObjectStoreBackendProxy.cpp:
+        (WebKit::IDBObjectStoreBackendProxy::create):
+        (WebKit::IDBObjectStoreBackendProxy::IDBObjectStoreBackendProxy):
+        (WebKit::IDBObjectStoreBackendProxy::~IDBObjectStoreBackendProxy):
+        (WebKit::IDBObjectStoreBackendProxy::name):
+        (WebKit::IDBObjectStoreBackendProxy::keyPath):
+        (WebKit::IDBObjectStoreBackendProxy::indexNames):
+        (WebKit::IDBObjectStoreBackendProxy::get):
+        (WebKit::IDBObjectStoreBackendProxy::put):
+        (WebKit::IDBObjectStoreBackendProxy::deleteFunction):
+        (WebKit::IDBObjectStoreBackendProxy::clear):
+        (WebKit::IDBObjectStoreBackendProxy::createIndex):
+        (WebKit::IDBObjectStoreBackendProxy::index):
+        (WebKit::IDBObjectStoreBackendProxy::deleteIndex):
+        (WebKit::IDBObjectStoreBackendProxy::openCursor):
+        * src/IDBObjectStoreBackendProxy.h: Added.
+        * src/IDBObjectStoreProxy.h: Removed.
+        * src/IDBTransactionBackendProxy.cpp:
+        (WebKit::IDBTransactionBackendProxy::create):
+        (WebKit::IDBTransactionBackendProxy::IDBTransactionBackendProxy):
+        (WebKit::IDBTransactionBackendProxy::objectStore):
+        * src/IDBTransactionBackendProxy.h:
+        (WebKit::IDBTransactionBackendProxy::getWebIDBTransaction):
+        * src/IDBTransactionCallbacksProxy.cpp:
+        (WebKit::IDBTransactionCallbacksProxy::create):
+        (WebKit::IDBTransactionCallbacksProxy::IDBTransactionCallbacksProxy):
+        * src/IDBTransactionCallbacksProxy.h:
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebKit::WebIDBCallbacksImpl::onError):
+        (WebKit::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBCallbacksImpl.h:
+        * src/WebIDBCursorImpl.cpp:
+        * src/WebIDBCursorImpl.h:
+        * src/WebIDBDatabaseCallbacksImpl.cpp:
+        (WebKit::WebIDBDatabaseCallbacksImpl::onVersionChange):
+        * src/WebIDBDatabaseCallbacksImpl.h:
+        * src/WebIDBDatabaseError.cpp:
+        * src/WebIDBDatabaseImpl.cpp:
+        * src/WebIDBDatabaseImpl.h:
+        * src/WebIDBFactoryImpl.cpp:
+        (WebKit::WebIDBFactoryImpl::WebIDBFactoryImpl):
+        * src/WebIDBFactoryImpl.h:
+        * src/WebIDBIndexImpl.cpp:
+        * src/WebIDBIndexImpl.h:
+        * src/WebIDBKey.cpp:
+        (WebKit::WebIDBKey::createFromValueAndKeyPath):
+        (WebKit::WebIDBKey::injectIDBKeyIntoSerializedValue):
+        * src/WebIDBKeyPath.cpp:
+        (WebKit::WebIDBKeyPath::operator const WTF::Vector<IDBKeyPathElement, 0>&):
+        * src/WebIDBKeyRange.cpp:
+        * src/WebIDBObjectStoreImpl.cpp:
+        * src/WebIDBObjectStoreImpl.h:
+        * src/WebIDBTransactionCallbacksImpl.cpp:
+        * src/WebIDBTransactionCallbacksImpl.h:
+        * src/WebIDBTransactionImpl.cpp:
+        * src/WebIDBTransactionImpl.h:
+
+2011-04-05  Sailesh Agrawal  <sail@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Don't clear existing files if the user cancels the file chooser dialog.
+        https://bugs.webkit.org/show_bug.cgi?id=55200
+
+        * src/WebFileChooserCompletionImpl.cpp:
+        (WebKit::WebFileChooserCompletionImpl::didChooseFile):
+
+2011-04-05  John Mellor  <johnme@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Minor cleanup: simplify WebFrameImpl by using contentsToWindow instead of convertToContainingWindow.
+        https://bugs.webkit.org/show_bug.cgi?id=55681
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::find):
+        (WebKit::WebFrameImpl::scopeStringMatches):
+
+2011-04-05  Adam Barth  <abarth@webkit.org>
+
+        Roll Chromium DEPS.
+
+        * DEPS: Rolled!
+
+2011-04-04  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        setContentEditable with true/false/inherit string is not working properly
+        https://bugs.webkit.org/show_bug.cgi?id=52058
+
+        Move isContentEditable from HTMLElement to Node. WebKit should only access isContentEditable
+        as rendererIsEditable is for WebCore internal use.
+
+        * src/WebNode.cpp:
+        (WebKit::WebNode::isContentEditable):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setFocus):
+        (WebKit::WebViewImpl::setComposition):
+        (WebKit::WebViewImpl::confirmComposition):
+
+2011-04-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        REGRESSION (WebKit2): Caps-Lock indicator sometimes doesn't appear in WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=51230
+        <rdar://problem/8780989>
+
+        * src/WebViewImpl.cpp: (WebKit::WebViewImpl::keyEvent): Moved Caps Lock handling from
+        WebKits to WebCore, because WebKit shouldn't be smart.
+
+2011-04-01  Adam Barth  <abarth@webkit.org>
+
+        Attempt to fix the Chromium build using the great and powerful git.
+        This patch should be the remaining part of reverting Jeremy's ill-fated
+        refactoring.
+
+        * src/IDBDatabaseProxy.cpp:
+        (WebCore::IDBDatabaseProxy::create):
+        (WebCore::IDBDatabaseProxy::IDBDatabaseProxy):
+        (WebCore::IDBDatabaseProxy::~IDBDatabaseProxy):
+        (WebCore::IDBDatabaseProxy::name):
+        (WebCore::IDBDatabaseProxy::version):
+        (WebCore::IDBDatabaseProxy::objectStoreNames):
+        (WebCore::IDBDatabaseProxy::createObjectStore):
+        (WebCore::IDBDatabaseProxy::deleteObjectStore):
+        (WebCore::IDBDatabaseProxy::setVersion):
+        (WebCore::IDBDatabaseProxy::transaction):
+        (WebCore::IDBDatabaseProxy::close):
+        (WebCore::IDBDatabaseProxy::open):
+        * src/IDBDatabaseProxy.h:
+        * src/IDBObjectStoreProxy.cpp:
+        (WebCore::IDBObjectStoreProxy::create):
+        (WebCore::IDBObjectStoreProxy::IDBObjectStoreProxy):
+        (WebCore::IDBObjectStoreProxy::~IDBObjectStoreProxy):
+        (WebCore::IDBObjectStoreProxy::name):
+        (WebCore::IDBObjectStoreProxy::keyPath):
+        (WebCore::IDBObjectStoreProxy::indexNames):
+        (WebCore::IDBObjectStoreProxy::get):
+        (WebCore::IDBObjectStoreProxy::put):
+        (WebCore::IDBObjectStoreProxy::deleteFunction):
+        (WebCore::IDBObjectStoreProxy::clear):
+        (WebCore::IDBObjectStoreProxy::createIndex):
+        (WebCore::IDBObjectStoreProxy::index):
+        (WebCore::IDBObjectStoreProxy::deleteIndex):
+        (WebCore::IDBObjectStoreProxy::openCursor):
+
+2011-04-01  Adam Barth  <abarth@webkit.org>
+
+        Move these files back to their old locations.  I'm not sure why the
+        rollout didn't move them properly.
+
+        * src/IDBDatabaseBackendProxy.cpp: Removed.
+        * src/IDBDatabaseBackendProxy.h: Removed.
+        * src/IDBDatabaseProxy.cpp: Copied from Source/WebKit/chromium/src/IDBDatabaseBackendProxy.cpp.
+        * src/IDBDatabaseProxy.h: Copied from Source/WebKit/chromium/src/IDBDatabaseBackendProxy.h.
+        * src/IDBObjectStoreBackendProxy.cpp: Removed.
+        * src/IDBObjectStoreProxy.cpp: Copied from Source/WebKit/chromium/src/IDBObjectStoreBackendProxy.cpp.
+
+2011-04-01  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r82738.
+        http://trac.webkit.org/changeset/82738
+        https://bugs.webkit.org/show_bug.cgi?id=57684
+
+        Broke storage/indexeddb/objectstore-autoincrement.html and
+        InjectIDBKey (Requested by abarth|gardening on #webkit).
+
+        * WebKit.gyp:
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::create):
+        (WebCore::IDBCallbacksProxy::IDBCallbacksProxy):
+        (WebCore::IDBCallbacksProxy::onError):
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBCursorBackendProxy.cpp:
+        (WebCore::IDBCursorBackendProxy::create):
+        (WebCore::IDBCursorBackendProxy::IDBCursorBackendProxy):
+        * src/IDBCursorBackendProxy.h:
+        * src/IDBDatabaseCallbacksProxy.cpp:
+        (WebCore::IDBDatabaseCallbacksProxy::create):
+        (WebCore::IDBDatabaseCallbacksProxy::IDBDatabaseCallbacksProxy):
+        * src/IDBDatabaseCallbacksProxy.h:
+        * src/IDBDatabaseProxy.cpp: Renamed from Source/WebKit/chromium/src/IDBDatabaseBackendProxy.cpp.
+        (WebCore::IDBDatabaseProxy::create):
+        (WebCore::IDBDatabaseProxy::IDBDatabaseProxy):
+        (WebCore::IDBDatabaseProxy::~IDBDatabaseProxy):
+        (WebCore::IDBDatabaseProxy::name):
+        (WebCore::IDBDatabaseProxy::version):
+        (WebCore::IDBDatabaseProxy::objectStoreNames):
+        (WebCore::IDBDatabaseProxy::createObjectStore):
+        (WebCore::IDBDatabaseProxy::deleteObjectStore):
+        (WebCore::IDBDatabaseProxy::setVersion):
+        (WebCore::IDBDatabaseProxy::transaction):
+        (WebCore::IDBDatabaseProxy::close):
+        (WebCore::IDBDatabaseProxy::open):
+        * src/IDBDatabaseProxy.h: Renamed from Source/WebKit/chromium/src/IDBDatabaseBackendProxy.h.
+        * src/IDBFactoryBackendProxy.cpp:
+        (WebCore::IDBFactoryBackendProxy::IDBFactoryBackendProxy):
+        (WebCore::IDBFactoryBackendProxy::open):
+        * src/IDBFactoryBackendProxy.h:
+        * src/IDBIndexBackendProxy.cpp:
+        (WebCore::IDBIndexBackendProxy::create):
+        (WebCore::IDBIndexBackendProxy::IDBIndexBackendProxy):
+        * src/IDBIndexBackendProxy.h:
+        * src/IDBObjectStoreBackendProxy.h: Removed.
+        * src/IDBObjectStoreProxy.cpp: Renamed from Source/WebKit/chromium/src/IDBObjectStoreBackendProxy.cpp.
+        (WebCore::IDBObjectStoreProxy::create):
+        (WebCore::IDBObjectStoreProxy::IDBObjectStoreProxy):
+        (WebCore::IDBObjectStoreProxy::~IDBObjectStoreProxy):
+        (WebCore::IDBObjectStoreProxy::name):
+        (WebCore::IDBObjectStoreProxy::keyPath):
+        (WebCore::IDBObjectStoreProxy::indexNames):
+        (WebCore::IDBObjectStoreProxy::get):
+        (WebCore::IDBObjectStoreProxy::put):
+        (WebCore::IDBObjectStoreProxy::deleteFunction):
+        (WebCore::IDBObjectStoreProxy::clear):
+        (WebCore::IDBObjectStoreProxy::createIndex):
+        (WebCore::IDBObjectStoreProxy::index):
+        (WebCore::IDBObjectStoreProxy::deleteIndex):
+        (WebCore::IDBObjectStoreProxy::openCursor):
+        * src/IDBObjectStoreProxy.h: Added.
+        * src/IDBTransactionBackendProxy.cpp:
+        (WebCore::IDBTransactionBackendProxy::create):
+        (WebCore::IDBTransactionBackendProxy::IDBTransactionBackendProxy):
+        (WebCore::IDBTransactionBackendProxy::objectStore):
+        * src/IDBTransactionBackendProxy.h:
+        (WebCore::IDBTransactionBackendProxy::getWebIDBTransaction):
+        * src/IDBTransactionCallbacksProxy.cpp:
+        (WebCore::IDBTransactionCallbacksProxy::create):
+        (WebCore::IDBTransactionCallbacksProxy::IDBTransactionCallbacksProxy):
+        * src/IDBTransactionCallbacksProxy.h:
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebCore::WebIDBCallbacksImpl::onError):
+        (WebCore::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBCallbacksImpl.h:
+        * src/WebIDBCursorImpl.cpp:
+        * src/WebIDBCursorImpl.h:
+        * src/WebIDBDatabaseCallbacksImpl.cpp:
+        (WebCore::WebIDBDatabaseCallbacksImpl::onVersionChange):
+        * src/WebIDBDatabaseCallbacksImpl.h:
+        * src/WebIDBDatabaseError.cpp:
+        * src/WebIDBDatabaseImpl.cpp:
+        * src/WebIDBDatabaseImpl.h:
+        * src/WebIDBFactoryImpl.cpp:
+        (WebKit::WebIDBFactoryImpl::WebIDBFactoryImpl):
+        * src/WebIDBFactoryImpl.h:
+        * src/WebIDBIndexImpl.cpp:
+        * src/WebIDBIndexImpl.h:
+        * src/WebIDBKey.cpp:
+        (WebKit::WebIDBKey::createFromValueAndKeyPath):
+        (WebKit::WebIDBKey::injectIDBKeyIntoSerializedValue):
+        * src/WebIDBKeyPath.cpp:
+        (WebKit::WebIDBKeyPath::operator const WTF::Vector<WebCore::IDBKeyPathElement, 0>&):
+        * src/WebIDBKeyRange.cpp:
+        * src/WebIDBObjectStoreImpl.cpp:
+        * src/WebIDBObjectStoreImpl.h:
+        * src/WebIDBTransactionCallbacksImpl.cpp:
+        * src/WebIDBTransactionCallbacksImpl.h:
+        * src/WebIDBTransactionImpl.cpp:
+        * src/WebIDBTransactionImpl.h:
+
+2011-03-30  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Nate Chapin.
+
+        Clean up IndexedDB WebKit API
+        https://bugs.webkit.org/show_bug.cgi?id=57507
+
+        Rename the backend proxy files that didn't have Backend in their name.
+        Everything in WebKit should be in the WebKit namespace.
+        Put everything behind the feature flag so we're consistient.
+        Put the feature flag #if above includes.
+
+        * WebKit.gyp:
+        * src/IDBCallbacksProxy.cpp:
+        (WebKit::IDBCallbacksProxy::create):
+        (WebKit::IDBCallbacksProxy::IDBCallbacksProxy):
+        (WebKit::IDBCallbacksProxy::onError):
+        (WebKit::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBCursorBackendProxy.cpp:
+        (WebKit::IDBCursorBackendProxy::create):
+        (WebKit::IDBCursorBackendProxy::IDBCursorBackendProxy):
+        * src/IDBCursorBackendProxy.h:
+        * src/IDBDatabaseBackendProxy.cpp:
+        (WebKit::IDBDatabaseBackendProxy::create):
+        (WebKit::IDBDatabaseBackendProxy::IDBDatabaseBackendProxy):
+        (WebKit::IDBDatabaseBackendProxy::~IDBDatabaseBackendProxy):
+        (WebKit::IDBDatabaseBackendProxy::name):
+        (WebKit::IDBDatabaseBackendProxy::version):
+        (WebKit::IDBDatabaseBackendProxy::objectStoreNames):
+        (WebKit::IDBDatabaseBackendProxy::createObjectStore):
+        (WebKit::IDBDatabaseBackendProxy::deleteObjectStore):
+        (WebKit::IDBDatabaseBackendProxy::setVersion):
+        (WebKit::IDBDatabaseBackendProxy::transaction):
+        (WebKit::IDBDatabaseBackendProxy::close):
+        (WebKit::IDBDatabaseBackendProxy::open):
+        * src/IDBDatabaseCallbacksProxy.cpp:
+        (WebKit::IDBDatabaseCallbacksProxy::create):
+        (WebKit::IDBDatabaseCallbacksProxy::IDBDatabaseCallbacksProxy):
+        * src/IDBDatabaseCallbacksProxy.h:
+        * src/IDBFactoryBackendProxy.cpp:
+        (WebKit::IDBFactoryBackendProxy::IDBFactoryBackendProxy):
+        (WebKit::IDBFactoryBackendProxy::open):
+        * src/IDBFactoryBackendProxy.h:
+        * src/IDBIndexBackendProxy.cpp:
+        (WebKit::IDBIndexBackendProxy::create):
+        (WebKit::IDBIndexBackendProxy::IDBIndexBackendProxy):
+        * src/IDBIndexBackendProxy.h:
+        * src/IDBObjectStoreBackendProxy.cpp:
+        (WebKit::IDBObjectStoreBackendProxy::create):
+        (WebKit::IDBObjectStoreBackendProxy::IDBObjectStoreBackendProxy):
+        (WebKit::IDBObjectStoreBackendProxy::~IDBObjectStoreBackendProxy):
+        (WebKit::IDBObjectStoreBackendProxy::name):
+        (WebKit::IDBObjectStoreBackendProxy::keyPath):
+        (WebKit::IDBObjectStoreBackendProxy::indexNames):
+        (WebKit::IDBObjectStoreBackendProxy::get):
+        (WebKit::IDBObjectStoreBackendProxy::put):
+        (WebKit::IDBObjectStoreBackendProxy::deleteFunction):
+        (WebKit::IDBObjectStoreBackendProxy::clear):
+        (WebKit::IDBObjectStoreBackendProxy::createIndex):
+        (WebKit::IDBObjectStoreBackendProxy::index):
+        (WebKit::IDBObjectStoreBackendProxy::deleteIndex):
+        (WebKit::IDBObjectStoreBackendProxy::openCursor):
+        * src/IDBObjectStoreBackendProxy.h: Added.
+        * src/IDBObjectStoreProxy.h: Removed.
+        * src/IDBTransactionBackendProxy.cpp:
+        (WebKit::IDBTransactionBackendProxy::create):
+        (WebKit::IDBTransactionBackendProxy::IDBTransactionBackendProxy):
+        (WebKit::IDBTransactionBackendProxy::objectStore):
+        * src/IDBTransactionBackendProxy.h:
+        (WebKit::IDBTransactionBackendProxy::getWebIDBTransaction):
+        * src/IDBTransactionCallbacksProxy.cpp:
+        (WebKit::IDBTransactionCallbacksProxy::create):
+        (WebKit::IDBTransactionCallbacksProxy::IDBTransactionCallbacksProxy):
+        * src/IDBTransactionCallbacksProxy.h:
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebKit::WebIDBCallbacksImpl::onError):
+        (WebKit::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBCallbacksImpl.h:
+        * src/WebIDBCursorImpl.cpp:
+        * src/WebIDBCursorImpl.h:
+        * src/WebIDBDatabaseCallbacksImpl.cpp:
+        (WebKit::WebIDBDatabaseCallbacksImpl::onVersionChange):
+        * src/WebIDBDatabaseCallbacksImpl.h:
+        * src/WebIDBDatabaseError.cpp:
+        * src/WebIDBDatabaseImpl.cpp:
+        * src/WebIDBDatabaseImpl.h:
+        * src/WebIDBFactoryImpl.cpp:
+        (WebKit::WebIDBFactoryImpl::WebIDBFactoryImpl):
+        * src/WebIDBFactoryImpl.h:
+        * src/WebIDBIndexImpl.cpp:
+        * src/WebIDBIndexImpl.h:
+        * src/WebIDBKey.cpp:
+        (WebKit::WebIDBKey::createFromValueAndKeyPath):
+        (WebKit::WebIDBKey::injectIDBKeyIntoSerializedValue):
+        * src/WebIDBKeyPath.cpp:
+        (WebKit::WebIDBKeyPath::operator const WTF::Vector<IDBKeyPathElement, 0>&):
+        * src/WebIDBKeyRange.cpp:
+        * src/WebIDBObjectStoreImpl.cpp:
+        * src/WebIDBObjectStoreImpl.h:
+        * src/WebIDBTransactionCallbacksImpl.cpp:
+        * src/WebIDBTransactionCallbacksImpl.h:
+        * src/WebIDBTransactionImpl.cpp:
+        * src/WebIDBTransactionImpl.h:
+
+2011-03-30  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: [chromium] script formatting doesn't work when all scripts are concatenated.
+        https://bugs.webkit.org/show_bug.cgi?id=57446
+
+        * WebKit.gyp:
+        * scripts/inline_js_imports.py: Added.
+
+2011-03-31  Victoria Kirst  <vrk@google.com>
+
+        Reviewed by Eric Carlson.
+
+        [chromium] Implement preload=none, setPreload hooks to media player
+        https://bugs.webkit.org/show_bug.cgi?id=56983
+
+        This patch implements preload=none in Chromium. It also replaces
+        the now-deprecated setAutobuffer method with setPreload.
+
+        * public/WebMediaPlayer.h:
+        (WebKit::WebMediaPlayer::setPreload):
+        * public/WebMediaPlayerClient.h:
+        * src/WebMediaPlayerClientImpl.cpp:
+        (WebKit::WebMediaPlayerClientImpl::preload):
+        (WebKit::WebMediaPlayerClientImpl::load):
+        (WebKit::WebMediaPlayerClientImpl::loadInternal):
+        (WebKit::WebMediaPlayerClientImpl::prepareToPlay):
+        (WebKit::WebMediaPlayerClientImpl::setPreload):
+        (WebKit::WebMediaPlayerClientImpl::startDelayedLoad):
+        (WebKit::WebMediaPlayerClientImpl::WebMediaPlayerClientImpl):
+        * src/WebMediaPlayerClientImpl.h:
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        <title> should support dir attribute
+        https://bugs.webkit.org/show_bug.cgi?id=50961
+
+        Update to new FrameLoaderClient interface.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidReceiveTitle):
+        (WebKit::FrameLoaderClientImpl::setTitle):
+        * src/FrameLoaderClientImpl.h:
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::pageTitle):
+
+2011-03-30  David Levin  <levin@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        UnlockNonLocked condition reached in WorkerFileSystemsCallbackBridge::mayPostTaskToWorker
+        https://bugs.webkit.org/show_bug.cgi?id=57382
+
+        There were two issues to address:
+        1. The use of a non-thread safe class (RefPtr) in a ThreadSafeRefCounted class.
+           The problem was that this RefPtr could be changed on either thread.
+        2. Keeping WorkerFileSystemCallbacksBridge alive for while it was being used
+           including while its mutex was in use.
+
+        * src/WorkerFileSystemCallbacksBridge.cpp:
+        (WebKit::WorkerFileSystemCallbacksBridge::runTaskOnMainThread):
+        Changed to take a PassRefPtr and leak the ref count as opposed to relying on
+        dispatchTaskToMainThread to store the pointer in m_selfRef.
+        (WebKit::WorkerFileSystemCallbacksBridge::dispatchTaskToMainThread): Remove the
+        m_selfRef and hand off a PassRefPtr instead.
+        (WebKit::WorkerFileSystemCallbacksBridge::mayPostTaskToWorker): Balance out the leaked ref
+        and ensure that WorkerFileSystemCallbacksBridge stays alive while the mutex is held.
+        * src/WorkerFileSystemCallbacksBridge.h: Removed m_selfRef and derefIfWorkerIsStopped which
+          was simply due to m_selfRef.
+
 2011-03-29  John Abd-El-Malek  <jam@chromium.org>
 
         Reviewed by Tony Chang.

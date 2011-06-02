@@ -158,8 +158,8 @@ protected:
     virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
     virtual String formatMediaControlsCurrentTime(float currentTime, float duration) const;
     virtual String formatMediaControlsRemainingTime(float currentTime, float duration) const;
+    virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const { return true; }
 private:
-    HTMLMediaElement* getMediaElementFromRenderObject(RenderObject* o) const;
     void paintMediaBackground(QPainter* painter, const IntRect& r) const;
     double mediaControlsBaselineOpacity() const;
     QColor getMediaControlForegroundColor(RenderObject* o = 0) const;

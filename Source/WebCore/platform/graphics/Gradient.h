@@ -35,7 +35,7 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 
 typedef struct CGContext* CGContextRef;
 
@@ -54,7 +54,7 @@ QT_BEGIN_NAMESPACE
 class QGradient;
 QT_END_NAMESPACE
 typedef QGradient* PlatformGradient;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 typedef struct _cairo_pattern cairo_pattern_t;
 typedef cairo_pattern_t* PlatformGradient;
 #elif USE(SKIA)
@@ -146,7 +146,7 @@ namespace WebCore {
 
         void setPlatformGradientSpaceTransform(const AffineTransform& gradientSpaceTransformation);
 
-#if PLATFORM(CG)
+#if USE(CG)
         void paint(CGContextRef);
         void paint(GraphicsContext*);
 #endif

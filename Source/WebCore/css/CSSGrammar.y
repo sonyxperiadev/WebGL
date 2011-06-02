@@ -99,7 +99,7 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 
 %}
 
-%expect 55
+%expect 54
 
 %nonassoc LOWEST_PREC
 
@@ -226,7 +226,6 @@ static int cssyylex(YYSTYPE* yylval, void* parser)
 %type <string> string_or_uri
 %type <string> ident_or_string
 %type <string> medium
-%type <string> hexcolor
 %type <marginBox> margin_sym
 
 %type <string> media_feature
@@ -1414,7 +1413,7 @@ term:
   | unary_operator DIMEN maybe_space { $$.id = 0; $$.string = $2; $$.unit = CSSPrimitiveValue::CSS_DIMENSION; }
   | URI maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_URI; }
   | UNICODERANGE maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_UNICODE_RANGE; }
-  | hexcolor { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_PARSER_HEXCOLOR; }
+  | HEX maybe_space { $$.id = 0; $$.string = $1; $$.unit = CSSPrimitiveValue::CSS_PARSER_HEXCOLOR; }
   | '#' maybe_space { $$.id = 0; $$.string = CSSParserString(); $$.unit = CSSPrimitiveValue::CSS_PARSER_HEXCOLOR; } /* Handle error case: "color: #;" */
   /* FIXME: according to the specs a function can have a unary_operator in front. I know no case where this makes sense */
   | function {
@@ -1520,7 +1519,8 @@ calc_func_paren_expr:
             $$->insertValueAt(0, v);
             v.iValue = ')';
             $$->addValue(v);
-        }
+        } else
+            $$ = 0;
     }
 
 calc_func_expr:
@@ -1618,17 +1618,6 @@ min_or_max_function:
         YYERROR;
     }
     ;
-
-/*
- * There is a constraint on the color that it must
- * have either 3 or 6 hex-digits (i.e., [0-9a-fA-F])
- * after the "#"; e.g., "#000" is OK, but "#abcd" is not.
- */
-hexcolor:
-  HEX maybe_space { $$ = $1; }
-  | IDSEL maybe_space { $$ = $1; }
-  ;
-
 
 /* error handling rules */
 

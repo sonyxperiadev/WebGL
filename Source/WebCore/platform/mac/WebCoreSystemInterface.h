@@ -29,7 +29,7 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include <objc/objc.h>
 
-#if PLATFORM(MAC) && PLATFORM(CA) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if PLATFORM(MAC) && USE(CA) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
 #include <IOSurface/IOSurface.h>
 #endif
 
@@ -155,11 +155,12 @@ extern void (*wkSignalCFReadStreamError)(CFReadStreamRef stream, CFStreamError *
 extern void (*wkSignalCFReadStreamHasBytes)(CFReadStreamRef stream);
 extern unsigned (*wkInitializeMaximumHTTPConnectionCountPerHost)(unsigned preferredConnectionCount);
 extern int (*wkGetHTTPPipeliningPriority)(NSURLRequest *);
+extern void (*wkSetHTTPPipeliningMaximumPriority)(int maximumPriority);
 extern void (*wkSetHTTPPipeliningPriority)(NSMutableURLRequest *, int priority);
+extern void (*wkSetHTTPPipeliningMinimumFastLanePriority)(int priority);
 extern void (*wkSetCONNECTProxyForStream)(CFReadStreamRef, CFStringRef proxyHost, CFNumberRef proxyPort);
 extern void (*wkSetCONNECTProxyAuthorizationForStream)(CFReadStreamRef, CFStringRef proxyAuthorizationString);
 extern CFHTTPMessageRef (*wkCopyCONNECTProxyResponse)(CFReadStreamRef, CFURLRef responseURL);
-extern BOOL (*wkIsLatchingWheelEvent)(NSEvent *);
 
 #ifndef BUILDING_ON_TIGER
 extern void (*wkGetGlyphsForCharacters)(CGFontRef, const UniChar[], CGGlyph[], size_t);
@@ -187,6 +188,15 @@ extern BOOL (*wkUseSharedMediaUI)();
 extern void* wkGetHyphenationLocationBeforeIndex;
 #else
 extern CFIndex (*wkGetHyphenationLocationBeforeIndex)(CFStringRef string, CFIndex index);
+
+typedef enum {
+    wkEventPhaseNone = 0,
+    wkEventPhaseBegan = 1,
+    wkEventPhaseChanged = 2,
+    wkEventPhaseEnded = 3,
+} wkEventPhase;
+
+extern int (*wkGetNSEventMomentumPhase)(NSEvent *);
 #endif
 
 extern CTLineRef (*wkCreateCTLineWithUniCharProvider)(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*);
@@ -229,6 +239,8 @@ extern void (*wkContentAreaResized)(WKScrollbarPainterControllerRef);
 extern void (*wkWillEndLiveResize)(WKScrollbarPainterControllerRef);
 extern void (*wkContentAreaDidShow)(WKScrollbarPainterControllerRef);
 extern void (*wkContentAreaDidHide)(WKScrollbarPainterControllerRef);
+extern void (*wkDidBeginScrollGesture)(WKScrollbarPainterControllerRef);
+extern void (*wkDidEndScrollGesture)(WKScrollbarPainterControllerRef);
 
 extern bool (*wkScrollbarPainterUsesOverlayScrollers)(void);
 #endif

@@ -73,12 +73,13 @@ DOM_CLASSES = \
     HighPass2FilterNode \
     JavaScriptAudioNode \
     LowPass2FilterNode \
+    OfflineAudioCompletionEvent \
     RealtimeAnalyserNode \
     BarInfo \
     BeforeLoadEvent \
     BeforeProcessEvent \
     Blob \
-    BlobBuilder \
+    WebKitBlobBuilder \
     CDATASection \
     CSSCharsetRule \
     CSSFontFaceRule \
@@ -196,7 +197,7 @@ DOM_CLASSES = \
     FileWriterCallback \
     FileWriterSync \
     FileSystemCallback \
-    Flags \
+    WebKitFlags \
     Geolocation \
     Geoposition \
     HashChangeEvent \
@@ -274,6 +275,7 @@ DOM_CLASSES = \
     HTMLTableSectionElement \
     HTMLTextAreaElement \
     HTMLTitleElement \
+    HTMLTrackElement \
     HTMLUListElement \
     HTMLVideoElement \
     IDBAny \
@@ -307,6 +309,9 @@ DOM_CLASSES = \
     MutationEvent \
     NamedNodeMap \
     Navigator \
+    NavigatorUserMediaError \
+    NavigatorUserMediaErrorCallback \
+    NavigatorUserMediaSuccessCallback \
     Node \
     NodeFilter \
     NodeIterator \
@@ -351,6 +356,9 @@ DOM_CLASSES = \
     SQLTransactionSyncCallback \
     Storage \
     StorageEvent \
+    StorageInfo \
+    StorageInfoErrorCallback \
+    StorageInfoUsageCallback \
     StringCallback \
     SVGAElement \
     SVGAltGlyphElement \
@@ -655,12 +663,21 @@ DocTypeStrings.cpp : html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
 
 # --------
 
-# XMLViewer XSLT
+# XMLViewer CSS
 
-all : XMLViewerXSL.h
+all : XMLViewerCSS.h
 
-XMLViewerXSL.h : xml/XMLViewer.xsl
-	perl $(WebCore)/inspector/xxd.pl XMLViewer_xsl $(WebCore)/xml/XMLViewer.xsl XMLViewerXSL.h
+XMLViewerCSS.h : xml/XMLViewer.css
+	perl $(WebCore)/inspector/xxd.pl XMLViewer_css $(WebCore)/xml/XMLViewer.css XMLViewerCSS.h
+
+# --------
+
+# XMLViewer JS
+
+all : XMLViewerJS.h
+
+XMLViewerJS.h : xml/XMLViewer.js
+	perl $(WebCore)/inspector/xxd.pl XMLViewer_js $(WebCore)/xml/XMLViewer.js XMLViewerJS.h
 
 # --------
 
@@ -761,6 +778,10 @@ endif
 
 ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO=1
+endif
+
+ifeq ($(findstring ENABLE_VIDEO_TRACK,$(FEATURE_DEFINES)), ENABLE_VIDEO_TRACK)
+    HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO_TRACK=0
 endif
 
 ifdef HTML_FLAGS

@@ -46,10 +46,8 @@ import random
 import sys
 import time
 
-from webkitpy.layout_tests.layout_package import dump_render_tree_thread
 from webkitpy.layout_tests.layout_package import json_layout_results_generator
 from webkitpy.layout_tests.layout_package import json_results_generator
-from webkitpy.layout_tests.layout_package import message_broker
 from webkitpy.layout_tests.layout_package import printing
 from webkitpy.layout_tests.layout_package import test_expectations
 from webkitpy.layout_tests.layout_package import test_failures
@@ -145,6 +143,29 @@ def summarize_results(port_obj, expectations, result_summary, retry_summary, tes
         tests[test] = {}
         tests[test]['expected'] = expected
         tests[test]['actual'] = " ".join(actual)
+        # FIXME: Set this correctly once https://webkit.org/b/37739 is fixed
+        # and only set it if there actually is stderr data.
+        tests[test]['has_stderr'] = False
+
+        failure_types = [type(f) for f in result.failures]
+        if test_failures.FailureMissingAudio in failure_types:
+            tests[test]['is_missing_audio'] = True
+
+        if test_failures.FailureReftestMismatch in failure_types:
+            tests[test]['is_reftest'] = True
+
+        for f in result.failures:
+            if 'is_reftest' in result.failures:
+                tests[test]['is_reftest'] = True
+
+        if test_failures.FailureReftestMismatchDidNotOccur in failure_types:
+            tests[test]['is_mismatch_reftest'] = True
+
+        if test_failures.FailureMissingResult in failure_types:
+            tests[test]['is_missing_text'] = True
+
+        if test_failures.FailureMissingImage in failure_types or test_failures.FailureMissingImageHash in failure_types:
+            tests[test]['is_missing_image'] = True
 
         if filename in test_timings_map:
             time_seconds = test_timings_map[filename]
@@ -154,6 +175,12 @@ def summarize_results(port_obj, expectations, result_summary, retry_summary, tes
     results['num_passes'] = num_passes
     results['num_flaky'] = num_flaky
     results['num_regressions'] = num_regressions
+    # FIXME: If non-chromium ports start using an expectations file,
+    # we should make this check more robust.
+    results['uses_expectations_file'] = port_obj.name().find('chromium') != -1
+    results['layout_tests_dir'] = port_obj.layout_tests_dir()
+    results['has_wdiff'] = port_obj.wdiff_available()
+    results['has_pretty_patch'] = port_obj.pretty_patch_available()
 
     return results
 
@@ -205,6 +232,7 @@ class TestRunner:
         self._test_files_list = None
         self._result_queue = Queue.Queue()
         self._retrying = False
+        self._results_directory = self._port.results_directory()
 
     def collect_tests(self, args, last_unexpected_results):
         """Find all the files to test.
@@ -355,8 +383,7 @@ class TestRunner:
                 self._printer.print_expected(extra_msg)
                 tests_run_msg += "\n" + extra_msg
                 files.extend(test_files[0:extra])
-            tests_run_filename = self._fs.join(self._options.results_directory,
-                                              "tests_run.txt")
+            tests_run_filename = self._fs.join(self._results_directory, "tests_run.txt")
             self._fs.write_text_file(tests_run_filename, tests_run_msg)
 
             len_skip_chunk = int(len(files) * len(skipped) /
@@ -513,8 +540,16 @@ class TestRunner:
                 return True
         return False
 
-    def _num_workers(self):
-        return int(self._options.child_processes)
+    def _num_workers(self, num_shards):
+        num_workers = min(int(self._options.child_processes), num_shards)
+        driver_name = self._port.driver_name()
+        if num_workers == 1:
+            self._printer.print_config("Running 1 %s over %s" %
+                (driver_name, grammar.pluralize('shard', num_shards)))
+        else:
+            self._printer.print_config("Running %d %ss in parallel over %d shards" %
+                (num_workers, driver_name, num_shards))
+        return num_workers
 
     def _run_tests(self, file_list, result_summary):
         """Runs the tests in the file_list.
@@ -532,54 +567,7 @@ class TestRunner:
               in the form {filename:filename, test_run_time:test_run_time}
             result_summary: summary object to populate with the results
         """
-
-        self._printer.print_update('Sharding tests ...')
-        num_workers = self._num_workers()
-        test_lists = self._shard_tests(file_list,
-            num_workers > 1 and not self._options.experimental_fully_parallel)
-        filename_queue = Queue.Queue()
-        for item in test_lists:
-            filename_queue.put(item)
-
-        self._printer.print_update('Starting %s ...' %
-                                   grammar.pluralize('worker', num_workers))
-        self._message_broker = message_broker.get(self._port, self._options)
-        broker = self._message_broker
-        self._current_filename_queue = filename_queue
-        self._current_result_summary = result_summary
-
-        if not self._options.dry_run:
-            threads = broker.start_workers(self)
-        else:
-            threads = {}
-
-        self._printer.print_update("Starting testing ...")
-        keyboard_interrupted = False
-        interrupted = False
-        if not self._options.dry_run:
-            try:
-                broker.run_message_loop()
-            except KeyboardInterrupt:
-                _log.info("Interrupted, exiting")
-                broker.cancel_workers()
-                keyboard_interrupted = True
-                interrupted = True
-            except TestRunInterruptedException, e:
-                _log.info(e.reason)
-                broker.cancel_workers()
-                interrupted = True
-            except:
-                # Unexpected exception; don't try to clean up workers.
-                _log.info("Exception raised, exiting")
-                raise
-
-        thread_timings, test_timings, individual_test_timings = \
-            self._collect_timing_info(threads)
-
-        broker.cleanup()
-        self._message_broker = None
-        return (interrupted, keyboard_interrupted, thread_timings, test_timings,
-                individual_test_timings)
+        raise NotImplementedError()
 
     def update(self):
         self.update_summary(self._current_result_summary)
@@ -629,7 +617,7 @@ class TestRunner:
             self._clobber_old_results()
 
         # Create the output directory if it doesn't already exist.
-        self._port.maybe_make_directory(self._options.results_directory)
+        self._port.maybe_make_directory(self._results_directory)
 
         self._port.setup_test_run()
 
@@ -711,9 +699,9 @@ class TestRunner:
 
         # Write the summary to disk (results.html) and display it if requested.
         if not self._options.dry_run:
-            wrote_results = self._write_results_html_file(result_summary)
-            if self._options.show_results and wrote_results:
-                self._show_results_html_file()
+            self._copy_results_html_file()
+            if self._options.show_results:
+                self._show_results_html_file(result_summary)
 
         # Now that we've completed all the processing we can, we re-raise
         # a KeyboardInterrupt if necessary so the caller can handle it.
@@ -773,13 +761,12 @@ class TestRunner:
         # files in the results directory are explicitly used for cross-run
         # tracking.
         self._printer.print_update("Clobbering old results in %s" %
-                                   self._options.results_directory)
+                                   self._results_directory)
         layout_tests_dir = self._port.layout_tests_dir()
         possible_dirs = self._port.test_dirs()
         for dirname in possible_dirs:
             if self._fs.isdir(self._fs.join(layout_tests_dir, dirname)):
-                self._fs.rmtree(self._fs.join(self._options.results_directory,
-                                              dirname))
+                self._fs.rmtree(self._fs.join(self._results_directory, dirname))
 
     def _get_failures(self, result_summary, include_crashes):
         """Filters a dict of results and returns only the failures.
@@ -829,17 +816,17 @@ class TestRunner:
           individual_test_timings: list of test times (used by the flakiness
             dashboard).
         """
-        _log.debug("Writing JSON files in %s." % self._options.results_directory)
+        _log.debug("Writing JSON files in %s." % self._results_directory)
 
-        unexpected_json_path = self._fs.join(self._options.results_directory, "unexpected_results.json")
+        unexpected_json_path = self._fs.join(self._results_directory, "unexpected_results.json")
         json_results_generator.write_json(self._fs, unexpected_results, unexpected_json_path)
 
-        full_results_path = self._fs.join(self._options.results_directory, "full_results.json")
+        full_results_path = self._fs.join(self._results_directory, "full_results.json")
         json_results_generator.write_json(self._fs, summarized_results, full_results_path)
 
         # Write a json file of the test_expectations.txt file for the layout
         # tests dashboard.
-        expectations_path = self._fs.join(self._options.results_directory, "expectations.json")
+        expectations_path = self._fs.join(self._results_directory, "expectations.json")
         expectations_json = \
             self._expectations.get_expectations_json_for_all_platforms()
         self._fs.write_text_file(expectations_path,
@@ -847,7 +834,7 @@ class TestRunner:
 
         generator = json_layout_results_generator.JSONLayoutResultsGenerator(
             self._port, self._options.builder_name, self._options.build_name,
-            self._options.build_number, self._options.results_directory,
+            self._options.build_number, self._results_directory,
             BUILDER_BASE_URL, individual_test_timings,
             self._expectations, result_summary, self._test_files_list,
             self._options.test_results_server,
@@ -865,8 +852,7 @@ class TestRunner:
         p = self._printer
         p.print_config("Using port '%s'" % self._port.name())
         p.print_config("Test configuration: %s" % self._port.test_configuration())
-        p.print_config("Placing test results in %s" %
-                       self._options.results_directory)
+        p.print_config("Placing test results in %s" % self._results_directory)
         if self._options.new_baseline:
             p.print_config("Placing new baselines in %s" %
                            self._port.baseline_path())
@@ -880,12 +866,6 @@ class TestRunner:
                        (self._options.time_out_ms,
                         self._options.slow_time_out_ms))
 
-        if self._num_workers() == 1:
-            p.print_config("Running one %s" % self._port.driver_name())
-        else:
-            p.print_config("Running %s %ss in parallel" %
-                           (self._options.child_processes,
-                            self._port.driver_name()))
         p.print_config('Command line: ' +
                        ' '.join(self._port.driver_cmd_line()))
         p.print_config("Worker model: %s" % self._options.worker_model)
@@ -1136,67 +1116,25 @@ class TestRunner:
                 self._printer.print_actual("  %5d %-24s (%4.1f%%)" %
                     (len(results), desc[len(results) != 1], pct))
 
-    def _results_html(self, test_files, failures, title="Test Failures", override_time=None):
-        """
-        test_files = a list of file paths
-        failures = dictionary mapping test paths to failure objects
-        title = title printed at top of test
-        override_time = current time (used by unit tests)
-        """
-        page = """<html>
-  <head>
-    <title>Layout Test Results (%(time)s)</title>
-  </head>
-  <body>
-    <h2>%(title)s (%(time)s)</h2>
-        """ % {'title': title, 'time': override_time or time.asctime()}
+    def _copy_results_html_file(self):
+        base_dir = self._port.path_from_webkit_base('Tools', 'Scripts', 'webkitpy', 'layout_tests', 'layout_package')
+        results_file = self._fs.join(base_dir, 'json_results.html')
+        # FIXME: What should we do if this doesn't exist (e.g., in unit tests)?
+        if self._fs.exists(results_file):
+            self._fs.copyfile(results_file, self._fs.join(self._results_directory, "results.html"))
 
-        for test_file in sorted(test_files):
-            test_name = self._port.relative_test_filename(test_file)
-            test_url = self._port.filename_to_uri(test_file)
-            page += u"<p><a href='%s'>%s</a><br />\n" % (test_url, test_name)
-            test_failures = failures.get(test_file, [])
-            for failure in test_failures:
-                page += (u"&nbsp;&nbsp;%s<br/>" %
-                         failure.result_html_output(test_name))
-            page += "</p>\n"
-        page += "</body></html>\n"
-        return page
-
-    def _write_results_html_file(self, result_summary):
-        """Write results.html which is a summary of tests that failed.
-
-        Args:
-          result_summary: a summary of the results :)
-
-        Returns:
-          True if any results were written (since expected failures may be
-          omitted)
-        """
-        # test failures
+    def _show_results_html_file(self, result_summary):
+        """Shows the results.html page."""
         if self._options.full_results_html:
-            results_title = "Test Failures"
             test_files = result_summary.failures.keys()
         else:
-            results_title = "Unexpected Test Failures"
-            unexpected_failures = self._get_failures(result_summary,
-                include_crashes=True)
+            unexpected_failures = self._get_failures(result_summary, include_crashes=True)
             test_files = unexpected_failures.keys()
+
         if not len(test_files):
-            return False
+            return
 
-        out_filename = self._fs.join(self._options.results_directory,
-                                     "results.html")
-        with self._fs.open_text_file_for_writing(out_filename) as results_file:
-            html = self._results_html(test_files, result_summary.failures, results_title)
-            results_file.write(html)
-
-        return True
-
-    def _show_results_html_file(self):
-        """Shows the results.html page."""
-        results_filename = self._fs.join(self._options.results_directory,
-                                         "results.html")
+        results_filename = self._fs.join(self._results_directory, "results.html")
         self._port.show_results_html_file(results_filename)
 
 

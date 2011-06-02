@@ -229,6 +229,7 @@ v8 {
 } else {
     SOURCES += \
         bindings/ScriptControllerBase.cpp \
+        bindings/js/CallbackFunction.cpp \
         bindings/js/DOMObjectHashTableMap.cpp \
         bindings/js/DOMWrapperWorld.cpp \
         bindings/js/GCController.cpp \
@@ -533,6 +534,7 @@ SOURCES += \
     dom/ScriptRunner.cpp \
     dom/SelectElement.cpp \
     dom/SelectorNodeList.cpp \
+    dom/ShadowRoot.cpp \
     dom/SpaceSplitString.cpp \
     dom/StaticNodeList.cpp \
     dom/StyledElement.cpp \
@@ -544,6 +546,7 @@ SOURCES += \
     dom/TouchEvent.cpp \
     dom/TouchList.cpp \
     dom/Traversal.cpp \
+    dom/TreeScope.cpp \
     dom/TreeWalker.cpp \
     dom/UIEvent.cpp \
     dom/UIEventWithKeyState.cpp \
@@ -597,6 +600,7 @@ SOURCES += \
     editing/SetNodeAttributeCommand.cpp \
     editing/SmartReplaceICU.cpp \
     editing/SpellChecker.cpp \
+    editing/SpellingCorrectionController.cpp \
     editing/SplitElementCommand.cpp \
     editing/SplitTextNodeCommand.cpp \
     editing/SplitTextNodeContainingElementCommand.cpp \
@@ -609,7 +613,6 @@ SOURCES += \
     editing/visible_units.cpp \
     editing/WrapContentsInDummySpanCommand.cpp \
     fileapi/Blob.cpp \
-    fileapi/BlobBuilder.cpp \
     fileapi/BlobURL.cpp \
     fileapi/File.cpp \
     fileapi/FileList.cpp \
@@ -619,6 +622,7 @@ SOURCES += \
     fileapi/FileStreamProxy.cpp \
     fileapi/FileThread.cpp \
     fileapi/ThreadableBlobRegistry.cpp \
+    fileapi/WebKitBlobBuilder.cpp \
     history/BackForwardController.cpp \
     history/BackForwardListImpl.cpp \
     history/CachedFrame.cpp \
@@ -799,11 +803,16 @@ SOURCES += \
     html/parser/TextDocumentParser.cpp \
     html/parser/TextViewSourceParser.cpp \
     html/parser/XSSFilter.cpp \
+    html/shadow/DetailsMarkerControl.cpp \
     html/shadow/MediaControls.cpp \
+    html/shadow/MediaControlRootElement.cpp \
+    html/shadow/MeterShadowElement.cpp \
+    html/shadow/ProgressShadowElement.cpp \
     html/shadow/SliderThumbElement.cpp \
     html/shadow/TextControlInnerElements.cpp \
     inspector/ConsoleMessage.cpp \
     inspector/DOMNodeHighlighter.cpp \
+    inspector/EventsCollector.cpp \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
     inspector/InjectedScriptManager.cpp \
@@ -822,6 +831,7 @@ SOURCES += \
     inspector/InspectorDOMStorageResource.cpp \
     inspector/InspectorFrontendClientLocal.cpp \
     inspector/InspectorFrontendHost.cpp \
+    inspector/InspectorFrontendProxy.cpp \
     inspector/InspectorInstrumentation.cpp \
     inspector/InspectorPageAgent.cpp \
     inspector/InspectorProfilerAgent.cpp \
@@ -837,6 +847,7 @@ SOURCES += \
     inspector/ScriptCallStack.cpp \
     inspector/TimelineRecordFactory.cpp \
     inspector/WorkerDebuggerAgent.cpp \
+    inspector/WorkerInspectorController.cpp \
     loader/archive/ArchiveResource.cpp \
     loader/archive/ArchiveResourceCollection.cpp \
     loader/cache/MemoryCache.cpp \
@@ -1001,6 +1012,12 @@ SOURCES += \
     platform/Language.cpp \
     platform/Length.cpp \
     platform/text/LineEnding.cpp \
+    platform/leveldb/LevelDBComparator.h \
+    platform/leveldb/LevelDBDatabase.cpp \
+    platform/leveldb/LevelDBDatabase.h \
+    platform/leveldb/LevelDBIterator.cpp \
+    platform/leveldb/LevelDBIterator.h \
+    platform/leveldb/LevelDBSlice.h \
     platform/LinkHash.cpp \
     platform/Logging.cpp \
     platform/MIMETypeRegistry.cpp \
@@ -1025,6 +1042,7 @@ SOURCES += \
     platform/network/ResourceRequestBase.cpp \
     platform/network/ResourceResponseBase.cpp \
     platform/text/RegularExpression.cpp \
+    platform/RuntimeApplicationChecks.cpp \
     platform/SchemeRegistry.cpp \
     platform/ScrollableArea.cpp \
     platform/ScrollAnimator.cpp \
@@ -1095,7 +1113,6 @@ SOURCES += \
     rendering/RenderImage.cpp \
     rendering/RenderImageResource.cpp \
     rendering/RenderImageResourceStyleImage.cpp \
-    rendering/RenderIndicator.cpp \
     rendering/RenderInline.cpp \
     rendering/RenderLayer.cpp \
     rendering/RenderLayerBacking.cpp \
@@ -1266,6 +1283,7 @@ v8 {
 } else {
     HEADERS += \
         bindings/js/CachedScriptSourceProvider.h \
+        bindings/js/CallbackFunction.h \
         bindings/js/GCController.h \
         bindings/js/DOMObjectHashTableMap.h \
         bindings/js/DOMWrapperWorld.h \
@@ -1492,6 +1510,7 @@ HEADERS += \
     dom/ScriptExecutionContext.h \
     dom/SelectElement.h \
     dom/SelectorNodeList.h \
+    dom/ShadowRoot.h \
     dom/SpaceSplitString.h \
     dom/StaticNodeList.h \
     dom/StyledElement.h \
@@ -1506,6 +1525,7 @@ HEADERS += \
     dom/TransformSource.h \
     dom/Traversal.h \
     dom/TreeDepthLimit.h \
+    dom/TreeScope.h \
     dom/TreeWalker.h \
     dom/UIEvent.h \
     dom/UIEventWithKeyState.h \
@@ -1520,7 +1540,6 @@ HEADERS += \
     editing/ApplyStyleCommand.h \
     editing/BreakBlockquoteCommand.h \
     editing/CompositeEditCommand.h \
-    editing/CorrectionPanelInfo.h \
     editing/CreateLinkCommand.h \
     editing/DeleteButtonController.h \
     editing/DeleteButton.h \
@@ -1556,6 +1575,7 @@ HEADERS += \
     editing/SelectionController.h \
     editing/SetNodeAttributeCommand.h \
     editing/SmartReplace.h \
+    editing/SpellingCorrectionController.h \
     editing/SplitElementCommand.h \
     editing/SplitTextNodeCommand.h \
     editing/SplitTextNodeContainingElementCommand.h \
@@ -1567,7 +1587,6 @@ HEADERS += \
     editing/visible_units.h \
     editing/WrapContentsInDummySpanCommand.h \
     fileapi/Blob.h \
-    fileapi/BlobBuilder.h \
     fileapi/BlobURL.h \
     fileapi/File.h \
     fileapi/FileError.h \
@@ -1580,6 +1599,7 @@ HEADERS += \
     fileapi/FileStreamProxy.h \
     fileapi/FileThread.h \
     fileapi/FileThreadTask.h \
+    fileapi/WebKitBlobBuilder.h \
     history/BackForwardController.h \
     history/BackForwardListImpl.h \
     history/BackForwardList.h \
@@ -1732,8 +1752,11 @@ HEADERS += \
     html/parser/HTMLTreeBuilder.h \
     html/parser/HTMLViewSourceParser.h \
     html/parser/XSSFilter.h \
+    html/shadow/MediaControlElements.h \
+    html/shadow/DetailsMarkerControl.h \
     inspector/ConsoleMessage.h \
     inspector/DOMNodeHighlighter.h \
+    inspector/EventsCollector.h \
     inspector/InjectedScript.h \
     inspector/InjectedScriptHost.h \
     inspector/InjectedScriptManager.h \
@@ -1750,9 +1773,11 @@ HEADERS += \
     inspector/InspectorDebuggerAgent.h \
     inspector/InspectorDOMStorageAgent.h \
     inspector/InspectorDOMStorageResource.h \
+    inspector/InspectorFrontendChannel.h \
     inspector/InspectorFrontendClient.h \
     inspector/InspectorFrontendClientLocal.h \
     inspector/InspectorFrontendHost.h \
+    inspector/InspectorFrontendProxy.h \
     inspector/InspectorInstrumentation.h \
     inspector/InspectorPageAgent.h \
     inspector/InspectorProfilerAgent.h \
@@ -1913,6 +1938,7 @@ HEADERS += \
     platform/graphics/filters/LightSource.h \
     platform/graphics/filters/SourceAlpha.h \
     platform/graphics/filters/SourceGraphic.h \
+    platform/graphics/filters/arm/FELightingNEON.h \
     platform/graphics/FloatPoint3D.h \
     platform/graphics/FloatPoint.h \
     platform/graphics/FloatQuad.h \
@@ -1961,9 +1987,11 @@ HEADERS += \
     platform/KillRing.h \
     platform/KURL.h \
     platform/Length.h \
+    platform/text/BidiRunList.h \
     platform/text/LineEnding.h \
     platform/text/TextCheckerClient.h \
     platform/text/TextChecking.h \
+    platform/text/UnicodeBidi.h \
     platform/LinkHash.h \
     platform/Logging.h \
     platform/Language.h \
@@ -1981,10 +2009,12 @@ HEADERS += \
     platform/network/FormData.h \
     platform/network/HTTPHeaderMap.h \
     platform/network/HTTPParsers.h \
+    platform/network/MIMESniffing.h \
     platform/network/NetworkingContext.h \
     platform/network/NetworkStateNotifier.h \
     platform/network/ProtectionSpace.h \
     platform/network/ProxyServer.h \
+    platform/network/qt/QtMIMETypeSniffer.h \
     platform/network/qt/QNetworkReplyHandler.h \
     platform/network/ResourceErrorBase.h \
     platform/network/ResourceHandle.h \
@@ -2071,7 +2101,6 @@ HEADERS += \
     rendering/mathml/RenderMathMLSquareRoot.h \
     rendering/mathml/RenderMathMLSubSup.h \
     rendering/mathml/RenderMathMLUnderOver.h \
-    rendering/MediaControlElements.h \
     rendering/PaintInfo.h \
     rendering/PaintPhase.h \
     rendering/PointerEventsHitRules.h \
@@ -2099,7 +2128,6 @@ HEADERS += \
     rendering/RenderImageResource.h \
     rendering/RenderImageResourceStyleImage.h \
     rendering/RenderImage.h \
-    rendering/RenderIndicator.h \
     rendering/RenderInline.h \
     rendering/RenderInputSpeech.h \
     rendering/RenderLayer.h \
@@ -2498,11 +2526,13 @@ SOURCES += \
     platform/graphics/qt/PathQt.cpp \
     platform/graphics/qt/PatternQt.cpp \
     platform/graphics/qt/StillImageQt.cpp \
+    platform/network/MIMESniffing.cpp \
     platform/network/qt/CredentialStorageQt.cpp \
     platform/network/qt/ResourceHandleQt.cpp \
     platform/network/qt/ResourceRequestQt.cpp \
     platform/network/qt/DnsPrefetchHelper.cpp \
     platform/network/qt/ProxyServerQt.cpp \
+    platform/network/qt/QtMIMETypeSniffer.cpp \
     platform/network/qt/QNetworkReplyHandler.cpp \
     editing/qt/EditorQt.cpp \
     editing/qt/SmartReplaceQt.cpp \
@@ -2829,7 +2859,7 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
         fileapi/FileWriterCallback.h \
         fileapi/FileWriterClient.h \
         fileapi/FileWriterSync.h \
-        fileapi/Flags.h \
+        fileapi/WebKitFlags.h \
         fileapi/LocalFileSystem.h \
         fileapi/Metadata.h \
         fileapi/MetadataCallback.h \
@@ -2917,15 +2947,26 @@ contains(DEFINES, ENABLE_INPUT_SPEECH=1) {
         rendering/RenderInputSpeech.cpp
 }
 
+contains(DEFINES, ENABLE_QUOTA=1) {
+    HEADERS += \
+        storage/StorageInfo.h \
+        storage/StorageInfoErrorCallback.h \
+        storage/StorageInfoQuotaCallback.h \
+        storage/StorageInfoUsageCallback.h
+
+    SOURCES += \
+        storage/StorageInfo.cpp
+}
+
 contains(DEFINES, ENABLE_VIDEO=1) {
     SOURCES += \
         html/HTMLAudioElement.cpp \
         html/HTMLMediaElement.cpp \
         html/HTMLSourceElement.cpp \
         html/HTMLVideoElement.cpp \
+        html/shadow/MediaControlElements.cpp \
         html/TimeRanges.cpp \
         platform/graphics/MediaPlayer.cpp \
-        rendering/MediaControlElements.cpp \
         rendering/RenderVideo.cpp \
         rendering/RenderMedia.cpp
 
@@ -3029,7 +3070,8 @@ contains(DEFINES, ENABLE_FILTERS=1) {
         platform/graphics/filters/PointLightSource.cpp \
         platform/graphics/filters/SpotLightSource.cpp \
         platform/graphics/filters/SourceAlpha.cpp \
-        platform/graphics/filters/SourceGraphic.cpp
+        platform/graphics/filters/SourceGraphic.cpp \
+        platform/graphics/filters/arm/FELightingNEON.cpp
 }
 
 contains(DEFINES, ENABLE_MATHML=1) {
@@ -3109,6 +3151,19 @@ contains(DEFINES, ENABLE_GEOLOCATION=1) {
             bindings/v8/custom/V8CustomPositionCallback.cpp \
             bindings/v8/custom/V8CustomPositionErrorCallback.cpp \
             bindings/v8/custom/V8GeolocationCustom.cpp
+    }
+}
+
+contains(DEFINES, ENABLE_MEDIA_STREAM=1) {
+    HEADERS += \
+        page/NavigatorUserMediaError.h \
+        page/NavigatorUserMediaErrorCallback.h \
+        page/NavigatorUserMediaSuccessCallback.h
+
+    v8 {
+        SOURCES += \
+            bindings/v8/custom/V8NavigatorCustom.cpp
+
     }
 }
 

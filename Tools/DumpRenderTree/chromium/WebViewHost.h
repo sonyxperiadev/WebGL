@@ -45,7 +45,9 @@
 #include <wtf/text/WTFString.h>
 
 class LayoutTestController;
+class SkCanvas;
 class TestShell;
+
 namespace WebKit {
 class WebFrame;
 class WebDeviceOrientationClient;
@@ -60,9 +62,6 @@ class WebURL;
 struct WebRect;
 struct WebURLError;
 struct WebWindowFeatures;
-}
-namespace skia {
-class PlatformCanvas;
 }
 
 class WebViewHost : public WebKit::WebSpellCheckClient, public WebKit::WebViewClient, public WebKit::WebFrameClient, public NavigationHost {
@@ -87,7 +86,7 @@ class WebViewHost : public WebKit::WebSpellCheckClient, public WebKit::WebViewCl
     void paintRect(const WebKit::WebRect&);
     void updatePaintRect(const WebKit::WebRect&);
     void paintInvalidatedRegion();
-    skia::PlatformCanvas* canvas();
+    SkCanvas* canvas();
     void displayRepaintMask();
 
     void loadURLForFrame(const WebKit::WebURL&, const WebKit::WebString& frameName);
@@ -106,7 +105,7 @@ class WebViewHost : public WebKit::WebSpellCheckClient, public WebKit::WebViewCl
     virtual bool navigate(const TestNavigationEntry&, bool reload);
 
     // WebKit::WebSpellCheckClient
-    virtual void spellCheck(const WebKit::WebString&, int& offset, int& length);
+    virtual void spellCheck(const WebKit::WebString&, int& offset, int& length, WebKit::WebVector<WebKit::WebString>* optionalSuggestions);
     virtual void requestCheckingOfText(const WebKit::WebString&, WebKit::WebTextCheckingCompletion*);
     virtual WebKit::WebString autoCorrectWord(const WebKit::WebString&);
 
@@ -193,7 +192,7 @@ class WebViewHost : public WebKit::WebSpellCheckClient, public WebKit::WebViewCl
     virtual void didFailProvisionalLoad(WebKit::WebFrame*, const WebKit::WebURLError&);
     virtual void didCommitProvisionalLoad(WebKit::WebFrame*, bool isNewNavigation);
     virtual void didClearWindowObject(WebKit::WebFrame*);
-    virtual void didReceiveTitle(WebKit::WebFrame*, const WebKit::WebString&);
+    virtual void didReceiveTitle(WebKit::WebFrame*, const WebKit::WebString&, WebKit::WebTextDirection);
     virtual void didFinishDocumentLoad(WebKit::WebFrame*);
     virtual void didHandleOnloadEvents(WebKit::WebFrame*);
     virtual void didFailLoad(WebKit::WebFrame*, const WebKit::WebURLError&);
@@ -333,7 +332,7 @@ private:
     MockSpellCheck m_spellcheck;
 
     // Painting.
-    OwnPtr<skia::PlatformCanvas> m_canvas;
+    OwnPtr<SkCanvas> m_canvas;
     WebKit::WebRect m_paintRect;
     bool m_isPainting;
 

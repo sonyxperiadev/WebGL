@@ -40,6 +40,7 @@ WEBKIT2_API_SOURCES = \
     $$SOURCE_DIR/WebKit2/UIProcess/API/C/WKPluginSiteDataManager.cpp \
     $$SOURCE_DIR/WebKit2/UIProcess/API/C/WKPreferences.cpp \
     $$SOURCE_DIR/WebKit2/UIProcess/API/C/WKProtectionSpace.cpp \
+    $$SOURCE_DIR/WebKit2/UIProcess/API/C/WKResourceCacheManager.cpp \
     $$SOURCE_DIR/WebKit2/UIProcess/API/cpp/qt/WKStringQt.cpp \
     $$SOURCE_DIR/WebKit2/UIProcess/API/cpp/qt/WKURLQt.cpp \
     $$SOURCE_DIR/WebKit2/UIProcess/API/qt/ClientImpl.cpp \
@@ -60,12 +61,7 @@ WEBKIT2_API_SOURCES = \
     $$SOURCE_DIR/WebKit2/WebProcess/InjectedBundle/API/c/WKBundlePageGroup.cpp \
     $$SOURCE_DIR/WebKit2/WebProcess/InjectedBundle/API/c/WKBundlePageOverlay.cpp \
     $$SOURCE_DIR/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleScriptWorld.cpp \
-    $$SOURCE_DIR/WebKit2/PluginProcess/PluginControllerProxy.cpp \
-    $$SOURCE_DIR/WebKit2/PluginProcess/PluginProcess.cpp \
-    $$SOURCE_DIR/WebKit2/PluginProcess/WebProcessConnection.cpp \
-    $$SOURCE_DIR/WebKit2/PluginProcess/qt/PluginControllerProxyQt.cpp \
     $$SOURCE_DIR/WebKit2/PluginProcess/qt/PluginProcessMainQt.cpp \
-    $$SOURCE_DIR/WebKit2/PluginProcess/qt/PluginProcessQt.cpp \
     $$SOURCE_DIR/WebKit2/WebProcess/qt/WebProcessMainQt.cpp
 
 

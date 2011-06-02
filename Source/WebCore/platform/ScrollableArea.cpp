@@ -32,6 +32,8 @@
 #include "config.h"
 #include "ScrollableArea.h"
 
+#include "GraphicsContext.h"
+#include "GraphicsLayer.h"
 #include "FloatPoint.h"
 #include "PlatformWheelEvent.h"
 #include "ScrollAnimator.h"
@@ -44,6 +46,8 @@ ScrollableArea::ScrollableArea()
     : m_scrollAnimator(ScrollAnimator::create(this))
     , m_constrainsScrollingToContentEdge(true)
     , m_inLiveResize(false)
+    , m_verticalScrollElasticity(ScrollElasticityNone)
+    , m_horizontalScrollElasticity(ScrollElasticityNone)
 {
 }
 
@@ -192,6 +196,35 @@ bool ScrollableArea::hasOverlayScrollbars() const
 {
     return (verticalScrollbar() && verticalScrollbar()->isOverlayScrollbar())
         || (horizontalScrollbar() && horizontalScrollbar()->isOverlayScrollbar());
+}
+
+void ScrollableArea::invalidateScrollbar(Scrollbar* scrollbar, const IntRect& rect)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (scrollbar == horizontalScrollbar()) {
+        if (GraphicsLayer* graphicsLayer = layerForHorizontalScrollbar()) {
+            graphicsLayer->setNeedsDisplay();
+            return;
+        }
+    } else if (scrollbar == verticalScrollbar()) {
+        if (GraphicsLayer* graphicsLayer = layerForVerticalScrollbar()) {
+            graphicsLayer->setNeedsDisplay();
+            return;
+        }
+    }
+#endif
+    invalidateScrollbarRect(scrollbar, rect);
+}
+
+void ScrollableArea::invalidateScrollCorner()
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (GraphicsLayer* graphicsLayer = layerForScrollCorner()) {
+        graphicsLayer->setNeedsDisplay();
+        return;
+    }
+#endif
+    invalidateScrollCornerRect(scrollCornerRect());
 }
 
 } // namespace WebCore

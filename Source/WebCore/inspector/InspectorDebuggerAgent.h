@@ -39,6 +39,7 @@
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
 
@@ -79,12 +80,12 @@ public:
     // Part of the protocol.
     void setBreakpointsActive(ErrorString*, bool active);
 
-    void setBreakpointByUrl(ErrorString*, const String& url, int lineNumber, int columnNumber, const String& condition, bool enabled, String* breakpointId, RefPtr<InspectorArray>* locations);
-    void setBreakpoint(ErrorString*, const String& sourceId, int lineNumber, int columnNumber, const String& condition, bool enabled, String* breakpointId, int* actualLineNumber, int* actualColumnNumber);
+    void setBreakpointByUrl(ErrorString*, const String& url, int lineNumber, const int* const optionalColumnNumber, const String* const optionalCondition, String* breakpointId, RefPtr<InspectorArray>* locations);
+    void setBreakpoint(ErrorString*, PassRefPtr<InspectorObject> location, const String* const optionalCondition, String* breakpointId, RefPtr<InspectorObject>* actualLocation);
     void removeBreakpoint(ErrorString*, const String& breakpointId);
-    void continueToLocation(ErrorString*, const String& sourceId, int lineNumber, int columnNumber);
+    void continueToLocation(ErrorString*, PassRefPtr<InspectorObject> location);
 
-    void editScriptSource(ErrorString*, const String& sourceID, const String& newContent, String* result, RefPtr<InspectorArray>* newCallFrames);
+    void editScriptSource(ErrorString*, const String& sourceID, const String& newContent, RefPtr<InspectorArray>* newCallFrames);
     void getScriptSource(ErrorString*, const String& sourceID, String* scriptSource);
     void schedulePauseOnNextStatement(DebuggerEventType type, PassRefPtr<InspectorValue> data);
     void cancelPauseOnNextStatement();
@@ -94,8 +95,8 @@ public:
     void stepOver(ErrorString*);
     void stepInto(ErrorString*);
     void stepOut(ErrorString*);
-    void setPauseOnExceptionsState(ErrorString*, int pauseState);
-    void evaluateOnCallFrame(ErrorString*, const String& callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result);
+    void setPauseOnExceptions(ErrorString*, const String& pauseState);
+    void evaluateOnCallFrame(ErrorString*, const String& callFrameId, const String& expression, const String* const objectGroup, const bool* const includeCommandLineAPI, RefPtr<InspectorObject>* result);
 
     class Listener {
     public:
@@ -118,12 +119,12 @@ private:
 
     PassRefPtr<InspectorArray> currentCallFrames();
 
-    virtual void didParseSource(const String& sourceID, const String& url, const String& data, int lineOffset, int columnOffset, ScriptWorldType);
+    virtual void didParseSource(const String& sourceID, const String& url, const String& data, int lineOffset, int columnOffset, bool isContentScript);
     virtual void failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage);
     virtual void didPause(ScriptState*);
     virtual void didContinue();
 
-    bool resolveBreakpoint(const String& breakpointId, const String& sourceId, const ScriptBreakpoint&, int* actualLineNumber, int* actualColumnNumber);
+    PassRefPtr<InspectorObject> resolveBreakpoint(const String& breakpointId, const String& sourceId, const ScriptBreakpoint&);
     void clear();
 
     class Script {

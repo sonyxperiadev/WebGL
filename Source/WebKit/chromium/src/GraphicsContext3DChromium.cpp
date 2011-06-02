@@ -54,7 +54,7 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/text/CString.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include "GraphicsContext.h"
 #include "WebGLRenderingContext.h"
 #include <CoreGraphics/CGContext.h>
@@ -84,7 +84,7 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
     , m_initializedAvailableExtensions(false)
     , m_layerComposited(false)
 #if USE(SKIA)
-#elif PLATFORM(CG)
+#elif USE(CG)
     , m_renderOutput(0)
 #else
 #error Must port to your platform
@@ -94,7 +94,7 @@ GraphicsContext3DInternal::GraphicsContext3DInternal()
 
 GraphicsContext3DInternal::~GraphicsContext3DInternal()
 {
-#if PLATFORM(CG)
+#if USE(CG)
     if (m_renderOutput)
         delete[] m_renderOutput;
 #endif
@@ -210,7 +210,7 @@ void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingCon
     // Read back the frame buffer.
     SkAutoLockPixels bitmapLock(*readbackBitmap);
     pixels = static_cast<unsigned char*>(readbackBitmap->getPixels());
-#elif PLATFORM(CG)
+#elif USE(CG)
     if (m_renderOutput)
         pixels = m_renderOutput;
 #else
@@ -230,6 +230,7 @@ void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingCon
     }
 
 #if USE(SKIA)
+    readbackBitmap->notifyPixelsChanged();
     if (m_resizingBitmap.readyToDraw()) {
         // We need to draw the resizing bitmap into the canvas's backing store.
         SkCanvas canvas(*canvasBitmap);
@@ -237,7 +238,7 @@ void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingCon
         dst.set(SkIntToScalar(0), SkIntToScalar(0), SkIntToScalar(canvasBitmap->width()), SkIntToScalar(canvasBitmap->height()));
         canvas.drawBitmapRect(m_resizingBitmap, 0, dst);
     }
-#elif PLATFORM(CG)
+#elif USE(CG)
     if (m_renderOutput && context->is3d()) {
         WebGLRenderingContext* webGLContext = static_cast<WebGLRenderingContext*>(context);
         webGLContext->graphicsContext3D()->paintToCanvas(m_renderOutput, m_impl->width(), m_impl->height(), canvas->width(), canvas->height(), imageBuffer->context()->platformContext());
@@ -277,7 +278,7 @@ void GraphicsContext3DInternal::reshape(int width, int height)
 
     m_impl->reshape(width, height);
 
-#if PLATFORM(CG)
+#if USE(CG)
     // Need to reallocate the client-side backing store.
     // FIXME: make this more efficient.
     if (m_renderOutput) {
@@ -286,7 +287,7 @@ void GraphicsContext3DInternal::reshape(int width, int height)
     }
     int rowBytes = width * 4;
     m_renderOutput = new unsigned char[height * rowBytes];
-#endif // PLATFORM(CG)
+#endif // USE(CG)
 }
 
 IntSize GraphicsContext3DInternal::getInternalFramebufferSize()
@@ -793,6 +794,13 @@ bool GraphicsContext3DInternal::ensureExtensionEnabled(const String& name)
     return m_enabledExtensions.contains(mappedName);
 }
 
+bool GraphicsContext3DInternal::isExtensionEnabled(const String& name)
+{
+    initializeExtensions();
+    String mappedName = mapExtensionName(name);
+    return m_enabledExtensions.contains(mappedName);
+}
+
 DELEGATE_TO_IMPL_4R(mapBufferSubDataCHROMIUM, GC3Denum, GC3Dsizeiptr, GC3Dsizei, GC3Denum, void*)
 DELEGATE_TO_IMPL_1(unmapBufferSubDataCHROMIUM, const void*)
 DELEGATE_TO_IMPL_9R(mapTexSubImage2DCHROMIUM, GC3Denum, GC3Dint, GC3Dint, GC3Dint, GC3Dsizei, GC3Dsizei, GC3Denum, GC3Denum, GC3Denum, void*)
@@ -800,6 +808,10 @@ DELEGATE_TO_IMPL_1(unmapTexSubImage2DCHROMIUM, const void*)
 DELEGATE_TO_IMPL_2(copyTextureToParentTextureCHROMIUM, Platform3DObject, Platform3DObject)
 DELEGATE_TO_IMPL_10(blitFramebufferCHROMIUM, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dint, GC3Dbitfield, GC3Denum)
 DELEGATE_TO_IMPL_5(renderbufferStorageMultisampleCHROMIUM, GC3Denum, GC3Dsizei, GC3Denum, GC3Dsizei, GC3Dsizei)
+DELEGATE_TO_IMPL_1(getParentToChildLatchCHROMIUM, GC3Duint*)
+DELEGATE_TO_IMPL_1(getChildToParentLatchCHROMIUM, GC3Duint*)
+DELEGATE_TO_IMPL_1(waitLatchCHROMIUM, GC3Duint)
+DELEGATE_TO_IMPL_1(setLatchCHROMIUM, GC3Duint)
 
 //----------------------------------------------------------------------
 // GraphicsContext3D

@@ -213,8 +213,9 @@ SkColor PlatformContextSkia::State::applyAlpha(SkColor c) const
 // PlatformContextSkia ---------------------------------------------------------
 
 // Danger: canvas can be NULL.
-PlatformContextSkia::PlatformContextSkia(skia::PlatformCanvas* canvas)
+PlatformContextSkia::PlatformContextSkia(SkCanvas* canvas)
     : m_canvas(canvas)
+    , m_printing(false)
     , m_drawingToImageBuffer(false)
     , m_useGPU(false)
 #if ENABLE(ACCELERATED_2D_CANVAS)
@@ -232,15 +233,18 @@ PlatformContextSkia::~PlatformContextSkia()
     if (m_gpuCanvas) {
 #if ENABLE(SKIA_GPU)
         // make sure everything related to this platform context has been flushed
-        if (!m_useGPU)
-            m_gpuCanvas->context()->grContext()->flush(0);
+        if (!m_useGPU) {
+            SharedGraphicsContext3D* context = m_gpuCanvas->context();
+            context->makeContextCurrent();
+            context->grContext()->flush(0);
+        }
 #endif
         m_gpuCanvas->drawingBuffer()->setWillPublishCallback(0);
     }
 #endif
 }
 
-void PlatformContextSkia::setCanvas(skia::PlatformCanvas* canvas)
+void PlatformContextSkia::setCanvas(SkCanvas* canvas)
 {
     m_canvas = canvas;
 }
@@ -609,12 +613,12 @@ const SkBitmap* PlatformContextSkia::bitmap() const
     return &m_canvas->getDevice()->accessBitmap(false);
 }
 
-bool PlatformContextSkia::isPrinting()
+bool PlatformContextSkia::isNativeFontRenderingAllowed()
 {
 #if ENABLE(SKIA_GPU)
-    return true;
+    return false;
 #else
-    return m_canvas->getTopPlatformDevice().IsVectorial();
+    return skia::SupportsPlatformPaint(m_canvas);
 #endif
 }
 
@@ -738,7 +742,12 @@ void PlatformContextSkia::setSharedGraphicsContext3D(SharedGraphicsContext3D* co
         gr->resetContext();
         drawingBuffer->setGrContext(gr);
 
-        SkDeviceFactory* factory = new SkGpuDeviceFactory(gr, SkGpuDevice::Current3DApiRenderTarget());
+        GrPlatformSurfaceDesc drawBufDesc;
+        drawingBuffer->getGrPlatformSurfaceDesc(&drawBufDesc);
+        GrTexture* drawBufTex = static_cast<GrTexture*>(gr->createPlatformSurface(drawBufDesc));
+        SkDeviceFactory* factory = new SkGpuDeviceFactory(gr, drawBufTex);
+        drawBufTex->unref();
+
         SkDevice* device = factory->newDevice(m_canvas, SkBitmap::kARGB_8888_Config, drawingBuffer->size().width(), drawingBuffer->size().height(), false, false);
         m_canvas->setDevice(device)->unref();
         m_canvas->setDeviceFactory(factory);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2006 David Smith (catfish.man@gmail.com)
  * Copyright (C) 2010 Igalia S.L
  *
@@ -148,6 +148,7 @@
 #import <WebCore/RenderWidget.h>
 #import <WebCore/ResourceHandle.h>
 #import <WebCore/ResourceLoadScheduler.h>
+#import <WebCore/ResourceRequest.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SchemeRegistry.h>
 #import <WebCore/ScriptController.h>
@@ -178,10 +179,6 @@
 #import <wtf/RefPtr.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/Threading.h>
-
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-#import <AppKit/NSTextChecker.h>
-#endif
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #import <WebKit/WebDashboardRegion.h>
@@ -639,17 +636,39 @@ static bool shouldEnableLoadDeferring()
     return _private->usesDocumentViews;
 }
 
-static NSString *leakMailQuirksUserScriptPath()
+static NSString *leakMailQuirksUserScriptContents()
 {
     NSString *scriptPath = [[NSBundle bundleForClass:[WebView class]] pathForResource:@"MailQuirksUserScript" ofType:@"js"];
-    return [[NSString alloc] initWithContentsOfFile:scriptPath];
+    NSStringEncoding encoding;
+    return [[NSString alloc] initWithContentsOfFile:scriptPath usedEncoding:&encoding error:0];
 }
 
 - (void)_injectMailQuirksScript
 {
-    static NSString *mailQuirksScriptPath = leakMailQuirksUserScriptPath();
+    static NSString *mailQuirksScriptContents = leakMailQuirksUserScriptContents();
     core(self)->group().addUserScriptToWorld(core([WebScriptWorld world]),
-        mailQuirksScriptPath, KURL(), 0, 0, InjectAtDocumentEnd, InjectInAllFrames);
+        mailQuirksScriptContents, KURL(), 0, 0, InjectAtDocumentEnd, InjectInAllFrames);
+}
+
+static bool needsOutlookQuirksScript()
+{
+    static bool isOutlookNeedingQuirksScript = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_HTML5_PARSER)
+        && applicationIsMicrosoftOutlook();
+    return isOutlookNeedingQuirksScript;
+}
+
+static NSString *leakOutlookQuirksUserScriptContents()
+{
+    NSString *scriptPath = [[NSBundle bundleForClass:[WebView class]] pathForResource:@"OutlookQuirksUserScript" ofType:@"js"];
+    NSStringEncoding encoding;
+    return [[NSString alloc] initWithContentsOfFile:scriptPath usedEncoding:&encoding error:0];
+}
+
+-(void)_injectOutlookQuirksScript
+{
+    static NSString *outlookQuirksScriptContents = leakOutlookQuirksUserScriptContents();
+    core(self)->group().addUserScriptToWorld(core([WebScriptWorld world]),
+        outlookQuirksScriptContents, KURL(), 0, 0, InjectAtDocumentEnd, InjectInAllFrames);
 }
 
 - (void)_commonInitializationWithFrameName:(NSString *)frameName groupName:(NSString *)groupName usesDocumentViews:(BOOL)usesDocumentViews
@@ -720,6 +739,11 @@ static NSString *leakMailQuirksUserScriptPath()
     _private->page->setCanStartMedia([self window]);
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
 
+    if (needsOutlookQuirksScript()) {
+        _private->page->settings()->setShouldInjectUserScriptsInInitialEmptyDocument(true);
+        [self _injectOutlookQuirksScript];
+    }
+
     [WebFrame _createMainFrameWithPage:_private->page frameName:frameName frameView:frameView];
 
 #ifndef BUILDING_ON_TIGER
@@ -752,10 +776,10 @@ static NSString *leakMailQuirksUserScriptPath()
 
     WebPreferences *prefs = [self preferences];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:)
-                                                 name:WebPreferencesChangedNotification object:prefs];
+                                                 name:WebPreferencesChangedInternalNotification object:prefs];
 
-    // Post a notification so the WebCore settings update.
-    [[self preferences] _postPreferencesChangesNotification];
+    [self _preferencesChanged:[self preferences]];
+    [[self preferences] _postPreferencesChangedAPINotification];
 
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_LOCAL_RESOURCE_SECURITY_RESTRICTION)) {
         // Originally, we allowed all local loads.
@@ -1272,10 +1296,16 @@ static bool fastDocumentTeardownEnabled()
 - (NSMenu *)_menuForElement:(NSDictionary *)element defaultItems:(NSArray *)items
 {
     NSArray *defaultMenuItems = [[WebDefaultUIDelegate sharedUIDelegate] webView:self contextMenuItemsForElement:element defaultMenuItems:items];
+    NSArray *menuItems = defaultMenuItems;
 
-    NSArray *menuItems = CallUIDelegate(self, @selector(webView:contextMenuItemsForElement:defaultMenuItems:), element, defaultMenuItems);
-    if (!menuItems)
-        return nil;
+    // CallUIDelegate returns nil if UIDelegate is nil or doesn't respond to the selector. So we need to check that here
+    // to distinguish between using defaultMenuItems or the delegate really returning nil to say "no context menu".
+    SEL selector = @selector(webView:contextMenuItemsForElement:defaultMenuItems:);
+    if (_private->UIDelegate && [_private->UIDelegate respondsToSelector:selector]) {
+        menuItems = CallUIDelegate(self, selector, element, defaultMenuItems);
+        if (!menuItems)
+            return nil;
+    }
 
     unsigned count = [menuItems count];
     if (!count)
@@ -1416,8 +1446,12 @@ static bool fastDocumentTeardownEnabled()
 - (void)_preferencesChangedNotification:(NSNotification *)notification
 {
     WebPreferences *preferences = (WebPreferences *)[notification object];
+    [self _preferencesChanged:preferences];
+}
+
+- (void)_preferencesChanged:(WebPreferences *)preferences
+{    
     ASSERT(preferences == [self preferences]);
-    
     if (!_private->userAgentOverridden)
         _private->userAgent = String();
 
@@ -1459,6 +1493,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setSerifFontFamily([preferences serifFontFamily]);
     settings->setStandardFontFamily([preferences standardFontFamily]);
     settings->setLoadsImagesAutomatically([preferences loadsImagesAutomatically]);
+    settings->setLoadsSiteIconsIgnoringImageLoadingSetting([preferences loadsSiteIconsIgnoringImageLoadingPreference]);
     settings->setShouldPrintBackgrounds([preferences shouldPrintBackgrounds]);
     settings->setTextAreasAreResizable([preferences textAreasAreResizable]);
     settings->setShrinksStandaloneImagesToFit([preferences shrinksStandaloneImagesToFit]);
@@ -2262,8 +2297,9 @@ static inline IMP getMethod(id o, SEL s)
 {
     _private->usesPageCache = usesPageCache;
 
-    // Post a notification so the WebCore settings update.
-    [[self preferences] _postPreferencesChangesNotification];
+    // Update our own settings and post the public notification only
+    [self _preferencesChanged:[self preferences]];
+    [[self preferences] _postPreferencesChangedAPINotification];
 }
 
 - (WebHistoryItem *)_globalHistoryItem
@@ -2790,6 +2826,16 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
         _private->page->settings()->setMinDOMTimerInterval(intervalInSeconds);
 }
 
++ (BOOL)_HTTPPipeliningEnabled
+{
+    return ResourceRequest::httpPipeliningEnabled();
+}
+
++ (void)_setHTTPPipeliningEnabled:(BOOL)enabled
+{
+    ResourceRequest::setHTTPPipeliningEnabled(enabled);
+}
+
 @end
 
 @implementation _WebSafeForwarder
@@ -2848,7 +2894,7 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     WTF::initializeMainThreadToProcessMainThread();
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillTerminate) name:NSApplicationWillTerminateNotification object:NSApp];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:) name:WebPreferencesChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:) name:WebPreferencesChangedInternalNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesRemovedNotification:) name:WebPreferencesRemovedNotification object:nil];    
 
     continuousSpellCheckingEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebContinuousSpellCheckingEnabled];
@@ -3353,15 +3399,16 @@ static bool needsWebViewInitThreadWorkaround()
 
     WebPreferences *oldPrefs = _private->preferences;
 
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedNotification object:[self preferences]];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedInternalNotification object:[self preferences]];
     [WebPreferences _removeReferenceForIdentifier:[oldPrefs identifier]];
 
     _private->preferences = [prefs retain];
 
     // After registering for the notification, post it so the WebCore settings update.
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:)
-        name:WebPreferencesChangedNotification object:[self preferences]];
-    [[self preferences] _postPreferencesChangesNotification];
+        name:WebPreferencesChangedInternalNotification object:[self preferences]];
+    [self _preferencesChanged:[self preferences]];
+    [[self preferences] _postPreferencesChangedAPINotification];
 
     [oldPrefs didRemoveFromWebView];
     [oldPrefs release];
@@ -5964,7 +6011,7 @@ static inline uint64_t roundUpToPowerOf2(uint64_t num)
 
         [[NSNotificationCenter defaultCenter] 
             addObserver:self selector:@selector(_retrieveKeyboardUIModeFromPreferences:) 
-            name:WebPreferencesChangedNotification object:nil];
+            name:WebPreferencesChangedInternalNotification object:nil];
     }
     return _private->_keyboardUIMode;
 }

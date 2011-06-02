@@ -83,6 +83,7 @@ jscore_dirs = [
     'bytecompiler',
     'debugger',
     'DerivedSources',
+    'heap',
     'interpreter',
     'jit',
     'parser',

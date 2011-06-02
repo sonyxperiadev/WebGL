@@ -31,22 +31,18 @@
 #include "CollectionCache.h"
 #include "CollectionType.h"
 #include "Color.h"
-#include "ContainerNode.h"
 #include "DOMTimeStamp.h"
-#include "DocumentOrderedMap.h"
 #include "DocumentTiming.h"
 #include "QualifiedName.h"
 #include "ScriptExecutionContext.h"
+#include "StringWithDirection.h"
 #include "Timer.h"
+#include "TreeScope.h"
 #include "ViewportArguments.h"
 #include <wtf/FixedArray.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
-
-#if USE(JSC)
-#include <runtime/WeakGCMap.h>
-#endif
 
 namespace WebCore {
 
@@ -205,7 +201,7 @@ enum PageshowEventPersistence {
 
 enum StyleSelectorUpdateFlag { RecalcStyleImmediately, DeferRecalcStyle };
 
-class Document : public ContainerNode, public ScriptExecutionContext {
+class Document : public TreeScope, public ScriptExecutionContext {
 public:
     static PassRefPtr<Document> create(Frame* frame, const KURL& url)
     {
@@ -219,31 +215,35 @@ public:
 
     MediaQueryMatcher* mediaQueryMatcher();
 
-    using ContainerNode::ref;
-    using ContainerNode::deref;
+    using TreeScope::ref;
+    using TreeScope::deref;
 
-    // Nodes belonging to this document hold "self-only" references -
+    // Nodes belonging to this document hold guard references -
     // these are enough to keep the document from being destroyed, but
     // not enough to keep it from removing its children. This allows a
     // node that outlives its document to still have a valid document
-    // pointer without introducing reference cycles
-
-    void selfOnlyRef()
+    // pointer without introducing reference cycles.
+    void guardRef()
     {
         ASSERT(!m_deletionHasBegun);
-        ++m_selfOnlyRefCount;
+        ++m_guardRefCount;
     }
-    void selfOnlyDeref()
+
+    void guardDeref()
     {
         ASSERT(!m_deletionHasBegun);
-        --m_selfOnlyRefCount;
-        if (!m_selfOnlyRefCount && !refCount()) {
+        --m_guardRefCount;
+        if (!m_guardRefCount && !refCount()) {
 #ifndef NDEBUG
             m_deletionHasBegun = true;
 #endif
             delete this;
         }
     }
+
+    virtual void removedLastRef();
+
+    Element* getElementById(const AtomicString& id) const;
 
     // DOM methods & attributes for Document
 
@@ -259,8 +259,6 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(dragstart);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(drag);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(dragend);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(formchange);
-    DEFINE_ATTRIBUTE_EVENT_LISTENER(forminput);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(input);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(invalid);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(keydown);
@@ -328,9 +326,6 @@ public:
     PassRefPtr<Node> importNode(Node* importedNode, bool deep, ExceptionCode&);
     virtual PassRefPtr<Element> createElementNS(const String& namespaceURI, const String& qualifiedName, ExceptionCode&);
     PassRefPtr<Element> createElement(const QualifiedName&, bool createdByParser);
-    Element* getElementById(const AtomicString&) const;
-    bool hasElementWithId(AtomicStringImpl* id) const;
-    bool containsMultipleElementsWithId(const AtomicString& id) const;
 
     /**
      * Retrieve all nodes that intersect a rect in the window's document, until it is fully enclosed by
@@ -394,13 +389,6 @@ public:
 
     PassRefPtr<HTMLAllCollection> all();
 
-    // Find first anchor with the given name.
-    // First searches for an element with the given ID, but if that fails, then looks
-    // for an anchor with the given name. ID matching is always case sensitive, but
-    // Anchor name matching is case sensitive in strict mode and not case sensitive in
-    // quirks mode for historical compatibility reasons.
-    Element* findAnchor(const String& name);
-
     CollectionCache* collectionInfo(CollectionType type)
     {
         ASSERT(type >= FirstUnnamedDocumentCachedType);
@@ -451,8 +439,6 @@ public:
         return m_styleSelector.get();
     }
 
-    Element* getElementByAccessKey(const String& key) const;
-    
     /**
      * Updates the pending sheet count and then calls updateStyleSelector.
      */
@@ -819,9 +805,11 @@ public:
     // Returns 0 if this is the top level document.
     HTMLFrameOwnerElement* ownerElement() const;
 
-    String title() const { return m_title; }
+    // Used by DOM bindings; no direction known.
+    String title() const { return m_title.string(); }
     void setTitle(const String&);
-    void setTitleElement(const String& title, Element* titleElement);
+
+    void setTitleElement(const StringWithDirection&, Element* titleElement);
     void removeTitle(Element* titleElement);
 
     String cookie(ExceptionCode&) const;
@@ -872,13 +860,6 @@ public:
     // Checks to make sure prefix and namespace do not conflict (per DOM Core 3)
     static bool hasPrefixNamespaceMismatch(const QualifiedName&);
     
-    void addElementById(const AtomicString& elementId, Element *element);
-    void removeElementById(const AtomicString& elementId, Element *element);
-
-    void addImageMap(HTMLMapElement*);
-    void removeImageMap(HTMLMapElement*);
-    HTMLMapElement* getImageMap(const String& url) const;
-
     HTMLElement* body() const;
     void setBody(PassRefPtr<HTMLElement>, ExceptionCode&);
 
@@ -956,10 +937,6 @@ public:
     void setUseSecureKeyboardEntryWhenActive(bool);
     bool useSecureKeyboardEntryWhenActive() const;
 
-    void addNodeListCache() { ++m_numNodeListCaches; }
-    void removeNodeListCache() { ASSERT(m_numNodeListCaches > 0); --m_numNodeListCaches; }
-    bool hasNodeListCaches() const { return m_numNodeListCaches; }
-
     void updateFocusAppearanceSoon(bool restorePreviousSelection);
     void cancelFocusAppearanceUpdate();
         
@@ -978,16 +955,6 @@ public:
 
     virtual void suspendScriptedAnimationControllerCallbacks();
     virtual void resumeScriptedAnimationControllerCallbacks();
-
-#if USE(JSC)
-    typedef JSC::WeakGCMap<WebCore::Node*, JSNode> JSWrapperCache;
-    typedef HashMap<DOMWrapperWorld*, JSWrapperCache*> JSWrapperCacheMap;
-    JSWrapperCacheMap& wrapperCacheMap() { return m_wrapperCacheMap; }
-    JSWrapperCache* getWrapperCache(DOMWrapperWorld* world);
-    JSWrapperCache* createWrapperCache(DOMWrapperWorld*);
-    void destroyWrapperCache(DOMWrapperWorld*);
-    void destroyAllWrapperCaches();
-#endif
 
     virtual void finishedParsing();
 
@@ -1059,7 +1026,7 @@ public:
 #endif
 
     virtual bool isContextThread() const;
-    virtual bool isJSExecutionTerminated() const { return false; }
+    virtual bool isJSExecutionForbidden() const { return false; }
 
     void setUsingGeolocation(bool f) { m_usingGeolocation = f; }
     bool usingGeolocation() const { return m_usingGeolocation; };
@@ -1089,8 +1056,8 @@ public:
     const QualifiedName& idAttributeName() const { return m_idAttributeName; }
     
 #if ENABLE(FULLSCREEN_API)
-    bool webkitIsFullScreen() const { return m_isFullScreen; }
-    bool webkitFullScreenKeyboardInputAllowed() const { return m_isFullScreen && m_areKeysEnabledInFullScreen; }
+    bool webkitIsFullScreen() const { return m_fullScreenElement.get(); }
+    bool webkitFullScreenKeyboardInputAllowed() const { return m_fullScreenElement.get() && m_areKeysEnabledInFullScreen; }
     Element* webkitCurrentFullScreenElement() const { return m_fullScreenElement.get(); }
     void webkitRequestFullScreenForElement(Element*, unsigned short flags);
     void webkitCancelFullScreen();
@@ -1128,8 +1095,6 @@ public:
     void serviceScriptedAnimations(DOMTimeStamp);
 #endif
 
-    bool mayCauseFlashOfUnstyledContent() const;
-
     virtual EventTarget* errorEventTarget();
     virtual void logExceptionToConsole(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
 
@@ -1152,13 +1117,12 @@ private:
     void processArguments(const String& features, void* data, ArgumentsCallback);
 
     virtual bool isDocument() const { return true; }
-    virtual void removedLastRef();
 
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     virtual String nodeName() const;
     virtual NodeType nodeType() const;
-    virtual bool childTypeAllowed(NodeType);
+    virtual bool childTypeAllowed(NodeType) const;
     virtual PassRefPtr<Node> cloneNode(bool deep);
     virtual bool canReplaceChild(Node* newChild, Node* oldChild);
 
@@ -1172,7 +1136,7 @@ private:
 
     String encoding() const;
 
-    void updateTitle(const String& title);
+    void updateTitle(const StringWithDirection&);
     void updateFocusAppearanceTimerFired(Timer<Document>*);
     void updateBaseURL();
 
@@ -1183,6 +1147,8 @@ private:
     PassRefPtr<NodeList> handleZeroPadding(const HitTestRequest&, HitTestResult&) const;
 
     void loadEventDelayTimerFired(Timer<Document>*);
+
+    int m_guardRefCount;
 
     OwnPtr<CSSStyleSelector> m_styleSelector;
     bool m_didCalculateStyleSelector;
@@ -1312,8 +1278,8 @@ private:
     // http://www.whatwg.org/specs/web-apps/current-work/#ignore-destructive-writes-counter
     unsigned m_ignoreDestructiveWriteCount;
 
-    String m_title;
-    String m_rawTitle;
+    StringWithDirection m_title;
+    StringWithDirection m_rawTitle;
     bool m_titleSetExplicitly;
     RefPtr<Element> m_titleElement;
 
@@ -1344,8 +1310,6 @@ private:
     RefPtr<Document> m_transformSourceDocument;
 #endif
 
-    DocumentOrderedMap m_imageMapsByName;
-
     int m_docID; // A unique document identifier used for things like document-specific mapped attributes.
 
     String m_xmlEncoding;
@@ -1362,14 +1326,8 @@ private:
     
     RefPtr<TextResourceDecoder> m_decoder;
 
-    DocumentOrderedMap m_elementsById;
-    
-    mutable HashMap<StringImpl*, Element*, CaseFoldingHash> m_elementsByAccessKey;
-    
     InheritedBool m_designMode;
     
-    int m_selfOnlyRefCount;
-
     CheckedRadioButtons m_checkedRadioButtons;
 
     typedef HashMap<AtomicStringImpl*, CollectionCache*> NamedCollectionMap;
@@ -1392,7 +1350,6 @@ private:
 
     HashMap<String, RefPtr<HTMLCanvasElement> > m_cssCanvasElements;
 
-    mutable bool m_accessKeyMapValid;
     bool m_createRenderers;
     bool m_inPageCache;
     String m_iconURL;
@@ -1409,13 +1366,6 @@ private:
     bool m_usesViewSourceStyles;
     bool m_sawElementsInKnownNamespaces;
 
-    unsigned m_numNodeListCaches;
-
-#if USE(JSC)
-    JSWrapperCacheMap m_wrapperCacheMap;
-    JSWrapperCache* m_normalWorldWrapperCache;
-#endif
-
     bool m_usingGeolocation;
     
     RefPtr<EventQueue> m_eventQueue;
@@ -1431,7 +1381,6 @@ private:
     QualifiedName m_idAttributeName;
     
 #if ENABLE(FULLSCREEN_API)
-    bool m_isFullScreen;
     bool m_areKeysEnabledInFullScreen;
     RefPtr<Element> m_fullScreenElement;
     RenderFullScreen* m_fullScreenRenderer;
@@ -1458,23 +1407,13 @@ private:
     RefPtr<ContentSecurityPolicy> m_contentSecurityPolicy;
 };
 
-inline bool Document::hasElementWithId(AtomicStringImpl* id) const
-{
-    ASSERT(id);
-    return m_elementsById.contains(id);
-}
+// Put these methods here, because they require the Document definition, but we really want to inline them.
 
-inline bool Document::containsMultipleElementsWithId(const AtomicString& id) const
-{
-    return m_elementsById.containsMultiple(id.impl());
-}
-    
 inline bool Node::isDocumentNode() const
 {
     return this == m_document;
 }
 
-// here because it uses a Document method but we really want to inline it
 inline Node::Node(Document* document, ConstructionType type)
     : m_document(document)
     , m_previous(0)
@@ -1483,7 +1422,7 @@ inline Node::Node(Document* document, ConstructionType type)
     , m_nodeFlags(type)
 {
     if (m_document)
-        m_document->selfOnlyRef();
+        m_document->guardRef();
 #if !defined(NDEBUG) || (defined(DUMP_NODE_STATISTICS) && DUMP_NODE_STATISTICS)
     trackForDebugging();
 #endif

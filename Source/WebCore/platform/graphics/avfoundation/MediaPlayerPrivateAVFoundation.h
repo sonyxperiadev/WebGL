@@ -48,6 +48,7 @@ public:
     virtual void loadedTimeRangesChanged();
     virtual void seekableTimeRangesChanged();
     virtual void timeChanged(double);
+    virtual void seekCompleted(bool);
     virtual void didEnd();
 
     class Notification {
@@ -66,31 +67,45 @@ public:
             AssetMetadataLoaded,
             AssetPlayabilityKnown,
             PlayerRateChanged,
-            PlayerTimeChanged
+            PlayerTimeChanged,
+            SeekCompleted,
         };
         
         Notification()
             : m_type(None)
             , m_time(0)
+            , m_finished(false)
         {
         }
 
         Notification(Type type, double time)
             : m_type(type)
             , m_time(time)
+            , m_finished(false)
+        {
+        }
+        
+        Notification(Type type, bool finished)
+        : m_type(type)
+        , m_time(0)
+        , m_finished(finished)
         {
         }
         
         Type type() { return m_type; }
         bool isValid() { return m_type != None; }
         double time() { return m_time; }
+        bool finished() { return m_finished; }
         
     private:
         Type m_type;
         double m_time;
+        bool m_finished;
     };
 
+    void scheduleMainThreadNotification(Notification);
     void scheduleMainThreadNotification(Notification::Type, double time = 0);
+    void scheduleMainThreadNotification(Notification::Type, bool completed);
     void dispatchNotification();
     void clearMainThreadPendingFlag();
 
@@ -105,8 +120,8 @@ protected:
     virtual void prepareToPlay();
     virtual PlatformMedia platformMedia() const = 0;
 
-    virtual void play() = 0;
-    virtual void pause() = 0;
+    virtual void play();
+    virtual void pause();
 
     virtual IntSize naturalSize() const;
     virtual bool hasVideo() const { return m_cachedHasVideo; }
@@ -169,7 +184,10 @@ protected:
     };
     virtual AVAssetStatus assetStatus() const = 0;
 
+    virtual void platformPlay() = 0;
+    virtual void platformPause() = 0;
     virtual void checkPlayability() = 0;
+    virtual void updateRate() = 0;
     virtual float rate() const = 0;
     virtual void seekToTime(float time) = 0;
     virtual unsigned totalBytes() const = 0;
@@ -254,6 +272,8 @@ private:
     bool m_cachedHasVideo;
     bool m_cachedHasCaptions;
     bool m_ignoreLoadStateChanges;
+    bool m_haveReportedFirstVideoFrame;
+    bool m_playWhenFramesAvailable;
 };
 
 }

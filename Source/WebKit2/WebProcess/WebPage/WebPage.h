@@ -34,6 +34,7 @@
 #include "InjectedBundlePageContextMenuClient.h"
 #include "InjectedBundlePageEditorClient.h"
 #include "InjectedBundlePageFormClient.h"
+#include "InjectedBundlePageFullScreenClient.h"
 #include "InjectedBundlePageLoaderClient.h"
 #include "InjectedBundlePagePolicyClient.h"
 #include "InjectedBundlePageResourceLoadClient.h"
@@ -81,6 +82,7 @@ namespace WebCore {
     class ResourceRequest;
     class SharedBuffer;
     class VisibleSelection;
+    struct KeypressCommand;
 }
 
 namespace WebKit {
@@ -103,6 +105,8 @@ class WebOpenPanelResultListener;
 class WebPageGroupProxy;
 class WebPopupMenu;
 class WebWheelEvent;
+struct AttributedString;
+struct EditorState;
 struct PrintInfo;
 struct WebPageCreationParameters;
 struct WebPreferencesStore;
@@ -159,9 +163,12 @@ public:
     void layoutIfNeeded();
 
     // -- Called from WebCore clients.
-#if !PLATFORM(MAC)
+#if PLATFORM(MAC)
+    bool handleEditingKeyboardEvent(WebCore::KeyboardEvent*, bool saveCommands);
+#elif !PLATFORM(GTK)
     bool handleEditingKeyboardEvent(WebCore::KeyboardEvent*);
 #endif
+
     void show();
     String userAgent() const { return m_userAgent; }
     WebCore::IntRect windowResizerRect() const;
@@ -189,6 +196,9 @@ public:
     void initializeInjectedBundlePolicyClient(WKBundlePagePolicyClient*);
     void initializeInjectedBundleResourceLoadClient(WKBundlePageResourceLoadClient*);
     void initializeInjectedBundleUIClient(WKBundlePageUIClient*);
+#if ENABLE(FULLSCREEN_API)
+    void initializeInjectedBundleFullScreenClient(WKBundlePageFullScreenClient*);
+#endif
 
     InjectedBundlePageContextMenuClient& injectedBundleContextMenuClient() { return m_contextMenuClient; }
     InjectedBundlePageEditorClient& injectedBundleEditorClient() { return m_editorClient; }
@@ -197,11 +207,16 @@ public:
     InjectedBundlePagePolicyClient& injectedBundlePolicyClient() { return m_policyClient; }
     InjectedBundlePageResourceLoadClient& injectedBundleResourceLoadClient() { return m_resourceLoadClient; }
     InjectedBundlePageUIClient& injectedBundleUIClient() { return m_uiClient; }
+#if ENABLE(FULLSCREEN_API)
+    InjectedBundlePageFullScreenClient& injectedBundleFullScreenClient() { return m_fullScreenClient; }
+#endif
 
     bool findStringFromInjectedBundle(const String&, FindOptions);
 
     WebFrame* mainFrame() const { return m_mainFrame.get(); }
     PassRefPtr<Plugin> createPlugin(const Plugin::Parameters&);
+
+    EditorState editorState() const;
 
     String renderTreeExternalRepresentation() const;
     void executeEditingCommand(const String& commandName, const String& argument);
@@ -240,14 +255,13 @@ public:
     bool windowIsVisible() const { return m_windowIsVisible; }
     const WebCore::IntRect& windowFrameInScreenCoordinates() const { return m_windowFrameInScreenCoordinates; }
     const WebCore::IntRect& viewFrameInWindowCoordinates() const { return m_viewFrameInWindowCoordinates; }
-    bool interceptEditingKeyboardEvent(WebCore::KeyboardEvent*, bool);
 #elif PLATFORM(WIN)
     HWND nativeWindow() const { return m_nativeWindow; }
 #endif
 
     bool windowIsFocused() const;
     void installPageOverlay(PassRefPtr<PageOverlay>);
-    void uninstallPageOverlay(PageOverlay*);
+    void uninstallPageOverlay(PageOverlay*, bool fadeOut);
     bool hasPageOverlay() const { return m_pageOverlay; }
     WebCore::IntRect windowToScreen(const WebCore::IntRect&);
 
@@ -285,18 +299,20 @@ public:
         void invalidate();
 
         void beginLoad(WebFrame*, const SandboxExtension::Handle& handle);
+        void willPerformLoadDragDestinationAction(PassRefPtr<SandboxExtension> pendingDropSandboxExtension);
         void didStartProvisionalLoad(WebFrame*);
         void didCommitProvisionalLoad(WebFrame*);
         void didFailProvisionalLoad(WebFrame*);
+
     private:
+        void setPendingProvisionalSandboxExtension(PassRefPtr<SandboxExtension>);
+
         RefPtr<SandboxExtension> m_pendingProvisionalSandboxExtension;
         RefPtr<SandboxExtension> m_provisionalSandboxExtension;
         RefPtr<SandboxExtension> m_committedSandboxExtension;
     };
 
     SandboxExtensionTracker& sandboxExtensionTracker() { return m_sandboxExtensionTracker; }
-
-    static void getLocationAndLengthFromRange(WebCore::Range*, uint64_t& location, uint64_t& length);
 
 #if PLATFORM(MAC)
     void registerUIProcessAccessibilityTokens(const CoreIPC::DataReference& elemenToken, const CoreIPC::DataReference& windowToken);
@@ -305,16 +321,29 @@ public:
     
     void sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdentifier, const String& textInput);
 
+    void setComposition(const String& text, Vector<WebCore::CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd, EditorState& newState);
+    void confirmComposition(EditorState& newState);
+    void insertText(const String& text, uint64_t replacementRangeStart, uint64_t replacementRangeEnd, bool& handled, EditorState& newState);
     void getMarkedRange(uint64_t& location, uint64_t& length);
+    void getSelectedRange(uint64_t& location, uint64_t& length);
+    void getAttributedSubstringFromRange(uint64_t location, uint64_t length, AttributedString&);
     void characterIndexForPoint(const WebCore::IntPoint point, uint64_t& result);
     void firstRectForCharacterRange(uint64_t location, uint64_t length, WebCore::IntRect& resultRect);
+    void executeKeypressCommands(const Vector<WebCore::KeypressCommand>&, bool& handled, EditorState& newState);
     void writeSelectionToPasteboard(const WTF::String& pasteboardName, const WTF::Vector<WTF::String>& pasteboardTypes, bool& result);
     void readSelectionFromPasteboard(const WTF::String& pasteboardName, bool& result);
+    void shouldDelayWindowOrderingEvent(const WebKit::WebMouseEvent&, bool& result);
+    void acceptsFirstMouse(int eventNumber, const WebKit::WebMouseEvent&, bool& result);
+    bool performNonEditingBehaviorForSelector(const String&);
 #elif PLATFORM(WIN)
     void confirmComposition(const String& compositionString);
     void setComposition(const WTF::String& compositionString, const WTF::Vector<WebCore::CompositionUnderline>& underlines, uint64_t cursorPosition);
     void firstRectForCharacterInSelectedRange(const uint64_t characterPosition, WebCore::IntRect& resultRect);
     void getSelectedText(WTF::String&);
+
+    void gestureWillBegin(const WebCore::IntPoint&, bool& canBeginPanning);
+    void gestureDidScroll(const WebCore::IntSize&);
+    void gestureDidEnd();
 #endif
 
     // FIXME: This a dummy message, to avoid breaking the build for platforms that don't require
@@ -335,9 +364,11 @@ public:
 #if PLATFORM(WIN)
     void performDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, const WebCore::DragDataMap&, uint32_t flags);
 #else
-    void performDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, const WTF::String& dragStorageName, uint32_t flags);
+    void performDragControllerAction(uint64_t action, WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t draggingSourceOperationMask, const WTF::String& dragStorageName, uint32_t flags, const SandboxExtension::Handle&);
 #endif
     void dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, uint64_t operation);
+
+    void willPerformLoadDragDestinationAction();
 
     void beginPrinting(uint64_t frameID, const PrintInfo&);
     void endPrinting();
@@ -365,6 +396,9 @@ public:
 
     void forceRepaintWithoutCallback();
 
+    void unmarkAllMisspellings();
+    void unmarkAllBadGrammar();
+
 #if PLATFORM(MAC)
     void setDragSource(NSObject *);
 #endif
@@ -372,6 +406,12 @@ public:
 #if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
     void handleCorrectionPanelResult(const String&);
 #endif
+
+    void simulateMouseDown(int button, WebCore::IntPoint, int clickCount, WKEventModifiers, double time);
+    void simulateMouseUp(int button, WebCore::IntPoint, int clickCount, WKEventModifiers, double time);
+    void simulateMouseMotion(WebCore::IntPoint, double time);
+
+    void contextMenuShowing() { m_isShowingContextMenu = true; }
 
 private:
     WebPage(uint64_t pageID, const WebPageCreationParameters&);
@@ -383,8 +423,14 @@ private:
     void didReceiveWebPageMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
     CoreIPC::SyncReplyMode didReceiveSyncWebPageMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
 
+#if !PLATFORM(MAC)
     static const char* interpretKeyEvent(const WebCore::KeyboardEvent*);
+#endif
     bool performDefaultBehaviorForKeyEvent(const WebKeyboardEvent&);
+
+#if PLATFORM(MAC)
+    bool executeKeypressCommandsInternal(const Vector<WebCore::KeypressCommand>&, WebCore::KeyboardEvent*);
+#endif
 
     String sourceForFrame(WebFrame*);
 
@@ -399,6 +445,7 @@ private:
     void loadHTMLString(const String& htmlString, const String& baseURL);
     void loadAlternateHTMLString(const String& htmlString, const String& baseURL, const String& unreachableURL);
     void loadPlainTextString(const String&);
+    void linkClicked(const String& url, const WebMouseEvent&);
     void reload(bool reloadFromOrigin);
     void goForward(uint64_t, const SandboxExtension::Handle&);
     void goBack(uint64_t, const SandboxExtension::Handle&);
@@ -420,6 +467,7 @@ private:
 #if ENABLE(TOUCH_EVENTS)
     void touchEvent(const WebTouchEvent&);
 #endif
+    void contextMenuHidden() { m_isShowingContextMenu = false; }
 
     static void scroll(WebCore::Page*, WebCore::ScrollDirection, WebCore::ScrollGranularity);
     static void logicalScroll(WebCore::Page*, WebCore::ScrollLogicalDirection, WebCore::ScrollGranularity);
@@ -486,8 +534,6 @@ private:
 
     void advanceToNextMisspelling(bool startBeforeSelection);
     void changeSpellingToWord(const String& word);
-    void unmarkAllMisspellings();
-    void unmarkAllBadGrammar();
 #if PLATFORM(MAC)
     void uppercaseWord();
     void lowercaseWord();
@@ -545,9 +591,14 @@ private:
     RetainPtr<AccessibilityWebPageObject> m_mockAccessibilityElement;
 
     RetainPtr<NSObject> m_dragSource;
+
+    WebCore::KeyboardEvent* m_keyboardEventBeingInterpreted;
+
 #elif PLATFORM(WIN)
     // Our view's window (in the UI process).
     HWND m_nativeWindow;
+
+    RefPtr<WebCore::Node> m_gestureTargetNode;
 #endif
     
     HashMap<uint64_t, RefPtr<WebEditCommand> > m_editCommandMap;
@@ -561,6 +612,9 @@ private:
     InjectedBundlePagePolicyClient m_policyClient;
     InjectedBundlePageResourceLoadClient m_resourceLoadClient;
     InjectedBundlePageUIClient m_uiClient;
+#if ENABLE(FULLSCREEN_API)
+    InjectedBundlePageFullScreenClient m_fullScreenClient;
+#endif
 
 #if ENABLE(TILED_BACKING_STORE)
     WebCore::IntSize m_resizesToContentsLayoutSize;
@@ -585,6 +639,8 @@ private:
     SandboxExtensionTracker m_sandboxExtensionTracker;
     uint64_t m_pageID;
 
+    RefPtr<SandboxExtension> m_pendingDropSandboxExtension;
+
     bool m_canRunBeforeUnloadConfirmPanel;
 
     bool m_canRunModal;
@@ -594,6 +650,12 @@ private:
 
     bool m_cachedMainFrameIsPinnedToLeftSide;
     bool m_cachedMainFrameIsPinnedToRightSide;
+
+    bool m_isShowingContextMenu;
+
+#if PLATFORM(WIN)
+    bool m_gestureReachedScrollingLimit;
+#endif
 };
 
 } // namespace WebKit

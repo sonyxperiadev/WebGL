@@ -29,12 +29,8 @@
 #include "JSDOMWindow.h"
 #include <runtime/JSGlobalData.h>
 #include <runtime/JSLock.h>
-#include <runtime/Heap.h>
+#include <heap/Heap.h>
 #include <wtf/StdLibExtras.h>
-
-#if USE(PTHREADS)
-#include <pthread.h>
-#endif
 
 using namespace JSC;
 
@@ -78,13 +74,14 @@ void GCController::garbageCollectNow()
 
 void GCController::garbageCollectOnAlternateThreadForDebugging(bool waitUntilDone)
 {
-#if USE(PTHREADS)
-    pthread_t thread;
-    pthread_create(&thread, NULL, collect, NULL);
+    ThreadIdentifier threadID = createThread(collect, 0, "WebCore: GCController");
 
-    if (waitUntilDone)
-        pthread_join(thread, NULL);
-#endif
+    if (waitUntilDone) {
+        waitForThreadCompletion(threadID, 0);
+        return;
+    }
+
+    detachThread(threadID);
 }
 
 } // namespace WebCore

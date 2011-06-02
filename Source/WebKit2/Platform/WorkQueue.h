@@ -46,8 +46,10 @@
 class QObject;
 class QThread;
 #elif PLATFORM(GTK)
+#include "PlatformProcessIdentifier.h"
 typedef struct _GMainContext GMainContext;
 typedef struct _GMainLoop GMainLoop;
+typedef gboolean (*GSourceFunc) (gpointer data);
 #endif
 
 class WorkQueue {
@@ -87,6 +89,7 @@ public:
 #elif PLATFORM(GTK)
     void registerEventSourceHandler(int, int, PassOwnPtr<WorkItem>);
     void unregisterEventSourceHandler(int);
+    void scheduleWorkOnTermination(WebKit::PlatformProcessIdentifier, PassOwnPtr<WorkItem>);
 #endif
 
 private:
@@ -165,6 +168,7 @@ private:
 #elif PLATFORM(GTK)
     static void* startWorkQueueThread(WorkQueue*);
     void workQueueThreadBody();
+    void scheduleWorkOnSource(GSource*, PassOwnPtr<WorkItem>, GSourceFunc);
 
     ThreadIdentifier m_workQueueThread;
     GMainContext* m_eventContext;

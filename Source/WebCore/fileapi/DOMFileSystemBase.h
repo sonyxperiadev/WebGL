@@ -34,7 +34,7 @@
 #if ENABLE(FILE_SYSTEM)
 
 #include "AsyncFileSystem.h"
-#include "Flags.h"
+#include "WebKitFlags.h"
 #include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -66,6 +66,8 @@ public:
     static const size_t kPersistentPathPrefixLength;
     static const char kTemporaryPathPrefix[];
     static const size_t kTemporaryPathPrefixLength;
+    static const char kExternalPathPrefix[];
+    static const size_t kExternalPathPrefixLength;
     static bool crackFileSystemURL(const KURL&, AsyncFileSystem::Type&, String& filePath);
 
     const String& name() const { return m_name; }
@@ -80,8 +82,8 @@ public:
     bool remove(const EntryBase*, PassRefPtr<VoidCallback>, PassRefPtr<ErrorCallback>);
     bool removeRecursively(const EntryBase*, PassRefPtr<VoidCallback>, PassRefPtr<ErrorCallback>);
     bool getParent(const EntryBase*, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
-    bool getFile(const EntryBase*, const String& path, PassRefPtr<Flags>, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
-    bool getDirectory(const EntryBase*, const String& path, PassRefPtr<Flags>, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
+    bool getFile(const EntryBase*, const String& path, PassRefPtr<WebKitFlags>, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
+    bool getDirectory(const EntryBase*, const String& path, PassRefPtr<WebKitFlags>, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
     bool readDirectory(PassRefPtr<DirectoryReaderBase>, const String& path, PassRefPtr<EntriesCallback>, PassRefPtr<ErrorCallback>);
 
 protected:

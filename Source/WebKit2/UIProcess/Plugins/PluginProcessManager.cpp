@@ -45,14 +45,13 @@ PluginProcessManager::PluginProcessManager()
 {
 }
 
-void PluginProcessManager::getPluginProcessConnection(const String& pluginPath, WebProcessProxy* webProcessProxy, CoreIPC::ArgumentEncoder* reply)
+void PluginProcessManager::getPluginProcessConnection(PluginInfoStore* pluginInfoStore, const String& pluginPath, PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply)
 {
     ASSERT(!pluginPath.isNull());
 
-    PluginInfoStore::Plugin plugin = webProcessProxy->context()->pluginInfoStore()->infoForPluginWithPath(pluginPath);
+    PluginInfoStore::Plugin plugin = pluginInfoStore->infoForPluginWithPath(pluginPath);
     PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(plugin);
-
-    pluginProcess->createWebProcessConnection(webProcessProxy, reply);
+    pluginProcess->getPluginProcessConnection(reply);
 }
 
 void PluginProcessManager::removePluginProcessProxy(PluginProcessProxy* pluginProcessProxy)
@@ -75,12 +74,28 @@ void PluginProcessManager::clearSiteData(const PluginInfoStore::Plugin& plugin, 
     pluginProcess->clearSiteData(webPluginSiteDataManager, sites, flags, maxAgeInSeconds, callbackID);
 }
 
-PluginProcessProxy* PluginProcessManager::getOrCreatePluginProcess(const PluginInfoStore::Plugin& plugin)
+void PluginProcessManager::pluginSyncMessageSendTimedOut(const String& pluginPath)
+{
+    PluginProcessProxy* pluginProcess = pluginProcessWithPath(pluginPath);
+    if (!pluginProcess)
+        return;
+
+    pluginProcess->terminate();
+}
+
+PluginProcessProxy* PluginProcessManager::pluginProcessWithPath(const String& pluginPath)
 {
     for (size_t i = 0; i < m_pluginProcesses.size(); ++i) {
-        if (m_pluginProcesses[i]->pluginInfo().path == plugin.path)
+        if (m_pluginProcesses[i]->pluginInfo().path == pluginPath)
             return m_pluginProcesses[i];
     }
+    return 0;
+}
+
+PluginProcessProxy* PluginProcessManager::getOrCreatePluginProcess(const PluginInfoStore::Plugin& plugin)
+{
+    if (PluginProcessProxy* pluginProcess = pluginProcessWithPath(plugin.path))
+        return pluginProcess;
 
     PluginProcessProxy* pluginProcess = PluginProcessProxy::create(this, plugin).leakPtr();
     m_pluginProcesses.append(pluginProcess);

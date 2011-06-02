@@ -102,6 +102,7 @@
 #include "WebDevToolsAgentPrivate.h"
 #include "WebDragData.h"
 #include "WebFrameImpl.h"
+#include "WebGraphicsContext3D.h"
 #include "WebImage.h"
 #include "WebInputElement.h"
 #include "WebInputEvent.h"
@@ -125,7 +126,7 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/RefPtr.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CGBitmapContext.h>
 #include <CoreGraphics/CGContext.h>
 #endif
@@ -620,11 +621,6 @@ bool WebViewImpl::keyEvent(const WebKeyboardEvent& event)
     }
 #endif // OS(WINDOWS) || OS(LINUX) || OS(FREEBSD)
 
-    // It's not clear if we should continue after detecting a capslock keypress.
-    // I'll err on the side of continuing, which is the pre-existing behaviour.
-    if (event.windowsKeyCode == VKEY_CAPITAL)
-        handler->capsLockStateMayHaveChanged();
-
     PlatformKeyboardEventBuilder evt(event);
 
     if (handler->keyEvent(evt)) {
@@ -1043,7 +1039,7 @@ void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect
     // PlatformGraphicsContext is actually a pointer to PlatformContextSkia
     GraphicsContext gc(reinterpret_cast<PlatformGraphicsContext*>(&context));
     int bitmapHeight = canvas->getDevice()->accessBitmap(false).height();
-#elif PLATFORM(CG)
+#elif USE(CG)
     GraphicsContext gc(canvas);
     int bitmapHeight = CGBitmapContextGetHeight(reinterpret_cast<CGContextRef>(canvas));
 #else
@@ -1273,7 +1269,7 @@ void WebViewImpl::setFocus(bool enable)
                 Element* element = static_cast<Element*>(focusedNode);
                 if (element->isTextFormControl())
                     element->updateFocusAppearance(true);
-                else if (focusedNode->rendererIsEditable()) {
+                else if (focusedNode->isContentEditable()) {
                     // updateFocusAppearance() selects all the text of
                     // contentseditable DIVs. So we set the selection explicitly
                     // instead. Note that this has the side effect of moving the
@@ -1335,7 +1331,7 @@ bool WebViewImpl::setComposition(
     PassRefPtr<Range> range = editor->compositionRange();
     if (range) {
         const Node* node = range->startContainer();
-        if (!node || !node->rendererIsEditable())
+        if (!node || !node->isContentEditable())
             return false;
     }
 
@@ -1384,7 +1380,7 @@ bool WebViewImpl::confirmComposition(const WebString& text)
     PassRefPtr<Range> range = editor->compositionRange();
     if (range) {
         const Node* node = range->startContainer();
-        if (!node || !node->rendererIsEditable())
+        if (!node || !node->isContentEditable())
             return false;
     }
 
@@ -1443,20 +1439,51 @@ WebRect WebViewImpl::caretOrSelectionBounds()
     if (!view)
         return rect;
 
-    const Node* node = controller->start().deprecatedNode();
+    const Node* node = controller->base().containerNode();
     if (!node || !node->renderer())
         return rect;
 
     if (controller->isCaret())
         rect = view->contentsToWindow(controller->absoluteCaretBounds());
     else if (controller->isRange()) {
-        node = controller->end().deprecatedNode();
-        if (!node || !node->renderer())
-            return rect;
+        node = controller->extent().containerNode();
         RefPtr<Range> range = controller->toNormalizedRange();
+        if (!node || !node->renderer() || !range)
+            return rect;
         rect = view->contentsToWindow(focused->editor()->firstRectForRange(range.get()));
     }
     return rect;
+}
+
+bool WebViewImpl::selectionRange(WebPoint& start, WebPoint& end) const
+{
+    const Frame* frame = focusedWebCoreFrame();
+    if (!frame)
+        return false;
+    RefPtr<Range> selectedRange = frame->selection()->toNormalizedRange();
+    RefPtr<Range> range(Range::create(selectedRange->startContainer()->document(),
+                                      selectedRange->startContainer(),
+                                      selectedRange->startOffset(),
+                                      selectedRange->startContainer(),
+                                      selectedRange->startOffset()));
+
+    IntRect rect = frame->editor()->firstRectForRange(range.get());
+    start.x = rect.x();
+    start.y = rect.y() + rect.height() - 1;
+
+    range = Range::create(selectedRange->endContainer()->document(),
+                          selectedRange->endContainer(),
+                          selectedRange->endOffset(),
+                          selectedRange->endContainer(),
+                          selectedRange->endOffset());
+
+    rect = frame->editor()->firstRectForRange(range.get());
+    end.x = rect.x() + rect.width() - 1;
+    end.y = rect.y() + rect.height() - 1;
+
+    start = frame->view()->contentsToWindow(start);
+    end = frame->view()->contentsToWindow(end);
+    return true;
 }
 
 void WebViewImpl::setTextDirection(WebTextDirection direction)
@@ -1790,21 +1817,6 @@ void WebViewImpl::dragSourceSystemDragEnded()
         m_page->dragController()->dragEnded();
         m_doingDragAndDrop = false;
     }
-}
-
-WebDragOperation WebViewImpl::dragTargetDragEnter(
-    const WebDragData& webDragData, int identity, // FIXME: remove identity from this function signature.
-    const WebPoint& clientPoint,
-    const WebPoint& screenPoint,
-    WebDragOperationsMask operationsAllowed)
-{
-    ASSERT(!m_currentDragData.get());
-
-    m_currentDragData = webDragData;
-    UNUSED_PARAM(identity);
-    m_operationsAllowed = operationsAllowed;
-
-    return dragTargetDragEnterOrOver(clientPoint, screenPoint, DragEnter);
 }
 
 WebDragOperation WebViewImpl::dragTargetDragEnter(
@@ -2367,35 +2379,6 @@ private:
     WebViewImpl* m_webViewImpl;
 };
 
-class WebViewImplScrollbarPainter : public TilePaintInterface {
-    WTF_MAKE_NONCOPYABLE(WebViewImplScrollbarPainter);
-public:
-    static PassOwnPtr<WebViewImplScrollbarPainter> create(WebViewImpl* webViewImpl)
-    {
-        return adoptPtr(new WebViewImplScrollbarPainter(webViewImpl));
-    }
-
-    virtual void paint(GraphicsContext& context, const IntRect& contentRect)
-    {
-        Page* page = m_webViewImpl->page();
-        if (!page)
-            return;
-        FrameView* view = page->mainFrame()->view();
-
-        context.translate(static_cast<float>(view->scrollX()), static_cast<float>(view->scrollY()));
-        IntRect windowRect = view->contentsToWindow(contentRect);
-        view->paintScrollbars(&context, windowRect);
-    }
-
-private:
-    explicit WebViewImplScrollbarPainter(WebViewImpl* webViewImpl)
-        : m_webViewImpl(webViewImpl)
-    {
-    }
-
-    WebViewImpl* m_webViewImpl;
-};
-
 void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 {
     PlatformBridge::histogramEnumeration("GPU.setIsAcceleratedCompositingActive", active * 2 + m_isAcceleratedCompositingActive, 4);
@@ -2425,7 +2408,8 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
                 context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
         }
 
-        m_layerRenderer = LayerRendererChromium::create(context.release(), WebViewImplContentPainter::create(this), WebViewImplScrollbarPainter::create(this));
+
+        m_layerRenderer = LayerRendererChromium::create(context.release(), WebViewImplContentPainter::create(this));
         if (m_layerRenderer) {
             m_client->didActivateAcceleratedCompositing(true);
             m_isAcceleratedCompositingActive = true;
@@ -2463,10 +2447,13 @@ void WebViewImpl::doComposite()
 
 void WebViewImpl::reallocateRenderer()
 {
-    RefPtr<GraphicsContext3D> newContext = GraphicsContext3D::create(
+    RefPtr<GraphicsContext3D> newContext = m_temporaryOnscreenGraphicsContext3D.get();
+    WebGraphicsContext3D* webContext = GraphicsContext3DInternal::extractWebGraphicsContext3D(newContext.get());
+    if (!newContext || !webContext || webContext->isContextLost())
+        newContext = GraphicsContext3D::create(
             getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
     // GraphicsContext3D::create might fail and return 0, in that case LayerRendererChromium::create will also return 0.
-    RefPtr<LayerRendererChromium> layerRenderer = LayerRendererChromium::create(newContext, WebViewImplContentPainter::create(this), WebViewImplScrollbarPainter::create(this));
+    RefPtr<LayerRendererChromium> layerRenderer = LayerRendererChromium::create(newContext, WebViewImplContentPainter::create(this));
 
     // Reattach the root layer.  Child layers will get reattached as a side effect of updateLayersRecursive.
     if (layerRenderer) {
@@ -2506,18 +2493,20 @@ WebGraphicsContext3D* WebViewImpl::graphicsContext3D()
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (m_page->settings()->acceleratedCompositingEnabled() && allowsAcceleratedCompositing()) {
-        GraphicsContext3D* context = 0;
-        if (m_layerRenderer)
-            context = m_layerRenderer->context();
-        else if (m_temporaryOnscreenGraphicsContext3D)
-            context = m_temporaryOnscreenGraphicsContext3D.get();
-        else {
-            m_temporaryOnscreenGraphicsContext3D = GraphicsContext3D::create(getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
-            if (m_temporaryOnscreenGraphicsContext3D)
-                m_temporaryOnscreenGraphicsContext3D->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
-            context = m_temporaryOnscreenGraphicsContext3D.get();
+        if (m_layerRenderer) {
+            WebGraphicsContext3D* webContext = GraphicsContext3DInternal::extractWebGraphicsContext3D(m_layerRenderer->context());
+            if (webContext && !webContext->isContextLost())
+                return webContext;
         }
-        return GraphicsContext3DInternal::extractWebGraphicsContext3D(context);
+        if (m_temporaryOnscreenGraphicsContext3D) {
+            WebGraphicsContext3D* webContext = GraphicsContext3DInternal::extractWebGraphicsContext3D(m_temporaryOnscreenGraphicsContext3D.get());
+            if (webContext && !webContext->isContextLost())
+                return webContext;
+        }
+        m_temporaryOnscreenGraphicsContext3D = GraphicsContext3D::create(getCompositorContextAttributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+        if (m_temporaryOnscreenGraphicsContext3D)
+            m_temporaryOnscreenGraphicsContext3D->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
+        return GraphicsContext3DInternal::extractWebGraphicsContext3D(m_temporaryOnscreenGraphicsContext3D.get());
     }
 #endif
     return 0;

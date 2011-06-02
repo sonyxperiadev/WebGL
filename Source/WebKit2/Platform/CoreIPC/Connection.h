@@ -44,6 +44,9 @@
 #include <string>
 #elif PLATFORM(QT)
 class QSocketNotifier;
+#endif
+
+#if PLATFORM(QT) || PLATFORM(GTK)
 #include "PlatformProcessIdentifier.h"
 #endif
 
@@ -90,7 +93,11 @@ public:
     public:
         virtual void didClose(Connection*) = 0;
         virtual void didReceiveInvalidMessage(Connection*, MessageID) = 0;
-        virtual void didFailToSendSyncMessage(Connection*) { }
+        virtual void syncMessageSendTimedOut(Connection*) = 0;
+
+#if PLATFORM(WIN)
+        virtual Vector<HWND> windowsToReceiveSentMessagesWhileWaitingForSyncReply() = 0;
+#endif
     };
 
 #if PLATFORM(MAC)
@@ -98,9 +105,7 @@ public:
 #elif PLATFORM(WIN)
     typedef HANDLE Identifier;
     static bool createServerAndClientIdentifiers(Identifier& serverIdentifier, Identifier& clientIdentifier);
-#elif PLATFORM(QT)
-    typedef int Identifier;
-#elif PLATFORM(GTK)
+#elif USE(UNIX_DOMAIN_SOCKETS)
     typedef int Identifier;
 #endif
 
@@ -110,11 +115,12 @@ public:
 
 #if PLATFORM(MAC)
     void setShouldCloseConnectionOnMachExceptions();
-#elif PLATFORM(QT)
+#elif PLATFORM(QT) || PLATFORM(GTK)
     void setShouldCloseConnectionOnProcessTermination(WebKit::PlatformProcessIdentifier);
 #endif
 
     void setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(bool);
+    void setShouldExitOnSyncMessageSendFailure(bool shouldExitOnSyncMessageSendFailure);
 
     // The set callback will be called on the connection work queue when the connection is closed, 
     // before didCall is called on the client thread. Must be called before the connection is opened.
@@ -128,10 +134,13 @@ public:
     void invalidate();
     void markCurrentlyDispatchedMessageAsInvalid();
 
-    static const unsigned long long NoTimeout = 10000000000ULL;
+    void setDefaultSyncMessageTimeout(double);
+
+    static const int DefaultTimeout = 0;
+    static const int NoTimeout = -1;
 
     template<typename T> bool send(const T& message, uint64_t destinationID, unsigned messageSendFlags = 0);
-    template<typename T> bool sendSync(const T& message, const typename T::Reply& reply, uint64_t destinationID, double timeout = NoTimeout);
+    template<typename T> bool sendSync(const T& message, const typename T::Reply& reply, uint64_t destinationID, double timeout = DefaultTimeout);
     template<typename T> bool waitForAndDispatchImmediately(uint64_t destinationID, double timeout);
 
     PassOwnPtr<ArgumentEncoder> createSyncMessageArgumentEncoder(uint64_t destinationID, uint64_t& syncRequestID);
@@ -208,6 +217,7 @@ private:
     void dispatchMessage(IncomingMessage&);
     void dispatchMessages();
     void dispatchSyncMessage(MessageID, ArgumentDecoder*);
+    void didFailToSendSyncMessage();
 
     // Can be called on any thread.
     void enqueueIncomingMessage(IncomingMessage&);
@@ -217,6 +227,7 @@ private:
     uint64_t m_syncRequestID;
 
     bool m_onlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage;
+    bool m_shouldExitOnSyncMessageSendFailure;
     DidCloseOnConnectionWorkQueueCallback m_didCloseOnConnectionWorkQueueCallback;
 
     bool m_isConnected;
@@ -226,6 +237,8 @@ private:
     unsigned m_inDispatchMessageCount;
     unsigned m_inDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount;
     bool m_didReceiveInvalidMessage;
+
+    double m_defaultSyncMessageTimeout;
 
     // Incoming messages.
     Mutex m_incomingMessagesLock;
@@ -305,23 +318,17 @@ private:
     OwnPtr<ArgumentEncoder> m_pendingWriteArguments;
     OVERLAPPED m_writeState;
     HANDLE m_connectionPipe;
-#elif PLATFORM(QT)
+#elif USE(UNIX_DOMAIN_SOCKETS)
     // Called on the connection queue.
     void readyReadHandler();
 
     Vector<uint8_t> m_readBuffer;
     size_t m_currentMessageSize;
-    QSocketNotifier* m_socketNotifier;
     int m_socketDescriptor;
-#elif PLATFORM(GTK)
-    void readEventHandler();
-    void processCompletedMessage();
-    bool messageProcessingCompleted() { return !m_currentMessageSize; }
 
-    int m_socket;
-    Vector<uint8_t> m_readBuffer;
-    size_t m_currentMessageSize;
-    size_t m_pendingBytes;
+#if PLATFORM(QT)
+    QSocketNotifier* m_socketNotifier;
+#endif
 #endif
 };
 

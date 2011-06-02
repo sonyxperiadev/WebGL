@@ -29,9 +29,17 @@ using namespace JSC;
 
 namespace WebCore {
 
+void JSDOMWrapperOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
+{
+    JSDOMWrapper* wrapper = static_cast<JSDOMWrapper*>(handle.get().asCell());
+    void* domObject = context;
+    uncacheWrapper(m_world, domObject, wrapper);
+}
+
 DOMWrapperWorld::DOMWrapperWorld(JSC::JSGlobalData* globalData, bool isNormal)
     : m_globalData(globalData)
     , m_isNormal(isNormal)
+    , m_defaultWrapperOwner(this)
 {
     JSGlobalData::ClientData* clientData = m_globalData->clientData;
     ASSERT(clientData);
@@ -45,9 +53,6 @@ DOMWrapperWorld::~DOMWrapperWorld()
     static_cast<WebCoreJSClientData*>(clientData)->forgetWorld(this);
 
     // These items are created lazily.
-    while (!m_documentsWithWrapperCaches.isEmpty())
-        (*m_documentsWithWrapperCaches.begin())->destroyWrapperCache(this);
-
     while (!m_scriptControllersWithWindowShells.isEmpty())
         (*m_scriptControllersWithWindowShells.begin())->destroyWindowShell(this);
 }
@@ -58,9 +63,6 @@ void DOMWrapperWorld::clearWrappers()
     m_stringCache.clear();
 
     // These items are created lazily.
-    while (!m_documentsWithWrapperCaches.isEmpty())
-        (*m_documentsWithWrapperCaches.begin())->destroyWrapperCache(this);
-
     while (!m_scriptControllersWithWindowShells.isEmpty())
         (*m_scriptControllersWithWindowShells.begin())->destroyWindowShell(this);
 }

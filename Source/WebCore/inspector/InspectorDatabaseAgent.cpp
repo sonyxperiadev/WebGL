@@ -36,6 +36,7 @@
 #include "ExceptionCode.h"
 #include "InspectorDatabaseResource.h"
 #include "InspectorFrontend.h"
+#include "InspectorState.h"
 #include "InspectorValues.h"
 #include "InstrumentingAgents.h"
 #include "SQLError.h"
@@ -51,6 +52,10 @@
 #include <wtf/Vector.h>
 
 namespace WebCore {
+
+namespace DatabaseAgentState {
+static const char databaseAgentEnabled[] = "databaseAgentEnabled";
+};
 
 class InspectorDatabaseAgent::FrontendProvider : public RefCounted<InspectorDatabaseAgent::FrontendProvider> {
 public:
@@ -220,10 +225,15 @@ private:
 
 void InspectorDatabaseAgent::didOpenDatabase(PassRefPtr<Database> database, const String& domain, const String& name, const String& version)
 {
+    if (InspectorDatabaseResource* resource = findByFileName(database->fileName())) {
+        resource->setDatabase(database);
+        return;
+    }
+
     RefPtr<InspectorDatabaseResource> resource = InspectorDatabaseResource::create(database, domain, name, version);
     m_resources.set(resource->id(), resource);
     // Resources are only bound while visible.
-    if (m_frontendProvider)
+    if (m_frontendProvider && m_enabled)
         resource->bind(m_frontendProvider->frontend());
 }
 
@@ -232,8 +242,10 @@ void InspectorDatabaseAgent::clearResources()
     m_resources.clear();
 }
 
-InspectorDatabaseAgent::InspectorDatabaseAgent(InstrumentingAgents* instrumentingAgents)
+InspectorDatabaseAgent::InspectorDatabaseAgent(InstrumentingAgents* instrumentingAgents, InspectorState* state)
     : m_instrumentingAgents(instrumentingAgents)
+    , m_inspectorState(state)
+    , m_enabled(false)
 {
     m_instrumentingAgents->setInspectorDatabaseAgent(this);
 }
@@ -246,19 +258,47 @@ InspectorDatabaseAgent::~InspectorDatabaseAgent()
 void InspectorDatabaseAgent::setFrontend(InspectorFrontend* frontend)
 {
     m_frontendProvider = FrontendProvider::create(frontend);
-    DatabaseResourcesMap::iterator databasesEnd = m_resources.end();
-    for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != databasesEnd; ++it)
-        it->second->bind(m_frontendProvider->frontend());
 }
 
 void InspectorDatabaseAgent::clearFrontend()
 {
     m_frontendProvider->clearFrontend();
     m_frontendProvider.clear();
+    disable(0);
 }
 
-void InspectorDatabaseAgent::getDatabaseTableNames(ErrorString*, int databaseId, RefPtr<InspectorArray>* names)
+void InspectorDatabaseAgent::enable(ErrorString*)
 {
+    if (m_enabled)
+        return;
+    m_enabled = true;
+    m_inspectorState->setBoolean(DatabaseAgentState::databaseAgentEnabled, m_enabled);
+
+    DatabaseResourcesMap::iterator databasesEnd = m_resources.end();
+    for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != databasesEnd; ++it)
+        it->second->bind(m_frontendProvider->frontend());
+}
+
+void InspectorDatabaseAgent::disable(ErrorString*)
+{
+    if (!m_enabled)
+        return;
+    m_enabled = false;
+    m_inspectorState->setBoolean(DatabaseAgentState::databaseAgentEnabled, m_enabled);
+}
+
+void InspectorDatabaseAgent::restore()
+{
+    m_enabled =  m_inspectorState->getBoolean(DatabaseAgentState::databaseAgentEnabled);
+}
+
+void InspectorDatabaseAgent::getDatabaseTableNames(ErrorString* error, int databaseId, RefPtr<InspectorArray>* names)
+{
+    if (!m_enabled) {
+        *error = "Database agent is not enabled";
+        return;
+    }
+
     Database* database = databaseForId(databaseId);
     if (database) {
         Vector<String> tableNames = database->tableNames();
@@ -268,8 +308,13 @@ void InspectorDatabaseAgent::getDatabaseTableNames(ErrorString*, int databaseId,
     }
 }
 
-void InspectorDatabaseAgent::executeSQL(ErrorString*, int databaseId, const String& query, bool* success, int* transactionId)
+void InspectorDatabaseAgent::executeSQL(ErrorString* error, int databaseId, const String& query, bool* success, int* transactionId)
 {
+    if (!m_enabled) {
+        *error = "Database agent is not enabled";
+        return;
+    }
+
     Database* database = databaseForId(databaseId);
     if (!database) {
         *success = false;
@@ -289,6 +334,15 @@ int InspectorDatabaseAgent::databaseId(Database* database)
     for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
         if (it->second->database() == database)
             return it->first;
+    }
+    return 0;
+}
+
+InspectorDatabaseResource* InspectorDatabaseAgent::findByFileName(const String& fileName)
+{
+    for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
+        if (it->second->database()->fileName() == fileName)
+            return it->second.get();
     }
     return 0;
 }

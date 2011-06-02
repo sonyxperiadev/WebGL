@@ -31,6 +31,7 @@
 #import "WKAPICast.h"
 #import "WKView.h"
 #import "WebPageProxy.h"
+#import "WebProcessProxy.h"
 #import <WebKitSystemInterface.h>
 #import <WebCore/LocalizedStrings.h>
 #import <wtf/text/WTFString.h>
@@ -80,7 +81,7 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
     ASSERT(m_page);
     ASSERT(!m_inspectorView);
 
-    m_inspectorView.adoptNS([[WKView alloc] initWithFrame:NSZeroRect contextRef:toAPI(page()->context()) pageGroupRef:toAPI(inspectorPageGroup())]);
+    m_inspectorView.adoptNS([[WKView alloc] initWithFrame:NSZeroRect contextRef:toAPI(page()->process()->context()) pageGroupRef:toAPI(inspectorPageGroup())]);
     ASSERT(m_inspectorView);
 
     [m_inspectorView.get() setDrawsBackground:NO];
@@ -135,7 +136,7 @@ void WebInspectorProxy::platformClose()
 
 void WebInspectorProxy::platformInspectedURLChanged(const String& urlString)
 {
-    NSString *title = [NSString stringWithFormat:UI_STRING("Web Inspector — %@", "Web Inspector window title"), (NSString *)urlString];
+    NSString *title = [NSString stringWithFormat:WEB_UI_STRING("Web Inspector — %@", "Web Inspector window title"), (NSString *)urlString];
     [m_inspectorWindow.get() setTitle:title];
 }
 

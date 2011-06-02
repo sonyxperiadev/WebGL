@@ -1,3 +1,159 @@
+2011-04-19  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Roll r81683 back in.
+
+        Going to certain pages causes a download of "st.html" or "jsp.html" (news.yahoo.com, etc.)
+        <rdar://problem/9139245>
+
+        "Windows edition".
+
+        * win/lib/WebKitSystemInterface.lib:
+
+2011-04-15  Shishir Agrawal  <shishir@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Add a flag to guard Page Visibility API changes.
+        https://bugs.webkit.org/show_bug.cgi?id=58464
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+
+2011-04-14  Pratik Solanki  <psolanki@apple.com>
+
+        Reviewed by David Kilzer.
+
+        Set minimum priority for fast lane connections
+        https://bugs.webkit.org/show_bug.cgi?id=58353
+
+        Add WKSetHTTPPipeliningMinimumFastLanePriority.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+
+2011-04-08  Alpha Lam  <hclam@chromium.org>
+
+        Unreviewed, rolling out r83335.
+        http://trac.webkit.org/changeset/83335
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        GTK and QT bots are broken
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops:
+
+2011-04-07  Anna Cavender  <annacc@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Setup ENABLE(TRACK) feature define
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops:
+
+2011-04-07  Andrew Scherkus  <scherkus@chromium.org>
+
+        Revert ENABLE_TRACK patch due to compile failures.
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops:
+
+2011-04-06  Dai Mikurube  <dmikurube@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add QUOTA build flag for unified quota API
+        https://bugs.webkit.org/show_bug.cgi?id=57918
+
+        * win/tools/vsprops/FeatureDefines.vsprops: Added QUOTA build flag
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops: Added QUOTA build flag
+
+2011-04-04  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/57384> CFNetwork and WebCore load priorities should match
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKitSystemInterface.h:
+        (WKSetHTTPPipeliningMaximumPriority): Added declaration.
+        (WKExtractWordDefinitionTokenRangeFromContextualString): Added
+        missing declaration from r81890.
+        (WKShowWordDefinitionWindow): Ditto.
+        (WKHideWordDefinitionWindow): Ditto.
+        * libWebKitSystemInterfaceLeopard.a: Updated.
+        * libWebKitSystemInterfaceSnowLeopard.a: Updated.
+
+2011-04-04  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Remove unused AnalyzeWithLargeStack code from Windows build files
+        https://bugs.webkit.org/show_bug.cgi?id=57771
+        
+        This was used for us to build with prefast automatically,
+        but it is out-of-date and hasn't been used for some time.
+        Removing completely for now.
+
+        * win/tools/vsprops/common.vsprops:
+
+2011-04-04  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Brian Weinstein.
+
+        Fix Windows build warning.
+        https://bugs.webkit.org/show_bug.cgi?id=57767
+
+        * win/tools/vsprops/common.vsprops:
+
+2011-04-01  Brent Fulgham  <bfulgham@webkit.org>
+
+        [WinCairo] Unreviewed build fix.
+
+        Define DEBUG_ALL for WinCairo debug builds so that the correct
+        labeled DLLs ("*_debug.dll") are linked for testing runs.
+
+        * win/tools/vsprops/debug_wincairo.vsprops:
+
+2011-04-01  Timothy Hatcher  <timothy@apple.com>
+
+        Make momentum scroll event latching work in WebKit2 on Mac.
+
+        <rdar://problem/8751861>
+
+        Reviewed by Darin Adler.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a: Updated to remove WKIsLatchingWheelEvent and add WKGetNSEventMomentumPhase.
+        * libWebKitSystemInterfaceSnowLeopard.a: Ditto.
+
+2011-03-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Should turn off frame pointer omission (FPO) for Release (not Production) builds
+        https://bugs.webkit.org/show_bug.cgi?id=54403
+
+        Leave it enabled for Windows Production builds.
+        Disabling this optimization improves stack traces for memory and performance tools like umdh and xperf.
+        
+        We use both /Oy- and OmitFramePointers="false" since OmitFramePointers="false" isnt' enough
+        to override /O2.
+
+        * win/tools/vsprops/release.vsprops:
+
+2011-03-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Share most vsprops between Release and Production builds in releaseproduction.vsprops
+        https://bugs.webkit.org/show_bug.cgi?id=57508
+
+        * win/tools/vsprops/release.vsprops:
+        * win/tools/vsprops/releaseproduction.vsprops: Copied from WebKitLibraries/win/tools/vsprops/release.vsprops.
+
 2011-03-30  Steve Falkenburg  <sfalken@apple.com>
 
         Rubber stamped by Adam Roben.

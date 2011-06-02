@@ -51,7 +51,7 @@
 #include "RefCountedGDIHandle.h"
 #endif
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
 #include "HashFunctions.h"
 #include <cairo.h>
 #endif
@@ -86,7 +86,7 @@ typedef const struct __CTFont* CTFontRef;
 typedef struct HFONT__* HFONT;
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
 typedef struct CGFont* CGFontRef;
 #if OS(DARWIN)
 #ifndef BUILDING_ON_TIGER
@@ -119,9 +119,9 @@ public:
 #elif OS(DARWIN)
         , m_font(hashTableDeletedFontValue())
 #endif
-#if PLATFORM(CG) && (defined(BUILDING_ON_TIGER) || PLATFORM(WIN))
+#if USE(CG) && (defined(BUILDING_ON_TIGER) || PLATFORM(WIN))
         , m_cgFont(0)
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
         , m_scaledFont(hashTableDeletedFontValue())
 #endif
         , m_isColorBitmapFont(false)
@@ -141,9 +141,9 @@ public:
 #if OS(DARWIN)
         , m_font(0)
 #endif
-#if PLATFORM(CG) && (defined(BUILDING_ON_TIGER) || PLATFORM(WIN))
+#if USE(CG) && (defined(BUILDING_ON_TIGER) || PLATFORM(WIN))
         , m_cgFont(0)
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
         , m_scaledFont(0)
 #endif
         , m_isColorBitmapFont(false)
@@ -166,9 +166,9 @@ public:
 #if OS(DARWIN)
         , m_font(0)
 #endif
-#if PLATFORM(CG) && (defined(BUILDING_ON_TIGER) || PLATFORM(WIN))
+#if USE(CG) && (defined(BUILDING_ON_TIGER) || PLATFORM(WIN))
         , m_cgFont(0)
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
         , m_scaledFont(0)
 #endif
         , m_isColorBitmapFont(false)
@@ -181,6 +181,7 @@ public:
 #if OS(DARWIN)
     FontPlatformData(NSFont*, float size, bool syntheticBold = false, bool syntheticOblique = false, FontOrientation = Horizontal,
                      TextOrientation = TextOrientationVerticalRight, FontWidthVariant = RegularWidth);
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
     FontPlatformData(CGFontRef cgFont, float size, bool syntheticBold, bool syntheticOblique, FontOrientation orientation,
                      TextOrientation textOrientation, FontWidthVariant widthVariant)
         : m_syntheticBold(syntheticBold)
@@ -195,13 +196,14 @@ public:
     {
     }
 #endif
+#endif
 #if PLATFORM(WIN)
     FontPlatformData(HFONT, float size, bool syntheticBold, bool syntheticOblique, bool useGDI);
-#if PLATFORM(CG)
+#if USE(CG)
     FontPlatformData(HFONT, CGFontRef, float size, bool syntheticBold, bool syntheticOblique, bool useGDI);
 #endif
 #endif
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
     FontPlatformData(cairo_font_face_t*, float size, bool bold, bool italic);
 #endif
 
@@ -215,7 +217,7 @@ public:
     void setFont(NSFont*);
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
 #if OS(DARWIN)
 #ifndef BUILDING_ON_TIGER
     CGFontRef cgFont() const { return m_cgFont.get(); }
@@ -243,19 +245,21 @@ public:
 
     void setOrientation(FontOrientation orientation) { m_orientation = orientation; }
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
     cairo_scaled_font_t* scaledFont() const { return m_scaledFont; }
 #endif
 
     unsigned hash() const
     {
-#if PLATFORM(WIN) && !PLATFORM(CAIRO)
+#if PLATFORM(WIN) && !USE(CAIRO)
         return m_font ? m_font->hash() : 0;
 #elif OS(DARWIN)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
         ASSERT(m_font || !m_cgFont);
+#endif
         uintptr_t hashCodes[3] = { (uintptr_t)m_font, m_widthVariant, m_textOrientation << 3 | m_orientation << 2 | m_syntheticBold << 1 | m_syntheticOblique };
         return StringHasher::hashMemory<sizeof(hashCodes)>(hashCodes);
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
         return PtrHash<cairo_scaled_font_t*>::hash(m_scaledFont);
 #endif
     }
@@ -276,11 +280,11 @@ public:
 
     bool isHashTableDeletedValue() const
     {
-#if PLATFORM(WIN) && !PLATFORM(CAIRO)
+#if PLATFORM(WIN) && !USE(CAIRO)
         return m_font.isHashTableDeletedValue();
 #elif OS(DARWIN)
         return m_font == hashTableDeletedFontValue();
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
         return m_scaledFont == hashTableDeletedFontValue();
 #endif
     }
@@ -307,7 +311,7 @@ private:
     void platformDataInit(HFONT, float size, HDC, WCHAR* faceName);
 #endif
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
     static cairo_scaled_font_t* hashTableDeletedFontValue() { return reinterpret_cast<cairo_scaled_font_t*>(-1); }
 #endif
 
@@ -326,7 +330,7 @@ private:
     RefPtr<RefCountedGDIHandle<HFONT> > m_font;
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
 #if PLATFORM(WIN)
     RetainPtr<CGFontRef> m_cgFont;
 #else
@@ -339,7 +343,7 @@ private:
 #endif
 #endif
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
     cairo_scaled_font_t* m_scaledFont;
 #endif
 

@@ -37,7 +37,7 @@
 #include "ContentLayerChromium.h"
 #include "PlatformImage.h"
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <wtf/RetainPtr.h>
 #endif
 
@@ -50,7 +50,8 @@ class ImageLayerChromium : public ContentLayerChromium {
 public:
     static PassRefPtr<ImageLayerChromium> create(GraphicsLayerChromium* owner = 0);
 
-    virtual void paintContentsIfDirty();
+    virtual void paintContentsIfDirty(const IntRect& targetSurfaceRect);
+    virtual void updateCompositorResources();
     virtual bool drawsContent() const { return m_contents; }
 
     void setContents(Image* image);
@@ -58,12 +59,14 @@ public:
 protected:
     virtual const char* layerTypeAsString() const { return "ImageLayer"; }
 
-private:
-    virtual void updateTextureIfNeeded();
+    virtual TransformationMatrix tilingTransform();
+    virtual IntRect layerBounds() const;
 
+private:
     ImageLayerChromium(GraphicsLayerChromium* owner);
 
     PlatformImage m_decodedImage;
+    NativeImagePtr m_imageForCurrentFrame;
     RefPtr<Image> m_contents;
 };
 

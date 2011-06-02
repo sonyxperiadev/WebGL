@@ -229,6 +229,27 @@ namespace JSC {
 
         ReturnAddressPtr* returnAddressSlot() { return &thunkReturnAddress; }
     };
+#elif CPU(SH4)
+    struct JITStackFrame {
+        JITStubArg padding; // Unused
+        JITStubArg args[6];
+
+        ReturnAddressPtr thunkReturnAddress;
+        void* savedR10;
+        void* savedR11;
+        void* savedR13;
+        void* savedRPR;
+        void* savedR14;
+        void* savedTimeoutReg;
+
+        RegisterFile* registerFile;
+        CallFrame* callFrame;
+        JSValue* exception;
+        Profiler** enabledProfilerReference;
+        JSGlobalData* globalData;
+
+        ReturnAddressPtr* returnAddressSlot() { return &thunkReturnAddress; }
+    };
 #else
 #error "JITStackFrame not defined for this platform."
 #endif
@@ -254,7 +275,7 @@ namespace JSC {
     extern "C" void ctiOpThrowNotCaught();
     extern "C" EncodedJSValue ctiTrampoline(void* code, RegisterFile*, CallFrame*, void* /*unused1*/, Profiler**, JSGlobalData*);
 
-    template <typename T> class Global;
+    template <typename T> class Strong;
 
     class JITThunks {
     public:
@@ -283,7 +304,7 @@ namespace JSC {
     private:
         typedef HashMap<ThunkGenerator, MacroAssemblerCodePtr> CTIStubMap;
         CTIStubMap m_ctiStubMap;
-        typedef HashMap<NativeFunction, Global<NativeExecutable> > HostFunctionStubMap;
+        typedef HashMap<NativeFunction, Strong<NativeExecutable> > HostFunctionStubMap;
         OwnPtr<HostFunctionStubMap> m_hostFunctionStubMap;
         RefPtr<ExecutablePool> m_executablePool;
 

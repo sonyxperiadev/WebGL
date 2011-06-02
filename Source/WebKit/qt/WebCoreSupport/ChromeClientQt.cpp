@@ -75,12 +75,14 @@
 #include <qtooltip.h>
 #include <wtf/OwnPtr.h>
 
-#if ENABLE(VIDEO) && ENABLE(QT_MULTIMEDIA)
+#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
 #include "FullScreenVideoQt.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "HTMLVideoElement.h"
+#if USE(QT_MULTIMEDIA)
 #include "MediaPlayerPrivateQt.h"
+#endif
 #endif
 
 namespace WebCore {
@@ -90,7 +92,7 @@ bool ChromeClientQt::dumpVisitedLinksCallbacks = false;
 ChromeClientQt::ChromeClientQt(QWebPage* webPage)
     : m_webPage(webPage)
     , m_eventLoop(0)
-#if ENABLE(VIDEO) && ENABLE(QT_MULTIMEDIA)
+#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
     , m_fullScreenVideo(0)
 #endif
 {
@@ -102,7 +104,7 @@ ChromeClientQt::~ChromeClientQt()
     if (m_eventLoop)
         m_eventLoop->exit();
 
-#if ENABLE(VIDEO) && ENABLE(QT_MULTIMEDIA)
+#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
     delete m_fullScreenVideo;
 #endif
 }
@@ -397,9 +399,18 @@ IntRect ChromeClientQt::windowResizerRect() const
 #endif
 }
 
-void ChromeClientQt::invalidateWindow(const IntRect&, bool)
+void ChromeClientQt::invalidateWindow(const IntRect& windowRect, bool)
 {
-    notImplemented();
+#if ENABLE(TILED_BACKING_STORE)
+    if (platformPageClient()) {
+        WebCore::TiledBackingStore* backingStore = QWebFramePrivate::core(m_webPage->mainFrame())->tiledBackingStore();
+        if (!backingStore)
+            return;
+        backingStore->invalidate(windowRect);
+    }
+#else
+    Q_UNUSED(windowRect);
+#endif
 }
 
 void ChromeClientQt::invalidateContentsAndWindow(const IntRect& windowRect, bool immediate)
@@ -650,7 +661,7 @@ IntRect ChromeClientQt::visibleRectForTiledBackingStore() const
 }
 #endif
 
-#if ENABLE(VIDEO) && ENABLE(QT_MULTIMEDIA)
+#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
 FullScreenVideoQt* ChromeClientQt::fullScreenVideo()
 {
     if (!m_fullScreenVideo)
@@ -673,26 +684,12 @@ void ChromeClientQt::enterFullscreenForNode(Node* node)
 {
     ASSERT(node && node->hasTagName(HTMLNames::videoTag));
 
-    HTMLVideoElement* videoElement = static_cast<HTMLVideoElement*>(node);
-    PlatformMedia platformMedia = videoElement->platformMedia();
-
-    ASSERT(platformMedia.type == PlatformMedia::QtMediaPlayerType);
-    if (platformMedia.type != PlatformMedia::QtMediaPlayerType)
-        return;
-
     fullScreenVideo()->enterFullScreenForNode(node);
 }
 
 void ChromeClientQt::exitFullscreenForNode(Node* node)
 {
     ASSERT(node && node->hasTagName(HTMLNames::videoTag));
-
-    HTMLVideoElement* videoElement = static_cast<HTMLVideoElement*>(node);
-    PlatformMedia platformMedia = videoElement->platformMedia();
-
-    ASSERT(platformMedia.type == PlatformMedia::QtMediaPlayerType);
-    if (platformMedia.type != PlatformMedia::QtMediaPlayerType)
-        return;
 
     fullScreenVideo()->exitFullScreenForNode(node);
 } 

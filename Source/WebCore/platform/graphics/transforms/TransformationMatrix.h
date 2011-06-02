@@ -31,12 +31,12 @@
 #include <string.h> //for memcpy
 #include <wtf/FastAllocBase.h>
 
-#if PLATFORM(CA)
+#if USE(CA)
 typedef struct CATransform3D CATransform3D;
 #endif
-#if PLATFORM(CG)
+#if USE(CG)
 typedef struct CGAffineTransform CGAffineTransform;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 #include <cairo.h>
 #elif PLATFORM(OPENVG)
 #include "VGUtils.h"
@@ -308,14 +308,14 @@ public:
         return result;
     }
 
-#if PLATFORM(CA)
+#if USE(CA)
     TransformationMatrix(const CATransform3D&);
     operator CATransform3D() const;
 #endif
-#if PLATFORM(CG)
+#if USE(CG)
     TransformationMatrix(const CGAffineTransform&);
     operator CGAffineTransform() const;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
     operator cairo_matrix_t() const;
 #elif PLATFORM(OPENVG)
     operator VGMatrix() const;

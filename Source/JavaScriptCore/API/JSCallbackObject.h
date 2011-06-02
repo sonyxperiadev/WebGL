@@ -34,7 +34,7 @@
 
 namespace JSC {
 
-struct JSCallbackObjectData {
+struct JSCallbackObjectData : WeakHandleOwner {
     JSCallbackObjectData(void* privateData, JSClassRef jsClass)
         : privateData(privateData)
         , jsClass(jsClass)
@@ -110,15 +110,15 @@ struct JSCallbackObjectData {
         PrivatePropertyMap m_propertyMap;
     };
     OwnPtr<JSPrivatePropertyMap> m_privateProperties;
+    virtual void finalize(Handle<Unknown>, void*);
 };
 
     
 template <class Base>
 class JSCallbackObject : public Base {
 public:
-    JSCallbackObject(ExecState*, JSGlobalObject*, NonNullPassRefPtr<Structure>, JSClassRef, void* data);
-    JSCallbackObject(JSClassRef, NonNullPassRefPtr<Structure>);
-    virtual ~JSCallbackObject();
+    JSCallbackObject(ExecState*, JSGlobalObject*, Structure*, JSClassRef, void* data);
+    JSCallbackObject(JSGlobalData&, JSClassRef, Structure*);
 
     void setPrivate(void* data);
     void* getPrivate();
@@ -128,7 +128,7 @@ public:
     JSClassRef classRef() const { return m_callbackObjectData->jsClass; }
     bool inherits(JSClassRef) const;
 
-    static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto) 
+    static Structure* createStructure(JSGlobalData& globalData, JSValue proto) 
     { 
         return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), Base::AnonymousSlotCount, &s_info); 
     }

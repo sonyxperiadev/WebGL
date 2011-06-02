@@ -65,6 +65,7 @@ namespace WebCore {
             TargetIsWorker,
             TargetIsSharedWorker,
             TargetIsPrefetch,
+            TargetIsFavicon,
         };
 
         static PassOwnPtr<ResourceRequest> adopt(PassOwnPtr<CrossThreadResourceRequestData>);
@@ -239,14 +240,6 @@ namespace WebCore {
     };
     
     unsigned initializeMaximumHTTPConnectionCountPerHost();
-
-#if USE(CF)
-    bool isHTTPPipeliningEnabled();
-    bool shouldForceHTTPPipeliningPriorityHigh();
-#else
-    inline bool isHTTPPipeliningEnabled() { return false; }
-    inline bool shouldForceHTTPPipeliningPriorityHigh() { return false; }
-#endif
 
 } // namespace WebCore
 

@@ -48,8 +48,8 @@
 #define WEBKIT_EXPORTDATA
 #endif
 
-#define WTF_EXPORT_PRIVATE JS_EXPORTDATA
-#define JS_EXPORT_PRIVATE JS_EXPORTDATA
+#define WTF_EXPORT_PRIVATE
+#define JS_EXPORT_PRIVATE
 
 #endif /* USE(EXPORT_MACROS) */
 
@@ -74,10 +74,10 @@
 #if PLATFORM(WIN)
 #define WTF_USE_CF 1 
 #if defined(WIN_CAIRO)
-#define WTF_PLATFORM_CAIRO 1
+#define WTF_USE_CAIRO 1
 #define WTF_USE_CURL 1
 #else
-#define WTF_PLATFORM_CG 1
+#define WTF_USE_CG 1
 #define WTF_USE_CFNETWORK 1
 #endif
 

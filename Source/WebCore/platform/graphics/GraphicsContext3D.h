@@ -43,8 +43,11 @@
 #undef VERSION
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(GTK)
 #include "ANGLEWebKitBridge.h"
+#endif
+
+#if PLATFORM(MAC)
 #include <OpenGL/OpenGL.h>
 #include <wtf/RetainPtr.h>
 #ifdef __OBJC__
@@ -73,7 +76,7 @@ typedef void* PlatformGraphicsContext3D;
 const PlatformGraphicsContext3D NullPlatformGraphicsContext3D = 0;
 const Platform3DObject NullPlatform3DObject = 0;
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CGContext.h>
 #endif
 
@@ -81,12 +84,15 @@ namespace WebCore {
 class CanvasRenderingContext;
 class DrawingBuffer;
 class Extensions3D;
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(GTK)
 class Extensions3DOpenGL;
 #endif
 class HostWindow;
 class Image;
 class ImageData;
+#if USE(CAIRO)
+class PlatformContextCairo;
+#endif
 
 struct ActiveInfo {
     String name;
@@ -95,7 +101,7 @@ struct ActiveInfo {
 };
 
 // FIXME: ideally this would be used on all platforms.
-#if PLATFORM(CHROMIUM) || PLATFORM(QT)
+#if PLATFORM(CHROMIUM) || PLATFORM(QT) || PLATFORM(GTK)
 class GraphicsContext3DInternal;
 #endif
 
@@ -465,6 +471,9 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     PlatformLayer* platformLayer() const;
 #endif
+#elif PLATFORM(GTK)
+    PlatformGraphicsContext3D platformGraphicsContext3D();
+    Platform3DObject platformTexture() const { return m_texture; }
 #else
     PlatformGraphicsContext3D platformGraphicsContext3D() const { return NullPlatformGraphicsContext3D; }
     Platform3DObject platformTexture() const { return NullPlatform3DObject; }
@@ -476,7 +485,7 @@ public:
 
     PassRefPtr<DrawingBuffer> createDrawingBuffer(const IntSize& = IntSize());
     
-#if PLATFORM(MAC) || PLATFORM(CHROMIUM)
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(GTK)
     // With multisampling on, blit from multisampleFBO to regular FBO.
     void prepareTexture();
 #endif
@@ -753,9 +762,12 @@ public:
 
     void reshape(int width, int height);
 
-#if PLATFORM(CG)
+#if USE(CG)
     void paintToCanvas(const unsigned char* imagePixels, int imageWidth, int imageHeight,
                        int canvasWidth, int canvasHeight, CGContextRef context);
+#elif PLATFORM(GTK)
+    void paintToCanvas(const unsigned char* imagePixels, int imageWidth, int imageHeight,
+                       int canvasWidth, int canvasHeight, PlatformContextCairo* context);
 #endif
 
     void markContextChanged();
@@ -769,6 +781,8 @@ public:
     bool paintsIntoCanvasBuffer() const { return true; }
 #elif PLATFORM(CHROMIUM)
     bool paintsIntoCanvasBuffer() const;
+#elif PLATFORM(GTK)
+    bool paintsIntoCanvasBuffer() const { return true; }
 #else
     bool paintsIntoCanvasBuffer() const { return false; }
 #endif
@@ -859,7 +873,7 @@ public:
                     AlphaOp alphaOp,
                     void* destinationData);
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(GTK)
     // Take into account the user's requested context creation attributes,
     // in particular stencil and antialias, and determine which could or
     // could not be honored based on the capabilities of the OpenGL
@@ -874,6 +888,11 @@ public:
     int m_currentWidth, m_currentHeight;
 
 #if PLATFORM(MAC)
+    CGLContextObj m_contextObj;
+    RetainPtr<WebGLLayer> m_webGLLayer;
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(GTK)
     typedef struct {
         String source;
         String log;
@@ -889,8 +908,6 @@ public:
     Attributes m_attrs;
     Vector<Vector<float> > m_vertexArray;
 
-    CGLContextObj m_contextObj;
-    RetainPtr<WebGLLayer> m_webGLLayer;
     GC3Duint m_texture, m_compositorTexture;
     GC3Duint m_fbo;
     GC3Duint m_depthStencilBuffer;
@@ -912,7 +929,7 @@ public:
 #endif
 
     // FIXME: ideally this would be used on all platforms.
-#if PLATFORM(CHROMIUM) || PLATFORM(QT)
+#if PLATFORM(CHROMIUM) || PLATFORM(QT) || PLATFORM(GTK)
     friend class GraphicsContext3DInternal;
     OwnPtr<GraphicsContext3DInternal> m_internal;
 #endif

@@ -22,6 +22,7 @@
 #define ScopeChain_h
 
 #include "JSCell.h"
+#include "Structure.h"
 #include <wtf/FastAllocBase.h>
 
 namespace JSC {
@@ -35,7 +36,7 @@ namespace JSC {
     class ScopeChainNode : public JSCell {
     public:
         ScopeChainNode(ScopeChainNode* next, JSObject* object, JSGlobalData* globalData, JSGlobalObject* globalObject, JSObject* globalThis)
-            : JSCell(globalData->scopeChainNodeStructure.get())
+            : JSCell(*globalData, globalData->scopeChainNodeStructure.get())
             , globalData(globalData)
             , next(*globalData, this, next)
             , object(*globalData, this, object)
@@ -64,10 +65,11 @@ namespace JSC {
         void print();
 #endif
         
-        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, 0); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(CompoundType, StructureFlags), AnonymousSlotCount, &s_info); }
         virtual void markChildren(MarkStack&);
     private:
         static const unsigned StructureFlags = OverridesMarkChildren;
+        static const ClassInfo s_info;
     };
 
     inline ScopeChainNode* ScopeChainNode::push(JSObject* o)

@@ -109,9 +109,14 @@ public:
     virtual v8::Handle<v8::Value> executeScriptAndReturnValue(
         const WebScriptSource&);
     virtual v8::Local<v8::Context> mainWorldScriptContext() const;
-    virtual v8::Handle<v8::Value> createFileSystem(int type,
+    virtual v8::Handle<v8::Value> createFileSystem(WebFileSystem::Type,
                                                    const WebString& name,
                                                    const WebString& path);
+    virtual v8::Handle<v8::Value> createFileEntry(WebFileSystem::Type,
+                                                  const WebString& fileSystemName,
+                                                  const WebString& fileSystemPath,
+                                                  const WebString& filePath,
+                                                  bool isDirectory);
 #endif
     virtual bool insertStyleText(const WebString& css, const WebString& id);
     virtual void reload(bool ignoreCache);
@@ -157,6 +162,7 @@ public:
     virtual WebString selectionAsText() const;
     virtual WebString selectionAsMarkup() const;
     virtual bool selectWordAroundCaret();
+    virtual void selectRange(const WebPoint& start, const WebPoint& end);
     virtual int printBegin(const WebSize& pageSize,
                            const WebNode& constrainToNode,
                            int printerDPI,
@@ -325,6 +331,9 @@ private:
     void clearPasswordListeners();
 
     void loadJavaScriptURL(const WebCore::KURL&);
+
+    // Returns a hit-tested VisiblePosition for the given point
+    WebCore::VisiblePosition visiblePositionForWindowPoint(const WebPoint&);
 
     FrameLoaderClientImpl m_frameLoaderClient;
 

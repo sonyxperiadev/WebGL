@@ -39,6 +39,7 @@ namespace WebKit {
 #define FOR_EACH_WEBKIT_BOOL_PREFERENCE(macro) \
     macro(JavaScriptEnabled, javaScriptEnabled, Bool, bool, true) \
     macro(LoadsImagesAutomatically, loadsImagesAutomatically, Bool, bool, true) \
+    macro(LoadsSiteIconsIgnoringImageLoadingPreference, loadsSiteIconsIgnoringImageLoadingPreference, Bool, bool, false) \
     macro(PluginsEnabled, pluginsEnabled, Bool, bool, true) \
     macro(JavaEnabled, javaEnabled, Bool, bool, true) \
     macro(OfflineWebApplicationCacheEnabled, offlineWebApplicationCacheEnabled, Bool, bool, false) \
@@ -86,6 +87,7 @@ namespace WebKit {
     macro(DefaultFontSize, defaultFontSize, UInt32, uint32_t, 16) \
     macro(DefaultFixedFontSize, defaultFixedFontSize, UInt32, uint32_t, 13) \
     macro(PDFDisplayMode, pdfDisplayMode, UInt32, uint32_t, 1) \
+    macro(EditableLinkBehavior, editableLinkBehavior, UInt32, uint32_t, WebCore::EditableLinkNeverLive) \
     \
 
 #if PLATFORM(WIN)
@@ -169,6 +171,7 @@ struct WebPreferencesStore {
 
     static void overrideXSSAuditorEnabledForTestRunner(bool);
     static void overrideAllowUniversalAccessFromFileURLsForTestRunner(bool);
+    static void overrideAllowFileAccessFromFileURLsForTestRunner(bool);
     static void removeTestRunnerOverrides();
 
     HashMap<String, String> m_stringValues;

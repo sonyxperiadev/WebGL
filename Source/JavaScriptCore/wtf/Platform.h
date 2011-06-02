@@ -352,6 +352,10 @@
 #  error "Cannot use both of WTF_CPU_ARM_TRADITIONAL and WTF_CPU_ARM_THUMB2 platforms"
 #endif /* !defined(WTF_CPU_ARM_TRADITIONAL) && !defined(WTF_CPU_ARM_THUMB2) */
 
+#if defined(__ARM_NEON__) && !defined(WTF_CPU_ARM_NEON)
+#define WTF_CPU_ARM_NEON 1
+#endif
+
 #endif /* ARM */
 
 #if CPU(ARM) || CPU(MIPS)
@@ -535,18 +539,18 @@
 
 /* Graphics engines */
 
-/* PLATFORM(CG) and PLATFORM(CI) */
+/* USE(CG) and PLATFORM(CI) */
 #if PLATFORM(MAC) || PLATFORM(IOS)
-#define WTF_PLATFORM_CG 1
+#define WTF_USE_CG 1
 #endif
-#if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WIN) && PLATFORM(CG))
-#define WTF_PLATFORM_CA 1
+#if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WIN) && USE(CG))
+#define WTF_USE_CA 1
 #endif
 
 /* USE(SKIA) for Win/Linux, CG for Mac */
 #if PLATFORM(CHROMIUM)
 #if OS(DARWIN)
-#define WTF_PLATFORM_CG 1
+#define WTF_USE_CG 1
 #define WTF_USE_ATSUI 1
 #define WTF_USE_CORE_TEXT 1
 #define WTF_USE_ICCJPEG 1
@@ -561,7 +565,7 @@
 #endif
 
 #if PLATFORM(GTK)
-#define WTF_PLATFORM_CAIRO 1
+#define WTF_USE_CAIRO 1
 #endif
 
 
@@ -632,6 +636,7 @@
 #define ENABLE_WEB_ARCHIVE 1
 #endif /* PLATFORM(MAC) && !PLATFORM(IOS) */
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 #define ENABLE_FULLSCREEN_API 1
 #endif
@@ -640,11 +645,12 @@
 #define WTF_USE_CARBON_SECURE_INPUT_MODE 1
 #endif
 
+=======
+>>>>>>> WebKit.org at r84325
 #if PLATFORM(CHROMIUM) && OS(DARWIN)
 #define WTF_USE_CF 1
 #define WTF_USE_PTHREADS 1
 #define HAVE_PTHREAD_RWLOCK 1
-#define WTF_USE_CARBON_SECURE_INPUT_MODE 1
 #endif
 
 #if PLATFORM(BREWMP)
@@ -680,7 +686,10 @@
 
 #if PLATFORM(ANDROID)
 #define WTF_USE_PTHREADS 1
+<<<<<<< HEAD
 #define WTF_USE_SKIA 1
+=======
+>>>>>>> WebKit.org at r84325
 #define USE_SYSTEM_MALLOC 1
 #define ENABLE_JAVA_BRIDGE 1
 #define LOG_DISABLED 1
@@ -786,6 +795,7 @@
 #define HAVE_SYS_PARAM_H 1
 #define HAVE_SYS_TIME_H 1
 #define HAVE_SYS_TIMEB_H 1
+#define WTF_USE_ACCELERATE 1
 
 #if !defined(TARGETING_TIGER) && !defined(TARGETING_LEOPARD)
 
@@ -1046,6 +1056,14 @@
 #error You have to have at least one execution model enabled to build JSC
 #endif
 
+#if CPU(SH4) && PLATFORM(QT)
+#define ENABLE_JIT 1
+#define ENABLE_YARR 1
+#define ENABLE_YARR_JIT 1
+#define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
+#define ENABLE_ASSEMBLER 1
+#endif
+
 /* Configure the JIT */
 #if ENABLE(JIT)
     #if CPU(ARM)
@@ -1209,5 +1227,9 @@
    to WTF causes many ports to break, and so this way we can address the build
    breakages one port at a time. */
 #define WTF_USE_EXPORT_MACROS 0
+
+#if PLATFORM(QT) || PLATFORM(GTK)
+#define WTF_USE_UNIX_DOMAIN_SOCKETS 1
+#endif
 
 #endif /* WTF_Platform_h */

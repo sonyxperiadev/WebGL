@@ -29,6 +29,7 @@
 #include "APIObject.h"
 
 #include "Connection.h"
+#include "WebIconDatabaseClient.h"
 #include <WebCore/IconDatabaseClient.h>
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
@@ -77,6 +78,12 @@ public:
 
     WebCore::Image* imageForPageURL(const String&);
     
+    void removeAllIcons();
+    void checkIntegrityBeforeOpening();
+    void close();
+
+    void initializeIconDatabaseClient(const WKIconDatabaseClient*);
+
     // WebCore::IconDatabaseClient
     virtual bool performImport();
     virtual void didImportIconURLForPageURL(const String&);
@@ -103,6 +110,7 @@ private:
     bool m_databaseCleanupDisabled;
     HashMap<uint64_t, String> m_pendingLoadDecisionURLMap;
 
+    WebIconDatabaseClient m_iconDatabaseClient;
 };
 
 } // namespace WebKit

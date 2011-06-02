@@ -703,8 +703,7 @@ void wxWebView::OnSize(wxSizeEvent& event)
 { 
     if (m_isInitialized && m_mainFrame) {
         WebCore::Frame* frame = m_mainFrame->GetFrame();
-        frame->view()->setFrameRect(wxRect(wxPoint(0,0), event.GetSize()));
-        frame->view()->forceLayout();
+        frame->view()->resize(event.GetSize());
         frame->view()->adjustViewSize();
     }
       
@@ -894,9 +893,6 @@ void wxWebView::OnKeyEvents(wxKeyEvent& event)
 
     if (!(frame && frame->view()))
         return;
-
-    if (event.GetKeyCode() == WXK_CAPITAL)
-        frame->eventHandler()->capsLockStateMayHaveChanged();
 
     WebCore::PlatformKeyboardEvent wkEvent(event);
 

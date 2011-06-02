@@ -59,9 +59,9 @@ namespace WebCore {
 typedef const struct OpaqueJSContext* JSContextRef;
 typedef struct OpaqueJSValue* JSObjectRef;
 
-#if PLATFORM(CG)
+#if USE(CG)
 typedef struct CGContext PlatformGraphicsContext;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 namespace WebCore {
 class PlatformContextCairo;
 }

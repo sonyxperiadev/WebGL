@@ -102,6 +102,14 @@ RefPtr<WebCore::CSSRuleSourceData> ParsedStyleSheet::ruleSourceDataAt(unsigned i
 
 namespace WebCore {
 
+static PassRefPtr<InspectorObject> buildSourceRangeObject(const SourceRange& range)
+{
+    RefPtr<InspectorObject> result = InspectorObject::create();
+    result->setNumber("start", range.start);
+    result->setNumber("end", range.end);
+    return result.release();
+}
+
 static PassRefPtr<CSSRuleList> asCSSRuleList(StyleBase* styleBase)
 {
     if (!styleBase)
@@ -154,16 +162,12 @@ PassRefPtr<InspectorObject> InspectorStyle::buildObjectForStyle() const
     if (!m_styleId.isEmpty())
         result->setValue("styleId", m_styleId.asInspectorValue());
 
-    RefPtr<InspectorObject> propertiesObject = InspectorObject::create();
-    propertiesObject->setString("width", m_style->getPropertyValue("width"));
-    propertiesObject->setString("height", m_style->getPropertyValue("height"));
+    result->setString("width", m_style->getPropertyValue("width"));
+    result->setString("height", m_style->getPropertyValue("height"));
 
     RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet ? m_parentStyleSheet->ruleSourceDataFor(m_style.get()) : 0;
-    if (sourceData) {
-        propertiesObject->setNumber("startOffset", sourceData->styleSourceData->styleBodyRange.start);
-        propertiesObject->setNumber("endOffset", sourceData->styleSourceData->styleBodyRange.end);
-    }
-    result->setObject("properties", propertiesObject);
+    if (sourceData)
+        result->setObject("range", buildSourceRangeObject(sourceData->styleSourceData->styleBodyRange));
 
     populateObjectWithStyleProperties(result.get());
 
@@ -176,11 +180,13 @@ PassRefPtr<InspectorObject> InspectorStyle::buildObjectForStyle() const
 //
 // The propertyText (if not empty) is checked to be a valid style declaration (containing at least one property). If not,
 // the method returns false (denoting an error).
-bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText, bool overwrite)
+bool InspectorStyle::setPropertyText(ErrorString* errorString, unsigned index, const String& propertyText, bool overwrite)
 {
     ASSERT(m_parentStyleSheet);
-    if (!m_parentStyleSheet->ensureParsedDataReady())
+    if (!m_parentStyleSheet->ensureParsedDataReady()) {
+        *errorString = "Internal error: no stylesheet parsed data available";
         return false;
+    }
 
     Vector<InspectorStyleProperty> allProperties;
     populateAllProperties(&allProperties);
@@ -197,12 +203,16 @@ bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText,
         unsigned propertyCount = propertyData.size();
 
         // At least one property + the bogus property added just above should be present.
-        if (propertyCount < 2)
+        if (propertyCount < 2) {
+            *errorString = "Invalid property value";
             return false;
+        }
 
         // Check for a proper propertyText termination (the parser could at least restore to the PROPERTY_NAME state).
-        if (propertyData.at(propertyCount - 1).name != "-webkit-boguz-propertee")
+        if (propertyData.at(propertyCount - 1).name != "-webkit-boguz-propertee") {
+            *errorString = "Invalid property value";
             return false;
+        }
     }
 
     if (overwrite) {
@@ -216,8 +226,10 @@ bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText,
 
         if (!property.disabled) {
             bool success = replacePropertyInStyleText(property, propertyText);
-            if (!success)
+            if (!success) {
+                *errorString = "Internal error: could not replace property value";
                 return false;
+            }
         } else {
             unsigned textLength = propertyText.length();
             unsigned disabledIndex = disabledIndexByOrdinal(index, false, allProperties);
@@ -235,12 +247,16 @@ bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText,
     } else {
         // Insert at index.
         RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet->ruleSourceDataFor(m_style.get());
-        if (!sourceData)
+        if (!sourceData) {
+            *errorString = "Internal error: no CSS rule source found";
             return false;
+        }
         String text;
         bool success = styleText(&text);
-        if (!success)
+        if (!success) {
+            *errorString = "Internal error: could not fetch style text";
             return false;
+        }
         propertyLengthDelta = propertyText.length();
 
         bool insertLast = true;
@@ -283,19 +299,25 @@ bool InspectorStyle::setPropertyText(unsigned index, const String& propertyText,
     return true;
 }
 
-bool InspectorStyle::toggleProperty(unsigned index, bool disable)
+bool InspectorStyle::toggleProperty(ErrorString* errorString, unsigned index, bool disable)
 {
     ASSERT(m_parentStyleSheet);
-    if (!m_parentStyleSheet->ensureParsedDataReady())
-        return false; // Can toggle only source-based properties.
+    if (!m_parentStyleSheet->ensureParsedDataReady()) {
+        *errorString = "Can toggle only source-based properties";
+        return false;
+    }
     RefPtr<CSSRuleSourceData> sourceData = m_parentStyleSheet->ruleSourceDataFor(m_style.get());
-    if (!sourceData)
-        return false; // No source data for the style.
+    if (!sourceData) {
+        *errorString = "Internal error: No source data for the style found";
+        return false;
+    }
 
     Vector<InspectorStyleProperty> allProperties;
     populateAllProperties(&allProperties);
-    if (index >= allProperties.size())
-        return false; // Outside of property range.
+    if (index >= allProperties.size()) {
+        *errorString = "Property index is outside of property range";
+        return false;
+    }
 
     InspectorStyleProperty& property = allProperties.at(index);
     if (property.disabled == disable)
@@ -413,7 +435,7 @@ bool InspectorStyle::populateAllProperties(Vector<InspectorStyleProperty>* resul
             InspectorStyleProperty p(*it, true, false);
             p.setRawTextFromStyleDeclaration(styleDeclaration);
             result->append(p);
-            sourcePropertyNames.add(it->name);
+            sourcePropertyNames.add(it->name.lower());
         }
     }
 
@@ -424,10 +446,10 @@ bool InspectorStyle::populateAllProperties(Vector<InspectorStyleProperty>* resul
 
     for (int i = 0, size = m_style->length(); i < size; ++i) {
         String name = m_style->item(i);
-        if (sourcePropertyNames.contains(name))
+        if (sourcePropertyNames.contains(name.lower()))
             continue;
 
-        sourcePropertyNames.add(name);
+        sourcePropertyNames.add(name.lower());
         result->append(InspectorStyleProperty(CSSPropertySourceData(name, m_style->getPropertyValue(name), !m_style->getPropertyPriority(name).isEmpty(), true, SourceRange()), false, false));
     }
 
@@ -440,7 +462,7 @@ void InspectorStyle::populateObjectWithStyleProperties(InspectorObject* result) 
     populateAllProperties(&properties);
 
     RefPtr<InspectorArray> propertiesObject = InspectorArray::create();
-    RefPtr<InspectorObject> shorthandValues = InspectorObject::create();
+    RefPtr<InspectorArray> shorthandEntries = InspectorArray::create();
     HashMap<String, RefPtr<InspectorObject> > propertyNameToPreviousActiveProperty;
     HashSet<String> foundShorthands;
 
@@ -466,8 +488,7 @@ void InspectorStyle::populateObjectWithStyleProperties(InspectorObject* result) 
         if (!it->disabled) {
             if (it->hasSource) {
                 property->setBoolean("implicit", false);
-                property->setNumber("startOffset", propertyEntry.range.start);
-                property->setNumber("endOffset", propertyEntry.range.end);
+                property->setObject("range", buildSourceRangeObject(propertyEntry.range));
 
                 // Parsed property overrides any property with the same name. Non-parsed property overrides
                 // previous non-parsed property with the same name (if any).
@@ -511,7 +532,10 @@ void InspectorStyle::populateObjectWithStyleProperties(InspectorObject* result) 
                 property->setString("shorthandName", shorthand);
                 if (!foundShorthands.contains(shorthand)) {
                     foundShorthands.add(shorthand);
-                    shorthandValues->setString(shorthand, shorthandValue(shorthand));
+                    RefPtr<InspectorObject> shorthandEntry = InspectorObject::create();
+                    shorthandEntry->setString("name", shorthand);
+                    shorthandEntry->setString("value", shorthandValue(shorthand));
+                    shorthandEntries->pushObject(shorthandEntry.release());
                 }
             }
         }
@@ -519,7 +543,7 @@ void InspectorStyle::populateObjectWithStyleProperties(InspectorObject* result) 
     }
 
     result->setArray("cssProperties", propertiesObject);
-    result->setObject("shorthandValues", shorthandValues);
+    result->setArray("shorthandEntries", shorthandEntries);
 }
 
 
@@ -799,22 +823,26 @@ PassRefPtr<InspectorObject> InspectorStyleSheet::buildObjectForStyle(CSSStyleDec
     return result.release();
 }
 
-bool InspectorStyleSheet::setPropertyText(const InspectorCSSId& id, unsigned propertyIndex, const String& text, bool overwrite)
+bool InspectorStyleSheet::setPropertyText(ErrorString* errorString, const InspectorCSSId& id, unsigned propertyIndex, const String& text, bool overwrite)
 {
     RefPtr<InspectorStyle> inspectorStyle = inspectorStyleForId(id);
-    if (!inspectorStyle)
+    if (!inspectorStyle) {
+        *errorString = "No style found for given id";
         return false;
+    }
 
-    return inspectorStyle->setPropertyText(propertyIndex, text, overwrite);
+    return inspectorStyle->setPropertyText(errorString, propertyIndex, text, overwrite);
 }
 
-bool InspectorStyleSheet::toggleProperty(const InspectorCSSId& id, unsigned propertyIndex, bool disable)
+bool InspectorStyleSheet::toggleProperty(ErrorString* errorString, const InspectorCSSId& id, unsigned propertyIndex, bool disable)
 {
     RefPtr<InspectorStyle> inspectorStyle = inspectorStyleForId(id);
-    if (!inspectorStyle)
+    if (!inspectorStyle) {
+        *errorString = "No style found for given id";
         return false;
+    }
 
-    bool success = inspectorStyle->toggleProperty(propertyIndex, disable);
+    bool success = inspectorStyle->toggleProperty(errorString, propertyIndex, disable);
     if (success) {
         if (disable)
             rememberInspectorStyle(inspectorStyle);

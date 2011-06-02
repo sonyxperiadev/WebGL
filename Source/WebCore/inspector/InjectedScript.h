@@ -50,7 +50,7 @@ typedef String ErrorString;
 
 class InjectedScript {
 public:
-    InjectedScript() { }
+    InjectedScript();
     ~InjectedScript() { }
 
     bool hasNoValue() const { return m_injectedScriptObject.hasNoValue(); }
@@ -58,7 +58,7 @@ public:
     void evaluate(ErrorString*, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result);
     void evaluateOn(ErrorString*, const String& objectId, const String& expression, RefPtr<InspectorObject>* result);
     void evaluateOnCallFrame(ErrorString*, const String& callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result);
-    void getProperties(ErrorString*, const String& objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorArray>* result);
+    void getProperties(ErrorString*, const String& objectId, bool ignoreHasOwnProperty, RefPtr<InspectorArray>* result);
     Node* nodeForObjectId(const String& objectId);
     void setPropertyValue(ErrorString*, const String& objectId, const String& propertyName, const String& expression);
     void releaseObject(const String& objectId);
@@ -75,7 +75,8 @@ public:
 
 private:
     friend InjectedScript InjectedScriptManager::injectedScriptFor(ScriptState*);
-    explicit InjectedScript(ScriptObject);
+    typedef bool (*InspectedStateAccessCheck)(ScriptState*);
+    InjectedScript(ScriptObject, InspectedStateAccessCheck);
 
     bool canAccessInspectedWindow();
     void makeCall(ScriptFunctionCall&, RefPtr<InspectorValue>* result);
@@ -83,6 +84,7 @@ private:
     ScriptValue nodeAsScriptValue(Node*);
 
     ScriptObject m_injectedScriptObject;
+    InspectedStateAccessCheck m_inspectedStateAccessCheck;
 };
 
 } // namespace WebCore

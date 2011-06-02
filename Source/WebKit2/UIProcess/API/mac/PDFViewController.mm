@@ -30,10 +30,12 @@
 #import "WKAPICast.h"
 #import "WKView.h"
 #import "WebData.h"
+#import "WebEventFactory.h"
 #import "WebPageGroup.h"
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
 #import <PDFKit/PDFKit.h>
+#import <WebCore/LocalizedStrings.h>
 #import <wtf/text/WTFString.h>
 
 // Redeclarations of PDFKit notifications. We can't use the API since we use a weak link to the framework.
@@ -51,7 +53,51 @@ using namespace WebKit;
 @end
 
 extern "C" NSString *_NSPathForSystemFramework(NSString *framework);
+
+// MARK: C UTILITY FUNCTIONS
+
+static void _applicationInfoForMIMEType(NSString *type, NSString **name, NSImage **image)
+{
+    ASSERT(name);
+    ASSERT(image);
     
+    CFURLRef appURL = 0;
+
+    OSStatus error = LSCopyApplicationForMIMEType((CFStringRef)type, kLSRolesAll, &appURL);
+    if (error != noErr)
+        return;
+
+    NSString *appPath = [(NSURL *)appURL path];
+    if (appURL)
+        CFRelease(appURL);
+
+    *image = [[NSWorkspace sharedWorkspace] iconForFile:appPath];
+    [*image setSize:NSMakeSize(16, 16)];
+
+    *name = [[NSFileManager defaultManager] displayNameAtPath:appPath];
+}
+
+// FIXME 4182876: We can eliminate this function in favor if -isEqual: if [PDFSelection isEqual:] is overridden
+// to compare contents.
+static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selectionB)
+{
+    NSArray *aPages = [selectionA pages];
+    NSArray *bPages = [selectionB pages];
+
+    if (![aPages isEqual:bPages])
+        return NO;
+
+    NSUInteger count = [aPages count];
+    for (NSUInteger i = 0; i < count; ++i) {
+        NSRect aBounds = [selectionA boundsForPage:[aPages objectAtIndex:i]];
+        NSRect bBounds = [selectionB boundsForPage:[bPages objectAtIndex:i]];
+        if (!NSEqualRects(aBounds, bBounds))
+            return NO;
+    }
+
+    return YES;
+}
+
 @interface WKPDFView : NSView
 {
     PDFViewController* _pdfViewController;
@@ -68,7 +114,7 @@ extern "C" NSString *_NSPathForSystemFramework(NSString *framework);
 - (void)setDocument:(PDFDocument *)pdfDocument;
 
 - (void)_applyPDFPreferences;
-
+- (PDFSelection *)_nextMatchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag fromSelection:(PDFSelection *)initialSelection startInSelection:(BOOL)startInSelection;
 @end
 
 @implementation WKPDFView
@@ -159,6 +205,64 @@ extern "C" NSString *_NSPathForSystemFramework(NSString *framework);
         [self _updatePreferencesSoon];
 }
 
+- (void)_openWithFinder:(id)sender
+{
+    _pdfViewController->openPDFInFinder();
+}
+
+- (PDFSelection *)_nextMatchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag fromSelection:(PDFSelection *)initialSelection startInSelection:(BOOL)startInSelection
+{
+    if (![string length])
+        return nil;
+
+    int options = 0;
+    if (!forward)
+        options |= NSBackwardsSearch;
+
+    if (!caseFlag)
+        options |= NSCaseInsensitiveSearch;
+
+    PDFDocument *document = [_pdfView document];
+
+    PDFSelection *selectionForInitialSearch = [initialSelection copy];
+    if (startInSelection) {
+        // Initially we want to include the selected text in the search.  So we must modify the starting search 
+        // selection to fit PDFDocument's search requirements: selection must have a length >= 1, begin before 
+        // the current selection (if searching forwards) or after (if searching backwards).
+        int initialSelectionLength = [[initialSelection string] length];
+        if (forward) {
+            [selectionForInitialSearch extendSelectionAtStart:1];
+            [selectionForInitialSearch extendSelectionAtEnd:-initialSelectionLength];
+        } else {
+            [selectionForInitialSearch extendSelectionAtEnd:1];
+            [selectionForInitialSearch extendSelectionAtStart:-initialSelectionLength];
+        }
+    }
+    PDFSelection *foundSelection = [document findString:string fromSelection:selectionForInitialSearch withOptions:options];
+    [selectionForInitialSearch release];
+
+    // If we first searched in the selection, and we found the selection, search again from just past the selection
+    if (startInSelection && _PDFSelectionsAreEqual(foundSelection, initialSelection))
+        foundSelection = [document findString:string fromSelection:initialSelection withOptions:options];
+
+    if (!foundSelection && wrapFlag)
+        foundSelection = [document findString:string fromSelection:nil withOptions:options];
+
+    return foundSelection;
+}
+
+- (NSUInteger)_countMatches:(NSString *)string caseSensitive:(BOOL)caseFlag
+{
+    if (![string length])
+        return 0;
+
+    int options = caseFlag ? 0 : NSCaseInsensitiveSearch;
+
+    return [[[_pdfView document] findString:string withOptions:options] count];
+}
+
+// MARK: NSView overrides
+
 - (void)viewDidMoveToWindow
 {
     if (![self window])
@@ -181,7 +285,69 @@ extern "C" NSString *_NSPathForSystemFramework(NSString *framework);
     [notificationCenter removeObserver:self name:_webkit_PDFViewPageChangedNotification object:_pdfView];
 }
 
-// PDFView delegate methods
+- (NSView *)hitTest:(NSPoint)point
+{
+    // Override hitTest so we can override menuForEvent.
+    NSEvent *event = [NSApp currentEvent];
+    NSEventType type = [event type];
+    if (type == NSRightMouseDown || (type == NSLeftMouseDown && ([event modifierFlags] & NSControlKeyMask)))
+        return self;
+
+    return [super hitTest:point];
+}
+
+- (NSMenu *)menuForEvent:(NSEvent *)theEvent
+{
+    NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
+
+    NSEnumerator *menuItemEnumerator = [[[_pdfView menuForEvent:theEvent] itemArray] objectEnumerator];
+    while (NSMenuItem *item = [menuItemEnumerator nextObject]) {
+        NSMenuItem *itemCopy = [item copy];
+        [menu addItem:itemCopy];
+        [itemCopy release];
+
+        if ([item action] != @selector(copy:))
+            continue;
+
+        // Add in an "Open with <default PDF viewer>" item
+        NSString *appName = nil;
+        NSImage *appIcon = nil;
+
+        _applicationInfoForMIMEType(@"application/pdf", &appName, &appIcon);
+        if (!appName)
+            appName = WEB_UI_STRING("Finder", "Default application name for Open With context menu");
+
+        // To match the PDFKit style, we'll add Open with Preview even when there's no document yet to view, and
+        // disable it using validateUserInterfaceItem.
+        NSString *title = [NSString stringWithFormat:WEB_UI_STRING("Open with %@", "context menu item for PDF"), appName];
+
+        item = [[NSMenuItem alloc] initWithTitle:title action:@selector(_openWithFinder:) keyEquivalent:@""];
+        if (appIcon)
+            [item setImage:appIcon];
+        [menu addItem:[NSMenuItem separatorItem]];
+        [menu addItem:item];
+        [item release];
+    }
+
+    return [menu autorelease];
+}
+
+// MARK: NSUserInterfaceValidations PROTOCOL IMPLEMENTATION
+
+- (BOOL)validateUserInterfaceItem:(id <NSValidatedUserInterfaceItem>)item
+{
+    SEL action = [item action];
+    if (action == @selector(_openWithFinder:))
+        return [_pdfView document] != nil;
+    return YES;
+}
+
+// MARK: PDFView delegate methods
+
+- (void)PDFViewWillClickOnLink:(PDFView *)sender withURL:(NSURL *)URL
+{
+    _pdfViewController->linkClicked([URL absoluteString]);
+}
 
 - (void)PDFViewOpenPDFInNativeApplication:(PDFView *)sender
 {
@@ -414,6 +580,57 @@ NSString *PDFViewController::pathToPDFOnDisk()
 
     m_pathToPDFOnDisk.adoptNS([path copy]);
     return path;
+}
+
+void PDFViewController::linkClicked(const String& url)
+{
+    NSEvent* nsEvent = [NSApp currentEvent];
+    WebMouseEvent event;
+    switch ([nsEvent type]) {
+    case NSLeftMouseUp:
+    case NSRightMouseUp:
+    case NSOtherMouseUp:
+        event = WebEventFactory::createWebMouseEvent(nsEvent, m_pdfView);
+    default:
+        // For non mouse-clicks or for keyboard events, pass an empty WebMouseEvent
+        // through.  The event is only used by the WebFrameLoaderClient to determine
+        // the modifier keys and which mouse button is down.  These queries will be
+        // valid with an empty event.
+        break;
+    }
+    
+    page()->linkClicked(url, event);
+}
+
+void PDFViewController::findString(const String& string, FindOptions options, unsigned maxMatchCount)
+{
+    BOOL forward = !(options & FindOptionsBackwards);
+    BOOL caseFlag = !(options & FindOptionsCaseInsensitive);
+    BOOL wrapFlag = options & FindOptionsWrapAround;
+
+    PDFSelection *selection = [m_wkPDFView.get() _nextMatchFor:string direction:forward caseSensitive:caseFlag wrap:wrapFlag fromSelection:[m_pdfView currentSelection] startInSelection:NO];
+    NSUInteger matchCount = [m_wkPDFView.get() _countMatches:string caseSensitive:caseFlag];
+    if (matchCount > maxMatchCount)
+        matchCount = maxMatchCount;
+
+    if (!selection) {
+        page()->didFailToFindString(string);
+        return;
+    }
+
+    [m_pdfView setCurrentSelection:selection];
+    [m_pdfView scrollSelectionToVisible:nil];
+    page()->didFindString(string, matchCount);
+}
+
+void PDFViewController::countStringMatches(const String& string, FindOptions options, unsigned maxMatchCount)
+{
+    BOOL caseFlag = !(options & FindOptionsCaseInsensitive);
+
+    NSUInteger matchCount = [m_wkPDFView.get() _countMatches:string caseSensitive:caseFlag];
+    if (matchCount > maxMatchCount)
+        matchCount = maxMatchCount;
+    page()->didCountStringMatches(string, matchCount);
 }
 
 } // namespace WebKit

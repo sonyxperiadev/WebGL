@@ -1,3 +1,132 @@
+2011-04-19  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Rename lengthReceived to encodedDataLength/dataLength
+        https://bugs.webkit.org/show_bug.cgi?id=58883
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchDidReceiveContentLength):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2011-04-18  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r84155.
+        http://trac.webkit.org/changeset/84155
+        https://bugs.webkit.org/show_bug.cgi?id=58802
+
+        "paintEntireContents flag is used for painting outside of the
+        screen. It's not the right way to fix EFL tiled backing
+        store." (Requested by demarchi on #webkit).
+
+        * ewk/ewk_view_tiled.c:
+        (_ewk_view_tiled_smart_add):
+
+2011-04-18  Eunsol Park  <eunsol47.park@samsung.com>
+
+        Reviewed by Eric Seidel.
+
+        [EFL] Scroll doesn't work on tiled backing store
+        https://bugs.webkit.org/show_bug.cgi?id=55021
+
+        Scroll doesn't work on tiled backing store, but it works on single.
+        If ewk_frame_paint_full_set() set True, view size return content size and scroll can't be made. 
+        so, ewk_frame_paint_full_set() is removed from ewk_tiled_smart_add().
+
+        * ewk/ewk_view_tiled.c:
+        (_ewk_view_tiled_smart_add):
+
+2011-04-14  Grzegorz Czajkowski  <g.czajkowski@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        Memory cache API
+        https://bugs.webkit.org/show_bug.cgi?id=58016
+
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_cache_enable_get):
+        (ewk_settings_cache_enable_set):
+        (ewk_settings_cache_capacity_set):
+        * ewk/ewk_settings.h:
+
+2011-04-13  Grzegorz Czajkowski  <g.czajkowski@samsung.com>
+
+        Reviewed by Kent Tamura.
+
+        [EFL] Doxygen documentation for ewk_main, ewk_history and tools
+        https://bugs.webkit.org/show_bug.cgi?id=58428
+
+        * ewk/EWebKit.h:
+        * ewk/ewk_eapi.h:
+        * ewk/ewk_history.h:
+        * ewk/ewk_logging.h:
+        * ewk/ewk_main.cpp:
+        * ewk/ewk_main.h:
+        * ewk/ewk_private.h:
+        * ewk/ewk_util.cpp:
+        * ewk/ewk_util.h:
+
+2011-04-11  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Adjust dpi value to viewport computation.
+        https://bugs.webkit.org/show_bug.cgi?id=58130
+
+        In viewport computation, EFL port have used 160 value for DPI since now.
+        But, we have to use device's dpi value for viewport meta tag computation.
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_viewport_attributes_compute):
+
+2011-04-10  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Eric Carlson.
+
+        [EFL] Add seek forward / backward buttons to MediaControl UI.
+        https://bugs.webkit.org/show_bug.cgi?id=56810
+
+        Add seek forward / backward buttons to media control.
+
+        * DefaultTheme/default.edc:
+        * DefaultTheme/widget/mediacontrol/seekbackwardbutton/seekbackward_button.edc: Added.
+        * DefaultTheme/widget/mediacontrol/seekbackwardbutton/seekbackwardbutton.png: Added.
+        * DefaultTheme/widget/mediacontrol/seekforwardbutton/seekforward_button.edc: Added.
+        * DefaultTheme/widget/mediacontrol/seekforwardbutton/seekforwardbutton.png: Added.
+
+2011-04-04  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        [Refactoring] SpellCheckingResult should be replaced with TextCheckingResult
+        https://bugs.webkit.org/show_bug.cgi?id=56085
+        
+        * WebCoreSupport/EditorClientEfl.h:
+        (WebCore::EditorClientEfl::requestCheckingOfString):
+
+2011-04-01  Grzegorz Czajkowski  <g.czajkowski@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Synchronization between WebCore's ContextMenuItem.h and ewk_contextmenu.h
+        https://bugs.webkit.org/show_bug.cgi?id=57000
+
+        * ewk/ewk_contextmenu.h:
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        <title> should support dir attribute
+        https://bugs.webkit.org/show_bug.cgi?id=50961
+
+        Update to new FrameLoaderClient interface.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchDidReceiveTitle):
+        (WebCore::FrameLoaderClientEfl::setTitle):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
 2011-03-29  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
 
         Reviewed by Antonio Gomes.

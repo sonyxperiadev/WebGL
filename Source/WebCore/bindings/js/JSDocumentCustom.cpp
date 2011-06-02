@@ -55,11 +55,9 @@ void JSDocument::markChildren(MarkStack& markStack)
     Document* document = impl();
     JSGlobalData& globalData = *Heap::heap(this)->globalData();
 
-    markDOMNodesForDocument(markStack, document);
     markActiveObjectsForContext(markStack, globalData, document);
     markDOMObjectWrapper(markStack, globalData, document->implementation());
     markDOMObjectWrapper(markStack, globalData, document->styleSheets());
-    document->markCachedNodeLists(markStack, globalData);
 }
 
 JSValue JSDocument::location(ExecState* exec) const
@@ -69,11 +67,11 @@ JSValue JSDocument::location(ExecState* exec) const
         return jsNull();
 
     Location* location = frame->domWindow()->location();
-    if (DOMObject* wrapper = getCachedDOMObjectWrapper(exec, location))
+    if (JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), location))
         return wrapper;
 
     JSLocation* jsLocation = new (exec) JSLocation(getDOMStructure<JSLocation>(exec, globalObject()), globalObject(), location);
-    cacheDOMObjectWrapper(exec, location, jsLocation);
+    cacheWrapper(currentWorld(exec), location, jsLocation);
     return jsLocation;
 }
 
@@ -101,7 +99,7 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Document* documen
     if (!document)
         return jsNull();
 
-    DOMObject* wrapper = getCachedDOMNodeWrapper(exec, document, document);
+    JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), document);
     if (wrapper)
         return wrapper;
 

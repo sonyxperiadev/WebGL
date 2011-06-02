@@ -85,16 +85,19 @@ WebInspector.NetworkDispatcher.prototype = {
 
     _updateResourceWithResponse: function(resource, response)
     {
-        if (!("status" in response))
+        if (!response)
             return;
 
         resource.mimeType = response.mimeType;
         resource.statusCode = response.status;
         resource.statusText = response.statusText;
         resource.responseHeaders = response.headers;
-        // Raw request headers can be a part of response as well.
+        if (response.headersText)
+            resource.responseHeadersText = response.headersText;
         if (response.requestHeaders)
             resource.requestHeaders = response.requestHeaders;
+        if (response.requestHeadersText)
+            resource.requestHeadersText = response.requestHeadersText;
 
         resource.connectionReused = response.connectionReused;
         resource.connectionID = response.connectionID;
@@ -112,14 +115,14 @@ WebInspector.NetworkDispatcher.prototype = {
         this._updateResourceWithResponse(resource, cachedResource.response);
     },
 
-    requestWillBeSent: function(identifier, frameId, loaderId, documentURL, request, redirectResponse, time, callStack)
+    requestWillBeSent: function(identifier, frameId, loaderId, documentURL, request, time, stackTrace, redirectResponse)
     {
         var resource = this._inflightResourcesById[identifier];
         if (resource) {
             this.responseReceived(identifier, time, "Other", redirectResponse);
             resource = this._appendRedirect(identifier, time, request.url);
         } else
-            resource = this._createResource(identifier, frameId, loaderId, request.url, documentURL, callStack);
+            resource = this._createResource(identifier, frameId, loaderId, request.url, documentURL, stackTrace);
         this._updateResourceWithRequest(resource, request);
         resource.startTime = time;
 
@@ -150,15 +153,27 @@ WebInspector.NetworkDispatcher.prototype = {
         this._updateResource(resource);
     },
 
-    dataReceived: function(identifier, time, dataLength, lengthReceived)
+    domContentEventFired: function(time)
+    {
+        if (WebInspector.panels.network)
+            WebInspector.panels.network.mainResourceDOMContentTime = time;
+    },
+
+    loadEventFired: function(time)
+    {
+        if (WebInspector.panels.network)
+            WebInspector.panels.network.mainResourceLoadTime = time;
+    },
+
+    dataReceived: function(identifier, time, dataLength, encodedDataLength)
     {
         var resource = this._inflightResourcesById[identifier];
         if (!resource)
             return;
 
         resource.resourceSize += dataLength;
-        if (lengthReceived != -1)
-            resource.increaseTransferSize(lengthReceived);
+        if (encodedDataLength != -1)
+            resource.increaseTransferSize(encodedDataLength);
         resource.endTime = time;
 
         this._updateResource(resource);
@@ -173,13 +188,14 @@ WebInspector.NetworkDispatcher.prototype = {
         this._finishResource(resource, finishTime);
     },
 
-    loadingFailed: function(identifier, time, localizedDescription)
+    loadingFailed: function(identifier, time, localizedDescription, canceled)
     {
         var resource = this._inflightResourcesById[identifier];
         if (!resource)
             return;
 
         resource.failed = true;
+        resource.canceled = canceled;
         resource.localizedFailDescription = localizedDescription;
         this._finishResource(resource, time);
     },

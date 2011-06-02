@@ -51,6 +51,7 @@ typedef enum {
 
 extern NSString *WebPreferencesChangedNotification;
 extern NSString *WebPreferencesRemovedNotification;
+extern NSString *WebPreferencesChangedInternalNotification;
 
 @interface WebPreferences (WebPrivate)
 
@@ -210,7 +211,8 @@ extern NSString *WebPreferencesRemovedNotification;
 - (void)setHyperlinkAuditingEnabled:(BOOL)enabled;
 
 // Other private methods
-- (void)_postPreferencesChangesNotification;
+- (void)_postPreferencesChangedNotification;
+- (void)_postPreferencesChangedAPINotification;
 + (WebPreferences *)_getInstanceForIdentifier:(NSString *)identifier;
 + (void)_setInstance:(WebPreferences *)instance forIdentifier:(NSString *)identifier;
 + (void)_removeReferenceForIdentifier:(NSString *)identifier;
@@ -237,5 +239,8 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)usePreHTML5ParserQuirks;
 
 - (BOOL)useQuickLookResourceCachingQuirks;
+
+- (void)setLoadsSiteIconsIgnoringImageLoadingPreference: (BOOL)flag;
+- (BOOL)loadsSiteIconsIgnoringImageLoadingPreference;
 
 @end

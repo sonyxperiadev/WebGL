@@ -69,8 +69,8 @@ public:
     CompareResults compareNode(Node* refNode, ExceptionCode&) const;
     enum CompareHow { START_TO_START, START_TO_END, END_TO_END, END_TO_START };
     short compareBoundaryPoints(CompareHow, const Range* sourceRange, ExceptionCode&) const;
-    static short compareBoundaryPoints(Node* containerA, int offsetA, Node* containerB, int offsetB);
-    static short compareBoundaryPoints(const RangeBoundaryPoint& boundaryA, const RangeBoundaryPoint& boundaryB);
+    static short compareBoundaryPoints(Node* containerA, int offsetA, Node* containerB, int offsetB, ExceptionCode&);
+    static short compareBoundaryPoints(const RangeBoundaryPoint& boundaryA, const RangeBoundaryPoint& boundaryB, ExceptionCode&);
     bool boundaryPointsValid() const;
     bool intersectsNode(Node* refNode, ExceptionCode&);
     void deleteContents(ExceptionCode&);
@@ -109,7 +109,7 @@ public:
     // Not transform-friendly
     void textRects(Vector<IntRect>&, bool useSelectionHeight = false);
     // Transform-friendly
-    void textQuads(Vector<FloatQuad>&, bool useSelectionHeight = false);
+    void textQuads(Vector<FloatQuad>&, bool useSelectionHeight = false) const;
     void getBorderAndTextQuads(Vector<FloatQuad>&) const;
     FloatRect boundingRect() const;
 

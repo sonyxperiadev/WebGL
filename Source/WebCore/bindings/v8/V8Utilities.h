@@ -55,6 +55,36 @@ namespace WebCore {
 
     ScriptExecutionContext* getScriptExecutionContext();
 
+    void throwTypeMismatchException();
+
+    enum CallbackAllowedValueFlag {
+        CallbackAllowUndefined = 1,
+        CallbackAllowNull = 1 << 1
+    };
+
+    typedef unsigned CallbackAllowedValueFlags;
+
+    // 'FunctionOnly' is assumed for the created callback.
+    template <typename V8CallbackType>
+    PassRefPtr<V8CallbackType> createFunctionOnlyCallback(v8::Local<v8::Value> value, bool& succeeded, CallbackAllowedValueFlags acceptedValues = 0)
+    {
+        succeeded = true;
+
+        if (value->IsUndefined() && (acceptedValues & CallbackAllowUndefined))
+            return 0;
+
+        if (value->IsNull() && (acceptedValues & CallbackAllowNull))
+            return 0;
+
+        if (!value->IsFunction()) {
+            succeeded = false;
+            throwTypeMismatchException();
+            return 0;
+        }
+
+        return V8CallbackType::create(value, getScriptExecutionContext());
+    }
+
     class AllowAllocation {
     public:
         inline AllowAllocation()

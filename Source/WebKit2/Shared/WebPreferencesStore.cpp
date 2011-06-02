@@ -28,6 +28,7 @@
 
 #include "FontSmoothingLevel.h"
 #include "WebCoreArgumentCoders.h"
+#include <WebCore/Settings.h>
 
 namespace WebKit {
 
@@ -51,6 +52,8 @@ static bool hasXSSAuditorEnabledTestRunnerOverride;
 static bool xssAuditorEnabledTestRunnerOverride;
 static bool hasAllowUniversalAccessFromFileURLsTestRunnerOverride;
 static bool allowUniversalAccessFromFileURLsTestRunnerOverride;
+static bool hasAllowFileAccessFromFileURLsTestRunnerOverride;
+static bool allowFileAccessFromFileURLsTestRunnerOverride;
 
 WebPreferencesStore::WebPreferencesStore()
 {
@@ -72,6 +75,9 @@ bool WebPreferencesStore::decode(CoreIPC::ArgumentDecoder* decoder, WebPreferenc
     if (hasAllowUniversalAccessFromFileURLsTestRunnerOverride)
         s.m_boolValues.set(WebPreferencesKey::allowUniversalAccessFromFileURLsKey(), allowUniversalAccessFromFileURLsTestRunnerOverride);
 
+    if (hasAllowFileAccessFromFileURLsTestRunnerOverride)
+        s.m_boolValues.set(WebPreferencesKey::allowFileAccessFromFileURLsKey(), allowFileAccessFromFileURLsTestRunnerOverride);
+
     return true;
 }
 
@@ -85,6 +91,12 @@ void WebPreferencesStore::overrideAllowUniversalAccessFromFileURLsForTestRunner(
 {
     hasAllowUniversalAccessFromFileURLsTestRunnerOverride = true;
     allowUniversalAccessFromFileURLsTestRunnerOverride = enabled;
+}
+
+void WebPreferencesStore::overrideAllowFileAccessFromFileURLsForTestRunner(bool enabled)
+{
+    hasAllowFileAccessFromFileURLsTestRunnerOverride = true;
+    allowFileAccessFromFileURLsTestRunnerOverride = enabled;
 }
 
 void WebPreferencesStore::removeTestRunnerOverrides()

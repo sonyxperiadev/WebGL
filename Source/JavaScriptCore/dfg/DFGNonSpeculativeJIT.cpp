@@ -78,7 +78,7 @@ void NonSpeculativeJIT::valueToNumber(JSValueOperand& operand, FPRReg fpr)
 
     // Next handle cells (& other JS immediates)
     nonNumeric.link(&m_jit);
-    silentSpillAllRegisters(jsValueGpr);
+    silentSpillAllRegisters(fpr, jsValueGpr);
     m_jit.move(jsValueReg, JITCompiler::argumentRegister1);
     m_jit.move(JITCompiler::callFrameRegister, JITCompiler::argumentRegister0);
     appendCallWithExceptionCheck(dfgConvertJSValueToNumber);
@@ -105,7 +105,7 @@ void NonSpeculativeJIT::valueToInt32(JSValueOperand& operand, GPRReg result)
     JITCompiler::Jump isInteger = m_jit.branchPtr(MacroAssembler::AboveOrEqual, jsValueReg, JITCompiler::tagTypeNumberRegister);
 
     // First handle non-integers
-    silentSpillAllRegisters(jsValueGpr);
+    silentSpillAllRegisters(result, jsValueGpr);
     m_jit.move(jsValueReg, JITCompiler::argumentRegister1);
     m_jit.move(JITCompiler::callFrameRegister, JITCompiler::argumentRegister0);
     appendCallWithExceptionCheck(dfgConvertJSValueToInt32);
@@ -126,7 +126,7 @@ void NonSpeculativeJIT::numberToInt32(FPRReg fpr, GPRReg gpr)
 
     JITCompiler::Jump truncatedToInteger = m_jit.branchTruncateDoubleToInt32(fpReg, reg, JITCompiler::BranchIfTruncateSuccessful);
 
-    silentSpillAllRegisters(gpr); // don't really care!
+    silentSpillAllRegisters(gpr);
 
     m_jit.moveDouble(fpReg, JITCompiler::fpArgumentRegister0);
     appendCallWithExceptionCheck(toInt32);
@@ -137,6 +137,40 @@ void NonSpeculativeJIT::numberToInt32(FPRReg fpr, GPRReg gpr)
     truncatedToInteger.link(&m_jit);
 }
 
+bool NonSpeculativeJIT::isKnownInteger(NodeIndex nodeIndex)
+{
+    GenerationInfo& info = m_generationInfo[m_jit.graph()[nodeIndex].virtualRegister];
+
+    DataFormat registerFormat = info.registerFormat();
+    if (registerFormat != DataFormatNone)
+        return (registerFormat | DataFormatJS) == DataFormatJSInteger;
+
+    DataFormat spillFormat = info.spillFormat();
+    if (spillFormat != DataFormatNone)
+        return (spillFormat | DataFormatJS) == DataFormatJSInteger;
+
+    ASSERT(isConstant(nodeIndex));
+    return isInt32Constant(nodeIndex);
+}
+
+bool NonSpeculativeJIT::isKnownNumeric(NodeIndex nodeIndex)
+{
+    GenerationInfo& info = m_generationInfo[m_jit.graph()[nodeIndex].virtualRegister];
+
+    DataFormat registerFormat = info.registerFormat();
+    if (registerFormat != DataFormatNone)
+        return (registerFormat | DataFormatJS) == DataFormatJSInteger
+            || (registerFormat | DataFormatJS) == DataFormatJSDouble;
+
+    DataFormat spillFormat = info.spillFormat();
+    if (spillFormat != DataFormatNone)
+        return (spillFormat | DataFormatJS) == DataFormatJSInteger
+            || (spillFormat | DataFormatJS) == DataFormatJSDouble;
+
+    ASSERT(isConstant(nodeIndex));
+    return isInt32Constant(nodeIndex) || isDoubleConstant(nodeIndex);
+}
+
 void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, Node& node)
 {
     // ...
@@ -144,7 +178,6 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
         trackEntry(m_jit.label());
 
     checkConsistency();
-
     NodeType op = node.op;
 
     switch (op) {
@@ -164,10 +197,20 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
     case JSConstant:
         initConstantInfo(m_compileIndex);
         break;
-    
-    case Argument:
-        initArgumentInfo(m_compileIndex);
+
+    case GetLocal: {
+        GPRTemporary result(this);
+        m_jit.loadPtr(JITCompiler::addressFor(node.local()), result.registerID());
+        jsValueResult(result.gpr(), m_compileIndex);
         break;
+    }
+
+    case SetLocal: {
+        JSValueOperand value(this, node.child1);
+        m_jit.storePtr(value.registerID(), JITCompiler::addressFor(node.local()));
+        noResult(m_compileIndex);
+        break;
+    }
 
     case BitAnd:
     case BitOr:
@@ -250,10 +293,8 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
     case NumberToInt32:
     case ValueToInt32: {
         ASSERT(!isInt32Constant(node.child1));
-        GenerationInfo& operandInfo = m_generationInfo[m_jit.graph()[node.child1].virtualRegister];
 
-        switch (operandInfo.registerFormat()) {
-        case DataFormatInteger: {
+        if (isKnownInteger(node.child1)) {
             IntegerOperand op1(this, node.child1);
             GPRTemporary result(this, op1);
             m_jit.move(op1.registerID(), result.registerID());
@@ -261,7 +302,7 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
             break;
         }
 
-        case DataFormatDouble: {
+        if (isKnownNumeric(node.child1)) {
             DoubleOperand op1(this, node.child1);
             GPRTemporary result(this);
             numberToInt32(op1.fpr(), result.gpr());
@@ -269,84 +310,29 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
             break;
         }
 
-        default: {
-            JSValueOperand op1(this, node.child1);
-            GPRTemporary result(this, op1);
-            op1.gpr(); // force op1 to be filled!
-            result.gpr(); // force result to be allocated!
-            
-            switch (operandInfo.registerFormat()) {
-            case DataFormatNone:
-            case DataFormatInteger:
-            case DataFormatDouble:
-                // The operand has been filled as a JSValue; it cannot be in a !DataFormatJS state.
-                CRASH();
+        // We should have handled this via isKnownInteger, or isKnownNumeric!
+        ASSERT(op != NumberToInt32);
 
-            case DataFormatCell:
-            case DataFormatJS:
-            case DataFormatJSCell: {
-                if (op == NumberToInt32) {
-                    FPRTemporary fpTemp(this);
-                    FPRReg fpr = fpTemp.fpr();
-
-                    JITCompiler::Jump isInteger = m_jit.branchPtr(MacroAssembler::AboveOrEqual, op1.registerID(), JITCompiler::tagTypeNumberRegister);
-
-                    m_jit.move(op1.registerID(), result.registerID());
-                    m_jit.addPtr(JITCompiler::tagTypeNumberRegister, result.registerID());
-                    m_jit.movePtrToDouble(result.registerID(), fpTemp.registerID());
-                    numberToInt32(fpr, result.gpr());
-                    JITCompiler::Jump wasDouble = m_jit.jump();
-                    
-                    isInteger.link(&m_jit);
-                    m_jit.zeroExtend32ToPtr(op1.registerID(), result.registerID());
-
-                    wasDouble.link(&m_jit);
-                } else
-                    valueToInt32(op1, result.gpr());
-                integerResult(result.gpr(), m_compileIndex);
-                break;
-            }
-
-            case DataFormatJSDouble: {
-                FPRTemporary fpTemp(this);
-                m_jit.move(op1.registerID(), result.registerID());
-                m_jit.addPtr(JITCompiler::tagTypeNumberRegister, result.registerID());
-                m_jit.movePtrToDouble(result.registerID(), fpTemp.registerID());
-                numberToInt32(fpTemp.fpr(), result.gpr());
-                integerResult(result.gpr(), m_compileIndex);
-                break;
-            }
-
-            case DataFormatJSInteger: {
-                m_jit.move(op1.registerID(), result.registerID());
-                jsValueResult(result.gpr(), m_compileIndex, DataFormatJSInteger);
-                break;
-            }
-            }
-        }
-
-        }
+        JSValueOperand op1(this, node.child1);
+        GPRTemporary result(this, op1);
+        valueToInt32(op1, result.gpr());
+        integerResult(result.gpr(), m_compileIndex);
         break;
     }
 
     case ValueToNumber: {
         ASSERT(!isInt32Constant(node.child1));
         ASSERT(!isDoubleConstant(node.child1));
-        GenerationInfo& operandInfo = m_generationInfo[m_jit.graph()[node.child1].virtualRegister];
-        switch (operandInfo.registerFormat()) {
-        case DataFormatNone:
-        case DataFormatCell:
-        case DataFormatJS:
-        case DataFormatJSCell: {
-            JSValueOperand op1(this, node.child1);
+
+        if (isKnownInteger(node.child1)) {
+            IntegerOperand op1(this, node.child1);
             FPRTemporary result(this);
-            valueToNumber(op1, result.fpr());
+            m_jit.convertInt32ToDouble(op1.registerID(), result.registerID());
             doubleResult(result.fpr(), m_compileIndex);
             break;
         }
 
-        case DataFormatJSDouble:
-        case DataFormatDouble: {
+        if (isKnownNumeric(node.child1)) {
             DoubleOperand op1(this, node.child1);
             FPRTemporary result(this, op1);
             m_jit.moveDouble(op1.registerID(), result.registerID());
@@ -354,15 +340,10 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
             break;
         }
 
-        case DataFormatJSInteger:
-        case DataFormatInteger: {
-            IntegerOperand op1(this, node.child1);
-            FPRTemporary result(this);
-            m_jit.convertInt32ToDouble(op1.registerID(), result.registerID());
-            doubleResult(result.fpr(), m_compileIndex);
-            break;
-        }
-        }
+        JSValueOperand op1(this, node.child1);
+        FPRTemporary result(this);
+        valueToNumber(op1, result.fpr());
+        doubleResult(result.fpr(), m_compileIndex);
         break;
     }
 
@@ -443,6 +424,80 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
         callOperation(fmod, result.fpr(), arg1FPR, arg2FPR);
 
         doubleResult(result.fpr(), m_compileIndex);
+        break;
+    }
+
+    case LogicalNot: {
+        JSValueOperand arg1(this, node.child1);
+        GPRReg arg1GPR = arg1.gpr();
+        flushRegisters();
+
+        GPRResult result(this);
+        callOperation(dfgConvertJSValueToBoolean, result.gpr(), arg1GPR);
+
+        // If we add a DataFormatBool, we should use it here.
+        m_jit.xor32(TrustedImm32(ValueTrue), result.registerID());
+        jsValueResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case CompareLess: {
+        JSValueOperand arg1(this, node.child1);
+        JSValueOperand arg2(this, node.child2);
+        GPRReg arg1GPR = arg1.gpr();
+        GPRReg arg2GPR = arg2.gpr();
+        flushRegisters();
+
+        GPRResult result(this);
+        callOperation(operationCompareLess, result.gpr(), arg1GPR, arg2GPR);
+        m_jit.or32(TrustedImm32(ValueFalse), result.registerID());
+
+        jsValueResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case CompareLessEq: {
+        JSValueOperand arg1(this, node.child1);
+        JSValueOperand arg2(this, node.child2);
+        GPRReg arg1GPR = arg1.gpr();
+        GPRReg arg2GPR = arg2.gpr();
+        flushRegisters();
+
+        GPRResult result(this);
+        callOperation(operationCompareLessEq, result.gpr(), arg1GPR, arg2GPR);
+        m_jit.or32(TrustedImm32(ValueFalse), result.registerID());
+
+        jsValueResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case CompareEq: {
+        JSValueOperand arg1(this, node.child1);
+        JSValueOperand arg2(this, node.child2);
+        GPRReg arg1GPR = arg1.gpr();
+        GPRReg arg2GPR = arg2.gpr();
+        flushRegisters();
+
+        GPRResult result(this);
+        callOperation(operationCompareEq, result.gpr(), arg1GPR, arg2GPR);
+        m_jit.or32(TrustedImm32(ValueFalse), result.registerID());
+
+        jsValueResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case CompareStrictEq: {
+        JSValueOperand arg1(this, node.child1);
+        JSValueOperand arg2(this, node.child2);
+        GPRReg arg1GPR = arg1.gpr();
+        GPRReg arg2GPR = arg2.gpr();
+        flushRegisters();
+
+        GPRResult result(this);
+        callOperation(operationCompareStrictEq, result.gpr(), arg1GPR, arg2GPR);
+        m_jit.or32(TrustedImm32(ValueFalse), result.registerID());
+
+        jsValueResult(result.gpr(), m_compileIndex);
         break;
     }
 
@@ -535,10 +590,42 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
         break;
     }
 
+    case DFG::Jump: {
+        BlockIndex taken = m_jit.graph().blockIndexForBytecodeOffset(node.takenBytecodeOffset());
+        if (taken != (m_block + 1))
+            addBranch(m_jit.jump(), taken);
+        noResult(m_compileIndex);
+        break;
+    }
+
+    case Branch: {
+        JSValueOperand value(this, node.child1);
+        GPRReg valueGPR = value.gpr();
+        flushRegisters();
+
+        GPRResult result(this);
+        callOperation(dfgConvertJSValueToBoolean, result.gpr(), valueGPR);
+
+        BlockIndex taken = m_jit.graph().blockIndexForBytecodeOffset(node.takenBytecodeOffset());
+        BlockIndex notTaken = m_jit.graph().blockIndexForBytecodeOffset(node.notTakenBytecodeOffset());
+
+        addBranch(m_jit.branchTest8(MacroAssembler::NonZero, result.registerID()), taken);
+        if (notTaken != (m_block + 1))
+            addBranch(m_jit.jump(), notTaken);
+
+        noResult(m_compileIndex);
+        break;
+    }
+
     case Return: {
         ASSERT(JITCompiler::callFrameRegister != JITCompiler::regT1);
         ASSERT(JITCompiler::regT1 != JITCompiler::returnValueRegister);
         ASSERT(JITCompiler::returnValueRegister != JITCompiler::callFrameRegister);
+
+#if DFG_SUCCESS_STATS
+        static SamplingCounter counter("NonSpeculativeJIT");
+        m_jit.emitCount(counter);
+#endif
 
         // Return the result in returnValueRegister.
         JSValueOperand op1(this, node.child1);
@@ -563,21 +650,38 @@ void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, No
     checkConsistency();
 }
 
+void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator, BasicBlock& block)
+{
+    ASSERT(m_compileIndex == block.begin);
+    m_blockHeads[m_block] = m_jit.label();
+
+#if DFG_JIT_BREAK_ON_EVERY_BLOCK
+    m_jit.breakpoint();
+#endif
+
+    for (; m_compileIndex < block.end; ++m_compileIndex) {
+        Node& node = m_jit.graph()[m_compileIndex];
+        if (!node.refCount)
+            continue;
+
+#if DFG_DEBUG_VERBOSE
+        fprintf(stderr, "NonSpeculativeJIT generating Node @%d at code offset 0x%x\n", (int)m_compileIndex, m_jit.debugOffset());
+#endif
+#if DFG_JIT_BREAK_ON_EVERY_NODE
+    m_jit.breakpoint();
+#endif
+
+        compile(checkIterator, node);
+    }
+}
+
 void NonSpeculativeJIT::compile(SpeculationCheckIndexIterator& checkIterator)
 {
     ASSERT(!m_compileIndex);
-    Node* nodes = m_jit.graph().begin();
-
-    for (; m_compileIndex < m_jit.graph().size(); ++m_compileIndex) {
-#if DFG_DEBUG_VERBOSE
-        fprintf(stderr, "index(%d)\n", (int)m_compileIndex);
-#endif
-
-        Node& node = nodes[m_compileIndex];
-        if (!node.refCount)
-            continue;
-        compile(checkIterator, node);
-    }
+    Vector<BasicBlock> blocks = m_jit.graph().m_blocks;
+    for (m_block = 0; m_block < blocks.size(); ++m_block)
+        compile(checkIterator, blocks[m_block]);
+    linkBranches();
 }
 
 } } // namespace JSC::DFG

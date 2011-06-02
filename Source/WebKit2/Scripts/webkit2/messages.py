@@ -81,9 +81,9 @@ class MessageReceiver(object):
                 elif line.startswith('#endif'):
                     condition = None
                 continue
-            match = re.search(r'([A-Za-z_0-9]+)\((.*?)\)(?:(?:\s+->\s+)\((.*?)\)(?:\s+(delayed))?)?', line)
+            match = re.search(r'([A-Za-z_0-9]+)\((.*?)\)(?:(?:\s+->\s+)\((.*?)\)(?:\s+(.*))?)?', line)
             if match:
-                name, parameters_string, reply_parameters_string, delayed_string = match.groups()
+                name, parameters_string, reply_parameters_string, attributes_string = match.groups()
                 if parameters_string:
                     parameters = parse_parameter_string(parameters_string)
                 else:
@@ -92,7 +92,13 @@ class MessageReceiver(object):
                 for parameter in parameters:
                     parameter.condition = condition
 
-                delayed = delayed_string == 'delayed'
+                if attributes_string:
+                    attributes = frozenset(attributes_string.split())
+                    is_delayed = "Delayed" in attributes
+                    dispatch_on_connection_queue = "DispatchOnConnectionQueue" in attributes
+                else:
+                    is_delayed = False
+                    dispatch_on_connection_queue = False
 
                 if reply_parameters_string:
                     reply_parameters = parse_parameter_string(reply_parameters_string)
@@ -101,17 +107,18 @@ class MessageReceiver(object):
                 else:
                     reply_parameters = None
 
-                messages.append(Message(name, parameters, reply_parameters, delayed, condition))
+                messages.append(Message(name, parameters, reply_parameters, is_delayed, dispatch_on_connection_queue, condition))
         return MessageReceiver(destination, messages, master_condition)
 
 
 class Message(object):
-    def __init__(self, name, parameters, reply_parameters, delayed, condition):
+    def __init__(self, name, parameters, reply_parameters, is_delayed, dispatch_on_connection_queue, condition):
         self.name = name
         self.parameters = parameters
         self.reply_parameters = reply_parameters
         if self.reply_parameters is not None:
-            self.delayed = delayed
+            self.is_delayed = is_delayed
+        self.dispatch_on_connection_queue = dispatch_on_connection_queue
         self.condition = condition
         if len(self.parameters) != 0:
             self.is_variadic = parameter_type_is_variadic(self.parameters[-1].type)
@@ -217,30 +224,20 @@ def message_to_struct_declaration(message):
     result.append(' {\n')
     result.append('    static const Kind messageID = %s;\n' % message.id())
     if message.reply_parameters != None:
-        if message.delayed:
+        if message.is_delayed:
             send_parameters = [(function_parameter_type(x.type), x.name) for x in message.reply_parameters]
-            result.append('    struct DelayedReply {\n')
-            result.append('        DelayedReply(PassRefPtr<CoreIPC::Connection> connection, PassOwnPtr<CoreIPC::ArgumentDecoder> arguments)\n')
-            result.append('            : m_connection(connection)\n')
-            result.append('            , m_arguments(arguments)\n')
-            result.append('        {\n')
-            result.append('        }\n')
+            result.append('    struct DelayedReply : public ThreadSafeRefCounted<DelayedReply> {\n')
+            result.append('        DelayedReply(PassRefPtr<CoreIPC::Connection>, PassOwnPtr<CoreIPC::ArgumentEncoder>);\n')
+            result.append('        ~DelayedReply();\n')
             result.append('\n')
-            result.append('        bool send(%s)\n' % ', '.join([' '.join(x) for x in send_parameters]))
-            result.append('        {\n')
-            result.append('            ASSERT(m_arguments);\n')
-            result += ['            m_arguments->encode(%s);\n' % x.name for x in message.reply_parameters]
-            result.append('            bool result = m_connection->sendSyncReply(m_arguments.release());\n')
-            result.append('            m_connection = nullptr;\n')
-            result.append('            return result;\n')
-            result.append('        }\n')
+            result.append('        bool send(%s);\n' % ', '.join([' '.join(x) for x in send_parameters]))
             result.append('\n')
             result.append('    private:\n')
             result.append('        RefPtr<CoreIPC::Connection> m_connection;\n')
-            result.append('        OwnPtr<CoreIPC::ArgumentDecoder> m_arguments;\n')
+            result.append('        OwnPtr<CoreIPC::ArgumentEncoder> m_arguments;\n')
             result.append('    };\n\n')
-        else:
-            result.append('    typedef %s Reply;\n' % reply_type(message))
+
+        result.append('    typedef %s Reply;\n' % reply_type(message))
 
     result.append('    typedef %s DecodeType;\n' % decode_type(message))
     if len(function_parameters):
@@ -254,6 +251,7 @@ def message_to_struct_declaration(message):
 
 def struct_or_class(namespace, type):
     structs = frozenset([
+        'WebCore::EditorCommandsForKeyEvent',
         'WebCore::CompositionUnderline',
         'WebCore::GrammarDetail',
         'WebCore::KeypressCommand',
@@ -261,14 +259,15 @@ def struct_or_class(namespace, type):
         'WebCore::PrintInfo',
         'WebCore::ViewportArguments',
         'WebCore::WindowFeatures',
+        'WebKit::AttributedString',
         'WebKit::ContextMenuState',
         'WebKit::DictionaryPopupInfo',
         'WebKit::DrawingAreaInfo',
+        'WebKit::EditorState',
         'WebKit::PlatformPopupMenuData',
         'WebKit::PluginProcessCreationParameters',
         'WebKit::PrintInfo',
         'WebKit::SecurityOriginData',
-        'WebKit::SelectionState',
         'WebKit::TextCheckerState',
         'WebKit::WebNavigationDataStore',
         'WebKit::WebOpenPanelParameters::Data',
@@ -298,6 +297,11 @@ def forward_declarations_and_headers(receiver):
         '"Arguments.h"',
         '"MessageID.h"',
     ])
+
+    for message in receiver.messages:
+        if message.reply_parameters != None and message.is_delayed:
+            headers.add('<wtf/ThreadSafeRefCounted.h>')
+            types_by_namespace['CoreIPC'].update(['ArgumentEncoder', 'Connection'])
 
     for parameter in receiver.iterparameters():
         type = parameter.type
@@ -385,14 +389,20 @@ def async_case_statement(receiver, message):
 
 def sync_case_statement(receiver, message):
     dispatch_function = 'handleMessage'
+    if message.is_delayed:
+        dispatch_function += 'Delayed'
     if message.is_variadic:
         dispatch_function += 'Variadic'
 
     result = []
     result.append('    case Messages::%s::%s:\n' % (receiver.name, message.id()))
-    result.append('        CoreIPC::%s<Messages::%s::%s>(arguments, reply, this, &%s);\n' % (dispatch_function, receiver.name, message.name, handler_function(receiver, message)))
-    # FIXME: Handle delayed replies
-    result.append('        return CoreIPC::AutomaticReply;\n')
+    result.append('        CoreIPC::%s<Messages::%s::%s>(%sarguments, reply, this, &%s);\n' % (dispatch_function, receiver.name, message.name, 'connection, ' if message.is_delayed else '', handler_function(receiver, message)))
+
+    if message.is_delayed:
+        result.append('        return CoreIPC::ManualReply;\n')
+    else:
+        result.append('        return CoreIPC::AutomaticReply;\n')
+
     return surround_in_condition(''.join(result), message.condition)
 
 
@@ -431,6 +441,7 @@ def headers_for_type(type):
     special_cases = {
         'WTF::String': '<wtf/text/WTFString.h>',
         'WebCore::CompositionUnderline': '<WebCore/Editor.h>',
+        'WebCore::GrammarDetail': '<WebCore/TextCheckerClient.h>',
         'WebCore::KeypressCommand': '<WebCore/KeyboardEvent.h>',
         'WebCore::PluginInfo': '<WebCore/PluginData.h>',
         'WebCore::TextCheckingResult': '<WebCore/TextCheckerClient.h>',
@@ -518,6 +529,46 @@ def generate_message_handler(file):
             result += ['#include %s\n' % headercondition]
     result.append('\n')
 
+    sync_delayed_messages = []
+    for message in receiver.messages:
+        if message.reply_parameters != None and message.is_delayed:
+            sync_delayed_messages.append(message)
+
+    if sync_delayed_messages:
+        result.append('namespace Messages {\n\nnamespace %s {\n\n' % receiver.name)
+
+        for message in sync_delayed_messages:
+            send_parameters = [(function_parameter_type(x.type), x.name) for x in message.reply_parameters]
+
+            if message.condition:
+                result.append('#if %s\n\n' % message.condition)
+            
+            result.append('%s::DelayedReply::DelayedReply(PassRefPtr<CoreIPC::Connection> connection, PassOwnPtr<CoreIPC::ArgumentEncoder> arguments)\n' % message.name)
+            result.append('    : m_connection(connection)\n')
+            result.append('    , m_arguments(arguments)\n')
+            result.append('{\n')
+            result.append('}\n')
+            result.append('\n')
+            result.append('%s::DelayedReply::~DelayedReply()\n' % message.name)
+            result.append('{\n')
+            result.append('    ASSERT(!m_connection);\n')
+            result.append('}\n')
+            result.append('\n')
+            result.append('bool %s::DelayedReply::send(%s)\n' % (message.name, ', '.join([' '.join(x) for x in send_parameters])))
+            result.append('{\n')
+            result.append('    ASSERT(m_arguments);\n')
+            result += ['    m_arguments->encode(%s);\n' % x.name for x in message.reply_parameters]
+            result.append('    bool result = m_connection->sendSyncReply(m_arguments.release());\n')
+            result.append('    m_connection = nullptr;\n')
+            result.append('    return result;\n')
+            result.append('}\n')
+            result.append('\n')
+
+            if message.condition:
+                result.append('#endif\n\n')
+
+        result.append('} // namespace %s\n\n} // namespace Messages\n\n' % receiver.name)
+
     result.append('namespace WebKit {\n\n')
 
     async_messages = []
@@ -541,7 +592,7 @@ def generate_message_handler(file):
 
     if sync_messages:
         result.append('\n')
-        result.append('CoreIPC::SyncReplyMode %s::didReceiveSync%sMessage(CoreIPC::Connection*, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply)\n' % (receiver.name, receiver.name))
+        result.append('CoreIPC::SyncReplyMode %s::didReceiveSync%sMessage(CoreIPC::Connection*%s, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply)\n' % (receiver.name, receiver.name, ' connection' if sync_delayed_messages else ''))
         result.append('{\n')
         result.append('    switch (messageID.get<Messages::%s::Kind>()) {\n' % receiver.name)
         result += [sync_case_statement(receiver, message) for message in sync_messages]

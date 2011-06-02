@@ -90,6 +90,7 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "HitTestResult.h"
 #include "HTMLCollection.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
@@ -106,6 +107,7 @@
 #include "PluginDocument.h"
 #include "PrintContext.h"
 #include "RenderFrame.h"
+#include "RenderLayer.h"
 #include "RenderObject.h"
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
@@ -140,6 +142,7 @@
 #include "WebPerformance.h"
 #include "WebPlugin.h"
 #include "WebPluginContainerImpl.h"
+#include "WebPoint.h"
 #include "WebRange.h"
 #include "WebRect.h"
 #include "WebScriptSource.h"
@@ -161,8 +164,13 @@
 #if USE(V8)
 #include "AsyncFileSystem.h"
 #include "AsyncFileSystemChromium.h"
+#include "DirectoryEntry.h"
 #include "DOMFileSystem.h"
+#include "FileEntry.h"
+#include "V8DirectoryEntry.h"
 #include "V8DOMFileSystem.h"
+#include "V8FileEntry.h"
+#include "WebFileSystem.h"
 #endif
 
 using namespace WebCore;
@@ -472,6 +480,13 @@ WebFrame* WebFrame::frameForCurrentContext()
         ScriptController::retrieveFrameForCurrentContext();
     return WebFrameImpl::fromFrame(frame);
 }
+
+#if WEBKIT_USING_V8
+WebFrame* WebFrame::frameForContext(v8::Handle<v8::Context> context)
+{
+    return WebFrameImpl::fromFrame(V8Proxy::retrieveFrame(context));
+}
+#endif
 
 WebFrame* WebFrame::fromFrameOwnerElement(const WebElement& element)
 {
@@ -841,11 +856,23 @@ v8::Local<v8::Context> WebFrameImpl::mainWorldScriptContext() const
     return V8Proxy::mainWorldContext(m_frame);
 }
 
-v8::Handle<v8::Value> WebFrameImpl::createFileSystem(int type,
+v8::Handle<v8::Value> WebFrameImpl::createFileSystem(WebFileSystem::Type type,
                                                      const WebString& name,
                                                      const WebString& path)
 {
     return toV8(DOMFileSystem::create(frame()->document(), name, AsyncFileSystemChromium::create(static_cast<AsyncFileSystem::Type>(type), path)));
+}
+
+v8::Handle<v8::Value> WebFrameImpl::createFileEntry(WebFileSystem::Type type,
+                                                    const WebString& fileSystemName,
+                                                    const WebString& fileSystemPath,
+                                                    const WebString& filePath,
+                                                    bool isDirectory)
+{
+    RefPtr<DOMFileSystemBase> fileSystem = DOMFileSystem::create(frame()->document(), fileSystemName, AsyncFileSystemChromium::create(static_cast<AsyncFileSystem::Type>(type), fileSystemPath));
+    if (isDirectory)
+        return toV8(DirectoryEntry::create(fileSystem, filePath));
+    return toV8(FileEntry::create(fileSystem, filePath));
 }
 #endif
 
@@ -1305,6 +1332,39 @@ bool WebFrameImpl::selectWordAroundCaret()
     return true;
 }
 
+void WebFrameImpl::selectRange(const WebPoint& start, const WebPoint& end)
+{
+    VisibleSelection selection(visiblePositionForWindowPoint(start),
+                               visiblePositionForWindowPoint(end));
+
+    if (frame()->selection()->shouldChangeSelection(selection))
+        frame()->selection()->setSelection(selection, CharacterGranularity,
+                                           MakeNonDirectionalSelection);
+}
+
+VisiblePosition WebFrameImpl::visiblePositionForWindowPoint(const WebPoint& point)
+{
+    HitTestRequest::HitTestRequestType hitType = HitTestRequest::MouseMove;
+    hitType |= HitTestRequest::ReadOnly;
+    hitType |= HitTestRequest::Active;
+    HitTestRequest request(hitType);
+    FrameView* view = frame()->view();
+    HitTestResult result(view->windowToContents(
+        view->convertFromContainingWindow(IntPoint(point.x, point.y))));
+
+    frame()->document()->renderView()->layer()->hitTest(request, result);
+
+    // Matching the logic in MouseEventWithHitTestResults::targetNode()
+    Node* node = result.innerNode();
+    if (!node)
+        return VisiblePosition();
+    Element* element = node->parentElement();
+    if (!node->inDocument() && element && element->inDocument())
+        node = element;
+
+    return node->renderer()->positionForPoint(result.localPoint());
+}
+
 int WebFrameImpl::printBegin(const WebSize& pageSize,
                              const WebNode& constrainToNode,
                              int printerDPI,
@@ -1366,7 +1426,13 @@ float WebFrameImpl::printPage(int page, WebCanvas* canvas)
         return 0;
     }
 
-    return m_printContext->spoolPage(GraphicsContextBuilder(canvas).context(), page);
+    GraphicsContextBuilder builder(canvas);
+    GraphicsContext& gc = builder.context();
+#if WEBKIT_USING_SKIA
+    gc.platformContext()->setPrinting(true);
+#endif
+
+    return m_printContext->spoolPage(gc, page);
 }
 
 void WebFrameImpl::printEnd()
@@ -1482,12 +1548,8 @@ bool WebFrameImpl::find(int identifier,
                     m_activeMatchIndex = m_lastMatchCount - 1;
             }
             if (selectionRect) {
-                WebRect rect = frame()->view()->convertToContainingWindow(currSelectionRect);
-                rect.x -= frameView()->scrollOffset().width();
-                rect.y -= frameView()->scrollOffset().height();
-                *selectionRect = rect;
-
-                reportFindInPageSelection(rect, m_activeMatchIndex + 1, identifier);
+                *selectionRect = frameView()->contentsToWindow(currSelectionRect);
+                reportFindInPageSelection(*selectionRect, m_activeMatchIndex + 1, identifier);
             }
         }
     } else {
@@ -1624,10 +1686,8 @@ void WebFrameImpl::scopeStringMatches(int identifier,
                 m_locatingActiveRect = false;
 
                 // Notify browser of new location for the selected rectangle.
-                resultBounds.move(-frameView()->scrollOffset().width(),
-                                  -frameView()->scrollOffset().height());
                 reportFindInPageSelection(
-                    frame()->view()->convertToContainingWindow(resultBounds),
+                    frameView()->contentsToWindow(resultBounds),
                     m_activeMatchIndex + 1,
                     identifier);
             }

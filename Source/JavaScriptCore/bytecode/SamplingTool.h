@@ -29,12 +29,12 @@
 #ifndef SamplingTool_h
 #define SamplingTool_h
 
+#include "Strong.h"
+#include "Nodes.h"
+#include "Opcode.h"
 #include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
 #include <wtf/Threading.h>
-
-#include "Nodes.h"
-#include "Opcode.h"
 
 namespace JSC {
 
@@ -113,7 +113,7 @@ namespace JSC {
         
         void sample(CodeBlock*, Instruction*);
 
-        Global<ScriptExecutable> m_executable;
+        Strong<ScriptExecutable> m_executable;
         CodeBlock* m_codeBlock;
         int m_sampleCount;
         int m_opcodeSampleCount;

@@ -458,14 +458,14 @@ void WebGLRenderingContext::setupFlags()
     ASSERT(m_context);
 
     m_isGLES2Compliant = m_context->isGLES2Compliant();
-    m_isErrorGeneratedOnOutOfBoundsAccesses = m_context->getExtensions()->supports("GL_CHROMIUM_strict_attribs");
-    m_isResourceSafe = m_context->getExtensions()->supports("GL_CHROMIUM_resource_safe");
+    m_isErrorGeneratedOnOutOfBoundsAccesses = m_context->getExtensions()->isEnabled("GL_CHROMIUM_strict_attribs");
+    m_isResourceSafe = m_context->getExtensions()->isEnabled("GL_CHROMIUM_resource_safe");
     if (m_isGLES2Compliant) {
-        m_isGLES2NPOTStrict = !m_context->getExtensions()->supports("GL_OES_texture_npot");
-        m_isDepthStencilSupported = m_context->getExtensions()->supports("GL_OES_packed_depth_stencil");
+        m_isGLES2NPOTStrict = !m_context->getExtensions()->isEnabled("GL_OES_texture_npot");
+        m_isDepthStencilSupported = m_context->getExtensions()->isEnabled("GL_OES_packed_depth_stencil");
     } else {
-        m_isGLES2NPOTStrict = !m_context->getExtensions()->supports("GL_ARB_texture_non_power_of_two");
-        m_isDepthStencilSupported = m_context->getExtensions()->supports("GL_EXT_packed_depth_stencil");
+        m_isGLES2NPOTStrict = !m_context->getExtensions()->isEnabled("GL_ARB_texture_non_power_of_two");
+        m_isDepthStencilSupported = m_context->getExtensions()->isEnabled("GL_EXT_packed_depth_stencil");
     }
 }
 
@@ -502,11 +502,11 @@ bool WebGLRenderingContext::clearIfComposited(GC3Dbitfield mask)
     if (isContextLost()) 
         return false;
 
-    RefPtr<WebGLContextAttributes> contextAttributes = getContextAttributes();
-
     if (!m_context->layerComposited() || m_layerCleared
         || m_attributes.preserveDrawingBuffer || m_framebufferBinding)
         return false;
+
+    RefPtr<WebGLContextAttributes> contextAttributes = getContextAttributes();
 
     // Determine if it's possible to combine the clear the user asked for and this clear.
     bool combinedClear = mask && !m_scissorEnabled;
@@ -3140,10 +3140,8 @@ void WebGLRenderingContext::texImage2D(GC3Denum target, GC3Dint level, GC3Denum 
     ec = 0;
     if (isContextLost())
         return;
-    if (!image || !image->cachedImage()) {
-        m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+    if (!validateHTMLImageElement(image))
         return;
-    }
     checkOrigin(image);
     texImage2DImpl(target, level, internalformat, format, type, image->cachedImage()->image(),
                    m_unpackFlipY, m_unpackPremultiplyAlpha, ec);
@@ -3334,10 +3332,8 @@ void WebGLRenderingContext::texSubImage2D(GC3Denum target, GC3Dint level, GC3Din
     ec = 0;
     if (isContextLost())
         return;
-    if (!image || !image->cachedImage()) {
-        m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+    if (!validateHTMLImageElement(image))
         return;
-    }
     checkOrigin(image);
     texSubImage2DImpl(target, level, xoffset, yoffset, format, type, image->cachedImage()->image(),
                       m_unpackFlipY, m_unpackPremultiplyAlpha, ec);
@@ -4611,6 +4607,20 @@ WebGLBuffer* WebGLRenderingContext::validateBufferDataParameters(GC3Denum target
     }
     m_context->synthesizeGLError(GraphicsContext3D::INVALID_ENUM);
     return 0;
+}
+
+bool WebGLRenderingContext::validateHTMLImageElement(HTMLImageElement* image)
+{
+    if (!image || !image->cachedImage()) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+        return false;
+    }
+    const KURL& url = image->cachedImage()->response().url();
+    if (url.isNull() || url.isEmpty() || !url.isValid()) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+        return false;
+    }
+    return true;
 }
 
 void WebGLRenderingContext::vertexAttribfImpl(GC3Duint index, GC3Dsizei expectedSize, GC3Dfloat v0, GC3Dfloat v1, GC3Dfloat v2, GC3Dfloat v3)

@@ -62,6 +62,7 @@
 #include "TextOrientation.h"
 #include "ThemeTypes.h"
 #include "TransformOperations.h"
+#include "UnicodeBidi.h"
 #include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
@@ -160,24 +161,24 @@ protected:
     struct InheritedFlags {
         bool operator==(const InheritedFlags& other) const
         {
-            return (_empty_cells == other._empty_cells) &&
-                   (_caption_side == other._caption_side) &&
-                   (_list_style_type == other._list_style_type) &&
-                   (_list_style_position == other._list_style_position) &&
-                   (_visibility == other._visibility) &&
-                   (_text_align == other._text_align) &&
-                   (_text_transform == other._text_transform) &&
-                   (_text_decorations == other._text_decorations) &&
-                   (_cursor_style == other._cursor_style) &&
-                   (_direction == other._direction) &&
-                   (_border_collapse == other._border_collapse) &&
-                   (_white_space == other._white_space) &&
-                   (_box_direction == other._box_direction) &&
-                   (_visuallyOrdered == other._visuallyOrdered) &&
-                   (_force_backgrounds_to_white == other._force_backgrounds_to_white) &&
-                   (_pointerEvents == other._pointerEvents) &&
-                   (_insideLink == other._insideLink) &&
-                   (m_writingMode == other.m_writingMode);
+            return (_empty_cells == other._empty_cells)
+                && (_caption_side == other._caption_side)
+                && (_list_style_type == other._list_style_type)
+                && (_list_style_position == other._list_style_position)
+                && (_visibility == other._visibility)
+                && (_text_align == other._text_align)
+                && (_text_transform == other._text_transform)
+                && (_text_decorations == other._text_decorations)
+                && (_cursor_style == other._cursor_style)
+                && (_direction == other._direction)
+                && (_border_collapse == other._border_collapse)
+                && (_white_space == other._white_space)
+                && (_box_direction == other._box_direction)
+                && (_visuallyOrdered == other._visuallyOrdered)
+                && (_force_backgrounds_to_white == other._force_backgrounds_to_white)
+                && (_pointerEvents == other._pointerEvents)
+                && (_insideLink == other._insideLink)
+                && (m_writingMode == other.m_writingMode);
         }
 
         bool operator!=(const InheritedFlags& other) const { return !(*this == other); }
@@ -563,7 +564,6 @@ public:
         return wordBreak() == BreakWordBreak || wordWrap() == BreakWordWrap;
     }
 
-    StyleImage* backgroundImage() const { return m_background->background().image(); }
     EFillRepeat backgroundRepeatX() const { return static_cast<EFillRepeat>(m_background->background().repeatX()); }
     EFillRepeat backgroundRepeatY() const { return static_cast<EFillRepeat>(m_background->background().repeatY()); }
     CompositeOperator backgroundComposite() const { return static_cast<CompositeOperator>(m_background->background().composite()); }
@@ -881,9 +881,11 @@ public:
         setBorderRadius(LengthSize(Length(s.width(), Fixed), Length(s.height(), Fixed)));
     }
     
-    RoundedIntRect getRoundedBorderFor(const IntRect&) const;
-    RoundedIntRect getRoundedInnerBorderWithBorderWidths(const IntRect&, unsigned short topWidth, 
-                                                         unsigned short bottomWidth, unsigned short leftWidth, unsigned short rightWidth) const;
+    RoundedIntRect getRoundedBorderFor(const IntRect& borderRect, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
+    RoundedIntRect getRoundedInnerBorderFor(const IntRect& borderRect, bool includeLogicalLeftEdge = true, bool includeLogicalRightEdge = true) const;
+
+    RoundedIntRect getRoundedInnerBorderFor(const IntRect& borderRect,
+        int topWidth, int bottomWidth, int leftWidth, int rightWidth, bool includeLogicalLeftEdge, bool includeLogicalRightEdge) const;
 
     void setBorderLeftWidth(unsigned short v) { SET_VAR(surround, border.m_left.m_width, v) }
     void setBorderLeftStyle(EBorderStyle v) { SET_VAR(surround, border.m_left.m_style, v) }
@@ -1205,8 +1207,8 @@ public:
 
     bool isOriginalDisplayInlineType() const
     {
-        return originalDisplay() == INLINE || originalDisplay() == INLINE_BLOCK ||
-               originalDisplay() == INLINE_BOX || originalDisplay() == INLINE_TABLE;
+        return originalDisplay() == INLINE || originalDisplay() == INLINE_BLOCK
+            || originalDisplay() == INLINE_BOX || originalDisplay() == INLINE_TABLE;
     }
 
     void setWritingMode(WritingMode v) { inherited_flags.m_writingMode = v; }

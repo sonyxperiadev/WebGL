@@ -1,3 +1,665 @@
+2011-04-19  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        WebPreferences in WebKit1 should have CanvasUsesAcceleratedDrawing set to NO by default
+        https://bugs.webkit.org/show_bug.cgi?id=58936
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+
+2011-04-19  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Rename lengthReceived to encodedDataLength/dataLength
+        https://bugs.webkit.org/show_bug.cgi?id=58883
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDidReceiveContentLength):
+
+2011-04-18  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        WebKit needs to stop importing <AppKit/NSTextChecker.h>
+        https://bugs.webkit.org/show_bug.cgi?id=58798
+        <rdar://problem/9294938>
+
+        Use public header <AppKit/NSSpellChecker.h> instead.
+
+        * WebCoreSupport/CorrectionPanel.h:
+        * WebCoreSupport/CorrectionPanel.mm:
+        (correctionIndicatorType):
+        (CorrectionPanel::show):
+        (CorrectionPanel::dismissInternal):
+        (CorrectionPanel::handleAcceptedReplacement):
+        * WebCoreSupport/WebEditorClient.mm:
+        * WebView/WebView.mm:
+
+2011-04-17  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Timothy Hatcher.
+
+        Stop using -[NSString initWithContentsOfFile:]
+        https://bugs.webkit.org/show_bug.cgi?id=58763
+
+        -[NSString initWithContentsOfFile:] was deprecated in 10.4, so we should stop using it.
+
+        * WebView/WebView.mm:
+        (leakMailQuirksUserScriptContents):
+        (leakOutlookQuirksUserScriptContents):
+
+2011-04-17  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/58463> Switch HTTP pipelining from user default to private setting
+        <rdar://problem/9268729>
+
+        Reviewed by Dan Bernstein.
+
+        This replaces support for the WebKitEnableHTTPPipelining user
+        default with methods on the WebCore::ResourceRequest class in
+        WebCore, the WebView class in WebKit1, and the WebContext class
+        in WebKit2.  It also removes support for the
+        WebKitForceHTTPPipeliningPriorityHigh user default which was not
+        needed.
+
+        * WebView/WebView.mm:
+        (+[WebView(WebPrivate) _HTTPPipeliningEnabled]): Added.
+        (+[WebView(WebPrivate) _setHTTPPipeliningEnabled:]): Added.
+        * WebView/WebViewPrivate.h:
+        (+[WebView(WebPrivate) _HTTPPipeliningEnabled]): Added declaration.
+        (+[WebView(WebPrivate) _setHTTPPipeliningEnabled:]): Added declaration.
+
+2011-04-17  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Dan Bernstein.
+
+        Assign to self in WebInspectorWindowController constructors
+        https://bugs.webkit.org/show_bug.cgi?id=58749
+
+        * WebCoreSupport/WebInspectorClient.mm:
+        (-[WebInspectorWindowController init]):
+        (-[WebInspectorWindowController initWithInspectedWebView:]):
+
+2011-04-17  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Move WebNodeHighlighter into its own file
+        https://bugs.webkit.org/show_bug.cgi?id=58746
+
+        Extract this class into its own file alongside the
+        other WebNodeHighlight files. In doing so do some
+        cleanup on WebInspectorClient removing some methods
+        that were never called.
+
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorClient::WebInspectorClient): style fix.
+        * WebInspector/WebNodeHighlighter.h: Added.
+        * WebInspector/WebNodeHighlighter.mm: Added.
+        (-[WebNodeHighlighter initWithInspectedWebView:]): call super init.
+        (-[WebNodeHighlighter dealloc]):
+        (-[WebNodeHighlighter highlightNode:]):
+        (-[WebNodeHighlighter hideHighlight]):
+        (-[WebNodeHighlighter didAttachWebNodeHighlight:]):
+        (-[WebNodeHighlighter willDetachWebNodeHighlight:]):
+
+2011-04-15  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        [Mac] WebKit needs to convert the bounding box of autocorrected word to view coordinate.
+        https://bugs.webkit.org/show_bug.cgi?id=58717
+
+        Convert the bounding box from window coordinate to view coordinate, which is expected by NSCorrectionPanel.
+
+        * WebCoreSupport/CorrectionPanel.mm:
+        (CorrectionPanel::show):
+
+2011-04-15  Shishir Agrawal  <shishir@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Add a flag to guard Page Visibility API changes.
+        https://bugs.webkit.org/show_bug.cgi?id=58464
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-15  Oliver Hunt  <oliver@apple.com>
+
+        GC allocate Structure
+        https://bugs.webkit.org/show_bug.cgi?id=58483
+
+        Rolling r83894 r83827 r83810 r83809 r83808 back in with
+        a workaround for the gcc bug seen by the gtk bots
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyRuntimeMethod::createStructure):
+        * Plugins/Hosted/ProxyRuntimeObject.h:
+        (WebKit::ProxyRuntimeObject::createStructure):
+
+2011-04-14  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        WebKit2: Password field input does not switch to ASCII-compatible source
+        https://bugs.webkit.org/show_bug.cgi?id=58583
+        <rdar://problem/9059651>
+
+        Now that WebCore doesn't set secure input mode, WebKit has to. Happily, it already has the
+        necessary logic, needed to return a nil text input context when in password fields.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView close]): If the view is still enforcing secure event mode, stop.
+        (-[WebHTMLView windowDidBecomeKey:]): Call _updateSecureInputState.
+        (-[WebHTMLView windowDidResignKey:]): Ditto.
+        (-[WebHTMLView becomeFirstResponder]): Call _updateSecureInputState. It's a bit tricky
+        because the first responder is still different an this point, so set a boolean variable to
+        let _updateSecureInputState know what's going on.
+        (-[WebHTMLView resignFirstResponder]): Disable secure event mode if it's on.
+        (-[WebHTMLView _updateSecureInputState]): Update HIToolbox secure event input state and
+        allowed input sources accorsing to current selection.
+        (-[WebHTMLView _updateSelectionForInputManager]): Call _updateSecureInputState.
+
+2011-04-15  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Make mac WebKit1 use the default localization strategy
+        https://bugs.webkit.org/show_bug.cgi?id=58628
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        Remove the localization strategy code. The equivalent is now
+        in WebCore/platform/DefaultLocalizationStrategy.cpp.
+
+2011-04-15  Anna Cavender  <annacc@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Renaming TRACK feature define to VIDEO_TRACK
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-14  Pratik Solanki  <psolanki@apple.com>
+
+        Reviewed by David Kilzer.
+
+        Set minimum priority for fast lane connections
+        https://bugs.webkit.org/show_bug.cgi?id=58353
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface): Support for new WKSI method WKSetHTTPPipeliningMinimumFastLanePriority.
+
+2011-04-13  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        WebKit2 doesn't keep overlay scrollers shown while scroll gesture held
+        <rdar://problem/9260518>
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+        Initialize new WKSI functions.
+
+2011-04-13  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/58172> Fix -Wcast-align warning in WebBasePluginPackage.mm
+
+        Reviewed by Anders Carlsson.
+
+        Fixes the following warning with -Wcast-align enabled:
+
+            Source/WebKit/mac/Plugins/WebBasePluginPackage.mm:402:21:{402:21-402:93}{402:39-402:93}: error: cast from 'uint8_t *' (aka 'unsigned char *') to 'struct fat_arch *' increases required alignment from 1 to 4 [-Werror,-Wcast-align,3]
+                         archs = (struct fat_arch*)((uint8_t*)rawData.data() + sizeof(struct fat_header));
+                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage isNativeLibraryData:]): Added
+        COMPILE_ASSERT() to make sure our pointer math is valid.
+        Removed cast to (uint8_t*) and divide sizeof(struct fat_header)
+        by sizeof(uint32_t) to fix the pointer math.  Replaced C-style
+        casts with reinterpret_cast.
+
+2011-04-12  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Infinite recursion in WebHTMLView executeSavedKeypressCommands.
+        https://bugs.webkit.org/show_bug.cgi?id=58382
+        <rdar://problem/9239370>
+
+        Execution of some editing commands could trigger a call to selectedRange that
+        internally calls executeSavedKeypressCommands creating an infinite recursion.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _executeSavedKeypressCommands]): Added a flag to avoid recursion.
+        (-[WebHTMLView _interpretKeyEvent:savingCommands:]): Added flag initialization.
+
+2011-04-12  Alice Liu  <alice.liu@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=58292
+        Provide new setting to allow site icon loading despite disabling automatic image loading in general.
+
+        * WebView/WebPreferenceKeysPrivate.h: Add preference key.
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]): Initialize to false.
+        (-[WebPreferences setLoadsSiteIconsIgnoringImageLoadingPreference:]): Added.
+        (-[WebPreferences loadsSiteIconsIgnoringImageLoadingPreference]): Added.
+        * WebView/WebPreferencesPrivate.h: Add setter/getter definitions.
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]): Add to settings that get propagated upon changes. 
+
+2011-04-11  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        WebKit2: Safari doesn't respect cmd-arrows (and variations) as custom keyboard shortcuts
+        https://bugs.webkit.org/show_bug.cgi?id=58175
+        <rdar://problem/9060555>
+
+        * WebView/WebFrameView.mm: (-[WebFrameView keyDown:]): Added a comment explaining how this
+        should be changed to match WebKit2.
+
+2011-04-06  Timothy Hatcher  <timothy@apple.com>
+
+        Fix a bug where the context menu does not show in PDF documents if there is no
+        UI delegate or the UI delegate does not respond to the context menu selector.
+
+        https://webkit.org/b/57958
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebView.mm:
+        (-[WebView _menuForElement:defaultItems:]): CallUIDelegate returns nil
+        if UIDelegate is nil or doesn't respond to the selector. So check that
+        here to distinguish between using defaultMenuItems or the delegate
+        really returning nil to say "no context menu".
+
+2011-04-11  Jer Noble  <jer.noble@apple.com>
+
+        Unreviewed; roll out unintentional change to WebFullScreenController.mm.
+
+        * WebView/WebFullScreenController.mm:
+        (-[WebFullScreenController enterFullscreen:]):
+
+2011-04-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        A few heap-related renames and file moves.
+        
+        WeakGCPtr<T> => Weak<T>
+        Global<T> => Strong<T>
+        collector/ => heap/
+        collector/* => heap/*
+        runtime/WeakGCPtr.h => heap/Weak.h
+        
+        (Eventually, even more files should move into the heap directory. Like
+        Heap.h and Heap.cpp, for example.)
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::LocalObjectMap::idForObject):
+        (WebKit::NetscapePluginInstanceProxy::LocalObjectMap::forget):
+        (WebKit::NetscapePluginInstanceProxy::evaluate):
+        * WebView/WebScriptDebugger.h:
+
+2011-04-08  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit2: Safari doesn't respect cmd-arrows (and variations) as custom keyboard shortcuts
+        https://bugs.webkit.org/show_bug.cgi?id=58175
+        <rdar://problem/9060555>
+
+        * WebView/WebFrameView.mm: (-[WebFrameView keyDown:]): Added a comment explaining how this
+        should be changed to match WebKit2.
+
+2011-04-08  Alpha Lam  <hclam@chromium.org>
+
+        Unreviewed, rolling out r83335.
+        http://trac.webkit.org/changeset/83335
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        GTK and QT bots are broken
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-07  Anna Cavender  <annacc@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Setup ENABLE(TRACK) feature define
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-08  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin Adler.
+
+        -[WebView setPreferences:] can take a lot of time if loading lots of webviews at once
+        https://bugs.webkit.org/show_bug.cgi?id=58128
+        <rdar://problem/9244553>
+        
+        The root of the problem here was an O(N^2) issue - each WebView,
+        upon having its preferences initialized, would broadcast a
+        notification that was listened to by all other WebViews sharing
+        its preferences.
+        
+        To maintain the API contract, I split the notification into two,
+        one that is for public API consumption, and the other which is for
+        internal use only. Changes that don't need to be picked up by
+        other WebViews broadcast the public notification only. And we
+        avoid WebView broadcasting a notification just to get itself to
+        update.
+
+        * Misc/WebIconDatabase.mm:
+        (-[WebIconDatabase _startUpIconDatabase]):
+        (-[WebIconDatabase _shutDownIconDatabase]):
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView viewWillMoveToWindow:]):
+        (-[WebBaseNetscapePluginView viewWillMoveToSuperview:]):
+        (-[WebBaseNetscapePluginView viewDidMoveToWindow]):
+        (-[WebBaseNetscapePluginView viewWillMoveToHostWindow:]):
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences initWithIdentifier:]):
+        (-[WebPreferences _setStringValue:forKey:]):
+        (-[WebPreferences _setIntegerValue:forKey:]):
+        (-[WebPreferences _setFloatValue:forKey:]):
+        (-[WebPreferences _setBoolValue:forKey:]):
+        (-[WebPreferences _setLongLongValue:forKey:]):
+        (-[WebPreferences _setUnsignedLongLongValue:forKey:]):
+        (-[WebPreferences _postPreferencesChangedNotification]):
+        (-[WebPreferences _postPreferencesChangedAPINotification]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+        (-[WebView _preferencesChangedNotification:]):
+        (-[WebView _preferencesChanged:]):
+        (-[WebView setUsesPageCache:]):
+        (+[WebView initialize]):
+        (-[WebView setPreferences:]):
+        (-[WebView _keyboardUIMode]):
+        * WebView/WebViewInternal.h:
+
+2011-04-07  Andrew Scherkus  <scherkus@chromium.org>
+
+        Revert ENABLE_TRACK patch due to compile failures.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-07  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        REGRESSION (WebKit2): Reverse conversion doesn't work in Kotoeri
+        https://bugs.webkit.org/show_bug.cgi?id=58066
+        <rdar://problem/8965302>
+
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation attributedStringFrom:startOffset:to:endOffset:]):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView attributedSubstringFromRange:]):
+        (-[WebHTMLView attributedString]):
+        (-[WebHTMLView selectedAttributedString]):
+        Updated for editingAttributedStringFromRange: now taking a WebCore::Range instead of DOMRange.
+
+2011-04-07  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r64712): Microsoft Outlook 2011: original message contents
+        not included when replying to an email.
+        https://bugs.webkit.org/show_bug.cgi?id=57794
+        
+        Outlook populates a reply message by creating an empty WebView and
+        using DOM API to populate the WebView's empty document with content
+        from the original message. It expects the initial empty document to
+        simply be "<html></html>", and it proceeds to dynamically create and
+        append a BODY node and add the original message content as a child of
+        that node. Outlook then takes the innerHTML of the frame's first body
+        element and copies it into a *new* document that is displayed and
+        edited in the reply message window.
+        
+        Due to implementing the HTML5 tree building algorithm in r64712,
+        initial empty documents went from being "<html></html>" to being
+        "<html><head></head><body></body></html>". Outlook still dynamically
+        creates a BODY node to parent the original message content, but this
+        BODY node duplicates the one created by the tree builder. When Outlook
+        then takes the innerHTML of the first body element to populate the
+        reply message window it gets the empty body element created by the
+        parser, not the one it created with the original message content.
+        
+        Fix this by injecting a user script into the initial empty document
+        that removes the HEAD and BODY nodes created by the parser. This
+        ensures that the BODY created by Outlook is the only BODY in the
+        document.
+
+        * Misc/OutlookQuirksUserScript.js: Added.
+        * WebView/WebView.mm:
+        (leakMailQuirksUserScriptContents):
+        (-[WebView _injectMailQuirksScript]):
+        (needsOutlookQuirksScript):
+        (leakOutlookQuirksUserScriptContents):
+        (-[WebView _injectOutlookQuirksScript]):
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+
+2011-04-06  Dai Mikurube  <dmikurube@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add QUOTA build flag for unified quota API
+        https://bugs.webkit.org/show_bug.cgi?id=57918
+
+        * Configurations/FeatureDefines.xcconfig: Added QUOTA build flag
+
+2011-04-06  Robert Sesek  <rsesek@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Move code duplicated between the WebKit/mac and WebKit2 down to WebCore because Chromium will need it too
+        https://bugs.webkit.org/show_bug.cgi?id=54969
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _convertToNSRange:]): Moved duplicated code to WebCore
+        (-[WebFrame _characterRangeAtPoint:]): Moved duplicated code to WebCore
+
+2011-04-05  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Move attributedStringFromRange down to WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=57905
+
+        * Misc/WebNSAttributedStringExtras.h: Removed.
+        * Misc/WebNSAttributedStringExtras.mm: Removed.
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation attributedStringFrom:startOffset:to:endOffset:]):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _writeSelectionWithPasteboardTypes:toPasteboard:cachedAttributedString:]):
+        (-[WebHTMLView attributedSubstringFromRange:]):
+        (-[WebHTMLView attributedString]):
+        (-[WebHTMLView selectedAttributedString]):
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView writeSelectionWithPasteboardTypes:toPasteboard:]):
+
+2011-04-04  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        [Refactoring] SpellCheckingResult should be replaced with TextCheckingResult
+        https://bugs.webkit.org/show_bug.cgi?id=56085
+
+        Removed NSTextCheckingResult to SpellCheckingResult convertion, and extracted
+        NSTextCheckingResult to TextCheckingResult convertio from checkTextOfParagraph method.
+        for requestCheckingOfString method.
+        
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (toCoreTextCheckingResults):
+        (WebEditorClient::checkTextOfParagraph):
+        (-[WebEditorSpellCheckResponder initWithSender:WebCore::sequence:types:WebCore::results:]):
+        (-[WebEditorSpellCheckResponder perform]):
+        (WebEditorClient::requestCheckingOfString):
+        * WebView/WebFrame.mm:
+        (-[WebFrame markersForSelectionStartAsText]):
+        * WebView/WebFramePrivate.h:
+
+2011-04-05  Anders Carlsson  <andersca@apple.com>
+
+        Didn't mean to land this.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView getVariable:value:]):
+
+2011-04-04  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/57384> CFNetwork and WebCore load priorities should match
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface): Added initialization for
+        wkSetHTTPPipeliningMaximumPriority().
+
+2011-04-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        REGRESSION (WebKit2): Caps-Lock indicator sometimes doesn't appear in WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=51230
+        <rdar://problem/8780989>
+
+        * WebView/WebHTMLView.mm: (-[WebHTMLView flagsChanged:]): Moved Caps Lock handling from
+        WebKits to WebCore, because WebKit shouldn't be smart.
+
+2011-04-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION: Assertion failure when executing a complex custom key binding
+        https://bugs.webkit.org/show_bug.cgi?id=57681
+
+        * WebView/WebHTMLView.mm: (-[WebHTMLView hasMarkedText]): There is no need to execute saved
+        commands when they can't possibly change the result.
+
+2011-04-01  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Shockwave plug-in doesn't accept mouse events
+        https://bugs.webkit.org/show_bug.cgi?id=57653
+        <rdar://problem/8483273>
+
+        Fix an unrelated bug found by the added test.
+
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView convertFromX:andY:space:toX:andY:space:]):
+        Make sure to always set destX and destY.
+
+2011-04-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Make WebKit2 text input handling more like WebKit1
+        https://bugs.webkit.org/show_bug.cgi?id=57649
+
+        * WebView/WebFrameInternal.h: Expose _convertToDOMRange for use in WebHTMLView.
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _executeSavedKeypressCommands]): Renamed, since these are not editor commands.
+        (-[WebHTMLView _interpretKeyEvent:savingCommands:]): Updated for the renamed _executeSavedKeypressCommands.
+        (-[WebHTMLView characterIndexForPoint:]): Ditto.
+        (-[WebHTMLView firstRectForCharacterRange:]): Ditto.
+        (-[WebHTMLView selectedRange]): Ditto.
+        (-[WebHTMLView markedRange]): Ditto.
+        (-[WebHTMLView attributedSubstringFromRange:]): Ditto.
+        (-[WebHTMLView hasMarkedText]): Ditto.
+        (-[WebHTMLView unmarkText]): Ditto.
+        (-[WebHTMLView setMarkedText:selectedRange:]): Ditto. Changed the comment about the argument
+        type into an assertion. Removed resetting interpretKeyEventsParameters to 0, as we shouldn't
+        be able to call text input protocol methods from here (and we didn't even reset it back on
+        return). Changed to retrieve all data before starting to apply actions to better match WK2 code.
+        (-[WebHTMLView insertText:]): Ditto.
+
+2011-04-01  Timothy Hatcher  <timothy@apple.com>
+
+        Make momentum scroll event latching work in WebKit2 on Mac.
+
+        <rdar://problem/8751861>
+
+        Reviewed by Darin Adler.
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface): Remove IsLatchingWheelEvent, add GetNSEventMomentumPhase.
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView scrollWheel:]): Use WKGetNSEventMomentumPhase to set isLatchingEvent.
+
+2011-03-31  Darin Adler  <darin@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Assertion failure in -[WebHTMLView _handleStyleKeyEquivalent:]
+        https://bugs.webkit.org/show_bug.cgi?id=26667
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _handleStyleKeyEquivalent:]): Handle the case where WebView is
+        nil rather than asserting that it is non-nil. One case where WebView will be nil
+        is when the frame is closed, but in any case where it is nil, the correct thing
+        to do is to not try to handle the style key.
+
+2011-03-31  Alexey Proskuryakov  <ap@apple.com>
+
+        Patch by John Harvey, reviewed and tweaked by me.
+
+        <rdar://problem/8644403> Should notify TSM that plug-ins would show a bottom input window for marked text.
+
+        * Plugins/Hosted/WebTextInputWindowController.m:
+        (-[WebTextInputPanel _interpretKeyEvent:string:]):
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        <title> should support dir attribute
+        https://bugs.webkit.org/show_bug.cgi?id=50961
+
+        Update to new FrameLoaderClient interface.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDidReceiveTitle):
+        (WebFrameLoaderClient::setTitle):
+
+2011-03-30  Dominic Cooney  <dominicc@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Adds layoutTestController.shadowRoot accessor to Mac DRT.
+        https://bugs.webkit.org/show_bug.cgi?id=57415
+
+        * DOM/WebDOMOperations.mm:
+        (-[DOMElement _shadowRoot:]):
+        * DOM/WebDOMOperationsPrivate.h:
+
+2011-03-30  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebHTMLView shouldn't resend noop: commands
+        https://bugs.webkit.org/show_bug.cgi?id=57504
+        <rdar://problem/9209390>
+
+        * WebView/WebHTMLView.mm: (-[WebHTMLView _executeSavedEditingCommands]): Filter out NOOPs,
+        which we get e.g. when handling Cmd-key combos.
+
 2011-03-30  Alexey Proskuryakov  <ap@apple.com>
 
         Reviewed by Darin Adler.

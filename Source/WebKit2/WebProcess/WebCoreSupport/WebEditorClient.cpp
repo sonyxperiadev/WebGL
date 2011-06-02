@@ -26,10 +26,11 @@
 #include "config.h"
 #include "WebEditorClient.h"
 
-#include "SelectionState.h"
+#include "EditorState.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrameLoaderClient.h"
 #include "WebPage.h"
+#include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/ArchiveResource.h>
@@ -189,16 +190,7 @@ void WebEditorClient::respondToChangedSelection()
     if (!frame)
         return;
 
-    SelectionState selectionState;
-    selectionState.isNone = frame->selection()->isNone();
-    selectionState.isContentEditable = frame->selection()->isContentEditable();
-    selectionState.isContentRichlyEditable = frame->selection()->isContentRichlyEditable();
-    selectionState.isInPasswordField = frame->selection()->isInPasswordField();
-    selectionState.hasComposition = frame->editor()->hasComposition();
-
-    WebPage::getLocationAndLengthFromRange(frame->selection()->toNormalizedRange().get(), selectionState.selectedRangeStart, selectionState.selectedRangeLength);
-
-    m_page->send(Messages::WebPageProxy::SelectionStateChanged(selectionState));
+    m_page->send(Messages::WebPageProxy::EditorStateChanged(m_page->editorState()));
 
 #if PLATFORM(WIN)
     // FIXME: This should also go into the selection state.
@@ -263,27 +255,31 @@ bool WebEditorClient::canPaste(bool defaultValue) const
 
 bool WebEditorClient::canUndo() const
 {
-    notImplemented();
-    return false;
+    bool result = false;
+    m_page->sendSync(Messages::WebPageProxy::CanUndoRedo(static_cast<uint32_t>(WebPageProxy::Undo)), Messages::WebPageProxy::CanUndoRedo::Reply(result));
+    return result;
 }
 
 bool WebEditorClient::canRedo() const
 {
-    notImplemented();
-    return false;
+    bool result = false;
+    m_page->sendSync(Messages::WebPageProxy::CanUndoRedo(static_cast<uint32_t>(WebPageProxy::Redo)), Messages::WebPageProxy::CanUndoRedo::Reply(result));
+    return result;
 }
 
 void WebEditorClient::undo()
 {
-    notImplemented();
+    bool result = false;
+    m_page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(static_cast<uint32_t>(WebPageProxy::Undo)), Messages::WebPageProxy::ExecuteUndoRedo::Reply(result));
 }
 
 void WebEditorClient::redo()
 {
-    notImplemented();
+    bool result = false;
+    m_page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(static_cast<uint32_t>(WebPageProxy::Redo)), Messages::WebPageProxy::ExecuteUndoRedo::Reply(result));
 }
 
-#if !PLATFORM(MAC)
+#if !PLATFORM(GTK) && !PLATFORM(MAC)
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
     if (m_page->handleEditingKeyboardEvent(event))
@@ -389,9 +385,15 @@ void WebEditorClient::learnWord(const String& word)
     m_page->send(Messages::WebPageProxy::LearnWord(word));
 }
 
-void WebEditorClient::checkSpellingOfString(const UChar*, int, int*, int*)
+void WebEditorClient::checkSpellingOfString(const UChar* text, int length, int* misspellingLocation, int* misspellingLength)
 {
-    notImplemented();
+    int32_t resultLocation = -1;
+    int32_t resultLength = 0;
+    // FIXME: It would be nice if we wouldn't have to copy the text here.
+    m_page->sendSync(Messages::WebPageProxy::CheckSpellingOfString(String(text, length)),
+        Messages::WebPageProxy::CheckSpellingOfString::Reply(resultLocation, resultLength));
+    *misspellingLocation = resultLocation;
+    *misspellingLength = resultLength;
 }
 
 String WebEditorClient::getAutoCorrectSuggestionForMisspelledWord(const String&)
@@ -400,9 +402,15 @@ String WebEditorClient::getAutoCorrectSuggestionForMisspelledWord(const String&)
     return String();
 }
 
-void WebEditorClient::checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*)
+void WebEditorClient::checkGrammarOfString(const UChar* text, int length, Vector<WebCore::GrammarDetail>& grammarDetails, int* badGrammarLocation, int* badGrammarLength)
 {
-    notImplemented();
+    int32_t resultLocation = -1;
+    int32_t resultLength = 0;
+    // FIXME: It would be nice if we wouldn't have to copy the text here.
+    m_page->sendSync(Messages::WebPageProxy::CheckGrammarOfString(String(text, length)),
+        Messages::WebPageProxy::CheckGrammarOfString::Reply(grammarDetails, resultLocation, resultLength));
+    *badGrammarLocation = resultLocation;
+    *badGrammarLength = resultLength;
 }
 
 void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
@@ -422,8 +430,9 @@ void WebEditorClient::showSpellingUI(bool)
 
 bool WebEditorClient::spellingUIIsShowing()
 {
-    notImplemented();
-    return false;
+    bool isShowing = false;
+    m_page->sendSync(Messages::WebPageProxy::SpellingUIIsShowing(), Messages::WebPageProxy::SpellingUIIsShowing::Reply(isShowing));
+    return isShowing;
 }
 
 void WebEditorClient::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses)
@@ -441,7 +450,7 @@ void WebEditorClient::setInputMethodState(bool)
     notImplemented();
 }
 
-void WebEditorClient::requestCheckingOfString(WebCore::SpellChecker*, int, const WTF::String&)
+void WebEditorClient::requestCheckingOfString(WebCore::SpellChecker*, int, WebCore::TextCheckingTypeMask, const WTF::String&)
 {
     notImplemented();
 }

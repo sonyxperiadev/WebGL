@@ -188,6 +188,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ScriptRunner.cpp \
 	dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
+	dom/ShadowRoot.cpp \
 	dom/SpaceSplitString.cpp \
 	dom/StaticHashSetNodeList.cpp \
 	dom/StaticNodeList.cpp \
@@ -201,6 +202,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/TouchEvent.cpp \
 	dom/TouchList.cpp \
 	dom/Traversal.cpp \
+	dom/TreeScope.cpp \
 	dom/TreeWalker.cpp \
 	dom/UIEvent.cpp \
 	dom/UIEventWithKeyState.cpp \
@@ -408,6 +410,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/XSSFilter.cpp \
 	\
 	html/shadow/MediaControls.cpp \
+	html/shadow/MediaControlElements.cpp \
+	html/shadow/MediaControlRootElement.cpp \
+	html/shadow/MeterShadowElement.cpp \
+	html/shadow/DetailControlElement.cpp \
+	html/shadow/ProgressShadowElement.cpp \
 	html/shadow/SliderThumbElement.cpp \
 	html/shadow/TextControlInnerElements.cpp \
 	\
@@ -546,8 +553,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/LocalizedStrings.cpp \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
+<<<<<<< HEAD
 	platform/SchemeRegistry.cpp \
 	platform/ScrollAnimator.cpp \
+=======
+	platform/RuntimeApplicationChecks.cpp \
+>>>>>>> WebKit.org at r84325
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
 	platform/ScrollableArea.cpp \
@@ -714,7 +725,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/image-decoders/gif/GIFImageDecoder.cpp \
 	platform/image-decoders/gif/GIFImageReader.cpp \
 	\
+<<<<<<< HEAD
 	platform/image-encoders/skia/JPEGImageEncoder.cpp \
+=======
+	platform/leveldb/LevelDBDatabase.cpp \
+	platform/leveldb/LevelDBIterator.cpp \
+>>>>>>> WebKit.org at r84325
 	\
 	platform/mock/DeviceOrientationClientMock.cpp \
 	platform/mock/GeolocationClientMock.cpp \
@@ -807,7 +823,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/InlineFlowBox.cpp \
 	rendering/InlineTextBox.cpp \
 	rendering/LayoutState.cpp \
-	rendering/MediaControlElements.cpp \
 	rendering/PointerEventsHitRules.cpp \
 	rendering/RenderApplet.cpp \
 	rendering/RenderArena.cpp \

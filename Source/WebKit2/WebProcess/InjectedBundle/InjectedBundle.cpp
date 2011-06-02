@@ -35,15 +35,20 @@
 #include "WKBundleAPICast.h"
 #include "WebContextMessageKinds.h"
 #include "WebCoreArgumentCoders.h"
+#include "WebDatabaseManager.h"
+#include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPreferencesStore.h"
 #include "WebProcess.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSLock.h>
+#include <WebCore/Frame.h>
+#include <WebCore/FrameView.h>
 #include <WebCore/GCController.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
+#include <WebCore/PrintContext.h>
 #include <WebCore/Settings.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/PassOwnArrayPtr.h>
@@ -117,6 +122,76 @@ void InjectedBundle::overrideAllowUniversalAccessFromFileURLsForTestRunner(WebPa
     const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
     for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
         (*iter)->settings()->setAllowUniversalAccessFromFileURLs(enabled);
+}
+
+void InjectedBundle::setAllowFileAccessFromFileURLs(WebPageGroupProxy* pageGroup, bool enabled)
+{
+    // Override the preference for all future pages.
+    WebPreferencesStore::overrideAllowFileAccessFromFileURLsForTestRunner(enabled);
+
+    // Change the setting for existing ones.
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+    for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
+        (*iter)->settings()->setAllowFileAccessFromFileURLs(enabled);
+}
+
+void InjectedBundle::clearAllDatabases()
+{
+    WebDatabaseManager::shared().deleteAllDatabases();
+}
+
+void InjectedBundle::setDatabaseQuota(uint64_t quota)
+{
+    WebDatabaseManager::shared().setQuotaForOrigin("file:///", quota);
+}
+
+int InjectedBundle::numberOfPages(WebFrame* frame, double pageWidthInPixels, double pageHeightInPixels)
+{
+    Frame* coreFrame = frame ? frame->coreFrame() : 0;
+    if (!coreFrame)
+        return -1;
+    if (!pageWidthInPixels)
+        pageWidthInPixels = coreFrame->view()->width();
+    if (!pageHeightInPixels)
+        pageHeightInPixels = coreFrame->view()->height();
+
+    return PrintContext::numberOfPages(coreFrame, FloatSize(pageWidthInPixels, pageHeightInPixels));
+}
+
+int InjectedBundle::pageNumberForElementById(WebFrame* frame, const String& id, double pageWidthInPixels, double pageHeightInPixels)
+{
+    Frame* coreFrame = frame ? frame->coreFrame() : 0;
+    if (!coreFrame)
+        return -1;
+
+    Element* element = coreFrame->document()->getElementById(AtomicString(id));
+    if (!element)
+        return -1;
+
+    if (!pageWidthInPixels)
+        pageWidthInPixels = coreFrame->view()->width();
+    if (!pageHeightInPixels)
+        pageHeightInPixels = coreFrame->view()->height();
+
+    return PrintContext::pageNumberForElement(element, FloatSize(pageWidthInPixels, pageHeightInPixels));
+}
+
+String InjectedBundle::pageSizeAndMarginsInPixels(WebFrame* frame, int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft)
+{
+    Frame* coreFrame = frame ? frame->coreFrame() : 0;
+    if (!coreFrame)
+        return String();
+
+    return PrintContext::pageSizeAndMarginsInPixels(coreFrame, pageIndex, width, height, marginTop, marginRight, marginBottom, marginLeft);
+}
+
+bool InjectedBundle::isPageBoxVisible(WebFrame* frame, int pageIndex)
+{
+    Frame* coreFrame = frame ? frame->coreFrame() : 0;
+    if (!coreFrame)
+        return false;
+
+    return PrintContext::isPageBoxVisible(coreFrame, pageIndex);
 }
 
 static PassOwnPtr<Vector<String> > toStringVector(ImmutableArray* patterns)

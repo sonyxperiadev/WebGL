@@ -28,6 +28,7 @@
 #include "AnimationController.h"
 #include "DOMWrapperWorld.h"
 #include "Document.h"
+#include "Element.h"
 #include "FocusController.h"
 #include "FrameLoaderClientGtk.h"
 #include "FrameTree.h"
@@ -41,6 +42,7 @@
 #include "JSElement.h"
 #include "JSLock.h"
 #include "JSNodeList.h"
+#include "JSRange.h"
 #include "JSValue.h"
 #include "NodeList.h"
 #include "PageGroup.h"
@@ -52,6 +54,7 @@
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "TextIterator.h"
+#include "WebKitDOMRangePrivate.h"
 #include "WorkerThread.h"
 #include "webkitglobalsprivate.h"
 #include "webkitwebframe.h"
@@ -124,6 +127,20 @@ JSValueRef DumpRenderTreeSupportGtk::nodesFromRect(JSContextRef context, JSValue
     Document* document = jsDocument->impl();
     RefPtr<NodeList> nodes = document->nodesFromRect(x, y, top, right, bottom, left, ignoreClipping);
     return toRef(exec, toJS(exec, jsDocument->globalObject(), nodes.get()));
+}
+
+WebKitDOMRange* DumpRenderTreeSupportGtk::jsValueToDOMRange(JSContextRef context, JSValueRef value)
+{
+    if (!value)
+        return 0;
+
+    JSLock lock(SilenceAssertionsOnly);
+    ExecState* exec = toJS(context);
+
+    Range* range = toRange(toJS(exec, value));
+    if (!range)
+        return 0;
+    return kit(range);
 }
 
 /**
@@ -636,6 +653,17 @@ void DumpRenderTreeSupportGtk::clearOpener(WebKitWebFrame* frame)
         coreFrame->loader()->setOpener(0);
 }
 
+JSValueRef DumpRenderTreeSupportGtk::shadowRoot(JSContextRef context, JSValueRef value)
+{
+    JSLock lock(SilenceAssertionsOnly);
+    JSC::ExecState* exec = toJS(context);
+    Element* element = toElement(toJS(exec, value));
+    if (!element)
+        return JSValueMakeNull(context);
+
+    return toRef(exec, toJS(exec, element->shadowRoot()));
+}
+
 unsigned int DumpRenderTreeSupportGtk::workerThreadCount()
 {
 #if ENABLE(WORKERS)
@@ -667,6 +695,31 @@ void DumpRenderTreeSupportGtk::setMinimumTimerInterval(WebKitWebView* webView, d
     core(webView)->settings()->setMinDOMTimerInterval(interval);
 }
 
+static void modifyAccessibilityValue(AtkObject* axObject, bool increment)
+{
+    if (!axObject || !WEBKIT_IS_ACCESSIBLE(axObject))
+        return;
+
+    AccessibilityObject* coreObject = webkit_accessible_get_accessibility_object(WEBKIT_ACCESSIBLE(axObject));
+    if (!coreObject)
+        return;
+
+    if (increment)
+        coreObject->increment();
+    else
+        coreObject->decrement();
+}
+
+void DumpRenderTreeSupportGtk::incrementAccessibilityValue(AtkObject* axObject)
+{
+    modifyAccessibilityValue(axObject, true);
+}
+
+void DumpRenderTreeSupportGtk::decrementAccessibilityValue(AtkObject* axObject)
+{
+    modifyAccessibilityValue(axObject, false);
+}
+
 void DumpRenderTreeSupportGtk::setAutofilled(JSContextRef context, JSValueRef nodeObject, bool autofilled)
 {
     JSC::ExecState* exec = toJS(context);
@@ -694,4 +747,17 @@ void DumpRenderTreeSupportGtk::setValueForUser(JSContextRef context, JSValueRef 
     GOwnPtr<gchar> valueBuffer(static_cast<gchar*>(g_malloc(bufferSize)));
     JSStringGetUTF8CString(value, valueBuffer.get(), bufferSize);
     inputElement->setValueForUser(String::fromUTF8(valueBuffer.get()));
+}
+
+void DumpRenderTreeSupportGtk::rectangleForSelection(WebKitWebFrame* frame, GdkRectangle* rectangle)
+{
+    Frame* coreFrame = core(frame);
+    if (!coreFrame)
+        return;
+
+    IntRect bounds = enclosingIntRect(coreFrame->selection()->bounds());
+    rectangle->x = bounds.x();
+    rectangle->y = bounds.y();
+    rectangle->width = bounds.width();
+    rectangle->height = bounds.height();
 }

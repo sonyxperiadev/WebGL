@@ -1,5 +1,7 @@
 # Include file to make it easy to include WebKit into Qt projects
 
+contains(QT_CONFIG, qpa):CONFIG += embedded
+
 # Detect that we are building as a standalone package by the presence of
 # either the generated files directory or as part of the Qt package through
 # QTDIR_build
@@ -132,9 +134,12 @@ symbian|maemo5|maemo6 {
     CONFIG += include_webinspector
 }
 
+*sh4* {
+    CONFIG += disable_uitools
+}
 ####
 
-!contains(QT_CONFIG, uitools)|disable_uitools: DEFINES *= QT_NO_UITOOLS
+disable_uitools: DEFINES *= QT_NO_UITOOLS
 
 isEmpty(QT.phonon.includes) {
     QT.phonon.includes = $$QMAKE_INCDIR_QT/phonon

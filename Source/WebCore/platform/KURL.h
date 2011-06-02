@@ -76,6 +76,12 @@ public:
     KURL(ParsedURLStringTag, const char*);
     KURL(ParsedURLStringTag, const String&);
     KURL(ParsedURLStringTag, const URLString&);
+#if USE(GOOGLEURL)
+    KURL(WTF::HashTableDeletedValueType) : m_url(WTF::HashTableDeletedValue) { }
+#else
+    KURL(WTF::HashTableDeletedValueType) : m_string(WTF::HashTableDeletedValue) { }
+#endif
+    bool isHashTableDeletedValue() const { return string().isHashTableDeletedValue(); }
 
     // Resolves the relative URL with the given base URL. If provided, the
     // TextEncoding is used to encode non-ASCII characers. The base URL can be

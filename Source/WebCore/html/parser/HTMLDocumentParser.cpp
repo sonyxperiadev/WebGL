@@ -40,7 +40,6 @@
 #include "InspectorInstrumentation.h"
 #include "NestingLevelIncrementer.h"
 #include "Settings.h"
-#include <wtf/CurrentTime.h>
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
@@ -331,6 +330,14 @@ void HTMLDocumentParser::insert(const SegmentedString& source)
     excludedLineNumberSource.setExcludeLineNumbers();
     m_input.insertAtCurrentInsertionPoint(excludedLineNumberSource);
     pumpTokenizerIfPossible(ForceSynchronous);
+    
+    if (isWaitingForScripts()) {
+        // Check the document.write() output with a separate preload scanner as
+        // the main scanner can't deal with insertions.
+        HTMLPreloadScanner preloadScanner(document());
+        preloadScanner.appendToEnd(source);
+        preloadScanner.scan();
+    }
 
     endIfDelayed();
 }
@@ -344,9 +351,19 @@ void HTMLDocumentParser::append(const SegmentedString& source)
     // but we need to ensure it isn't deleted yet.
     RefPtr<HTMLDocumentParser> protect(this);
 
+    if (m_preloadScanner) {
+        if (m_input.current().isEmpty() && !isWaitingForScripts()) {
+            // We have parsed until the end of the current input and so are now moving ahead of the preload scanner.
+            // Clear the scanner so we know to scan starting from the current input point if we block again.
+            m_preloadScanner.clear();
+        } else {
+            m_preloadScanner->appendToEnd(source);
+            if (isWaitingForScripts())
+                m_preloadScanner->scan();
+        }
+    }
+
     m_input.appendToEnd(source);
-    if (m_preloadScanner)
-        m_preloadScanner->appendToEnd(source);
 
     if (inPumpSession()) {
         // We've gotten data off the network in a nested write.
@@ -473,7 +490,6 @@ void HTMLDocumentParser::resumeParsingAfterScriptExecution()
     ASSERT(!inScriptExecution());
     ASSERT(!m_treeBuilder->isPaused());
 
-    m_preloadScanner.clear();
     pumpTokenizerIfPossible(AllowYield);
     endIfDelayed();
 }
@@ -490,6 +506,13 @@ void HTMLDocumentParser::watchForLoad(CachedResource* cachedScript)
 void HTMLDocumentParser::stopWatchingForLoad(CachedResource* cachedScript)
 {
     cachedScript->removeClient(this);
+}
+    
+void HTMLDocumentParser::appendCurrentInputStreamToPreloadScannerAndScan()
+{
+    ASSERT(m_preloadScanner);
+    m_preloadScanner->appendToEnd(m_input.current());
+    m_preloadScanner->scan();
 }
 
 void HTMLDocumentParser::notifyFinished(CachedResource* cachedResource)

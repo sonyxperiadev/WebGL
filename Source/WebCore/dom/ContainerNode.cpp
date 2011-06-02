@@ -56,15 +56,19 @@ static NodeCallbackQueue* s_postAttachCallbackQueue;
 static size_t s_attachDepth;
 static bool s_shouldReEnableMemoryCacheCallsAfterAttach;
 
+static inline void collectNodes(Node* node, NodeVector& nodes)
+{
+    for (Node* child = node->firstChild(); child; child = child->nextSibling())
+        nodes.append(child);
+}
+
 static void collectTargetNodes(Node* node, NodeVector& nodes)
 {
     if (node->nodeType() != Node::DOCUMENT_FRAGMENT_NODE) {
         nodes.append(node);
         return;
     }
-
-    for (Node* child = node->firstChild(); child; child = child->nextSibling())
-        nodes.append(child);
+    collectNodes(node, nodes);
 }
 
 void ContainerNode::removeAllChildren()
@@ -75,8 +79,7 @@ void ContainerNode::removeAllChildren()
 void ContainerNode::takeAllChildrenFrom(ContainerNode* oldParent)
 {
     NodeVector children;
-    for (Node* child = oldParent->firstChild(); child; child = child->nextSibling())
-        children.append(child);
+    collectNodes(oldParent, children);
     oldParent->removeAllChildren();
 
     for (unsigned i = 0; i < children.size(); ++i) {
@@ -101,7 +104,7 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
 {
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
-    ASSERT(refCount() || parentNode());
+    ASSERT(refCount() || parentOrHostNode());
 
     ec = 0;
 
@@ -158,7 +161,8 @@ bool ContainerNode::insertBefore(PassRefPtr<Node> newChild, Node* refChild, Exce
         InspectorInstrumentation::willInsertDOMNode(document(), child, this);
 #endif
 
-        child->setDocumentRecursively(document());
+        child->setTreeScopeRecursively(treeScope());
+
         insertBeforeCommon(next.get(), child);
 
         // Send notification about the children change.
@@ -241,7 +245,7 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
 {
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
-    ASSERT(refCount() || parentNode());
+    ASSERT(refCount() || parentOrHostNode());
 
     ec = 0;
 
@@ -307,7 +311,7 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
         InspectorInstrumentation::willInsertDOMNode(document(), child.get(), this);
 #endif
 
-        child->setDocumentRecursively(document());
+        child->setTreeScopeRecursively(treeScope());
 
         // Add child after "prev".
         forbidEventDispatch();
@@ -384,8 +388,7 @@ static void willRemoveChildren(ContainerNode* container)
     container->document()->incDOMTreeVersion();
 
     NodeVector children;
-    for (Node* n = container->firstChild(); n; n = n->nextSibling())
-        children.append(n);
+    collectNodes(container, children);
 
     for (NodeVector::const_iterator it = children.begin(); it != children.end(); it++) {
         Node* child = it->get();
@@ -399,7 +402,7 @@ bool ContainerNode::removeChild(Node* oldChild, ExceptionCode& ec)
 {
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
-    ASSERT(refCount() || parentNode());
+    ASSERT(refCount() || parentOrHostNode());
 
     ec = 0;
 
@@ -559,7 +562,7 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
 {
     // Check that this node is not "floating".
     // If it is, it can be deleted as a side effect of sending mutation events.
-    ASSERT(refCount() || parentNode());
+    ASSERT(refCount() || parentOrHostNode());
 
     ec = 0;
 
@@ -597,7 +600,7 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
         InspectorInstrumentation::willInsertDOMNode(document(), child, this);
 #endif
 
-        child->setDocumentRecursively(document());
+        child->setTreeScopeRecursively(treeScope());
 
         // Append child to the end of the list
         forbidEventDispatch();
@@ -735,8 +738,16 @@ void ContainerNode::insertedIntoDocument()
 {
     Node::insertedIntoDocument();
     insertedIntoTree(false);
-    for (Node* child = m_firstChild; child && inDocument(); child = child->nextSibling())
+
+    // Determine set of children before operating on any of them.
+    NodeVector children;
+    collectNodes(this, children);
+
+    NodeVector::iterator it;
+    for (it = children.begin(); it != children.end() && inDocument(); ++it) {
+        Node* child = it->get();
         child->insertedIntoDocument();
+    }
 }
 
 void ContainerNode::removedFromDocument()
@@ -778,9 +789,16 @@ void ContainerNode::childrenChanged(bool changedByParser, Node* beforeChange, No
 void ContainerNode::cloneChildNodes(ContainerNode *clone)
 {
     // disable the delete button so it's elements are not serialized into the markup
-    bool isEditorEnabled = document()->frame() && document()->frame()->editor()->canEdit();
-    if (isEditorEnabled)
-        document()->frame()->editor()->deleteButtonController()->disable();
+    bool isEditorEnabled = false;
+    if (document()->frame() && document()->frame()->editor()->canEdit()) {
+        SelectionController* selection = document()->frame()->selection();
+        Element* root = selection ? selection->rootEditableElement() : 0;
+        isEditorEnabled = root && isDescendantOf(root);
+
+        if (isEditorEnabled)
+            document()->frame()->editor()->deleteButtonController()->disable();
+    }
+    
     ExceptionCode ec = 0;
     for (Node* n = firstChild(); n && !ec; n = n->nextSibling())
         clone->appendChild(n->cloneNode(true), ec);

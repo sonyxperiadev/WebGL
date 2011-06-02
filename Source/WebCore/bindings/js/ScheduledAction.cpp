@@ -24,6 +24,7 @@
 #include "config.h"
 #include "ScheduledAction.h"
 
+#include "ContentSecurityPolicy.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "Frame.h"
@@ -46,11 +47,13 @@ using namespace JSC;
 
 namespace WebCore {
 
-PassOwnPtr<ScheduledAction> ScheduledAction::create(ExecState* exec, DOMWrapperWorld* isolatedWorld)
+PassOwnPtr<ScheduledAction> ScheduledAction::create(ExecState* exec, DOMWrapperWorld* isolatedWorld, ContentSecurityPolicy* policy)
 {
     JSValue v = exec->argument(0);
     CallData callData;
     if (getCallData(v, callData) == CallTypeNone) {
+        if (policy && !policy->allowEval())
+            return 0;
         UString string = v.toString(exec);
         if (exec->hadException())
             return 0;
@@ -67,7 +70,7 @@ ScheduledAction::ScheduledAction(ExecState* exec, JSValue function, DOMWrapperWo
     // setTimeout(function, interval, arg0, arg1...).
     // Start at 2 to skip function and interval.
     for (size_t i = 2; i < exec->argumentCount(); ++i)
-        m_args.append(Global<JSC::Unknown>(exec->globalData(), exec->argument(i)));
+        m_args.append(Strong<JSC::Unknown>(exec->globalData(), exec->argument(i)));
 }
 
 void ScheduledAction::execute(ScriptExecutionContext* context)

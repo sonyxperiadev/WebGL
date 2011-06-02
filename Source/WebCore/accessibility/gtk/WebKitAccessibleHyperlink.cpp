@@ -25,7 +25,6 @@
 #include "AXObjectCache.h"
 #include "AccessibilityObject.h"
 #include "AccessibilityObjectWrapperAtk.h"
-#include "AccessibilityRenderObject.h"
 #include "NotImplemented.h"
 #include "Position.h"
 #include "Range.h"
@@ -199,7 +198,7 @@ static AtkObject* webkitAccessibleHyperlinkGetObject(AtkHyperlink* link, gint in
 static gint getRangeLengthForObject(AccessibilityObject* obj, Range* range)
 {
     // This is going to be the actual length in most of the cases
-    int baseLength = TextIterator::rangeLength(range);
+    int baseLength = TextIterator::rangeLength(range, true);
 
     // Check whether the current hyperlink belongs to a list item.
     // If so, we need to consider the length of the item's marker
@@ -215,7 +214,7 @@ static gint getRangeLengthForObject(AccessibilityObject* obj, Range* range)
     if (!markerObj)
         return baseLength;
 
-    RenderObject* renderer = static_cast<const AccessibilityRenderObject*>(markerObj)->renderer();
+    RenderObject* renderer = markerObj->renderer();
     if (!renderer || !renderer->isListMarker())
         return baseLength;
 

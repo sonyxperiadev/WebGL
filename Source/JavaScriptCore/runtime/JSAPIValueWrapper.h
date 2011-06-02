@@ -25,6 +25,7 @@
 
 #include "JSCell.h"
 #include "CallFrame.h"
+#include "Structure.h"
 
 namespace JSC {
 
@@ -35,7 +36,7 @@ namespace JSC {
 
         virtual bool isAPIValueWrapper() const { return true; }
 
-        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
             return Structure::create(globalData, prototype, TypeInfo(CompoundType, OverridesMarkChildren | OverridesGetPropertyNames), AnonymousSlotCount, 0);
         }
@@ -43,7 +44,7 @@ namespace JSC {
         
     private:
         JSAPIValueWrapper(ExecState* exec, JSValue value)
-            : JSCell(exec->globalData().apiWrapperStructure.get())
+            : JSCell(exec->globalData(), exec->globalData().apiWrapperStructure.get())
         {
             m_value.set(exec->globalData(), this, value);
             ASSERT(!value.isCell());

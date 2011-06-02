@@ -32,16 +32,19 @@
 
 namespace WebCore {
 
+class BidiContext;
 class ColumnInfo;
 class InlineIterator;
 class LayoutStateMaintainer;
 class LazyLineBreakIterator;
+class LineWidth;
 class RenderInline;
 
 struct BidiRun;
 struct PaintInfo;
 
 template <class Iterator, class Run> class BidiResolver;
+template <class Run> class BidiRunList;
 template <class Iterator> struct MidpointState;
 typedef BidiResolver<InlineIterator, BidiRun> InlineBidiResolver;
 typedef MidpointState<InlineIterator> LineMidpointState;
@@ -151,7 +154,7 @@ public:
     RenderBlock* createAnonymousColumnSpanBlock() const;
     RenderBlock* createAnonymousBlockWithSameTypeAs(RenderBlock* otherAnonymousBlock) const;
     
-    static void appendRunsForObject(int start, int end, RenderObject*, InlineBidiResolver&);    
+    static void appendRunsForObject(BidiRunList<BidiRun>&, int start, int end, RenderObject*, InlineBidiResolver&);
     static bool requiresLineBox(const InlineIterator&, bool isLineEmpty = true, bool previousLineBrokeCleanly = true);
 
     ColumnInfo* columnInfo() const;
@@ -349,6 +352,7 @@ private:
 
     void layoutBlockChildren(bool relayoutChildren, int& maxFloatLogicalBottom);
     void layoutInlineChildren(bool relayoutChildren, int& repaintLogicalTop, int& repaintLogicalBottom);
+    BidiRun* handleTrailingSpaces(BidiRunList<BidiRun>&, BidiContext*);
 
     virtual void borderFitAdjust(int& x, int& w) const; // Shrink the box in which the border paints if border-fit is set.
 
@@ -492,22 +496,23 @@ private:
                         RootInlineBox*& endLine, int& endYPos, int& repaintBottom, int& repaintTop);
 
     void skipTrailingWhitespace(InlineIterator&, bool isLineEmpty, bool previousLineBrokeCleanly);
-    void skipLeadingWhitespace(InlineBidiResolver&, bool firstLine, bool isLineEmpty, bool previousLineBrokeCleanly, FloatingObject* lastFloatFromPreviousLine, int& lineLeftOffset, int& lineRightOffset);
-    void fitBelowFloats(float widthToFit, bool firstLine, float& availableWidth);
+    void skipLeadingWhitespace(InlineBidiResolver&, bool isLineEmpty, bool previousLineBrokeCleanly, FloatingObject* lastFloatFromPreviousLine, LineWidth&);
     typedef std::pair<RenderText*, LazyLineBreakIterator> LineBreakIteratorInfo;
     InlineIterator findNextLineBreak(InlineBidiResolver&, bool firstLine, bool& isLineEmpty, LineBreakIteratorInfo&, bool& previousLineBrokeCleanly, bool& hyphenated,
                                      EClear*, FloatingObject* lastFloatFromPreviousLine, Vector<RenderBox*>& positionedObjects);
-    RootInlineBox* constructLine(unsigned runCount, BidiRun* firstRun, BidiRun* lastRun, bool firstLine, bool lastLine, RenderObject* endObject, RenderObject* logicallyLastRunRenderer);
+    RootInlineBox* constructLine(BidiRunList<BidiRun>&, bool firstLine, bool lastLine);
     InlineFlowBox* createLineBoxes(RenderObject*, bool firstLine, InlineBox* childBox);
 
     void computeInlineDirectionPositionsForLine(RootInlineBox*, bool firstLine, BidiRun* firstRun, BidiRun* trailingSpaceRun, bool reachedEnd, GlyphOverflowAndFallbackFontsMap&, VerticalPositionCache&);
     void computeBlockDirectionPositionsForLine(RootInlineBox*, BidiRun*, GlyphOverflowAndFallbackFontsMap&, VerticalPositionCache&);
     void deleteEllipsisLineBoxes();
     void checkLinesForTextOverflow();
-    int beforeSideVisualOverflowForLine(RootInlineBox*) const;
-    int afterSideVisualOverflowForLine(RootInlineBox*) const;
-    int beforeSideLayoutOverflowForLine(RootInlineBox*) const;
-    int afterSideLayoutOverflowForLine(RootInlineBox*) const;
+
+    // Positions new floats and also adjust all floats encountered on the line if any of them
+    // have to move to the next page/column.
+    bool positionNewFloatOnLine(FloatingObject* newFloat, FloatingObject* lastFloatFromPreviousLine, LineWidth&);
+    void appendFloatingObjectToLastLine(FloatingObject*);
+
     // End of functions defined in RenderBlockLineLayout.cpp.
 
     void paintFloats(PaintInfo&, int tx, int ty, bool preservePhase = false);
@@ -526,10 +531,6 @@ private:
     // Called from lineWidth, to position the floats added in the last line.
     // Returns true if and only if it has positioned any floats.
     bool positionNewFloats();
-    
-    // Positions new floats and also adjust all floats encountered on the line if any of them
-    // have to move to the next page/column.
-    bool positionNewFloatOnLine(FloatingObject* newFloat, FloatingObject* lastFloatFromPreviousLine, bool firstLine, int& lineLeftOffset, int& lineRightOffset);
 
     void clearFloats();
     int getClearDelta(RenderBox* child, int yPos);
@@ -785,6 +786,7 @@ private:
     // RenderRubyBase objects need to be able to split and merge, moving their children around
     // (calling moveChildTo, moveAllChildrenTo, and makeChildrenNonInline).
     friend class RenderRubyBase;
+    friend class LineWidth; // Needs to know FloatingObject
 };
 
 inline RenderBlock* toRenderBlock(RenderObject* object)

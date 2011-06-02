@@ -56,6 +56,7 @@ namespace WebCore {
     class FileSystemCallback;
     class NotificationCenter;
     class ScheduledAction;
+    class WorkerInspectorController;
     class WorkerLocation;
     class WorkerNavigator;
     class WorkerThread;
@@ -120,7 +121,7 @@ namespace WebCore {
         virtual void databaseExceededQuota(const String&);
 #endif
         virtual bool isContextThread() const;
-        virtual bool isJSExecutionTerminated() const;
+        virtual bool isJSExecutionForbidden() const;
 
 #if ENABLE(BLOB)
         DOMURL* webkitURL() const;
@@ -130,13 +131,16 @@ namespace WebCore {
         enum FileSystemType {
             TEMPORARY,
             PERSISTENT,
+            EXTERNAL,
         };
-        void requestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback>);
-        PassRefPtr<DOMFileSystemSync> requestFileSystemSync(int type, long long size, ExceptionCode&);
-        void resolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback>);
-        PassRefPtr<EntrySync> resolveLocalFileSystemSyncURL(const String& url, ExceptionCode&);
+        void webkitRequestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback>);
+        PassRefPtr<DOMFileSystemSync> webkitRequestFileSystemSync(int type, long long size, ExceptionCode&);
+        void webkitResolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback>);
+        PassRefPtr<EntrySync> webkitResolveLocalFileSystemSyncURL(const String& url, ExceptionCode&);
 #endif
-
+#if ENABLE(INSPECTOR)
+        WorkerInspectorController* workerInspectorController() { return m_workerInspectorController.get(); }
+#endif
         // These methods are used for GC marking. See JSWorkerContext::markChildren(MarkStack&) in
         // JSWorkerContextCustom.cpp.
         WorkerNavigator* optionalNavigator() const { return m_navigator.get(); }
@@ -195,6 +199,9 @@ namespace WebCore {
 #endif
 #if ENABLE(BLOB)
         mutable RefPtr<DOMURL> m_domURL;
+#endif
+#if ENABLE(INSPECTOR)
+        OwnPtr<WorkerInspectorController> m_workerInspectorController;
 #endif
         bool m_closing;
         EventTargetData m_eventTargetData;

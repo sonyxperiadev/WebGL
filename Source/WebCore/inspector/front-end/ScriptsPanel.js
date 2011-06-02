@@ -65,15 +65,6 @@ WebInspector.ScriptsPanel = function()
     // FIXME: append the functions select element to the top status bar when it is implemented.
     // this.topStatusBar.appendChild(this.functionsSelectElement);
 
-    this.formatButton = document.createElement("button");
-    this.formatButton.className = "status-bar-item";
-    this.formatButton.id = "format-script";
-    this.formatButton.title = WebInspector.UIString("Format script.");
-    this.formatButton.appendChild(document.createElement("img"));
-    this.formatButton.addEventListener("click", this._toggleFormatSourceFiles.bind(this), false);
-    if (Preferences.debugMode)
-        this.topStatusBar.appendChild(this.formatButton);
-
     this.sidebarButtonsElement = document.createElement("div");
     this.sidebarButtonsElement.id = "scripts-sidebar-buttons";
     this.topStatusBar.appendChild(this.sidebarButtonsElement);
@@ -142,9 +133,9 @@ WebInspector.ScriptsPanel = function()
     this.sidebarPanes.watchExpressions = new WebInspector.WatchExpressionsSidebarPane();
     this.sidebarPanes.callstack = new WebInspector.CallStackSidebarPane(this._presentationModel);
     this.sidebarPanes.scopechain = new WebInspector.ScopeChainSidebarPane();
-    this.sidebarPanes.jsBreakpoints = new WebInspector.JavaScriptBreakpointsSidebarPane(this._presentationModel);
+    this.sidebarPanes.jsBreakpoints = new WebInspector.JavaScriptBreakpointsSidebarPane(this._presentationModel, this._showSourceLine.bind(this));
     if (Preferences.nativeInstrumentationEnabled) {
-        this.sidebarPanes.domBreakpoints = WebInspector.createDOMBreakpointsSidebarPane();
+        this.sidebarPanes.domBreakpoints = WebInspector.domBreakpointsSidebarPane;
         this.sidebarPanes.xhrBreakpoints = new WebInspector.XHRBreakpointsSidebarPane();
         this.sidebarPanes.eventListenerBreakpoints = new WebInspector.EventListenerBreakpointsSidebarPane();
     }
@@ -204,10 +195,16 @@ WebInspector.ScriptsPanel = function()
 
 // Keep these in sync with WebCore::ScriptDebugServer
 WebInspector.ScriptsPanel.PauseOnExceptionsState = {
-    DontPauseOnExceptions : 0,
-    PauseOnAllExceptions : 1,
-    PauseOnUncaughtExceptions: 2
+    DontPauseOnExceptions : "none",
+    PauseOnAllExceptions : "all",
+    PauseOnUncaughtExceptions: "uncaught"
 };
+
+WebInspector.ScriptsPanel.BrowserBreakpointTypes = {
+    DOM: "DOM",
+    EventListener: "EventListener",
+    XHR: "XHR"
+}
 
 WebInspector.ScriptsPanel.prototype = {
     get toolbarItemLabel()
@@ -234,6 +231,8 @@ WebInspector.ScriptsPanel.prototype = {
     {
         WebInspector.Panel.prototype.show.call(this);
         this.sidebarResizeElement.style.right = (this.sidebarElement.offsetWidth - 3) + "px";
+        if (Preferences.nativeInstrumentationEnabled)
+            this.sidebarElement.insertBefore(this.sidebarPanes.domBreakpoints.element, this.sidebarPanes.xhrBreakpoints.element);
 
         if (this.visibleView)
             this.visibleView.show(this.viewsContainerElement);
@@ -280,7 +279,7 @@ WebInspector.ScriptsPanel.prototype = {
         var select = this._filesSelectElement;
         var option = document.createElement("option");
         option.text = sourceFile.url ? WebInspector.displayNameForURL(sourceFile.url) : WebInspector.UIString("(program)");
-        if (sourceFile.isExtensionScript)
+        if (sourceFile.isContentScript)
             option.addStyleClass("extension-script");
         function optionCompare(a, b)
         {
@@ -375,29 +374,33 @@ WebInspector.ScriptsPanel.prototype = {
         this.sidebarPanes.callstack.update(callFrames, details);
         this.sidebarPanes.callstack.selectedCallFrame = this._presentationModel.selectedCallFrame;
 
-        var status;
         if (details.eventType === WebInspector.DebuggerEventTypes.NativeBreakpoint) {
-            if (details.eventData.breakpointType === WebInspector.BreakpointManager.BreakpointTypes.EventListener) {
+            if (details.eventData.breakpointType === WebInspector.ScriptsPanel.BrowserBreakpointTypes.DOM) {
+                this.sidebarPanes.domBreakpoints.highlightBreakpoint(details.eventData);
+                function didCreateBreakpointHitStatusMessage(element)
+                {
+                    this.sidebarPanes.callstack.setStatus(element);
+                }
+                this.sidebarPanes.domBreakpoints.createBreakpointHitStatusMessage(details.eventData, didCreateBreakpointHitStatusMessage.bind(this));
+            } else if (details.eventData.breakpointType === WebInspector.ScriptsPanel.BrowserBreakpointTypes.EventListener) {
                 var eventName = details.eventData.eventName;
                 this.sidebarPanes.eventListenerBreakpoints.highlightBreakpoint(details.eventData.eventName);
                 var eventNameForUI = WebInspector.EventListenerBreakpointsSidebarPane.eventNameForUI(eventName);
-                status = WebInspector.UIString("Paused on a \"%s\" Event Listener.", eventNameForUI);
-            } else if (details.eventData.breakpointType === WebInspector.BreakpointManager.BreakpointTypes.XHR) {
+                this.sidebarPanes.callstack.setStatus(WebInspector.UIString("Paused on a \"%s\" Event Listener.", eventNameForUI));
+            } else if (details.eventData.breakpointType === WebInspector.ScriptsPanel.BrowserBreakpointTypes.XHR) {
                 this.sidebarPanes.xhrBreakpoints.highlightBreakpoint(details.eventData.breakpointURL);
-                status = WebInspector.UIString("Paused on a XMLHttpRequest.");
+                this.sidebarPanes.callstack.setStatus(WebInspector.UIString("Paused on a XMLHttpRequest."));
             }
         } else {
-            function didGetSourceLocation(sourceFileId, lineNumber, columnNumber)
+            function didGetSourceLocation(sourceFileId, lineNumber)
             {
                 if (!sourceFileId || !this._presentationModel.findBreakpoint(sourceFileId, lineNumber))
                     return;
                 this.sidebarPanes.jsBreakpoints.highlightBreakpoint(sourceFileId, lineNumber);
-                status = WebInspector.UIString("Paused on a JavaScript breakpoint.");
+                this.sidebarPanes.callstack.setStatus(WebInspector.UIString("Paused on a JavaScript breakpoint."));
             }
-            callFrames[0].sourceLocation(didGetSourceLocation.bind(this));
+            callFrames[0].sourceLine(didGetSourceLocation.bind(this));
         }
-        if (status)
-            this.sidebarPanes.callstack.setStatus(status);
 
         window.focus();
         InspectorFrontendHost.bringToFront();
@@ -414,7 +417,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     _debuggerWasEnabled: function()
     {
-        this._setPauseOnExceptions(WebInspector.settings.pauseOnExceptionState);
+        this._setPauseOnExceptions(WebInspector.settings.pauseOnExceptionStateString);
 
         if (this._debuggerEnabled)
             return;
@@ -478,17 +481,26 @@ WebInspector.ScriptsPanel.prototype = {
             x.show(this.viewsContainerElement);
     },
 
-    canShowSourceLine: function(url, line)
+    canShowAnchorLocation: function(anchor)
     {
-        return this._debuggerEnabled && (url in this._sourceFileIdToFilesSelectOption);
+        return this._debuggerEnabled && this._presentationModel.sourceFileForScriptURL(anchor.href);
     },
 
-    showSourceLine: function(url, line)
+    showAnchorLocation: function(anchor)
     {
-        if (!(url in this._sourceFileIdToFilesSelectOption))
-            return;
-        var sourceFrame = this._showSourceFrameAndAddToHistory(url);
-        sourceFrame.highlightLine(line);
+        function didRequestSourceMapping(mapping)
+        {
+            var lineNumber = mapping.scriptLocationToSourceLine({lineNumber:anchor.getAttribute("line_number") - 1, columnNumber:0});
+            this._showSourceLine(sourceFile.id, lineNumber);
+        }
+        var sourceFile = this._presentationModel.sourceFileForScriptURL(anchor.href);
+        sourceFile.requestSourceMapping(didRequestSourceMapping.bind(this));
+    },
+
+    _showSourceLine: function(sourceFileId, lineNumber)
+    {
+        var sourceFrame = this._showSourceFrameAndAddToHistory(sourceFileId);
+        sourceFrame.highlightLine(lineNumber);
     },
 
     handleShortcut: function(event)
@@ -612,7 +624,7 @@ WebInspector.ScriptsPanel.prototype = {
         this.sidebarPanes.watchExpressions.refreshExpressions();
         this.sidebarPanes.callstack.selectedCallFrame = this._presentationModel.selectedCallFrame;
 
-        function didGetSourceLocation(sourceFileId, lineNumber, columnNumber)
+        function didGetSourceLocation(sourceFileId, lineNumber)
         {
             if (!sourceFileId)
                 return;
@@ -625,7 +637,7 @@ WebInspector.ScriptsPanel.prototype = {
             sourceFrame.setExecutionLine(lineNumber);
             this._executionSourceFrame = sourceFrame;
         }
-        callFrame.sourceLocation(didGetSourceLocation.bind(this));
+        callFrame.sourceLine(didGetSourceLocation.bind(this));
     },
 
     _filesSelectChanged: function()
@@ -672,6 +684,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     _setPauseOnExceptions: function(pauseOnExceptionsState)
     {
+        pauseOnExceptionsState = pauseOnExceptionsState || WebInspector.ScriptsPanel.PauseOnExceptionsState.DontPauseOnExceptions;
         function callback(error)
         {
             if (error)
@@ -684,9 +697,9 @@ WebInspector.ScriptsPanel.prototype = {
                 this._pauseOnExceptionButton.title = WebInspector.UIString("Pause on uncaught exceptions.\nClick to Not pause on exceptions.");
 
             this._pauseOnExceptionButton.state = pauseOnExceptionsState;
-            WebInspector.settings.pauseOnExceptionState = pauseOnExceptionsState;
+            WebInspector.settings.pauseOnExceptionStateString = pauseOnExceptionsState;
         }
-        DebuggerAgent.setPauseOnExceptionsState(pauseOnExceptionsState, callback.bind(this));
+        DebuggerAgent.setPauseOnExceptions(pauseOnExceptionsState, callback.bind(this));
     },
 
     _updateDebuggerButtons: function()
@@ -741,6 +754,7 @@ WebInspector.ScriptsPanel.prototype = {
         this.sidebarPanes.scopechain.update(null);
         this.sidebarPanes.jsBreakpoints.clearBreakpointHighlight();
         if (Preferences.nativeInstrumentationEnabled) {
+            this.sidebarPanes.domBreakpoints.clearBreakpointHighlight();
             this.sidebarPanes.eventListenerBreakpoints.clearBreakpointHighlight();
             this.sidebarPanes.xhrBreakpoints.clearBreakpointHighlight();
         }
@@ -771,12 +785,6 @@ WebInspector.ScriptsPanel.prototype = {
         this._updateBackAndForwardButtons();
     },
 
-    _toggleFormatSourceFiles: function()
-    {
-        this.reset();
-        this._presentationModel.toggleFormatSourceFiles();
-    },
-
     _enableDebugging: function()
     {
         if (this._debuggerEnabled)
@@ -801,7 +809,12 @@ WebInspector.ScriptsPanel.prototype = {
 
     _togglePauseOnExceptions: function()
     {
-        this._setPauseOnExceptions((this._pauseOnExceptionButton.state + 1) % this._pauseOnExceptionButton.states);
+        var nextStateMap = {};
+        var stateEnum = WebInspector.ScriptsPanel.PauseOnExceptionsState;
+        nextStateMap[stateEnum.DontPauseOnExceptions] = stateEnum.PauseOnAllExceptions;
+        nextStateMap[stateEnum.PauseOnAllExceptions] = stateEnum.PauseOnUncaughtExceptions;
+        nextStateMap[stateEnum.PauseOnUncaughtExceptions] = stateEnum.DontPauseOnExceptions;
+        this._setPauseOnExceptions(nextStateMap[this._pauseOnExceptionButton.state]);
     },
 
     _togglePause: function()
@@ -1008,11 +1021,7 @@ WebInspector.SourceFrameDelegateForScriptsPanel = function(model, sourceFileId)
 WebInspector.SourceFrameDelegateForScriptsPanel.prototype = {
     requestContent: function(callback)
     {
-        function didRequestSourceFileContent(mimeType, text)
-        {
-            callback(mimeType, { text: text });
-        }
-        this._model.requestSourceFileContent(this._sourceFileId, didRequestSourceFileContent.bind(this));
+        this._model.requestSourceFileContent(this._sourceFileId, callback);
     },
 
     debuggingSupported: function()
@@ -1076,6 +1085,17 @@ WebInspector.SourceFrameDelegateForScriptsPanel.prototype = {
     releaseEvaluationResult: function()
     {
         RuntimeAgent.releaseObjectGroup(this._popoverObjectGroup);
+    },
+
+    toggleFormatSourceFiles: function()
+    {
+        WebInspector.panels.scripts.reset();
+        this._model.toggleFormatSourceFiles();
+    },
+
+    formatSourceFilesToggled: function()
+    {
+        return this._model.formatSourceFilesToggled();
     }
 }
 

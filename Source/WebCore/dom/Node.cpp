@@ -411,7 +411,7 @@ Node::~Node()
         m_next->setPreviousSibling(0);
 
     if (m_document)
-        m_document->selfOnlyDeref();
+        m_document->guardDeref();
 }
 
 #ifdef NDEBUG
@@ -447,15 +447,11 @@ void Node::setDocument(Document* document)
     if (inDocument() || m_document == document)
         return;
 
-    document->selfOnlyRef();
+    document->guardRef();
 
     setWillMoveToNewOwnerDocumentWasCalled(false);
     willMoveToNewOwnerDocument();
     ASSERT(willMoveToNewOwnerDocumentWasCalled);
-
-#if USE(JSC)
-    updateDOMNodeDocument(this, m_document, document);
-#endif
 
     if (hasRareData() && rareData()->nodeLists()) {
         if (m_document)
@@ -465,7 +461,7 @@ void Node::setDocument(Document* document)
 
     if (m_document) {
         m_document->moveNodeIteratorsToNewDocument(this, document);
-        m_document->selfOnlyDeref();
+        m_document->guardDeref();
     }
 
     m_document = document;
@@ -473,6 +469,58 @@ void Node::setDocument(Document* document)
     setDidMoveToNewOwnerDocumentWasCalled(false);
     didMoveToNewOwnerDocument();
     ASSERT(didMoveToNewOwnerDocumentWasCalled);
+}
+
+TreeScope* Node::treeScope() const
+{
+    if (!hasRareData())
+        return document();
+    TreeScope* scope = rareData()->treeScope();
+    // FIXME: Until we land shadow scopes, there should be no non-document scopes.
+    ASSERT(!scope);
+    return scope ? scope : document();
+}
+
+void Node::setTreeScope(TreeScope* newTreeScope)
+{
+    ASSERT(!isDocumentNode());
+    ASSERT(newTreeScope);
+    ASSERT(!inDocument() || treeScope() == newTreeScope);
+
+    if (newTreeScope->isDocumentNode()) {
+        if (hasRareData())
+            rareData()->setTreeScope(0);
+        // Setting the new document scope will be handled implicitly
+        // by setDocument() below.
+    } else {
+        // FIXME: Until we land shadow scopes, this branch should be inert.
+        ASSERT_NOT_REACHED();
+        ensureRareData()->setTreeScope(newTreeScope);
+    }
+
+    setDocument(newTreeScope->document());
+}
+
+void Node::setTreeScopeRecursively(TreeScope* newTreeScope)
+{
+    ASSERT(!isDocumentNode());
+    ASSERT(newTreeScope);
+    if (treeScope() == newTreeScope)
+        return;
+
+    Document* currentDocument = document();
+    Document* newDocument = newTreeScope->document();
+    // If an element is moved from a document and then eventually back again the collection cache for
+    // that element may contain stale data as changes made to it will have updated the DOMTreeVersion
+    // of the document it was moved to. By increasing the DOMTreeVersion of the donating document here
+    // we ensure that the collection cache will be invalidated as needed when the element is moved back.
+    if (currentDocument && currentDocument != newDocument)
+        currentDocument->incDOMTreeVersion();
+
+    for (Node* node = this; node; node = node->traverseNextNode(this)) {
+        node->setTreeScope(newTreeScope);
+        // FIXME: Once shadow scopes are landed, update parent scope, etc.
+    }
 }
 
 NodeRareData* Node::rareData() const
@@ -505,7 +553,7 @@ Element* Node::shadowHost() const
 
 void Node::setShadowHost(Element* host)
 {
-    ASSERT(!parentNode());
+    ASSERT(!parentNode() && !isSVGShadowRoot());
     if (host)
         setFlag(IsShadowRootFlag);
     else
@@ -714,6 +762,12 @@ void Node::deprecatedParserAddChild(PassRefPtr<Node>)
 {
 }
 
+bool Node::isContentEditable() const
+{
+    document()->updateLayoutIgnorePendingStylesheets();
+    return rendererIsEditable(Editable);
+}
+
 bool Node::rendererIsEditable(EditableLevel editableLevel) const
 {
     if (document()->inDesignMode() || (document()->frame() && document()->frame()->page() && document()->frame()->page()->isEditable()))
@@ -743,7 +797,7 @@ bool Node::rendererIsEditable(EditableLevel editableLevel) const
 
 bool Node::shouldUseInputMethod() const
 {
-    return rendererIsEditable();
+    return isContentEditable();
 }
 
 RenderBox* Node::renderBox() const
@@ -799,24 +853,21 @@ bool Node::hasNonEmptyBoundingBox() const
     return false;
 }
 
-void Node::setDocumentRecursively(Document* document)
+inline static ContainerNode* shadowRoot(Node* node)
 {
-    if (this->document() == document)
-        return;
+    return node->isElementNode() ? toElement(node)->shadowRoot() : 0;
+}
 
-    // If an element is moved from a document and then eventually back again the collection cache for
-    // that element may contain stale data as changes made to it will have updated the DOMTreeVersion
-    // of the document it was moved to. By increasing the DOMTreeVersion of the donating document here
-    // we ensure that the collection cache will be invalidated as needed when the element is moved back.
-    if (this->document())
-        this->document()->incDOMTreeVersion();
+void Node::setDocumentRecursively(Document* newDocument)
+{
+    ASSERT(document() != newDocument);
 
     for (Node* node = this; node; node = node->traverseNextNode(this)) {
-        node->setDocument(document);
+        node->setDocument(newDocument);
         if (!node->isElementNode())
             continue;
-        if (Node* shadow = toElement(node)->shadowRoot())
-            shadow->setDocumentRecursively(document);
+        if (Node* shadow = shadowRoot(node))
+            shadow->setDocumentRecursively(newDocument);
     }
 }
 
@@ -1401,18 +1452,44 @@ Node *Node::nextLeafNode() const
     return 0;
 }
 
+ContainerNode* Node::parentNodeForRenderingAndStyle() const
+{
+    ContainerNode* parent = parentOrHostNode();
+    return parent && parent->isShadowBoundary() ? parent->shadowHost() : parent;
+}
+
+static bool shouldCreateRendererFor(Node* node, ContainerNode* parentForRenderingAndStyle)
+{
+    RenderObject* parentRenderer = parentForRenderingAndStyle->renderer();
+    if (!parentRenderer)
+        return false;
+
+    bool atShadowBoundary = node->parentOrHostNode()->isShadowBoundary();
+
+    // FIXME: Ignoring canHaveChildren() in a case of isShadowRoot() might be wrong.
+    // See https://bugs.webkit.org/show_bug.cgi?id=52423
+    if (!parentRenderer->canHaveChildren() && !(node->isShadowRoot() || atShadowBoundary))
+        return false;
+
+    if (shadowRoot(parentForRenderingAndStyle) && !atShadowBoundary 
+        && !parentForRenderingAndStyle->canHaveLightChildRendererWithShadow())
+        return false;
+
+    if (!parentForRenderingAndStyle->childShouldCreateRenderer(node))
+        return false;
+
+    return true;
+}
+
 RenderObject* Node::createRendererAndStyle()
 {
     ASSERT(!renderer());
     ASSERT(document()->shouldCreateRenderers());
 
-    ContainerNode* parent = parentOrHostNode();
+    ContainerNode* parent = parentNodeForRenderingAndStyle();
     ASSERT(parent);
-    RenderObject* parentRenderer = parent->renderer();
 
-    // FIXME: Ignoring canHaveChildren() in a case of isShadowRoot() might be wrong.
-    // See https://bugs.webkit.org/show_bug.cgi?id=52423
-    if (!parentRenderer || (!parentRenderer->canHaveChildren() && !isShadowRoot()) || !parent->childShouldCreateRenderer(this))
+    if (!shouldCreateRendererFor(this, parent))
         return 0;
 
     RefPtr<RenderStyle> style = styleForRenderer();
@@ -1423,7 +1500,7 @@ RenderObject* Node::createRendererAndStyle()
     if (!newRenderer)
         return 0;
 
-    if (!parentRenderer->isChildAllowed(newRenderer, style.get())) {
+    if (!parent->renderer()->isChildAllowed(newRenderer, style.get())) {
         newRenderer->destroy();
         return 0;
     }
@@ -1464,7 +1541,7 @@ void Node::createRendererIfNeeded()
         return;
 
     // Note: Adding newRenderer instead of renderer(). renderer() may be a child of newRenderer.
-    parentOrHostNode()->renderer()->addChild(newRenderer, nextRenderer());
+    parentNodeForRenderingAndStyle()->renderer()->addChild(newRenderer, nextRenderer());
 }
 
 PassRefPtr<RenderStyle> Node::styleForRenderer()
@@ -1530,6 +1607,13 @@ bool Node::canStartSelection() const
     return parentOrHostNode() ? parentOrHostNode()->canStartSelection() : true;
 }
 
+#if ENABLE(SVG)
+SVGUseElement* Node::svgShadowHost() const
+{
+    return isSVGShadowRoot() ? static_cast<SVGUseElement*>(parent()) : 0;
+}
+#endif
+
 Node* Node::shadowAncestorNode()
 {
 #if ENABLE(SVG)
@@ -1551,7 +1635,7 @@ Node* Node::shadowTreeRootNode()
 {
     Node* root = this;
     while (root) {
-        if (root->isShadowRoot())
+        if (root->isShadowRoot() || root->isSVGShadowRoot())
             return root;
         root = root->parentNodeGuaranteedHostFree();
     }
@@ -2641,28 +2725,6 @@ EventTargetData* Node::ensureEventTargetData()
     return ensureRareData()->ensureEventTargetData();
 }
 
-#if USE(JSC)
-
-template <class NodeListMap>
-void markNodeLists(const NodeListMap& map, JSC::MarkStack& markStack, JSC::JSGlobalData& globalData)
-{
-    for (typename NodeListMap::const_iterator it = map.begin(); it != map.end(); ++it)
-        markDOMObjectWrapper(markStack, globalData, it->second);
-}
-
-void Node::markCachedNodeListsSlow(JSC::MarkStack& markStack, JSC::JSGlobalData& globalData)
-{
-    NodeListsNodeData* nodeLists = rareData()->nodeLists();
-    if (!nodeLists)
-        return;
-
-    markNodeLists(nodeLists->m_classNodeListCache, markStack, globalData);
-    markNodeLists(nodeLists->m_nameNodeListCache, markStack, globalData);
-    markNodeLists(nodeLists->m_tagNodeListCache, markStack, globalData);
-}
-
-#endif
-
 void Node::handleLocalEvents(Event* event)
 {
     if (!hasRareData() || !rareData()->eventTargetData())
@@ -2681,7 +2743,7 @@ void Node::dispatchScopedEvent(PassRefPtr<Event> event)
 
 bool Node::dispatchEvent(PassRefPtr<Event> event)
 {
-    return EventDispatcher::dispatchEvent(this, event);
+    return EventDispatcher::dispatchEvent(this, EventDispatchMediator(event));
 }
 
 void Node::dispatchSubtreeModifiedEvent()
@@ -2713,13 +2775,13 @@ void Node::dispatchUIEvent(const AtomicString& eventType, int detail, PassRefPtr
 
 bool Node::dispatchKeyEvent(const PlatformKeyboardEvent& event)
 {
-    return EventDispatcher::dispatchEvent(this, KeyboardEvent::create(event, document()->defaultView()));
+    return EventDispatcher::dispatchEvent(this, KeyboardEventDispatchMediator(KeyboardEvent::create(event, document()->defaultView())));
 }
 
 bool Node::dispatchMouseEvent(const PlatformMouseEvent& event, const AtomicString& eventType,
     int detail, Node* relatedTarget)
 {
-    return EventDispatcher::dispatchMouseEvent(this, event, eventType, detail, relatedTarget);
+    return EventDispatcher::dispatchEvent(this, MouseEventDispatchMediator(MouseEvent::create(eventType, document()->defaultView(), event, detail, relatedTarget)));
 }
 
 void Node::dispatchSimulatedClick(PassRefPtr<Event> event, bool sendMouseEvents, bool showPressedLook)
@@ -2727,9 +2789,9 @@ void Node::dispatchSimulatedClick(PassRefPtr<Event> event, bool sendMouseEvents,
     EventDispatcher::dispatchSimulatedClick(this, event, sendMouseEvents, showPressedLook);
 }
 
-void Node::dispatchWheelEvent(PlatformWheelEvent& e)
+bool Node::dispatchWheelEvent(const PlatformWheelEvent& event)
 {
-    EventDispatcher::dispatchWheelEvent(this, e);
+    return EventDispatcher::dispatchEvent(this, WheelEventDispatchMediator(event, document()->defaultView()));
 }
 
 void Node::dispatchFocusEvent()
@@ -2742,12 +2804,12 @@ void Node::dispatchBlurEvent()
     dispatchEvent(Event::create(eventNames().blurEvent, false, false));
 }
 
-void Node::dispatchChangeEvents()
+void Node::dispatchChangeEvent()
 {
     dispatchEvent(Event::create(eventNames().changeEvent, true, false));
 }
 
-void Node::dispatchInputEvents()
+void Node::dispatchInputEvent()
 {
     dispatchEvent(Event::create(eventNames().inputEvent, true, false));
 }
@@ -2809,7 +2871,7 @@ void Node::defaultEventHandler(Event* event)
             if (Frame* frame = document()->frame())
                 frame->eventHandler()->defaultWheelEventHandler(startNode, wheelEvent);
     } else if (event->type() == eventNames().webkitEditableContentChangedEvent) {
-        dispatchInputEvents();
+        dispatchInputEvent();
     }
 }
 

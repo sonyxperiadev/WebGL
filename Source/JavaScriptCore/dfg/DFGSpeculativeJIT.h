@@ -88,6 +88,7 @@ struct SpeculationCheck {
     RegisterInfo m_gprInfo[numberOfGPRs];
     NodeIndex m_fprInfo[numberOfFPRs];
 };
+typedef SegmentedVector<SpeculationCheck, 16> SpeculationCheckVector;
 
 
 // === SpeculativeJIT ===
@@ -103,9 +104,6 @@ struct SpeculationCheck {
 class SpeculativeJIT : public JITCodeGenerator {
     friend struct SpeculationCheck;
 public:
-    // The speculation 
-    typedef SegmentedVector<SpeculationCheck, 16> SpeculationCheckVector;
-
     SpeculativeJIT(JITCompiler& jit)
         : JITCodeGenerator(jit, true)
         , m_didTerminate(false)
@@ -135,6 +133,23 @@ public:
 
 private:
     bool compile(Node&);
+    bool compile(BasicBlock&);
+
+    bool isDoubleConstantWithInt32Value(NodeIndex nodeIndex, int32_t& out)
+    {
+        if (!m_jit.isDoubleConstant(nodeIndex))
+            return false;
+        double value = m_jit.valueOfDoubleConstant(nodeIndex);
+
+        int32_t asInt32 = static_cast<int32_t>(value);
+        if (value != asInt32)
+            return false;
+        if (!asInt32 && signbit(value))
+            return false;
+
+        out = asInt32;
+        return true;
+    }
 
     // Add a speculation check without additional recovery.
     void speculationCheck(MacroAssembler::Jump jumpToFail)
@@ -325,8 +340,8 @@ private:
 // nodes require entry points from the speculative path.
 class SpeculationCheckIndexIterator {
 public:
-    SpeculationCheckIndexIterator(SpeculativeJIT& speculativeJIT)
-        : m_speculationChecks(speculativeJIT.speculationChecks())
+    SpeculationCheckIndexIterator(SpeculationCheckVector& speculationChecks)
+        : m_speculationChecks(speculationChecks)
         , m_iter(m_speculationChecks.begin())
         , m_end(m_speculationChecks.end())
     {
@@ -344,10 +359,11 @@ public:
     }
 
 private:
-    SpeculativeJIT::SpeculationCheckVector& m_speculationChecks;
-    SpeculativeJIT::SpeculationCheckVector::Iterator m_iter;
-    SpeculativeJIT::SpeculationCheckVector::Iterator m_end;
+    SpeculationCheckVector& m_speculationChecks;
+    SpeculationCheckVector::Iterator m_iter;
+    SpeculationCheckVector::Iterator m_end;
 };
+
 
 } } // namespace JSC::DFG
 

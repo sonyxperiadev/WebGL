@@ -35,10 +35,10 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 typedef struct CGPattern* CGPatternRef;
 typedef CGPatternRef PlatformPatternPtr;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 #include <cairo.h>
 typedef cairo_pattern_t* PlatformPatternPtr;
 #elif USE(SKIA)

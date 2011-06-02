@@ -29,6 +29,7 @@
 
 #include "WKAPICast.h"
 #include "WebPreferences.h"
+#include <WebCore/Settings.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
@@ -69,6 +70,16 @@ void WKPreferencesSetLoadsImagesAutomatically(WKPreferencesRef preferencesRef, b
 bool WKPreferencesGetLoadsImagesAutomatically(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->loadsImagesAutomatically();
+}
+
+void WKPreferencesSetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesRef preferencesRef, bool loadsSiteIconsIgnoringImageLoadingPreference)
+{
+    toImpl(preferencesRef)->setLoadsSiteIconsIgnoringImageLoadingPreference(loadsSiteIconsIgnoringImageLoadingPreference);
+}
+
+bool WKPreferencesGetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->loadsSiteIconsIgnoringImageLoadingPreference();
 }
 
 void WKPreferencesSetOfflineWebApplicationCacheEnabled(WKPreferencesRef preferencesRef, bool offlineWebApplicationCacheEnabled)
@@ -249,6 +260,16 @@ void WKPreferencesSetMinimumFontSize(WKPreferencesRef preferencesRef, uint32_t s
 uint32_t WKPreferencesGetMinimumFontSize(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->minimumFontSize();
+}
+
+void WKPreferencesSetEditableLinkBehavior(WKPreferencesRef preferencesRef, WKEditableLinkBehavior wkBehavior)
+{
+    toImpl(preferencesRef)->setEditableLinkBehavior(toEditableLinkBehavior(wkBehavior));
+}
+
+WKEditableLinkBehavior WKPreferencesGetEditableLinkBehavior(WKPreferencesRef preferencesRef)
+{
+    return toAPI(static_cast<WebCore::EditableLinkBehavior>(toImpl(preferencesRef)->editableLinkBehavior()));
 }
 
 void WKPreferencesSetDefaultTextEncodingName(WKPreferencesRef preferencesRef, WKStringRef name)

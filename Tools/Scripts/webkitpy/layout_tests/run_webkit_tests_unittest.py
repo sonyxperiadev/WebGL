@@ -35,6 +35,7 @@ from __future__ import with_statement
 import codecs
 import itertools
 import logging
+import os
 import Queue
 import sys
 import thread
@@ -53,7 +54,6 @@ from webkitpy.common.system import filesystem_mock
 from webkitpy.tool import mocktool
 from webkitpy.layout_tests import port
 from webkitpy.layout_tests import run_webkit_tests
-from webkitpy.layout_tests.layout_package import dump_render_tree_thread
 from webkitpy.layout_tests.port.test import TestPort, TestDriver
 from webkitpy.layout_tests.port.test_files import is_reference_html_file
 from webkitpy.python24.versioning import compare_version
@@ -196,16 +196,20 @@ class MainTest(unittest.TestCase):
             self.assertTrue(len(batch) <= 2, '%s had too many tests' % ', '.join(batch))
 
     def test_child_process_1(self):
-        (res, buildbot_output, regular_output, user) = logging_run(
+        _, _, regular_output, _ = logging_run(
              ['--print', 'config', '--worker-model', 'threads', '--child-processes', '1'])
-        self.assertTrue('Running one DumpRenderTree\n'
-                        in regular_output.get())
+        self.assertTrue(any(['Running 1 ' in line for line in regular_output.get()]))
 
     def test_child_processes_2(self):
-        (res, buildbot_output, regular_output, user) = logging_run(
+        _, _, regular_output, _ = logging_run(
              ['--print', 'config', '--worker-model', 'threads', '--child-processes', '2'])
-        self.assertTrue('Running 2 DumpRenderTrees in parallel\n'
-                        in regular_output.get())
+        self.assertTrue(any(['Running 2 ' in line for line in regular_output.get()]))
+
+    def test_child_processes_min(self):
+        _, _, regular_output, _ = logging_run(
+             ['--print', 'config', '--worker-model', 'threads', '--child-processes', '2', 'passes'],
+             tests_included=True)
+        self.assertTrue(any(['Running 1 ' in line for line in regular_output.get()]))
 
     def test_dryrun(self):
         batch_tests_run = get_tests_run(['--dry-run'])
@@ -252,8 +256,8 @@ class MainTest(unittest.TestCase):
         fs = port.unit_test_filesystem()
         # We do a logging run here instead of a passing run in order to
         # suppress the output from the json generator.
-        (res, buildbot_output, regular_output, user) = logging_run(['--clobber-old-results'], record_results=True, filesystem=fs)
-        (res, buildbot_output, regular_output, user) = logging_run(
+        res, buildbot_output, regular_output, user = logging_run(['--clobber-old-results'], record_results=True, filesystem=fs)
+        res, buildbot_output, regular_output, user = logging_run(
             ['--print-last-failures'], filesystem=fs)
         self.assertEqual(regular_output.get(), ['\n\n'])
         self.assertEqual(buildbot_output.get(), [])
@@ -324,6 +328,10 @@ class MainTest(unittest.TestCase):
         for batch in batch_tests_run:
             self.assertEquals(len(batch), 1, '%s had too many tests' % ', '.join(batch))
 
+    def test_run_singly_actually_runs_tests(self):
+        res, _, _, _ = logging_run(['--run-singly', 'failures/unexpected'])
+        self.assertEquals(res, 5)
+
     def test_single_file(self):
         tests_run = get_tests_run(['passes/text.html'], tests_included=True, flatten_batches=True)
         self.assertEquals(['passes/text.html'], tests_run)
@@ -335,6 +343,12 @@ class MainTest(unittest.TestCase):
     def test_single_skipped_file(self):
         tests_run = get_tests_run(['failures/expected/keybaord.html'], tests_included=True, flatten_batches=True)
         self.assertEquals([], tests_run)
+
+    def test_stderr_is_saved(self):
+        fs = port.unit_test_filesystem()
+        self.assertTrue(passing_run(filesystem=fs))
+        self.assertEquals(fs.read_text_file('/tmp/layout-test-results/passes/error-stderr.txt'),
+                          'stuff going to stderr')
 
     def test_test_list(self):
         fs = port.unit_test_filesystem()
@@ -371,7 +385,7 @@ class MainTest(unittest.TestCase):
 
     def test_exit_after_n_failures_upload(self):
         fs = port.unit_test_filesystem()
-        (res, buildbot_output, regular_output, user) = logging_run([
+        res, buildbot_output, regular_output, user = logging_run([
                 'failures/unexpected/text-image-checksum.html',
                 'passes/text.html',
                 '--exit-after-n-failures', '1',
@@ -465,10 +479,12 @@ class MainTest(unittest.TestCase):
     def test_results_directory_relative(self):
         # We run a configuration that should fail, to generate output, then
         # look for what the output results url was.
-
+        fs = port.unit_test_filesystem()
+        fs.maybe_make_directory('/tmp/cwd')
+        fs.chdir('/tmp/cwd')
         res, out, err, user = logging_run(['--results-directory=foo'],
-                                          tests_included=True)
-        self.assertEqual(user.opened_urls, ['/tmp/foo/results.html'])
+                                          tests_included=True, filesystem=fs)
+        self.assertEqual(user.opened_urls, ['/tmp/cwd/foo/results.html'])
 
     # These next tests test that we run the tests in ascending alphabetical
     # order per directory. HTTP tests are sharded separately from other tests,
@@ -486,15 +502,6 @@ class MainTest(unittest.TestCase):
 
     def test_run_order__inline(self):
         self.assert_run_order('inline')
-
-    def test_run_order__old_inline(self):
-        self.assert_run_order('old-inline')
-
-    def test_run_order__threads(self):
-        self.assert_run_order('old-inline', child_processes='2')
-
-    def test_run_order__old_threads(self):
-        self.assert_run_order('old-threads', child_processes='2')
 
     def test_tolerance(self):
         class ImageDiffTestPort(TestPort):
@@ -531,12 +538,6 @@ class MainTest(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertTrue('--worker-model=inline overrides --child-processes\n' in err.get())
 
-    def test_worker_model__old_inline(self):
-        self.assertTrue(passing_run(['--worker-model', 'old-inline']))
-
-    def test_worker_model__old_threads(self):
-        self.assertTrue(passing_run(['--worker-model', 'old-threads']))
-
     def test_worker_model__processes(self):
         # FIXME: remove this when we fix test-webkitpy to work properly
         # with the multiprocessing module (bug 54520).
@@ -571,6 +572,17 @@ class MainTest(unittest.TestCase):
         tests_run = get_tests_run(['passes/mismatch.html'], tests_included=True, flatten_batches=True,
                                   include_reference_html=True)
         self.assertEquals(['passes/mismatch.html', 'passes/mismatch-expected-mismatch.html'], tests_run)
+
+    def test_additional_platform_directory(self):
+        self.assertTrue(passing_run(['--additional-platform-directory', '/tmp/foo']))
+        self.assertTrue(passing_run(['--additional-platform-directory', '/tmp/../foo']))
+        self.assertTrue(passing_run(['--additional-platform-directory', '/tmp/foo',
+            '--additional-platform-directory', '/tmp/bar']))
+
+        res, buildbot_output, regular_output, user = logging_run(
+             ['--additional-platform-directory', 'foo'])
+        self.assertTrue('--additional-platform-directory=foo is ignored since it is not absolute\n'
+                        in regular_output.get())
 
 
 MainTest = skip_if(MainTest, sys.platform == 'cygwin' and compare_version(sys, '2.6')[0] < 0, 'new-run-webkit-tests tests hang on Cygwin Python 2.5.2')
@@ -616,9 +628,9 @@ class RebaselineTest(unittest.TestCase):
         file_list.remove('/tmp/layout-test-results/tests_run0.txt')
         self.assertEqual(len(file_list), 6)
         self.assertBaselines(file_list,
-            "/platform/test-mac/passes/image")
+            "/platform/test-mac-leopard/passes/image")
         self.assertBaselines(file_list,
-            "/platform/test-mac/failures/expected/missing_image")
+            "/platform/test-mac-leopard/failures/expected/missing_image")
 
 
 class DryrunTest(unittest.TestCase):

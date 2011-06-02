@@ -43,6 +43,7 @@ public:
     // Extensions3D methods.
     virtual bool supports(const String&);
     virtual void ensureEnabled(const String&);
+    virtual bool isEnabled(const String&);
     virtual int getGraphicsResetStatusARB();
     virtual void blitFramebuffer(long srcX0, long srcY0, long srcX1, long srcY1, long dstX0, long dstY0, long dstX1, long dstY1, unsigned long mask, unsigned long filter);
     virtual void renderbufferStorageMultisample(unsigned long target, unsigned long samples, unsigned long internalformat, unsigned long width, unsigned long height);
@@ -65,6 +66,12 @@ public:
 
     // GL_CHROMIUM_copy_texture_to_parent_texture
     void copyTextureToParentTextureCHROMIUM(unsigned texture, unsigned parentTexture);
+
+    // Latch support
+    void getParentToChildLatchCHROMIUM(GC3Duint* latchId);
+    void getChildToParentLatchCHROMIUM(GC3Duint* latchId);
+    void waitLatchCHROMIUM(GC3Duint latchId);
+    void setLatchCHROMIUM(GC3Duint latchId);
 
 private:
     // Instances of this class are strictly owned by the GraphicsContext3D implementation and do not

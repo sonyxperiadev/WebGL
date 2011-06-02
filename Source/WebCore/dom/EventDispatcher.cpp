@@ -33,7 +33,6 @@
 #include "InspectorInstrumentation.h"
 #include "MouseEvent.h"
 #include "Node.h"
-#include "PlatformWheelEvent.h"
 #include "ScopedEventQueue.h"
 
 #if ENABLE(SVG)
@@ -44,7 +43,6 @@
 
 #include "UIEvent.h"
 #include "UIEventWithKeyState.h"
-#include "WheelEvent.h"
 #include "WindowEventContext.h"
 
 #include <wtf/RefPtr.h>
@@ -53,12 +51,12 @@ namespace WebCore {
 
 static HashSet<Node*>* gNodesDispatchingSimulatedClicks = 0;
 
-bool EventDispatcher::dispatchEvent(Node* node, PassRefPtr<Event> prpEvent)
+bool EventDispatcher::dispatchEvent(Node* node, const EventDispatchMediator& mediator)
 {
-    RefPtr<Event> event = prpEvent;
+    ASSERT(!eventDispatchForbidden());
 
     EventDispatcher dispatcher(node);
-    return event->dispatch(&dispatcher);
+    return mediator.dispatchEvent(&dispatcher);
 }
 
 static EventTarget* findElementInstance(Node* referenceNode)
@@ -67,10 +65,10 @@ static EventTarget* findElementInstance(Node* referenceNode)
     // Spec: The event handling for the non-exposed tree works as if the referenced element had been textually included
     // as a deeply cloned child of the 'use' element, except that events are dispatched to the SVGElementInstance objects
     for (Node* n = referenceNode; n; n = n->parentNode()) {
-        if (!n->isShadowRoot() || !n->isSVGElement())
+        if (!n->isSVGShadowRoot() || !n->isSVGElement())
             continue;
 
-        Element* shadowTreeParentElement = n->shadowHost();
+        Element* shadowTreeParentElement = n->svgShadowHost();
         ASSERT(shadowTreeParentElement->hasTagName(SVGNames::useTag));
 
         if (SVGElementInstance* instance = static_cast<SVGUseElement*>(shadowTreeParentElement)->instanceForShadowTreeElement(referenceNode))
@@ -124,80 +122,138 @@ void EventDispatcher::dispatchSimulatedClick(Node* node, PassRefPtr<Event> under
     gNodesDispatchingSimulatedClicks->remove(node);
 }
 
-inline static WheelEvent::Granularity granularity(const PlatformWheelEvent& event)
+static inline bool isShadowRootOrSVGShadowRoot(const Node* node)
 {
-    return event.granularity() == ScrollByPageWheelEvent ? WheelEvent::Page : WheelEvent::Pixel;
+    return node->isShadowRoot() || node->isSVGShadowRoot();
 }
 
-void EventDispatcher::dispatchWheelEvent(Node* node, PlatformWheelEvent& event)
+PassRefPtr<EventTarget> EventDispatcher::adjustToShadowBoundaries(PassRefPtr<Node> relatedTarget, const Vector<Node*> relatedTargetAncestors)
 {
-    ASSERT(!eventDispatchForbidden());
-    if (!(event.deltaX() || event.deltaY()))
-        return;
+    Vector<EventContext>::const_iterator lowestCommonBoundary = m_ancestors.end();
+    // Assume divergent boundary is the relatedTarget itself (in other words, related target ancestor chain does not cross any shadow DOM boundaries).
+    Vector<Node*>::const_iterator firstDivergentBoundary = relatedTargetAncestors.begin();
 
-    EventDispatcher dispatcher(node);
-
-    if (!dispatcher.m_view)
-        return;
-
-    IntPoint position = dispatcher.m_view->windowToContents(event.pos());
-
-    int adjustedPageX = position.x();
-    int adjustedPageY = position.y();
-    if (Frame* frame = node->document()->frame()) {
-        float pageZoom = frame->pageZoomFactor();
-        if (pageZoom != 1.0f) {
-            adjustedPageX = lroundf(position.x() / pageZoom);
-            adjustedPageY = lroundf(position.y() / pageZoom);
+    Vector<EventContext>::const_iterator targetAncestor = m_ancestors.end();
+    // Walk down from the top, looking for lowest common ancestor, also monitoring shadow DOM boundaries.
+    bool diverged = false;
+    for (Vector<Node*>::const_iterator i = relatedTargetAncestors.end() - 1; i >= relatedTargetAncestors.begin(); --i) {
+        if (diverged) {
+            if (isShadowRootOrSVGShadowRoot(*i)) {
+                firstDivergentBoundary = i + 1;
+                break;
+            }
+            continue;
         }
+
+        if (targetAncestor == m_ancestors.begin()) {
+            diverged = true;
+            continue;
+        }
+
+        targetAncestor--;
+
+        if (isShadowRootOrSVGShadowRoot(*i))
+            lowestCommonBoundary = targetAncestor;
+
+        if ((*i) != (*targetAncestor).node())
+            diverged = true;
     }
 
-    RefPtr<WheelEvent> wheelEvent = WheelEvent::create(event.wheelTicksX(), event.wheelTicksY(), event.deltaX(), event.deltaY(), granularity(event),
-        node->document()->defaultView(), event.globalX(), event.globalY(), adjustedPageX, adjustedPageY,
-        event.ctrlKey(), event.altKey(), event.shiftKey(), event.metaKey());
+    if (!diverged) {
+        // The relatedTarget is a parent or shadowHost of the target.
+        if (isShadowRootOrSVGShadowRoot(m_node.get()))
+            lowestCommonBoundary = m_ancestors.begin();
+    } else if ((*firstDivergentBoundary) == m_node.get()) {
+        // Since ancestors does not contain target itself, we must account
+        // for the possibility that target is a shadowHost of relatedTarget
+        // and thus serves as the lowestCommonBoundary.
+        // Luckily, in this case the firstDivergentBoundary is target.
+        lowestCommonBoundary = m_ancestors.begin();
+    }
 
-    wheelEvent->setAbsoluteLocation(position);
+    // Trim ancestors to lowestCommonBoundary to keep events inside of the common shadow DOM subtree.
+    if (lowestCommonBoundary != m_ancestors.end())
+        m_ancestors.shrink(lowestCommonBoundary - m_ancestors.begin());
+    // Set event's related target to the first encountered shadow DOM boundary in the divergent subtree.
+    return firstDivergentBoundary != relatedTargetAncestors.begin() ? *firstDivergentBoundary : relatedTarget;
+}
 
-    if (!dispatcher.dispatchEvent(wheelEvent) || wheelEvent->defaultHandled())
-        event.accept();
-
+inline static bool ancestorsCrossShadowBoundaries(const Vector<EventContext>& ancestors)
+{
+    return ancestors.isEmpty() || ancestors.first().node() == ancestors.last().node();
 }
 
 // FIXME: Once https://bugs.webkit.org/show_bug.cgi?id=52963 lands, this should
 // be greatly improved. See https://bugs.webkit.org/show_bug.cgi?id=54025.
-static Node* pullOutOfShadow(Node* node)
+PassRefPtr<EventTarget> EventDispatcher::adjustRelatedTarget(Event* event, PassRefPtr<EventTarget> prpRelatedTarget)
 {
-    Node* outermostShadowBoundary = node;
-    for (Node* n = node; n; n = n->parentOrHostNode()) {
-        if (n->isShadowRoot())
+    if (!prpRelatedTarget)
+        return 0;
+
+    RefPtr<Node> relatedTarget = prpRelatedTarget->toNode();
+    if (!relatedTarget)
+        return 0;
+
+    Node* target = m_node.get();
+    if (!target)
+        return prpRelatedTarget;
+
+    ensureEventAncestors(event);
+
+    // Calculate early if the common boundary is even possible by looking at
+    // ancestors size and if the retargeting has occured (indicating the presence of shadow DOM boundaries).
+    // If there are no boundaries detected, the target and related target can't have a common boundary.
+    bool noCommonBoundary = ancestorsCrossShadowBoundaries(m_ancestors);
+
+    Vector<Node*> relatedTargetAncestors;
+    Node* outermostShadowBoundary = relatedTarget.get();
+    for (Node* n = outermostShadowBoundary; n; n = n->parentOrHostNode()) {
+        if (isShadowRootOrSVGShadowRoot(n))
             outermostShadowBoundary = n->parentOrHostNode();
+        if (!noCommonBoundary)
+            relatedTargetAncestors.append(n);
     }
-    return outermostShadowBoundary;
+
+    // Short-circuit the fast case when we know there is no need to calculate a common boundary.
+    if (noCommonBoundary)
+        return outermostShadowBoundary;
+
+    return adjustToShadowBoundaries(relatedTarget.release(), relatedTargetAncestors);
 }
 
 EventDispatcher::EventDispatcher(Node* node)
     : m_node(node)
+    , m_ancestorsInitialized(false)
 {
     ASSERT(node);
     m_view = node->document()->view();
 }
 
-void EventDispatcher::getEventAncestors(EventTarget* originalTarget, EventDispatchBehavior behavior)
+void EventDispatcher::ensureEventAncestors(Event* event)
 {
+    EventDispatchBehavior behavior = determineDispatchBehavior(event);
+
     if (!m_node->inDocument())
         return;
 
-    if (ancestorsInitialized())
+    if (m_ancestorsInitialized)
         return;
 
-    EventTarget* target = originalTarget;
+    m_ancestorsInitialized = true;
+
     Node* ancestor = m_node.get();
+    EventTarget* target = eventTargetRespectingSVGTargetRules(ancestor);
     bool shouldSkipNextAncestor = false;
     while (true) {
-        if (ancestor->isShadowRoot()) {
+        bool isSVGShadowRoot = ancestor->isSVGShadowRoot();
+        if (isSVGShadowRoot || ancestor->isShadowRoot()) {
             if (behavior == StayInsideShadowDOM)
                 return;
+#if ENABLE(SVG)
+            ancestor = isSVGShadowRoot ? ancestor->svgShadowHost() : ancestor->shadowHost();
+#else
             ancestor = ancestor->shadowHost();
+#endif
             if (!shouldSkipNextAncestor)
                 target = ancestor;
         } else
@@ -208,7 +264,7 @@ void EventDispatcher::getEventAncestors(EventTarget* originalTarget, EventDispat
 
 #if ENABLE(SVG)
         // Skip SVGShadowTreeRootElement.
-        shouldSkipNextAncestor = ancestor->isSVGElement() && ancestor->isShadowRoot();
+        shouldSkipNextAncestor = ancestor->isSVGShadowRoot();
         if (shouldSkipNextAncestor)
             continue;
 #endif
@@ -226,7 +282,7 @@ bool EventDispatcher::dispatchEvent(PassRefPtr<Event> event)
     ASSERT(!event->type().isNull()); // JavaScript code can create an event with an empty name, but not null.
 
     RefPtr<EventTarget> originalTarget = event->target();
-    getEventAncestors(originalTarget.get(), determineDispatchBehavior(event.get()));
+    ensureEventAncestors(event.get());
 
     WindowEventContext windowContext(event.get(), m_node.get(), topEventContext());
 
@@ -309,71 +365,10 @@ doneWithDefault:
 
     return !event->defaultPrevented();
 }
-bool EventDispatcher::dispatchMouseEvent(Node* node, const PlatformMouseEvent& event, const AtomicString& eventType,
-    int detail, Node* relatedTargetArg)
-{
-    ASSERT(!eventDispatchForbidden());
-    ASSERT(event.eventType() == MouseEventMoved || event.button() != NoButton);
-
-    if (node->disabled()) // Don't even send DOM events for disabled controls..
-        return true;
-
-    if (eventType.isEmpty())
-        return false; // Shouldn't happen.
-
-    EventDispatcher dispatcher(node);
-
-    // Attempting to dispatch with a non-EventTarget relatedTarget causes the relatedTarget to be silently ignored.
-    RefPtr<Node> relatedTarget = pullOutOfShadow(relatedTargetArg);
-
-    IntPoint contentsPosition;
-    if (FrameView* view = node->document()->view())
-        contentsPosition = view->windowToContents(event.pos());
-
-    IntPoint adjustedPagePosition = contentsPosition;
-    if (Frame* frame = node->document()->frame()) {
-        float pageZoom = frame->pageZoomFactor();
-        if (pageZoom != 1.0f) {
-            // Adjust our pageX and pageY to account for the page zoom.
-            adjustedPagePosition.setX(lroundf(contentsPosition.x() / pageZoom));
-            adjustedPagePosition.setY(lroundf(contentsPosition.y() / pageZoom));
-        }
-    }
-
-    RefPtr<MouseEvent> mouseEvent = MouseEvent::create(eventType, node->document()->defaultView(), event, adjustedPagePosition, detail, relatedTarget);
-    mouseEvent->setAbsoluteLocation(contentsPosition);
-
-    bool swallowEvent = false;
-
-    dispatcher.dispatchEvent(mouseEvent);
-    bool defaultHandled = mouseEvent->defaultHandled();
-    bool defaultPrevented = mouseEvent->defaultPrevented();
-    if (defaultHandled || defaultPrevented)
-        swallowEvent = true;
-
-    // Special case: If it's a double click event, we also send the dblclick event. This is not part
-    // of the DOM specs, but is used for compatibility with the ondblclick="" attribute. This is treated
-    // as a separate event in other DOM-compliant browsers like Firefox, and so we do the same.
-    if (eventType == eventNames().clickEvent && detail == 2) {
-        RefPtr<Event> doubleClickEvent = MouseEvent::create(eventNames().dblclickEvent, node->document()->defaultView(), event, adjustedPagePosition, detail, relatedTarget);
-        if (defaultHandled)
-            doubleClickEvent->setDefaultHandled();
-        dispatcher.dispatchEvent(doubleClickEvent);
-        if (doubleClickEvent->defaultHandled() || doubleClickEvent->defaultPrevented())
-            swallowEvent = true;
-    }
-
-    return swallowEvent;
-}
 
 const EventContext* EventDispatcher::topEventContext()
 {
     return m_ancestors.isEmpty() ? 0 : &m_ancestors.last();
-}
-
-bool EventDispatcher::ancestorsInitialized() const
-{
-    return m_ancestors.size();
 }
 
 EventDispatchBehavior EventDispatcher::determineDispatchBehavior(Event* event)

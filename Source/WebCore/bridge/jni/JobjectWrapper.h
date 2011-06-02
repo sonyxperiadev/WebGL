@@ -38,7 +38,9 @@ namespace Bindings {
 class JobjectWrapper {
 friend class JavaArray;
 friend class JavaField;
+friend class JavaFieldJobject;
 friend class JavaInstance;
+friend class JavaInstanceJobject;
 
 public:
     jobject instance() const { return m_instance; }

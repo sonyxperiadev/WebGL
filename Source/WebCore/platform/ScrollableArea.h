@@ -33,9 +33,13 @@
 namespace WebCore {
 
 class FloatPoint;
+class GraphicsContext;
 class PlatformGestureEvent;
 class PlatformWheelEvent;
 class ScrollAnimator;
+#if USE(ACCELERATED_COMPOSITING)
+class GraphicsLayer;
+#endif
 
 class ScrollableArea {
 public:
@@ -57,6 +61,12 @@ public:
     bool constrainsScrollingToContentEdge() const { return m_constrainsScrollingToContentEdge; }
     void setConstrainsScrollingToContentEdge(bool constrainsScrollingToContentEdge) { m_constrainsScrollingToContentEdge = constrainsScrollingToContentEdge; }
 
+    void setVerticalScrollElasticity(ScrollElasticity scrollElasticity) { m_verticalScrollElasticity = scrollElasticity; }
+    ScrollElasticity verticalScrollElasticity() const { return m_verticalScrollElasticity; }
+
+    void setHorizontalScrollElasticity(ScrollElasticity scrollElasticity) { m_horizontalScrollElasticity = scrollElasticity; }
+    ScrollElasticity horizontalScrollElasticity() const { return m_horizontalScrollElasticity; }
+
     bool inLiveResize() const { return m_inLiveResize; }
     void willStartLiveResize();
     void willEndLiveResize();
@@ -71,11 +81,13 @@ public:
     ScrollAnimator* scrollAnimator() const { return m_scrollAnimator.get(); }
     const IntPoint& scrollOrigin() const { return m_scrollOrigin; }
 
+    virtual bool isActive() const = 0;
     virtual int scrollSize(ScrollbarOrientation) const = 0;
     virtual int scrollPosition(Scrollbar*) const = 0;
-    virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&) = 0;
-    virtual bool isActive() const = 0;
-    virtual bool scrollbarCornerPresent() const = 0;
+    void invalidateScrollbar(Scrollbar*, const IntRect&);
+    virtual bool isScrollCornerVisible() const = 0;
+    virtual IntRect scrollCornerRect() const = 0;
+    void invalidateScrollCorner();
     virtual void getTickmarks(Vector<IntRect>&) const { }
 
     // This function should be overriden by subclasses to perform the actual
@@ -130,7 +142,19 @@ private:
 
     bool m_inLiveResize;
 
+    ScrollElasticity m_verticalScrollElasticity;
+    ScrollElasticity m_horizontalScrollElasticity;
+
 protected:
+    virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&) = 0;
+    virtual void invalidateScrollCornerRect(const IntRect&) = 0;
+
+#if USE(ACCELERATED_COMPOSITING)
+    virtual GraphicsLayer* layerForHorizontalScrollbar() const { return 0; }
+    virtual GraphicsLayer* layerForVerticalScrollbar() const { return 0; }
+    virtual GraphicsLayer* layerForScrollCorner() const { return 0; }
+#endif
+
     // There are 8 possible combinations of writing mode and direction. Scroll origin will be non-zero in the x or y axis
     // if there is any reversed direction or writing-mode. The combinations are:
     // writing-mode / direction     scrollOrigin.x() set    scrollOrigin.y() set

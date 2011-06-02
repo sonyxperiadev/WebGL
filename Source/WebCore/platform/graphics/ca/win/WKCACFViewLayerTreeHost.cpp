@@ -31,6 +31,7 @@
 #include "PlatformCALayer.h"
 #include "SoftLinking.h"
 #include <wtf/CurrentTime.h>
+#include <wtf/Threading.h>
 
 typedef struct _CACFLayer* CACFLayerRef;
 
@@ -42,7 +43,13 @@ SOFT_LINK_DEBUG_LIBRARY(WebKitQuartzCoreAdditions)
 SOFT_LINK_LIBRARY(WebKitQuartzCoreAdditions)
 #endif
 
-SOFT_LINK(WebKitQuartzCoreAdditions, WKCACFViewCreate, WKCACFViewRef, __cdecl, (), ())
+enum WKCACFViewDrawingDestination {
+    kWKCACFViewDrawingDestinationWindow = 0,
+    kWKCACFViewDrawingDestinationImage,
+};
+typedef enum WKCACFViewDrawingDestination WKCACFViewDrawingDestination;
+
+SOFT_LINK(WebKitQuartzCoreAdditions, WKCACFViewCreate, WKCACFViewRef, __cdecl, (WKCACFViewDrawingDestination destination), (destination))
 SOFT_LINK(WebKitQuartzCoreAdditions, WKCACFViewSetLayer, void, __cdecl, (WKCACFViewRef view, CACFLayerRef layer), (view, layer))
 SOFT_LINK(WebKitQuartzCoreAdditions, WKCACFViewUpdate, void, __cdecl, (WKCACFViewRef view, HWND window, const CGRect* bounds), (view, window, bounds))
 SOFT_LINK(WebKitQuartzCoreAdditions, WKCACFViewCanDraw, bool, __cdecl, (WKCACFViewRef view), (view))
@@ -63,7 +70,7 @@ PassRefPtr<WKCACFViewLayerTreeHost> WKCACFViewLayerTreeHost::create()
 }
 
 WKCACFViewLayerTreeHost::WKCACFViewLayerTreeHost()
-    : m_view(AdoptCF, WKCACFViewCreate())
+    : m_view(AdoptCF, WKCACFViewCreate(kWKCACFViewDrawingDestinationWindow))
     , m_viewNeedsUpdate(true)
 {
 }
@@ -98,6 +105,12 @@ void WKCACFViewLayerTreeHost::contextDidChangeCallback(WKCACFViewRef view, void*
 
 void WKCACFViewLayerTreeHost::contextDidChange()
 {
+    // This should only be called on a background thread when no changes have actually 
+    // been committed to the context, eg. when a video frame has been added to an image
+    // queue, so return without triggering animations etc.
+    if (!isMainThread())
+        return;
+
     // Tell the WKCACFView to start rendering now that we have some contents to render.
     updateViewIfNeeded();
 

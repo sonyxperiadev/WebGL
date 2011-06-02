@@ -46,20 +46,9 @@ WebInspector.CallStackSidebarPane.prototype = {
             return;
         }
 
-        var title;
-        var subtitle;
-        var script;
-
         for (var i = 0; i < callFrames.length; ++i) {
             var callFrame = callFrames[i];
-            switch (callFrame.type) {
-            case "function":
-                title = callFrame.functionName || WebInspector.UIString("(anonymous function)");
-                break;
-            case "program":
-                title = WebInspector.UIString("(program)");
-                break;
-            }
+            var title = callFrame.functionName || WebInspector.UIString("(anonymous function)");
 
             var subtitle;
             if (!callFrame.isInternalScript)
@@ -71,7 +60,7 @@ WebInspector.CallStackSidebarPane.prototype = {
             placard.callFrame = callFrame;
             placard.element.addEventListener("click", this._placardSelected.bind(this, placard), false);
 
-            function didGetSourceLocation(placard, sourceFileId, lineNumber, columnNumber)
+            function didGetSourceLine(placard, sourceFileId, lineNumber)
             {
                 if (placard.subtitle)
                     placard.subtitle += ":" + (lineNumber + 1);
@@ -79,15 +68,10 @@ WebInspector.CallStackSidebarPane.prototype = {
                     placard.subtitle = WebInspector.UIString("line %d", lineNumber + 1);
                 placard._text = WebInspector.UIString("%s() at %s", placard.title, placard.subtitle);
             }
-            callFrame.sourceLocation(didGetSourceLocation.bind(this, placard));
+            callFrame.sourceLine(didGetSourceLine.bind(this, placard));
 
             this.placards.push(placard);
             this.bodyElement.appendChild(placard.element);
-        }
-
-        if (details.eventType === WebInspector.DebuggerEventTypes.NativeBreakpoint) {
-            if (details.eventData.breakpointType === WebInspector.BreakpointManager.BreakpointTypes.DOM)
-                this._domBreakpointHit(details.eventData);
         }
     },
 
@@ -187,19 +171,10 @@ WebInspector.CallStackSidebarPane.prototype = {
     {
         var statusMessageElement = document.createElement("div");
         statusMessageElement.className = "info";
-        statusMessageElement.textContent = status;
-        this.bodyElement.appendChild(statusMessageElement);
-    },
-
-    _domBreakpointHit: function(eventData)
-    {
-        var breakpoint = WebInspector.breakpointManager.breakpointViewForEventData(eventData);
-        if (!breakpoint)
-            return;
-
-        var statusMessageElement = document.createElement("div");
-        statusMessageElement.className = "info";
-        breakpoint.populateStatusMessageElement(statusMessageElement, eventData);
+        if (typeof status === "string")
+            statusMessageElement.textContent = status;
+        else
+            statusMessageElement.appendChild(status);
         this.bodyElement.appendChild(statusMessageElement);
     }
 }

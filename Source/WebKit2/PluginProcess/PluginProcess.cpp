@@ -29,11 +29,14 @@
 #if ENABLE(PLUGIN_PROCESS)
 
 #include "ArgumentCoders.h"
-#include "MachPort.h"
 #include "NetscapePluginModule.h"
 #include "PluginProcessProxyMessages.h"
 #include "PluginProcessCreationParameters.h"
 #include "WebProcessConnection.h"
+
+#if PLATFORM(MAC)
+#include "MachPort.h"
+#endif
 
 namespace WebKit {
 
@@ -46,8 +49,8 @@ PluginProcess& PluginProcess::shared()
 }
 
 PluginProcess::PluginProcess()
-    : m_shutdownTimer(RunLoop::main(), this, &PluginProcess::shutdownTimerFired)
-#if USE(ACCELERATED_COMPOSITING) && PLATFORM(MAC)
+    : ChildProcess(shutdownTimeout)
+#if PLATFORM(MAC)
     , m_compositingRenderServerPort(MACH_PORT_NULL)
 #endif
 {
@@ -78,7 +81,7 @@ void PluginProcess::removeWebProcessConnection(WebProcessConnection* webProcessC
         m_pluginModule->decrementLoadCount();
     }        
 
-    startShutdownTimerIfNecessary();
+    enableTermination();
 }
 
 NetscapePluginModule* PluginProcess::netscapePluginModule()
@@ -98,6 +101,13 @@ NetscapePluginModule* PluginProcess::netscapePluginModule()
     return m_pluginModule.get();
 }
 
+bool PluginProcess::shouldTerminate()
+{
+    ASSERT(m_webProcessConnections.isEmpty());
+
+    return true;
+}
+
 void PluginProcess::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
 {
     didReceivePluginProcessMessage(connection, messageID, arguments);
@@ -114,13 +124,10 @@ void PluginProcess::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::Mess
 {
 }
 
-NO_RETURN void PluginProcess::didFailToSendSyncMessage(CoreIPC::Connection*)
+void PluginProcess::syncMessageSendTimedOut(CoreIPC::Connection*)
 {
-    // We were making a synchronous call to a web process that doesn't exist any more.
-    // Callers are unlikely to be prepared for an error like this, so it's best to exit immediately.
-    exit(0);
 }
-    
+
 void PluginProcess::initializePluginProcess(const PluginProcessCreationParameters& parameters)
 {
     ASSERT(!m_pluginModule);
@@ -132,13 +139,12 @@ void PluginProcess::initializePluginProcess(const PluginProcessCreationParameter
 
 void PluginProcess::createWebProcessConnection()
 {
-    // FIXME: This is platform specific!
+    bool didHaveAnyWebProcessConnections = !m_webProcessConnections.isEmpty();
 
+#if PLATFORM(MAC)
     // Create the listening port.
     mach_port_t listeningPort;
     mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
-
-    bool didHaveAnyWebProcessConnections = !m_webProcessConnections.isEmpty();
 
     // Create a listening connection.
     RefPtr<WebProcessConnection> connection = WebProcessConnection::create(listeningPort);
@@ -146,6 +152,10 @@ void PluginProcess::createWebProcessConnection()
 
     CoreIPC::MachPort clientPort(listeningPort, MACH_MSG_TYPE_MAKE_SEND);
     m_connection->send(Messages::PluginProcessProxy::DidCreateWebProcessConnection(clientPort), 0);
+#else
+    // FIXME: Implement.
+    ASSERT_NOT_REACHED();
+#endif
 
     if (NetscapePluginModule* module = netscapePluginModule()) {
         if (!didHaveAnyWebProcessConnections) {
@@ -155,23 +165,24 @@ void PluginProcess::createWebProcessConnection()
         }
     }
 
-    // Stop the shutdown timer.
-    m_shutdownTimer.stop();
+    disableTermination();
 }
 
 void PluginProcess::getSitesWithData(uint64_t callbackID)
 {
+    LocalTerminationDisabler terminationDisabler(*this);
+
     Vector<String> sites;
     if (NetscapePluginModule* module = netscapePluginModule())
         sites = module->sitesWithData();
 
     m_connection->send(Messages::PluginProcessProxy::DidGetSitesWithData(sites, callbackID), 0);
-
-    startShutdownTimerIfNecessary();
 }
 
 void PluginProcess::clearSiteData(const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID)
 {
+    LocalTerminationDisabler terminationDisabler(*this);
+
     if (NetscapePluginModule* module = netscapePluginModule()) {
         if (sites.isEmpty()) {
             // Clear everything.
@@ -183,22 +194,6 @@ void PluginProcess::clearSiteData(const Vector<String>& sites, uint64_t flags, u
     }
 
     m_connection->send(Messages::PluginProcessProxy::DidClearSiteData(callbackID), 0);
-
-    startShutdownTimerIfNecessary();
-}
-
-void PluginProcess::startShutdownTimerIfNecessary()
-{
-    if (!m_webProcessConnections.isEmpty())
-        return;
-
-    // Start the shutdown timer.
-    m_shutdownTimer.startOneShot(shutdownTimeout);
-}
-
-void PluginProcess::shutdownTimerFired()
-{
-    RunLoop::current()->stop();
 }
 
 } // namespace WebKit

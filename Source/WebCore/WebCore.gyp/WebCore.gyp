@@ -130,6 +130,7 @@
 
     'webcore_include_dirs': [
       '../',
+      '../..',
       '../accessibility',
       '../accessibility/chromium',
       '../bindings',
@@ -183,6 +184,7 @@
       '../platform/image-decoders/xbm',
       '../platform/image-decoders/webp',
       '../platform/image-encoders/skia',
+      '../platform/leveldb',
       '../platform/mock',
       '../platform/network',
       '../platform/network/chromium',
@@ -201,7 +203,7 @@
       '../svg/graphics',
       '../svg/graphics/filters',
       '../svg/properties',
-      '../thirdparty/glu',
+      '../../ThirdParty/glu',
       '../webaudio',
       '../websockets',
       '../workers',
@@ -445,17 +447,33 @@
       'actions': [
         # Actions to build derived sources.
         {
-          'action_name': 'generateXMLViewerXSL',
+          'action_name': 'generateXMLViewerCSS',
           'inputs': [
-            '../xml/XMLViewer.xsl',
+            '../xml/XMLViewer.css',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLViewerXSL.h',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLViewerCSS.h',
           ],
           'action': [
             'perl',
             '../inspector/xxd.pl',
-            'XMLViewer_xsl',
+            'XMLViewer_css',
+            '<@(_inputs)',
+            '<@(_outputs)'
+          ],
+        },
+        {
+          'action_name': 'generateXMLViewerJS',
+          'inputs': [
+            '../xml/XMLViewer.js',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLViewerJS.h',
+          ],
+          'action': [
+            'perl',
+            '../inspector/xxd.pl',
+            'XMLViewer_js',
             '<@(_inputs)',
             '<@(_outputs)'
           ],
@@ -623,6 +641,7 @@
             '../css/mediaControls.css',
             '../css/mediaControlsChromium.css',
             '../css/fullscreen.css',
+            # Skip fullscreenQuickTime.
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/webkit/UserAgentStyleSheets.h',
@@ -941,13 +960,6 @@
             'include_dirs+++': ['../dom'],
           },
         }],
-        # FIXME: (kbr) ideally this target should just depend on webcore_prerequisites
-        # to pick up these include directories, but I'm nervous about making that change.
-        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
-          'include_dirs': [
-            '<(chromium_src_dir)/third_party/mkl/include',
-          ],
-        }],
         ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_FFTW=1" in feature_defines', {
           'include_dirs': [
             '<(chromium_src_dir)/third_party/fftw/api',
@@ -962,6 +974,7 @@
       'type': 'none',
       'dependencies': [
         'webcore_bindings',
+        '../../ThirdParty/glu/glu.gyp:libtess',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:yarr',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
@@ -1151,13 +1164,10 @@
             'include_dirs++': ['../dom'],
           },
         }],
-        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
-          # This directory needs to be on the include path for multiple sub-targets of webcore.
-          'direct_dependent_settings': {
-            'include_dirs': [
-              '<(chromium_src_dir)/third_party/mkl/include',
-            ],
-          },
+        ['(OS=="linux" or OS=="win") and branding=="Chrome"', {
+          'dependencies': [
+            '<(chromium_src_dir)/third_party/mkl/google/mkl.gyp:mkl_libs',
+          ],
         }],
         ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_FFTW=1" in feature_defines', {
           # This directory needs to be on the include path for multiple sub-targets of webcore.
@@ -1166,6 +1176,14 @@
               '<(chromium_src_dir)/third_party/fftw/api',
             ],
           },
+        }],
+        ['"ENABLE_LEVELDB=1" in feature_defines', {
+          'dependencies': [
+            '<(chromium_src_dir)/third_party/leveldb/leveldb.gyp:leveldb',
+          ],
+          'export_dependent_settings': [
+            '<(chromium_src_dir)/third_party/leveldb/leveldb.gyp:leveldb',
+          ],
         }],
       ],
     },
@@ -1232,7 +1250,7 @@
         ['include', 'platform/'],
 
         # FIXME: Figure out how to store these patterns in a variable.
-        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|fftw|gstreamer|gtk|haiku|linux|mac|mkl|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|gstreamer|gtk|haiku|linux|mac|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
         ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|JSC|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|WinCE|Wx)\\.(cpp|mm?)$'],
 
         ['include', 'platform/graphics/opentype/OpenTypeSanitizer\\.cpp$'],
@@ -1247,8 +1265,6 @@
         ['exclude', 'platform/sql/SQLiteFileSystem\\.cpp$'],
         ['exclude', 'platform/text/LocalizedNumberNone\\.cpp$'],
         ['exclude', 'platform/text/TextEncodingDetectorNone\\.cpp$'],
-
-        ['include', 'thirdparty/glu/libtess/'],
       ],
       'conditions': [
         ['OS=="linux" or OS=="freebsd"', {
@@ -1398,16 +1414,6 @@
             ['include', 'platform/win/SystemInfo\\.cpp$'],
           ],
         }],
-        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
-          'sources/': [
-            ['include', 'platform/audio/mkl/FFTFrameMKL\\.cpp$'],
-          ],
-        }],
-        ['(OS=="linux" or OS=="win") and "WTF_USE_WEBAUDIO_FFTW=1" in feature_defines', {
-          'sources/': [
-            ['include', 'platform/audio/fftw/FFTFrameFFTW\\.cpp$'],
-          ],
-        }],
       ],
     },
     {
@@ -1425,7 +1431,7 @@
         ['include', 'rendering/'],
 
         # FIXME: Figure out how to store these patterns in a variable.
-        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|fftw|gstreamer|gtk|haiku|linux|mac|mkl|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|gstreamer|gtk|haiku|linux|mac|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
         ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|JSC|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|WinCE|Wx)\\.(cpp|mm?)$'],
 
         ['exclude', 'AllInOne\\.cpp$'],
@@ -1499,7 +1505,7 @@
         ['exclude', 'bridge/jni/jsc/'],
 
         # FIXME: Figure out how to store these patterns in a variable.
-        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|fftw|gstreamer|gtk|haiku|linux|mac|mkl|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
+        ['exclude', '(android|brew|cairo|ca|cf|cg|curl|efl|freetype|gstreamer|gtk|haiku|linux|mac|opengl|openvg|opentype|pango|posix|qt|soup|svg|symbian|texmap|iphone|win|wince|wx)/'],
         ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|JSC|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|WinCE|Wx)\\.(cpp|mm?)$'],
 
         ['exclude', 'AllInOne\\.cpp$'],
@@ -1664,29 +1670,6 @@
         ['OS=="win"', {
           'direct_dependent_settings': {
             'include_dirs+++': ['../dom'],
-          },
-        }],
-        ['OS=="win" and "WTF_USE_WEBAUDIO_MKL=1" in feature_defines', {
-          # FIXME: (kbr) figure out how to make these dependencies
-          # work in a cross-platform way. Attempts to use
-          # "link_settings" and "libraries" in conjunction with the
-          # msvs-specific settings didn't work so far.
-          'all_dependent_settings': {
-            'msvs_settings': {
-              'VCLinkerTool': {
-                'AdditionalLibraryDirectories': [
-                  # This is a hack to make this directory correct
-                  # relative to targets like chrome_dll. Should use
-                  # <(chromium_src_dir).
-                  '../third_party/mkl/lib/win/ia32',
-                ],
-                'AdditionalDependencies': [
-                  'mkl_intel_c.lib',
-                  'mkl_sequential.lib',
-                  'mkl_core.lib',
-                ],
-              },
-            },
           },
         }],
         ['OS=="linux" and "WTF_USE_WEBAUDIO_FFTW=1" in feature_defines', {

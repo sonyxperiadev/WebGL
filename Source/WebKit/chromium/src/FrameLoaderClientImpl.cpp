@@ -380,7 +380,7 @@ void FrameLoaderClientImpl::dispatchDidReceiveResponse(DocumentLoader* loader,
 void FrameLoaderClientImpl::dispatchDidReceiveContentLength(
     DocumentLoader* loader,
     unsigned long identifier,
-    int lengthReceived)
+    int dataLength)
 {
 }
 
@@ -714,10 +714,18 @@ void FrameLoaderClientImpl::dispatchDidStartProvisionalLoad()
         // m_expectedClientRedirectDest could be something like
         // "javascript:history.go(-1)" thus we need to exclude url starts with
         // "javascript:". See bug: 1080873
-        ASSERT(m_expectedClientRedirectDest.protocolIs("javascript")
-            || m_expectedClientRedirectDest == url);
-        ds->appendRedirect(m_expectedClientRedirectSrc);
-        completingClientRedirect = true;
+        if (m_expectedClientRedirectDest.protocolIs("javascript")
+            || m_expectedClientRedirectDest == url) {
+            ds->appendRedirect(m_expectedClientRedirectSrc);
+            completingClientRedirect = true;
+        } else {
+            // Any pending redirect is no longer in progress. This can happen
+            // if the navigation was canceled with PolicyIgnore, or if the
+            // redirect was scheduled on the wrong frame (e.g., due to a form
+            // submission targeted to _blank, as in http://webkit.org/b/44079).
+            m_expectedClientRedirectSrc = KURL();
+            m_expectedClientRedirectDest = KURL();
+        }
     }
     ds->appendRedirect(url);
 
@@ -734,10 +742,10 @@ void FrameLoaderClientImpl::dispatchDidStartProvisionalLoad()
     }
 }
 
-void FrameLoaderClientImpl::dispatchDidReceiveTitle(const String& title)
+void FrameLoaderClientImpl::dispatchDidReceiveTitle(const StringWithDirection& title)
 {
     if (m_webFrame->client())
-        m_webFrame->client()->didReceiveTitle(m_webFrame, title);
+        m_webFrame->client()->didReceiveTitle(m_webFrame, title.string(), title.direction() == LTR ? WebTextDirectionLeftToRight : WebTextDirectionRightToLeft);
 }
 
 void FrameLoaderClientImpl::dispatchDidChangeIcons()
@@ -1328,7 +1336,7 @@ PassRefPtr<DocumentLoader> FrameLoaderClientImpl::createDocumentLoader(
     return ds.release();
 }
 
-void FrameLoaderClientImpl::setTitle(const String& title, const KURL& url)
+void FrameLoaderClientImpl::setTitle(const StringWithDirection& title, const KURL& url)
 {
     // FIXME: inform consumer of changes to the title.
 }

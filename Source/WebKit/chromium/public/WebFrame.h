@@ -32,6 +32,7 @@
 #define WebFrame_h
 
 #include "WebCanvas.h"
+#include "WebFileSystem.h"
 #include "WebNode.h"
 #include "WebURL.h"
 
@@ -67,10 +68,12 @@ class WebURLRequest;
 class WebView;
 struct WebConsoleMessage;
 struct WebFindOptions;
+struct WebPoint;
 struct WebRect;
 struct WebScriptSource;
 struct WebSize;
 struct WebURLLoaderOptions;
+
 template <typename T> class WebVector;
 
 class WebFrame {
@@ -96,6 +99,13 @@ public:
     // frameForCurrentContext() would return frame B in our example.
     WEBKIT_API static WebFrame* frameForEnteredContext();
     WEBKIT_API static WebFrame* frameForCurrentContext();
+
+#if WEBKIT_USING_V8
+    // Returns the frame corresponding to the given context. This can return 0
+    // if the context is detached from the frame, or if the context doesn't
+    // correspond to a frame (e.g., workers).
+    WEBKIT_API static WebFrame* frameForContext(v8::Handle<v8::Context>);
+#endif
 
     // Returns the frame inside a given frame or iframe element. Returns 0 if
     // the given element is not a frame, iframe or if the frame is empty.
@@ -255,9 +265,15 @@ public:
     virtual v8::Local<v8::Context> mainWorldScriptContext() const = 0;
 
     // Creates an instance of file system object.
-    virtual v8::Handle<v8::Value> createFileSystem(int type,
+    virtual v8::Handle<v8::Value> createFileSystem(WebFileSystem::Type,
                                                    const WebString& name,
                                                    const WebString& path) = 0;
+    // Creates an instance of file or directory entry object.
+    virtual v8::Handle<v8::Value> createFileEntry(WebFileSystem::Type,
+                                                  const WebString& fileSystemName,
+                                                  const WebString& fileSystemPath,
+                                                  const WebString& filePath,
+                                                  bool isDirectory) = 0;
 #endif
 
 
@@ -407,6 +423,8 @@ public:
     // true. Does nothing and returns false if there is no caret or
     // there is ranged selection.
     virtual bool selectWordAroundCaret() = 0;
+
+    virtual void selectRange(const WebPoint& start, const WebPoint& end) = 0;
 
 
     // Printing ------------------------------------------------------------

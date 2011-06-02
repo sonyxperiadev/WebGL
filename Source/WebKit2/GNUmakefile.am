@@ -93,13 +93,13 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Platform/CoreIPC/CoreIPCMessageKinds.h \
 	Source/WebKit2/Platform/CoreIPC/DataReference.cpp \
 	Source/WebKit2/Platform/CoreIPC/DataReference.h \
-	Source/WebKit2/Platform/CoreIPC/gtk/ConnectionGtk.cpp \
 	Source/WebKit2/Platform/CoreIPC/HandleMessage.h \
 	Source/WebKit2/Platform/CoreIPC/MessageID.h \
 	Source/WebKit2/Platform/CoreIPC/MessageSender.h \
+	Source/WebKit2/Platform/CoreIPC/unix/AttachmentUnix.cpp \
+	Source/WebKit2/Platform/CoreIPC/unix/ConnectionUnix.cpp \
 	Source/WebKit2/Platform/gtk/ModuleGtk.cpp \
 	Source/WebKit2/Platform/gtk/RunLoopGtk.cpp \
-	Source/WebKit2/Platform/gtk/SharedMemoryGtk.cpp \
 	Source/WebKit2/Platform/gtk/WorkQueueGtk.cpp \
 	Source/WebKit2/Platform/Logging.cpp \
 	Source/WebKit2/Platform/Logging.h \
@@ -109,6 +109,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Platform/RunLoop.cpp \
 	Source/WebKit2/Platform/RunLoop.h \
 	Source/WebKit2/Platform/SharedMemory.h \
+	Source/WebKit2/Platform/unix/SharedMemoryUnix.cpp \
 	Source/WebKit2/Platform/WorkItem.h \
 	Source/WebKit2/Platform/WorkQueue.cpp \
 	Source/WebKit2/Platform/WorkQueue.h \
@@ -182,11 +183,12 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Shared/CoreIPCSupport/InjectedBundleMessageKinds.h \
 	Source/WebKit2/Shared/CoreIPCSupport/WebContextMessageKinds.h \
 	Source/WebKit2/Shared/CoreIPCSupport/WebPageProxyMessageKinds.h \
-	Source/WebKit2/Shared/CoreIPCSupport/WebProcessProxyMessageKinds.h \
 	Source/WebKit2/Shared/DrawingAreaInfo.h \
+	Source/WebKit2/Shared/EditorState.h \
 	Source/WebKit2/Shared/FontSmoothingLevel.h \
 	Source/WebKit2/Shared/gtk/ShareableBitmapGtk.cpp \
 	Source/WebKit2/Shared/gtk/NativeWebKeyboardEventGtk.cpp \
+	Source/WebKit2/Shared/gtk/NativeWebMouseEventGtk.cpp \
 	Source/WebKit2/Shared/gtk/PlatformCertificateInfo.h \
 	Source/WebKit2/Shared/gtk/UpdateChunk.cpp \
 	Source/WebKit2/Shared/gtk/UpdateChunk.h \
@@ -204,6 +206,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Shared/MutableDictionary.cpp \
 	Source/WebKit2/Shared/MutableDictionary.h \
 	Source/WebKit2/Shared/NativeWebKeyboardEvent.h \
+	Source/WebKit2/Shared/NativeWebMouseEvent.h \
 	Source/WebKit2/Shared/OriginAndDatabases.cpp \
 	Source/WebKit2/Shared/OriginAndDatabases.h \
 	Source/WebKit2/Shared/PlatformPopupMenuData.cpp \
@@ -212,6 +215,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Shared/PrintInfo.h \
 	Source/WebKit2/Shared/Plugins/Netscape/NetscapePluginModule.cpp \
 	Source/WebKit2/Shared/Plugins/Netscape/NetscapePluginModule.h \
+	Source/WebKit2/Shared/Plugins/Netscape/NetscapePluginModuleNone.cpp \
 	Source/WebKit2/Shared/Plugins/Netscape/x11/NetscapePluginModuleX11.cpp \
 	Source/WebKit2/Shared/Plugins/NPIdentifierData.cpp \
 	Source/WebKit2/Shared/Plugins/NPIdentifierData.h \
@@ -230,7 +234,6 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/Shared/SandboxExtension.h \
 	Source/WebKit2/Shared/SecurityOriginData.h \
 	Source/WebKit2/Shared/SecurityOriginData.cpp \
-	Source/WebKit2/Shared/SelectionState.h \
 	Source/WebKit2/Shared/SessionState.cpp \
 	Source/WebKit2/Shared/SessionState.h \
 	Source/WebKit2/Shared/StringPairVector.h \
@@ -454,6 +457,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/UIProcess/WebHistoryClient.h \
 	Source/WebKit2/UIProcess/WebIconDatabase.cpp \
 	Source/WebKit2/UIProcess/WebIconDatabase.h \
+	Source/WebKit2/UIProcess/WebIconDatabaseClient.cpp \
+	Source/WebKit2/UIProcess/WebIconDatabaseClient.h \
 	Source/WebKit2/UIProcess/WebInspectorProxy.cpp \
 	Source/WebKit2/UIProcess/WebInspectorProxy.h \
 	Source/WebKit2/UIProcess/WebKeyValueStorageManagerProxy.cpp \
@@ -588,6 +593,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NetscapeBrowserFuncs.h \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NetscapePlugin.cpp \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NetscapePlugin.h \
+	Source/WebKit2/WebProcess/Plugins/Netscape/NetscapePluginNone.cpp \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NetscapePluginStream.cpp \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NetscapePluginStream.h \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NPJSObject.cpp \
@@ -611,6 +617,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/ResourceCache/WebResourceCacheManager.h \
 	Source/WebKit2/WebProcess/ResourceCache/WebResourceCacheManager.cpp \
 	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebContextMenuClientGtk.cpp \
+	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebEditorClientGtk.cpp \
 	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebErrorsGtk.cpp \
 	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebFrameNetworkingContext.h \
 	Source/WebKit2/WebProcess/WebCoreSupport/gtk/WebPopupMenuGtk.cpp \
@@ -651,6 +658,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/WebPage/FindController.h \
 	Source/WebKit2/WebProcess/WebPage/gtk/ChunkedUpdateDrawingAreaGtk.cpp \
 	Source/WebKit2/WebProcess/WebPage/gtk/WebInspectorGtk.cpp \
+	Source/WebKit2/WebProcess/WebPage/gtk/WebPageGtk.cpp \
 	Source/WebKit2/WebProcess/WebPage/PageOverlay.cpp \
 	Source/WebKit2/WebProcess/WebPage/PageOverlay.h \
 	Source/WebKit2/WebProcess/WebPage/TiledDrawingArea.cpp \

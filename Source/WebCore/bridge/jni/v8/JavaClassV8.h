@@ -28,11 +28,10 @@
 
 #if ENABLE(JAVA_BRIDGE)
 
-#include "JNIUtility.h"
-#include "PlatformString.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
 namespace JSC {
 
@@ -42,20 +41,14 @@ class JavaField;
 class JavaMethod;
 
 typedef Vector<JavaMethod*> MethodList;
-typedef HashMap<WTF::String, MethodList*> MethodListMap;
 typedef HashMap<WTF::String, JavaField*> FieldMap;
 
 class JavaClass {
 public:
-    JavaClass(jobject);
-    ~JavaClass();
+    virtual ~JavaClass() {}
 
-    MethodList methodsNamed(const char* name) const;
-    JavaField* fieldNamed(const char* name) const;
-
-private:
-    MethodListMap m_methods;
-    FieldMap m_fields;
+    virtual MethodList methodsNamed(const char* name) const = 0;
+    virtual JavaField* fieldNamed(const char* name) const = 0;
 };
 
 } // namespace Bindings

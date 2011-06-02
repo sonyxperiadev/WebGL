@@ -25,6 +25,8 @@
  */
 
 #include "config.h"
+#if PLUGIN_ARCHITECTURE(X11)
+
 #include "NetscapePlugin.h"
 
 #include "WebEvent.h"
@@ -38,6 +40,7 @@
 #include <QX11Info>
 #elif PLATFORM(GTK)
 #include <gdk/gdkx.h>
+#include <WebCore/GtkVersioning.h>
 #endif
 
 using namespace WebCore;
@@ -423,3 +426,5 @@ bool NetscapePlugin::platformHandleKeyboardEvent(const WebKeyboardEvent& event)
 }
 
 } // namespace WebKit
+
+#endif // PLUGIN_ARCHITECTURE(X11)

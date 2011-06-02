@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
- * Copyright (C) 2009-2011 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2009 Joseph Pecoraro
  *
  * Redistribution and use in source and binary forms, with or without
@@ -397,7 +397,7 @@ Node* InspectorDOMAgent::assertNode(ErrorString* errorString, int nodeId)
 {
     Node* node = nodeForId(nodeId);
     if (!node) {
-        *errorString = "Could not find node with given id.";
+        *errorString = "Could not find node with given id";
         return 0;
     }
     return node;
@@ -410,7 +410,7 @@ Element* InspectorDOMAgent::assertElement(ErrorString* errorString, int nodeId)
         return 0;
 
     if (node->nodeType() != Node::ELEMENT_NODE) {
-        *errorString = "Node is not an Element.";
+        *errorString = "Node is not an Element";
         return 0;
     }
     return toElement(node);
@@ -424,28 +424,10 @@ HTMLElement* InspectorDOMAgent::assertHTMLElement(ErrorString* errorString, int 
         return 0;
 
     if (!element->isHTMLElement()) {
-        *errorString = "Node is not an HTML Element.";
+        *errorString = "Node is not an HTML Element";
         return 0;
     }
     return toHTMLElement(element);
-}
-
-Node* InspectorDOMAgent::nodeToSelectOn(ErrorString* errorString, int nodeId, bool documentWide)
-{
-    Node* node;
-    if (!nodeId) {
-        node = m_document.get();
-        if (!node)
-            *errorString = "No document to query on.";
-    } else
-        node = assertNode(errorString, nodeId);
-
-    if (!node)
-        return 0;
-
-    if (documentWide && nodeId)
-        node = node->ownerDocument();
-    return node;
 }
 
 void InspectorDOMAgent::getDocument(ErrorString*, RefPtr<InspectorObject>* root)
@@ -460,8 +442,7 @@ void InspectorDOMAgent::getDocument(ErrorString*, RefPtr<InspectorObject>* root)
     reset();
     m_document = doc;
 
-    if (!m_documentNodeToIdMap.contains(m_document))
-        *root = buildObjectForNode(m_document.get(), 2, &m_documentNodeToIdMap);
+    *root = buildObjectForNode(m_document.get(), 2, &m_documentNodeToIdMap);
 }
 
 void InspectorDOMAgent::pushChildNodesToFrontend(int nodeId)
@@ -474,7 +455,6 @@ void InspectorDOMAgent::pushChildNodesToFrontend(int nodeId)
 
     NodeToIdMap* nodeMap = m_idToNodesMap.get(nodeId);
     RefPtr<InspectorArray> children = buildArrayForContainerChildren(node, 1, nodeMap);
-    m_childrenRequested.add(nodeId);
     m_frontend->setChildNodes(nodeId, children.release());
 }
 
@@ -502,17 +482,17 @@ void InspectorDOMAgent::getChildNodes(ErrorString*, int nodeId)
     pushChildNodesToFrontend(nodeId);
 }
 
-void InspectorDOMAgent::querySelector(ErrorString* errorString, int nodeId, const String& selectors, bool documentWide, int* elementId)
+void InspectorDOMAgent::querySelector(ErrorString* errorString, int nodeId, const String& selectors, int* elementId)
 {
     *elementId = 0;
-    Node* node = nodeToSelectOn(errorString, nodeId, documentWide);
+    Node* node = assertNode(errorString, nodeId);
     if (!node)
         return;
 
     ExceptionCode ec = 0;
     RefPtr<Element> element = node->querySelector(selectors, ec);
     if (ec) {
-        *errorString = "DOM Error while querying.";
+        *errorString = "DOM Error while querying";
         return;
     }
 
@@ -520,16 +500,16 @@ void InspectorDOMAgent::querySelector(ErrorString* errorString, int nodeId, cons
         *elementId = pushNodePathToFrontend(element.get());
 }
 
-void InspectorDOMAgent::querySelectorAll(ErrorString* errorString, int nodeId, const String& selectors, bool documentWide, RefPtr<InspectorArray>* result)
+void InspectorDOMAgent::querySelectorAll(ErrorString* errorString, int nodeId, const String& selectors, RefPtr<InspectorArray>* result)
 {
-    Node* node = nodeToSelectOn(errorString, nodeId, documentWide);
+    Node* node = assertNode(errorString, nodeId);
     if (!node)
         return;
 
     ExceptionCode ec = 0;
     RefPtr<NodeList> nodes = node->querySelectorAll(selectors, ec);
     if (ec) {
-        *errorString = "DOM Error while querying.";
+        *errorString = "DOM Error while querying";
         return;
     }
 
@@ -595,7 +575,7 @@ void InspectorDOMAgent::setAttribute(ErrorString* errorString, int elementId, co
         ExceptionCode ec = 0;
         element->setAttribute(name, value, ec);
         if (ec)
-            *errorString = "Exception while setting attribute value.";
+            *errorString = "Exception while setting attribute value";
     }
 }
 
@@ -606,7 +586,7 @@ void InspectorDOMAgent::removeAttribute(ErrorString* errorString, int elementId,
         ExceptionCode ec = 0;
         element->removeAttribute(name, ec);
         if (ec)
-            *errorString = "Exception while removing attribute.";
+            *errorString = "Exception while removing attribute";
     }
 }
 
@@ -618,14 +598,14 @@ void InspectorDOMAgent::removeNode(ErrorString* errorString, int nodeId)
 
     ContainerNode* parentNode = node->parentNode();
     if (!parentNode) {
-        *errorString = "Can not remove detached node.";
+        *errorString = "Can not remove detached node";
         return;
     }
 
     ExceptionCode ec = 0;
     parentNode->removeChild(node, ec);
     if (ec)
-        *errorString = "Could not remove node due to DOM exception.";
+        *errorString = "Could not remove node due to DOM exception";
 }
 
 void InspectorDOMAgent::setNodeName(ErrorString*, int nodeId, const String& tagName, int* newId)
@@ -716,7 +696,7 @@ void InspectorDOMAgent::setNodeValue(ErrorString* errorString, int nodeId, const
         return;
 
     if (node->nodeType() != Node::TEXT_NODE) {
-        *errorString = "Can only set value of text nodes.";
+        *errorString = "Can only set value of text nodes";
         return;
     }
 
@@ -724,7 +704,7 @@ void InspectorDOMAgent::setNodeValue(ErrorString* errorString, int nodeId, const
     ExceptionCode ec = 0;
     textNode->replaceWholeText(value, ec);
     if (ec)
-        *errorString = "DOM Error while setting the node value.";
+        *errorString = "DOM Error while setting the node value";
 }
 
 void InspectorDOMAgent::getEventListenersForNode(ErrorString*, int nodeId, RefPtr<InspectorArray>* listenersArray)
@@ -794,7 +774,7 @@ void InspectorDOMAgent::getEventListenersForNode(ErrorString*, int nodeId, RefPt
     }
 }
 
-void InspectorDOMAgent::performSearch(ErrorString* error, const String& whitespaceTrimmedQuery, bool runSynchronously)
+void InspectorDOMAgent::performSearch(ErrorString* error, const String& whitespaceTrimmedQuery, const bool* const runSynchronously)
 {
     // FIXME: Few things are missing here:
     // 1) Search works with node granularity - number of matches within node is not calculated.
@@ -869,7 +849,7 @@ void InspectorDOMAgent::performSearch(ErrorString* error, const String& whitespa
         m_pendingMatchJobs.append(new MatchXPathJob(document, whitespaceTrimmedQuery));
     }
 
-    if (runSynchronously) {
+    if (runSynchronously && *runSynchronously) {
         // For tests.
         ListHashSet<Node*> resultCollector;
         for (Deque<MatchJob*>::iterator it = m_pendingMatchJobs.begin(); it != m_pendingMatchJobs.end(); ++it)
@@ -961,9 +941,8 @@ void InspectorDOMAgent::setSearchingForNode(bool enabled)
     }
 }
 
-void InspectorDOMAgent::setSearchingForNode(ErrorString*, bool enabled, bool* newState)
+void InspectorDOMAgent::setSearchingForNode(ErrorString*, bool enabled)
 {
-    *newState = enabled;
     setSearchingForNode(enabled);
 }
 
@@ -1108,13 +1087,14 @@ PassRefPtr<InspectorArray> InspectorDOMAgent::buildArrayForContainerChildren(Nod
     Node* child = innerFirstChild(container);
 
     if (depth == 0) {
-        // Special case the_only text child.
+        // Special-case the only text child - pretend that container's children have been requested.
         if (child && child->nodeType() == Node::TEXT_NODE && !innerNextSibling(child))
-            children->pushObject(buildObjectForNode(child, 0, nodesMap));
+            return buildArrayForContainerChildren(container, 1, nodesMap);
         return children.release();
-    } else if (depth > 0) {
-        depth--;
     }
+
+    depth--;
+    m_childrenRequested.add(bind(container, nodesMap));
 
     while (child) {
         children->pushObject(buildObjectForNode(child, depth, nodesMap));

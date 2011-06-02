@@ -48,7 +48,7 @@ void SVGInlineFlowBox::paintSelectionBackground(PaintInfo& paintInfo)
     }
 }
 
-void SVGInlineFlowBox::paint(PaintInfo& paintInfo, int, int)
+void SVGInlineFlowBox::paint(PaintInfo& paintInfo, int, int, int, int)
 {
     ASSERT(paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection);
     ASSERT(!paintInfo.context->paintingDisabled());
@@ -64,7 +64,7 @@ void SVGInlineFlowBox::paint(PaintInfo& paintInfo, int, int)
             if (child->isSVGInlineTextBox())
                 computeTextMatchMarkerRectForRenderer(toRenderSVGInlineText(static_cast<SVGInlineTextBox*>(child)->textRenderer()));
 
-            child->paint(childPaintInfo, 0, 0);
+            child->paint(childPaintInfo, 0, 0, 0, 0);
         }
     }
 
@@ -91,6 +91,7 @@ void SVGInlineFlowBox::computeTextMatchMarkerRectForRenderer(RenderSVGInlineText
     RenderStyle* style = textRenderer->style();
     ASSERT(style);
 
+    AffineTransform fragmentTransform;
     Document* document = textRenderer->document();
     Vector<DocumentMarker> markers = document->markers()->markersForNode(textRenderer->node());
 
@@ -104,7 +105,9 @@ void SVGInlineFlowBox::computeTextMatchMarkerRectForRenderer(RenderSVGInlineText
 
         FloatRect markerRect;
         for (InlineTextBox* box = textRenderer->firstTextBox(); box; box = box->nextTextBox()) {
-            ASSERT(box->isSVGInlineTextBox());
+            if (!box->isSVGInlineTextBox())
+                continue;
+
             SVGInlineTextBox* textBox = static_cast<SVGInlineTextBox*>(box);
 
             int markerStartPosition = max<int>(marker.startOffset - textBox->start(), 0);
@@ -127,8 +130,9 @@ void SVGInlineFlowBox::computeTextMatchMarkerRectForRenderer(RenderSVGInlineText
                     continue;
 
                 FloatRect fragmentRect = textBox->selectionRectForTextFragment(fragment, fragmentStartPosition, fragmentEndPosition, style);
-                if (!fragment.transform.isIdentity())
-                    fragmentRect = fragment.transform.mapRect(fragmentRect);
+                fragment.buildFragmentTransform(fragmentTransform);
+                if (!fragmentTransform.isIdentity())
+                    fragmentRect = fragmentTransform.mapRect(fragmentRect);
 
                 markerRect.unite(fragmentRect);
             }

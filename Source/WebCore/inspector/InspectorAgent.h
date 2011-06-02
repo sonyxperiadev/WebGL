@@ -170,15 +170,10 @@ public:
     // InspectorAgent API
     void getInspectorState(RefPtr<InspectorObject>* state);
     void setMonitoringXHREnabled(bool enabled, bool* newState);
-    // Following are used from InspectorBackend and internally.
-    void didEvaluateForTestInFrontend(ErrorString*, long callId, const String& jsonResult);
 
 private:
     void showPanel(const String& panel);
     void unbindAllResources();
-
-    void releaseFrontendLifetimeAgents();
-    void createFrontendLifetimeAgents();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void toggleRecordButton(bool);

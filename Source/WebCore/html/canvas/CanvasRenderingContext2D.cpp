@@ -133,7 +133,11 @@ CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas, bo
         m_context3D = p->sharedGraphicsContext3D();
         if (m_context3D) {
             m_drawingBuffer = m_context3D->graphicsContext3D()->createDrawingBuffer(IntSize(canvas->width(), canvas->height()));
-            c->setSharedGraphicsContext3D(m_context3D.get(), m_drawingBuffer.get(), IntSize(canvas->width(), canvas->height()));
+            if (!m_drawingBuffer) {
+                c->setSharedGraphicsContext3D(0, 0, IntSize());
+                m_context3D.clear();
+            } else
+                c->setSharedGraphicsContext3D(m_context3D.get(), m_drawingBuffer.get(), IntSize(canvas->width(), canvas->height()));
         }
     }
 #endif
@@ -146,7 +150,8 @@ CanvasRenderingContext2D::~CanvasRenderingContext2D()
 bool CanvasRenderingContext2D::isAccelerated() const
 {
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
-    return canvas()->document()->page()->settings()->canvasUsesAcceleratedDrawing();
+    ImageBuffer* buffer = canvas()->buffer();
+    return buffer ? buffer->isAccelerated() : false;
 #elif ENABLE(ACCELERATED_2D_CANVAS)
     return m_context3D;
 #else
@@ -172,13 +177,18 @@ void CanvasRenderingContext2D::reset()
 #if ENABLE(ACCELERATED_2D_CANVAS)
     if (GraphicsContext* c = drawingContext()) {
         if (m_context3D && m_drawingBuffer) {
-            m_drawingBuffer->reset(IntSize(canvas()->width(), canvas()->height()));
-            c->setSharedGraphicsContext3D(m_context3D.get(), m_drawingBuffer.get(), IntSize(canvas()->width(), canvas()->height()));
+            if (m_drawingBuffer->reset(IntSize(canvas()->width(), canvas()->height()))) {
+                c->setSharedGraphicsContext3D(m_context3D.get(), m_drawingBuffer.get(), IntSize(canvas()->width(), canvas()->height()));
 #if USE(ACCELERATED_COMPOSITING)
-            RenderBox* renderBox = canvas()->renderBox();
-            if (renderBox && renderBox->hasLayer() && renderBox->layer()->hasAcceleratedCompositing())
-                renderBox->layer()->contentChanged(RenderLayer::CanvasChanged);
+                RenderBox* renderBox = canvas()->renderBox();
+                if (renderBox && renderBox->hasLayer() && renderBox->layer()->hasAcceleratedCompositing())
+                    renderBox->layer()->contentChanged(RenderLayer::CanvasChanged);
 #endif
+            } else {
+                c->setSharedGraphicsContext3D(0, 0, IntSize());
+                m_drawingBuffer.clear();
+                m_context3D.clear();
+            }
         }
     }
 #endif
@@ -201,6 +211,83 @@ CanvasRenderingContext2D::State::State()
     , m_unparsedFont(defaultFont)
     , m_realizedFont(false)
 {
+}
+
+CanvasRenderingContext2D::State::State(const State& other)
+    : FontSelectorClient()
+{
+    m_unparsedStrokeColor = other.m_unparsedStrokeColor;
+    m_unparsedFillColor = other.m_unparsedFillColor;
+    m_strokeStyle = other.m_strokeStyle;
+    m_fillStyle = other.m_fillStyle;
+    m_lineWidth = other.m_lineWidth;
+    m_lineCap = other.m_lineCap;
+    m_lineJoin = other.m_lineJoin;
+    m_miterLimit = other.m_miterLimit;
+    m_shadowOffset = other.m_shadowOffset;
+    m_shadowBlur = other.m_shadowBlur;
+    m_shadowColor = other.m_shadowColor;
+    m_globalAlpha = other.m_globalAlpha;
+    m_globalComposite = other.m_globalComposite;
+    m_transform = other.m_transform;
+    m_invertibleCTM = other.m_invertibleCTM;
+    m_textAlign = other.m_textAlign;
+    m_textBaseline = other.m_textBaseline;
+    m_unparsedFont = other.m_unparsedFont;
+    m_font = other.m_font;
+    m_realizedFont = other.m_realizedFont;
+
+    if (m_realizedFont)
+        m_font.fontSelector()->registerForInvalidationCallbacks(this);
+}
+
+CanvasRenderingContext2D::State& CanvasRenderingContext2D::State::operator=(const State& other)
+{
+    if (this == &other)
+        return *this;
+
+    if (m_realizedFont)
+        m_font.fontSelector()->unregisterForInvalidationCallbacks(this);
+
+    m_unparsedStrokeColor = other.m_unparsedStrokeColor;
+    m_unparsedFillColor = other.m_unparsedFillColor;
+    m_strokeStyle = other.m_strokeStyle;
+    m_fillStyle = other.m_fillStyle;
+    m_lineWidth = other.m_lineWidth;
+    m_lineCap = other.m_lineCap;
+    m_lineJoin = other.m_lineJoin;
+    m_miterLimit = other.m_miterLimit;
+    m_shadowOffset = other.m_shadowOffset;
+    m_shadowBlur = other.m_shadowBlur;
+    m_shadowColor = other.m_shadowColor;
+    m_globalAlpha = other.m_globalAlpha;
+    m_globalComposite = other.m_globalComposite;
+    m_transform = other.m_transform;
+    m_invertibleCTM = other.m_invertibleCTM;
+    m_textAlign = other.m_textAlign;
+    m_textBaseline = other.m_textBaseline;
+    m_unparsedFont = other.m_unparsedFont;
+    m_font = other.m_font;
+    m_realizedFont = other.m_realizedFont;
+
+    if (m_realizedFont)
+        m_font.fontSelector()->registerForInvalidationCallbacks(this);
+
+    return *this;
+}
+
+CanvasRenderingContext2D::State::~State()
+{
+    if (m_realizedFont)
+        m_font.fontSelector()->unregisterForInvalidationCallbacks(this);
+}
+
+void CanvasRenderingContext2D::State::fontsNeedUpdate(FontSelector* fontSelector)
+{
+    ASSERT_ARG(fontSelector, fontSelector == m_font.fontSelector());
+    ASSERT(m_realizedFont);
+
+    m_font.update(fontSelector);
 }
 
 void CanvasRenderingContext2D::save()
@@ -959,7 +1046,7 @@ void CanvasRenderingContext2D::strokeRect(float x, float y, float width, float h
     didDraw(boundingRect);
 }
 
-#if PLATFORM(CG)
+#if USE(CG)
 static inline CGSize adjustedShadowSize(CGFloat width, CGFloat height)
 {
     // Work around <rdar://problem/5539388> by ensuring that shadow offsets will get truncated
@@ -1063,7 +1150,7 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
     GraphicsContext* dc = drawingContext();
     if (!dc)
         return;
-#if PLATFORM(CG)
+#if USE(CG)
     const CGFloat components[5] = { c, m, y, k, a };
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceCMYK();
     CGColorRef shadowColor = CGColorCreate(colorSpace, components);
@@ -1150,8 +1237,12 @@ void CanvasRenderingContext2D::drawImage(HTMLImageElement* image,
     drawImage(image, FloatRect(sx, sy, sw, sh), FloatRect(dx, dy, dw, dh), ec);
 }
 
-void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRect& srcRect, const FloatRect& dstRect,
-    ExceptionCode& ec)
+void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRect& srcRect, const FloatRect& dstRect, ExceptionCode& ec)
+{
+    drawImage(image, srcRect, dstRect, state().m_globalComposite, ec);
+}
+
+void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRect& srcRect, const FloatRect& dstRect, const CompositeOperator& op, ExceptionCode& ec)
 {
     if (!image) {
         ec = TYPE_MISMATCH_ERR;
@@ -1193,7 +1284,7 @@ void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRec
 
     FloatRect sourceRect = c->roundToDevicePixels(normalizedSrcRect);
     FloatRect destRect = c->roundToDevicePixels(normalizedDstRect);
-    c->drawImage(cachedImage->image(), ColorSpaceDeviceRGB, destRect, sourceRect, state().m_globalComposite);
+    c->drawImage(cachedImage->image(), ColorSpaceDeviceRGB, destRect, sourceRect, op);
     didDraw(destRect);
 }
 
@@ -1352,34 +1443,17 @@ void CanvasRenderingContext2D::drawImage(HTMLVideoElement* video, const FloatRec
 }
 #endif
 
-// FIXME: Why isn't this just another overload of drawImage? Why have a different name?
 void CanvasRenderingContext2D::drawImageFromRect(HTMLImageElement* image,
     float sx, float sy, float sw, float sh,
     float dx, float dy, float dw, float dh,
     const String& compositeOperation)
 {
-    if (!image)
-        return;
-
-    CachedImage* cachedImage = image->cachedImage();
-    if (!cachedImage)
-        return;
-
-    checkOrigin(image);
-
-    GraphicsContext* c = drawingContext();
-    if (!c)
-        return;
-    if (!state().m_invertibleCTM)
-        return;
-
     CompositeOperator op;
     if (!parseCompositeOperator(compositeOperation, op))
         op = CompositeSourceOver;
 
-    FloatRect destRect = FloatRect(dx, dy, dw, dh);
-    c->drawImage(cachedImage->image(), ColorSpaceDeviceRGB, destRect, FloatRect(sx, sy, sw, sh), op);
-    didDraw(destRect);
+    ExceptionCode ec;
+    drawImage(image, FloatRect(sx, sy, sw, sh), FloatRect(dx, dy, dw, dh), op, ec);
 }
 
 void CanvasRenderingContext2D::setAlpha(float alpha)
@@ -1680,15 +1754,7 @@ void CanvasRenderingContext2D::setFont(const String& newFont)
     state().m_font = newStyle->font();
     state().m_font.update(styleSelector->fontSelector());
     state().m_realizedFont = true;
-}
-
-void CanvasRenderingContext2D::updateFont()
-{
-    if (!state().m_realizedFont)
-        return;
-
-    const Font& font = state().m_font;
-    font.update(font.fontSelector());
+    styleSelector->fontSelector()->registerForInvalidationCallbacks(&state());
 }
 
 String CanvasRenderingContext2D::textAlign() const
@@ -1825,7 +1891,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
     if (!fill)
         textRect.inflate(c->strokeThickness() / 2);
 
-#if PLATFORM(CG)
+#if USE(CG)
     CanvasStyle* drawStyle = fill ? state().m_fillStyle.get() : state().m_strokeStyle.get();
     if (drawStyle->canvasGradient() || drawStyle->canvasPattern()) {
         // FIXME: The rect is not big enough for miters on stroked text.

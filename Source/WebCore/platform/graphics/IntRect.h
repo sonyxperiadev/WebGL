@@ -29,7 +29,7 @@
 #include "IntPoint.h"
 #include <wtf/Vector.h>
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
 typedef struct CGRect CGRect;
 #endif
 
@@ -133,6 +133,11 @@ public:
         setHeight(std::max(0, height() + delta));
     }
 
+    IntPoint minXMinYCorner() const { return m_location; } // typically topLeft
+    IntPoint maxXMinYCorner() const { return IntPoint(m_location.x() + m_size.width(), m_location.y()); } // typically topRight
+    IntPoint minXMaxYCorner() const { return IntPoint(m_location.x(), m_location.y() + m_size.height()); } // typically bottomLeft
+    IntPoint maxXMaxYCorner() const { return IntPoint(m_location.x() + m_size.width(), m_location.y() + m_size.height()); } // typically bottomRight
+    
     bool intersects(const IntRect&) const;
     bool contains(const IntRect&) const;
 
@@ -144,6 +149,7 @@ public:
 
     void intersect(const IntRect&);
     void unite(const IntRect&);
+    void uniteIfNonZero(const IntRect&);
 
     void inflateX(int dx)
     {
@@ -182,7 +188,7 @@ public:
     operator Eina_Rectangle() const;
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
     operator CGRect() const;
 #endif
 
@@ -228,7 +234,7 @@ inline bool operator!=(const IntRect& a, const IntRect& b)
     return a.location() != b.location() || a.size() != b.size();
 }
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
 IntRect enclosingIntRect(const CGRect&);
 #endif
 

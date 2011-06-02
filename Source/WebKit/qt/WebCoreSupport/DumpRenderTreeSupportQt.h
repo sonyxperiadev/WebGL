@@ -147,6 +147,7 @@ public:
     static void setMockGeolocationPermission(QWebPage*, bool allowed);
     static void setMockGeolocationPosition(QWebPage*, double latitude, double longitude, double accuracy);
     static void setMockGeolocationError(QWebPage*, int errorCode, const QString& message);
+    static int numberOfPendingGeolocationPermissionRequests(QWebPage*);
 
     static int workerThreadCount();
 
@@ -199,6 +200,8 @@ public:
 
     static QUrl mediaContentUrlByElementId(QWebFrame*, const QString& elementId);
     static void setAlternateHtml(QWebFrame*, const QString& html, const QUrl& baseUrl, const QUrl& failingUrl);
+
+    static QVariant shadowRoot(const QWebElement&);
 };
 
 #endif

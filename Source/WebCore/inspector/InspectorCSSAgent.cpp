@@ -81,10 +81,11 @@
 //                          ...
 //                          #cssProperty
 //                         ],
-//    shorthandValues    : {
-//                          shorthandName1 : shorthandValue1,
-//                          shorthandName2 : shorthandValue2
-//                         },
+//    shorthandEntries   : [
+//                          #shorthandEntry,
+//                          ...
+//                          #shorthandEntry
+//                         ],
 //    cssText            : <string>, // Optional - declaration text
 //    properties         : {
 //                          width,
@@ -92,6 +93,11 @@
 //                          startOffset, // Optional - for source-based styles only
 //                          endOffset, // Optional - for source-based styles only
 //                         }
+// }
+//
+// shorthandEntry = {
+//    name: <string>,
+//    value: <string>
 // }
 //
 // cssRule = {
@@ -271,33 +277,32 @@ void InspectorCSSAgent::getAllStyleSheets(ErrorString*, RefPtr<InspectorArray>* 
 
 void InspectorCSSAgent::getStyleSheet(ErrorString* errorString, const String& styleSheetId, RefPtr<InspectorObject>* styleSheetObject)
 {
-    InspectorStyleSheet* inspectorStyleSheet = styleSheetForId(errorString, styleSheetId);
+    InspectorStyleSheet* inspectorStyleSheet = assertStyleSheetForId(errorString, styleSheetId);
     if (!inspectorStyleSheet)
         return;
 
     *styleSheetObject = inspectorStyleSheet->buildObjectForStyleSheet();
 }
 
-void InspectorCSSAgent::getStyleSheetText(ErrorString* errorString, const String& styleSheetId, String* url, String* result)
+void InspectorCSSAgent::getStyleSheetText(ErrorString* errorString, const String& styleSheetId, String* result)
 {
-    InspectorStyleSheet* inspectorStyleSheet = styleSheetForId(errorString, styleSheetId);
+    InspectorStyleSheet* inspectorStyleSheet = assertStyleSheetForId(errorString, styleSheetId);
     if (!inspectorStyleSheet)
         return;
-    *url = inspectorStyleSheet->finalURL();
+
     inspectorStyleSheet->text(result);
 }
 
-void InspectorCSSAgent::setStyleSheetText(ErrorString* errorString, const String& styleSheetId, const String& text, bool* success)
+void InspectorCSSAgent::setStyleSheetText(ErrorString* errorString, const String& styleSheetId, const String& text)
 {
-    InspectorStyleSheet* inspectorStyleSheet = styleSheetForId(errorString, styleSheetId);
-    if (!inspectorStyleSheet) {
-        *success = false;
+    InspectorStyleSheet* inspectorStyleSheet = assertStyleSheetForId(errorString, styleSheetId);
+    if (!inspectorStyleSheet)
         return;
-    }
 
-    *success = inspectorStyleSheet->setText(text);
-    if (*success)
+    if (inspectorStyleSheet->setText(text))
         inspectorStyleSheet->reparseStyleSheet(text);
+    else
+        *errorString = "Internal error setting style sheet text";
 }
 
 void InspectorCSSAgent::setPropertyText(ErrorString* errorString, const RefPtr<InspectorObject>& fullStyleId, int propertyIndex, const String& text, bool overwrite, RefPtr<InspectorObject>* result)
@@ -305,11 +310,11 @@ void InspectorCSSAgent::setPropertyText(ErrorString* errorString, const RefPtr<I
     InspectorCSSId compoundId(fullStyleId);
     ASSERT(!compoundId.isEmpty());
 
-    InspectorStyleSheet* inspectorStyleSheet = styleSheetForId(errorString, compoundId.styleSheetId());
+    InspectorStyleSheet* inspectorStyleSheet = assertStyleSheetForId(errorString, compoundId.styleSheetId());
     if (!inspectorStyleSheet)
         return;
 
-    bool success = inspectorStyleSheet->setPropertyText(compoundId, propertyIndex, text, overwrite);
+    bool success = inspectorStyleSheet->setPropertyText(errorString, compoundId, propertyIndex, text, overwrite);
     if (success)
         *result = inspectorStyleSheet->buildObjectForStyle(inspectorStyleSheet->styleForId(compoundId));
 }
@@ -319,11 +324,11 @@ void InspectorCSSAgent::toggleProperty(ErrorString* errorString, const RefPtr<In
     InspectorCSSId compoundId(fullStyleId);
     ASSERT(!compoundId.isEmpty());
 
-    InspectorStyleSheet* inspectorStyleSheet = styleSheetForId(errorString, compoundId.styleSheetId());
+    InspectorStyleSheet* inspectorStyleSheet = assertStyleSheetForId(errorString, compoundId.styleSheetId());
     if (!inspectorStyleSheet)
         return;
 
-    bool success = inspectorStyleSheet->toggleProperty(compoundId, propertyIndex, disable);
+    bool success = inspectorStyleSheet->toggleProperty(errorString, compoundId, propertyIndex, disable);
     if (success)
         *result = inspectorStyleSheet->buildObjectForStyle(inspectorStyleSheet->styleForId(compoundId));
 }
@@ -333,7 +338,7 @@ void InspectorCSSAgent::setRuleSelector(ErrorString* errorString, const RefPtr<I
     InspectorCSSId compoundId(fullRuleId);
     ASSERT(!compoundId.isEmpty());
 
-    InspectorStyleSheet* inspectorStyleSheet = styleSheetForId(errorString, compoundId.styleSheetId());
+    InspectorStyleSheet* inspectorStyleSheet = assertStyleSheetForId(errorString, compoundId.styleSheetId());
     if (!inspectorStyleSheet)
         return;
 
@@ -402,11 +407,11 @@ Element* InspectorCSSAgent::elementForId(ErrorString* errorString, int nodeId)
 {
     Node* node = m_domAgent->nodeForId(nodeId);
     if (!node) {
-        *errorString = "No node with given id found.";
+        *errorString = "No node with given id found";
         return 0;
     }
     if (node->nodeType() != Node::ELEMENT_NODE) {
-        *errorString = "Not an element node.";
+        *errorString = "Not an element node";
         return 0;
     }
     return static_cast<Element*>(node);
@@ -465,11 +470,11 @@ InspectorStyleSheet* InspectorCSSAgent::viaInspectorStyleSheet(Document* documen
     return inspectorStyleSheet.get();
 }
 
-InspectorStyleSheet* InspectorCSSAgent::styleSheetForId(ErrorString* errorString, const String& styleSheetId)
+InspectorStyleSheet* InspectorCSSAgent::assertStyleSheetForId(ErrorString* errorString, const String& styleSheetId)
 {
     IdToInspectorStyleSheet::iterator it = m_idToInspectorStyleSheet.find(styleSheetId);
     if (it == m_idToInspectorStyleSheet.end()) {
-        *errorString = "No style sheet with given id found.";
+        *errorString = "No style sheet with given id found";
         return 0;
     }
     return it->second.get();

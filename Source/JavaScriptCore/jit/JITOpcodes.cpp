@@ -57,7 +57,7 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     // Checks out okay! - get the length from the Ustring.
     load32(Address(regT0, OBJECT_OFFSETOF(JSString, m_length)), regT0);
 
-    Jump string_failureCases3 = branch32(Above, regT0, TrustedImm32(JSImmediate::maxImmediateInt));
+    Jump string_failureCases3 = branch32(LessThan, regT0, TrustedImm32(0));
 
     // regT0 contains a 64 bit value (is positive, is zero extended) so we don't need sign extend here.
     emitFastArithIntToImmNoCheck(regT0, regT0);
@@ -695,9 +695,14 @@ void JIT::emitSlow_op_resolve_global(Instruction* currentInstruction, Vector<Slo
 void JIT::emit_op_not(Instruction* currentInstruction)
 {
     emitGetVirtualRegister(currentInstruction[2].u.operand, regT0);
-    xorPtr(TrustedImm32(static_cast<int32_t>(JSImmediate::FullTagTypeBool)), regT0);
-    addSlowCase(branchTestPtr(NonZero, regT0, TrustedImm32(static_cast<int32_t>(~JSImmediate::ExtendedPayloadBitBoolValue))));
-    xorPtr(TrustedImm32(static_cast<int32_t>(JSImmediate::FullTagTypeBool | JSImmediate::ExtendedPayloadBitBoolValue)), regT0);
+
+    // Invert against JSValue(false); if the value was tagged as a boolean, then all bits will be
+    // clear other than the low bit (which will be 0 or 1 for false or true inputs respectively).
+    // Then invert against JSValue(true), which will add the tag back in, and flip the low bit.
+    xorPtr(TrustedImm32(static_cast<int32_t>(ValueFalse)), regT0);
+    addSlowCase(branchTestPtr(NonZero, regT0, TrustedImm32(static_cast<int32_t>(~1))));
+    xorPtr(TrustedImm32(static_cast<int32_t>(ValueTrue)), regT0);
+
     emitPutVirtualRegister(currentInstruction[1].u.operand);
 }
 
@@ -731,7 +736,7 @@ void JIT::emit_op_jeq_null(Instruction* currentInstruction)
 
     // Now handle the immediate cases - undefined & null
     isImmediate.link(this);
-    andPtr(TrustedImm32(~JSImmediate::ExtendedTagBitUndefined), regT0);
+    andPtr(TrustedImm32(~TagBitUndefined), regT0);
     addJump(branchPtr(Equal, regT0, TrustedImmPtr(JSValue::encode(jsNull()))), target);            
 
     wasNotImmediate.link(this);
@@ -752,7 +757,7 @@ void JIT::emit_op_jneq_null(Instruction* currentInstruction)
 
     // Now handle the immediate cases - undefined & null
     isImmediate.link(this);
-    andPtr(TrustedImm32(~JSImmediate::ExtendedTagBitUndefined), regT0);
+    andPtr(TrustedImm32(~TagBitUndefined), regT0);
     addJump(branchPtr(NotEqual, regT0, TrustedImmPtr(JSValue::encode(jsNull()))), target);            
 
     wasNotImmediate.link(this);
@@ -909,8 +914,8 @@ void JIT::emit_op_get_pnames(Instruction* currentInstruction)
 
     isNotObject.link(this);
     move(regT0, regT1);
-    and32(TrustedImm32(~JSImmediate::ExtendedTagBitUndefined), regT1);
-    addJump(branch32(Equal, regT1, TrustedImm32(JSImmediate::FullTagTypeNull)), breakTarget);
+    and32(TrustedImm32(~TagBitUndefined), regT1);
+    addJump(branch32(Equal, regT1, TrustedImm32(ValueNull)), breakTarget);
 
     JITStubCall toObjectStubCall(this, cti_to_object);
     toObjectStubCall.addArgument(regT0);
@@ -1163,8 +1168,8 @@ void JIT::emit_op_eq_null(Instruction* currentInstruction)
 
     isImmediate.link(this);
 
-    andPtr(TrustedImm32(~JSImmediate::ExtendedTagBitUndefined), regT0);
-    setPtr(Equal, regT0, TrustedImm32(JSImmediate::FullTagTypeNull), regT0);
+    andPtr(TrustedImm32(~TagBitUndefined), regT0);
+    setPtr(Equal, regT0, TrustedImm32(ValueNull), regT0);
 
     wasNotImmediate.link(this);
 
@@ -1188,8 +1193,8 @@ void JIT::emit_op_neq_null(Instruction* currentInstruction)
 
     isImmediate.link(this);
 
-    andPtr(TrustedImm32(~JSImmediate::ExtendedTagBitUndefined), regT0);
-    setPtr(NotEqual, regT0, TrustedImm32(JSImmediate::FullTagTypeNull), regT0);
+    andPtr(TrustedImm32(~TagBitUndefined), regT0);
+    setPtr(NotEqual, regT0, TrustedImm32(ValueNull), regT0);
 
     wasNotImmediate.link(this);
 
@@ -1374,7 +1379,7 @@ void JIT::emitSlow_op_put_by_val(Instruction* currentInstruction, Vector<SlowCas
 void JIT::emitSlow_op_not(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
     linkSlowCase(iter);
-    xorPtr(TrustedImm32(static_cast<int32_t>(JSImmediate::FullTagTypeBool)), regT0);
+    xorPtr(TrustedImm32(static_cast<int32_t>(ValueFalse)), regT0);
     JITStubCall stubCall(this, cti_op_not);
     stubCall.addArgument(regT0);
     stubCall.call(currentInstruction[1].u.operand);

@@ -26,14 +26,33 @@
 import os, sys
 
 def main():
-    tasksToKill = ["DumpRenderTree.exe", "DumpRenderTree_debug.exe", "testapi.exe", "testapi_debug.exe",
-                "svn.exe", "httpd.exe", "cl.exe", "link.exe", "midl.exe", "devenv.exe", "perl.exe",
-                "imagediff.exe", "imagediff_debug.exe", "jsc.exe", "jsc_debug.exe", "WebKit2WebProcess.exe",
-                "WebKit2WebProcess_debug.exe", "WebKitTestRunner.exe", "WebKitTestRunner_debug.exe",
-                "wdiff.exe", "LightTPD.exe"]
-
+    tasksToKill = [ "cl.exe", 
+					"devenv.com", 
+					"devenv.exe", 
+					"DumpRenderTree.exe", 
+					"DumpRenderTree_debug.exe",
+					"httpd.exe", 
+					"imagediff.exe", 
+					"imagediff_debug.exe", 
+					"jsc.exe", 
+					"jsc_debug.exe",
+					"LightTPD.exe", 
+					"link.exe", 
+					"midl.exe", 
+					"perl.exe", 
+					"Safari.exe", 
+					"svn.exe", 
+					"testapi.exe", 
+					"testapi_debug.exe", 
+					"VcBuildHelper.exe", 
+					"wdiff.exe", 
+					"WebKit2WebProcess.exe", 
+					"WebKit2WebProcess_debug.exe", 
+					"WebKitTestRunner.exe", 
+					"WebKitTestRunner_debug.exe"]
+					
     for task in tasksToKill:
-        os.system("taskkill /f /im " + task)
+        os.system("taskkill /t /f /im " + task)
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -30,7 +30,7 @@
 
 """WebKit implementations of the Port interface."""
 
-
+import base64
 import logging
 import operator
 import os
@@ -68,10 +68,6 @@ class WebKitPort(base.Port):
     def path_to_test_expectations_file(self):
         return self._filesystem.join(self._webkit_baseline_path(self._name),
                                      'test_expectations.txt')
-
-    # Only needed by ports which maintain versioned test expectations (like mac-tiger vs. mac-leopard)
-    def version(self):
-        return ''
 
     def _build_driver(self):
         configuration = self.get_option('configuration')
@@ -113,7 +109,10 @@ class WebKitPort(base.Port):
         image of the two images into |diff_filename| if it is not None."""
 
         # Handle the case where the test didn't actually generate an image.
-        if not actual_contents:
+        # FIXME: need unit tests for this.
+        if not actual_contents and not expected_contents:
+            return False
+        if not actual_contents or not expected_contents:
             return True
 
         sp = self._diff_image_request(expected_contents, actual_contents)
@@ -167,10 +166,10 @@ class WebKitPort(base.Port):
         sp.stop()
         return result
 
-    def results_directory(self):
+    def default_results_directory(self):
         # Results are store relative to the built products to make it easy
         # to have multiple copies of webkit checked out and built.
-        return self._build_path(self.get_option('results_directory'))
+        return self._build_path('layout-test-results')
 
     def setup_test_run(self):
         # This port doesn't require any specific configuration.
@@ -180,19 +179,17 @@ class WebKitPort(base.Port):
         return WebKitDriver(self, worker_number)
 
     def _tests_for_other_platforms(self):
-        raise NotImplementedError('WebKitPort._tests_for_other_platforms')
-        # The original run-webkit-tests builds up a "whitelist" of tests to
-        # run, and passes that to DumpRenderTree. new-run-webkit-tests assumes
-        # we run *all* tests and test_expectations.txt functions as a
-        # blacklist.
-        # FIXME: This list could be dynamic based on platform name and
-        # pushed into base.Port.
-        return [
-            "platform/chromium",
-            "platform/gtk",
-            "platform/qt",
-            "platform/win",
-        ]
+        # By default we will skip any directory under LayoutTests/platform
+        # that isn't in our baseline search path (this mirrors what
+        # old-run-webkit-tests does in findTestsToRun()).
+        # Note this returns LayoutTests/platform/*, not platform/*/*.
+        entries = self._filesystem.glob(self._webkit_baseline_path('*'))
+        dirs_to_skip = []
+        for entry in entries:
+            if self._filesystem.isdir(entry) and not entry in self.baseline_search_path():
+                basename = self._filesystem.basename(entry)
+                dirs_to_skip.append('platform/%s' % basename)
+        return dirs_to_skip
 
     def _runtime_feature_list(self):
         """Return the supported features of DRT. If a port doesn't support
@@ -327,12 +324,6 @@ class WebKitPort(base.Port):
         tests_to_skip.update(self._tests_for_disabled_features())
         return tests_to_skip
 
-    def test_platform_name(self):
-        return self._name + self.version()
-
-    def test_platform_names(self):
-        return ('mac', 'win', 'mac-tiger', 'mac-leopard', 'mac-snowleopard')
-
     def _build_path(self, *comps):
         return self._filesystem.join(self._config.build_directory(
             self.get_option('configuration')), *comps)
@@ -381,11 +372,11 @@ class WebKitDriver(base.Driver):
 
     def cmd_line(self):
         cmd = self._command_wrapper(self._port.get_option('wrapper'))
-        cmd += [self._port._path_to_driver(), '-']
-
+        cmd.append(self._port._path_to_driver())
         if self._port.get_option('pixel_tests'):
             cmd.append('--pixel-tests')
-
+        cmd.extend(self._port.get_option('additional_drt_flag', []))
+        cmd.append('-')
         return cmd
 
     def start(self):
@@ -418,47 +409,24 @@ class WebKitDriver(base.Driver):
         start_time = time.time()
         self._server_process.write(command)
 
-        have_seen_content_type = False
+        text = None
+        image = None
         actual_image_hash = None
-        output = str()  # Use a byte array for output, even though it should be UTF-8.
-        image = str()
+        audio = None
+        deadline = time.time() + int(driver_input.timeout) / 1000.0
 
-        timeout = int(driver_input.timeout) / 1000.0
-        deadline = time.time() + timeout
-        line = self._server_process.read_line(timeout)
-        while (not self._server_process.timed_out
-               and not self._server_process.crashed
-               and line.rstrip() != "#EOF"):
-            if (line.startswith('Content-Type:') and not
-                have_seen_content_type):
-                have_seen_content_type = True
-            else:
-                # Note: Text output from DumpRenderTree is always UTF-8.
-                # However, some tests (e.g. webarchives) spit out binary
-                # data instead of text.  So to make things simple, we
-                # always treat the output as binary.
-                output += line
-            line = self._server_process.read_line(timeout)
-            timeout = deadline - time.time()
+        # First block is either text or audio
+        block = self._read_block(deadline)
+        if block.content_type == 'audio/wav':
+            audio = block.decoded_content
+        else:
+            text = block.decoded_content
 
-        # Now read a second block of text for the optional image data
-        remaining_length = -1
-        HASH_HEADER = 'ActualHash: '
-        LENGTH_HEADER = 'Content-Length: '
-        line = self._server_process.read_line(timeout)
-        while (not self._server_process.timed_out
-               and not self._server_process.crashed
-               and line.rstrip() != "#EOF"):
-            if line.startswith(HASH_HEADER):
-                actual_image_hash = line[len(HASH_HEADER):].strip()
-            elif line.startswith('Content-Type:'):
-                pass
-            elif line.startswith(LENGTH_HEADER):
-                timeout = deadline - time.time()
-                content_length = int(line[len(LENGTH_HEADER):])
-                image = self._server_process.read(timeout, content_length)
-            timeout = deadline - time.time()
-            line = self._server_process.read_line(timeout)
+        # Now read an optional second block of image data
+        block = self._read_block(deadline)
+        if block.content and block.content_type == 'image/png':
+            image = block.decoded_content
+            actual_image_hash = block.content_hash
 
         error_lines = self._server_process.error.splitlines()
         # FIXME: This is a hack.  It is unclear why sometimes
@@ -470,13 +438,59 @@ class WebKitDriver(base.Driver):
         # FIXME: This seems like the wrong section of code to be doing
         # this reset in.
         self._server_process.error = ""
-        return base.DriverOutput(output, image, actual_image_hash,
-                                 self._server_process.crashed,
-                                 time.time() - start_time,
-                                 self._server_process.timed_out,
-                                 error)
+        return base.DriverOutput(text, image, actual_image_hash, audio,
+            crash=self._server_process.crashed, test_time=time.time() - start_time,
+            timeout=self._server_process.timed_out, error=error)
+
+    def _read_block(self, deadline):
+        LENGTH_HEADER = 'Content-Length: '
+        HASH_HEADER = 'ActualHash: '
+        TYPE_HEADER = 'Content-Type: '
+        ENCODING_HEADER = 'Content-Transfer-Encoding: '
+        content_type = None
+        encoding = None
+        content_hash = None
+        content_length = None
+
+        # Content is treated as binary data even though the text output
+        # is usually UTF-8.
+        content = ''
+        timeout = deadline - time.time()
+        line = self._server_process.read_line(timeout)
+        while (not self._server_process.timed_out
+               and not self._server_process.crashed
+               and line.rstrip() != "#EOF"):
+            if line.startswith(TYPE_HEADER) and content_type is None:
+                content_type = line.split()[1]
+            elif line.startswith(ENCODING_HEADER) and encoding is None:
+                encoding = line.split()[1]
+            elif line.startswith(LENGTH_HEADER) and content_length is None:
+                timeout = deadline - time.time()
+                content_length = int(line[len(LENGTH_HEADER):])
+                # FIXME: Technically there should probably be another blank
+                # line here, but DRT doesn't write one.
+                content = self._server_process.read(timeout, content_length)
+            elif line.startswith(HASH_HEADER):
+                content_hash = line.split()[1]
+            else:
+                content += line
+            line = self._server_process.read_line(timeout)
+            timeout = deadline - time.time()
+        return ContentBlock(content_type, encoding, content_hash, content)
 
     def stop(self):
         if self._server_process:
             self._server_process.stop()
             self._server_process = None
+
+
+class ContentBlock(object):
+    def __init__(self, content_type, encoding, content_hash, content):
+        self.content_type = content_type
+        self.encoding = encoding
+        self.content_hash = content_hash
+        self.content = content
+        if self.encoding == 'base64':
+            self.decoded_content = base64.b64decode(content)
+        else:
+            self.decoded_content = content

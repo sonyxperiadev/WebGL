@@ -51,6 +51,12 @@ _log = logging.getLogger("webkitpy.layout_tests.port.chromium")
 # FIXME: This function doesn't belong in this package.
 class ChromiumPort(base.Port):
     """Abstract base class for Chromium implementations of the Port class."""
+    ALL_BASELINE_VARIANTS = [
+        'chromium-mac-snowleopard', 'chromium-mac-leopard',
+        'chromium-win-win7', 'chromium-win-vista', 'chromium-win-xp',
+        'chromium-linux-x86', 'chromium-linux-x86_64',
+        'chromium-gpu-mac-snowleopard', 'chromium-gpu-win-win7', 'chromium-gpu-linux-x86_64',
+    ]
 
     def __init__(self, **kwargs):
         base.Port.__init__(self, **kwargs)
@@ -102,7 +108,7 @@ class ChromiumPort(base.Port):
 
         # It's okay if pretty patch isn't available, but we will at
         # least log a message.
-        self.check_pretty_patch()
+        self._pretty_patch_available = self.check_pretty_patch()
 
         return result
 
@@ -130,7 +136,11 @@ class ChromiumPort(base.Port):
 
     def diff_image(self, expected_contents, actual_contents,
                    diff_filename=None):
-        executable = self._path_to_image_diff()
+        # FIXME: need unit tests for this.
+        if not actual_contents and not expected_contents:
+            return False
+        if not actual_contents or not expected_contents:
+            return True
 
         tempdir = self._filesystem.mkdtemp()
         expected_filename = self._filesystem.join(str(tempdir), "expected.png")
@@ -138,6 +148,7 @@ class ChromiumPort(base.Port):
         actual_filename = self._filesystem.join(str(tempdir), "actual.png")
         self._filesystem.write_binary_file(actual_filename, actual_contents)
 
+        executable = self._path_to_image_diff()
         if diff_filename:
             cmd = [executable, '--diff', expected_filename,
                    actual_filename, diff_filename]
@@ -189,14 +200,14 @@ class ChromiumPort(base.Port):
         return self.path_from_webkit_base('LayoutTests', 'platform',
             'chromium', 'test_expectations.txt')
 
-    def results_directory(self):
+    def default_results_directory(self):
         try:
             return self.path_from_chromium_base('webkit',
                 self.get_option('configuration'),
-                self.get_option('results_directory'))
+                'layout-test-results')
         except AssertionError:
             return self._build_path(self.get_option('configuration'),
-                                    self.get_option('results_directory'))
+                                    'layout-test-results')
 
     def setup_test_run(self):
         # Delete the disk cache if any to ensure a clean test run.
@@ -230,6 +241,9 @@ class ChromiumPort(base.Port):
             # http://bugs.python.org/issue1731717
             self._helper.wait()
 
+    def all_baseline_variants(self):
+        return self.ALL_BASELINE_VARIANTS
+
     def test_expectations(self):
         """Returns the test expectations for this port.
 
@@ -251,7 +265,6 @@ class ChromiumPort(base.Port):
     def skipped_layout_tests(self, extra_test_files=None):
         expectations_str = self.test_expectations()
         overrides_str = self.test_expectations_overrides()
-        test_platform_name = self.test_platform_name()
         is_debug_mode = False
 
         all_test_files = self.tests([])
@@ -264,15 +277,6 @@ class ChromiumPort(base.Port):
         tests_dir = self.layout_tests_dir()
         return [self.relative_test_filename(test)
                 for test in expectations.get_tests_with_result_type(test_expectations.SKIP)]
-
-    def test_platform_names(self):
-        return ('mac', 'win', 'linux', 'win-xp', 'win-vista', 'win-7')
-
-    def test_platform_name_to_name(self, test_platform_name):
-        if test_platform_name in self.test_platform_names():
-            return 'chromium-' + test_platform_name
-        raise ValueError('Unsupported test_platform_name: %s' %
-                         test_platform_name)
 
     def test_repository_paths(self):
         # Note: for JSON file's backward-compatibility we use 'chrome' rather
@@ -335,9 +339,9 @@ class ChromiumDriver(base.Driver):
         self._port = port
         self._worker_number = worker_number
         self._image_path = None
+        self.KILL_TIMEOUT = 3.0
         if self._port.get_option('pixel_tests'):
-            self._image_path = self._port._filesystem.join(
-                self._port.get_option('results_directory'),
+            self._image_path = self._port._filesystem.join(self._port.results_directory(),
                 'png_result%s.png' % self._worker_number)
 
     def cmd_line(self):
@@ -371,6 +375,8 @@ class ChromiumDriver(base.Driver):
             cmd.append('--enable-accelerated-2d-canvas')
         if self._port.get_option('enable_hardware_gpu'):
             cmd.append('--enable-hardware-gpu')
+
+        cmd.extend(self._port.get_option('additional_drt_flag', []))
         return cmd
 
     def start(self):
@@ -426,7 +432,7 @@ class ChromiumDriver(base.Driver):
         if png_path and self._port._filesystem.exists(png_path):
             return self._port._filesystem.read_binary_file(png_path)
         else:
-            return ''
+            return None
 
     def _output_image_with_retry(self):
         # Retry a few more times because open() sometimes fails on Windows,
@@ -501,11 +507,16 @@ class ChromiumDriver(base.Driver):
 
             (line, crash) = self._write_command_and_read_line(input=None)
 
+        # FIXME: Add support for audio when we're ready.
+
         run_time = time.time() - start_time
         output_image = self._output_image_with_retry()
-        assert output_image is not None
-        return base.DriverOutput(''.join(output), output_image, actual_checksum,
-                                 crash, run_time, timeout, ''.join(error))
+        text = ''.join(output)
+        if not text:
+            text = None
+
+        return base.DriverOutput(text, output_image, actual_checksum, audio=None,
+            crash=crash, test_time=run_time, timeout=timeout, error=''.join(error))
 
     def stop(self):
         if self._proc:
@@ -513,21 +524,19 @@ class ChromiumDriver(base.Driver):
             self._proc.stdout.close()
             if self._proc.stderr:
                 self._proc.stderr.close()
-            if sys.platform not in ('win32', 'cygwin'):
-                # Closing stdin/stdout/stderr hangs sometimes on OS X,
-                # (see __init__(), above), and anyway we don't want to hang
-                # the harness if DRT is buggy, so we wait a couple
-                # seconds to give DRT a chance to clean up, but then
-                # force-kill the process if necessary.
-                KILL_TIMEOUT = 3.0
-                timeout = time.time() + KILL_TIMEOUT
-                # poll() is not threadsafe and can throw OSError due to:
-                # http://bugs.python.org/issue1731717
-                while self._proc.poll() is None and time.time() < timeout:
-                    time.sleep(0.1)
-                # poll() is not threadsafe and can throw OSError due to:
-                # http://bugs.python.org/issue1731717
-                if self._proc.poll() is None:
-                    _log.warning('stopping test driver timed out, '
-                                 'killing it')
-                    self._port._executive.kill_process(self._proc.pid)
+            # Closing stdin/stdout/stderr hangs sometimes on OS X,
+            # (see __init__(), above), and anyway we don't want to hang
+            # the harness if DRT is buggy, so we wait a couple
+            # seconds to give DRT a chance to clean up, but then
+            # force-kill the process if necessary.
+            timeout = time.time() + self.KILL_TIMEOUT
+            while self._proc.poll() is None and time.time() < timeout:
+                time.sleep(0.1)
+            if self._proc.poll() is None:
+                _log.warning('stopping test driver timed out, '
+                                'killing it')
+                self._port._executive.kill_process(self._proc.pid)
+            # FIXME: This is sometime none. What is wrong? assert self._proc.poll() is not None
+            if self._proc.poll() is not None:
+                self._proc.wait()
+            self._proc = None

@@ -31,7 +31,7 @@
 #include "IntSize.h"
 #include <wtf/MathExtras.h>
 
-#if PLATFORM(CG) || (PLATFORM(WX) && OS(DARWIN))
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
 typedef struct CGSize CGSize;
 #endif
 
@@ -89,7 +89,7 @@ public:
         return m_width * m_width + m_height * m_height;
     }
 
-#if PLATFORM(CG) || (PLATFORM(WX) && OS(DARWIN))
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
     explicit FloatSize(const CGSize&); // don't do this implicitly since it's lossy
     operator CGSize() const;
 #endif
@@ -146,6 +146,11 @@ inline bool operator!=(const FloatSize& a, const FloatSize& b)
 inline IntSize roundedIntSize(const FloatSize& p)
 {
     return IntSize(static_cast<int>(roundf(p.width())), static_cast<int>(roundf(p.height())));
+}
+
+inline IntSize expandedIntSize(const FloatSize& p)
+{
+    return IntSize(clampToInteger(ceilf(p.width())), clampToInteger(ceilf(p.height())));
 }
 
 } // namespace WebCore

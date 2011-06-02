@@ -53,7 +53,6 @@
 #import "WebKitNSStringExtras.h"
 #import "WebKitVersionChecks.h"
 #import "WebLocalizableStringsInternal.h"
-#import "WebNSAttributedStringExtras.h"
 #import "WebNSEventExtras.h"
 #import "WebNSFileManagerExtras.h"
 #import "WebNSImageExtras.h"
@@ -94,6 +93,7 @@
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameView.h>
+#import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/Image.h>
@@ -112,6 +112,7 @@
 #import <WebCore/Text.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebFontCache.h>
+#import <WebCore/WebNSAttributedStringExtras.h>
 #import <WebCore/markup.h>
 #import <WebKit/DOM.h>
 #import <WebKit/DOMExtensions.h>
@@ -431,6 +432,7 @@ static CachedResourceClient* promisedDataClient()
 
 @interface WebHTMLView (WebForwardDeclaration) // FIXME: Put this in a normal category and stop doing the forward declaration trick.
 - (void)_setPrinting:(BOOL)printing minimumPageLogicalWidth:(float)minPageWidth logicalHeight:(float)minPageHeight maximumPageLogicalWidth:(float)maxPageWidth adjustViewSize:(BOOL)adjustViewSize paginateScreenContent:(BOOL)paginateScreenContent;
+- (void)_updateSecureInputState;
 @end
 
 @class NSTextInputContext;
@@ -465,6 +467,7 @@ struct WebHTMLViewInterpretKeyEventsParameters {
     bool eventInterpretationHadSideEffects;
     bool shouldSaveCommands;
     bool consumedByIM;
+    bool executingSavedKeypressCommands;
 };
 
 @interface WebHTMLViewPrivate : NSObject {
@@ -492,6 +495,11 @@ struct WebHTMLViewInterpretKeyEventsParameters {
     // A WebHTMLView has a single input context, but we return nil when in non-editable content to avoid making input methods do their work.
     // This state is saved each time selection changes, because computing it causes style recalc, which is not always safe to do.
     BOOL exposeInputContext;
+
+    // Track whether the view has set a secure input state.
+    BOOL isInSecureInputState;
+
+    BOOL _forceUpdateSecureInputState;
 
     NSPoint lastScrollPosition;
 #ifndef BUILDING_ON_TIGER
@@ -1041,12 +1049,10 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
         [pasteboard setData:RTFDData forType:NSRTFDPboardType];
     }        
     if ([types containsObject:NSRTFPboardType]) {
-        if (attributedString == nil) {
+        if (!attributedString)
             attributedString = [self selectedAttributedString];
-        }
-        if ([attributedString containsAttachments]) {
-            attributedString = [attributedString _web_attributedStringByStrippingAttachmentCharacters];
-        }
+        if ([attributedString containsAttachments])
+            attributedString = attributedStringByStrippingAttachmentCharacters(attributedString);
         NSData *RTFData = [attributedString RTFFromRange:NSMakeRange(0, [attributedString length]) documentAttributes:nil];
         [pasteboard setData:RTFData forType:NSRTFPboardType];
     }
@@ -1993,6 +1999,11 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     [_private->pluginController setDataSource:nil];
     // remove tooltips before clearing _private so removeTrackingRect: will work correctly
     [self removeAllToolTips];
+
+    if (_private->isInSecureInputState) {
+        DisableSecureEventInput();
+        _private->isInSecureInputState = NO;
+    }
 
     [_private clear];
 }
@@ -3459,8 +3470,10 @@ static void setMenuTargets(NSMenu* menu)
 
     NSWindow *keyWindow = [notification object];
 
-    if (keyWindow == [self window])
+    if (keyWindow == [self window]) {
         [self addMouseMovedObserver];
+        [self _updateSecureInputState];
+    }
 }
 
 - (void)windowDidResignKey:(NSNotification *)notification
@@ -3475,8 +3488,10 @@ static void setMenuTargets(NSMenu* menu)
     if (formerKeyWindow == [self window])
         [self removeMouseMovedObserver];
 
-    if (formerKeyWindow == [self window] || formerKeyWindow == [[self window] attachedSheet])
+    if (formerKeyWindow == [self window] || formerKeyWindow == [[self window] attachedSheet]) {
+        [self _updateSecureInputState];
         [_private->completionController endRevertingChange:NO moveLeft:NO];
+    }
 }
 
 - (void)windowWillClose:(NSNotification *)notification
@@ -3809,6 +3824,10 @@ static BOOL isInPasswordField(Frame* coreFrame)
         [NSApp updateWindows];
     }
 
+    _private->_forceUpdateSecureInputState = YES;
+    [self _updateSecureInputState];
+    _private->_forceUpdateSecureInputState = NO;
+
     frame->editor()->setStartNewKillRingSequence(true);
 
     Page* page = frame->page();
@@ -3834,6 +3853,10 @@ static BOOL isInPasswordField(Frame* coreFrame)
 {
     BOOL resign = [super resignFirstResponder];
     if (resign) {
+        if (_private->isInSecureInputState) {
+            DisableSecureEventInput();
+            _private->isInSecureInputState = NO;
+        }
         [_private->completionController endRevertingChange:NO moveLeft:NO];
         Frame* coreFrame = core([self _frame]);
         if (!coreFrame)
@@ -4163,15 +4186,12 @@ static BOOL isInPasswordField(Frame* coreFrame)
     // the current event prevents that from causing a problem inside WebKit or AppKit code.
     [[event retain] autorelease];
 
-    Frame* coreFrame = core([self _frame]);
-    if (coreFrame)
-        coreFrame->eventHandler()->capsLockStateMayHaveChanged();
-    
     RetainPtr<WebHTMLView> selfProtector = self;
 
+    Frame* coreFrame = core([self _frame]);
     unsigned short keyCode = [event keyCode];
 
-    //Don't make an event from the num lock and function keys
+    // Don't make an event from the num lock and function keys.
     if (coreFrame && keyCode != 0 && keyCode != 10 && keyCode != 63) {
         coreFrame->eventHandler()->keyEvent(PlatformKeyboardEvent(event));
         return;
@@ -4370,8 +4390,11 @@ static BOOL isInPasswordField(Frame* coreFrame)
 
 - (BOOL)_handleStyleKeyEquivalent:(NSEvent *)event
 {
-    ASSERT([self _webView]);
-    if (![[[self _webView] preferences] respectStandardStyleKeyEquivalents])
+    WebView *webView = [self _webView];
+    if (!webView)
+        return NO;
+
+    if (![[webView preferences] respectStandardStyleKeyEquivalents])
         return NO;
     
     if (![self _canEdit])
@@ -5428,26 +5451,35 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
     [self _updateMouseoverWithFakeEvent];
 }
 
-- (void)_executeSavedEditingCommands
+- (void)_executeSavedKeypressCommands
 {
     WebHTMLViewInterpretKeyEventsParameters* parameters = _private->interpretKeyEventsParameters;
     if (!parameters || parameters->event->keypressCommands().isEmpty())
         return;
 
+    // We could be called again if the execution of one command triggers a call to selectedRange.
+    // In this case, the state is up to date, and we don't need to execute any more saved commands to return a result
+    if (parameters->executingSavedKeypressCommands)
+        return;
+    
     // Avoid an infinite loop that would occur if executing a command appended it to event->keypressCommands() again.
     bool wasSavingCommands = parameters->shouldSaveCommands;
     parameters->shouldSaveCommands = false;
-
+    parameters->executingSavedKeypressCommands = true;
+    
     const Vector<KeypressCommand>& commands = parameters->event->keypressCommands();
 
     for (size_t i = 0; i < commands.size(); ++i) {
         if (commands[i].commandName == "insertText:")
             [self insertText:commands[i].text];
+        else if (commands[i].commandName == "noop:")
+            ; // Do nothing. This case can be removed once <rdar://problem/9025012> is fixed.
         else
             [self doCommandBySelector:NSSelectorFromString(commands[i].commandName)];
     }
     parameters->event->keypressCommands().clear();
     parameters->shouldSaveCommands = wasSavingCommands;
+    parameters->executingSavedKeypressCommands = false;
 }
 
 - (BOOL)_interpretKeyEvent:(KeyboardEvent*)event savingCommands:(BOOL)savingCommands
@@ -5458,6 +5490,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
     WebHTMLViewInterpretKeyEventsParameters parameters;
     parameters.eventInterpretationHadSideEffects = false;
     parameters.shouldSaveCommands = savingCommands;
+    parameters.executingSavedKeypressCommands = false;
     // If we're intercepting the initial IM call we assume that the IM has consumed the event, 
     // and only change this assumption if one of the NSTextInput/Responder callbacks is used.
     // We assume the IM will *not* consume hotkey sequences
@@ -5501,7 +5534,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
         // If there are no text insertion commands, default keydown handler is the right time to execute the commands.
         // Keypress (Char event) handler is the latest opportunity to execute.
         if (!haveTextInsertionCommands || platformEvent->type() == PlatformKeyboardEvent::Char)
-            [self _executeSavedEditingCommands];
+            [self _executeSavedKeypressCommands];
     }
     _private->interpretKeyEventsParameters = 0;
 
@@ -5746,7 +5779,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
 
 - (NSUInteger)characterIndexForPoint:(NSPoint)thePoint
 {
-    [self _executeSavedEditingCommands];
+    [self _executeSavedKeypressCommands];
 
     NSWindow *window = [self window];
     WebFrame *frame = [self _frame];
@@ -5768,7 +5801,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
 
 - (NSRect)firstRectForCharacterRange:(NSRange)theRange
 {
-    [self _executeSavedEditingCommands];
+    [self _executeSavedKeypressCommands];
 
     WebFrame *frame = [self _frame];
     
@@ -5800,7 +5833,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
 
 - (NSRange)selectedRange
 {
-    [self _executeSavedEditingCommands];
+    [self _executeSavedKeypressCommands];
 
     if (!isTextInput(core([self _frame]))) {
         LOG(TextInput, "selectedRange -> (NSNotFound, 0)");
@@ -5814,7 +5847,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
 
 - (NSRange)markedRange
 {
-    [self _executeSavedEditingCommands];
+    [self _executeSavedKeypressCommands];
 
     WebFrame *webFrame = [self _frame];
     Frame* coreFrame = core(webFrame);
@@ -5828,7 +5861,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
 
 - (NSAttributedString *)attributedSubstringFromRange:(NSRange)nsRange
 {
-    [self _executeSavedEditingCommands];
+    [self _executeSavedKeypressCommands];
 
     WebFrame *frame = [self _frame];
     Frame* coreFrame = core(frame);
@@ -5836,15 +5869,15 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
         LOG(TextInput, "attributedSubstringFromRange:(%u, %u) -> nil", nsRange.location, nsRange.length);
         return nil;
     }
-    DOMRange *domRange = [frame _convertNSRangeToDOMRange:nsRange];
-    if (!domRange) {
+    RefPtr<Range> range = [frame _convertToDOMRange:nsRange];
+    if (!range) {
         LOG(TextInput, "attributedSubstringFromRange:(%u, %u) -> nil", nsRange.location, nsRange.length);
         return nil;
     }
 
-    NSAttributedString *result = [NSAttributedString _web_attributedStringFromRange:core(domRange)];
+    NSAttributedString *result = [WebHTMLConverter editingAttributedStringFromRange:range.get()];
     
-    // [NSAttributedString(WebKitExtras) _web_attributedStringFromRange:]  insists on inserting a trailing 
+    // [WebHTMLConverter editingAttributedStringFromRange:]  insists on inserting a trailing 
     // whitespace at the end of the string which breaks the ATOK input method.  <rdar://problem/5400551>
     // To work around this we truncate the resultant string to the correct length.
     if ([result length] > nsRange.length) {
@@ -5871,23 +5904,27 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
 
 - (BOOL)hasMarkedText
 {
-    [self _executeSavedEditingCommands];
-
     Frame* coreFrame = core([self _frame]);
     BOOL result = coreFrame && coreFrame->editor()->hasComposition();
+
+    if (result) {
+        // A saved command can confirm a composition, but it cannot start a new one.
+        [self _executeSavedKeypressCommands];
+        result = coreFrame->editor()->hasComposition();
+    }
+
     LOG(TextInput, "hasMarkedText -> %u", result);
     return result;
 }
 
 - (void)unmarkText
 {
-    [self _executeSavedEditingCommands];
+    [self _executeSavedKeypressCommands];
 
     LOG(TextInput, "unmarkText");
 
     // Use pointer to get parameters passed to us by the caller of interpretKeyEvents.
     WebHTMLViewInterpretKeyEventsParameters* parameters = _private->interpretKeyEventsParameters;
-    _private->interpretKeyEventsParameters = 0;
 
     if (parameters) {
         parameters->eventInterpretationHadSideEffects = true;
@@ -5920,15 +5957,15 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 
 - (void)setMarkedText:(id)string selectedRange:(NSRange)newSelRange
 {
-    [self _executeSavedEditingCommands];
+    [self _executeSavedKeypressCommands];
 
-    BOOL isAttributedString = [string isKindOfClass:[NSAttributedString class]]; // Otherwise, NSString
+    BOOL isAttributedString = [string isKindOfClass:[NSAttributedString class]];
+    ASSERT(isAttributedString || [string isKindOfClass:[NSString class]]);
 
     LOG(TextInput, "setMarkedText:\"%@\" selectedRange:(%u, %u)", isAttributedString ? [string string] : string, newSelRange.location, newSelRange.length);
 
     // Use pointer to get parameters passed to us by the caller of interpretKeyEvents.
     WebHTMLViewInterpretKeyEventsParameters* parameters = _private->interpretKeyEventsParameters;
-    _private->interpretKeyEventsParameters = 0;
 
     if (parameters) {
         parameters->eventInterpretationHadSideEffects = true;
@@ -5943,20 +5980,25 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
         return;
 
     Vector<CompositionUnderline> underlines;
-    NSString *text = string;
+    NSString *text;
+    NSRange replacementRange = { NSNotFound, 0 };
 
     if (isAttributedString) {
-        unsigned markedTextLength = [(NSString *)string length];
-        NSString *rangeString = [string attribute:NSTextInputReplacementRangeAttributeName atIndex:0 longestEffectiveRange:0 inRange:NSMakeRange(0, markedTextLength)];
+        // FIXME: We ignore most attributes from the string, so an input method cannot specify e.g. a font or a glyph variation.
+        text = [string string];
+        NSString *rangeString = [string attribute:NSTextInputReplacementRangeAttributeName atIndex:0 longestEffectiveRange:0 inRange:NSMakeRange(0, [text length])];
         LOG(TextInput, "    ReplacementRange: %@", rangeString);
         // The AppKit adds a 'secret' property to the string that contains the replacement range.
         // The replacement range is the range of the the text that should be replaced with the new string.
         if (rangeString)
-            [[self _frame] _selectNSRange:NSRangeFromString(rangeString)];
+            replacementRange = NSRangeFromString(rangeString);
 
-        text = [string string];
         extractUnderlines(string, underlines);
-    }
+    } else
+        text = string;
+
+    if (replacementRange.location != NSNotFound)
+        [[self _frame] _selectNSRange:replacementRange];
 
     coreFrame->editor()->setComposition(text, underlines, newSelRange.location, NSMaxRange(newSelRange));
 }
@@ -6018,7 +6060,8 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 
 - (void)insertText:(id)string
 {
-    BOOL isAttributedString = [string isKindOfClass:[NSAttributedString class]]; // Otherwise, NSString
+    BOOL isAttributedString = [string isKindOfClass:[NSAttributedString class]];
+    ASSERT(isAttributedString || [string isKindOfClass:[NSString class]]);
 
     LOG(TextInput, "insertText:\"%@\"", isAttributedString ? [string string] : string);
 
@@ -6026,20 +6069,19 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     if (parameters)
         parameters->consumedByIM = false;
 
-    // We don't support inserting an attributed string but input methods don't appear to require this.
     RefPtr<Frame> coreFrame = core([self _frame]);
     NSString *text;
+    NSRange replacementRange = { NSNotFound, 0 };
     bool isFromInputMethod = coreFrame && coreFrame->editor()->hasComposition();
+
     if (isAttributedString) {
+        // FIXME: We ignore most attributes from the string, so for example inserting from Character Palette loses font and glyph variation data.
+        // It does not look like any input methods ever use insertText: with attributes other than NSTextInputReplacementRangeAttributeName.
         text = [string string];
-        // We deal with the NSTextInputReplacementRangeAttributeName attribute from NSAttributedString here
-        // simply because it is used by at least one Input Method -- it corresonds to the kEventParamTextInputSendReplaceRange
-        // event in TSM. This behavior matches that of -[WebHTMLView setMarkedText:selectedRange:] when it receives an
-        // NSAttributedString
         NSString *rangeString = [string attribute:NSTextInputReplacementRangeAttributeName atIndex:0 longestEffectiveRange:0 inRange:NSMakeRange(0, [text length])];
         LOG(TextInput, "    ReplacementRange: %@", rangeString);
         if (rangeString) {
-            [[self _frame] _selectNSRange:NSRangeFromString(rangeString)];
+            replacementRange = NSRangeFromString(rangeString);
             isFromInputMethod = true;
         }
     } else
@@ -6062,6 +6104,9 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     if (!coreFrame || !coreFrame->editor()->canEdit())
         return;
 
+    if (replacementRange.location != NSNotFound)
+        [[self _frame] _selectNSRange:replacementRange];
+
     bool eventHandled = false;
     String eventText = text;
     eventText.replace(NSBackTabCharacter, NSTabCharacter); // same thing is done in KeyEventMac.mm in WebCore
@@ -6078,6 +6123,37 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
         parameters->eventInterpretationHadSideEffects |= eventHandled;
 }
 
+- (void)_updateSecureInputState
+{
+    if (![[self window] isKeyWindow] || ([[self window] firstResponder] != self && !_private->_forceUpdateSecureInputState)) {
+        if (_private->isInSecureInputState) {
+            DisableSecureEventInput();
+            _private->isInSecureInputState = NO;
+        }
+        return;
+    }
+
+    Frame* coreFrame = core([self _frame]);
+    if (!coreFrame)
+        return;
+
+    if (isInPasswordField(coreFrame)) {
+        if (!_private->isInSecureInputState)
+            EnableSecureEventInput();
+        _private->isInSecureInputState = YES;
+        // WebKit substitutes nil for input context when in password field, which corresponds to null TSMDocument. So, there is
+        // no need to call TSMGetActiveDocument(), which may return an incorrect result when selection hasn't been yet updated
+        // after focusing a node.
+        static CFArrayRef inputSources = TISCreateASCIICapableInputSourceList();
+        TSMSetDocumentProperty(0, kTSMDocumentEnabledInputSourcesPropertyTag, sizeof(CFArrayRef), &inputSources);
+    } else {
+        if (_private->isInSecureInputState)
+            DisableSecureEventInput();
+        _private->isInSecureInputState = NO;
+        TSMRemoveDocumentProperty(0, kTSMDocumentEnabledInputSourcesPropertyTag);
+    }
+}
+
 - (void)_updateSelectionForInputManager
 {
     Frame* coreFrame = core([self _frame]);
@@ -6092,6 +6168,8 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
         if (!coreFrame->selection()->isNone())
             [NSApp updateWindows];
     }
+
+    [self _updateSecureInputState];
 
     if (!coreFrame->editor()->hasComposition())
         return;
@@ -6214,7 +6292,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     NSAttributedString *attributedString = [self _attributeStringFromDOMRange:[document _documentRange]];
     if (!attributedString) {
         Document* coreDocument = core(document);
-        attributedString = [NSAttributedString _web_attributedStringFromRange:Range::create(coreDocument, coreDocument, 0, coreDocument, coreDocument->childNodeCount()).get()];
+        attributedString = [WebHTMLConverter editingAttributedStringFromRange:Range::create(coreDocument, coreDocument, 0, coreDocument, coreDocument->childNodeCount()).get()];
     }
     return attributedString;
 }
@@ -6231,7 +6309,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
         Frame* coreFrame = core([self _frame]);
         if (coreFrame) {
             RefPtr<Range> range = coreFrame->selection()->selection().toNormalizedRange();
-            attributedString = [NSAttributedString _web_attributedStringFromRange:range.get()];
+            attributedString = [WebHTMLConverter editingAttributedStringFromRange:range.get()];
         }
     }
     return attributedString;

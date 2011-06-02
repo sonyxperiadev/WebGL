@@ -104,6 +104,11 @@ public:
         , useTestFonts(false)
 #endif
         , printLoadedUrls(false)
+#if defined(Q_OS_SYMBIAN)
+        , startMaximized(true)
+#else
+        , startMaximized(false)
+#endif
     {
     }
 
@@ -129,6 +134,7 @@ public:
     bool printLoadedUrls;
     QUrl inspectorUrl;
     quint16 remoteInspectorPort;
+    bool startMaximized;
 };
 
 class LauncherWindow : public MainWindow {
@@ -164,6 +170,8 @@ protected slots:
 
     /* void dumpPlugins() */
     void dumpHtml();
+
+    void loadURLListFromFile();
 
     void setTouchMocking(bool on);
     void toggleWebView(bool graphicsBased);
@@ -216,6 +224,8 @@ private:
 private:
     static QVector<int> m_zoomLevels;
     int m_currentZoom;
+
+    UrlLoader* m_urlLoader;
 
     QWidget* m_view;
     WebInspector* m_inspector;

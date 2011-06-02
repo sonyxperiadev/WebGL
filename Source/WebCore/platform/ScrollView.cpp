@@ -28,6 +28,7 @@
 
 #include "AXObjectCache.h"
 #include "GraphicsContext.h"
+#include "GraphicsLayer.h"
 #include "HostWindow.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
@@ -56,6 +57,7 @@ ScrollView::ScrollView()
     , m_paintsEntireContents(false)
     , m_clipsRepaints(true)
     , m_delegatesScrolling(false)
+    , m_containsScrollableAreaWithOverlayScrollbars(false)
 {
     platformInit();
 }
@@ -873,7 +875,44 @@ void ScrollView::frameRectsChanged()
     HashSet<RefPtr<Widget> >::const_iterator end = m_children.end();
     for (HashSet<RefPtr<Widget> >::const_iterator current = m_children.begin(); current != end; ++current)
         (*current)->frameRectsChanged();
+    positionScrollbarLayers();
 }
+
+#if USE(ACCELERATED_COMPOSITING)
+static void positionScrollbarLayer(GraphicsLayer* graphicsLayer, Scrollbar* scrollbar)
+{
+    if (!graphicsLayer || !scrollbar)
+        return;
+    graphicsLayer->setDrawsContent(true);
+    IntRect scrollbarRect = scrollbar->frameRect();
+    graphicsLayer->setPosition(scrollbarRect.location());
+    if (scrollbarRect.size() != graphicsLayer->size())
+        graphicsLayer->setNeedsDisplay();
+    graphicsLayer->setSize(scrollbarRect.size());
+}
+
+static void positionScrollCornerLayer(GraphicsLayer* graphicsLayer, const IntRect& cornerRect)
+{
+    if (!graphicsLayer)
+        return;
+    graphicsLayer->setDrawsContent(!cornerRect.isEmpty());
+    graphicsLayer->setPosition(cornerRect.location());
+    if (cornerRect.size() != graphicsLayer->size())
+        graphicsLayer->setNeedsDisplay();
+    graphicsLayer->setSize(cornerRect.size());
+}
+#endif
+
+
+void ScrollView::positionScrollbarLayers()
+{
+#if USE(ACCELERATED_COMPOSITING)
+    positionScrollbarLayer(layerForHorizontalScrollbar(), horizontalScrollbar());
+    positionScrollbarLayer(layerForVerticalScrollbar(), verticalScrollbar());
+    positionScrollCornerLayer(layerForScrollCorner(), scrollCornerRect());
+#endif
+}
+
 
 void ScrollView::repaintContentRectangle(const IntRect& rect, bool now)
 {
@@ -919,6 +958,11 @@ IntRect ScrollView::scrollCornerRect() const
     return cornerRect;
 }
 
+bool ScrollView::isScrollCornerVisible() const
+{
+    return !scrollCornerRect().isEmpty();
+}
+
 void ScrollView::updateScrollCorner()
 {
 }
@@ -928,13 +972,30 @@ void ScrollView::paintScrollCorner(GraphicsContext* context, const IntRect& corn
     ScrollbarTheme::nativeTheme()->paintScrollCorner(this, context, cornerRect);
 }
 
+void ScrollView::invalidateScrollCornerRect(const IntRect& rect)
+{
+    invalidateRect(rect);
+}
+
 void ScrollView::paintScrollbars(GraphicsContext* context, const IntRect& rect)
 {
-    if (m_horizontalScrollbar)
+    if (m_horizontalScrollbar
+#if USE(ACCELERATED_COMPOSITING)
+        && !layerForHorizontalScrollbar()
+#endif
+                                      )
         m_horizontalScrollbar->paint(context, rect);
-    if (m_verticalScrollbar)
+    if (m_verticalScrollbar
+#if USE(ACCELERATED_COMPOSITING)
+        && !layerForVerticalScrollbar()
+#endif
+                                    )
         m_verticalScrollbar->paint(context, rect);
 
+#if USE(ACCELERATED_COMPOSITING)
+    if (layerForScrollCorner())
+        return;
+#endif
     paintScrollCorner(context, scrollCornerRect());
 }
 
@@ -955,6 +1016,9 @@ void ScrollView::paint(GraphicsContext* context, const IntRect& rect)
         return;
 
     notifyPageThatContentAreaWillPaint();
+
+    // If we encounter any overlay scrollbars as we paint, this will be set to true.
+    m_containsScrollableAreaWithOverlayScrollbars = false;
     
     IntRect documentDirtyRect = rect;
     documentDirtyRect.intersect(frameRect());

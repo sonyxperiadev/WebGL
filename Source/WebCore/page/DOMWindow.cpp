@@ -86,6 +86,7 @@
 #include "Settings.h"
 #include "Storage.h"
 #include "StorageArea.h"
+#include "StorageInfo.h"
 #include "StorageNamespace.h"
 #include "StyleMedia.h"
 #include "SuddenTermination.h"
@@ -743,7 +744,7 @@ IDBFactory* DOMWindow::webkitIndexedDB() const
 #endif
 
 #if ENABLE(FILE_SYSTEM)
-void DOMWindow::requestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+void DOMWindow::webkitRequestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
 {
     Document* document = this->document();
     if (!document)
@@ -755,7 +756,7 @@ void DOMWindow::requestFileSystem(int type, long long size, PassRefPtr<FileSyste
     }
 
     AsyncFileSystem::Type fileSystemType = static_cast<AsyncFileSystem::Type>(type);
-    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent) {
+    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent && fileSystemType != AsyncFileSystem::External) {
         DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(FileError::INVALID_MODIFICATION_ERR));
         return;
     }
@@ -763,7 +764,7 @@ void DOMWindow::requestFileSystem(int type, long long size, PassRefPtr<FileSyste
     LocalFileSystem::localFileSystem().requestFileSystem(document, fileSystemType, size, FileSystemCallbacks::create(successCallback, errorCallback, document), false);
 }
 
-void DOMWindow::resolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+void DOMWindow::webkitResolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
 {
     Document* document = this->document();
     if (!document)
@@ -785,6 +786,8 @@ void DOMWindow::resolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCal
 
     LocalFileSystem::localFileSystem().readFileSystem(document, type, ResolveURICallbacks::create(successCallback, errorCallback, document, filePath));
 }
+
+COMPILE_ASSERT(static_cast<int>(DOMWindow::EXTERNAL) == static_cast<int>(AsyncFileSystem::External), enum_mismatch);
 
 COMPILE_ASSERT(static_cast<int>(DOMWindow::TEMPORARY) == static_cast<int>(AsyncFileSystem::Temporary), enum_mismatch);
 COMPILE_ASSERT(static_cast<int>(DOMWindow::PERSISTENT) == static_cast<int>(AsyncFileSystem::Persistent), enum_mismatch);
@@ -1867,6 +1870,9 @@ void DOMWindow::showModalDialog(const String& urlString, const String& dialogFea
     if (!firstFrame)
         return;
 
+    if (m_frame->page())
+        m_frame->page()->chrome()->willRunModalHTMLDialog(m_frame);
+
     if (!canShowModalDialogNow(m_frame) || !firstWindow->allowPopUp())
         return;
 
@@ -1884,6 +1890,15 @@ DOMURL* DOMWindow::webkitURL() const
     if (!m_domURL)
         m_domURL = DOMURL::create(this->scriptExecutionContext());
     return m_domURL.get();
+}
+#endif
+
+#if ENABLE(QUOTA)
+StorageInfo* DOMWindow::webkitStorageInfo() const
+{
+    if (!m_storageInfo)
+        m_storageInfo = StorageInfo::create();
+    return m_storageInfo.get();
 }
 #endif
 

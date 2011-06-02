@@ -84,6 +84,30 @@ void WebUIClient::close(WebPageProxy* page)
     m_client.close(toAPI(page), m_client.clientInfo);
 }
 
+void WebUIClient::takeFocus(WebPageProxy* page, WKFocusDirection direction)
+{
+    if (!m_client.takeFocus)
+        return;
+    
+    m_client.takeFocus(toAPI(page), direction, m_client.clientInfo);
+}
+
+void WebUIClient::focus(WebPageProxy* page)
+{
+    if (!m_client.focus)
+        return;
+    
+    m_client.focus(toAPI(page), m_client.clientInfo);
+}
+
+void WebUIClient::unfocus(WebPageProxy* page)
+{
+    if (!m_client.unfocus)
+        return;
+
+    m_client.unfocus(toAPI(page), m_client.clientInfo);
+}
+
 void WebUIClient::runJavaScriptAlert(WebPageProxy* page, const String& message, WebFrameProxy* frame)
 {
     if (!m_client.runJavaScriptAlert)
@@ -137,6 +161,11 @@ void WebUIClient::missingPluginButtonClicked(WebPageProxy* page, const String& m
         return;
 
     m_client.missingPluginButtonClicked(toAPI(page), toAPI(mimeType.impl()), toAPI(url.impl()), toAPI(pluginsPageURL.impl()), m_client.clientInfo);
+}
+
+bool WebUIClient::implementsDidNotHandleKeyEvent() const
+{
+    return m_client.didNotHandleKeyEvent;
 }
 
 void WebUIClient::didNotHandleKeyEvent(WebPageProxy* page, const NativeWebKeyboardEvent& event)

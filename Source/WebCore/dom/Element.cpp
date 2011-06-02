@@ -54,6 +54,7 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "Settings.h"
+#include "ShadowRoot.h"
 #include "TextIterator.h"
 #include "WebKitAnimationList.h"
 #include "XMLNames.h"
@@ -543,11 +544,19 @@ PassRefPtr<ClientRectList> Element::getClientRects() const
     Vector<FloatQuad> quads;
     renderBoxModelObject->absoluteQuads(quads);
 
+    float pageScale = 1;
+    if (Page* page = document()->page()) {
+        if (Frame* frame = page->mainFrame())
+            pageScale = frame->pageScaleFactor();
+    }
+
     if (FrameView* view = document()->view()) {
         IntRect visibleContentRect = view->visibleContentRect();
         for (size_t i = 0; i < quads.size(); ++i) {
             quads[i].move(-visibleContentRect.x(), -visibleContentRect.y());
             adjustFloatQuadForAbsoluteZoom(quads[i], renderBoxModelObject);
+            if (pageScale != 1)
+                adjustFloatQuadForPageScale(quads[i], pageScale);
         }
     }
 
@@ -587,6 +596,11 @@ PassRefPtr<ClientRect> Element::getBoundingClientRect() const
     }
 
     adjustFloatRectForAbsoluteZoom(result, renderer());
+    if (Page* page = document()->page()) {
+        if (Frame* frame = page->mainFrame())
+            adjustFloatRectForPageScale(result, frame->pageScaleFactor());
+    }
+
     return ClientRect::create(result);
 }
     
@@ -643,22 +657,20 @@ void Element::setAttribute(const AtomicString& name, const AtomicString& value, 
 #endif
 
     const AtomicString& localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
-
+    QualifiedName attributeName(nullAtom, localName, nullAtom);
+    
     // Allocate attribute map if necessary.
     Attribute* old = attributes(false)->getAttributeItem(localName, false);
 
     document()->incDOMTreeVersion();
 
-    // FIXME: This check is probably not correct for the case where the document has an id attribute
-    // with a non-null namespace, because it will return true if the local name happens to match
-    // but the namespace does not.
-    if (localName == document()->idAttributeName().localName())
+    if (isIdAttributeName(old ? old->name() : attributeName))
         updateId(old ? old->value() : nullAtom, value);
 
     if (old && value.isNull())
         m_attributeMap->removeAttribute(old->name());
     else if (!old && !value.isNull())
-        m_attributeMap->addAttribute(createAttribute(QualifiedName(nullAtom, localName, nullAtom), value));
+        m_attributeMap->addAttribute(createAttribute(attributeName, value));
     else if (old && !value.isNull()) {
         if (Attr* attrNode = old->attr())
             attrNode->setValue(value);
@@ -713,6 +725,8 @@ PassRefPtr<Attribute> Element::createAttribute(const QualifiedName& name, const 
 
 void Element::attributeChanged(Attribute* attr, bool)
 {
+    if (isIdAttributeName(attr->name()))
+        idAttributeChanged(attr);
     recalcStyleIfNeededAfterAttributeChanged(attr);
     updateAfterAttributeChanged(attr);
 }
@@ -751,6 +765,20 @@ void Element::recalcStyleIfNeededAfterAttributeChanged(Attribute* attr)
         setNeedsStyleRecalc();
 }
 
+void Element::idAttributeChanged(Attribute* attr)
+{
+    setHasID(!attr->isNull());
+    if (attributeMap()) {
+        if (attr->isNull())
+            attributeMap()->setIdForStyleResolution(nullAtom);
+        else if (document()->inQuirksMode())
+            attributeMap()->setIdForStyleResolution(attr->value().lower());
+        else
+            attributeMap()->setIdForStyleResolution(attr->value());
+    }
+    setNeedsStyleRecalc();
+}
+    
 // Returns true is the given attribute is an event handler.
 // We consider an event handler any attribute that begins with "on".
 // It is a simple solution that has the advantage of not requiring any
@@ -957,13 +985,16 @@ void Element::attach()
     createRendererIfNeeded();
     
     StyleSelectorParentPusher parentPusher(this);
-    if (firstChild())
-        parentPusher.push();
-    ContainerNode::attach();
+
     if (Node* shadow = shadowRoot()) {
         parentPusher.push();
         shadow->attach();
     }
+
+    if (firstChild())
+        parentPusher.push();
+    ContainerNode::attach();
+
     if (hasRareData()) {   
         ElementRareData* data = rareData();
         if (data->needsFocusAppearanceUpdateSoonAfterAttach()) {
@@ -1047,7 +1078,7 @@ void Element::recalcStyle(StyleChange change)
 {
     // Ref currentStyle in case it would otherwise be deleted when setRenderStyle() is called.
     RefPtr<RenderStyle> currentStyle(renderStyle());
-    bool hasParentStyle = parentOrHostNode() ? parentOrHostNode()->renderStyle() : false;
+    bool hasParentStyle = parentNodeForRenderingAndStyle() ? parentNodeForRenderingAndStyle()->renderStyle() : false;
     bool hasDirectAdjacentRules = currentStyle && currentStyle->childrenAffectedByDirectAdjacentRules();
 
     if ((change > NoChange || needsStyleRecalc())) {
@@ -1134,7 +1165,7 @@ void Element::recalcStyle(StyleChange change)
     }
     // FIXME: This does not care about sibling combinators. Will be necessary in XBL2 world.
     if (Node* shadow = shadowRoot()) {
-        if (change >= Inherit || shadow->isTextNode() || shadow->childNeedsStyleRecalc() || shadow->needsStyleRecalc()) {
+        if (change >= Inherit || shadow->childNeedsStyleRecalc() || shadow->needsStyleRecalc()) {
             parentPusher.push();
             shadow->recalcStyle(change);
         }
@@ -1144,28 +1175,24 @@ void Element::recalcStyle(StyleChange change)
     clearChildNeedsStyleRecalc();
 }
 
-Node* Element::shadowRoot()
+ContainerNode* Element::shadowRoot() const
 {
     return hasRareData() ? rareData()->m_shadowRoot : 0;
 }
 
-void Element::setShadowRoot(PassRefPtr<Node> node)
+ContainerNode* Element::ensureShadowRoot()
 {
-    // FIXME: Because today this is never called from script directly, we don't have to worry
-    // about compromising DOM tree integrity (eg. node being a parent of this). However,
-    // once we implement XBL2, we will have to add integrity checks here.
-    removeShadowRoot();
+    if (ContainerNode* existingRoot = shadowRoot())
+        return existingRoot;
 
-    RefPtr<Node> newRoot = node;
-    if (!newRoot)
-        return;
-
+    RefPtr<ShadowRoot> newRoot = ShadowRoot::create(document());
     ensureRareData()->m_shadowRoot = newRoot.get();
     newRoot->setShadowHost(this);
     if (inDocument())
         newRoot->insertedIntoDocument();
-    if (attached() && !newRoot->attached())
+    if (attached())
         newRoot->lazyAttach();
+    return newRoot.get();
 }
 
 void Element::removeShadowRoot()
@@ -1185,7 +1212,7 @@ void Element::removeShadowRoot()
     }
 }
 
-bool Element::childTypeAllowed(NodeType type)
+bool Element::childTypeAllowed(NodeType type) const
 {
     switch (type) {
     case ELEMENT_NODE:

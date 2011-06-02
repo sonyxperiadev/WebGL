@@ -36,20 +36,12 @@
 #include "InjectedScript.h"
 #include "InjectedScriptManager.h"
 #include "InspectorValues.h"
-#include "Page.h"
-#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-PassOwnPtr<InspectorRuntimeAgent> InspectorRuntimeAgent::create(InjectedScriptManager* injectedScriptManager, Page* inspectedPage)
-{
-    return adoptPtr(new InspectorRuntimeAgent(injectedScriptManager, inspectedPage));
-}
-
-InspectorRuntimeAgent::InspectorRuntimeAgent(InjectedScriptManager* injectedScriptManager, Page* inspectedPage)
+InspectorRuntimeAgent::InspectorRuntimeAgent(InjectedScriptManager* injectedScriptManager)
     : m_injectedScriptManager(injectedScriptManager)
-    , m_inspectedPage(inspectedPage)
 {
 }
 
@@ -57,12 +49,11 @@ InspectorRuntimeAgent::~InspectorRuntimeAgent()
 {
 }
 
-void InspectorRuntimeAgent::evaluate(ErrorString* errorString, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result)
+void InspectorRuntimeAgent::evaluate(ErrorString* errorString, const String& expression, const String* const objectGroup, const bool* const includeCommandLineAPI, RefPtr<InspectorObject>* result)
 {
-    ScriptState* scriptState = mainWorldScriptState(m_inspectedPage->mainFrame());
-    InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(scriptState);
+    InjectedScript injectedScript = m_injectedScriptManager->injectedScriptFor(getDefaultInspectedState());
     if (!injectedScript.hasNoValue())
-        injectedScript.evaluate(errorString, expression, objectGroup, includeCommandLineAPI, result);
+        injectedScript.evaluate(errorString, expression, objectGroup ? *objectGroup : "", includeCommandLineAPI ? *includeCommandLineAPI : false, result);
 }
 
 void InspectorRuntimeAgent::evaluateOn(ErrorString* errorString, const String& objectId, const String& expression, RefPtr<InspectorObject>* result)
@@ -72,11 +63,11 @@ void InspectorRuntimeAgent::evaluateOn(ErrorString* errorString, const String& o
         injectedScript.evaluateOn(errorString, objectId, expression, result);
 }
 
-void InspectorRuntimeAgent::getProperties(ErrorString* errorString, const String& objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorArray>* result)
+void InspectorRuntimeAgent::getProperties(ErrorString* errorString, const String& objectId, bool ignoreHasOwnProperty, RefPtr<InspectorArray>* result)
 {
     InjectedScript injectedScript = m_injectedScriptManager->injectedScriptForObjectId(objectId);
     if (!injectedScript.hasNoValue())
-        injectedScript.getProperties(errorString, objectId, ignoreHasOwnProperty, abbreviate, result);
+        injectedScript.getProperties(errorString, objectId, ignoreHasOwnProperty, result);
 }
 
 void InspectorRuntimeAgent::setPropertyValue(ErrorString* errorString, const String& objectId, const String& propertyName, const String& expression)
@@ -85,7 +76,7 @@ void InspectorRuntimeAgent::setPropertyValue(ErrorString* errorString, const Str
     if (!injectedScript.hasNoValue())
         injectedScript.setPropertyValue(errorString, objectId, propertyName, expression);
     else
-        *errorString = "No injected script found.";
+        *errorString = "No injected script found";
 }
 
 void InspectorRuntimeAgent::releaseObject(ErrorString*, const String& objectId)

@@ -30,6 +30,7 @@
 
 #include "PageClient.h"
 #include "WebPageProxy.h"
+#include "WindowsKeyboardCodes.h"
 #include <WebCore/IntSize.h>
 #include <gdk/gdk.h>
 #include <glib.h>
@@ -64,6 +65,8 @@ public:
     void handleWheelEvent(GdkEventScroll*);
     void handleMouseEvent(GdkEvent*, int);
 
+    void addPendingEditorCommand(const char* command) { m_pendingEditorCommands.append(WTF::String(command)); }
+
 private:
     WebView(WebContext*, WebPageGroup*);
 
@@ -85,13 +88,14 @@ private:
     virtual void processDidCrash();
     virtual void didRelaunchProcess();
     virtual void pageClosed();
-    virtual void setFocus(bool focused);
     virtual void takeFocus(bool direction);
     virtual void toolTipChanged(const WTF::String&, const WTF::String&);
     virtual void setCursor(const WebCore::Cursor&);
     virtual void setViewportArguments(const WebCore::ViewportArguments&);
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo);
     virtual void clearAllEditCommands();
+    virtual bool canUndoRedo(WebPageProxy::UndoOrRedo);
+    virtual void executeUndoRedo(WebPageProxy::UndoOrRedo);
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
     virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&);
@@ -103,6 +107,9 @@ private:
     virtual void didChangeScrollbarsForMainFrame() const;
     virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
     virtual float userSpaceScaleFactor() const { return 1; }
+    virtual void getEditorCommandsForKeyEvent(const NativeWebKeyboardEvent&, Vector<WTF::String>&);
+    virtual void findStringInCustomRepresentation(const String&, FindOptions, unsigned);
+    virtual void countStringMatchesInCustomRepresentation(const String&, FindOptions, unsigned);
 
 #if USE(ACCELERATED_COMPOSITING)
     virtual void pageDidEnterAcceleratedCompositing();
@@ -118,6 +125,8 @@ private:
     GtkWidget* m_viewWidget;
     bool m_isPageActive;
     RefPtr<WebPageProxy> m_page;
+    Vector<WTF::String> m_pendingEditorCommands;
+    GRefPtr<GtkWidget> m_nativeWidget;
 };
 
 } // namespace WebKit

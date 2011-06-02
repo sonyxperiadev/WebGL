@@ -39,12 +39,6 @@ enum {
 };
 typedef uint32_t WKCacheModel;
 
-enum {
-    kWKAllResourceCaches = 0,
-    kWKInMemoryResourceCachesOnly = 1
-};
-typedef uint32_t WKResourceCachesToClear;
-
 // Injected Bundle Client
 typedef void (*WKContextDidReceiveMessageFromInjectedBundleCallback)(WKContextRef page, WKStringRef messageName, WKTypeRef messageBody, const void *clientInfo);
 typedef void (*WKContextDidReceiveSynchronousMessageFromInjectedBundleCallback)(WKContextRef page, WKStringRef messageName, WKTypeRef messageBody, WKTypeRef* returnData, const void *clientInfo);
@@ -115,7 +109,7 @@ WK_EXPORT void WKContextSetInjectedBundleClient(WKContextRef context, const WKCo
 WK_EXPORT void WKContextSetHistoryClient(WKContextRef context, const WKContextHistoryClient* client);
 WK_EXPORT void WKContextSetDownloadClient(WKContextRef context, const WKContextDownloadClient* client);
 
-WK_EXPORT void WKContextDownloadURLRequest(WKContextRef context, const WKURLRequestRef request);
+WK_EXPORT WKDownloadRef WKContextDownloadURLRequest(WKContextRef context, const WKURLRequestRef request);
 
 WK_EXPORT void WKContextSetInitializationUserDataForInjectedBundle(WKContextRef context, WKTypeRef userData);
 WK_EXPORT void WKContextPostMessageToInjectedBundle(WKContextRef context, WKStringRef messageName, WKTypeRef messageBody);
@@ -124,9 +118,6 @@ WK_EXPORT void WKContextAddVisitedLink(WKContextRef context, WKStringRef visited
 
 WK_EXPORT void WKContextSetCacheModel(WKContextRef context, WKCacheModel cacheModel);
 WK_EXPORT WKCacheModel WKContextGetCacheModel(WKContextRef context);
-
-WK_EXPORT void WKContextClearResourceCaches(WKContextRef context, WKResourceCachesToClear cachesToClear);
-WK_EXPORT void WKContextClearApplicationCache(WKContextRef context);
 
 WK_EXPORT void WKContextStartMemorySampler(WKContextRef context, WKDoubleRef interval);
 WK_EXPORT void WKContextStopMemorySampler(WKContextRef context);

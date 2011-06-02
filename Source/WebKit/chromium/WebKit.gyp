@@ -266,6 +266,8 @@
                 'public/WebSpeechInputResult.h',
                 'public/WebStorageArea.h',
                 'public/WebStorageEventDispatcher.h',
+                'public/WebStorageQuotaCallbacks.h',
+                'public/WebStorageQuotaType.h',
                 'public/WebStorageNamespace.h',
                 'public/WebString.h',
                 'public/WebTextAffinity.h',
@@ -279,6 +281,7 @@
                 'public/WebURL.h',
                 'public/WebURLError.h',
                 'public/WebURLLoader.h',
+                'public/WebURLLoaderOptions.h',
                 'public/WebURLLoadTiming.h',
                 'public/WebURLLoaderClient.h',
                 'public/WebURLRequest.h',
@@ -359,14 +362,14 @@
                 'src/IDBCursorBackendProxy.h',
                 'src/IDBDatabaseCallbacksProxy.cpp',
                 'src/IDBDatabaseCallbacksProxy.h',
-                'src/IDBDatabaseProxy.cpp',
-                'src/IDBDatabaseProxy.h',
+                'src/IDBDatabaseBackendProxy.cpp',
+                'src/IDBDatabaseBackendProxy.h',
                 'src/IDBFactoryBackendProxy.cpp',
                 'src/IDBFactoryBackendProxy.h',
                 'src/IDBIndexBackendProxy.cpp',
                 'src/IDBIndexBackendProxy.h',
-                'src/IDBObjectStoreProxy.cpp',
-                'src/IDBObjectStoreProxy.h',
+                'src/IDBObjectStoreBackendProxy.cpp',
+                'src/IDBObjectStoreBackendProxy.h',
                 'src/IDBTransactionBackendProxy.cpp',
                 'src/IDBTransactionBackendProxy.h',
                 'src/IDBTransactionCallbacksProxy.cpp',
@@ -400,6 +403,7 @@
                 'src/StorageEventDispatcherChromium.cpp',
                 'src/StorageEventDispatcherImpl.cpp',
                 'src/StorageEventDispatcherImpl.h',
+                'src/StorageInfoChromium.cpp',
                 'src/StorageNamespaceProxy.cpp',
                 'src/StorageNamespaceProxy.h',
                 'src/TemporaryGlue.h',
@@ -552,6 +556,8 @@
                 'src/WebStorageEventDispatcherImpl.h',
                 'src/WebStorageNamespaceImpl.cpp',
                 'src/WebStorageNamespaceImpl.h',
+                'src/WebStorageQuotaCallbacksImpl.cpp',
+                'src/WebStorageQuotaCallbacksImpl.h',
                 'src/WebString.cpp',
                 'src/WebTextRun.cpp',
                 'src/WebThreadSafeData.cpp',
@@ -597,6 +603,7 @@
                                 '<(chromium_src_dir)/base/base.gyp:test_support_base',
                                 '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
                                 '<(chromium_src_dir)/testing/gtest.gyp:gtest',
+                                '<(chromium_src_dir)/testing/gmock.gyp:gmock',
                                 '<(chromium_src_dir)/third_party/icu/icu.gyp:*',
                                 '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp:libjpeg',
                                 '<(chromium_src_dir)/third_party/libpng/libpng.gyp:libpng',
@@ -607,6 +614,7 @@
                                 '<(chromium_src_dir)/third_party/ots/ots.gyp:ots',
                                 '<(chromium_src_dir)/third_party/zlib/zlib.gyp:zlib',
                                 '<(chromium_src_dir)/v8/tools/gyp/v8.gyp:v8',
+                                # We must not add webkit_support here because of cyclic dependency.
                             ],
                             'direct_dependent_settings': {
                                 'defines': [
@@ -623,6 +631,13 @@
                                 'tests/TransparencyWinTest.cpp',
                                 'tests/UniscribeHelperTest.cpp',
                                 'tests/WebUnitTests.cpp'
+                            ],
+                            'sources!' : [
+                                # We should not include files dpending on webkit_support.
+                                'tests/CCThreadTest.cpp',
+                                # WebFrameTest.cpp depends on webkit_support and
+                                # functions defined only in !WEBKIT_IMPLEMENTATION.
+                                'tests/WebFrameTest.cpp',
                             ]
                         }],
                     ],
@@ -695,6 +710,7 @@
             'conditions': [
                 ['debug_devtools==0', {
                     'dependencies': ['concatenated_devtools_js',
+                                     'concatenated_script_formatter_worker_js',
                                      'concatenated_devtools_css'],
                 }],
             ],
@@ -705,6 +721,17 @@
                         '<@(devtools_files)',
                         '<@(webinspector_files)',
                         '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendStub.js',
+                    ],
+                    'conditions': [
+                        ['debug_devtools==0', {
+                            'files/': [['exclude', '\\.(js|css|html)$']],
+                        }],
+                    ],
+                },
+                {
+                    'destination': '<(PRODUCT_DIR)/resources/inspector/UglifyJS',
+                    'files': [
+                        '<@(webinspector_uglifyjs_files)',
                     ],
                     'conditions': [
                         ['debug_devtools==0', {
@@ -747,6 +774,7 @@
             'conditions': [
                 ['debug_devtools==0', {
                     'dependencies': ['concatenated_devtools_js',
+                                     'concatenated_script_formatter_worker_js',
                                      'concatenated_devtools_css'],
                 },{
                     # If we're not concatenating devtools files, we want to
@@ -761,6 +789,7 @@
                 'input_pages': [
                     '<(PRODUCT_DIR)/resources/inspector/devtools.html',
                     '<(PRODUCT_DIR)/resources/inspector/DevTools.js',
+                    '<(PRODUCT_DIR)/resources/inspector/ScriptFormatterWorker.js',
                     '<(PRODUCT_DIR)/resources/inspector/devTools.css',
                 ],
                 'images': [
@@ -788,6 +817,7 @@
                 'webkit',
                 '../../WebCore/WebCore.gyp/WebCore.gyp:webcore',
                 '<(chromium_src_dir)/testing/gtest.gyp:gtest',
+                '<(chromium_src_dir)/testing/gmock.gyp:gmock',
                 '<(chromium_src_dir)/base/base.gyp:base',
                 '<(chromium_src_dir)/base/base.gyp:base_i18n',
                 '<(chromium_src_dir)/base/base.gyp:test_support_base',
@@ -812,11 +842,10 @@
                     'conditions': [
                         ['OS=="win"', {
                             'sources': [
-                                # FIXME: Port PopupMenuTest and WebFrameTest to Linux and Mac.
+                                # FIXME: Port PopupMenuTest to Linux and Mac.
                                 'tests/PopupMenuTest.cpp',
                                 'tests/TransparencyWinTest.cpp',
                                 'tests/UniscribeHelperTest.cpp',
-                                'tests/WebFrameTest.cpp',
                                 'tests/WebPageSerializerTest.cpp',
                             ],
                         }],
@@ -1164,6 +1193,22 @@
                         ],
                         'outputs': ['<(PRODUCT_DIR)/resources/inspector/DevTools.js'],
                         'action': ['python', '<@(_script_name)', '<@(_input_page)', '<@(_search_path)', '<@(_outputs)'],
+                    }],
+                },
+                {
+                    'target_name': 'concatenated_script_formatter_worker_js',
+                    'type': 'none',
+                    'actions': [{
+                        'action_name': 'concatenate_script_formatter_worker_js',
+                        'script_name': 'scripts/inline_js_imports.py',
+                        'input_file': '../../WebCore/inspector/front-end/ScriptFormatterWorker.js',
+                        'inputs': [
+                            '<@(_script_name)',
+                            '<@(webinspector_uglifyjs_files)'
+                        ],
+                        'search_path': '../../WebCore/inspector/front-end',
+                        'outputs': ['<(PRODUCT_DIR)/resources/inspector/ScriptFormatterWorker.js'],
+                        'action': ['python', '<@(_script_name)', '<@(_input_file)', '<@(_search_path)', '<@(_outputs)'],
                     }],
                 },
                 {

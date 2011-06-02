@@ -194,10 +194,10 @@ module window {
 #if defined(ENABLE_FILE_SYSTEM) && ENABLE_FILE_SYSTEM
         const unsigned short TEMPORARY = 0;
         const unsigned short PERSISTENT = 1;
-        [EnabledAtRuntime=FileSystem] void requestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
-        [EnabledAtRuntime=FileSystem] void resolveLocalFileSystemURL(in DOMString url, in [Callback, Optional] EntryCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+        [EnabledAtRuntime=FileSystem] void webkitRequestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+        [EnabledAtRuntime=FileSystem] void webkitResolveLocalFileSystemURL(in DOMString url, in [Callback, Optional] EntryCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
 
-        attribute [EnabledAtRuntime=FileSystem] FlagsConstructor Flags;
+        attribute [EnabledAtRuntime=FileSystem] WebKitFlagsConstructor WebKitFlags;
 #endif
 
 #if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
@@ -268,8 +268,6 @@ module window {
         attribute EventListener onended;
         attribute EventListener onerror;
         attribute EventListener onfocus;
-        attribute EventListener onformchange;
-        attribute EventListener onforminput;
         attribute EventListener onhashchange;
         attribute EventListener oninput;
         attribute EventListener oninvalid;
@@ -785,9 +783,13 @@ module window {
         attribute [Conditional=BLOB|FILE_SYSTEM] FileErrorConstructor FileError;
         attribute [Conditional=BLOB] FileReaderConstructor FileReader;
 
-        attribute [Conditional=BLOB] BlobBuilderConstructor BlobBuilder;
+        attribute [Conditional=BLOB] WebKitBlobBuilderConstructor WebKitBlobBuilder;
 
         readonly attribute [Conditional=BLOB] DOMURL webkitURL;
+
+#if defined(ENABLE_QUOTA) && ENABLE_QUOTA
+        readonly attribute [EnabledAtRuntime=Quota] StorageInfo webkitStorageInfo;
+#endif
 
 #endif // defined(LANGUAGE_JAVASCRIPT)
 

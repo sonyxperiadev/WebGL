@@ -105,11 +105,6 @@ void RenderThemeChromiumMac::adjustMediaSliderThumbSize(RenderObject* o) const
     RenderMediaControlsChromium::adjustMediaSliderThumbSize(o);
 }
 
-bool RenderThemeChromiumMac::shouldRenderMediaControlPart(ControlPart part, Element* e)
-{
-    return RenderMediaControlsChromium::shouldRenderMediaControlPart(part, e);
-}
-
 bool RenderThemeChromiumMac::paintMediaPlayButton(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     return RenderMediaControlsChromium::paintMediaControlsPart(MediaPlayButton, object, paintInfo, rect);
@@ -134,6 +129,14 @@ String RenderThemeChromiumMac::extraMediaControlsStyleSheet()
 {
     return String(mediaControlsChromiumUserAgentStyleSheet, sizeof(mediaControlsChromiumUserAgentStyleSheet));
 }
+
+#if ENABLE(FULLSCREEN_API)
+String RenderThemeChromiumMac::extraFullScreenStyleSheet()
+{
+    // FIXME: Chromium may wish to style its default media controls differently in fullscreen.
+    return String();
+}
+#endif
 
 bool RenderThemeChromiumMac::paintMediaVolumeSliderContainer(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {

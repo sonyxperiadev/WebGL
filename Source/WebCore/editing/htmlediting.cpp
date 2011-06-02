@@ -122,7 +122,8 @@ int comparePositions(const Position& a, const Position& b)
         }
     }
 
-    int result = Range::compareBoundaryPoints(nodeA, offsetA, nodeB, offsetB);
+    ExceptionCode ec;
+    int result = Range::compareBoundaryPoints(nodeA, offsetA, nodeB, offsetB, ec);
     return result ? result : bias;
 }
 
@@ -638,7 +639,7 @@ Node* highestEnclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const N
 {
     Node* highest = 0;
     Node* root = rule == CannotCrossEditingBoundary ? highestEditableRoot(p) : 0;
-    for (Node* n = p.deprecatedNode(); n; n = n->parentNode()) {
+    for (Node* n = p.containerNode(); n; n = n->parentNode()) {
         if (root && !n->rendererIsEditable())
             continue;
         if (nodeIsOfType(n))
@@ -894,14 +895,17 @@ bool isNodeInTextFormControl(Node* node)
     return ancestor->isElementNode() && static_cast<Element*>(ancestor)->isTextFormControl();
 }
     
-Position positionBeforeTabSpan(const Position& pos)
+Position positionOutsideTabSpan(const Position& pos)
 {
-    Node* node = pos.deprecatedNode();
+    Node* node = pos.containerNode();
     if (isTabSpanTextNode(node))
         node = tabSpanNode(node);
     else if (!isTabSpanNode(node))
         return pos;
-    
+
+    if (node && VisiblePosition(pos) == lastPositionInNode(node))
+        return positionInParentAfterNode(node);
+
     return positionInParentBeforeNode(node);
 }
 

@@ -31,7 +31,7 @@
 
 namespace WebCore {
 
-inline DocumentFragment::DocumentFragment(Document* document)
+DocumentFragment::DocumentFragment(Document* document)
     : ContainerNode(document)
 {
     ASSERT(document);
@@ -52,7 +52,7 @@ Node::NodeType DocumentFragment::nodeType() const
     return DOCUMENT_FRAGMENT_NODE;
 }
 
-bool DocumentFragment::childTypeAllowed(NodeType type)
+bool DocumentFragment::childTypeAllowed(NodeType type) const
 {
     switch (type) {
         case ELEMENT_NODE:

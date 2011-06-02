@@ -89,8 +89,8 @@ body.inactive #toolbar {
     border-bottom: 1px solid rgb(64%, 64%, 64%);
 }
 
-body.detached.platform-mac-leopard #toolbar,
-body.detached.platform-mac-snowleopard #toolbar {
+body.detached.platform-mac-leopard:not(.remote) #toolbar,
+body.detached.platform-mac-snowleopard:not(.remote) #toolbar {
     background: transparent !important;
 }
 
@@ -349,7 +349,7 @@ body.attached #search {
     background-position: 0 0;
     background-color: transparent;
     border: 0 none transparent;
-    margin-top: 9px;
+    margin-top: 4px;
 }
 
 #close-button-left:hover, #close-button-right:hover {
@@ -491,14 +491,6 @@ button.status-bar-item .glyph.shadow {
 
 button.status-bar-item.toggled-on .glyph {
     background-color: rgb(66, 129, 235);
-}
-
-button.status-bar-item.toggled-1 .glyph {
-    background-color: rgb(66, 129, 235);
-}
-
-button.status-bar-item.toggled-2 .glyph {
-    background-color: purple;   
 }
 
 button.status-bar-item:disabled {
@@ -872,7 +864,7 @@ body.platform-linux .monospace, body.platform-linux .source-code {
 
 .console-formatted-string, .console-formatted-regexp {
     color: rgb(196, 26, 22);
-    white-space: pre-wrap;
+    white-space: pre;
 }
 
 .console-formatted-null, .console-formatted-undefined {
@@ -2518,6 +2510,14 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
 
 .scripts-pause-on-exceptions-status-bar-item .glyph {
     -webkit-mask-image: url(Images/pauseOnExceptionButtonGlyph.png);
+}
+
+.scripts-pause-on-exceptions-status-bar-item.toggled-all .glyph {
+    background-color: rgb(66, 129, 235);
+}
+
+.scripts-pause-on-exceptions-status-bar-item.toggled-uncaught .glyph {
+    background-color: purple;   
 }
 
 #scripts-status-bar {
@@ -4307,10 +4307,6 @@ a.worker-item {
 
 .styles-section .header .subtitle a {
     color: inherit;
-}
-
-.styles-section a::before {
-    content: attr(data-uncopyable);
 }
 
 .styles-section .properties {

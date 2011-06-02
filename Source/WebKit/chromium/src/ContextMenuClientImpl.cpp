@@ -61,6 +61,7 @@
 #include "WebPlugin.h"
 #include "WebPluginContainerImpl.h"
 #include "WebPoint.h"
+#include "WebSpellCheckClient.h"
 #include "WebString.h"
 #include "WebURL.h"
 #include "WebURLResponse.h"
@@ -206,7 +207,7 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
         if (mediaElement->hasVideo())
             data.mediaFlags |= WebContextMenuData::MediaHasVideo;
         if (mediaElement->controls())
-            data.mediaFlags |= WebContextMenuData::MediaControls;
+            data.mediaFlags |= WebContextMenuData::MediaControlRootElement;
     } else if (r.innerNonSharedNode()->hasTagName(HTMLNames::objectTag)
                || r.innerNonSharedNode()->hasTagName(HTMLNames::embedTag)) {
         RenderObject* object = r.innerNonSharedNode()->renderer();
@@ -256,8 +257,17 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
         if (m_webView->focusedWebCoreFrame()->editor()->isContinuousSpellCheckingEnabled()) {
             data.isSpellCheckingEnabled = true;
             // Spellchecking might be enabled for the field, but could be disabled on the node.
-            if (m_webView->focusedWebCoreFrame()->editor()->isSpellCheckingEnabledInFocusedNode())
+            if (m_webView->focusedWebCoreFrame()->editor()->isSpellCheckingEnabledInFocusedNode()) {
                 data.misspelledWord = selectMisspelledWord(defaultMenu, selectedFrame);
+                if (m_webView->spellCheckClient()) {
+                    int misspelledOffset, misspelledLength;
+                    m_webView->spellCheckClient()->spellCheck(
+                        data.misspelledWord, misspelledOffset, misspelledLength,
+                        &data.dictionarySuggestions);
+                    if (!misspelledLength)
+                        data.misspelledWord.reset();
+                }
+            }
         }
     }
 

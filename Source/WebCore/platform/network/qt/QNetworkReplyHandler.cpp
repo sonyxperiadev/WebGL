@@ -149,13 +149,72 @@ bool FormDataIODevice::isSequential() const
     return true;
 }
 
-QNetworkReplyWrapper::QNetworkReplyWrapper(QNetworkReply* reply, QObject* parent)
+QNetworkReplyHandlerCallQueue::QNetworkReplyHandlerCallQueue(QNetworkReplyHandler* handler, bool deferSignals)
+    : m_replyHandler(handler)
+    , m_locks(0)
+    , m_deferSignals(deferSignals)
+    , m_flushing(false)
+{
+    Q_ASSERT(handler);
+}
+
+void QNetworkReplyHandlerCallQueue::push(EnqueuedCall method)
+{
+    m_enqueuedCalls.append(method);
+    flush();
+}
+
+void QNetworkReplyHandlerCallQueue::lock()
+{
+    ++m_locks;
+}
+
+void QNetworkReplyHandlerCallQueue::unlock()
+{
+    if (!m_locks)
+        return;
+
+    --m_locks;
+    flush();
+}
+
+void QNetworkReplyHandlerCallQueue::setDeferSignals(bool defer)
+{
+    m_deferSignals = defer;
+    flush();
+}
+
+void QNetworkReplyHandlerCallQueue::flush()
+{
+    if (m_flushing)
+        return;
+
+    m_flushing = true;
+
+    while (!m_deferSignals && !m_locks && !m_enqueuedCalls.isEmpty())
+        (m_replyHandler->*(m_enqueuedCalls.takeFirst()))();
+
+    m_flushing = false;
+}
+
+class QueueLocker {
+public:
+    QueueLocker(QNetworkReplyHandlerCallQueue* queue) : m_queue(queue) { m_queue->lock(); }
+    ~QueueLocker() { m_queue->unlock(); }
+private:
+    QNetworkReplyHandlerCallQueue* m_queue;
+};
+
+QNetworkReplyWrapper::QNetworkReplyWrapper(QNetworkReplyHandlerCallQueue* queue, QNetworkReply* reply, bool sniffMIMETypes, QObject* parent)
     : QObject(parent)
     , m_reply(reply)
+    , m_queue(queue)
+    , m_responseContainsData(false)
+    , m_sniffer(0)
+    , m_sniffMIMETypes(sniffMIMETypes)
 {
     Q_ASSERT(m_reply);
 
-    connect(m_reply, SIGNAL(metaDataChanged()), this, SLOT(receiveMetaData()));
     connect(m_reply, SIGNAL(readyRead()), this, SLOT(receiveMetaData()));
     connect(m_reply, SIGNAL(finished()), this, SLOT(receiveMetaData()));
 }
@@ -164,6 +223,7 @@ QNetworkReplyWrapper::~QNetworkReplyWrapper()
 {
     if (m_reply)
         m_reply->deleteLater();
+    m_queue->clear();
 }
 
 QNetworkReply* QNetworkReplyWrapper::release()
@@ -174,6 +234,8 @@ QNetworkReply* QNetworkReplyWrapper::release()
     resetConnections();
     QNetworkReply* reply = m_reply;
     m_reply = 0;
+    m_sniffer = 0;
+
     reply->setParent(0);
     return reply;
 }
@@ -190,43 +252,80 @@ void QNetworkReplyWrapper::receiveMetaData()
     // This slot is only used to receive the first signal from the QNetworkReply object.
     resetConnections();
 
-    m_redirectionTargetUrl = m_reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
-    if (m_redirectionTargetUrl.isValid()) {
-        emit metaDataChanged();
-        emit finished();
-        return;
-    }
 
     WTF::String contentType = m_reply->header(QNetworkRequest::ContentTypeHeader).toString();
     m_encoding = extractCharsetFromMediaType(contentType);
-    m_advertisedMimeType = extractMIMETypeFromMediaType(contentType);
+    m_advertisedMIMEType = extractMIMETypeFromMediaType(contentType);
 
-    bool hasData = m_reply->bytesAvailable();
-    bool isFinished = m_reply->isFinished();
-
-    if (!isFinished) {
-        // If not finished, connect to the slots that will be used from this point on.
-        connect(m_reply, SIGNAL(readyRead()), this, SIGNAL(readyRead()));
-        connect(m_reply, SIGNAL(finished()), this, SLOT(didReceiveFinished()));
-    }
-
-    emit metaDataChanged();
-
-    if (hasData)
-        emit readyRead();
-
-    if (isFinished) {
-        emit finished();
+    m_redirectionTargetUrl = m_reply->attribute(QNetworkRequest::RedirectionTargetAttribute).toUrl();
+    if (m_redirectionTargetUrl.isValid()) {
+        QueueLocker lock(m_queue);
+        m_queue->push(&QNetworkReplyHandler::sendResponseIfNeeded);
+        m_queue->push(&QNetworkReplyHandler::finish);
         return;
     }
 
+    if (!m_sniffMIMETypes) {
+        emitMetaDataChanged();
+        return;
+    }
+
+    bool isSupportedImageType = MIMETypeRegistry::isSupportedImageMIMEType(m_advertisedMIMEType);
+
+    Q_ASSERT(!m_sniffer);
+
+    m_sniffer = new QtMIMETypeSniffer(m_reply, m_advertisedMIMEType, isSupportedImageType);
+
+    if (m_sniffer->isFinished()) {
+        receiveSniffedMIMEType();
+        return;
+    }
+
+    connect(m_sniffer.get(), SIGNAL(finished()), this, SLOT(receiveSniffedMIMEType()));
+}
+
+void QNetworkReplyWrapper::receiveSniffedMIMEType()
+{
+    Q_ASSERT(m_sniffer);
+
+    m_sniffedMIMEType = m_sniffer->mimeType();
+    m_sniffer = 0;
+
+    emitMetaDataChanged();
+}
+
+void QNetworkReplyWrapper::emitMetaDataChanged()
+{
+    QueueLocker lock(m_queue);
+    m_queue->push(&QNetworkReplyHandler::sendResponseIfNeeded);
+
+    if (m_reply->bytesAvailable()) {
+        m_responseContainsData = true;
+        m_queue->push(&QNetworkReplyHandler::forwardData);
+    }
+
+    if (m_reply->isFinished()) {
+        m_queue->push(&QNetworkReplyHandler::finish);
+        return;
+    }
+
+    // If not finished, connect to the slots that will be used from this point on.
+    connect(m_reply, SIGNAL(readyRead()), this, SLOT(didReceiveReadyRead()));
+    connect(m_reply, SIGNAL(finished()), this, SLOT(didReceiveFinished()));
+}
+
+void QNetworkReplyWrapper::didReceiveReadyRead()
+{
+    if (m_reply->bytesAvailable())
+        m_responseContainsData = true;
+    m_queue->push(&QNetworkReplyHandler::forwardData);
 }
 
 void QNetworkReplyWrapper::didReceiveFinished()
 {
     // Disconnecting will make sure that nothing will happen after emitting the finished signal.
     resetConnections();
-    emit finished();
+    m_queue->push(&QNetworkReplyHandler::finish);
 }
 
 String QNetworkReplyHandler::httpMethod() const
@@ -255,11 +354,9 @@ QNetworkReplyHandler::QNetworkReplyHandler(ResourceHandle* handle, LoadType load
     , m_replyWrapper(0)
     , m_resourceHandle(handle)
     , m_loadType(loadType)
-    , m_deferred(deferred)
     , m_redirectionTries(gMaxRedirections)
+    , m_queue(this, deferred)
 {
-    resetState();
-
     const ResourceRequest &r = m_resourceHandle->firstRequest();
 
     if (r.httpMethod() == "GET")
@@ -281,52 +378,7 @@ QNetworkReplyHandler::QNetworkReplyHandler(ResourceHandle* handle, LoadType load
 
     m_request = r.toNetworkRequest(originatingObject);
 
-    if (!m_deferred)
-        start();
-}
-
-void QNetworkReplyHandler::resetState()
-{
-    m_redirected = false;
-    m_responseSent = false;
-    m_responseContainsData = false;
-    m_hasStarted = false;
-    m_callFinishOnResume = false;
-    m_callSendResponseIfNeededOnResume = false;
-    m_callForwardDataOnResume = false;
-
-    if (m_replyWrapper) {
-        m_replyWrapper->deleteLater();
-        m_replyWrapper = 0;
-    }
-}
-
-void QNetworkReplyHandler::setLoadingDeferred(bool deferred)
-{
-    m_deferred = deferred;
-
-    if (!deferred)
-        resumeDeferredLoad();
-}
-
-void QNetworkReplyHandler::resumeDeferredLoad()
-{
-    if (!m_hasStarted) {
-        ASSERT(!m_callSendResponseIfNeededOnResume);
-        ASSERT(!m_callForwardDataOnResume);
-        ASSERT(!m_callFinishOnResume);
-        start();
-        return;
-    }
-
-    if (m_callSendResponseIfNeededOnResume)
-        sendResponseIfNeeded();
-
-    if (m_callForwardDataOnResume)
-        forwardData();
-
-    if (m_callFinishOnResume)
-        finish();
+    m_queue.push(&QNetworkReplyHandler::start);
 }
 
 void QNetworkReplyHandler::abort()
@@ -345,7 +397,6 @@ QNetworkReply* QNetworkReplyHandler::release()
         return 0;
 
     QNetworkReply* reply = m_replyWrapper->release();
-    m_replyWrapper->deleteLater();
     m_replyWrapper = 0;
     return reply;
 }
@@ -365,35 +416,21 @@ static bool shouldIgnoreHttpError(QNetworkReply* reply, bool receivedData)
 
 void QNetworkReplyHandler::finish()
 {
-    ASSERT(m_hasStarted);
-
-    m_callFinishOnResume = m_deferred;
-    if (m_deferred)
-        return;
-
-    if (!m_replyWrapper || !m_replyWrapper->reply())
-        return;
-
-
-    sendResponseIfNeeded();
-
-    if (wasAborted())
-        return;
+    ASSERT(m_replyWrapper && m_replyWrapper->reply() && !wasAborted());
 
     ResourceHandleClient* client = m_resourceHandle->client();
     if (!client) {
-        m_replyWrapper->deleteLater();
         m_replyWrapper = 0;
         return;
     }
 
-    if (m_redirected) {
-        resetState();
-        start();
+    if (m_replyWrapper->wasRedirected()) {
+        m_replyWrapper = 0;
+        m_queue.push(&QNetworkReplyHandler::start);
         return;
     }
 
-    if (!m_replyWrapper->reply()->error() || shouldIgnoreHttpError(m_replyWrapper->reply(), m_responseContainsData))
+    if (!m_replyWrapper->reply()->error() || shouldIgnoreHttpError(m_replyWrapper->reply(), m_replyWrapper->responseContainsData()))
         client->didFinishLoading(m_resourceHandle, 0);
     else {
         QUrl url = m_replyWrapper->reply()->url();
@@ -408,40 +445,21 @@ void QNetworkReplyHandler::finish()
         }
     }
 
-    if (m_replyWrapper) {
-        m_replyWrapper->deleteLater();
-        m_replyWrapper = 0;
-    }
+    m_replyWrapper = 0;
 }
 
 void QNetworkReplyHandler::sendResponseIfNeeded()
 {
-    ASSERT(m_hasStarted);
+    ASSERT(m_replyWrapper && m_replyWrapper->reply() && !wasAborted());
 
-    m_callSendResponseIfNeededOnResume = m_deferred;
-    if (m_deferred)
+    if (m_replyWrapper->reply()->error() && m_replyWrapper->reply()->attribute(QNetworkRequest::HttpStatusCodeAttribute).isNull())
         return;
-
-    if (!m_replyWrapper || !m_replyWrapper->reply())
-        return;
-
-    if (m_replyWrapper->reply()->error() && !shouldIgnoreHttpError(m_replyWrapper->reply(), m_responseContainsData))
-        return;
-
-    if (wasAborted())
-        return;
-
-    if (m_responseSent)
-        return;
-    m_responseSent = true;
 
     ResourceHandleClient* client = m_resourceHandle->client();
     if (!client)
         return;
 
-    WTF::String contentType = m_replyWrapper->reply()->header(QNetworkRequest::ContentTypeHeader).toString();
-    WTF::String encoding = extractCharsetFromMediaType(contentType);
-    WTF::String mimeType = extractMIMETypeFromMediaType(contentType);
+    WTF::String mimeType = m_replyWrapper->mimeType();
 
     if (mimeType.isEmpty()) {
         // let's try to guess from the extension
@@ -451,7 +469,7 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
     KURL url(m_replyWrapper->reply()->url());
     ResourceResponse response(url, mimeType.lower(),
                               m_replyWrapper->reply()->header(QNetworkRequest::ContentLengthHeader).toLongLong(),
-                              encoding, String());
+                              m_replyWrapper->encoding(), String());
 
     if (url.isLocalFile()) {
         client->didReceiveResponse(m_resourceHandle, response);
@@ -501,9 +519,9 @@ void QNetworkReplyHandler::redirect(ResourceResponse& response, const QUrl& redi
                             newUrl.toString(),
                             QCoreApplication::translate("QWebPage", "Redirection limit reached"));
         client->didFail(m_resourceHandle, error);
+        m_replyWrapper = 0;
         return;
     }
-    m_redirected = true;
 
     //  Status Code 301 (Moved Permanently), 302 (Moved Temporarily), 303 (See Other):
     //    - If original request is POST convert to GET and redirect automatically
@@ -533,26 +551,7 @@ void QNetworkReplyHandler::redirect(ResourceResponse& response, const QUrl& redi
 
 void QNetworkReplyHandler::forwardData()
 {
-    ASSERT(m_hasStarted);
-
-    m_callForwardDataOnResume = m_deferred;
-    if (m_deferred)
-        return;
-
-    if (!m_replyWrapper || !m_replyWrapper->reply())
-        return;
-
-    if (m_replyWrapper->reply()->bytesAvailable())
-        m_responseContainsData = true;
-
-    sendResponseIfNeeded();
-
-    // don't emit the "Document has moved here" type of HTML
-    if (m_redirected)
-        return;
-
-    if (wasAborted())
-        return;
+    ASSERT(m_replyWrapper && m_replyWrapper->reply() && !wasAborted() && !m_replyWrapper->wasRedirected());
 
     QByteArray data = m_replyWrapper->reply()->read(m_replyWrapper->reply()->bytesAvailable());
 
@@ -579,16 +578,10 @@ void QNetworkReplyHandler::uploadProgress(qint64 bytesSent, qint64 bytesTotal)
     client->didSendData(m_resourceHandle, bytesSent, bytesTotal);
 }
 
-QNetworkReply* QNetworkReplyHandler::sendNetworkRequest()
+QNetworkReply* QNetworkReplyHandler::sendNetworkRequest(QNetworkAccessManager* manager, const ResourceRequest& request)
 {
     if (m_loadType == SynchronousLoad)
         m_request.setAttribute(gSynchronousNetworkRequestAttribute, true);
-
-    ResourceHandleInternal* d = m_resourceHandle->getInternal();
-
-    QNetworkAccessManager* manager = 0;
-    if (d->m_context)
-        manager = d->m_context->networkAccessManager();
 
     if (!manager)
         return 0;
@@ -606,7 +599,7 @@ QNetworkReply* QNetworkReplyHandler::sendNetworkRequest()
         case QNetworkAccessManager::GetOperation:
             return manager->get(m_request);
         case QNetworkAccessManager::PostOperation: {
-            FormDataIODevice* postDevice = new FormDataIODevice(d->m_firstRequest.httpBody());
+            FormDataIODevice* postDevice = new FormDataIODevice(request.httpBody());
             // We may be uploading files so prevent QNR from buffering data
             m_request.setHeader(QNetworkRequest::ContentLengthHeader, postDevice->getFormDataSize());
             m_request.setAttribute(QNetworkRequest::DoNotBufferUploadDataAttribute, QVariant(true));
@@ -617,7 +610,7 @@ QNetworkReply* QNetworkReplyHandler::sendNetworkRequest()
         case QNetworkAccessManager::HeadOperation:
             return manager->head(m_request);
         case QNetworkAccessManager::PutOperation: {
-            FormDataIODevice* putDevice = new FormDataIODevice(d->m_firstRequest.httpBody());
+            FormDataIODevice* putDevice = new FormDataIODevice(request.httpBody());
             // We may be uploading files so prevent QNR from buffering data
             m_request.setHeader(QNetworkRequest::ContentLengthHeader, putDevice->getFormDataSize());
             m_request.setAttribute(QNetworkRequest::DoNotBufferUploadDataAttribute, QVariant(true));
@@ -639,23 +632,21 @@ QNetworkReply* QNetworkReplyHandler::sendNetworkRequest()
 
 void QNetworkReplyHandler::start()
 {
-    ASSERT(!m_hasStarted);
-    m_hasStarted = true;
+    ResourceHandleInternal* d = m_resourceHandle->getInternal();
+    if (!d || !d->m_context)
+        return;
 
-    QNetworkReply* reply = sendNetworkRequest();
+    QNetworkReply* reply = sendNetworkRequest(d->m_context->networkAccessManager(), d->m_firstRequest);
     if (!reply)
         return;
 
-    m_replyWrapper = new QNetworkReplyWrapper(reply, this);
+    m_replyWrapper = new QNetworkReplyWrapper(&m_queue, reply, m_resourceHandle->shouldContentSniff() && d->m_context->mimeSniffingEnabled(), this);
 
     if (m_loadType == SynchronousLoad && m_replyWrapper->reply()->isFinished()) {
+        m_replyWrapper->synchronousLoad();
         // If supported, a synchronous request will be finished at this point, no need to hook up the signals.
         return;
     }
-
-    connect(m_replyWrapper, SIGNAL(finished()), this, SLOT(finish()));
-    connect(m_replyWrapper, SIGNAL(metaDataChanged()), this, SLOT(sendResponseIfNeeded()));
-    connect(m_replyWrapper, SIGNAL(readyRead()), this, SLOT(forwardData()));
 
     if (m_resourceHandle->firstRequest().reportUploadProgress())
         connect(m_replyWrapper->reply(), SIGNAL(uploadProgress(qint64, qint64)), this, SLOT(uploadProgress(qint64, qint64)));

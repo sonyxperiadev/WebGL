@@ -51,6 +51,8 @@ public:
     {
     }
 
+    virtual void destroy(RenderArena*);
+
     InlineTextBox* prevTextBox() const { return m_prevTextBox; }
     InlineTextBox* nextTextBox() const { return m_nextTextBox; }
     void setNextTextBox(InlineTextBox* n) { m_nextTextBox = n; }
@@ -80,6 +82,13 @@ public:
 
     bool getEmphasisMarkPosition(RenderStyle*, TextEmphasisPosition&) const;
 
+    IntRect logicalOverflowRect() const;
+    void setLogicalOverflowRect(const IntRect&);
+    int logicalTopVisualOverflow() const { return logicalOverflowRect().y(); }
+    int logicalBottomVisualOverflow() const { return logicalOverflowRect().maxY(); }
+    int logicalLeftVisualOverflow() const { return logicalOverflowRect().x(); }
+    int logicalRightVisualOverflow() const { return logicalOverflowRect().maxX(); }
+    
 private:
     int selectionTop();
     int selectionBottom();
@@ -93,8 +102,8 @@ public:
     void selectionStartEnd(int& sPos, int& ePos);
 
 protected:
-    virtual void paint(PaintInfo&, int tx, int ty);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty);
+    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, int lineTop, int lineBottom);
 
 public:
     RenderText* textRenderer() const;

@@ -51,9 +51,6 @@ GPRReg SpeculativeJIT::fillSpeculateIntInternal(NodeIndex nodeIndex, DataFormat&
                 return gpr;
             }
             m_jit.move(constantAsJSValueAsImmPtr(nodeIndex), reg);
-        } else if (node.isArgument()) {
-            m_gprs.retain(gpr, virtualRegister, SpillOrderArgument);
-            m_jit.loadPtr(m_jit.addressForArgument(m_jit.graph()[nodeIndex].argumentNumber()), reg);
         } else {
             DataFormat spillFormat = info.spillFormat();
             ASSERT(spillFormat & DataFormatJS);
@@ -203,13 +200,6 @@ GPRReg SpeculativeJIT::fillSpeculateCell(NodeIndex nodeIndex)
             terminateSpeculativeExecution();
             return gpr;
         }
-        if (node.isArgument()) {
-            m_gprs.retain(gpr, virtualRegister, SpillOrderArgument);
-            m_jit.loadPtr(m_jit.addressForArgument(m_jit.graph()[nodeIndex].argumentNumber()), reg);
-            speculationCheck(m_jit.branchTestPtr(MacroAssembler::NonZero, reg, JITCompiler::tagMaskRegister));
-            info.fillJSValue(gpr, DataFormatJSCell);
-            return gpr;
-        }
         ASSERT(info.spillFormat() & DataFormatJS);
         m_gprs.retain(gpr, virtualRegister, SpillOrderSpilled);
         m_jit.loadPtr(JITCompiler::addressFor(virtualRegister), reg);
@@ -252,7 +242,6 @@ GPRReg SpeculativeJIT::fillSpeculateCell(NodeIndex nodeIndex)
 bool SpeculativeJIT::compile(Node& node)
 {
     checkConsistency();
-
     NodeType op = node.op;
 
     switch (op) {
@@ -261,10 +250,20 @@ bool SpeculativeJIT::compile(Node& node)
     case JSConstant:
         initConstantInfo(m_compileIndex);
         break;
-    
-    case Argument:
-        initArgumentInfo(m_compileIndex);
+
+    case GetLocal: {
+        GPRTemporary result(this);
+        m_jit.loadPtr(JITCompiler::addressFor(node.local()), result.registerID());
+        jsValueResult(result.gpr(), m_compileIndex);
         break;
+    }
+
+    case SetLocal: {
+        JSValueOperand value(this, node.child1);
+        m_jit.storePtr(value.registerID(), JITCompiler::addressFor(node.local()));
+        noResult(m_compileIndex);
+        break;
+    }
 
     case BitAnd:
     case BitOr:
@@ -347,6 +346,7 @@ bool SpeculativeJIT::compile(Node& node)
         integerResult(result.gpr(), m_compileIndex, op1.format());
         break;
     }
+
     case ValueToInt32: {
         SpeculateIntegerOperand op1(this, node.child1);
         GPRTemporary result(this, op1);
@@ -365,6 +365,30 @@ bool SpeculativeJIT::compile(Node& node)
 
     case ValueAdd:
     case ArithAdd: {
+        int32_t imm1;
+        if (isDoubleConstantWithInt32Value(node.child1, imm1)) {
+            SpeculateIntegerOperand op2(this, node.child2);
+            GPRTemporary result(this);
+
+            MacroAssembler::RegisterID reg = op2.registerID();
+            speculationCheck(m_jit.branchAdd32(MacroAssembler::Overflow, reg, Imm32(imm1), result.registerID()));
+
+            integerResult(result.gpr(), m_compileIndex);
+            break;
+        }
+            
+        int32_t imm2;
+        if (isDoubleConstantWithInt32Value(node.child2, imm2)) {
+            SpeculateIntegerOperand op1(this, node.child1);
+            GPRTemporary result(this);
+
+            MacroAssembler::RegisterID reg = op1.registerID();
+            speculationCheck(m_jit.branchAdd32(MacroAssembler::Overflow, reg, Imm32(imm2), result.registerID()));
+
+            integerResult(result.gpr(), m_compileIndex);
+            break;
+        }
+            
         SpeculateIntegerOperand op1(this, node.child1);
         SpeculateIntegerOperand op2(this, node.child2);
         GPRTemporary result(this, op1, op2);
@@ -386,6 +410,18 @@ bool SpeculativeJIT::compile(Node& node)
     }
 
     case ArithSub: {
+        int32_t imm2;
+        if (isDoubleConstantWithInt32Value(node.child2, imm2)) {
+            SpeculateIntegerOperand op1(this, node.child1);
+            GPRTemporary result(this);
+
+            MacroAssembler::RegisterID reg = op1.registerID();
+            speculationCheck(m_jit.branchSub32(MacroAssembler::Overflow, reg, Imm32(imm2), result.registerID()));
+
+            integerResult(result.gpr(), m_compileIndex);
+            break;
+        }
+            
         SpeculateIntegerOperand op1(this, node.child1);
         SpeculateIntegerOperand op2(this, node.child2);
         GPRTemporary result(this);
@@ -406,7 +442,11 @@ bool SpeculativeJIT::compile(Node& node)
         MacroAssembler::RegisterID reg1 = op1.registerID();
         MacroAssembler::RegisterID reg2 = op2.registerID();
         speculationCheck(m_jit.branchMul32(MacroAssembler::Overflow, reg1, reg2, result.registerID()));
-        speculationCheck(m_jit.branchTest32(MacroAssembler::Zero, result.registerID()));
+
+        MacroAssembler::Jump resultNonZero = m_jit.branchTest32(MacroAssembler::NonZero, result.registerID());
+        speculationCheck(m_jit.branch32(MacroAssembler::LessThan, reg1, TrustedImm32(0)));
+        speculationCheck(m_jit.branch32(MacroAssembler::LessThan, reg2, TrustedImm32(0)));
+        resultNonZero.link(&m_jit);
 
         integerResult(result.gpr(), m_compileIndex);
         break;
@@ -431,6 +471,72 @@ bool SpeculativeJIT::compile(Node& node)
         terminateSpeculativeExecution();
 
         integerResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case LogicalNot: {
+        JSValueOperand value(this, node.child1);
+        GPRTemporary result(this); // FIXME: We could reuse, but on speculation fail would need recovery to restore tag (akin to add).
+
+        m_jit.move(value.registerID(), result.registerID());
+        m_jit.xorPtr(TrustedImm32(static_cast<int32_t>(ValueFalse)), result.registerID());
+        speculationCheck(m_jit.branchTestPtr(JITCompiler::NonZero, result.registerID(), TrustedImm32(static_cast<int32_t>(~1))));
+        m_jit.xorPtr(TrustedImm32(static_cast<int32_t>(ValueTrue)), result.registerID());
+
+        // If we add a DataFormatBool, we should use it here.
+        jsValueResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case CompareLess: {
+        SpeculateIntegerOperand op1(this, node.child1);
+        SpeculateIntegerOperand op2(this, node.child2);
+        GPRTemporary result(this, op1, op2);
+
+        m_jit.set32Compare32(JITCompiler::LessThan, op1.registerID(), op2.registerID(), result.registerID());
+
+        // If we add a DataFormatBool, we should use it here.
+        m_jit.or32(TrustedImm32(ValueFalse), result.registerID());
+        jsValueResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case CompareLessEq: {
+        SpeculateIntegerOperand op1(this, node.child1);
+        SpeculateIntegerOperand op2(this, node.child2);
+        GPRTemporary result(this, op1, op2);
+
+        m_jit.set32Compare32(JITCompiler::LessThanOrEqual, op1.registerID(), op2.registerID(), result.registerID());
+
+        // If we add a DataFormatBool, we should use it here.
+        m_jit.or32(TrustedImm32(ValueFalse), result.registerID());
+        jsValueResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case CompareEq: {
+        SpeculateIntegerOperand op1(this, node.child1);
+        SpeculateIntegerOperand op2(this, node.child2);
+        GPRTemporary result(this, op1, op2);
+
+        m_jit.set32Compare32(JITCompiler::Equal, op1.registerID(), op2.registerID(), result.registerID());
+
+        // If we add a DataFormatBool, we should use it here.
+        m_jit.or32(TrustedImm32(ValueFalse), result.registerID());
+        jsValueResult(result.gpr(), m_compileIndex);
+        break;
+    }
+
+    case CompareStrictEq: {
+        SpeculateIntegerOperand op1(this, node.child1);
+        SpeculateIntegerOperand op2(this, node.child2);
+        GPRTemporary result(this, op1, op2);
+
+        m_jit.set32Compare32(JITCompiler::Equal, op1.registerID(), op2.registerID(), result.registerID());
+
+        // If we add a DataFormatBool, we should use it here.
+        m_jit.or32(TrustedImm32(ValueFalse), result.registerID());
+        jsValueResult(result.gpr(), m_compileIndex);
         break;
     }
 
@@ -472,63 +578,95 @@ bool SpeculativeJIT::compile(Node& node)
         break;
     }
 
-    case PutByVal:
-    case PutByValAlias: {
+    case PutByVal: {
+        SpeculateCellOperand base(this, node.child1);
         SpeculateStrictInt32Operand property(this, node.child2);
+        JSValueOperand value(this, node.child3);
         GPRTemporary storage(this);
 
-        MacroAssembler::RegisterID propertyReg;
-        MacroAssembler::RegisterID storageReg;
+        // Map base, property & value into registers, allocate a register for storage.
+        MacroAssembler::RegisterID baseReg = base.registerID();
+        MacroAssembler::RegisterID propertyReg = property.registerID();
+        MacroAssembler::RegisterID valueReg = value.registerID();
+        MacroAssembler::RegisterID storageReg = storage.registerID();
 
-        // This block also defines the scope for base, and all bails to the non-speculative path.
-        // At the end of this scope base will be release, and as such may be reused by for 'value'.
-        //
-        // If we've already read from this location on the speculative pass, then it cannot be beyond array bounds, or a hole.
-        if (op == PutByValAlias) {
-            SpeculateCellOperand base(this, node.child1);
+        // Check that base is an array, and that property is contained within m_vector (< m_vectorLength).
+        speculationCheck(m_jit.branchPtr(MacroAssembler::NotEqual, MacroAssembler::Address(baseReg), MacroAssembler::TrustedImmPtr(m_jit.globalData()->jsArrayVPtr)));
+        speculationCheck(m_jit.branch32(MacroAssembler::AboveOrEqual, propertyReg, MacroAssembler::Address(baseReg, JSArray::vectorLengthOffset())));
 
-            // Map base & property into registers, allocate a register for storage.
-            propertyReg = property.registerID();
-            storageReg = storage.registerID();
-            MacroAssembler::RegisterID baseReg = base.registerID();
+        // Get the array storage.
+        m_jit.loadPtr(MacroAssembler::Address(baseReg, JSArray::storageOffset()), storageReg);
 
-            // Get the array storage.
-            m_jit.loadPtr(MacroAssembler::Address(baseReg, JSArray::storageOffset()), storageReg);
-        } else {
-            SpeculateCellOperand base(this, node.child1);
+        // Check if we're writing to a hole; if so increment m_numValuesInVector.
+        MacroAssembler::Jump notHoleValue = m_jit.branchTestPtr(MacroAssembler::NonZero, MacroAssembler::BaseIndex(storageReg, propertyReg, MacroAssembler::ScalePtr, OBJECT_OFFSETOF(ArrayStorage, m_vector[0])));
+        m_jit.add32(TrustedImm32(1), MacroAssembler::Address(storageReg, OBJECT_OFFSETOF(ArrayStorage, m_numValuesInVector)));
 
-            // Map base & property into registers, allocate a register for storage.
-            propertyReg = property.registerID();
-            storageReg = storage.registerID();
-            MacroAssembler::RegisterID baseReg = base.registerID();
+        // If we're writing to a hole we might be growing the array; 
+        MacroAssembler::Jump lengthDoesNotNeedUpdate = m_jit.branch32(MacroAssembler::Below, propertyReg, MacroAssembler::Address(storageReg, OBJECT_OFFSETOF(ArrayStorage, m_length)));
+        m_jit.add32(TrustedImm32(1), propertyReg);
+        m_jit.store32(propertyReg, MacroAssembler::Address(storageReg, OBJECT_OFFSETOF(ArrayStorage, m_length)));
+        m_jit.sub32(TrustedImm32(1), propertyReg);
 
-            // Check that base is an array, and that property is contained within m_vector (< m_vectorLength).
-            speculationCheck(m_jit.branchPtr(MacroAssembler::NotEqual, MacroAssembler::Address(baseReg), MacroAssembler::TrustedImmPtr(m_jit.globalData()->jsArrayVPtr)));
-            speculationCheck(m_jit.branch32(MacroAssembler::AboveOrEqual, propertyReg, MacroAssembler::Address(baseReg, JSArray::vectorLengthOffset())));
-
-            // Get the array storage.
-            m_jit.loadPtr(MacroAssembler::Address(baseReg, JSArray::storageOffset()), storageReg);
-
-            // Check if we're writing to a hole; if so increment m_numValuesInVector.
-            MacroAssembler::Jump notHoleValue = m_jit.branchTestPtr(MacroAssembler::NonZero, MacroAssembler::BaseIndex(storageReg, propertyReg, MacroAssembler::ScalePtr, OBJECT_OFFSETOF(ArrayStorage, m_vector[0])));
-            m_jit.add32(TrustedImm32(1), MacroAssembler::Address(storageReg, OBJECT_OFFSETOF(ArrayStorage, m_numValuesInVector)));
-
-            // If we're writing to a hole we might be growing the array; 
-            MacroAssembler::Jump lengthDoesNotNeedUpdate = m_jit.branch32(MacroAssembler::Below, propertyReg, MacroAssembler::Address(storageReg, OBJECT_OFFSETOF(ArrayStorage, m_length)));
-            m_jit.add32(TrustedImm32(1), propertyReg);
-            m_jit.store32(propertyReg, MacroAssembler::Address(storageReg, OBJECT_OFFSETOF(ArrayStorage, m_length)));
-            m_jit.sub32(TrustedImm32(1), propertyReg);
-
-            lengthDoesNotNeedUpdate.link(&m_jit);
-            notHoleValue.link(&m_jit);
-        }
-        // After this point base goes out of scope. This may free the register.
-        // As such, after this point we'd better not have any bails out to the non-speculative path!
+        lengthDoesNotNeedUpdate.link(&m_jit);
+        notHoleValue.link(&m_jit);
 
         // Store the value to the array.
-        JSValueOperand value(this, node.child3);
-        MacroAssembler::RegisterID valueReg = value.registerID();
         m_jit.storePtr(valueReg, MacroAssembler::BaseIndex(storageReg, propertyReg, MacroAssembler::ScalePtr, OBJECT_OFFSETOF(ArrayStorage, m_vector[0])));
+
+        noResult(m_compileIndex);
+        break;
+    }
+
+    case PutByValAlias: {
+        SpeculateCellOperand base(this, node.child1);
+        SpeculateStrictInt32Operand property(this, node.child2);
+        JSValueOperand value(this, node.child3);
+        GPRTemporary storage(this, base); // storage may overwrite base.
+
+        // Get the array storage.
+        MacroAssembler::RegisterID storageReg = storage.registerID();
+        m_jit.loadPtr(MacroAssembler::Address(base.registerID(), JSArray::storageOffset()), storageReg);
+
+        // Map property & value into registers.
+        MacroAssembler::RegisterID propertyReg = property.registerID();
+        MacroAssembler::RegisterID valueReg = value.registerID();
+
+        // Store the value to the array.
+        m_jit.storePtr(valueReg, MacroAssembler::BaseIndex(storageReg, propertyReg, MacroAssembler::ScalePtr, OBJECT_OFFSETOF(ArrayStorage, m_vector[0])));
+
+        noResult(m_compileIndex);
+        break;
+    }
+
+    case DFG::Jump: {
+        BlockIndex taken = m_jit.graph().blockIndexForBytecodeOffset(node.takenBytecodeOffset());
+        if (taken != (m_block + 1))
+            addBranch(m_jit.jump(), taken);
+        noResult(m_compileIndex);
+        break;
+    }
+
+    case Branch: {
+        JSValueOperand value(this, node.child1);
+        MacroAssembler::RegisterID valueReg = value.registerID();
+
+        BlockIndex taken = m_jit.graph().blockIndexForBytecodeOffset(node.takenBytecodeOffset());
+        BlockIndex notTaken = m_jit.graph().blockIndexForBytecodeOffset(node.notTakenBytecodeOffset());
+
+        // Integers
+        addBranch(m_jit.branchPtr(MacroAssembler::Equal, valueReg, MacroAssembler::ImmPtr(JSValue::encode(jsNumber(0)))), notTaken);
+        MacroAssembler::Jump isNonZeroInteger = m_jit.branchPtr(MacroAssembler::AboveOrEqual, valueReg, JITCompiler::tagTypeNumberRegister);
+
+        // Booleans
+        addBranch(m_jit.branchPtr(MacroAssembler::Equal, valueReg, MacroAssembler::ImmPtr(JSValue::encode(jsBoolean(false)))), notTaken);
+        speculationCheck(m_jit.branchPtr(MacroAssembler::NotEqual, valueReg, MacroAssembler::ImmPtr(JSValue::encode(jsBoolean(true)))));
+
+        if (taken == (m_block + 1))
+            isNonZeroInteger.link(&m_jit);
+        else {
+            addBranch(isNonZeroInteger, taken);
+            addBranch(m_jit.jump(), taken);
+        }
 
         noResult(m_compileIndex);
         break;
@@ -538,6 +676,11 @@ bool SpeculativeJIT::compile(Node& node)
         ASSERT(JITCompiler::callFrameRegister != JITCompiler::regT1);
         ASSERT(JITCompiler::regT1 != JITCompiler::returnValueRegister);
         ASSERT(JITCompiler::returnValueRegister != JITCompiler::callFrameRegister);
+
+#if DFG_SUCCESS_STATS
+        static SamplingCounter counter("SpeculativeJIT");
+        m_jit.emitCount(counter);
+#endif
 
         // Return the result in returnValueRegister.
         JSValueOperand op1(this, node.child1);
@@ -639,22 +782,40 @@ bool SpeculativeJIT::compile(Node& node)
     return true;
 }
 
-bool SpeculativeJIT::compile()
+bool SpeculativeJIT::compile(BasicBlock& block)
 {
-    ASSERT(!m_compileIndex);
-    Node* nodes = m_jit.graph().begin();
-
-    for (; m_compileIndex < m_jit.graph().size(); ++m_compileIndex) {
-#if DFG_DEBUG_VERBOSE
-        fprintf(stderr, "index(%d)\n", (int)m_compileIndex);
+    ASSERT(m_compileIndex == block.begin);
+    m_blockHeads[m_block] = m_jit.label();
+#if DFG_JIT_BREAK_ON_EVERY_BLOCK
+    m_jit.breakpoint();
 #endif
 
-        Node& node = nodes[m_compileIndex];
+    for (; m_compileIndex < block.end; ++m_compileIndex) {
+        Node& node = m_jit.graph()[m_compileIndex];
         if (!node.refCount)
             continue;
+
+#if DFG_DEBUG_VERBOSE
+        fprintf(stderr, "SpeculativeJIT generating Node @%d at JIT offset 0x%x\n", (int)m_compileIndex, m_jit.debugOffset());
+#endif
+#if DFG_JIT_BREAK_ON_EVERY_NODE
+    m_jit.breakpoint();
+#endif
         if (!compile(node))
             return false;
     }
+    return true;
+}
+
+bool SpeculativeJIT::compile()
+{
+    ASSERT(!m_compileIndex);
+    Vector<BasicBlock> blocks = m_jit.graph().m_blocks;
+    for (m_block = 0; m_block < blocks.size(); ++m_block) {
+        if (!compile(blocks[m_block]))
+            return false;
+    }
+    linkBranches();
     return true;
 }
 

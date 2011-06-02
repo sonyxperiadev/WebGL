@@ -43,6 +43,8 @@ namespace WebKit {
 class WebEvent {
 public:
     enum Type {
+        NoType = -1,
+        
         // WebMouseEvent
         MouseDown,
         MouseUp,
@@ -77,6 +79,7 @@ public:
         ControlKey  = 1 << 1,
         AltKey      = 1 << 2,
         MetaKey     = 1 << 3,
+        CapsLockKey = 1 << 4,
     };
 
     Type type() const { return static_cast<Type>(m_type); }
@@ -85,13 +88,14 @@ public:
     bool controlKey() const { return m_modifiers & ControlKey; }
     bool altKey() const { return m_modifiers & AltKey; }
     bool metaKey() const { return m_modifiers & MetaKey; }
+    bool capsLockKey() const { return m_modifiers & CapsLockKey; }
 
     Modifiers modifiers() const { return static_cast<Modifiers>(m_modifiers); }
 
     double timestamp() const { return m_timestamp; }
 
 protected:
-    WebEvent() { }
+    WebEvent();
 
     WebEvent(Type, Modifiers, double timestamp);
 
@@ -114,7 +118,7 @@ public:
         RightButton
     };
 
-    WebMouseEvent() { }
+    WebMouseEvent();
 
     WebMouseEvent(Type, Button, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, float deltaX, float deltaY, float deltaZ, int clickCount, Modifiers, double timestamp);
 #if PLATFORM(WIN)

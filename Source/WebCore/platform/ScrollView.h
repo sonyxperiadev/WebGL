@@ -63,6 +63,7 @@ public:
     virtual void setScrollOffset(const IntPoint&);
     virtual void didCompleteRubberBand(const IntSize&) const;
     virtual void notifyPageThatContentAreaWillPaint() const;
+    virtual bool isScrollCornerVisible() const;
 
     // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
     virtual void scrollTo(const IntSize& newOffset);
@@ -84,6 +85,8 @@ public:
     virtual Scrollbar* horizontalScrollbar() const { return m_horizontalScrollbar.get(); }
     virtual Scrollbar* verticalScrollbar() const { return m_verticalScrollbar.get(); }
     bool isScrollViewScrollbar(const Widget* child) const { return horizontalScrollbar() == child || verticalScrollbar() == child; }
+
+    void positionScrollbarLayers();
 
     // Functions for setting and retrieving the scrolling mode in each axis (horizontal/vertical). The mode has values of
     // AlwaysOff, AlwaysOn, and Auto. AlwaysOff means never show a scrollbar, AlwaysOn means always show a scrollbar.
@@ -183,6 +186,9 @@ public:
 
     IntSize overhangAmount() const;
 
+    void cacheCurrentScrollPosition() { m_cachedScrollPosition = scrollPosition(); }
+    IntPoint cachedScrollPosition() const { return m_cachedScrollPosition; }
+
     // Functions for scrolling the view.
     void setScrollPosition(const IntPoint&);
     void scrollBy(const IntSize& s) { return setScrollPosition(scrollPosition() + s); }
@@ -278,11 +284,16 @@ public:
 
     virtual bool isPointInScrollbarCorner(const IntPoint&);
     virtual bool scrollbarCornerPresent() const;
+    virtual IntRect scrollCornerRect() const;
+    virtual void paintScrollCorner(GraphicsContext*, const IntRect& cornerRect);
 
     virtual IntRect convertFromScrollbarToContainingView(const Scrollbar*, const IntRect&) const;
     virtual IntRect convertFromContainingViewToScrollbar(const Scrollbar*, const IntRect&) const;
     virtual IntPoint convertFromScrollbarToContainingView(const Scrollbar*, const IntPoint&) const;
     virtual IntPoint convertFromContainingViewToScrollbar(const Scrollbar*, const IntPoint&) const;
+
+    bool containsScrollableAreaWithOverlayScrollbars() const { return m_containsScrollableAreaWithOverlayScrollbars; }
+    void setContainsScrollableAreaWithOverlayScrollbars(bool contains) { m_containsScrollableAreaWithOverlayScrollbars = contains; }
 
 protected:
     ScrollView();
@@ -303,9 +314,8 @@ protected:
     void setHasHorizontalScrollbar(bool);
     void setHasVerticalScrollbar(bool);
 
-    IntRect scrollCornerRect() const;
     virtual void updateScrollCorner();
-    virtual void paintScrollCorner(GraphicsContext*, const IntRect& cornerRect);
+    virtual void invalidateScrollCornerRect(const IntRect&);
 
     // Scroll the content by blitting the pixels.
     virtual bool scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
@@ -338,6 +348,7 @@ private:
 
     IntRect m_actualVisibleContentRect;
     IntSize m_scrollOffset; // FIXME: Would rather store this as a position, but we will wait to make this change until more code is shared.
+    IntPoint m_cachedScrollPosition;
     IntSize m_fixedLayoutSize;
     IntSize m_contentsSize;
 
@@ -354,6 +365,8 @@ private:
     bool m_paintsEntireContents;
     bool m_clipsRepaints;
     bool m_delegatesScrolling;
+
+    bool m_containsScrollableAreaWithOverlayScrollbars;
 
     IntSize m_boundsSize;
 

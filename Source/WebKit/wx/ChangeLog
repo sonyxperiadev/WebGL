@@ -1,3 +1,67 @@
+2011-04-14  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Unreviewed build fixes for wxMSW and wx 2.9.1.1.
+        
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::setCursor):
+
+2011-04-06  Malcolm MacLeod  <malcolm.macleod@tshwanedje.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Fix cursor handling so that we always call the chrome to set it.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=57972
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::setCursor):
+
+2011-04-04  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Ryosuke Niwa.
+
+        [Refactoring] SpellCheckingResult should be replaced with TextCheckingResult
+        https://bugs.webkit.org/show_bug.cgi?id=56085
+
+        * WebKitSupport/EditorClientWx.h:
+        (WebCore::EditorClientWx::requestCheckingOfString):
+
+2011-04-04  Malcolm MacLeod  <mmacleod@webmail.co.za>
+
+        Reviewed by Kevin Ollivier.
+
+        Move to using FrameView::resize to handle changes in view size.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=57805
+
+        * WebView.cpp:
+        (wxWebView::OnSize):
+
+2011-04-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        REGRESSION (WebKit2): Caps-Lock indicator sometimes doesn't appear in WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=51230
+        <rdar://problem/8780989>
+
+        * WebView.cpp: (wxWebView::OnKeyEvents): Moved Caps Lock handling from
+        WebKits to WebCore, because WebKit shouldn't be smart.
+
+2011-03-31  Evan Martin  <evan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        <title> should support dir attribute
+        https://bugs.webkit.org/show_bug.cgi?id=50961
+
+        Update to new FrameLoaderClient interface.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidReceiveTitle):
+        (WebCore::FrameLoaderClientWx::setTitle):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
 2011-03-25  Andy Estes  <aestes@apple.com>
 
         Reviewed by Adele Peterson.

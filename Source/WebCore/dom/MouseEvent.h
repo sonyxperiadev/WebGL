@@ -29,6 +29,7 @@
 
 namespace WebCore {
 
+class EventDispatcher;
 class PlatformMouseEvent;
 
     // Introduced in DOM Level 2
@@ -46,7 +47,7 @@ class PlatformMouseEvent;
             return adoptRef(new MouseEvent(type, canBubble, cancelable, view, detail, screenX, screenY, pageX, pageY,
                 ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget, clipboard, isSimulated));
         }
-        static PassRefPtr<MouseEvent> create(const AtomicString& eventType, PassRefPtr<AbstractView>, const PlatformMouseEvent&, const IntPoint&, int detail, PassRefPtr<Node> relatedTarget);
+        static PassRefPtr<MouseEvent> create(const AtomicString& eventType, PassRefPtr<AbstractView>, const PlatformMouseEvent&, int detail, PassRefPtr<Node> relatedTarget);
 
         virtual ~MouseEvent();
 
@@ -60,6 +61,7 @@ class PlatformMouseEvent;
         unsigned short button() const { return m_button; }
         bool buttonDown() const { return m_buttonDown; }
         EventTarget* relatedTarget() const { return m_relatedTarget.get(); }
+        void setRelatedTarget(PassRefPtr<EventTarget> relatedTarget) { m_relatedTarget = relatedTarget; }
 
         Clipboard* clipboard() const { return m_clipboard.get(); }
 
@@ -94,6 +96,16 @@ public:
 
 private:
     SimulatedMouseEvent(const AtomicString& eventType, PassRefPtr<AbstractView>, PassRefPtr<Event> underlyingEvent);
+};
+
+class MouseEventDispatchMediator : public EventDispatchMediator {
+public:
+    explicit MouseEventDispatchMediator(PassRefPtr<MouseEvent>);
+
+private:
+    MouseEvent* event() const;
+
+    virtual bool dispatchEvent(EventDispatcher*) const;
 };
 
 } // namespace WebCore

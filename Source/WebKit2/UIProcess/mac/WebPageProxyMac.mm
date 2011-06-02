@@ -26,10 +26,13 @@
 #import "config.h"
 #import "WebPageProxy.h"
 
+#import "AttributedString.h"
 #import "DataReference.h"
 #import "DictionaryPopupInfo.h"
+#import "EditorState.h"
 #import "NativeWebKeyboardEvent.h"
 #import "PageClient.h"
+#import "PageClientImpl.h"
 #import "TextChecker.h"
 #import "WebPageMessages.h"
 #import "WebProcessProxy.h"
@@ -105,13 +108,17 @@ void WebPageProxy::getIsSpeaking(bool& isSpeaking)
 
 void WebPageProxy::speak(const String& string)
 {
-    NSString *convertedString = string;
-    [NSApp speakString:convertedString];
+    [NSApp speakString:nsStringFromWebCoreString(string)];
 }
 
 void WebPageProxy::stopSpeaking()
 {
     [NSApp stopSpeaking:nil];
+}
+
+void WebPageProxy::searchWithSpotlight(const String& string)
+{
+    [[NSWorkspace sharedWorkspace] showSearchResultsForQueryString:nsStringFromWebCoreString(string)];
 }
 
 CGContextRef WebPageProxy::containingWindowGraphicsContext()
@@ -134,11 +141,38 @@ void WebPageProxy::windowAndViewFramesChanged(const IntRect& windowFrameInScreen
     process()->send(Messages::WebPage::WindowAndViewFramesChanged(windowFrameInScreenCoordinates, viewFrameInWindowCoordinates, accessibilityViewCoordinates), m_pageID);
 }
 
+void WebPageProxy::setComposition(const String& text, Vector<CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
+{
+    process()->sendSync(Messages::WebPage::SetComposition(text, underlines, selectionStart, selectionEnd, replacementRangeStart, replacementRangeEnd), Messages::WebPage::SetComposition::Reply(m_editorState), m_pageID);
+}
+
+void WebPageProxy::confirmComposition()
+{
+    process()->sendSync(Messages::WebPage::ConfirmComposition(), Messages::WebPage::ConfirmComposition::Reply(m_editorState), m_pageID);
+}
+
+bool WebPageProxy::insertText(const String& text, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
+{
+    bool handled;
+    process()->sendSync(Messages::WebPage::InsertText(text, replacementRangeStart, replacementRangeEnd), Messages::WebPage::InsertText::Reply(handled, m_editorState), m_pageID);
+    return handled;
+}
+
 void WebPageProxy::getMarkedRange(uint64_t& location, uint64_t& length)
 {
     process()->sendSync(Messages::WebPage::GetMarkedRange(), Messages::WebPage::GetMarkedRange::Reply(location, length), m_pageID);
 }
-    
+
+void WebPageProxy::getSelectedRange(uint64_t& location, uint64_t& length)
+{
+    process()->sendSync(Messages::WebPage::GetSelectedRange(), Messages::WebPage::GetSelectedRange::Reply(location, length), m_pageID);
+}
+
+void WebPageProxy::getAttributedSubstringFromRange(uint64_t location, uint64_t length, AttributedString& result)
+{
+    process()->sendSync(Messages::WebPage::GetAttributedSubstringFromRange(location, length), Messages::WebPage::GetAttributedSubstringFromRange::Reply(result), m_pageID);
+}
+
 uint64_t WebPageProxy::characterIndexForPoint(const IntPoint point)
 {
     uint64_t result;
@@ -152,20 +186,27 @@ WebCore::IntRect WebPageProxy::firstRectForCharacterRange(uint64_t location, uin
     process()->sendSync(Messages::WebPage::FirstRectForCharacterRange(location, length), Messages::WebPage::FirstRectForCharacterRange::Reply(resultRect), m_pageID);
     return resultRect;
 }
-    
+
+bool WebPageProxy::executeKeypressCommands(const Vector<WebCore::KeypressCommand>& commands)
+{
+    bool result;
+    process()->sendSync(Messages::WebPage::ExecuteKeypressCommands(commands), Messages::WebPage::ExecuteKeypressCommands::Reply(result, m_editorState), m_pageID);
+    return result;
+}
+
 bool WebPageProxy::writeSelectionToPasteboard(const String& pasteboardName, const Vector<String>& pasteboardTypes)
 {
     bool result;
-    const double MessageTimeout = 20;
-    process()->sendSync(Messages::WebPage::WriteSelectionToPasteboard(pasteboardName, pasteboardTypes), Messages::WebPage::WriteSelectionToPasteboard::Reply(result), m_pageID, MessageTimeout);
+    const double messageTimeout = 20;
+    process()->sendSync(Messages::WebPage::WriteSelectionToPasteboard(pasteboardName, pasteboardTypes), Messages::WebPage::WriteSelectionToPasteboard::Reply(result), m_pageID, messageTimeout);
     return result;
 }
 
 bool WebPageProxy::readSelectionFromPasteboard(const String& pasteboardName)
 {
     bool result;
-    const double MessageTimeout = 20;
-    process()->sendSync(Messages::WebPage::ReadSelectionFromPasteboard(pasteboardName), Messages::WebPage::ReadSelectionFromPasteboard::Reply(result), m_pageID, MessageTimeout);
+    const double messageTimeout = 20;
+    process()->sendSync(Messages::WebPage::ReadSelectionFromPasteboard(pasteboardName), Messages::WebPage::ReadSelectionFromPasteboard::Reply(result), m_pageID, messageTimeout);
     return result;
 }
 
@@ -186,9 +227,10 @@ void WebPageProxy::performDictionaryLookupAtLocation(const WebCore::FloatPoint& 
     process()->send(Messages::WebPage::PerformDictionaryLookupAtLocation(point), m_pageID); 
 }
 
-void WebPageProxy::interpretKeyEvent(uint32_t type, Vector<KeypressCommand>& commandsList, uint32_t selectionStart, uint32_t selectionEnd, Vector<CompositionUnderline>& underlines)
+void WebPageProxy::interpretQueuedKeyEvent(const EditorState& state, bool& handled, Vector<WebCore::KeypressCommand>& commands)
 {
-    m_pageClient->interceptKeyEvent(m_keyEventQueue.first(), commandsList, selectionStart, selectionEnd, underlines);
+    m_editorState = state;
+    handled = m_pageClient->interpretKeyEvent(m_keyEventQueue.first(), commands);
 }
 
 // Complex text input support for plug-ins.
@@ -246,6 +288,27 @@ void WebPageProxy::registerUIProcessAccessibilityTokens(const CoreIPC::DataRefer
 void WebPageProxy::setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled)
 {
     m_pageClient->setComplexTextInputEnabled(pluginComplexTextInputIdentifier, complexTextInputEnabled);
+}
+
+void WebPageProxy::executeSavedCommandBySelector(const String& selector, bool& handled)
+{
+    handled = m_pageClient->executeSavedCommandBySelector(selector);
+}
+
+bool WebPageProxy::shouldDelayWindowOrderingForEvent(const WebKit::WebMouseEvent& event)
+{
+    bool result = false;
+    const double messageTimeout = 3;
+    process()->sendSync(Messages::WebPage::ShouldDelayWindowOrderingEvent(event), Messages::WebPage::ShouldDelayWindowOrderingEvent::Reply(result), m_pageID, messageTimeout);
+    return result;
+}
+
+bool WebPageProxy::acceptsFirstMouse(int eventNumber, const WebKit::WebMouseEvent& event)
+{
+    bool result = false;
+    const double messageTimeout = 3;
+    process()->sendSync(Messages::WebPage::AcceptsFirstMouse(eventNumber, event), Messages::WebPage::AcceptsFirstMouse::Reply(result), m_pageID, messageTimeout);
+    return result;
 }
 
 } // namespace WebKit

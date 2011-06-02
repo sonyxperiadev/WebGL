@@ -81,7 +81,7 @@ Vector<WebPopupItem> WebPopupMenu::populateItems()
     
     for (size_t i = 0; i < size; ++i) {
         if (m_popupClient->itemIsSeparator(i))
-            items.append(WebPopupItem(WebPopupItem::Seperator));
+            items.append(WebPopupItem(WebPopupItem::Separator));
         else {
             // FIXME: Add support for styling the font.
             // FIXME: Add support for styling the foreground and background colors.
@@ -126,6 +126,13 @@ void WebPopupMenu::hide()
 
 void WebPopupMenu::updateFromElement()
 {
+#if PLATFORM(WIN)
+    if (!m_page || !m_popupClient)
+        return;
+
+    int selectedIndex = m_popupClient->selectedIndex();
+    WebProcess::shared().connection()->send(Messages::WebPageProxy::SetPopupMenuSelectedIndex(selectedIndex), m_page->pageID());
+#endif
 }
 
 } // namespace WebKit

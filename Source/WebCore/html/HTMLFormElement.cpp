@@ -236,17 +236,11 @@ bool HTMLFormElement::validateInteractively(Event* event)
         FormAssociatedElement* unhandledAssociatedElement = unhandledInvalidControls[i].get();
         HTMLElement* unhandled = toHTMLElement(unhandledAssociatedElement);
         if (unhandled->isFocusable() && unhandled->inDocument()) {
-            RefPtr<Document> originalDocument(unhandled->document());
             unhandled->scrollIntoViewIfNeeded(false);
-            // scrollIntoViewIfNeeded() dispatches events, so the state
-            // of 'unhandled' might be changed so it's no longer focusable or
-            // moved to another document.
-            if (unhandled->isFocusable() && unhandled->inDocument() && originalDocument == unhandled->document()) {
-                unhandled->focus();
-                if (unhandled->isFormControlElement())
-                    static_cast<HTMLFormControlElement*>(unhandled)->updateVisibleValidationMessage();
-                break;
-            }
+            unhandled->focus();
+            if (unhandled->isFormControlElement())
+                static_cast<HTMLFormControlElement*>(unhandled)->updateVisibleValidationMessage();
+            break;
         }
     }
     // Warn about all of unfocusable controls.
@@ -417,7 +411,7 @@ unsigned HTMLFormElement::formElementIndexWithFormAttribute(Element* element)
     // Compares the position of the form element and the inserted element.
     // Updates the indeces in order to the relation of the position:
     unsigned short position = compareDocumentPosition(element);
-    if (position & DOCUMENT_POSITION_CONTAINS)
+    if (position & (DOCUMENT_POSITION_CONTAINS | DOCUMENT_POSITION_CONTAINED_BY))
         ++m_associatedElementsAfterIndex;
     else if (position & DOCUMENT_POSITION_PRECEDING) {
         ++m_associatedElementsBeforeIndex;
@@ -488,18 +482,15 @@ void HTMLFormElement::removeFormElement(FormAssociatedElement* e)
 {
     if (e->isFormControlElement())
         m_checkedRadioButtons.removeButton(static_cast<HTMLFormControlElement*>(e));
-    HTMLElement* element = toHTMLElement(e);
-    if (element->fastHasAttribute(formAttr)) {
-        unsigned index;
-        for (index = 0; index < m_associatedElements.size(); ++index)
-            if (m_associatedElements[index] == e)
-                break;
-        ASSERT(index < m_associatedElements.size());
-        if (index < m_associatedElementsBeforeIndex)
-            --m_associatedElementsBeforeIndex;
-        if (index < m_associatedElementsAfterIndex)
-            --m_associatedElementsAfterIndex;
-    } else
+    unsigned index;
+    for (index = 0; index < m_associatedElements.size(); ++index) {
+        if (m_associatedElements[index] == e)
+            break;
+    }
+    ASSERT(index < m_associatedElements.size());
+    if (index < m_associatedElementsBeforeIndex)
+        --m_associatedElementsBeforeIndex;
+    if (index < m_associatedElementsAfterIndex)
         --m_associatedElementsAfterIndex;
     removeFromVector(m_associatedElements, e);
 }
@@ -591,39 +582,6 @@ bool HTMLFormElement::checkValidity()
 {
     Vector<RefPtr<FormAssociatedElement> > controls;
     return !checkInvalidControlsAndCollectUnhandled(controls);
-}
-
-void HTMLFormElement::broadcastFormEvent(const AtomicString& eventName)
-{
-    RefPtr<HTMLFormElement> protector(this);
-    // Copy m_associatedElements because event handlers called from
-    // formElement->dispatchEvent() might change m_associatedElements.
-    Vector<RefPtr<FormAssociatedElement> > elements;
-    elements.reserveCapacity(m_associatedElements.size());
-    for (unsigned i = 0; i < m_associatedElements.size(); ++i) {
-        if (!m_associatedElements[i]->isResettable())
-            continue;
-        elements.append(m_associatedElements[i]);
-    }
-
-    for (unsigned i = 0; i < elements.size(); ++i) {
-        // We can assume a resettable control is always a HTMLFormControlElement.
-        // FIXME: We should handle resettable non-HTMLFormControlElements maybe in the future.
-        ASSERT(elements[i]->isFormControlElement());
-        HTMLFormControlElement* formElement = static_cast<HTMLFormControlElement*>(elements[i].get());
-        if (!formElement->dispatchEvent(Event::create(eventName, false, false)))
-            continue;
-    }
-}
-
-void HTMLFormElement::dispatchFormInput()
-{
-    broadcastFormEvent(eventNames().forminputEvent);
-}
-
-void HTMLFormElement::dispatchFormChange()
-{
-    broadcastFormEvent(eventNames().formchangeEvent);
 }
 
 bool HTMLFormElement::checkInvalidControlsAndCollectUnhandled(Vector<RefPtr<FormAssociatedElement> >& unhandledInvalidControls)

@@ -465,7 +465,7 @@ static bool isElementPresentational(const Node* node)
     RefPtr<CSSMutableStyleDeclaration> style = styleFromMatchedRulesAndInlineDecl(node);
     if (!style)
         return false;
-    return !propertyMissingOrEqualToNone(style.get(), CSSPropertyTextDecoration);
+    return !propertyMissingOrEqualToNone(style.get(), CSSPropertyTextDecoration) || !Editor::hasTransparentBackgroundColor(style.get());
 }
 
 static bool shouldIncludeWrapperForFullySelectedRoot(Node* fullySelectedRoot, CSSMutableStyleDeclaration* style)
@@ -571,11 +571,14 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
         accumulator.appendString(interchangeNewlineString);
         startNode = visibleStart.next().deepEquivalent().deprecatedNode();
 
-        if (pastEnd && Range::compareBoundaryPoints(startNode, 0, pastEnd, 0) >= 0) {
+        ExceptionCode ec = 0;
+        if (pastEnd && Range::compareBoundaryPoints(startNode, 0, pastEnd, 0, ec) >= 0) {
+            ASSERT(!ec);
             if (deleteButton)
                 deleteButton->enable();
             return interchangeNewlineString;
         }
+        ASSERT(!ec);
     }
 
     Node* body = enclosingNodeWithTag(firstPositionInNode(commonAncestor), bodyTag);

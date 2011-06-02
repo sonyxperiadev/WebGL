@@ -43,7 +43,6 @@
 #include "WebPopupMenu.h"
 #include "WebPreferencesStore.h"
 #include "WebProcess.h"
-#include "WebProcessProxyMessageKinds.h"
 #include "WebSearchPopupMenu.h"
 #include <WebCore/DatabaseTracker.h>
 #include <WebCore/FileChooser.h>
@@ -138,7 +137,7 @@ bool WebChromeClient::canTakeFocus(FocusDirection)
 
 void WebChromeClient::takeFocus(FocusDirection direction)
 {
-    m_page->send(Messages::WebPageProxy::TakeFocus(direction == FocusDirectionForward ? true : false));
+    m_page->send(Messages::WebPageProxy::TakeFocus(direction));
 }
 
 void WebChromeClient::focusedNodeChanged(Node*)

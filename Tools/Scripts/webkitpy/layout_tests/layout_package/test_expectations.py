@@ -41,8 +41,8 @@ _log = logging.getLogger("webkitpy.layout_tests.layout_package."
                          "test_expectations")
 
 # Test expectation and modifier constants.
-(PASS, FAIL, TEXT, IMAGE, IMAGE_PLUS_TEXT, TIMEOUT, CRASH, SKIP, WONTFIX,
- SLOW, REBASELINE, MISSING, FLAKY, NOW, NONE) = range(15)
+(PASS, FAIL, TEXT, IMAGE, IMAGE_PLUS_TEXT, AUDIO, TIMEOUT, CRASH, SKIP, WONTFIX,
+ SLOW, REBASELINE, MISSING, FLAKY, NOW, NONE) = range(16)
 
 # Test expectation file update action constants
 (NO_CHANGE, REMOVE_TEST, REMOVE_PLATFORM, ADD_PLATFORMS_EXCEPT_THIS) = range(4)
@@ -120,7 +120,8 @@ class TestExpectations:
                 self._expected_failures.get_test_set(REBASELINE, IMAGE) |
                 self._expected_failures.get_test_set(REBASELINE, TEXT) |
                 self._expected_failures.get_test_set(REBASELINE,
-                                                     IMAGE_PLUS_TEXT))
+                                                     IMAGE_PLUS_TEXT) |
+                self._expected_failures.get_test_set(REBASELINE, AUDIO))
 
     def get_options(self, test):
         return self._expected_failures.get_options(test)
@@ -166,9 +167,8 @@ class TestExpectations:
     def has_modifier(self, test, modifier):
         return self._expected_failures.has_modifier(test, modifier)
 
-    def remove_platform_from_expectations(self, tests, platform):
-        return self._expected_failures.remove_platform_from_expectations(
-            tests, platform)
+    def remove_rebaselined_tests(self, tests):
+        return self._expected_failures.remove_rebaselined_tests(tests)
 
 
 def strip_comments(line):
@@ -245,11 +245,11 @@ class TestExpectationsFile:
 
     Notes:
       -A test cannot be both SLOW and TIMEOUT
-      -A test should only be one of IMAGE, TEXT, IMAGE+TEXT, or FAIL. FAIL is
-       a migratory state that currently means either IMAGE, TEXT, or
-       IMAGE+TEXT. Once we have finished migrating the expectations, we will
-       change FAIL to have the meaning of IMAGE+TEXT and remove the IMAGE+TEXT
-       identifier.
+      -A test should only be one of IMAGE, TEXT, IMAGE+TEXT, AUDIO, or FAIL.
+       FAIL is a legacy value that currently means either IMAGE,
+       TEXT, or IMAGE+TEXT. Once we have finished migrating the expectations,
+       we should change FAIL to have the meaning of IMAGE+TEXT and remove the
+       IMAGE+TEXT identifier.
       -A test can be included twice, but not via the same path.
       -If a test is included twice, then the more precise path wins.
       -CRASH tests cannot be WONTFIX
@@ -260,6 +260,7 @@ class TestExpectationsFile:
                     'text': TEXT,
                     'image': IMAGE,
                     'image+text': IMAGE_PLUS_TEXT,
+                    'audio': AUDIO,
                     'timeout': TIMEOUT,
                     'crash': CRASH,
                     'missing': MISSING}
@@ -272,6 +273,7 @@ class TestExpectationsFile:
                                 IMAGE: ('image mismatch', 'image mismatch'),
                                 IMAGE_PLUS_TEXT: ('image and text mismatch',
                                                   'image and text mismatch'),
+                                AUDIO: ('audio mismatch', 'audio mismatch'),
                                 CRASH: ('DumpRenderTree crash',
                                         'DumpRenderTree crashes'),
                                 TIMEOUT: ('test timed out', 'tests timed out'),
@@ -279,7 +281,7 @@ class TestExpectationsFile:
                                           'no expected results found')}
 
     EXPECTATION_ORDER = (PASS, CRASH, TIMEOUT, MISSING, IMAGE_PLUS_TEXT,
-       TEXT, IMAGE, FAIL, SKIP)
+       TEXT, IMAGE, AUDIO, FAIL, SKIP)
 
     BUILD_TYPES = ('debug', 'release')
 
@@ -436,75 +438,14 @@ class TestExpectationsFile:
     def get_non_fatal_errors(self):
         return self._non_fatal_errors
 
-    def remove_platform_from_expectations(self, tests, platform):
-        """Returns a copy of the expectations with the tests matching the
-        platform removed.
-
-        If a test is in the test list and has an option that matches the given
-        platform, remove the matching platform and save the updated test back
-        to the file. If no other platforms remaining after removal, delete the
-        test from the file.
-
-        Args:
-          tests: list of tests that need to update..
-          platform: which platform option to remove.
-
-        Returns:
-          the updated string.
-        """
-
-        assert(platform)
-        f_orig = self._get_iterable_expectations(self._expectations)
-        f_new = []
-
-        tests_removed = 0
-        tests_updated = 0
-        lineno = 0
-        for line in f_orig:
-            lineno += 1
-            action = self._get_platform_update_action(line, lineno, tests,
-                                                      platform)
-            assert(action in (NO_CHANGE, REMOVE_TEST, REMOVE_PLATFORM,
-                              ADD_PLATFORMS_EXCEPT_THIS))
-            if action == NO_CHANGE:
-                # Save the original line back to the file
-                _log.debug('No change to test: %s', line)
-                f_new.append(line)
-            elif action == REMOVE_TEST:
-                tests_removed += 1
-                _log.info('Test removed: %s', line)
-            elif action == REMOVE_PLATFORM:
-                parts = line.split(':')
-                new_options = parts[0].replace(platform.upper() + ' ', '', 1)
-                new_line = ('%s:%s' % (new_options, parts[1]))
-                f_new.append(new_line)
-                tests_updated += 1
-                _log.info('Test updated: ')
-                _log.info('  old: %s', line)
-                _log.info('  new: %s', new_line)
-            elif action == ADD_PLATFORMS_EXCEPT_THIS:
-                parts = line.split(':')
-                _log.info('Test updated: ')
-                _log.info('  old: %s', line)
-                for p in self._port.test_platform_names():
-                    p = p.upper()
-                    # This is a temp solution for rebaselining tool.
-                    # Do not add tags WIN-7 and WIN-VISTA to test expectations
-                    # if the original line does not specify the platform
-                    # option.
-                    # TODO(victorw): Remove WIN-VISTA and WIN-WIN7 once we have
-                    # reliable Win 7 and Win Vista buildbots setup.
-                    if not p in (platform.upper(), 'WIN-VISTA', 'WIN-WIN7'):
-                        new_options = parts[0] + p + ' '
-                        new_line = ('%s:%s' % (new_options, parts[1]))
-                        f_new.append(new_line)
-                        _log.info('  new: %s', new_line)
-                tests_updated += 1
-
-        _log.info('Total tests removed: %d', tests_removed)
-        _log.info('Total tests updated: %d', tests_updated)
-
-        return "".join(f_new)
+    def remove_rebaselined_tests(self, tests):
+        """Returns a copy of the expectations with the tests removed."""
+        lines = []
+        for (lineno, line) in enumerate(self._get_iterable_expectations(self._expectations)):
+            test, options, _ = self.parse_expectations_line(line, lineno)
+            if not (test and test in tests and 'rebaseline' in options):
+                lines.append(line)
+        return ''.join(lines)
 
     def parse_expectations_line(self, line, lineno):
         """Parses a line from test_expectations.txt and returns a tuple
@@ -533,41 +474,6 @@ class TestExpectationsFile:
             expectations = self._get_options_list(test_and_expectation[1])
 
         return (test, options, expectations)
-
-    def _get_platform_update_action(self, line, lineno, tests, platform):
-        """Check the platform option and return the action needs to be taken.
-
-        Args:
-          line: current line in test expectations file.
-          lineno: current line number of line
-          tests: list of tests that need to update..
-          platform: which platform option to remove.
-
-        Returns:
-          NO_CHANGE: no change to the line (comments, test not in the list etc)
-          REMOVE_TEST: remove the test from file.
-          REMOVE_PLATFORM: remove this platform option from the test.
-          ADD_PLATFORMS_EXCEPT_THIS: add all the platforms except this one.
-        """
-        test, options, expectations = self.parse_expectations_line(line,
-                                                                   lineno)
-        if not test or test not in tests:
-            return NO_CHANGE
-
-        has_any_platform = False
-        for option in options:
-            if option in self._port.test_platform_names():
-                has_any_platform = True
-                if not option == platform:
-                    return REMOVE_PLATFORM
-
-        # If there is no platform specified, then it means apply to all
-        # platforms. Return the action to add all the platforms except this
-        # one.
-        if not has_any_platform:
-            return ADD_PLATFORMS_EXCEPT_THIS
-
-        return REMOVE_TEST
 
     def _add_to_all_expectations(self, test, options, expectations):
         # Make all paths unix-style so the dashboard doesn't need to.
@@ -929,7 +835,7 @@ class ModifierMatcher(object):
         'mac-leopard': ['mac', 'leopard'],
         'win-xp': ['win', 'xp'],
         'win-vista': ['win', 'vista'],
-        'win-7': ['win', 'win7'],
+        'win-win7': ['win', 'win7'],
     }
 
     # We don't include the "none" modifier because it isn't actually legal.

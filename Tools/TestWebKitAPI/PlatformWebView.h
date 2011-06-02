@@ -27,7 +27,10 @@
 #define PlatformWebView_h
 
 #include <wtf/Platform.h>
+
+#if USE(CG)
 #include <CoreGraphics/CGGeometry.h>
+#endif
 
 #ifdef __APPLE__
 #ifdef __OBJC__
@@ -65,6 +68,7 @@ public:
     void simulateRightClick(unsigned x, unsigned y);
 
 #if PLATFORM(WIN)
+    void simulateAKeyDown();
     void setParentWindowMessageObserver(WindowMessageObserver* observer) { m_parentWindowMessageObserver = observer; }
 #endif
 

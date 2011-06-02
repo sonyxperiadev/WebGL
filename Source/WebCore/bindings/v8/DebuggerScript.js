@@ -38,11 +38,6 @@ DebuggerScript.PauseOnExceptionsState = {
     PauseOnUncaughtExceptions: 2
 };
 
-DebuggerScript.ScriptWorldType = {
-    MainWorld : 0,
-    ExtensionsWorld : 1
-};
-
 DebuggerScript._pauseOnExceptionsState = DebuggerScript.PauseOnExceptionsState.DontPauseOnExceptions;
 Debug.clearBreakOnException();
 Debug.clearBreakOnUncaughtException();
@@ -50,6 +45,21 @@ Debug.clearBreakOnUncaughtException();
 DebuggerScript.getAfterCompileScript = function(eventData)
 {
     return DebuggerScript._formatScript(eventData.script_.script_);
+}
+
+DebuggerScript.getWorkerScripts = function()
+{
+    var result = [];
+    var scripts = Debug.scripts();
+    for (var i = 0; i < scripts.length; ++i) {
+        var script = scripts[i];
+        // Workers don't share same V8 heap now so there is no need to complicate stuff with
+        // the context id like we do to discriminate between scripts from different pages.
+        // However we need to filter out v8 native scripts.
+        if (script.context_data && script.context_data === "worker")
+            result.push(DebuggerScript._formatScript(script));
+    }
+    return result;
 }
 
 DebuggerScript.getScripts = function(contextData)
@@ -76,24 +86,19 @@ DebuggerScript.getScripts = function(contextData)
 
 DebuggerScript._formatScript = function(script)
 {
-    var scriptWorldType = DebuggerScript.ScriptWorldType.MainWorld;
-    if (script.context_data && script.context_data.indexOf("injected") == 0)
-        scriptWorldType = DebuggerScript.ScriptWorldType.ExtensionsWorld;
     return {
         id: script.id,
         name: script.nameOrSourceURL(),
         source: script.source,
         lineOffset: script.line_offset,
         columnOffset: script.column_offset,
-        scriptWorldType: scriptWorldType
+        isContentScript: !!script.context_data && script.context_data.indexOf("injected") == 0
     };
 }
 
 DebuggerScript.setBreakpoint = function(execState, args)
 {
-    var breakId = Debug.setScriptBreakPointById(args.scriptId, args.lineNumber, args.columnNumber, args.condition);
-    if (!args.enabled)
-        Debug.disableScriptBreakPoint(breakId);
+    var breakId = Debug.setScriptBreakPointById(args.sourceID, args.lineNumber, args.columnNumber, args.condition);
 
     var locations = Debug.findBreakPointActualLocations(breakId);
     if (!locations.length)
@@ -252,7 +257,6 @@ DebuggerScript._frameMirrorToJSCallFrame = function(frameMirror, callerFrame)
         "line": location.line,
         "column": location.column,
         "functionName": functionName,
-        "type": "function",
         "thisObject": thisObject,
         "scopeChain": scopeChain,
         "scopeType": scopeType,

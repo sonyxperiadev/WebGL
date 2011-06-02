@@ -52,6 +52,7 @@ DrawingAreaProxyImpl::DrawingAreaProxyImpl(WebPageProxy* webPageProxy)
     , m_currentBackingStoreStateID(0)
     , m_nextBackingStoreStateID(0)
     , m_isWaitingForDidUpdateBackingStoreState(false)
+    , m_isBackingStoreDiscardable(true)
     , m_discardBackingStoreTimer(RunLoop::current(), this, &DrawingAreaProxyImpl::discardBackingStore)
 {
 }
@@ -135,10 +136,29 @@ void DrawingAreaProxyImpl::visibilityDidChange()
 
     // Resume painting.
     m_webPageProxy->process()->send(Messages::DrawingArea::ResumePainting(), m_webPageProxy->pageID());
+
+#if USE(ACCELERATED_COMPOSITING)
+    // If we don't have a backing store, go ahead and mark the backing store as being changed so
+    // that when paint we'll actually wait for something to paint and not flash white.
+    if (!m_backingStore && m_layerTreeContext.isEmpty())
+        backingStoreStateDidChange(DoNotRespondImmediately);
+#endif
 }
 
 void DrawingAreaProxyImpl::setPageIsVisible(bool)
 {
+}
+
+void DrawingAreaProxyImpl::setBackingStoreIsDiscardable(bool isBackingStoreDiscardable)
+{
+    if (m_isBackingStoreDiscardable == isBackingStoreDiscardable)
+        return;
+
+    m_isBackingStoreDiscardable = isBackingStoreDiscardable;
+    if (m_isBackingStoreDiscardable)
+        discardBackingStoreSoon();
+    else
+        m_discardBackingStoreTimer.stop();
 }
 
 void DrawingAreaProxyImpl::update(uint64_t backingStoreStateID, const UpdateInfo& updateInfo)
@@ -277,7 +297,7 @@ void DrawingAreaProxyImpl::waitForAndDispatchDidUpdateBackingStoreState()
         return;
     if (m_webPageProxy->process()->isLaunching())
         return;
-    
+
 #if USE(ACCELERATED_COMPOSITING)
     // FIXME: waitForAndDispatchImmediately will always return the oldest DidUpdateBackingStoreState message that
     // hasn't yet been processed. But it might be better to skip ahead to some other DidUpdateBackingStoreState
@@ -311,6 +331,9 @@ void DrawingAreaProxyImpl::exitAcceleratedCompositingMode()
 
 void DrawingAreaProxyImpl::discardBackingStoreSoon()
 {
+    if (!m_isBackingStoreDiscardable)
+        return;
+
     // We'll wait this many seconds after the last paint before throwing away our backing store to save memory.
     // FIXME: It would be smarter to make this delay based on how expensive painting is. See <http://webkit.org/b/55733>.
     static const double discardBackingStoreDelay = 5;

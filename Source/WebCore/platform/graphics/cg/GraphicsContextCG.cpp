@@ -756,9 +756,6 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     if (oldFillColor != color || oldColorSpace != colorSpace)
         setCGFillColor(context, color, colorSpace);
 
-    Path path;
-    path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
-
     bool drawOwnShadow = !isAcceleratedContext() && hasBlurredShadow(m_state) && !m_state.shadowsIgnoreTransforms; // Don't use ShadowBlur for canvas yet.
     if (drawOwnShadow) {
         float shadowBlur = m_state.shadowsUseLegacyRadius ? radiusToLegacyRadius(m_state.shadowBlur) : m_state.shadowBlur;
@@ -771,7 +768,15 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
         contextShadow.drawRectShadow(this, rect, RoundedIntRect::Radii(topLeft, topRight, bottomLeft, bottomRight));
     }
 
-    fillPath(path);
+    bool equalWidths = (topLeft.width() == topRight.width() && topRight.width() == bottomLeft.width() && bottomLeft.width() == bottomRight.width());
+    bool equalHeights = (topLeft.height() == bottomLeft.height() && bottomLeft.height() == topRight.height() && topRight.height() == bottomRight.height());
+    if (equalWidths && equalHeights && topLeft.width() * 2 == rect.width() && topLeft.height() * 2 == rect.height())
+        CGContextFillEllipseInRect(context, rect);
+    else {
+        Path path;
+        path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+        fillPath(path);
+    }
 
     if (drawOwnShadow)
         CGContextRestoreGState(context);
@@ -791,7 +796,7 @@ void GraphicsContext::fillRectWithRoundedHole(const IntRect& rect, const Rounded
     path.addRect(rect);
 
     if (!roundedHoleRect.radii().isZero())
-        path.addRoundedRect(roundedHoleRect.rect(), roundedHoleRect.radii().topLeft(), roundedHoleRect.radii().topRight(), roundedHoleRect.radii().bottomLeft(), roundedHoleRect.radii().bottomRight());
+        path.addRoundedRect(roundedHoleRect);
     else
         path.addRect(roundedHoleRect.rect());
 
@@ -1167,8 +1172,11 @@ AffineTransform GraphicsContext::getCTM() const
     return AffineTransform(t.a, t.b, t.c, t.d, t.tx, t.ty);
 }
 
-FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
+FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect, RoundingMode roundingMode)
 {
+#if PLATFORM(CHROMIUM)
+    return rect;
+#else
     // It is not enough just to round to pixels in device space. The rotation part of the
     // affine transform matrix to device space can mess with this conversion if we have a
     // rotating image like the hands of the world clock widget. We just need the scale, so
@@ -1192,8 +1200,13 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
 
     deviceOrigin.x = roundf(deviceOrigin.x);
     deviceOrigin.y = roundf(deviceOrigin.y);
-    deviceLowerRight.x = roundf(deviceLowerRight.x);
-    deviceLowerRight.y = roundf(deviceLowerRight.y);
+    if (roundingMode == RoundAllSides) {
+        deviceLowerRight.x = roundf(deviceLowerRight.x);
+        deviceLowerRight.y = roundf(deviceLowerRight.y);
+    } else {
+        deviceLowerRight.x = deviceOrigin.x + roundf(rect.width() * deviceScaleX);
+        deviceLowerRight.y = deviceOrigin.y + roundf(rect.height() * deviceScaleY);
+    }
 
     // Don't let the height or width round to 0 unless either was originally 0
     if (deviceOrigin.y == deviceLowerRight.y && rect.height())
@@ -1204,6 +1217,7 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
     FloatPoint roundedOrigin = FloatPoint(deviceOrigin.x / deviceScaleX, deviceOrigin.y / deviceScaleY);
     FloatPoint roundedLowerRight = FloatPoint(deviceLowerRight.x / deviceScaleX, deviceLowerRight.y / deviceScaleY);
     return FloatRect(roundedOrigin, roundedLowerRight - roundedOrigin);
+#endif
 }
 
 void GraphicsContext::drawLineForText(const FloatPoint& point, float width, bool printing)
@@ -1232,7 +1246,7 @@ void GraphicsContext::drawLineForText(const FloatPoint& point, float width, bool
         // We try to round all parameters to integer boundaries in device space. If rounding pixels in device space
         // makes our thickness more than double, then there must be a shrinking-scale factor and rounding to pixels
         // in device space will make the underlines too thick.
-        CGRect lineRect = roundToDevicePixels(FloatRect(x, y, lineLength, adjustedThickness));
+        CGRect lineRect = roundToDevicePixels(FloatRect(x, y, lineLength, adjustedThickness), RoundOriginAndDimensions);
         if (lineRect.size.height < thickness * 2.0) {
             x = lineRect.origin.x;
             y = lineRect.origin.y;

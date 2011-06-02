@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2011 Igalia S.L.
  * Copyright (C) 2010 Apple Inc. All rights reserved.
  * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
  *
@@ -29,56 +30,63 @@
 
 #include "WKBase.h"
 #include <WebCore/NotImplemented.h>
+#include <gio/gio.h>
 #include <glib.h>
+#include <wtf/gobject/GRefPtr.h>
 
 // WorkQueue::EventSource
 class WorkQueue::EventSource {
 public:
-    EventSource(GSource* dispatchSource, PassOwnPtr<WorkItem> workItem, WorkQueue* workQueue)
-        : m_dispatchSource(dispatchSource)
-        , m_workItem(workItem)
+    EventSource(PassOwnPtr<WorkItem> workItem, WorkQueue* workQueue, GCancellable* cancellable)
+        : m_workItem(workItem)
         , m_workQueue(workQueue)
+        , m_cancellable(cancellable)
     {
     }
 
-    GSource* dispatchSource() { return m_dispatchSource; }
+    void cancel()
+    {
+        if (!m_cancellable)
+            return;
+        g_cancellable_cancel(m_cancellable);
+    }
+
+    static void executeEventSource(EventSource* eventSource)
+    {
+        ASSERT(eventSource);
+        WorkQueue* queue = eventSource->m_workQueue;
+        {
+            MutexLocker locker(queue->m_isValidMutex);
+            if (!queue->m_isValid)
+                return;
+        }
+
+        eventSource->m_workItem->execute();
+    }
 
     static gboolean performWorkOnce(EventSource* eventSource)
     {
-        ASSERT(eventSource);
-        WorkQueue* queue = eventSource->m_workQueue;
-        {
-            MutexLocker locker(queue->m_isValidMutex);
-            if (!queue->m_isValid)
-                return FALSE;
-        }
-
-        eventSource->m_workItem->execute();
+        executeEventSource(eventSource);
         return FALSE;
     }
 
-    static gboolean performWork(GIOChannel* channel, GIOCondition condition, EventSource* eventSource) 
+    static gboolean performWork(GSocket* socket, GIOCondition condition, EventSource* eventSource)
     {
-        ASSERT(eventSource);
-
-        if (!(condition & G_IO_IN) && !(condition & G_IO_HUP) && !(condition & G_IO_ERR))
+        if (!(condition & G_IO_IN) && !(condition & G_IO_HUP) && !(condition & G_IO_ERR)) {
+            // EventSource has been cancelled, return FALSE to destroy the source.
             return FALSE;
-
-        WorkQueue* queue = eventSource->m_workQueue;
-        {
-            MutexLocker locker(queue->m_isValidMutex);
-            if (!queue->m_isValid)
-                return FALSE;
         }
 
-        eventSource->m_workItem->execute();
-
-        if ((condition & G_IO_HUP) || (condition & G_IO_ERR))
-            return FALSE;
-
+        executeEventSource(eventSource);
         return TRUE;
     }
-    
+
+    static gboolean performWorkOnTermination(GPid, gint, EventSource* eventSource)
+    {
+        executeEventSource(eventSource);
+        return FALSE;
+    }
+
     static void deleteEventSource(EventSource* eventSource) 
     {
         ASSERT(eventSource);
@@ -86,9 +94,9 @@ public:
     }
    
 public:
-    GSource* m_dispatchSource;
     PassOwnPtr<WorkItem> m_workItem;
     WorkQueue* m_workQueue;
+    GCancellable* m_cancellable;
 };
 
 // WorkQueue
@@ -132,14 +140,15 @@ void WorkQueue::workQueueThreadBody()
 
 void WorkQueue::registerEventSourceHandler(int fileDescriptor, int condition, PassOwnPtr<WorkItem> item)
 {
-    GIOChannel* channel = g_io_channel_unix_new(fileDescriptor);
-    ASSERT(channel);
-    GSource* dispatchSource = g_io_create_watch(channel, static_cast<GIOCondition>(condition));
+    GRefPtr<GSocket> socket = adoptGRef(g_socket_new_from_fd(fileDescriptor, 0));
+    ASSERT(socket);
+    GRefPtr<GCancellable> cancellable = adoptGRef(g_cancellable_new());
+    GRefPtr<GSource> dispatchSource = adoptGRef(g_socket_create_source(socket.get(), static_cast<GIOCondition>(condition), cancellable.get()));
     ASSERT(dispatchSource);
-    EventSource* eventSource = new EventSource(dispatchSource, item, this);
+    EventSource* eventSource = new EventSource(item, this, cancellable.get());
     ASSERT(eventSource);
 
-    g_source_set_callback(dispatchSource, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWork), 
+    g_source_set_callback(dispatchSource.get(), reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWork),
         eventSource, reinterpret_cast<GDestroyNotify>(&WorkQueue::EventSource::deleteEventSource));
 
     // Set up the event sources under the mutex since this is shared across multiple threads.
@@ -154,11 +163,7 @@ void WorkQueue::registerEventSourceHandler(int fileDescriptor, int condition, Pa
         m_eventSources.set(fileDescriptor, sources);
     }
 
-    // Attach the event source to the GMainContext under the mutex since this is shared across multiple threads.
-    {
-        MutexLocker locker(m_eventLoopLock);
-        g_source_attach(dispatchSource, m_eventContext);
-    }
+    g_source_attach(dispatchSource.get(), m_eventContext);
 }
 
 void WorkQueue::unregisterEventSourceHandler(int fileDescriptor)
@@ -174,29 +179,43 @@ void WorkQueue::unregisterEventSourceHandler(int fileDescriptor)
     if (it != m_eventSources.end()) {
         Vector<EventSource*> sources = it->second;
         for (unsigned i = 0; i < sources.size(); i++)
-            g_source_destroy(sources[i]->dispatchSource());
+            sources[i]->cancel();
 
         m_eventSources.remove(it);
     }
 }
 
-void WorkQueue::scheduleWork(PassOwnPtr<WorkItem> item)
+void WorkQueue::scheduleWorkOnSource(GSource* dispatchSource, PassOwnPtr<WorkItem> item, GSourceFunc sourceCallback)
 {
-    GSource* dispatchSource = g_timeout_source_new(0);
-    ASSERT(dispatchSource);
-    EventSource* eventSource = new EventSource(dispatchSource, item, this);
-    
-    g_source_set_callback(dispatchSource, 
-                          reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnce), 
-                          eventSource, 
+    EventSource* eventSource = new EventSource(item, this, 0);
+
+    g_source_set_callback(dispatchSource, sourceCallback, eventSource,
                           reinterpret_cast<GDestroyNotify>(&WorkQueue::EventSource::deleteEventSource));
-    {
-        MutexLocker locker(m_eventLoopLock);
-        g_source_attach(dispatchSource, m_eventContext);
-    }
+
+    g_source_attach(dispatchSource, m_eventContext);
 }
 
-void WorkQueue::scheduleWorkAfterDelay(PassOwnPtr<WorkItem>, double)
+void WorkQueue::scheduleWork(PassOwnPtr<WorkItem> item)
 {
-    notImplemented();
+    GRefPtr<GSource> dispatchSource = adoptGRef(g_idle_source_new());
+    ASSERT(dispatchSource);
+    g_source_set_priority(dispatchSource.get(), G_PRIORITY_DEFAULT);
+
+    scheduleWorkOnSource(dispatchSource.get(), item, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnce));
+}
+
+void WorkQueue::scheduleWorkAfterDelay(PassOwnPtr<WorkItem> item, double delay)
+{
+    GRefPtr<GSource> dispatchSource = adoptGRef(g_timeout_source_new(static_cast<guint>(delay * 1000)));
+    ASSERT(dispatchSource);
+
+    scheduleWorkOnSource(dispatchSource.get(), item, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnce));
+}
+
+void WorkQueue::scheduleWorkOnTermination(WebKit::PlatformProcessIdentifier process, PassOwnPtr<WorkItem> item)
+{
+    GRefPtr<GSource> dispatchSource = adoptGRef(g_child_watch_source_new(process));
+    ASSERT(dispatchSource);
+
+    scheduleWorkOnSource(dispatchSource.get(), item, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnTermination));
 }

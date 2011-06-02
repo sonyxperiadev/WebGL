@@ -212,7 +212,7 @@ protected:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
 
-    enum DisplayMode { Unknown, None, Poster, Video };
+    enum DisplayMode { Unknown, None, Poster, PosterWaitingForVideo, Video };
     DisplayMode displayMode() const { return m_displayMode; }
     virtual void setDisplayMode(DisplayMode mode) { m_displayMode = mode; }
 
@@ -257,6 +257,7 @@ private:
     virtual void mediaPlayerRenderingModeChanged(MediaPlayer*);
 #endif
     virtual void mediaPlayerEngineUpdated(MediaPlayer*);
+    virtual void mediaPlayerFirstVideoFrameAvailable(MediaPlayer*);
 
     void loadTimerFired(Timer<HTMLMediaElement>*);
     void asyncEventTimerFired(Timer<HTMLMediaElement>*);
@@ -323,7 +324,10 @@ private:
     void invalidateCachedTime();
     void refreshCachedTime() const;
 
-    bool hasMediaControls() const;
+    bool hasMediaControls();
+    void ensureMediaControls();
+
+    virtual void* preDispatchEventHandler(Event*);
 
     Timer<HTMLMediaElement> m_loadTimer;
     Timer<HTMLMediaElement> m_asyncEventTimer;
@@ -331,7 +335,7 @@ private:
     Timer<HTMLMediaElement> m_playbackProgressTimer;
     Vector<RefPtr<Event> > m_pendingEvents;
     RefPtr<TimeRanges> m_playedTimeRanges;
-    
+
     float m_playbackRate;
     float m_defaultPlaybackRate;
     bool m_webkitPreservesPitch;
@@ -404,6 +408,7 @@ private:
 
     bool m_isFullscreen : 1;
     bool m_closedCaptionsVisible : 1;
+    bool m_mouseOver : 1;
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     bool m_needWidgetUpdate : 1;

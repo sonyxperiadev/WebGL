@@ -34,6 +34,7 @@
 #include "FindIndicator.h"
 #include "LocalizedStrings.h"
 #include "NativeWebKeyboardEvent.h"
+#include "NativeWebMouseEvent.h"
 #include "NotImplemented.h"
 #include "TiledDrawingAreaProxy.h"
 #include "WebContext.h"
@@ -125,11 +126,6 @@ void QWKPagePrivate::setViewportArguments(const ViewportArguments& args)
     emit q->viewportChangeRequested();
 }
 
-void QWKPagePrivate::takeFocus(bool direction)
-{
-    emit q->focusNextPrevChild(direction);
-}
-
 PassOwnPtr<DrawingAreaProxy> QWKPagePrivate::createDrawingAreaProxy()
 {
     // FIXME: We should avoid this cast by decoupling the view from the page.
@@ -206,7 +202,7 @@ void QWKPagePrivate::didChangeContentsSize(const IntSize& newSize)
 
 void QWKPagePrivate::toolTipChanged(const String&, const String& newTooltip)
 {
-    emit q->statusBarMessage(QString(newTooltip));
+    emit q->toolTipChanged(QString(newTooltip));
 }
 
 void QWKPagePrivate::registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo)
@@ -214,6 +210,15 @@ void QWKPagePrivate::registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPag
 }
 
 void QWKPagePrivate::clearAllEditCommands()
+{
+}
+
+bool QWKPagePrivate::canUndoRedo(WebPageProxy::UndoOrRedo)
+{
+    return false;
+}
+
+void QWKPagePrivate::executeUndoRedo(WebPageProxy::UndoOrRedo)
 {
 }
 
@@ -297,32 +302,27 @@ void QWKPagePrivate::mouseMoveEvent(QGraphicsSceneMouseEvent* ev)
         return;
     lastPos = ev->pos();
 
-    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(ev, 0);
-    page->handleMouseEvent(mouseEvent);
+    page->handleMouseEvent(NativeWebMouseEvent(ev, 0));
 }
 
 void QWKPagePrivate::mousePressEvent(QGraphicsSceneMouseEvent* ev)
 {
     if (tripleClickTimer.isActive() && (ev->pos() - tripleClick).manhattanLength() < QApplication::startDragDistance()) {
-        WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(ev, 3);
-        page->handleMouseEvent(mouseEvent);
+        page->handleMouseEvent(NativeWebMouseEvent(ev, 3));
         return;
     }
 
-    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(ev, 1);
-    page->handleMouseEvent(mouseEvent);
+    page->handleMouseEvent(NativeWebMouseEvent(ev, 1));
 }
 
 void QWKPagePrivate::mouseReleaseEvent(QGraphicsSceneMouseEvent* ev)
 {
-    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(ev, 0);
-    page->handleMouseEvent(mouseEvent);
+    page->handleMouseEvent(NativeWebMouseEvent(ev, 0));
 }
 
 void QWKPagePrivate::mouseDoubleClickEvent(QGraphicsSceneMouseEvent* ev)
 {
-    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(ev, 2);
-    page->handleMouseEvent(mouseEvent);
+    page->handleMouseEvent(NativeWebMouseEvent(ev, 2));
 
     tripleClickTimer.start(QApplication::doubleClickInterval(), q);
     tripleClick = ev->pos().toPoint();
@@ -458,10 +458,13 @@ QWKPage::QWKPage(QWKContext* context)
         qt_wk_createNewPage,
         qt_wk_showPage,
         qt_wk_close,
+        qt_wk_takeFocus,
+        0,  /* focus */
+        0,  /* unfocus */
         qt_wk_runJavaScriptAlert,
         0,  /* runJavaScriptConfirm */
         0,  /* runJavaScriptPrompt */
-        0,  /* setStatusText */
+        qt_wk_setStatusText,
         0,  /* mouseDidMoveOverElement */
         0,  /* missingPluginButtonClicked */
         0,  /* didNotHandleKeyEvent */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,8 +81,6 @@ public:
     virtual void didRelaunchProcess() = 0;
     virtual void pageClosed() = 0;
 
-    virtual void setFocus(bool focused) = 0;
-    virtual void takeFocus(bool direction) = 0;
     virtual void toolTipChanged(const String&, const String&) = 0;
 
 #if ENABLE(TILED_BACKING_STORE)
@@ -98,13 +96,20 @@ public:
 
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo) = 0;
     virtual void clearAllEditCommands() = 0;
+    virtual bool canUndoRedo(WebPageProxy::UndoOrRedo) = 0;
+    virtual void executeUndoRedo(WebPageProxy::UndoOrRedo) = 0;
 #if PLATFORM(MAC)
     virtual void accessibilityWebProcessTokenReceived(const CoreIPC::DataReference&) = 0;
-    virtual void interceptKeyEvent(const NativeWebKeyboardEvent&, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines) = 0;
+    virtual bool interpretKeyEvent(const NativeWebKeyboardEvent&, Vector<WebCore::KeypressCommand>&) = 0;
+    virtual bool executeSavedCommandBySelector(const String& selector) = 0;
     virtual void setDragImage(const WebCore::IntPoint& clientPosition, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag) = 0;
+    virtual void updateSecureInputState() = 0;
 #endif
 #if PLATFORM(WIN)
     virtual void compositionSelectionChanged(bool) = 0;
+#endif
+#if PLATFORM(GTK)
+    virtual void getEditorCommandsForKeyEvent(const NativeWebKeyboardEvent&, Vector<WTF::String>&) = 0;
 #endif
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) = 0;
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) = 0;
@@ -124,12 +129,14 @@ public:
 
 #if PLATFORM(WIN)
     virtual HWND nativeWindow() = 0;
+    virtual void setGestureReachedScrollingLimit(bool) = 0;
 #endif
 
 #if PLATFORM(MAC)
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled) = 0;
     virtual CGContextRef containingWindowGraphicsContext() = 0;
     virtual void didPerformDictionaryLookup(const String&, double scaleFactor, const DictionaryPopupInfo&) = 0;
+    virtual void dismissDictionaryLookupPanel() = 0;
     virtual void showCorrectionPanel(WebCore::CorrectionPanelInfo::PanelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings) = 0;
     virtual void dismissCorrectionPanel(WebCore::ReasonForDismissingCorrectionPanel) = 0;
     virtual String dismissCorrectionPanelSoon(WebCore::ReasonForDismissingCorrectionPanel) = 0;
@@ -145,6 +152,8 @@ public:
     virtual void setCustomRepresentationZoomFactor(double) = 0;
 
     virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects) = 0;
+    virtual void findStringInCustomRepresentation(const String&, FindOptions, unsigned maxMatchCount) = 0;
+    virtual void countStringMatchesInCustomRepresentation(const String&, FindOptions, unsigned maxMatchCount) = 0;
 
     virtual float userSpaceScaleFactor() const = 0;
 };

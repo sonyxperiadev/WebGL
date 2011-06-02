@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,11 +27,13 @@
 #include "config.h"
 
 #if ENABLE(VIDEO)
+
 #include "MediaControls.h"
 
-#include "EventNames.h"
-#include "FloatConversion.h"
+#include "HTMLDivElement.h"
+#include "HTMLMediaElement.h"
 #include "HTMLNames.h"
+<<<<<<< HEAD
 #include "MediaControlElements.h"
 #include "MouseEvent.h"
 #include "Page.h"
@@ -47,14 +49,13 @@
 
 
 using namespace std;
+=======
+>>>>>>> WebKit.org at r84325
 
 namespace WebCore {
 
-using namespace HTMLNames;
-
-static const double cOpacityAnimationRepeatDelay = 0.05;
-
 MediaControls::MediaControls(HTMLMediaElement* mediaElement)
+<<<<<<< HEAD
     : m_mediaElement(mediaElement)
     , m_opacityAnimationTimer(this, &MediaControls::opacityAnimationTimerFired)
     , m_opacityAnimationStartTime(0)
@@ -555,6 +556,10 @@ void MediaControls::forwardEvent(Event* event)
         }
     }
 #endif
+=======
+    : HTMLDivElement(HTMLNames::divTag, mediaElement->document())
+{
+>>>>>>> WebKit.org at r84325
 }
 
 #if PLATFORM(ANDROID)

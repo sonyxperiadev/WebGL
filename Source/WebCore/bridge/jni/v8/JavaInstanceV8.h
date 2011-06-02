@@ -29,13 +29,8 @@
 
 #if ENABLE(JAVA_BRIDGE)
 
-#include "JNIUtility.h"
 #include "JavaValueV8.h"
-#include "JobjectWrapper.h"
-#include "npruntime.h"
-
 #include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
 
 using namespace WTF;
 
@@ -49,28 +44,19 @@ class JavaMethod;
 
 class JavaInstance : public RefCounted<JavaInstance> {
 public:
-    JavaInstance(jobject instance);
-    virtual ~JavaInstance();
+    virtual ~JavaInstance() {}
 
-    JavaClass* getClass() const;
+    virtual JavaClass* getClass() const = 0;
     // args must be an array of length greater than or equal to the number of
     // arguments expected by the method.
-    JavaValue invokeMethod(const JavaMethod*, JavaValue* args);
-    JavaValue getField(const JavaField*);
-    jobject javaInstance() const { return m_instance->m_instance; }
+    virtual JavaValue invokeMethod(const JavaMethod*, JavaValue* args) = 0;
+    virtual JavaValue getField(const JavaField*) = 0;
 
     // These functions are called before and after the main entry points into
     // the native implementations.  They can be used to establish and cleanup
     // any needed state.
-    void begin() { virtualBegin(); }
-    void end() { virtualEnd(); }
-
-protected:
-    RefPtr<JobjectWrapper> m_instance;
-    mutable JavaClass* m_class;
-
-    virtual void virtualBegin();
-    virtual void virtualEnd();
+    virtual void begin() = 0;
+    virtual void end() = 0;
 };
 
 } // namespace Bindings

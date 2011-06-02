@@ -38,6 +38,7 @@
 #include "IconDatabaseBase.h"
 #include "PolicyChecker.h"
 #include "ResourceLoadNotifier.h"
+#include "ScriptValue.h"
 #include "SubframeLoader.h"
 #include "ThreadableLoader.h"
 #include "Timer.h"
@@ -78,6 +79,7 @@ class ScriptValue;
 class SecurityOrigin;
 class SerializedScriptValue;
 class SharedBuffer;
+class StringWithDirection;
 class SubstituteData;
 class TextResourceDecoder;
 
@@ -282,7 +284,7 @@ public:
 
     void cancelAndClear();
 
-    void setTitle(const String&);
+    void setTitle(const StringWithDirection&);
     void setIconURL(const String&);
 
     void commitProvisionalLoad();

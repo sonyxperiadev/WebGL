@@ -38,8 +38,7 @@ except ImportError:
     multiprocessing = None
 
 from webkitpy.tool import mocktool
-mock_options = mocktool.MockOptions(results_directory='layout-test-results',
-                                    use_apache=True,
+mock_options = mocktool.MockOptions(use_apache=True,
                                     configuration='Release')
 
 # FIXME: This should be used for all ports, not just WebKit Mac. See
@@ -60,10 +59,7 @@ class PortTestCase(unittest.TestCase):
         if not maker:
             return None
 
-        port = maker(options=options)
-        if hasattr(options, "results_directory"):
-            port._options.results_directory = port.results_directory()
-        return port
+        return maker(options=options)
 
     def test_default_worker_model(self):
         port = self.make_port()
@@ -80,6 +76,12 @@ class PortTestCase(unittest.TestCase):
         if not port:
             return
         self.assertTrue(len(port.driver_cmd_line()))
+
+        options = mocktool.MockOptions(additional_drt_flag=['--foo=bar', '--foo=baz'])
+        port = self.make_port(options=options)
+        cmd_line = port.driver_cmd_line()
+        self.assertTrue('--foo=bar' in cmd_line)
+        self.assertTrue('--foo=baz' in cmd_line)
 
     def disabled_test_http_server(self):
         port = self.make_port()
@@ -112,6 +114,30 @@ class PortTestCase(unittest.TestCase):
         self.assertTrue(port.diff_image(contents1, contents2, tmpfile))
 
         port._filesystem.remove(tmpfile)
+
+    def test_diff_image__missing_both(self):
+        port = self.make_port()
+        if not port:
+            return
+        self.assertFalse(port.diff_image(None, None, None))
+        self.assertFalse(port.diff_image(None, '', None))
+        self.assertFalse(port.diff_image('', None, None))
+        self.assertFalse(port.diff_image('', '', None))
+
+    def test_diff_image__missing_actual(self):
+        port = self.make_port()
+        if not port:
+            return
+        self.assertTrue(port.diff_image(None, 'foo', None))
+        self.assertTrue(port.diff_image('', 'foo', None))
+
+    def test_diff_image__missing_expected(self):
+        port = self.make_port()
+        if not port:
+            return
+        self.assertTrue(port.diff_image('foo', None, None))
+        self.assertTrue(port.diff_image('foo', '', None))
+
 
     def disabled_test_websocket_server(self):
         port = self.make_port()

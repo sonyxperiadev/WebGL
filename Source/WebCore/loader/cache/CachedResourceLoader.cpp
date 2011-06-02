@@ -47,6 +47,7 @@
 #include "ResourceLoadScheduler.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#include <wtf/UnusedParam.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenate.h>
 
@@ -70,8 +71,8 @@ static CachedResource* createResource(CachedResource::Type type, const KURL& url
         return new CachedXSLStyleSheet(url.string());
 #endif
 #if ENABLE(LINK_PREFETCH)
-    case CachedResource::LinkPrefetch:
-        return new CachedResource(url.string(), CachedResource::LinkPrefetch);
+    case CachedResource::LinkResource:
+        return new CachedResource(url.string(), CachedResource::LinkResource);
 #endif
     }
     ASSERT_NOT_REACHED();
@@ -195,10 +196,10 @@ CachedXSLStyleSheet* CachedResourceLoader::requestXSLStyleSheet(const String& ur
 #endif
 
 #if ENABLE(LINK_PREFETCH)
-CachedResource* CachedResourceLoader::requestLinkPrefetch(const String& url)
+CachedResource* CachedResourceLoader::requestLinkResource(const String& url, ResourceLoadPriority priority)
 {
     ASSERT(frame());
-    return requestResource(CachedResource::LinkPrefetch, url, String());
+    return requestResource(CachedResource::LinkResource, url, String(), priority);
 }
 #endif
 
@@ -213,7 +214,7 @@ bool CachedResourceLoader::canRequest(CachedResource::Type type, const KURL& url
     case CachedResource::Script:
     case CachedResource::FontResource:
 #if ENABLE(LINK_PREFETCH)
-    case CachedResource::LinkPrefetch:
+    case CachedResource::LinkResource:
 #endif
         // These types of resources can be loaded from any origin.
         // FIXME: Are we sure about CachedResource::FontResource?
@@ -255,15 +256,39 @@ bool CachedResourceLoader::canRequest(CachedResource::Type type, const KURL& url
         break;
     }
 #if ENABLE(LINK_PREFETCH)
-    case CachedResource::LinkPrefetch:
+    case CachedResource::LinkResource:
         // Prefetch cannot affect the current document.
         break;
 #endif
     }
     // FIXME: Consider letting the embedder block mixed content loads.
 
-    if (type == CachedResource::Script && !m_document->contentSecurityPolicy()->allowScriptFromSource(url))
-        return false;
+    switch (type) {
+    case CachedResource::Script:
+        if (!m_document->contentSecurityPolicy()->allowScriptFromSource(url))
+            return false;
+        break;
+#if ENABLE(XSLT)
+    case CachedResource::XSLStyleSheet:
+#endif
+    case CachedResource::CSSStyleSheet:
+        if (!m_document->contentSecurityPolicy()->allowStyleFromSource(url))
+            return false;
+        break;
+    case CachedResource::ImageResource:
+        if (!m_document->contentSecurityPolicy()->allowImageFromSource(url))
+            return false;
+        break;
+    case CachedResource::FontResource: {
+        if (!m_document->contentSecurityPolicy()->allowFontFromSource(url))
+            return false;
+        break;
+    }
+#if ENABLE(LINK_PREFETCH)
+    case CachedResource::LinkResource:
+        break;
+#endif
+    }
 
     return true;
 }
@@ -615,7 +640,7 @@ void CachedResourceLoader::notifyLoadedFromMemoryCache(CachedResource* resource)
 
 void CachedResourceLoader::incrementRequestCount(const CachedResource* res)
 {
-    if (res->isPrefetch())
+    if (res->isLinkResource())
         return;
 
     ++m_requestCount;
@@ -623,7 +648,7 @@ void CachedResourceLoader::incrementRequestCount(const CachedResource* res)
 
 void CachedResourceLoader::decrementRequestCount(const CachedResource* res)
 {
-    if (res->isPrefetch())
+    if (res->isLinkResource())
         return;
 
     --m_requestCount;
@@ -639,10 +664,14 @@ int CachedResourceLoader::requestCount()
     
 void CachedResourceLoader::preload(CachedResource::Type type, const String& url, const String& charset, bool referencedFromBody)
 {
+    // FIXME: Rip this out when we are sure it is no longer necessary (even for mobile).
+    UNUSED_PARAM(referencedFromBody);
+
     bool hasRendering = m_document->body() && m_document->body()->renderer();
-    if (!hasRendering && (referencedFromBody || type == CachedResource::ImageResource)) {
-        // Don't preload images or body resources before we have something to draw. This prevents
-        // preloads from body delaying first display when bandwidth is limited.
+    bool canBlockParser = type == CachedResource::Script || type == CachedResource::CSSStyleSheet;
+    if (!hasRendering && !canBlockParser) {
+        // Don't preload subresources that can't block the parser before we have something to draw.
+        // This helps prevent preloads from delaying first display when bandwidth is limited.
         PendingPreload pendingPreload = { type, url, charset };
         m_pendingPreloads.append(pendingPreload);
         return;

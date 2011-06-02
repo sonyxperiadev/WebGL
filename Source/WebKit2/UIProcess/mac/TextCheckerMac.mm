@@ -27,10 +27,13 @@
 #import "TextChecker.h"
 
 #import "TextCheckerState.h"
+#import <WebCore/NotImplemented.h>
 #import <wtf/RetainPtr.h>
 
 #ifndef BUILDING_ON_SNOW_LEOPARD
-#import <AppKit/NSTextChecker.h>
+@interface NSSpellChecker (WebNSSpellCheckerDetails)
+- (NSString *)languageForWordRange:(NSRange)range inString:(NSString *)string orthography:(NSOrthography *)orthography;
+@end
 #endif
 
 static NSString* const WebAutomaticSpellingCorrectionEnabled = @"WebAutomaticSpellingCorrectionEnabled";
@@ -195,7 +198,22 @@ void TextChecker::setSmartInsertDeleteEnabled(bool flag)
     [[NSUserDefaults standardUserDefaults] setBool:flag forKey:WebSmartInsertDeleteEnabled];
 }
 
-int64_t TextChecker::uniqueSpellDocumentTag()
+bool TextChecker::substitutionsPanelIsShowing()
+{
+    return [[[NSSpellChecker sharedSpellChecker] substitutionsPanel] isVisible];
+}
+
+void TextChecker::toggleSubstitutionsPanelIsShowing()
+{
+    NSPanel *substitutionsPanel = [[NSSpellChecker sharedSpellChecker] substitutionsPanel];
+    if ([substitutionsPanel isVisible]) {
+        [substitutionsPanel orderOut:nil];
+        return;
+    }
+    [substitutionsPanel orderFront:nil];
+}
+
+int64_t TextChecker::uniqueSpellDocumentTag(WebPageProxy*)
 {
     return [NSSpellChecker uniqueSpellDocumentTag];
 }
@@ -204,6 +222,8 @@ void TextChecker::closeSpellDocumentWithTag(int64_t tag)
 {
     [[NSSpellChecker sharedSpellChecker] closeSpellDocumentWithTag:tag];
 }
+
+#if USE(UNIFIED_TEXT_CHECKING)
 
 Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocumentTag, const UChar* text, int length, uint64_t checkingTypes)
 {
@@ -292,12 +312,40 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocume
     return results;
 }
 
-void TextChecker::updateSpellingUIWithMisspelledWord(const String& misspelledWord)
+#endif
+
+void TextChecker::checkSpellingOfString(int64_t, const UChar*, uint32_t, int32_t&, int32_t&)
+{
+    // Mac uses checkTextOfParagraph instead.
+    notImplemented();
+}
+
+void TextChecker::checkGrammarOfString(int64_t, const UChar*, uint32_t, Vector<WebCore::GrammarDetail>&, int32_t&, int32_t&)
+{
+    // Mac uses checkTextOfParagraph instead.
+    notImplemented();
+}
+
+bool TextChecker::spellingUIIsShowing()
+{
+    return [[[NSSpellChecker sharedSpellChecker] spellingPanel] isVisible];
+}
+
+void TextChecker::toggleSpellingUIIsShowing()
+{
+    NSPanel *spellingPanel = [[NSSpellChecker sharedSpellChecker] spellingPanel];
+    if ([spellingPanel isVisible])
+        [spellingPanel orderOut:nil];
+    else
+        [spellingPanel orderFront:nil];
+}
+
+void TextChecker::updateSpellingUIWithMisspelledWord(int64_t, const String& misspelledWord)
 {
     [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithMisspelledWord:misspelledWord];
 }
 
-void TextChecker::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
+void TextChecker::updateSpellingUIWithGrammarString(int64_t, const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
 {
     RetainPtr<NSMutableArray> corrections(AdoptNS, [[NSMutableArray alloc] init]);
     for (size_t i = 0; i < grammarDetail.guesses.size(); ++i) {
@@ -307,7 +355,7 @@ void TextChecker::updateSpellingUIWithGrammarString(const String& badGrammarPhra
 
     NSRange grammarRange = NSMakeRange(grammarDetail.location, grammarDetail.length);
     NSString *grammarUserDescription = grammarDetail.userDescription;
-    RetainPtr<NSMutableDictionary> grammarDetailDict(AdoptNS, [[NSDictionary alloc] initWithObjectsAndKeys:[NSValue valueWithRange:grammarRange], NSGrammarRange, grammarUserDescription, NSGrammarUserDescription, corrections.get(), NSGrammarCorrections, nil]);
+    RetainPtr<NSDictionary> grammarDetailDict(AdoptNS, [[NSDictionary alloc] initWithObjectsAndKeys:[NSValue valueWithRange:grammarRange], NSGrammarRange, grammarUserDescription, NSGrammarUserDescription, corrections.get(), NSGrammarCorrections, nil]);
 
     [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithGrammarString:badGrammarPhrase detail:grammarDetailDict.get()];
 }
@@ -331,7 +379,7 @@ void TextChecker::getGuessesForWord(int64_t spellDocumentTag, const String& word
         guesses.append(guess);
 }
 
-void TextChecker::learnWord(const String& word)
+void TextChecker::learnWord(int64_t, const String& word)
 {
     [[NSSpellChecker sharedSpellChecker] learnWord:word];
 }

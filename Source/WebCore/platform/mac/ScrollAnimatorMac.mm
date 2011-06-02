@@ -100,6 +100,11 @@ static NSSize abs(NSSize size)
     _animator->immediateScrollToPoint(newPosition);
 }
 
+- (NSPoint)_pixelAlignProposedScrollPosition:(NSPoint)newOrigin
+{
+    return newOrigin;
+}
+
 - (NSSize)convertSizeToBase:(NSSize)size
 {
     return abs(size);
@@ -322,9 +327,9 @@ static NSSize abs(NSSize size)
 
     // Invalidate the scrollbars so that they paint the animation
     if (WebCore::Scrollbar* verticalScrollbar = _animator->scrollableArea()->verticalScrollbar())
-        _animator->scrollableArea()->invalidateScrollbarRect(verticalScrollbar, WebCore::IntRect(0, 0, verticalScrollbar->width(), verticalScrollbar->height()));
+        verticalScrollbar->invalidateRect(WebCore::IntRect(0, 0, verticalScrollbar->width(), verticalScrollbar->height()));
     if (WebCore::Scrollbar* horizontalScrollbar = _animator->scrollableArea()->horizontalScrollbar())
-        _animator->scrollableArea()->invalidateScrollbarRect(horizontalScrollbar, WebCore::IntRect(0, 0, horizontalScrollbar->width(), horizontalScrollbar->height()));
+        horizontalScrollbar->invalidateRect(WebCore::IntRect(0, 0, horizontalScrollbar->width(), horizontalScrollbar->height()));
 }
 
 - (void)scrollAnimatorDestroyed
@@ -575,6 +580,9 @@ void ScrollAnimatorMac::immediateScrollToPoint(const FloatPoint& newPosition)
 {
     FloatPoint adjustedPosition = adjustScrollPositionIfNecessary(newPosition);
  
+    if (adjustedPosition.x() == m_currentPosX && adjustedPosition.y() == m_currentPosY)
+        return;
+    
     m_currentPosX = adjustedPosition.x();
     m_currentPosY = adjustedPosition.y();
     notityPositionChanged();
@@ -582,13 +590,23 @@ void ScrollAnimatorMac::immediateScrollToPoint(const FloatPoint& newPosition)
 
 void ScrollAnimatorMac::immediateScrollByDeltaX(float deltaX)
 {
-    m_currentPosX = adjustScrollXPositionIfNecessary(m_currentPosX + deltaX);
+    float newPosX = adjustScrollXPositionIfNecessary(m_currentPosX + deltaX);
+    
+    if (newPosX == m_currentPosX)
+        return;
+    
+    m_currentPosX = newPosX;
     notityPositionChanged();
 }
 
 void ScrollAnimatorMac::immediateScrollByDeltaY(float deltaY)
 {
-    m_currentPosY = adjustScrollYPositionIfNecessary(m_currentPosY + deltaY);
+    float newPosY = adjustScrollYPositionIfNecessary(m_currentPosY + deltaY);
+    
+    if (newPosY == m_currentPosY)
+        return;
+    
+    m_currentPosY = newPosY;
     notityPositionChanged();
 }
 
@@ -660,6 +678,20 @@ void ScrollAnimatorMac::contentAreaDidHide() const
 {
 #if USE(WK_SCROLLBAR_PAINTER)
     wkContentAreaDidHide(m_scrollbarPainterController.get());
+#endif
+}
+
+void ScrollAnimatorMac::didBeginScrollGesture() const
+{
+#if USE(WK_SCROLLBAR_PAINTER)
+    wkDidBeginScrollGesture(m_scrollbarPainterController.get());
+#endif
+}
+
+void ScrollAnimatorMac::didEndScrollGesture() const
+{
+#if USE(WK_SCROLLBAR_PAINTER)
+    wkDidEndScrollGesture(m_scrollbarPainterController.get());
 #endif
 }
 
@@ -771,6 +803,22 @@ void ScrollAnimatorMac::handleWheelEvent(PlatformWheelEvent& wheelEvent)
         return;
     }
 
+    // FIXME: This is somewhat roundabout hack to allow forwarding wheel events
+    // up to the parent scrollable area. It takes advantage of the fact that
+    // the base class implemenatation of handleWheelEvent will not accept the
+    // wheel event if there is nowhere to scroll.
+    if (fabsf(wheelEvent.deltaY()) >= fabsf(wheelEvent.deltaX())) {
+        if (!allowsVerticalStretching()) {
+            ScrollAnimator::handleWheelEvent(wheelEvent);
+            return;
+        }
+    } else {
+        if (!allowsHorizontalStretching()) {
+            ScrollAnimator::handleWheelEvent(wheelEvent);
+            return;
+        }
+    }
+
     wheelEvent.accept();
 
     bool isMometumScrollEvent = (wheelEvent.momentumPhase() != PlatformWheelEventPhaseNone);
@@ -819,21 +867,37 @@ bool ScrollAnimatorMac::pinnedInDirection(float deltaX, float deltaY)
 
 bool ScrollAnimatorMac::allowsVerticalStretching() const
 {
-    Scrollbar* hScroller = m_scrollableArea->horizontalScrollbar();
-    Scrollbar* vScroller = m_scrollableArea->verticalScrollbar();
-    if (((vScroller && vScroller->enabled()) || (!hScroller || !hScroller->enabled())))
+    switch (m_scrollableArea->verticalScrollElasticity()) {
+    case ScrollElasticityAutomatic: {
+        Scrollbar* hScroller = m_scrollableArea->horizontalScrollbar();
+        Scrollbar* vScroller = m_scrollableArea->verticalScrollbar();
+        return (((vScroller && vScroller->enabled()) || (!hScroller || !hScroller->enabled())));
+    }
+    case ScrollElasticityNone:
+        return false;
+    case ScrollElasticityAllowed:
         return true;
+    }
 
+    ASSERT_NOT_REACHED();
     return false;
 }
 
 bool ScrollAnimatorMac::allowsHorizontalStretching() const
 {
-    Scrollbar* hScroller = m_scrollableArea->horizontalScrollbar();
-    Scrollbar* vScroller = m_scrollableArea->verticalScrollbar();
-    if (((hScroller && hScroller->enabled()) || (!vScroller || !vScroller->enabled())))
+    switch (m_scrollableArea->horizontalScrollElasticity()) {
+    case ScrollElasticityAutomatic: {
+        Scrollbar* hScroller = m_scrollableArea->horizontalScrollbar();
+        Scrollbar* vScroller = m_scrollableArea->verticalScrollbar();
+        return (((hScroller && hScroller->enabled()) || (!vScroller || !vScroller->enabled())));
+    }
+    case ScrollElasticityNone:
+        return false;
+    case ScrollElasticityAllowed:
         return true;
+    }
 
+    ASSERT_NOT_REACHED();
     return false;
 }
 
@@ -858,7 +922,7 @@ void ScrollAnimatorMac::smoothScrollWithEvent(PlatformWheelEvent& wheelEvent)
         deltaX = 0;
     else
         deltaY = 0;
-    
+
     bool isVerticallyStretched = false;
     bool isHorizontallyStretched = false;
     bool shouldStretch = false;
@@ -993,6 +1057,8 @@ void ScrollAnimatorMac::smoothScrollWithEvent(PlatformWheelEvent& wheelEvent)
 
 void ScrollAnimatorMac::beginScrollGesture()
 {
+    didBeginScrollGesture();
+
     m_haveScrolledSincePageLoad = true;
     m_inScrollGesture = true;
     m_momentumScrollInProgress = false;
@@ -1012,6 +1078,8 @@ void ScrollAnimatorMac::beginScrollGesture()
 
 void ScrollAnimatorMac::endScrollGesture()
 {
+    didEndScrollGesture();
+
     snapRubberBand();
 }
 

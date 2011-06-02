@@ -46,9 +46,6 @@
 #import <WebCore/Page.h>
 #import <WebKit/WebResource.h>
 #import <WebKit/WebNSURLExtras.h>
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
-#import <AppKit/NSTextChecker.h>
-#endif
 
 using namespace WebCore;
 
@@ -64,13 +61,13 @@ namespace WebKit {
     
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
-    if (m_page->interceptEditingKeyboardEvent(event, false))
+    if (m_page->handleEditingKeyboardEvent(event, false))
         event->setDefaultHandled();
 }
 
 void WebEditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
-    if (m_page->interceptEditingKeyboardEvent(event, true))
+    if (m_page->handleEditingKeyboardEvent(event, true))
         event->setDefaultHandled();
 }
     
@@ -176,8 +173,9 @@ void WebEditorClient::showSubstitutionsPanel(bool)
 
 bool WebEditorClient::substitutionsPanelIsShowing()
 {
-    notImplemented();
-    return false;
+    bool isShowing;
+    m_page->sendSync(Messages::WebPageProxy::SubstitutionsPanelIsShowing(), Messages::WebPageProxy::SubstitutionsPanelIsShowing::Reply(isShowing));
+    return isShowing;
 }
 
 void WebEditorClient::toggleSmartInsertDelete()
@@ -240,7 +238,7 @@ void WebEditorClient::toggleAutomaticSpellingCorrection()
     notImplemented();
 }
 
-void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, uint64_t checkingTypes, Vector<TextCheckingResult>& results)
+void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, WebCore::TextCheckingTypeMask checkingTypes, Vector<TextCheckingResult>& results)
 {
     // FIXME: It would be nice if we wouldn't have to copy the text here.
     m_page->sendSync(Messages::WebPageProxy::CheckTextOfParagraph(String(text, length), checkingTypes), Messages::WebPageProxy::CheckTextOfParagraph::Reply(results));

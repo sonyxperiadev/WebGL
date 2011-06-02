@@ -1,3 +1,2847 @@
+2011-04-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove unneeded deprecated methods from MarkStack
+        https://bugs.webkit.org/show_bug.cgi?id=58853
+
+        Remove deprecated methods
+
+        * heap/MarkStack.h:
+
+2011-04-19  Mark Rowe  <mrowe@apple.com>
+
+        Things work best when the Xcode project refers to the file at a path that exists.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2011-04-19  Renata Hodovan  <reni@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move the alignment related macros in Vector.h to new Alignment.h.
+        https://bugs.webkit.org/show_bug.cgi?id=56000
+
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/Alignment.h: Added.
+        * wtf/CMakeLists.txt:
+        * wtf/Vector.h:
+
+2011-04-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove DeprecatedPtr
+        https://bugs.webkit.org/show_bug.cgi?id=58718
+
+        Remove the class an all functions that still exist to support it.
+
+        * heap/MarkStack.h:
+        (JSC::MarkStack::append):
+        * runtime/JSValue.h:
+        * runtime/WriteBarrier.h:
+
+2011-04-19  Jungshik Shin  <jshin@chromium.org>
+
+        Reviewed by David Levin
+
+        Add U+FEFF (Zero width no-break space) to CharacterNames.h.
+        It's added to the list of characters to treat as zero-width
+        in WebCore.
+
+        https://bugs.webkit.org/show_bug.cgi?id=48860
+
+        * wtf/unicode/CharacterNames.h:
+
+2011-04-19  Csaba Osztrogonác  <ossy@webkit.org>
+
+        [Qt] REGRESSION(84176): http/tests/xmlhttprequest/event-listener-gc.html fails
+        https://bugs.webkit.org/show_bug.cgi?id=58871
+
+        Unreviewed, rolling out r84176, r84178, r84186, r84212 and r84231.
+        http://trac.webkit.org/changeset/84176 (original patch)
+        http://trac.webkit.org/changeset/84178 (original patch - part 2)
+        http://trac.webkit.org/changeset/84186 (build fix)
+        http://trac.webkit.org/changeset/84212
+        http://trac.webkit.org/changeset/84231 (skip failing test)
+
+        original bugs:
+         - https://bugs.webkit.org/show_bug.cgi?id=58718
+         - https://bugs.webkit.org/show_bug.cgi?id=58853
+
+        * heap/MarkStack.h:
+        (JSC::MarkStack::deprecatedAppendValues):
+        (JSC::MarkStack::append):
+        (JSC::MarkStack::deprecatedAppend):
+        * runtime/JSValue.h:
+        * runtime/WriteBarrier.h:
+        (JSC::DeprecatedPtr::DeprecatedPtr):
+        (JSC::DeprecatedPtr::get):
+        (JSC::DeprecatedPtr::operator*):
+        (JSC::DeprecatedPtr::operator->):
+        (JSC::DeprecatedPtr::slot):
+        (JSC::DeprecatedPtr::operator UnspecifiedBoolType*):
+        (JSC::DeprecatedPtr::operator!):
+        (JSC::operator==):
+
+2011-04-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove unneeded deprecated methods from MarkStack
+        https://bugs.webkit.org/show_bug.cgi?id=58853
+
+        Remove deprecated methods
+
+        * heap/MarkStack.h:
+
+2011-04-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Off by one initialising repeat callframe
+        https://bugs.webkit.org/show_bug.cgi?id=58838
+        <rdar://problem/8756810>
+
+        If the end of a callframe made for a repeat call landed on
+        a page boundary the following page may not have been committed
+        which means that the off by one could lead to a crash.  However
+        it could only happen in this case and only on windows which is
+        why it was so hard to repro.  Alas given the steps needed to
+        reproduce are such that it's not really possible to make a
+        testcase.
+
+        This fix makes the code a little less squirrely by not trying
+        to avoid the unnecessary initialisation of |this|.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::prepareForRepeatCall):
+
+2011-04-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 58829 - DFG JIT - Optimize add/sub immediate, multiply.
+
+        Add code generation for add/subtract instruction with immediate operands
+        (where a child is a constant), and don't bail to non-speculative if an
+        integer multiple results in a +0 result (only if it should be generating -0).
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT.h:
+        (JSC::DFG::SpeculativeJIT::isDoubleConstantWithInt32Value):
+
+2011-04-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 58817 - DFG JIT - if speculative compilation fails, throw away code.
+
+        If we detect a logical conflict, throw away generated code,
+        and only compile through the NonSpeculativeJIT.
+
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssembler::rewindToLabel):
+        * assembler/AssemblerBuffer.h:
+        (JSC::AssemblerBuffer::rewindToOffset):
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::branchAdd32):
+        (JSC::MacroAssemblerX86Common::branchSub32):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::rewindToLabel):
+        (JSC::X86Assembler::X86InstructionFormatter::rewindToLabel):
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::linkSpeculationChecks):
+        (JSC::DFG::JITCompiler::compileFunction):
+        * dfg/DFGNode.h:
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT.h:
+        (JSC::DFG::SpeculationCheckIndexIterator::SpeculationCheckIndexIterator):
+
+2011-04-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove DeprecatedPtr
+        https://bugs.webkit.org/show_bug.cgi?id=58718
+
+        As simple as it sounds.
+
+        * runtime/JSValue.h:
+        * runtime/WriteBarrier.h:
+
+2011-04-17  Cameron Zwarich  <zwarich@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        JSC no longer builds with Clang due to -Woverloaded-virtual warning
+        https://bugs.webkit.org/show_bug.cgi?id=58760
+
+        Rename Structure's specificValue overload of put to putSpecificValue to avoid
+        Clang's warning for overloading a virtual function.
+
+        * runtime/Structure.cpp:
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::addPropertyWithoutTransition):
+        (JSC::Structure::putSpecificValue):
+        * runtime/Structure.h:
+
+2011-04-17  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Remove WTF_PLATFORM_SGL
+        https://bugs.webkit.org/show_bug.cgi?id=58743
+
+        WTF_PLATFORM_SGL and PLATFORM(SGL) are not used in the code anywhere.
+
+        * wtf/Platform.h:
+
+2011-04-17  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Rename PLATFORM(CA) to USE(CA)
+        https://bugs.webkit.org/show_bug.cgi?id=58742
+
+        * wtf/Platform.h:
+
+2011-04-17  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Rename PLATFORM(CG) to USE(CG)
+        https://bugs.webkit.org/show_bug.cgi?id=58729
+
+        * wtf/Platform.h:
+
+2011-04-16  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Rename PLATFORM(CAIRO) to USE(CAIRO)
+        https://bugs.webkit.org/show_bug.cgi?id=55192
+
+        * wtf/Platform.h:
+        * wtf/gobject/GTypedefs.h:
+
+2011-04-15  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r84067.
+        http://trac.webkit.org/changeset/84067
+        https://bugs.webkit.org/show_bug.cgi?id=58724
+
+        qt build are failing. (Requested by loislo2 on #webkit).
+
+        * heap/MarkStack.h:
+        (JSC::MarkStack::append):
+        * runtime/JSValue.h:
+        * runtime/WriteBarrier.h:
+        (JSC::DeprecatedPtr::DeprecatedPtr):
+        (JSC::DeprecatedPtr::get):
+        (JSC::DeprecatedPtr::operator*):
+        (JSC::DeprecatedPtr::operator->):
+        (JSC::DeprecatedPtr::slot):
+        (JSC::DeprecatedPtr::operator UnspecifiedBoolType*):
+        (JSC::DeprecatedPtr::operator!):
+        (JSC::operator==):
+
+2011-04-15  Shishir Agrawal  <shishir@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Add a flag to guard Page Visibility API changes.
+        https://bugs.webkit.org/show_bug.cgi?id=58464
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Errrk! - build fix from !x86-64.
+
+        * dfg/DFGNode.h:
+
+2011-04-15  David Levin  <levin@chromium.org>
+
+        Revert of r83974.
+
+        JavaScriptCore shouldn't depend on ../ThirdParty/gtest/xcode/gtest.xcodeproj
+        https://bugs.webkit.org/show_bug.cgi?id=58716
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/tests/RunAllWtfTests.cpp: Removed.
+        * wtf/tests/StringTests.cpp: Removed.
+
+2011-04-15  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove DeprecatedPtr
+        https://bugs.webkit.org/show_bug.cgi?id=58718
+
+        As simple as it sounds.
+
+        * heap/MarkStack.h:
+        (JSC::MarkStack::append):
+        * runtime/JSValue.h:
+        * runtime/WriteBarrier.h:
+
+2011-04-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Add a simple tool to gather statistics on whether functions
+        are completed through the new or old JIT.
+
+        * dfg/DFGNode.h:
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompile):
+
+2011-04-15  Oliver Hunt  <oliver@apple.com>
+
+        GC allocate Structure
+        https://bugs.webkit.org/show_bug.cgi?id=58483
+
+        Rolling r83894 r83827 r83810 r83809 r83808 back in with
+        a workaround for the gcc bug seen by the gtk bots
+
+        * API/JSCallbackConstructor.cpp:
+        (JSC::JSCallbackConstructor::JSCallbackConstructor):
+        * API/JSCallbackConstructor.h:
+        (JSC::JSCallbackConstructor::createStructure):
+        * API/JSCallbackFunction.h:
+        (JSC::JSCallbackFunction::createStructure):
+        * API/JSCallbackObject.h:
+        (JSC::JSCallbackObject::createStructure):
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::JSCallbackObject):
+        * API/JSContextRef.cpp:
+        * JavaScriptCore.JSVALUE32_64only.exp:
+        * JavaScriptCore.JSVALUE64only.exp:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::~CodeBlock):
+        (JSC::CodeBlock::markStructures):
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/CodeBlock.h:
+        (JSC::MethodCallLinkInfo::setSeen):
+        (JSC::GlobalResolveInfo::GlobalResolveInfo):
+        * bytecode/Instruction.h:
+        (JSC::PolymorphicAccessStructureList::PolymorphicStubInfo::set):
+        (JSC::PolymorphicAccessStructureList::PolymorphicAccessStructureList):
+        (JSC::PolymorphicAccessStructureList::markAggregate):
+        (JSC::Instruction::Instruction):
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::deref):
+        (JSC::StructureStubInfo::markAggregate):
+        * bytecode/StructureStubInfo.h:
+        (JSC::StructureStubInfo::initGetByIdSelf):
+        (JSC::StructureStubInfo::initGetByIdProto):
+        (JSC::StructureStubInfo::initGetByIdChain):
+        (JSC::StructureStubInfo::initPutByIdTransition):
+        (JSC::StructureStubInfo::initPutByIdReplace):
+        * debugger/DebuggerActivation.cpp:
+        (JSC::DebuggerActivation::DebuggerActivation):
+        * debugger/DebuggerActivation.h:
+        (JSC::DebuggerActivation::createStructure):
+        * heap/Handle.h:
+        * heap/MarkStack.cpp:
+        (JSC::MarkStack::markChildren):
+        (JSC::MarkStack::drain):
+        * heap/MarkedBlock.cpp:
+        (JSC::MarkedBlock::MarkedBlock):
+        (JSC::MarkedBlock::sweep):
+        * heap/Strong.h:
+        (JSC::Strong::Strong):
+        (JSC::Strong::set):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolveGlobal):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::tryCachePutByID):
+        (JSC::Interpreter::uncachePutByID):
+        (JSC::Interpreter::tryCacheGetByID):
+        (JSC::Interpreter::uncacheGetByID):
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.h:
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::patchMethodCallProto):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdSelfList):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::patchMethodCallProto):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdSelfList):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCachePutByID):
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        (JSC::getPolymorphicAccessStructureListSlot):
+        * jit/JSInterfaceJIT.h:
+        (JSC::JSInterfaceJIT::storePtrWithWriteBarrier):
+        * jsc.cpp:
+        (cleanupGlobalData):
+        * runtime/Arguments.h:
+        (JSC::Arguments::createStructure):
+        (JSC::Arguments::Arguments):
+        (JSC::JSActivation::copyRegisters):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::ArrayConstructor::ArrayConstructor):
+        (JSC::constructArrayWithSizeQuirk):
+        * runtime/ArrayConstructor.h:
+        * runtime/ArrayPrototype.cpp:
+        (JSC::ArrayPrototype::ArrayPrototype):
+        (JSC::arrayProtoFuncSplice):
+        * runtime/ArrayPrototype.h:
+        (JSC::ArrayPrototype::createStructure):
+        * runtime/BatchedTransitionOptimizer.h:
+        (JSC::BatchedTransitionOptimizer::BatchedTransitionOptimizer):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::BooleanConstructor::BooleanConstructor):
+        * runtime/BooleanConstructor.h:
+        * runtime/BooleanObject.cpp:
+        (JSC::BooleanObject::BooleanObject):
+        * runtime/BooleanObject.h:
+        (JSC::BooleanObject::createStructure):
+        * runtime/BooleanPrototype.cpp:
+        (JSC::BooleanPrototype::BooleanPrototype):
+        * runtime/BooleanPrototype.h:
+        * runtime/DateConstructor.cpp:
+        (JSC::DateConstructor::DateConstructor):
+        * runtime/DateConstructor.h:
+        * runtime/DateInstance.cpp:
+        (JSC::DateInstance::DateInstance):
+        * runtime/DateInstance.h:
+        (JSC::DateInstance::createStructure):
+        * runtime/DatePrototype.cpp:
+        (JSC::DatePrototype::DatePrototype):
+        * runtime/DatePrototype.h:
+        (JSC::DatePrototype::createStructure):
+        * runtime/Error.cpp:
+        (JSC::StrictModeTypeErrorFunction::StrictModeTypeErrorFunction):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::ErrorConstructor::ErrorConstructor):
+        * runtime/ErrorConstructor.h:
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+        (JSC::ErrorInstance::create):
+        * runtime/ErrorInstance.h:
+        (JSC::ErrorInstance::createStructure):
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+        * runtime/ErrorPrototype.h:
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::InterruptedExecutionError::InterruptedExecutionError):
+        (JSC::TerminatedExecutionError::TerminatedExecutionError):
+        * runtime/Executable.cpp:
+        * runtime/Executable.h:
+        (JSC::ExecutableBase::ExecutableBase):
+        (JSC::ExecutableBase::createStructure):
+        (JSC::NativeExecutable::createStructure):
+        (JSC::NativeExecutable::NativeExecutable):
+        (JSC::ScriptExecutable::ScriptExecutable):
+        (JSC::EvalExecutable::createStructure):
+        (JSC::ProgramExecutable::createStructure):
+        (JSC::FunctionExecutable::createStructure):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::FunctionConstructor::FunctionConstructor):
+        * runtime/FunctionConstructor.h:
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+        * runtime/FunctionPrototype.h:
+        (JSC::FunctionPrototype::createStructure):
+        * runtime/GetterSetter.h:
+        (JSC::GetterSetter::GetterSetter):
+        (JSC::GetterSetter::createStructure):
+        * runtime/InitializeThreading.cpp:
+        (JSC::initializeThreadingOnce):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::InternalFunction):
+        * runtime/InternalFunction.h:
+        (JSC::InternalFunction::createStructure):
+        * runtime/JSAPIValueWrapper.h:
+        (JSC::JSAPIValueWrapper::createStructure):
+        (JSC::JSAPIValueWrapper::JSAPIValueWrapper):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::JSActivation):
+        * runtime/JSActivation.h:
+        (JSC::JSActivation::createStructure):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        * runtime/JSArray.h:
+        (JSC::JSArray::createStructure):
+        * runtime/JSByteArray.cpp:
+        (JSC::JSByteArray::JSByteArray):
+        (JSC::JSByteArray::createStructure):
+        * runtime/JSByteArray.h:
+        (JSC::JSByteArray::JSByteArray):
+        * runtime/JSCell.cpp:
+        (JSC::isZombie):
+        * runtime/JSCell.h:
+        (JSC::JSCell::JSCell::JSCell):
+        (JSC::JSCell::JSCell::addressOfStructure):
+        (JSC::JSCell::JSCell::structure):
+        (JSC::JSCell::JSCell::markChildren):
+        (JSC::JSCell::JSValue::isZombie):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        * runtime/JSFunction.h:
+        (JSC::JSFunction::createStructure):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::storeVPtrs):
+        (JSC::JSGlobalData::JSGlobalData):
+        (JSC::JSGlobalData::clearBuiltinStructures):
+        (JSC::JSGlobalData::createLeaked):
+        * runtime/JSGlobalData.h:
+        (JSC::allocateGlobalHandle):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::reset):
+        (JSC::JSGlobalObject::markChildren):
+        (JSC::JSGlobalObject::copyGlobalsFrom):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObject):
+        (JSC::JSGlobalObject::createStructure):
+        (JSC::Structure::prototypeChain):
+        (JSC::Structure::isValid):
+        (JSC::constructEmptyArray):
+        * runtime/JSNotAnObject.h:
+        (JSC::JSNotAnObject::JSNotAnObject):
+        (JSC::JSNotAnObject::createStructure):
+        * runtime/JSONObject.cpp:
+        (JSC::JSONObject::JSONObject):
+        * runtime/JSONObject.h:
+        (JSC::JSONObject::createStructure):
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::defineGetter):
+        (JSC::JSObject::defineSetter):
+        (JSC::JSObject::seal):
+        (JSC::JSObject::freeze):
+        (JSC::JSObject::preventExtensions):
+        (JSC::JSObject::removeDirect):
+        (JSC::JSObject::createInheritorID):
+        * runtime/JSObject.h:
+        (JSC::JSObject::createStructure):
+        (JSC::JSObject::JSObject):
+        (JSC::JSNonFinalObject::createStructure):
+        (JSC::JSNonFinalObject::JSNonFinalObject):
+        (JSC::JSFinalObject::create):
+        (JSC::JSFinalObject::createStructure):
+        (JSC::JSFinalObject::JSFinalObject):
+        (JSC::constructEmptyObject):
+        (JSC::createEmptyObjectStructure):
+        (JSC::JSObject::~JSObject):
+        (JSC::JSObject::setPrototype):
+        (JSC::JSObject::setStructure):
+        (JSC::JSObject::inheritorID):
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::transitionTo):
+        (JSC::JSObject::markChildrenDirect):
+        * runtime/JSObjectWithGlobalObject.cpp:
+        (JSC::JSObjectWithGlobalObject::JSObjectWithGlobalObject):
+        * runtime/JSObjectWithGlobalObject.h:
+        (JSC::JSObjectWithGlobalObject::createStructure):
+        (JSC::JSObjectWithGlobalObject::JSObjectWithGlobalObject):
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::JSPropertyNameIterator):
+        (JSC::JSPropertyNameIterator::create):
+        (JSC::JSPropertyNameIterator::get):
+        * runtime/JSPropertyNameIterator.h:
+        (JSC::JSPropertyNameIterator::createStructure):
+        (JSC::JSPropertyNameIterator::setCachedStructure):
+        (JSC::Structure::setEnumerationCache):
+        * runtime/JSStaticScopeObject.h:
+        (JSC::JSStaticScopeObject::JSStaticScopeObject):
+        (JSC::JSStaticScopeObject::createStructure):
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::JSString):
+        (JSC::RopeBuilder::createStructure):
+        * runtime/JSType.h:
+        * runtime/JSTypeInfo.h:
+        (JSC::TypeInfo::TypeInfo):
+        * runtime/JSValue.h:
+        * runtime/JSVariableObject.h:
+        (JSC::JSVariableObject::createStructure):
+        (JSC::JSVariableObject::JSVariableObject):
+        (JSC::JSVariableObject::copyRegisterArray):
+        * runtime/JSWrapperObject.h:
+        (JSC::JSWrapperObject::createStructure):
+        (JSC::JSWrapperObject::JSWrapperObject):
+        * runtime/JSZombie.cpp:
+        * runtime/JSZombie.h:
+        (JSC::JSZombie::JSZombie):
+        (JSC::JSZombie::createStructure):
+        * runtime/MathObject.cpp:
+        (JSC::MathObject::MathObject):
+        * runtime/MathObject.h:
+        (JSC::MathObject::createStructure):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        (JSC::NativeErrorConstructor::markChildren):
+        (JSC::constructWithNativeErrorConstructor):
+        * runtime/NativeErrorConstructor.h:
+        (JSC::NativeErrorConstructor::createStructure):
+        * runtime/NativeErrorPrototype.cpp:
+        (JSC::NativeErrorPrototype::NativeErrorPrototype):
+        * runtime/NativeErrorPrototype.h:
+        * runtime/NumberConstructor.cpp:
+        (JSC::NumberConstructor::NumberConstructor):
+        * runtime/NumberConstructor.h:
+        (JSC::NumberConstructor::createStructure):
+        * runtime/NumberObject.cpp:
+        (JSC::NumberObject::NumberObject):
+        * runtime/NumberObject.h:
+        (JSC::NumberObject::createStructure):
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/NumberPrototype.h:
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::ObjectConstructor):
+        * runtime/ObjectConstructor.h:
+        (JSC::ObjectConstructor::createStructure):
+        * runtime/ObjectPrototype.cpp:
+        (JSC::ObjectPrototype::ObjectPrototype):
+        * runtime/ObjectPrototype.h:
+        * runtime/PropertyMapHashTable.h:
+        (JSC::PropertyTable::PropertyTable):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor):
+        (JSC::RegExpMatchesArray::RegExpMatchesArray):
+        * runtime/RegExpConstructor.h:
+        (JSC::RegExpConstructor::createStructure):
+        * runtime/RegExpObject.cpp:
+        (JSC::RegExpObject::RegExpObject):
+        * runtime/RegExpObject.h:
+        (JSC::RegExpObject::createStructure):
+        * runtime/RegExpPrototype.cpp:
+        (JSC::RegExpPrototype::RegExpPrototype):
+        * runtime/RegExpPrototype.h:
+        * runtime/ScopeChain.h:
+        (JSC::ScopeChainNode::ScopeChainNode):
+        (JSC::ScopeChainNode::createStructure):
+        * runtime/StrictEvalActivation.cpp:
+        (JSC::StrictEvalActivation::StrictEvalActivation):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * runtime/StringConstructor.h:
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::StringObject):
+        * runtime/StringObject.h:
+        (JSC::StringObject::createStructure):
+        * runtime/StringObjectThatMasqueradesAsUndefined.h:
+        (JSC::StringObjectThatMasqueradesAsUndefined::StringObjectThatMasqueradesAsUndefined):
+        (JSC::StringObjectThatMasqueradesAsUndefined::createStructure):
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        * runtime/StringPrototype.h:
+        (JSC::StringPrototype::createStructure):
+        * runtime/Structure.cpp:
+        (JSC::StructureTransitionTable::remove):
+        (JSC::StructureTransitionTable::add):
+        (JSC::Structure::Structure):
+        (JSC::Structure::~Structure):
+        (JSC::Structure::materializePropertyMap):
+        (JSC::Structure::addPropertyTransitionToExistingStructure):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::removePropertyTransition):
+        (JSC::Structure::changePrototypeTransition):
+        (JSC::Structure::despecifyFunctionTransition):
+        (JSC::Structure::getterSetterTransition):
+        (JSC::Structure::toDictionaryTransition):
+        (JSC::Structure::toCacheableDictionaryTransition):
+        (JSC::Structure::toUncacheableDictionaryTransition):
+        (JSC::Structure::sealTransition):
+        (JSC::Structure::freezeTransition):
+        (JSC::Structure::preventExtensionsTransition):
+        (JSC::Structure::flattenDictionaryStructure):
+        (JSC::Structure::copyPropertyTable):
+        (JSC::Structure::put):
+        (JSC::Structure::markChildren):
+        * runtime/Structure.h:
+        (JSC::Structure::create):
+        (JSC::Structure::setPrototypeWithoutTransition):
+        (JSC::Structure::createStructure):
+        (JSC::JSCell::createDummyStructure):
+        (JSC::StructureTransitionTable::keyForWeakGCMapFinalizer):
+        * runtime/StructureChain.cpp:
+        (JSC::StructureChain::StructureChain):
+        (JSC::StructureChain::markChildren):
+        * runtime/StructureChain.h:
+        (JSC::StructureChain::create):
+        (JSC::StructureChain::head):
+        (JSC::StructureChain::createStructure):
+        * runtime/StructureTransitionTable.h:
+        (JSC::StructureTransitionTable::WeakGCMapFinalizerCallback::finalizerContextFor):
+        (JSC::StructureTransitionTable::WeakGCMapFinalizerCallback::keyForFinalizer):
+        (JSC::StructureTransitionTable::~StructureTransitionTable):
+        (JSC::StructureTransitionTable::slot):
+        (JSC::StructureTransitionTable::setMap):
+        (JSC::StructureTransitionTable::singleTransition):
+        (JSC::StructureTransitionTable::clearSingleTransition):
+        (JSC::StructureTransitionTable::setSingleTransition):
+        * runtime/WeakGCMap.h:
+        (JSC::DefaultWeakGCMapFinalizerCallback::finalizerContextFor):
+        (JSC::DefaultWeakGCMapFinalizerCallback::keyForFinalizer):
+        (JSC::WeakGCMap::contains):
+        (JSC::WeakGCMap::find):
+        (JSC::WeakGCMap::remove):
+        (JSC::WeakGCMap::add):
+        (JSC::WeakGCMap::set):
+        (JSC::WeakGCMap::finalize):
+        * runtime/WriteBarrier.h:
+        (JSC::writeBarrier):
+        (JSC::WriteBarrierBase::set):
+        (JSC::WriteBarrierBase::operator*):
+        (JSC::WriteBarrierBase::operator->):
+        (JSC::WriteBarrierBase::setWithoutWriteBarrier):
+
+2011-04-15  Fridrich Strba  <fridrich.strba@bluewin.ch>
+
+        Reviewed by Gavin Barraclough.
+
+        Correctly prefix symbols. Since gcc 4.5.0, Windows x64 symbols
+        are not prefixed by underscore anymore. This is consistent with
+        what MSVC does.
+        https://bugs.webkit.org/show_bug.cgi?id=58573
+
+        * jit/JITStubs.cpp:
+
+2011-04-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 58705 - DFG JIT Add support for flow control (branch, jump).
+
+        Add support for control flow by breaking the CodeBlock up into multiple
+        basic blocks, generating code for each basic block in turn through the
+        speculative JIT & then the non-speculative JIT.
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::setTemporary):
+        (JSC::DFG::ByteCodeParser::addToGraph):
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        (JSC::DFG::ByteCodeParser::parse):
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::dump):
+        * dfg/DFGGraph.h:
+        (JSC::DFG::BasicBlock::BasicBlock):
+        (JSC::DFG::BasicBlock::getBytecodeOffset):
+        (JSC::DFG::Graph::blockIndexForBytecodeOffset):
+        * dfg/DFGJITCodeGenerator.h:
+        (JSC::DFG::JITCodeGenerator::JITCodeGenerator):
+        (JSC::DFG::JITCodeGenerator::addBranch):
+        (JSC::DFG::JITCodeGenerator::linkBranches):
+        (JSC::DFG::JITCodeGenerator::BranchRecord::BranchRecord):
+        * dfg/DFGNode.h:
+        (JSC::DFG::Node::Node):
+        (JSC::DFG::Node::isJump):
+        (JSC::DFG::Node::isBranch):
+        (JSC::DFG::Node::takenBytecodeOffset):
+        (JSC::DFG::Node::notTakenBytecodeOffset):
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::compile):
+        * dfg/DFGNonSpeculativeJIT.h:
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT.h:
+
+2011-04-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 58701 - DFG JIT - add GetLocal/SetLocal nodes
+
+        Use these for both access to arguments & local variables, adds ability
+        to set locals, such that values will persist between basic blocks.
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::ByteCodeParser):
+        (JSC::DFG::ByteCodeParser::get):
+        (JSC::DFG::ByteCodeParser::set):
+        (JSC::DFG::ByteCodeParser::getVariable):
+        (JSC::DFG::ByteCodeParser::setVariable):
+        (JSC::DFG::ByteCodeParser::getArgument):
+        (JSC::DFG::ByteCodeParser::setArgument):
+        (JSC::DFG::ByteCodeParser::getThis):
+        (JSC::DFG::ByteCodeParser::setThis):
+        (JSC::DFG::ByteCodeParser::VariableRecord::VariableRecord):
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::dump):
+        (JSC::DFG::Graph::derefChildren):
+        * dfg/DFGGraph.h:
+        (JSC::DFG::Graph::ref):
+        (JSC::DFG::Graph::deref):
+        * dfg/DFGNode.h:
+        (JSC::DFG::Node::hasLocal):
+        (JSC::DFG::Node::local):
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2011-04-15  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 58696 - DFG JIT split handling of vars/temporaries
+
+        Presently all callee registers are treated as having single block scope,
+        since the DFG JIT can only compile single block functions. In order to
+        expand the JIT to support control flow we will need to change to retaining
+        locals (but not temporaries) across basic block boundaries.
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::ByteCodeParser):
+        (JSC::DFG::ByteCodeParser::get):
+        (JSC::DFG::ByteCodeParser::set):
+        (JSC::DFG::ByteCodeParser::getVariable):
+        (JSC::DFG::ByteCodeParser::setVariable):
+        (JSC::DFG::ByteCodeParser::getTemporary):
+        (JSC::DFG::ByteCodeParser::setTemporary):
+        (JSC::DFG::ByteCodeParser::getArgument):
+        (JSC::DFG::ByteCodeParser::getInt32Constant):
+        (JSC::DFG::ByteCodeParser::getDoubleConstant):
+        (JSC::DFG::ByteCodeParser::getJSConstant):
+        (JSC::DFG::ByteCodeParser::constantUndefined):
+        (JSC::DFG::ByteCodeParser::constantNull):
+        (JSC::DFG::ByteCodeParser::one):
+        (JSC::DFG::ByteCodeParser::parseBlock):
+        (JSC::DFG::ByteCodeParser::parse):
+        (JSC::DFG::parse):
+        * dfg/DFGNode.h:
+        * dfg/DFGScoreBoard.h:
+        (JSC::DFG::ScoreBoard::ScoreBoard):
+        (JSC::DFG::ScoreBoard::~ScoreBoard):
+        (JSC::DFG::ScoreBoard::allocate):
+        (JSC::DFG::ScoreBoard::use):
+
+2011-04-15  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        globalObject moved to JSObjectWithGlobalObject.cpp inhibits inlining
+        https://bugs.webkit.org/show_bug.cgi?id=58677
+
+        Moved JSObjectWithGlobalObject::globalObject() to 
+        runtime/JSObjectWithGlobalObject.h to allow the compiler to inline
+        it for a performance benefit.  An equivalent instance had been in
+        a header file before r60057.
+
+        * JavaScriptCore.exp:
+        * runtime/JSObjectWithGlobalObject.cpp:
+        * runtime/JSObjectWithGlobalObject.h:
+        (JSC::JSObjectWithGlobalObject::globalObject):
+
+2011-04-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make JSNodeFilterCondition handle its lifetime correctly
+        https://bugs.webkit.org/show_bug.cgi?id=58622
+
+        Add export
+
+        * JavaScriptCore.exp:
+
+2011-04-14  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        WebKit2: Password field input does not switch to ASCII-compatible source
+        https://bugs.webkit.org/show_bug.cgi?id=58583
+        <rdar://problem/9059651>
+
+        * wtf/Platform.h: Removed WTF_USE_CARBON_SECURE_INPUT_MODE. It's now only used by Chromium,
+        and shouldn't be enabled on any other platforms, so there is no reason to make it
+        configurable via Platform.h.
+
+2011-04-15  Dmitry Lomov  <dslomov@google.com>
+
+        Reviewed by David Levin.
+
+        Add a sample test case for GTest framework
+        https://bugs.webkit.org/show_bug.cgi?id=58509
+
+        Add an example of GTest testcase, complete with a runner, to JavaScriptCore.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/tests/RunAllWtfTests.cpp: Added.
+        (main):
+        * wtf/tests/StringTests.cpp: Added.
+
+2011-04-15  Anna Cavender  <annacc@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Renaming TRACK feature define to VIDEO_TRACK
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-14  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Geoffrey Garen.
+
+        Hide DFG_JIT_RESTRICTIONS behind ARITHMETIC_OP() macro, and rename
+        m_regressionGuard to m_parseFailed, such that it can be reused for
+        other failure cases.
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::ByteCodeParser):
+        (JSC::DFG::ByteCodeParser::parse):
+
+2011-04-14  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Bug 58620 - DFG JIT - loading of arguments should not be lazy
+
+        This optimization is overly simplistic. It only works because we never
+        write out definitions to arguments (since we currently only compile
+        single block functions). Revert this for now, we may want to reintroduce
+        something like this again in the future, but it will need to be aware
+        how to schedule definitions to arguments versus lazy loads that have not
+        yet been performed.
+
+        * dfg/DFGGenerationInfo.h:
+        (JSC::DFG::GenerationInfo::needsSpill):
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::dump):
+        * dfg/DFGGraph.h:
+        * dfg/DFGJITCodeGenerator.cpp:
+        (JSC::DFG::JITCodeGenerator::fillInteger):
+        (JSC::DFG::JITCodeGenerator::fillDouble):
+        (JSC::DFG::JITCodeGenerator::fillJSValue):
+        * dfg/DFGJITCodeGenerator.h:
+        (JSC::DFG::JITCodeGenerator::initConstantInfo):
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::fillNumericToDouble):
+        (JSC::DFG::JITCompiler::fillInt32ToInteger):
+        (JSC::DFG::JITCompiler::fillToJS):
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::isKnownInteger):
+        (JSC::DFG::NonSpeculativeJIT::isKnownNumeric):
+        (JSC::DFG::NonSpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::fillSpeculateIntInternal):
+        (JSC::DFG::SpeculativeJIT::fillSpeculateCell):
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2011-04-14  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Bug 58600 - DFG JIT bugs in ValueToInt, PutByVal
+
+        The bug in PutByVal is that an operand is in JSValueOperand - when this
+        locks an integer into a register it will always retag the value without
+        checking if the register is already locked. This is a problem where the
+        value being stored by a PutByVal is the same as the subscript.
+        The subscript is locked into a register first, as a strict integer.
+        Locking the value results in the subscript being modified.
+
+        The bug in ValueToInt related to the function of sillentFillAllRegisters.
+        The problem is that this method will restore all register values from
+        prior to the call, overwriting the result of the call out. Allow a
+        register to be passed to specifically be excluded from being preserved.
+
+        * assembler/ARMAssembler.h:
+        (JSC::ARMAssembler::debugOffset):
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::ARMInstructionFormatter::debugOffset):
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssembler::debugOffset):
+        * assembler/AssemblerBuffer.h:
+        (JSC::AssemblerBuffer::debugOffset):
+        * assembler/LinkBuffer.h:
+        (JSC::LinkBuffer::debugAddress):
+        * assembler/MIPSAssembler.h:
+        (JSC::MIPSAssembler::debugOffset):
+        * assembler/MacroAssemblerX86_64.h:
+        (JSC::MacroAssemblerX86_64::orPtr):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::debugOffset):
+        (JSC::X86Assembler::X86InstructionFormatter::debugOffset):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parse):
+        * dfg/DFGGenerationInfo.h:
+        * dfg/DFGJITCodeGenerator.cpp:
+        (JSC::DFG::JITCodeGenerator::fillJSValue):
+        * dfg/DFGJITCodeGenerator.h:
+        (JSC::DFG::JITCodeGenerator::isConstant):
+        * dfg/DFGJITCompiler.cpp:
+        (JSC::DFG::JITCompiler::compileFunction):
+        * dfg/DFGJITCompiler.h:
+        (JSC::DFG::JITCompiler::isConstant):
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::valueToNumber):
+        (JSC::DFG::NonSpeculativeJIT::valueToInt32):
+        (JSC::DFG::NonSpeculativeJIT::numberToInt32):
+        (JSC::DFG::NonSpeculativeJIT::isKnownInteger):
+        (JSC::DFG::NonSpeculativeJIT::isKnownNumeric):
+        (JSC::DFG::NonSpeculativeJIT::compile):
+        * dfg/DFGNonSpeculativeJIT.h:
+        (JSC::DFG::NonSpeculativeJIT::silentSpillGPR):
+        (JSC::DFG::NonSpeculativeJIT::silentSpillFPR):
+        (JSC::DFG::NonSpeculativeJIT::silentFillGPR):
+        (JSC::DFG::NonSpeculativeJIT::silentFillFPR):
+        (JSC::DFG::NonSpeculativeJIT::silentSpillAllRegisters):
+        (JSC::DFG::NonSpeculativeJIT::silentFillAllRegisters):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+
+2011-04-14  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Drain the mark stack while marking weak handles, not after.
+        https://bugs.webkit.org/show_bug.cgi?id=58574
+
+        Otherwise, items that would have caused more weak handle marking are
+        processed after all weak handle marking has finished, and referenced
+        weak handles get recycled.
+
+        * heap/HandleHeap.cpp:
+        (JSC::HandleHeap::markWeakHandles): Removed looping from here, since we
+        want Heap::markRoots to be responsible for draining the mark stack.
+
+        * heap/Heap.cpp:
+        (JSC::Heap::markRoots): Moved looping to here, as explained above.
+        
+        For efficiency's sake, drain the mark stack before starting to mark weak
+        handles. Otherwise, items drained while marking weak handles may force
+        an extra trip through the weak handle list.
+
+        For correctness's sake, drain the mark stack each time through the weak
+        handle list. Otherwise, opaque roots that would make weak handles reachable
+        are not discovered until after weak handle marking is over.
+
+2011-04-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make protected object list in caches window reflect reality
+        https://bugs.webkit.org/show_bug.cgi?id=58565
+
+        Make sure the heap includes objects protected by Strong handles
+        in its list of protected objects.
+
+        * heap/HandleHeap.h:
+        * heap/Heap.cpp:
+        (JSC::HandleHeap::protectedObjectTypeCounts):
+
+2011-04-14  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Anders Carlsson.
+
+        Don't emit RegExp tables for chromium where they are not used
+        https://bugs.webkit.org/show_bug.cgi?id=58544
+
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+        * create_regex_tables: Added the "--notables" command line argument.
+
+2011-04-13  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix ASSERTs seen on Windows bots.
+
+        * wtf/HashTable.h:
+        (WTF::hashTableSwap): Force MSVC to use the right version of swap.
+
+2011-04-13  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [CMAKE] Separate DerivedSources.
+        https://bugs.webkit.org/show_bug.cgi?id=58427
+
+        * CMakeLists.txt: Change DERIVED_SOURCES_DIR to DERIVED_SOURCES_JAVASCRIPTCORE_DIR.
+
+2011-04-13  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Switched DOM wrappers to use HashMap of Weak<T> instead of WeakGCMap<T>
+        https://bugs.webkit.org/show_bug.cgi?id=58482
+        
+        This will allow wrappers to make individual decisions about their lifetimes.
+
+        * heap/HandleHeap.h:
+        (JSC::HandleHeap::copyWeak): New function for copying a weak handle.
+        It's wasn't previously possible to perform this operation using HandleHeap
+        API because the HandleHeap doesn't expose its underlying Node structure.
+
+        * heap/Local.h:
+        (JSC::::set):
+        * heap/Strong.h:
+        (JSC::Strong::set): Added ASSERTs to verify that dead objects are not
+        resurrected by placement into handles.
+
+        (JSC::swap): Added a swap helper, so use of Strong<T> inside a hash table
+        is efficient.
+
+        * heap/Weak.h:
+        (JSC::Weak::Weak): Fixed a bug where copying a weak pointer would not
+        copy its weak callback and context.
+
+        (JSC::Weak::operator=): Added an assignment operator, since the default
+        C++ assignment operator did the wrong thing.
+
+        (JSC::Weak::set): Added ASSERTs to verify that dead objects are not
+        resurrected by placement into handles.
+
+        (JSC::swap): Added a swap helper, so use of Strong<T> inside a hash table
+        is efficient, and can be done without copying, which is illegal during
+        the handle finalization phase.
+
+2011-04-13  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Make PropertyMapEntry use a WriteBarrier for specificValue
+        https://bugs.webkit.org/show_bug.cgi?id=58407
+
+        Make PropertyMapEntry use a WriteBarrier for specificValue, and then
+        propagate the required JSGlobalData through all the methods it ends
+        up being needed.
+
+        * API/JSClassRef.cpp:
+        (OpaqueJSClass::prototype):
+        * API/JSContextRef.cpp:
+        * API/JSObjectRef.cpp:
+        (JSObjectMake):
+        (JSObjectSetPrototype):
+        * JavaScriptCore.exp:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        * interpreter/Interpreter.cpp:
+        (JSC::appendSourceToError):
+        (JSC::Interpreter::tryCacheGetByID):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * runtime/BatchedTransitionOptimizer.h:
+        (JSC::BatchedTransitionOptimizer::BatchedTransitionOptimizer):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::name):
+        (JSC::InternalFunction::displayName):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::getOwnPropertySlot):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::name):
+        (JSC::JSFunction::displayName):
+        (JSC::JSFunction::getOwnPropertySlot):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::putWithAttributes):
+        (JSC::JSGlobalObject::reset):
+        (JSC::JSGlobalObject::resetPrototype):
+        * runtime/JSGlobalObject.h:
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::put):
+        (JSC::JSObject::deleteProperty):
+        (JSC::JSObject::defineGetter):
+        (JSC::JSObject::defineSetter):
+        (JSC::JSObject::lookupGetter):
+        (JSC::JSObject::lookupSetter):
+        (JSC::JSObject::getPropertySpecificValue):
+        (JSC::JSObject::getOwnPropertyNames):
+        (JSC::JSObject::seal):
+        (JSC::JSObject::freeze):
+        (JSC::JSObject::preventExtensions):
+        (JSC::JSObject::removeDirect):
+        (JSC::JSObject::getOwnPropertyDescriptor):
+        (JSC::JSObject::defineOwnProperty):
+        * runtime/JSObject.h:
+        (JSC::JSObject::getDirect):
+        (JSC::JSObject::getDirectLocation):
+        (JSC::JSObject::isSealed):
+        (JSC::JSObject::isFrozen):
+        (JSC::JSObject::setPrototypeWithCycleCheck):
+        (JSC::JSObject::setPrototype):
+        (JSC::JSObject::inlineGetOwnPropertySlot):
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::putDirectWithoutTransition):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::objectConstructorCreate):
+        (JSC::objectConstructorSeal):
+        (JSC::objectConstructorFreeze):
+        (JSC::objectConstructorPreventExtensions):
+        (JSC::objectConstructorIsSealed):
+        (JSC::objectConstructorIsFrozen):
+        * runtime/Operations.h:
+        (JSC::normalizePrototypeChain):
+        * runtime/PropertyMapHashTable.h:
+        (JSC::PropertyMapEntry::PropertyMapEntry):
+        (JSC::PropertyTable::PropertyTable):
+        (JSC::PropertyTable::copy):
+        * runtime/Structure.cpp:
+        (JSC::Structure::materializePropertyMap):
+        (JSC::Structure::despecifyDictionaryFunction):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::removePropertyTransition):
+        (JSC::Structure::changePrototypeTransition):
+        (JSC::Structure::despecifyFunctionTransition):
+        (JSC::Structure::getterSetterTransition):
+        (JSC::Structure::toDictionaryTransition):
+        (JSC::Structure::toCacheableDictionaryTransition):
+        (JSC::Structure::toUncacheableDictionaryTransition):
+        (JSC::Structure::sealTransition):
+        (JSC::Structure::freezeTransition):
+        (JSC::Structure::preventExtensionsTransition):
+        (JSC::Structure::isSealed):
+        (JSC::Structure::isFrozen):
+        (JSC::Structure::addPropertyWithoutTransition):
+        (JSC::Structure::removePropertyWithoutTransition):
+        (JSC::Structure::copyPropertyTable):
+        (JSC::Structure::get):
+        (JSC::Structure::despecifyFunction):
+        (JSC::Structure::despecifyAllFunctions):
+        (JSC::Structure::put):
+        (JSC::Structure::getPropertyNames):
+        * runtime/Structure.h:
+        (JSC::Structure::get):
+        (JSC::Structure::materializePropertyMapIfNecessary):
+
+2011-04-13  Paul Knight  <pknight@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        BACKTRACE() macro should check for Debug configuration in macro, not WTFReportBacktrace definition
+        https://bugs.webkit.org/show_bug.cgi?id=58405
+
+        The BACKTRACE() macro requires JavaScriptCore be built with a Debug
+        configuration in order for it to be enabled. Move the NDEBUG check to
+        the header so it will be enabled when the calling framework or
+        application is built with a Debug configuration, similar to how
+        ASSERT() and friends work.
+
+        * wtf/Assertions.cpp:
+        * wtf/Assertions.h:
+
+2011-04-12  Ben Taylor  <bentaylor.solx86@gmail.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=58131
+
+        Provide a workaround for an obscure Studio 12 compiler bug, which
+        couldn't call src->~T() on a const T *src.
+
+        * wtf/Vector.h:
+
+2011-04-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=58395
+        Exceptions thrown from property getters called from Array prototype functions can be missed
+
+        This is caught by an ASSERT in the top of Interpreter::executeCall.
+        Check for exceptions after accessing properties that could be getters.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSort):
+        (JSC::arrayProtoFuncFilter):
+        (JSC::arrayProtoFuncMap):
+        (JSC::arrayProtoFuncEvery):
+        (JSC::arrayProtoFuncForEach):
+        (JSC::arrayProtoFuncSome):
+        (JSC::arrayProtoFuncReduce):
+        (JSC::arrayProtoFuncReduceRight):
+            - Add exception checks.
+
+2011-04-12  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make API callback objects use weak handles to run their finalizers
+        https://bugs.webkit.org/show_bug.cgi?id=58389
+
+        Make the API object's private data struct act as a finalizer for
+        an api object if the callback object has a API defined finalizer.
+
+        * API/JSCallbackObject.cpp:
+        (JSC::JSCallbackObjectData::finalize):
+        * API/JSCallbackObject.h:
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::init):
+        * heap/Handle.h:
+
+2011-04-12  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Cleaned up hash traits, and added hash traits for handles
+        https://bugs.webkit.org/show_bug.cgi?id=58381
+
+        * heap/Handle.h:
+        (JSC::HandleBase::swap):
+        (JSC::Handle::Handle):
+        (JSC::Handle::swap): Implemented swap, so we can rehash efficiently, and
+        without creating new handles (which is not allowed during handle finalization).
+
+        * heap/Strong.h:
+        (JSC::Strong::swap): Use new SimpleClassHashTraits to avoid duplication.
+
+        * heap/Weak.h:
+        (JSC::Weak::isHashTableDeletedValue):
+        (JSC::Weak::Weak):
+        (JSC::Weak::swap):
+        (JSC::Weak::hashTableDeletedValue): Ditto.
+
+        * wtf/HashTraits.h:
+        (WTF::SimpleClassHashTraits::constructDeletedValue):
+        (WTF::SimpleClassHashTraits::isDeletedValue): Added SimpleClassHashTraits,
+        which are analogous to SimpleClassVectorTraits, since they are used in a
+        bunch of places.
+
+        * wtf/RetainPtr.h: Use new SimpleClassHashTraits to avoid duplication.
+
+        * wtf/text/StringHash.h: Use new SimpleClassHashTraits to avoid duplication.
+
+2011-04-12  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Cleaned up some Vector traits, and added missing Vector traits for handles
+        https://bugs.webkit.org/show_bug.cgi?id=58372
+
+        * heap/Local.h: Inherit from SimpleClassVectorTraits to avoid duplication.
+
+        * heap/Strong.h: Ditto.
+
+        * heap/Weak.h: Ditto.
+
+        * parser/JSParser.cpp: Fixed a traits error. No test case because this
+        particular trait is not currently exercised by the parser.
+
+        * runtime/UString.h: No need to override canInitializeWithMemset, since
+        our base class sets it to true.
+
+        * wtf/VectorTraits.h: Inherit from VectorTraitsBase to avoid duplication.
+
+        * wtf/text/WTFString.h: No need to override canInitializeWithMemset, since
+        our base class sets it to true.
+
+2011-04-12  Thouraya ANDOLSI  <thouraya.andolsi@st.com>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] Enable JIT build for SH4 platforms.
+        https://bugs.webkit.org/show_bug.cgi?id=58317
+        enable JIT build for QT backend  for SH4 platforms.
+
+        * JavaScriptCore.pro:
+        * wtf/Platform.h:
+
+2011-04-11  Ben Taylor  <bentaylor.solx86@gmail.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=58289
+
+        Fix compilation on Solaris/Studio 12 C++ in wtf/FastMalloc.cpp,
+        WTF::TCMalloc_PageHeap::runScavengerThread(void*) expected to return a value.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::runScavengerThread):
+
+2011-04-11  Mark Rowe  <mrowe@apple.com>
+
+        Fix the build.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: Headers used outside of JavaScriptCore need to be marked as private.
+
+2011-04-11  Anna Cavender  <annacc@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Setup ENABLE(TRACK) feature define
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix a few builds.
+        
+        Updated a few more build configurations for file moves.
+
+        * CMakeListsWinCE.txt:
+
+2011-04-11  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 58263 - Use EncodedValueDescriptor on both JSVALUE32_64, JSVALUE64
+
+        The JSJITInterface already uses EncodedValueDescriptor to access the tag/payload
+        separately on JSVALUE64, even though EncodedValueDescriptor is not used in
+        JSVALUE64's implementation of JSValue. Remove the separate definition for m_ptr
+        on X86_64. Using the union allows us to remove a layer of makeImmediate()/
+        immedaiteValue() methods.
+
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitTagAsBoolImmediate):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_not):
+        (JSC::JIT::emit_op_jeq_null):
+        (JSC::JIT::emit_op_jneq_null):
+        (JSC::JIT::emit_op_get_pnames):
+        (JSC::JIT::emit_op_eq_null):
+        (JSC::JIT::emit_op_neq_null):
+        (JSC::JIT::emitSlow_op_not):
+        * runtime/JSCell.h:
+        * runtime/JSValue.h:
+        * runtime/JSValueInlineMethods.h:
+        (JSC::JSValue::encode):
+        (JSC::JSValue::decode):
+        (JSC::JSValue::operator==):
+        (JSC::JSValue::operator!=):
+        (JSC::JSValue::JSValue):
+        (JSC::JSValue::operator bool):
+        (JSC::JSValue::asInt32):
+        (JSC::JSValue::isUndefinedOrNull):
+        (JSC::JSValue::isBoolean):
+        (JSC::JSValue::isCell):
+        (JSC::JSValue::isInt32):
+        (JSC::JSValue::asDouble):
+        (JSC::JSValue::isNumber):
+        (JSC::JSValue::asCell):
+
+2011-04-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix a few builds.
+        
+        Updated a few more build configurations for file moves.
+
+        * CMakeListsEfl.txt:
+        * wscript:
+
+2011-04-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix: Updated a file name.
+
+        * CMakeLists.txt:
+
+2011-04-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Rubber-stamped by Sam Weinig.
+        
+        Moved remaining heap implementation files to the heap folder.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.list.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * heap/ConservativeRoots.cpp: Copied from runtime/ConservativeSet.cpp.
+        * heap/ConservativeRoots.h: Copied from runtime/ConservativeSet.h.
+        * heap/Handle.h:
+        * heap/Heap.cpp:
+        * heap/MachineStackMarker.cpp: Copied from runtime/MachineStackMarker.cpp.
+        * heap/MachineStackMarker.h: Copied from runtime/MachineStackMarker.h.
+        * heap/MarkStack.cpp: Copied from runtime/MarkStack.cpp.
+        * heap/MarkStack.h: Copied from runtime/MarkStack.h.
+        * heap/MarkStackPosix.cpp: Copied from runtime/MarkStackPosix.cpp.
+        * heap/MarkStackSymbian.cpp: Copied from runtime/MarkStackSymbian.cpp.
+        * heap/MarkStackWin.cpp: Copied from runtime/MarkStackWin.cpp.
+        * heap/MarkedBlock.cpp: Copied from runtime/MarkedBlock.cpp.
+        * heap/MarkedBlock.h: Copied from runtime/MarkedBlock.h.
+        * heap/MarkedSpace.cpp: Copied from runtime/MarkedSpace.cpp.
+        * heap/MarkedSpace.h: Copied from runtime/MarkedSpace.h.
+        * interpreter/RegisterFile.cpp:
+        * runtime/ConservativeSet.cpp: Removed.
+        * runtime/ConservativeSet.h: Removed.
+        * runtime/MachineStackMarker.cpp: Removed.
+        * runtime/MachineStackMarker.h: Removed.
+        * runtime/MarkStack.cpp: Removed.
+        * runtime/MarkStack.h: Removed.
+        * runtime/MarkStackPosix.cpp: Removed.
+        * runtime/MarkStackSymbian.cpp: Removed.
+        * runtime/MarkStackWin.cpp: Removed.
+        * runtime/MarkedBlock.cpp: Removed.
+        * runtime/MarkedBlock.h: Removed.
+        * runtime/MarkedSpace.cpp: Removed.
+        * runtime/MarkedSpace.h: Removed.
+
+2011-04-11  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2011-04-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 58198 - Clean up JSValue implementation for JSVALUE64
+
+        Remove JSNumberCell, JSImmediate, unify some methods between JSVALUE32_64/JSVALUE64
+
+        JSNumberCell.h largely just contained the constructors for JSValue on JSVALUE64,
+        which should not have been here.  JSImmediate mostly contained uncalled methods,
+        along with the internal implementation of the JSValue constructors split unnecessarily
+        across a number of layers of function calls. These could largely be merged back
+        together. Many methods and constructors from JSVALUE32_64 and JSVALUE64 can by unified.
+
+        The .cpp files were empty.
+
+        Moving all these methods into JSValue.h seems to be a repro measurable regression, so
+        I have kept these methods in a separate JSValueInlineMethods.h. Adding the 64-bit tag
+        values as static const members of JSValue also measures as a repro regression, so I
+        have made these #defines.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.list.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+            - Removed JSImmediate.h, JSNumberCell.h.
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitLoad):
+            - Removed class JSImmediate.
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::compile):
+            - Removed class JSImmediate.
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+            - Removed class JSImmediate.
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::compileBinaryArithOpSlowCase):
+            - Removed class JSImmediate.
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitJumpIfJSCell):
+        (JSC::JIT::emitJumpIfNotJSCell):
+        (JSC::JIT::emitJumpIfImmediateInteger):
+        (JSC::JIT::emitJumpIfNotImmediateInteger):
+        (JSC::JIT::emitFastArithDeTagImmediate):
+        (JSC::JIT::emitFastArithDeTagImmediateJumpIfZero):
+        (JSC::JIT::emitFastArithReTagImmediate):
+        (JSC::JIT::emitTagAsBoolImmediate):
+            - Removed class JSImmediate.
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_not):
+        (JSC::JIT::emit_op_jeq_null):
+        (JSC::JIT::emit_op_jneq_null):
+        (JSC::JIT::emit_op_get_pnames):
+        (JSC::JIT::emit_op_eq_null):
+        (JSC::JIT::emit_op_neq_null):
+        (JSC::JIT::emitSlow_op_not):
+            - Removed class JSImmediate.
+        * jit/JSInterfaceJIT.h:
+            - Removed class JSImmediate.
+        * runtime/JSCell.h:
+            - Removed JSImmediate.h, JSNumberCell.h.
+        * runtime/JSImmediate.cpp: Removed.
+        * runtime/JSImmediate.h: Removed.
+        * runtime/JSNumberCell.cpp: Removed.
+        * runtime/JSNumberCell.h: Removed.
+            - Removed.
+        * runtime/JSObject.h:
+            - Removed JSImmediate.h, JSNumberCell.h.
+        * runtime/JSString.h:
+            - Removed JSImmediate.h, JSNumberCell.h.
+        * runtime/JSValue.h:
+            - Added tags for JSVALUE64, moved out some JSVALUE32_64 methods, unified with JSVALUE64.
+        * runtime/JSValueInlineMethods.h: Added.
+        (JSC::JSValue::toInt32):
+        (JSC::JSValue::toUInt32):
+        (JSC::JSValue::isUInt32):
+        (JSC::JSValue::asUInt32):
+        (JSC::JSValue::uncheckedGetNumber):
+        (JSC::JSValue::toJSNumber):
+        (JSC::jsNaN):
+        (JSC::JSValue::getNumber):
+        (JSC::JSValue::getBoolean):
+        (JSC::JSValue::JSValue):
+        (JSC::JSValue::encode):
+        (JSC::JSValue::decode):
+        (JSC::JSValue::operator bool):
+        (JSC::JSValue::operator==):
+        (JSC::JSValue::operator!=):
+        (JSC::JSValue::isUndefined):
+        (JSC::JSValue::isNull):
+        (JSC::JSValue::isUndefinedOrNull):
+        (JSC::JSValue::isCell):
+        (JSC::JSValue::isInt32):
+        (JSC::JSValue::isDouble):
+        (JSC::JSValue::isTrue):
+        (JSC::JSValue::isFalse):
+        (JSC::JSValue::tag):
+        (JSC::JSValue::payload):
+        (JSC::JSValue::asInt32):
+        (JSC::JSValue::asDouble):
+        (JSC::JSValue::asCell):
+        (JSC::JSValue::isNumber):
+        (JSC::JSValue::isBoolean):
+        (JSC::JSValue::makeImmediate):
+        (JSC::JSValue::immediateValue):
+        (JSC::reinterpretDoubleToIntptr):
+        (JSC::reinterpretIntptrToDouble):
+            - Methods moved here from JSImmediate.h/JSNumberCell.h/JSValue.h.
+        * runtime/Operations.h:
+            - Removed JSImmediate.h, JSNumberCell.h.
+        * wtf/StdLibExtras.h:
+            - Export bitwise_cast.
+
+2011-04-11  Thouraya ANDOLSI  <thouraya.andolsi@st.com>
+
+        Reviewed by Oliver Hunt.
+
+        SH4 JIT SUPPORT.
+        https://bugs.webkit.org/show_bug.cgi?id=44329
+
+        Add JIT remaining part for SH4 platforms.
+
+        * assembler/MacroAssemblerSH4.h:
+        * jit/JIT.h:
+        * jit/JITInlineMethods.h:
+        * jit/JITOpcodes32_64.cpp:
+        * jit/JITPropertyAccess32_64.cpp:
+        * jit/JITStubs.cpp:
+        * jit/JITStubs.h:
+        * jit/JSInterfaceJIT.h:
+
+2011-04-10  Geoffrey Garen  <ggaren@apple.com>
+
+        Rubber-stamped by Beth Dakin.
+
+        Moved Heap.h and Heap.cpp to the heap folder, because anything less 
+        would be uncivilized.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.list.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * heap/Heap.cpp: Copied from JavaScriptCore/runtime/Heap.cpp.
+        * heap/Heap.h: Copied from JavaScriptCore/runtime/Heap.h.
+        * runtime/Heap.cpp: Removed.
+        * runtime/Heap.h: Removed.
+
+2011-04-10  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Remove duplicated code from AtomicString::fromUTF8()
+        https://bugs.webkit.org/show_bug.cgi?id=53711
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/text/AtomicString.cpp:
+        (WTF::AtomicString::fromUTF8Internal):
+        * wtf/text/AtomicString.h:
+        (WTF::AtomicString::fromUTF8):
+        * wtf/unicode/UTF8.cpp:
+        (WTF::Unicode::calculateStringHashAndLengthFromUTF8):
+        * wtf/unicode/UTF8.h:
+
+2011-04-10  Maciej Stachowiak  <mjs@apple.com>
+
+        Not reviewed.
+
+        Fix build (at least on Lion) by adding some newish header files to
+        PrivateHeaders.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2011-04-09  Geoffrey Garen  <ggaren@apple.com>
+
+        Not reviewed.
+
+        Try recommitting some things svn left out of its last commit.
+
+        * heap/Handle.h:
+        (JSC::HandleBase::operator!):
+        (JSC::HandleBase::HandleBase):
+        (JSC::HandleBase::slot):
+        (JSC::HandleBase::setSlot):
+        (JSC::Handle::Handle):
+        * heap/HandleHeap.cpp:
+        (JSC::HandleHeap::markWeakHandles):
+        (JSC::HandleHeap::finalizeWeakHandles):
+        (JSC::HandleHeap::isValidWeakNode):
+        * heap/HandleHeap.h:
+        (JSC::HandleHeap::globalData):
+
+2011-04-08  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        A few heap-related renames and file moves.
+        
+        WeakGCPtr<T> => Weak<T>
+        Global<T> => Strong<T>
+        collector/ => heap/
+        collector/* => heap/*
+        runtime/WeakGCPtr.h => heap/Weak.h
+        
+        (Eventually, even more files should move into the heap directory. Like
+        Heap.h and Heap.cpp, for example.)
+
+        * API/JSClassRef.h:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * GNUmakefile.list.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pri:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        * JavaScriptCore.vcproj/JavaScriptCore/copy-files.cmd:
+        * JavaScriptCore.vcproj/jsc/jscCommon.vsprops:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/SamplingTool.h:
+        * bytecompiler/BytecodeGenerator.h:
+        * collector: Removed.
+        * collector/handles: Removed.
+        * collector/handles/Global.h: Removed.
+        * collector/handles/Handle.h: Removed.
+        * collector/handles/HandleHeap.cpp: Removed.
+        * collector/handles/HandleHeap.h: Removed.
+        * collector/handles/HandleStack.cpp: Removed.
+        * collector/handles/HandleStack.h: Removed.
+        * collector/handles/Local.h: Removed.
+        * collector/handles/LocalScope.h: Removed.
+        * heap: Copied from collector.
+        * heap/Handle.h: Copied from collector/handles/Handle.h.
+        * heap/HandleHeap.cpp: Copied from collector/handles/HandleHeap.cpp.
+        * heap/HandleHeap.h: Copied from collector/handles/HandleHeap.h.
+        * heap/HandleStack.cpp: Copied from collector/handles/HandleStack.cpp.
+        * heap/HandleStack.h: Copied from collector/handles/HandleStack.h.
+        * heap/Local.h: Copied from collector/handles/Local.h.
+        * heap/LocalScope.h: Copied from collector/handles/LocalScope.h.
+        * heap/Strong.h: Copied from collector/handles/Global.h.
+        (JSC::Strong::Strong):
+        (JSC::Strong::~Strong):
+        (JSC::Strong::operator=):
+        * heap/Weak.h: Copied from runtime/WeakGCPtr.h.
+        (JSC::Weak::Weak):
+        (JSC::Weak::~Weak):
+        * heap/handles: Removed.
+        * interpreter/RegisterFile.h:
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::hostFunctionStub):
+        * jit/JITStubs.h:
+        * runtime/Structure.h:
+        * runtime/WeakGCPtr.h: Removed.
+
+2011-04-08  Alpha Lam  <hclam@chromium.org>
+
+        Unreviewed, rolling out r83335.
+        http://trac.webkit.org/changeset/83335
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+        GTK and QT bots are broken
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Ooops, typo, build fix.
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::parse):
+
+2011-04-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 58154 - Add support for comparison operators to the DFG JIT.
+
+        Add support for <, <=, ==, ===, and also !.  Add support for all corresponding
+        bytecode ops, including the not- and -null forms.  Initially add functionally
+        correct support, we'll revisit the performance.
+
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::ByteCodeParser):
+        (JSC::DFG::ByteCodeParser::constantNull):
+        (JSC::DFG::ByteCodeParser::parse):
+            - Add support for parsing of bytecode opcodes, 
+        * dfg/DFGJITCodeGenerator.h:
+        (JSC::DFG::JITCodeGenerator::callOperation):
+            - Add new operation call types, return bool values.
+        * dfg/DFGNode.h:
+            - Add new node types.
+        * dfg/DFGNonSpeculativeJIT.cpp:
+        (JSC::DFG::NonSpeculativeJIT::compile):
+            - Add code generation for new nodes.
+        * dfg/DFGOperations.cpp:
+        (JSC::DFG::operationCompareLess):
+        (JSC::DFG::operationCompareLessEq):
+        (JSC::DFG::operationCompareEq):
+        (JSC::DFG::operationCompareStrictEq):
+        (JSC::DFG::dfgConvertJSValueToBoolean):
+        * dfg/DFGOperations.h:
+            - Add operation callbacks to implement new ops.
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+            - Add code generation for new nodes.
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+            - Switched to a simpler <0 check, rather than relying on an internal value in JSImmediate.
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+            - Switched to a simpler <0 check, rather than relying on an internal value in JSImmediate.
+        * runtime/JSImmediate.h:
+            - Make tag values public, rather than relying on a friend - this matches JSVALUE32_64.
+
+2011-04-07  Anna Cavender  <annacc@chromium.org>
+
+        Reviewed by Eric Carlson.
+
+        Setup ENABLE(TRACK) feature define
+        https://bugs.webkit.org/show_bug.cgi?id=53556
+
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-07  Balazs Kelemen  <kbalazs@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [WK2][Qt][GTK] Introduce common use flag for the shared UNIX domain socket IPC implementation
+        https://bugs.webkit.org/show_bug.cgi?id=58030
+
+        * wtf/Platform.h: Introduce USE(UNIX_DOMAIN_SOCKETS) for WebKit2.
+
+2011-04-08  Adam Roben  <aroben@apple.com>
+
+        Clean build fix
+
+        * JavaScriptCore.vcproj/JavaScriptCore/copy-files.cmd: Don't try to delete directories that
+        don't exist. Also switched from del /s to rmdir /s, which has the benefit of deleting the
+        directory itself in addition to the files it contains.
+
+2011-04-07  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Some Handle<T> cleanup
+        https://bugs.webkit.org/show_bug.cgi?id=58109
+
+        * bytecode/SamplingTool.h: Sorted alphabetically because that's the
+        WebKit style. Added a Global.h #include that was previously missing
+        but harmless.
+
+        * collector/handles/Global.h:
+        (JSC::Global::Global): Added a null constructor. No need for a special
+        tag, and the tag is incompatible with some data structures.
+        
+        (JSC::Global::isHashTableDeletedValue):
+        (JSC::Global::~Global):
+        (JSC::Global::set):
+        (JSC::Global::operator=):
+        (JSC::Global::clear):
+        (JSC::Global::hashTableDeletedValue): Reordered constructors to be near
+        each other.
+
+        (JSC::Global::setWithWriteBarrier): Renamed internalSet to
+        setWithWriteBarrier for clarity, and funneled more code into using set
+        and setWithWriteBarrier to reduce duplication.
+
+        * collector/handles/Handle.h:
+        (JSC::HandleBase::operator!):
+        (JSC::HandleBase::HandleBase): Removed isEmpty(), since we already have
+        boolean and ! operators.
+
+        (JSC::HandleBase::slot):
+        (JSC::HandleBase::setSlot):
+        (JSC::Handle::Handle): Added general support for null Handles. This was
+        previously outlawed by ASSERTs, but our code has grown to support and
+        rely on null Handles.
+        
+        * collector/handles/HandleHeap.cpp:
+        (JSC::HandleHeap::markWeakHandles):
+        (JSC::HandleHeap::finalizeWeakHandles):
+        (JSC::HandleHeap::isValidWeakNode): Migrated from isValidWeakHandle,
+        and beefed this up a bit.
+
+        * collector/handles/HandleHeap.h:
+        (JSC::HandleHeap::globalData): Added accessor, used by some new set functions.
+
+        * collector/handles/Local.h: Moved hash traits to the bottom of the file,
+        since this file is about the Local class, not the traits.
+
+        (JSC::::Local): Updated for removal of invalidate().
+
+        (JSC::::operator): Deployed "using" to avoid a lot of this->
+        template funny business.
+
+        (JSC::::setWithSlotCheck): Renamed from internalSet, more specific now.
+
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::RegisterFile): Updated to use null constructor.
+
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::hostFunctionStub):
+
+        * runtime/JSPropertyNameIterator.h:
+        (JSC::Structure::setEnumerationCache):
+        * runtime/Structure.h: Removed clearEnumerationCache
+        because it was an unused holdover from when the enumeration cache was
+        not a handle.
+
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::set): Finish initializing our handle before putting it
+        in the table. This seemed more logical, and at one point was required
+        to avoid triggering an ASSERT.
+
+        * runtime/WeakGCPtr.h: Inherit from Handle instead of rolling our own
+        handle-like behavior, to avoid duplication.
+
+        (JSC::WeakGCPtr::WeakGCPtr):
+        (JSC::WeakGCPtr::~WeakGCPtr):
+        (JSC::WeakGCPtr::get):
+        (JSC::WeakGCPtr::clear):
+        (JSC::WeakGCPtr::set):
+        (JSC::WeakGCPtr::setWithWriteBarrier): Removed duplicate code and
+        standardized on Handle idioms.
+
+2011-04-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Martin Robinson.
+
+        Refactor Gtk build system to separate list of files
+        https://bugs.webkit.org/show_bug.cgi?id=58090
+
+        This is the first step towards generating part of the GTK build system
+        using GYP.  In the first iteration, our plan is to just generate the
+        list of files.  This patch is the first step, which is to separate out
+        the part of JavaScriptCore build system that we intend to generate from
+        the rest of the build system.
+
+        * GNUmakefile.am:
+        * GNUmakefile.list.am: Added.
+
+2011-04-07  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Mapping booleans the same way as integers
+        https://bugs.webkit.org/show_bug.cgi?id=56913
+
+        Instead of having a seperate tag field for booleans,
+        the logical values are stored in the payload field
+        (for JSValue32_64 representation).
+
+        1.007x speedup on SunSpider.
+
+        * jit/JIT.h:
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitStoreBool):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_instanceof):
+        (JSC::JIT::emit_op_not):
+        (JSC::JIT::emit_op_jfalse):
+        (JSC::JIT::emitSlow_op_jfalse):
+        (JSC::JIT::emit_op_jtrue):
+        (JSC::JIT::emitSlow_op_jtrue):
+        (JSC::JIT::emit_op_jeq_null):
+        (JSC::JIT::emit_op_jneq_null):
+        (JSC::JIT::emit_op_eq):
+        (JSC::JIT::emitSlow_op_eq):
+        (JSC::JIT::emit_op_neq):
+        (JSC::JIT::emitSlow_op_neq):
+        (JSC::JIT::compileOpStrictEq):
+        (JSC::JIT::emit_op_eq_null):
+        (JSC::JIT::emit_op_neq_null):
+        * jit/JSInterfaceJIT.h:
+        * runtime/JSValue.h:
+        (JSC::JSValue::JSValue):
+        (JSC::JSValue::isTrue):
+        (JSC::JSValue::isFalse):
+        (JSC::JSValue::getBoolean):
+
+2011-04-07  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add stub support for generating Gtk build system from gyp
+        https://bugs.webkit.org/show_bug.cgi?id=58086
+
+        This does not produce a buildable JavaScriptCore, but it
+        does allow running gyp/configure --port=gtk and having
+        it generate a gtk.Makefile which we can use for testing
+        the rest of the plumbing.
+
+        * gyp/gtk.gyp: Added.
+
+2011-04-07  Andrew Scherkus  <scherkus@chromium.org>
+
+        Revert ENABLE_TRACK patch due to compile failures.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2011-04-07  Adam Barth  <abarth@webkit.org>
+
+        Fix whitespace in GNUmakefile.am.
+
+        * GNUmakefile.am:
+
+2011-04-07  Gavin Barraclough  <barraclough@apple.com>
+
+        Fix a couple of typos in comments that Darin spotted.
+
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_not):
+        * runtime/JSImmediate.h:
+
+2011-04-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+        Bug 58057 - Store boolean payload in low bit of JSImmediate
+
+        And remove some uncalled functions from JSImmediate.h
+
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitTagAsBoolImmediate):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_not):
+        * runtime/JSImmediate.h:
+        (JSC::JSImmediate::makeInt):
+        (JSC::JSImmediate::makeBool):
+        (JSC::JSImmediate::intValue):
+        (JSC::JSImmediate::boolValue):
+        (JSC::JSImmediate::asInt32):
+        (JSC::JSImmediate::toDouble):
+        (JSC::JSValue::asInt32):
+        (JSC::JSValue::isUInt32):
+        (JSC::JSValue::asUInt32):
+
+2011-04-07  Liang Qi  <liang.qi@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt][Symbian] Enable webkit build with GCCE on Symbian.
+        https://bugs.webkit.org/show_bug.cgi?id=57841
+
+        * wtf/MathExtras.h: GCCE compiler doesn't support those std static functions.
+
+2011-04-06  Dai Mikurube  <dmikurube@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add QUOTA build flag for unified quota API
+        https://bugs.webkit.org/show_bug.cgi?id=57918
+
+        * Configurations/FeatureDefines.xcconfig: Added QUOTA build flag
+
+2011-04-06  Kevin Ollivier  <kevino@theolliviers.com>
+        
+        Reviewed by Darin Adler.
+        
+        Make sure JS_EXPORT_PRIVATE is an empty define when we aren't using the export macros.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=27551
+
+        * config.h:
+
+2011-04-06  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Stop JSObject::isUsingInlineStorage() from using the structure
+        https://bugs.webkit.org/show_bug.cgi?id=57986
+
+        Make the isUsingInlineStorage() implementation just look at
+        whether the property storage is inside the object.
+
+        * runtime/JSObject.h:
+        (JSC::JSObject::isUsingInlineStorage):
+        (JSC::JSObject::JSObject):
+
+2011-04-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Geoff Garen.
+
+        Update comments documenting JSVALUE64/JSVALUE32_64 JSValue representations.
+
+        * runtime/JSImmediate.h:
+        * runtime/JSValue.h:
+
+2011-04-06  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        cmake: Fix build for ARMv7
+
+        * CMakeLists.txt: add missing file.
+
+2011-04-06  Liang Qi  <liang.qi@nokia.com>
+
+        Reviewed by Benjamin Poulain.
+
+        Correct a include file name.
+        https://bugs.webkit.org/show_bug.cgi?id=57839
+
+        * wtf/PageAllocatorSymbian.h: It should be case sensitive. This fix 
+        builds on Unix hosts.
+
+2011-04-06  Adam Roben  <aroben@apple.com>
+
+        Build fix after r83056
+
+        * JavaScriptCore.vcproj/JavaScriptCore/copy-files.cmd: Added property svn:executable.
+
+2011-04-06  Adam Roben  <aroben@apple.com>
+
+        Move JavaScriptCoreGenerated's file-copying logic out to a new script
+
+        Hopefully this will make it easier to modify this logic in the future. I also made the
+        script much quieter than the old logic, since it didn't seem helpful to see long lists of
+        filenames during the copying phase.
+
+        If we like this new style, we could copy it for our other projects.
+
+        Fixes <http://webkit.org/b/57950> JavaScriptCoreGenerated's file-copying logic is hard to
+        modify and noisy
+
+        Reviewed by Steve Falkenburg.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make: Moved logic to copy
+        files from here...
+        * JavaScriptCore.vcproj/JavaScriptCore/copy-files.cmd: ...to here. (Added.)
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.vcproj: Added copy-files.cmd
+        for convenience.
+
+2011-04-05  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix the Windows build.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def: Who likes export files? I do!
+
+2011-04-05  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Introduced the concept of opaque roots, in preparation for marking the DOM with them
+        https://bugs.webkit.org/show_bug.cgi?id=57903
+
+        * JavaScriptCore.exp: Who likes export files? I do!
+
+        * collector/handles/HandleHeap.cpp:
+        (JSC::isValidWeakHandle): Factored out a helper function for ASSERTs.
+
+        (JSC::WeakHandleOwner::~WeakHandleOwner): Moved from header to avoid
+        weak linkage problems.
+
+        (JSC::WeakHandleOwner::isReachableFromOpaqueRoots): New callback.
+        Currently unused.
+
+        (JSC::WeakHandleOwner::finalize): Switched from pure virtual to a
+        default empty implementation, since not all clients necessarily want
+        or need non-trivial finalizers.
+
+        (JSC::HandleHeap::markWeakHandles): Split updateWeakHandles into two
+        passes. The first pass marks all reachable weak handles. The second pass
+        finalizes all unreachable weak handles. This must be two passes because
+        we don't know the set of finalizable weak handles until we're done
+        marking all weak handles.
+
+        (JSC::HandleHeap::finalizeWeakHandles): Use new helper function.
+
+        * collector/handles/HandleHeap.h: Ditto.
+
+        * runtime/Heap.cpp: 
+        (JSC::Heap::destroy):
+        (JSC::Heap::markRoots):
+        (JSC::Heap::reset): Split out handle marking from handle finalization.
+
+        * runtime/MarkStack.cpp:
+        (JSC::MarkStack::reset):
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::addOpaqueRoot):
+        (JSC::MarkStack::containsOpaqueRoot):
+        (JSC::MarkStack::opaqueRootCount):
+        (JSC::HeapRootMarker::markStack): New helper functions for managing the
+        set of opaque roots.
+
+        * runtime/WeakGCMap.h:
+        (JSC::WeakGCMap::finalize): Renamed to match parent class declaration.
+
+2011-04-05  Balazs Kelemen  <kbalazs@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Build fix for YarrParser.h
+        https://bugs.webkit.org/show_bug.cgi?id=57822
+
+        * yarr/YarrParser.h:
+        (JSC::Yarr::Parser::CharacterClassParserDelegate::CharacterClassParserDelegate):
+
+2011-04-05  Steve Falkenburg  <sfalken@apple.com>
+
+        Follow-up Windows build fix.
+        Don't skip react-to-vsprops-changes.py for all production builds,
+        only those initiated via JavaScriptCore.make.
+
+        * JavaScriptCore.vcproj/JavaScriptCore.make:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+
+2011-04-05  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r82849): 85,000+ JSC-related leaks seen on SnowLeopard Intel Leaks
+        https://bugs.webkit.org/show_bug.cgi?id=57857
+
+        Whoops, accidentally removed a deref().
+
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::deref):
+
+2011-04-05  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.vcproj: Add per-configuration vsprops files.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedCommon.vsprops: Removed inheritance from common.vsprops.
+        Set production environment variable before calling make.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedDebug.vsprops: Added.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedDebugAll.vsprops: Added.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedDebugCairoCFLite.vsprops: Added.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedProduction.vsprops: Added.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedRelease.vsprops: Added.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedReleaseCairoCFLite.vsprops: Added.
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGeneratedReleasePGO.vsprops: Added.
+
+2011-04-05  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Make caches window show more info about non-jsobject GC values
+        https://bugs.webkit.org/show_bug.cgi?id=57874
+
+        Add ClassInfo to the various internal JS types that currently
+        don't have any, and make the text for caches window show the
+        classname for non-JSObject instances.
+
+        * runtime/Executable.cpp:
+        * runtime/Executable.h:
+        (JSC::ExecutableBase::createStructure):
+        (JSC::NativeExecutable::createStructure):
+        (JSC::NativeExecutable::NativeExecutable):
+        (JSC::EvalExecutable::createStructure):
+        (JSC::ProgramExecutable::createStructure):
+        (JSC::FunctionExecutable::createStructure):
+        * runtime/Heap.cpp:
+        (JSC::TypeCounter::typeName):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/ScopeChain.cpp:
+        * runtime/ScopeChain.h:
+        (JSC::ScopeChainNode::createStructure):
+        * runtime/StructureChain.cpp:
+        * runtime/StructureChain.h:
+        (JSC::StructureChain::createStructure):
+
+2011-04-05  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Andreas Kling.
+
+        Cleanup StringConcatenate
+        https://bugs.webkit.org/show_bug.cgi?id=57836
+
+        Don't use PassRefPtr in local variables, properly store in RefPtrs and release on return.
+        Add a makeString() variant taking 9 arguments, needed by a follow-up patch.
+
+        * wtf/text/StringConcatenate.h:
+        (WTF::tryMakeString):
+        (WTF::makeString):
+
+2011-04-04  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r82876.
+        http://trac.webkit.org/changeset/82876
+        https://bugs.webkit.org/show_bug.cgi?id=57816
+
+        Caused a lot of test crashes (Requested by tkent on #webkit).
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/FastMalloc.cpp:
+        (WTF::tryFastMalloc):
+        (WTF::fastMalloc):
+        (WTF::tryFastCalloc):
+        (WTF::fastCalloc):
+        (WTF::fastFree):
+        (WTF::tryFastRealloc):
+        (WTF::fastRealloc):
+        (WTF::fastMallocSize):
+        (WTF::TCMalloc_PageHeap::isScavengerSuspended):
+        (WTF::TCMalloc_PageHeap::scheduleScavenger):
+        (WTF::TCMalloc_PageHeap::suspendScavenger):
+        (WTF::TCMalloc_PageHeap::signalScavenger):
+        (WTF::TCMallocStats::malloc):
+        (WTF::TCMallocStats::free):
+        (WTF::TCMallocStats::fastCalloc):
+        (WTF::TCMallocStats::tryFastCalloc):
+        (WTF::TCMallocStats::calloc):
+        (WTF::TCMallocStats::fastRealloc):
+        (WTF::TCMallocStats::tryFastRealloc):
+        (WTF::TCMallocStats::realloc):
+        (WTF::TCMallocStats::fastMallocSize):
+        * wtf/FastMalloc.h:
+        (WTF::Internal::fastMallocMatchValidationType):
+        (WTF::Internal::fastMallocMatchValidationValue):
+        (WTF::Internal::setFastMallocMatchValidationType):
+        (WTF::fastMallocMatchValidateFree):
+        * wtf/Platform.h:
+
+2011-04-04  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Antti Koivisto.
+
+        Stop JSCell.h from including Structure.h
+        https://bugs.webkit.org/show_bug.cgi?id=57809
+
+        * runtime/GetterSetter.h:
+        * runtime/JSAPIValueWrapper.h:
+        * runtime/JSCell.h:
+        (JSC::JSCell::JSValue::toThisObject):
+        * runtime/JSString.h:
+        * runtime/ScopeChain.h:
+        * runtime/Structure.h:
+        (JSC::JSCell::isObject):
+        (JSC::JSCell::isString):
+        (JSC::JSCell::classInfo):
+        (JSC::JSCell::createDummyStructure):
+        (JSC::JSValue::needsThisConversion):
+        (JSC::MarkStack::internalAppend):
+        * runtime/StructureChain.h:
+
+2011-04-04  Oliver Hunt  <oliver@apple.com>
+
+        Fix clang build.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::fastMalloc):
+        (WTF::fastCalloc):
+        (WTF::fastRealloc):
+
+2011-04-04  Oliver Hunt  <oliver@apple.com>
+
+        Remove accidental change to Platform.h
+
+        * wtf/Platform.h:
+
+2011-04-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Fixed a weak-handle-related leak in RegisterFile
+        https://bugs.webkit.org/show_bug.cgi?id=57793
+
+        * interpreter/RegisterFile.cpp: Nixed leaky GlobalObjectNotifier.
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::GlobalObjectOwner::finalize):
+        (JSC::RegisterFile::RegisterFile): Replaced GlobalObjectNotifier with
+        a per-RegisterFile weak handle owner, which does not leak.
+
+        * runtime/WeakGCPtr.h:
+        (JSC::WeakGCPtr::set): Allow set() to take a context argument, since
+        RegisterFile now needs this. (Seems like it was an accidental omission
+        all along.)
+
+2011-04-04  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make malloc validation useful
+        https://bugs.webkit.org/show_bug.cgi?id=57502
+
+        This patch changes FAST_MALLOC_MATCH_VALIDATION with a general
+        corruption check that tags the beginning and end of all allocations
+        to check for write overflows and overwrites the contents of
+        memory on free in order to (hopefully) show up use-after-free issues
+        sooner.
+
+        We also turn it on by default for debug builds.
+
+        * JavaScriptCore.exp:
+        * wtf/FastMalloc.cpp:
+        (WTF::tryFastMalloc):
+        (WTF::fastMalloc):
+        (WTF::tryFastCalloc):
+        (WTF::fastCalloc):
+        (WTF::fastFree):
+        (WTF::tryFastRealloc):
+        (WTF::fastRealloc):
+        (WTF::TCMalloc_PageHeap::isScavengerSuspended):
+        (WTF::TCMalloc_PageHeap::scheduleScavenger):
+        (WTF::TCMalloc_PageHeap::suspendScavenger):
+        (WTF::TCMalloc_PageHeap::signalScavenger):
+        (WTF::TCMallocStats::malloc):
+        (WTF::TCMallocStats::free):
+        (WTF::TCMallocStats::fastCalloc):
+        (WTF::TCMallocStats::tryFastCalloc):
+        (WTF::TCMallocStats::calloc):
+        (WTF::TCMallocStats::fastRealloc):
+        (WTF::TCMallocStats::tryFastRealloc):
+        (WTF::TCMallocStats::realloc):
+        * wtf/FastMalloc.h:
+        (WTF::Internal::fastMallocValidationHeader):
+        (WTF::Internal::fastMallocValidationSuffix):
+        (WTF::Internal::fastMallocMatchValidationType):
+        (WTF::Internal::setFastMallocMatchValidationType):
+        (WTF::fastMallocMatchValidateFree):
+        (WTF::fastMallocValidate):
+        * wtf/Platform.h:
+
+2011-04-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Renamed clearWeakPointers => updateWeakHandles and removed misleading comment
+        https://bugs.webkit.org/show_bug.cgi?id=57790
+
+        * collector/handles/HandleHeap.cpp:
+        (JSC::HandleHeap::updateWeakHandles): Updated for rename.
+
+        * collector/handles/HandleHeap.h: Removed comment claiming that this
+        function should only be called during teardown, because it's actually
+        called after every GC pass.
+
+        * runtime/Heap.cpp:
+        (JSC::Heap::destroy):
+        (JSC::Heap::markRoots): Updated for rename.
+
+2011-04-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Standardized handling of handles for immediate values
+        https://bugs.webkit.org/show_bug.cgi?id=57788
+
+        * collector/handles/HandleHeap.cpp:
+        (JSC::HandleHeap::clearWeakPointers): Don't check for null or non-cell
+        values here, because our write barrier guarantees that such values are
+        not in the weak list.
+
+        (JSC::HandleHeap::writeBarrier): Standardized on checking for null before
+        checking for cell, and on using early return instead of if/else.
+
+        * collector/handles/HandleHeap.h:
+        (JSC::HandleHeap::deallocate):
+        (JSC::HandleHeap::makeWeak): Ditto.
+
+2011-04-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Not reviewed.
+
+        Removed a redundant variable from HandleHeap
+        https://bugs.webkit.org/show_bug.cgi?id=57786
+        
+        Forgot to commit the file that actually removes the data member!
+        
+        * collector/handles/HandleHeap.h:
+
+2011-04-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Removed a redundant variable from HandleHeap
+        https://bugs.webkit.org/show_bug.cgi?id=57786
+        
+        We don't need a specific variable to indicate that we're in the middle
+        of the finalization phase, since m_nextToFinalize already does this.
+
+        * collector/handles/HandleHeap.cpp:
+        (JSC::HandleHeap::HandleHeap):
+        (JSC::HandleHeap::clearWeakPointers):
+        (JSC::HandleHeap::writeBarrier):
+
+2011-04-04  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Renamed Finalizer => WeakHandleOwner (in preparation for adding a reachability callback)
+        https://bugs.webkit.org/show_bug.cgi?id=57775
+        
+        Also renamed noFinalizer => emptyWeakOwner, since this is really an
+        optimization for a weak owner with empty callbacks.
+
+        * collector/handles/HandleHeap.cpp:
+        (JSC::HandleHeap::clearWeakPointers): Updated for renames. Removed
+        redundant initialization of m_nextToFinalize. Moved deletion check inside
+        weak owner check, since the weak owner can't delete the node if there is
+        no weak owner!
+
+        * collector/handles/HandleHeap.h:
+        (JSC::WeakHandleOwner::~WeakHandleOwner):
+        (JSC::HandleHeap::makeWeak): Updated for renames.
+
+        (JSC::HandleHeap::hasWeakOwner): Changed getFinalizer to hasWeakOwner,
+        to clarify this function's role in assertions.
+
+        (JSC::HandleHeap::Node::Node):
+        (JSC::HandleHeap::Node::makeWeak):
+        (JSC::HandleHeap::Node::isWeak):
+        (JSC::HandleHeap::Node::weakOwner):
+        (JSC::HandleHeap::Node::weakOwnerContext):
+        (JSC::HandleHeap::Node::emptyWeakOwner):
+        * interpreter/RegisterFile.cpp:
+        (JSC::RegisterFile::globalObjectCollectedNotifier):
+        * interpreter/RegisterFile.h:
+        * runtime/WeakGCMap.h:
+        * runtime/WeakGCPtr.h:
+        (JSC::WeakGCPtr::WeakGCPtr):
+        (JSC::WeakGCPtr::set): Updated for renames.
+
+2011-04-04  Oliver Hunt  <oliver@apple.com>
+
+        Fix WinCE build.
+
+        * bytecode/Instruction.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::tryCachePutByID):
+        (JSC::Interpreter::tryCacheGetByID):
+
+2011-04-04  Adam Roben  <aroben@apple.com>
+
+        Delete mt.dep files when doing a clean build due to .vsprops file changes
+
+        Apparently this is yet another file that Visual Studio can't figure out it needs to rebuild.
+
+        Fixes <http://webkit.org/b/57777> r82850 failed to build on Windows Debug (Build)
+
+        Reviewed by Brian Weinstein.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/react-to-vsprops-changes.py:
+        (main): Added dep to the list of extensions we look for when choosing files to delete.
+
+2011-04-01  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make StructureChain GC allocated
+        https://bugs.webkit.org/show_bug.cgi?id=56695
+
+        Make StructureChain GC allocated, and make the various owners
+        mark it correctly.
+
+        * JavaScriptCore.exp:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        (JSC::CodeBlock::derefStructures):
+        (JSC::CodeBlock::refStructures):
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/Instruction.h:
+        (JSC::PolymorphicAccessStructureList::PolymorphicStubInfo::set):
+        (JSC::PolymorphicAccessStructureList::PolymorphicAccessStructureList):
+        (JSC::PolymorphicAccessStructureList::derefStructures):
+        (JSC::PolymorphicAccessStructureList::markAggregate):
+        (JSC::Instruction::Instruction):
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::deref):
+        (JSC::StructureStubInfo::markAggregate):
+        * bytecode/StructureStubInfo.h:
+        (JSC::StructureStubInfo::initGetByIdChain):
+        (JSC::StructureStubInfo::initPutByIdTransition):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionCall):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionApply):
+        * collector/handles/Handle.h:
+        (JSC::HandleConverter::operator->):
+        (JSC::HandleConverter::operator*):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_jneq_ptr):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_jneq_ptr):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::privateCompileGetByIdChainList):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::privateCompileGetByIdChainList):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCachePutByID):
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::getPolymorphicAccessStructureListSlot):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * runtime/JSCell.h:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        * runtime/JSGlobalObject.h:
+        (JSC::Structure::prototypeChain):
+        * runtime/JSObject.h:
+        (JSC::JSObject::putDirectInternal):
+        (JSC::JSObject::markChildrenDirect):
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::create):
+        (JSC::JSPropertyNameIterator::get):
+        (JSC::JSPropertyNameIterator::markChildren):
+        * runtime/JSPropertyNameIterator.h:
+        (JSC::JSPropertyNameIterator::setCachedPrototypeChain):
+        * runtime/JSZombie.cpp:
+        (JSC::JSZombie::leakedZombieStructure):
+        * runtime/JSZombie.h:
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::append):
+        * runtime/MarkedBlock.cpp:
+        (JSC::MarkedBlock::sweep):
+        * runtime/Structure.cpp:
+        (JSC::Structure::addPropertyTransition):
+        * runtime/Structure.h:
+        (JSC::Structure::markAggregate):
+        * runtime/StructureChain.cpp:
+        (JSC::StructureChain::StructureChain):
+        (JSC::StructureChain::~StructureChain):
+        (JSC::StructureChain::markChildren):
+        * runtime/StructureChain.h:
+        (JSC::StructureChain::create):
+        (JSC::StructureChain::createStructure):
+        * runtime/WriteBarrier.h:
+        (JSC::WriteBarrierBase::get):
+        (JSC::WriteBarrierBase::operator*):
+        (JSC::WriteBarrierBase::operator->):
+
+2011-04-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Removed some complexity from HandleHeap
+        https://bugs.webkit.org/show_bug.cgi?id=57650
+        
+        Eliminated pointer-tagging flags.
+        
+        Tied being weak to having a finalizer (or at least a finalizer sentinel).
+
+        * collector/handles/HandleHeap.cpp:
+        (JSC::HandleHeap::clearWeakPointers): Removed the special self-destroying
+        flag. It was unused. If we bring it back, we'll probably use a shared
+        autodeallocating finalizer instead.
+
+        * collector/handles/HandleHeap.h:
+        (JSC::HandleHeap::makeWeak): makeWeak and adding a finalizer are now
+        a single, atomic operation -- this makes the relationship between
+        finalizers and weak pointers clearer, and impossible to get wrong.
+
+        (JSC::HandleHeap::Node::Node):
+        (JSC::HandleHeap::Node::handleHeap): No more flags.
+
+        (JSC::HandleHeap::Node::makeWeak):
+        (JSC::HandleHeap::Node::isWeak): Ditto above. We use a special sentienl
+        value in the finalizer slot to indicate that a handle is weak but doesn't
+        require an external function call for finalization.
+
+2011-04-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Removed WeakGCMap::deprecatedRemove because it was deprecated and unused
+        https://bugs.webkit.org/show_bug.cgi?id=57648
+
+        * runtime/WeakGCMap.h:
+
+2011-04-01  Adam Roben  <aroben@apple.com>
+
+        Maintain the invariant that Lexer::m_current is set to -1 when at the end of the code buffer
+
+        Covered by existing tests.
+
+        Fixes <http://webkit.org/b/56699>.
+
+        Reviewed by Oliver Hunt.
+
+        * parser/Lexer.h:
+        (JSC::Lexer::setOffset): Copied code from Lexer::shift to update m_current, because
+        supposedly the idiom that function uses is fast.
+
+2011-03-31  Thouraya ANDOLSI  <thouraya.andolsi@st.com>
+
+        Reviewed by Oliver Hunt.
+
+        SH4 JIT SUPPORT.
+        https://bugs.webkit.org/show_bug.cgi?id=44329
+
+        Add YARR support for SH4 platforms (disabled by default).
+
+        * GNUmakefile.am:
+        * assembler/MacroAssembler.h:
+        * assembler/MacroAssemblerSH4.cpp: Added.
+        * assembler/MacroAssemblerSH4.h: Added.
+        * assembler/SH4Assembler.h: Added.
+        * yarr/YarrJIT.cpp:
+
+2011-03-30  Adam Roben  <aroben@apple.com>
+
+        Clean build fix
+
+        * JavaScriptCore.vcproj/JavaScriptCore.sln: Serialized project dependencies so projects
+        don't try to build in parallel (which doesn't mesh with our buildfailed mechanism).
+
+2011-03-30  Oliver Hunt  <oliver@apple.com>
+
+        Rollout r82500
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        (JSC::CodeBlock::derefStructures):
+        (JSC::CodeBlock::refStructures):
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/Instruction.h:
+        (JSC::PolymorphicAccessStructureList::PolymorphicStubInfo::set):
+        (JSC::PolymorphicAccessStructureList::PolymorphicAccessStructureList):
+        (JSC::PolymorphicAccessStructureList::derefStructures):
+        (JSC::Instruction::Instruction):
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::deref):
+        * bytecode/StructureStubInfo.h:
+        (JSC::StructureStubInfo::initGetByIdChain):
+        (JSC::StructureStubInfo::initPutByIdTransition):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionCall):
+        (JSC::BytecodeGenerator::emitJumpIfNotFunctionApply):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_jneq_ptr):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_jneq_ptr):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::privateCompileGetByIdChainList):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::privateCompileGetByIdChainList):
+        * jit/JITStubs.cpp:
+        (JSC::getPolymorphicAccessStructureListSlot):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * runtime/JSCell.h:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        * runtime/JSGlobalObject.h:
+        (JSC::Structure::prototypeChain):
+        * runtime/JSObject.h:
+        (JSC::JSObject::markChildrenDirect):
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::create):
+        (JSC::JSPropertyNameIterator::get):
+        (JSC::JSPropertyNameIterator::markChildren):
+        * runtime/JSPropertyNameIterator.h:
+        (JSC::JSPropertyNameIterator::setCachedPrototypeChain):
+        * runtime/MarkStack.h:
+        (JSC::MarkStack::append):
+        * runtime/Structure.h:
+        * runtime/StructureChain.cpp:
+        (JSC::StructureChain::StructureChain):
+        * runtime/StructureChain.h:
+        (JSC::StructureChain::create):
+
+2011-03-29  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Use the Accelerate vImage vectorized (un)premultiplyImageData functions for ImageBufferCG
+
+        https://bugs.webkit.org/show_bug.cgi?id=53134
+
+        * wtf/Platform.h: Added in WTF flag for using the Accelerate framework
+
+2011-03-30  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Share most vsprops between Release and Production builds in releaseproduction.vsprops
+        https://bugs.webkit.org/show_bug.cgi?id=57508
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreProduction.vsprops:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreRelease.vsprops:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreReleaseCairoCFLite.vsprops:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreReleasePGO.vsprops:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreReleasePGOOptimize.vsprops:
+        * JavaScriptCore.vcproj/WTF/WTFProduction.vsprops:
+        * JavaScriptCore.vcproj/WTF/WTFRelease.vsprops:
+        * JavaScriptCore.vcproj/WTF/WTFReleaseCairoCFLite.vsprops:
+        * JavaScriptCore.vcproj/WTF/WTFReleasePGO.vsprops:
+        * JavaScriptCore.vcproj/jsc/jscProduction.vsprops:
+        * JavaScriptCore.vcproj/jsc/jscRelease.vsprops:
+        * JavaScriptCore.vcproj/jsc/jscReleaseCairoCFLite.vsprops:
+        * JavaScriptCore.vcproj/jsc/jscReleasePGO.vsprops:
+        * JavaScriptCore.vcproj/testapi/testapiProduction.vsprops:
+        * JavaScriptCore.vcproj/testapi/testapiRelease.vsprops:
+        * JavaScriptCore.vcproj/testapi/testapiReleaseCairoCFLite.vsprops:
+
+2011-03-30  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Explicitly prevent testapi and minidom from being installed rather than relying
+        on Xcode's current behavior of not installing if INSTALL_PATH is not explicitly
+        set at the target level.
+
+        <rdar://problem/9206357>
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2011-03-30  Timur Iskhodzhanov  <timurrrr@google.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Add some dynamic annotations to JavaScriptCore/wtf
+        https://bugs.webkit.org/show_bug.cgi?id=53747
+
+        By using these annotations we can improve the precision of finding
+        WebKit errors using dynamic analysis tools like ThreadSanitizer and Valgrind.
+        These annotations don't affect the compiled binaries unless USE(DYNAMIC_ANNOTATIONS) is "1".
+
+        These files don't add new functionality, so don't need extra tests.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/CMakeLists.txt:
+        * wtf/DynamicAnnotations.cpp: Added.
+        (WTFAnnotateBenignRaceSized):
+        (WTFAnnotateHappensBefore):
+        (WTFAnnotateHappensAfter):
+        * wtf/DynamicAnnotations.h: Added.
+        * wtf/ThreadSafeRefCounted.h:
+        (WTF::ThreadSafeRefCountedBase::derefBase):
+        * wtf/text/StringStatics.cpp:
+        (WTF::StringImpl::empty):
+
 2011-03-30  Oliver Hunt  <oliver@apple.com>
 
         Reviewed by Geoffrey Garen.

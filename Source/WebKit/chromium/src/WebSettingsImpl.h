@@ -101,13 +101,15 @@ public:
     virtual void setAcceleratedCompositingForVideoEnabled(bool);
     virtual void setAcceleratedCompositingForPluginsEnabled(bool);
     virtual void setAcceleratedCompositingForCanvasEnabled(bool);
-    virtual void setAcceleratedCompositingForAnimationEnabled(bool);    
+    virtual void setAcceleratedCompositingForAnimationEnabled(bool);
     virtual void setAccelerated2dCanvasEnabled(bool);
+    virtual void setAcceleratedDrawingEnabled(bool);
     virtual void setMemoryInfoEnabled(bool);
     virtual void setHyperlinkAuditingEnabled(bool);
     virtual void setAsynchronousSpellCheckingEnabled(bool);
     virtual void setCaretBrowsingEnabled(bool);
     virtual void setInteractiveFormValidationEnabled(bool);
+    virtual void setValidationMessageTimerMagnification(int);
     virtual void setMinimumTimerInterval(double);
     virtual void setFullScreenEnabled(bool);
 

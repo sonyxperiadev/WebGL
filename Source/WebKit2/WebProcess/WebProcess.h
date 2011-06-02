@@ -66,7 +66,7 @@ struct WebPageGroupData;
 struct WebPreferencesStore;
 struct WebProcessCreationParameters;
 
-class WebProcess : ChildProcess {
+class WebProcess : public ChildProcess {
 public:
     static WebProcess& shared();
 
@@ -99,7 +99,6 @@ public:
 
     WebPageGroupProxy* webPageGroup(uint64_t pageGroupID);
     WebPageGroupProxy* webPageGroup(const WebPageGroupData&);
-    static WebCore::PageGroup* sharedPageGroup();
 #if PLATFORM(MAC)
     pid_t presenterApplicationPid() const { return m_presenterApplicationPid; }
 #endif 
@@ -107,9 +106,6 @@ public:
 #if PLATFORM(QT)
     QNetworkAccessManager* networkAccessManager() { return m_networkAccessManager; }
 #endif
-
-    // Will terminate the web process if there are no live pages or downloads.
-    void terminateIfPossible();
 
     bool shouldUseCustomRepresentationForMIMEType(const String& mimeType) const { return m_mimeTypesWithCustomRepresentations.contains(mimeType); }
 
@@ -119,7 +115,7 @@ public:
     // Geolocation
     WebGeolocationManager& geolocationManager() { return m_geolocationManager; }
 
-    void clearResourceCaches(uint32_t cachesToClear = AllResourceCaches);
+    void clearResourceCaches(ResourceCachesToClear = AllResourceCaches);
     
     const String& localStorageDirectory() const { return m_localStorageDirectory; }
 
@@ -167,12 +163,20 @@ private:
 
     void setTextCheckerState(const TextCheckerState&);
 
+    // ChildProcess
+    virtual bool shouldTerminate();
+    virtual void terminate();
+
     // CoreIPC::Connection::Client
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    CoreIPC::SyncReplyMode didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
-    void didClose(CoreIPC::Connection*);
-    void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
-    NO_RETURN void didFailToSendSyncMessage(CoreIPC::Connection*);
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    virtual CoreIPC::SyncReplyMode didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
+    virtual void didClose(CoreIPC::Connection*);
+    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
+    virtual void syncMessageSendTimedOut(CoreIPC::Connection*);
+
+#if PLATFORM(WIN)
+    Vector<HWND> windowsToReceiveSentMessagesWhileWaitingForSyncReply();
+#endif
 
     // Implemented in generated WebProcessMessageReceiver.cpp
     void didReceiveWebProcessMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);

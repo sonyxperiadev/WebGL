@@ -26,7 +26,7 @@
 #ifndef JSObjectWithGlobalObject_h
 #define JSObjectWithGlobalObject_h
 
-#include "JSObject.h"
+#include "JSGlobalObject.h"
 
 namespace JSC {
 
@@ -34,18 +34,22 @@ class JSGlobalObject;
 
 class JSObjectWithGlobalObject : public JSNonFinalObject {
 public:
-    static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto)
+    static Structure* createStructure(JSGlobalData& globalData, JSValue proto)
     {
         return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
 
-    JSGlobalObject* globalObject() const;
+    JSGlobalObject* globalObject() const
+    {
+        return asGlobalObject((getAnonymousValue(GlobalObjectSlot).asCell()));
+    }
 
 protected:
-    JSObjectWithGlobalObject(JSGlobalObject*, NonNullPassRefPtr<Structure>);
+    JSObjectWithGlobalObject(JSGlobalObject*, Structure*);
+    JSObjectWithGlobalObject(JSGlobalData&, JSGlobalObject*, Structure*);
 
-    JSObjectWithGlobalObject(NonNullPassRefPtr<Structure> structure)
-        : JSNonFinalObject(structure)
+    JSObjectWithGlobalObject(VPtrStealingHackType)
+        : JSNonFinalObject(VPtrStealingHack)
     {
         // Should only be used by JSFunction when we aquire the JSFunction vptr.
     }

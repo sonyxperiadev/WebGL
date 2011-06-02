@@ -159,76 +159,6 @@ HANDLE_INHERIT_AND_INITIAL_WITH_VALUE(prop, Prop, Value) \
 if (primitiveValue) \
     m_style->set##Prop(*primitiveValue);
 
-#define HANDLE_FILL_LAYER_INHERIT_AND_INITIAL(layerType, LayerType, prop, Prop) \
-if (isInherit) { \
-    FillLayer* currChild = m_style->access##LayerType##Layers(); \
-    FillLayer* prevChild = 0; \
-    const FillLayer* currParent = m_parentStyle->layerType##Layers(); \
-    while (currParent && currParent->is##Prop##Set()) { \
-        if (!currChild) { \
-            /* Need to make a new layer.*/ \
-            currChild = new FillLayer(LayerType##FillLayer); \
-            prevChild->setNext(currChild); \
-        } \
-        currChild->set##Prop(currParent->prop()); \
-        prevChild = currChild; \
-        currChild = prevChild->next(); \
-        currParent = currParent->next(); \
-    } \
-    \
-    while (currChild) { \
-        /* Reset any remaining layers to not have the property set. */ \
-        currChild->clear##Prop(); \
-        currChild = currChild->next(); \
-    } \
-} else if (isInitial) { \
-    FillLayer* currChild = m_style->access##LayerType##Layers(); \
-    currChild->set##Prop(FillLayer::initialFill##Prop(LayerType##FillLayer)); \
-    for (currChild = currChild->next(); currChild; currChild = currChild->next()) \
-        currChild->clear##Prop(); \
-}
-
-#define HANDLE_FILL_LAYER_VALUE(layerType, LayerType, prop, Prop, value) { \
-HANDLE_FILL_LAYER_INHERIT_AND_INITIAL(layerType, LayerType, prop, Prop) \
-if (isInherit || isInitial) \
-    return; \
-FillLayer* currChild = m_style->access##LayerType##Layers(); \
-FillLayer* prevChild = 0; \
-if (value->isValueList()) { \
-    /* Walk each value and put it into a layer, creating new layers as needed. */ \
-    CSSValueList* valueList = static_cast<CSSValueList*>(value); \
-    for (unsigned int i = 0; i < valueList->length(); i++) { \
-        if (!currChild) { \
-            /* Need to make a new layer to hold this value */ \
-            currChild = new FillLayer(LayerType##FillLayer); \
-            prevChild->setNext(currChild); \
-        } \
-        mapFill##Prop(property, currChild, valueList->itemWithoutBoundsCheck(i)); \
-        prevChild = currChild; \
-        currChild = currChild->next(); \
-    } \
-} else { \
-    mapFill##Prop(property, currChild, value); \
-    currChild = currChild->next(); \
-} \
-while (currChild) { \
-    /* Reset all remaining layers to not have the property set. */ \
-    currChild->clear##Prop(); \
-    currChild = currChild->next(); \
-} }
-
-#define HANDLE_BACKGROUND_INHERIT_AND_INITIAL(prop, Prop) \
-HANDLE_FILL_LAYER_INHERIT_AND_INITIAL(background, Background, prop, Prop)
-
-#define HANDLE_BACKGROUND_VALUE(prop, Prop, value) \
-HANDLE_FILL_LAYER_VALUE(background, Background, prop, Prop, value)
-
-#define HANDLE_MASK_INHERIT_AND_INITIAL(prop, Prop) \
-HANDLE_FILL_LAYER_INHERIT_AND_INITIAL(mask, Mask, prop, Prop)
-
-#define HANDLE_MASK_VALUE(prop, Prop, value) \
-HANDLE_FILL_LAYER_VALUE(mask, Mask, prop, Prop, value)
-
 #define HANDLE_ANIMATION_INHERIT_AND_INITIAL(prop, Prop) \
 if (isInherit) { \
     AnimationList* list = m_style->accessAnimations(); \
@@ -439,11 +369,11 @@ RenderStyle* CSSStyleSelector::s_styleNotYetAvailable;
 static void loadFullDefaultStyle();
 static void loadSimpleDefaultStyle();
 // FIXME: It would be nice to use some mechanism that guarantees this is in sync with the real UA stylesheet.
-static const char* simpleUserAgentStyleSheet = "html,body,div{display:block}body{margin:8px}div:focus,span:focus{outline:auto 5px -webkit-focus-ring-color}a:-webkit-any-link{color:-webkit-link;text-decoration:underline}a:-webkit-any-link:active{color:-webkit-activelink}";
+static const char* simpleUserAgentStyleSheet = "html,body,div{display:block}head{display:none}body{margin:8px}div:focus,span:focus{outline:auto 5px -webkit-focus-ring-color}a:-webkit-any-link{color:-webkit-link;text-decoration:underline}a:-webkit-any-link:active{color:-webkit-activelink}";
 
 static inline bool elementCanUseSimpleDefaultStyle(Element* e)
 {
-    return e->hasTagName(htmlTag) || e->hasTagName(bodyTag) || e->hasTagName(divTag) || e->hasTagName(spanTag) || e->hasTagName(brTag) || e->hasTagName(aTag);
+    return e->hasTagName(htmlTag) || e->hasTagName(headTag) || e->hasTagName(bodyTag) || e->hasTagName(divTag) || e->hasTagName(spanTag) || e->hasTagName(brTag) || e->hasTagName(aTag);
 }
 
 static inline void collectSiblingRulesInDefaultStyle()
@@ -893,7 +823,7 @@ inline void CSSStyleSelector::initForStyleResolve(Element* e, RenderStyle* paren
 {
     m_checker.m_pseudoStyle = pseudoID;
 
-    m_parentNode = e ? e->parentOrHostNode() : 0;
+    m_parentNode = e ? e->parentNodeForRenderingAndStyle() : 0;
 
     if (parentStyle)
         m_parentStyle = parentStyle;
@@ -1158,7 +1088,7 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* node) const
 #if USE(ACCELERATED_COMPOSITING)
     // Turn off style sharing for elements that can gain layers for reasons outside of the style system.
     // See comments in RenderObject::setStyle().
-    if (element->hasTagName(iframeTag) || element->hasTagName(embedTag) || element->hasTagName(objectTag) || element->hasTagName(appletTag))
+    if (element->hasTagName(iframeTag) || element->hasTagName(frameTag) || element->hasTagName(embedTag) || element->hasTagName(objectTag) || element->hasTagName(appletTag))
         return false;
 #endif
 
@@ -1345,12 +1275,6 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
                 parentStyle = parentVisitedStyle;
         }
         visitedStyle = styleForElement(e, parentStyle, false, false, true);
-        if (visitedStyle) {
-            if (m_elementLinkState == InsideUnvisitedLink)
-                visitedStyle = 0;  // We made the style to avoid timing attacks. Just throw it away now that we did that, since we don't need it.
-            else
-                visitedStyle->setStyleType(VISITED_LINK);
-        }
         initForStyleResolve(e, defaultParent);
     }
 
@@ -1368,6 +1292,20 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
         m_style->setInsideLink(m_elementLinkState);
     }
     
+    if (visitedStyle) {
+        // Copy any pseudo bits that the visited style has to the primary style so that
+        // pseudo element styles will continue to work for pseudo elements inside :visited
+        // links.
+        for (unsigned pseudo = FIRST_PUBLIC_PSEUDOID; pseudo < FIRST_INTERNAL_PSEUDOID; ++pseudo) {
+            if (visitedStyle->hasPseudoStyle(static_cast<PseudoId>(pseudo)))
+                m_style->setHasPseudoStyle(static_cast<PseudoId>(pseudo));
+        }
+        if (m_elementLinkState == InsideUnvisitedLink)
+            visitedStyle = 0;  // We made the style to avoid timing attacks. Just throw it away now that we did that, since we don't need it.
+        else
+            visitedStyle->setStyleType(VISITED_LINK);
+    }
+
     if (simpleDefaultStyleSheet && !elementCanUseSimpleDefaultStyle(e)) {
         loadFullDefaultStyle();
         assertNoSiblingRulesInDefaultStyle();
@@ -1554,14 +1492,6 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
         m_style->setUnique();
 
     if (visitedStyle) {
-        // Copy any pseudo bits that the visited style has to the primary style so that
-        // pseudo element styles will continue to work for pseudo elements inside :visited
-        // links.
-        for (unsigned pseudo = FIRST_PUBLIC_PSEUDOID; pseudo < FIRST_INTERNAL_PSEUDOID; ++pseudo) {
-            if (visitedStyle->hasPseudoStyle(static_cast<PseudoId>(pseudo)))
-                m_style->setHasPseudoStyle(static_cast<PseudoId>(pseudo));
-        }
-        
         // Add the visited style off the main style.
         m_style->addCachedPseudoStyle(visitedStyle.release());
     }
@@ -1694,12 +1624,8 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
         // Fetch our parent style with :visited in effect.
         RenderStyle* parentVisitedStyle = parentStyle->getCachedPseudoStyle(VISITED_LINK);
         visitedStyle = pseudoStyleForElement(pseudo, e, parentVisitedStyle ? parentVisitedStyle : parentStyle, true);
-        if (visitedStyle) {
-            if (m_elementLinkState == InsideUnvisitedLink)
-                visitedStyle = 0;  // We made the style to avoid timing attacks. Just throw it away now that we did that.
-            else
-                visitedStyle->setStyleType(VISITED_LINK);
-        }
+        if (visitedStyle)
+            visitedStyle->setStyleType(VISITED_LINK);
     }
 
     initForStyleResolve(e, parentStyle, pseudo);
@@ -1846,6 +1772,15 @@ static void addIntrinsicMargins(RenderStyle* style)
     }
 }
 
+static inline bool isAtShadowBoundary(Element* element)
+{
+    if (!element)
+        return false;
+
+    ContainerNode* parentNode = element->parentNode();
+    return parentNode && parentNode->isShadowBoundary();
+}
+
 void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, RenderStyle* parentStyle, Element *e)
 {
     // Cache our original display.
@@ -1970,7 +1905,7 @@ void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, RenderStyle* parent
     // Finally update our text decorations in effect, but don't allow text-decoration to percolate through
     // tables, inline blocks, inline tables, run-ins, or shadow DOM.
     if (style->display() == TABLE || style->display() == INLINE_TABLE || style->display() == RUN_IN
-        || style->display() == INLINE_BLOCK || style->display() == INLINE_BOX || (e && e->isShadowRoot()))
+        || style->display() == INLINE_BLOCK || style->display() == INLINE_BOX || isAtShadowBoundary(e))
         style->setTextDecorationsInEffect(style->textDecoration());
     else
         style->addToTextDecorationsInEffect(style->textDecoration());
@@ -3086,7 +3021,7 @@ bool CSSStyleSelector::SelectorChecker::checkScrollbarPseudoClass(CSSSelector* s
             return false;
         }
         case CSSSelector::PseudoCornerPresent:
-            return scrollbar->scrollableArea()->scrollbarCornerPresent();
+            return scrollbar->scrollableArea()->isScrollCornerVisible();
         default:
             return false;
     }
@@ -3596,6 +3531,19 @@ inline bool isValidVisitedLinkProperty(int id)
     return false;
 }
 
+// SVG handles zooming in a different way compared to CSS. The whole document is scaled instead
+// of each individual length value in the render style / tree. CSSPrimitiveValue::computeLength*()
+// multiplies each resolved length with the zoom multiplier - so for SVG we need to disable that.
+// Though all CSS values that can be applied to outermost <svg> elements (width/height/border/padding...)
+// need to respect the scaling. RenderBox (the parent class of RenderSVGRoot) grabs values like
+// width/height/border/padding/... from the RenderStyle -> for SVG these values would never scale,
+// if we'd pass a 1.0 zoom factor everyhwere. So we only pass a zoom factor of 1.0 for specific
+// properties that are NOT allowed to scale within a zoomed SVG document (letter/word-spacing/font-size).
+static inline bool useSVGZoomRules(const Element* e)
+{
+    return e && e->isSVGElement();
+}
+
 void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 {
     CSSPrimitiveValue* primitiveValue = 0;
@@ -3603,16 +3551,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         primitiveValue = static_cast<CSSPrimitiveValue*>(value);
 
     float zoomFactor = m_style->effectiveZoom();
-
-    // SVG handles zooming in a different way compared to CSS. The whole document is scaled instead
-    // of each individual length value in the render style / tree. CSSPrimitiveValue::computeLength*()
-    // multiplies each resolved length with the zoom multiplier - so for SVG we need to disable that.
-    // Though all CSS values that can be applied to outermost <svg> elements (width/height/border/padding...)
-    // need to respect the scaling. RenderBox (the parent class of RenderSVGRoot) grabs values like
-    // width/height/border/padding/... from the RenderStyle -> for SVG these values would never scale,
-    // if we'd pass a 1.0 zoom factor everyhwere. So we only pass a zoom factor of 1.0 for specific
-    // properties that are NOT allowed to scale within a zoomed SVG document (letter/word-spacing/font-size).
-    bool useSVGZoomRules = m_element && m_element->isSVGElement();
 
     Length l;
     bool apply = false;
@@ -3633,13 +3571,13 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 
     // check lookup table for implementations and use when available
     if (m_applyProperty.implements(property)) {
-      if (isInherit)
-          m_applyProperty.inherit(property, this);
-      else if (isInitial)
-          m_applyProperty.initial(property, this);
-      else
-          m_applyProperty.value(property, this, value);
-      return;
+        if (isInherit)
+            m_applyProperty.applyInheritValue(property, this);
+        else if (isInitial)
+            m_applyProperty.applyInitialValue(property, this);
+        else
+            m_applyProperty.applyValue(property, this, value);
+        return;
     }
 
     // What follows is a list that maps the CSS properties into their corresponding front-end
@@ -3647,39 +3585,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     // are only hit when mapping "inherit" or "initial" into front-end values.
     switch (property) {
 // ident only properties
-    case CSSPropertyBackgroundAttachment:
-        HANDLE_BACKGROUND_VALUE(attachment, Attachment, value)
-        return;
-    case CSSPropertyBackgroundClip:
-    case CSSPropertyWebkitBackgroundClip:
-        HANDLE_BACKGROUND_VALUE(clip, Clip, value)
-        return;
-    case CSSPropertyWebkitBackgroundComposite:
-        HANDLE_BACKGROUND_VALUE(composite, Composite, value)
-        return;
-    case CSSPropertyBackgroundOrigin:
-    case CSSPropertyWebkitBackgroundOrigin:
-        HANDLE_BACKGROUND_VALUE(origin, Origin, value)
-        return;
-    case CSSPropertyBackgroundSize:
-    case CSSPropertyWebkitBackgroundSize:
-        HANDLE_BACKGROUND_VALUE(size, Size, value)
-        return;
-    case CSSPropertyWebkitMaskAttachment:
-        HANDLE_MASK_VALUE(attachment, Attachment, value)
-        return;
-    case CSSPropertyWebkitMaskClip:
-        HANDLE_MASK_VALUE(clip, Clip, value)
-        return;
-    case CSSPropertyWebkitMaskComposite:
-        HANDLE_MASK_VALUE(composite, Composite, value)
-        return;
-    case CSSPropertyWebkitMaskOrigin:
-        HANDLE_MASK_VALUE(origin, Origin, value)
-        return;
-    case CSSPropertyWebkitMaskSize:
-        HANDLE_MASK_VALUE(size, Size, value)
-        return;
     case CSSPropertyBorderCollapse:
         HANDLE_INHERIT_AND_INITIAL(borderCollapse, BorderCollapse)
         if (!primitiveValue)
@@ -3695,18 +3600,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                 return;
         }
         return;
-    case CSSPropertyBorderTopStyle:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE_WITH_VALUE(borderTopStyle, BorderTopStyle, BorderStyle)
-        return;
-    case CSSPropertyBorderRightStyle:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE_WITH_VALUE(borderRightStyle, BorderRightStyle, BorderStyle)
-        return;
-    case CSSPropertyBorderBottomStyle:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE_WITH_VALUE(borderBottomStyle, BorderBottomStyle, BorderStyle)
-        return;
-    case CSSPropertyBorderLeftStyle:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE_WITH_VALUE(borderLeftStyle, BorderLeftStyle, BorderStyle)
-        return;
     case CSSPropertyOutlineStyle:
         HANDLE_INHERIT_AND_INITIAL_WITH_VALUE(outlineStyle, OutlineStyle, BorderStyle)
         if (primitiveValue) {
@@ -3721,11 +3614,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     case CSSPropertyClear:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(clear, Clear)
-        return;
-    case CSSPropertyDirection:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(direction, Direction)
-        if (!isInherit && !isInitial && m_element && m_element == m_element->document()->documentElement())
-            m_element->document()->setDirectionSetOnDocumentElement(true);
         return;
     case CSSPropertyDisplay:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(display, Display)
@@ -3871,33 +3759,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyListStyleType:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(listStyleType, ListStyleType)
         return;
-    case CSSPropertyOverflow:
-    {
-        if (isInherit) {
-            m_style->setOverflowX(m_parentStyle->overflowX());
-            m_style->setOverflowY(m_parentStyle->overflowY());
-            return;
-        }
-        
-        if (isInitial) {
-            m_style->setOverflowX(RenderStyle::initialOverflowX());
-            m_style->setOverflowY(RenderStyle::initialOverflowY());
-            return;
-        }
-            
-        EOverflow o = *primitiveValue;
-
-        m_style->setOverflowX(o);
-        m_style->setOverflowY(o);
-        return;
-    }
-
-    case CSSPropertyOverflowX:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(overflowX, OverflowX)
-        return;
-    case CSSPropertyOverflowY:
-        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(overflowY, OverflowY)
-        return;
     case CSSPropertyPageBreakBefore:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE_WITH_VALUE(pageBreakBefore, PageBreakBefore, PageBreak)
         return;
@@ -3939,51 +3800,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     case CSSPropertyWhiteSpace:
         HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(whiteSpace, WhiteSpace)
-        return;
-
-    case CSSPropertyBackgroundPosition:
-        HANDLE_BACKGROUND_INHERIT_AND_INITIAL(xPosition, XPosition);
-        HANDLE_BACKGROUND_INHERIT_AND_INITIAL(yPosition, YPosition);
-        return;
-    case CSSPropertyBackgroundPositionX: {
-        HANDLE_BACKGROUND_VALUE(xPosition, XPosition, value)
-        return;
-    }
-    case CSSPropertyBackgroundPositionY: {
-        HANDLE_BACKGROUND_VALUE(yPosition, YPosition, value)
-        return;
-    }
-    case CSSPropertyWebkitMaskPosition:
-        HANDLE_MASK_INHERIT_AND_INITIAL(xPosition, XPosition);
-        HANDLE_MASK_INHERIT_AND_INITIAL(yPosition, YPosition);
-        return;
-    case CSSPropertyWebkitMaskPositionX: {
-        HANDLE_MASK_VALUE(xPosition, XPosition, value)
-        return;
-    }
-    case CSSPropertyWebkitMaskPositionY: {
-        HANDLE_MASK_VALUE(yPosition, YPosition, value)
-        return;
-    }
-    case CSSPropertyBackgroundRepeat:
-        HANDLE_BACKGROUND_INHERIT_AND_INITIAL(repeatX, RepeatX);
-        HANDLE_BACKGROUND_INHERIT_AND_INITIAL(repeatY, RepeatY);
-        return;
-    case CSSPropertyBackgroundRepeatX:
-        HANDLE_BACKGROUND_VALUE(repeatX, RepeatX, value)
-        return;
-    case CSSPropertyBackgroundRepeatY:
-        HANDLE_BACKGROUND_VALUE(repeatY, RepeatY, value)
-        return;
-    case CSSPropertyWebkitMaskRepeat:
-        HANDLE_MASK_INHERIT_AND_INITIAL(repeatX, RepeatX);
-        HANDLE_MASK_INHERIT_AND_INITIAL(repeatY, RepeatY);
-        return;
-    case CSSPropertyWebkitMaskRepeatX:
-        HANDLE_MASK_VALUE(repeatX, RepeatX, value)
-        return;
-    case CSSPropertyWebkitMaskRepeatY:
-        HANDLE_MASK_VALUE(repeatY, RepeatY, value)
         return;
     case CSSPropertyBorderSpacing: {
         if (isInherit) {
@@ -4051,12 +3867,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     
 // uri || inherit
-    case CSSPropertyBackgroundImage:
-        HANDLE_BACKGROUND_VALUE(image, Image, value)
-        return;
-    case CSSPropertyWebkitMaskImage:
-        HANDLE_MASK_VALUE(image, Image, value)
-        return;
     case CSSPropertyListStyleImage:
     {
         HANDLE_INHERIT_AND_INITIAL(listStyleImage, ListStyleImage)
@@ -4175,7 +3985,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyLetterSpacing:
     case CSSPropertyWordSpacing:
     {
-        
         if (isInherit) {
             HANDLE_INHERIT_COND(CSSPropertyLetterSpacing, letterSpacing, LetterSpacing)
             HANDLE_INHERIT_COND(CSSPropertyWordSpacing, wordSpacing, WordSpacing)
@@ -4193,7 +4002,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         } else {
             if (!primitiveValue)
                 return;
-            width = primitiveValue->computeLengthInt(style(), m_rootElementStyle, useSVGZoomRules ? 1.0f : zoomFactor);
+            width = primitiveValue->computeLengthInt(style(), m_rootElementStyle, useSVGZoomRules(m_element) ? 1.0f : zoomFactor);
         }
         switch (id) {
         case CSSPropertyLetterSpacing:
@@ -5145,7 +4954,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                 fontDescription.setUsePrinterFont(m_checker.m_document->printing());
            
                 // Handle the zoom factor.
-                fontDescription.setComputedSize(getComputedSizeFromSpecifiedSize(m_checker.m_document, m_style.get(), fontDescription.isAbsoluteSize(), fontDescription.specifiedSize(), useSVGZoomRules));
+                fontDescription.setComputedSize(getComputedSizeFromSpecifiedSize(m_checker.m_document, m_style.get(), fontDescription.isAbsoluteSize(), fontDescription.specifiedSize(), useSVGZoomRules(m_element)));
                 if (m_style->setFontDescription(fontDescription))
                     m_fontDirty = true;
             }
@@ -6197,18 +6006,54 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 
     // These properties are implemented in the CSSStyleApplyProperty lookup table.
     case CSSPropertyColor:
+    case CSSPropertyDirection:
+    case CSSPropertyBackgroundAttachment:
+    case CSSPropertyBackgroundClip:
+    case CSSPropertyWebkitBackgroundClip:
+    case CSSPropertyWebkitBackgroundComposite:
+    case CSSPropertyBackgroundOrigin:
+    case CSSPropertyWebkitBackgroundOrigin:
+    case CSSPropertyBackgroundImage:
+    case CSSPropertyBackgroundSize:
+    case CSSPropertyWebkitBackgroundSize:
+    case CSSPropertyWebkitMaskAttachment:
+    case CSSPropertyWebkitMaskClip:
+    case CSSPropertyWebkitMaskComposite:
+    case CSSPropertyWebkitMaskOrigin:
+    case CSSPropertyWebkitMaskImage:
+    case CSSPropertyWebkitMaskSize:
     case CSSPropertyBackgroundColor:
     case CSSPropertyBorderBottomColor:
     case CSSPropertyBorderLeftColor:
     case CSSPropertyBorderRightColor:
     case CSSPropertyBorderTopColor:
+    case CSSPropertyBorderTopStyle:
+    case CSSPropertyBorderRightStyle:
+    case CSSPropertyBorderBottomStyle:
+    case CSSPropertyBorderLeftStyle:
     case CSSPropertyOutlineColor:
     case CSSPropertyWebkitColumnRuleColor:
     case CSSPropertyWebkitTextEmphasisColor:
     case CSSPropertyWebkitTextFillColor:
     case CSSPropertyWebkitTextStrokeColor:
+    case CSSPropertyBackgroundPosition:
+    case CSSPropertyBackgroundPositionX:
+    case CSSPropertyBackgroundPositionY:
+    case CSSPropertyWebkitMaskPosition:
+    case CSSPropertyWebkitMaskPositionX:
+    case CSSPropertyWebkitMaskPositionY:
+    case CSSPropertyBackgroundRepeat:
+    case CSSPropertyBackgroundRepeatX:
+    case CSSPropertyBackgroundRepeatY:
+    case CSSPropertyWebkitMaskRepeat:
+    case CSSPropertyWebkitMaskRepeatX:
+    case CSSPropertyWebkitMaskRepeatY:
+    case CSSPropertyOverflow:
+    case CSSPropertyOverflowX:
+    case CSSPropertyOverflowY:
         ASSERT_NOT_REACHED();
         return;
+<<<<<<< HEAD
 
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
@@ -6354,6 +6199,8 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     }
 #endif
 
+=======
+>>>>>>> WebKit.org at r84325
 #if ENABLE(SVG)
     default:
         // Try the SVG properties
@@ -7069,6 +6916,13 @@ void CSSStyleSelector::setFontSize(FontDescription& fontDescription, float size)
 
 float CSSStyleSelector::getComputedSizeFromSpecifiedSize(Document* document, RenderStyle* style, bool isAbsoluteSize, float specifiedSize, bool useSVGZoomRules)
 {
+    // Text with a 0px font size should not be visible and therefore needs to be
+    // exempt from minimum font size rules. Acid3 relies on this for pixel-perfect
+    // rendering. This is also compatible with other browsers that have minimum
+    // font size settings (e.g. Firefox).
+    if (fabsf(specifiedSize) < std::numeric_limits<float>::epsilon())
+        return 0.0f;
+
     float zoomFactor = 1.0f;
     if (!useSVGZoomRules) {
         zoomFactor = style->effectiveZoom();

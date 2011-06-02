@@ -39,31 +39,32 @@ class ApplyPropertyBase {
 public:
     ApplyPropertyBase() { }
     virtual ~ApplyPropertyBase() { }
-    virtual void inherit(CSSStyleSelector*) const = 0;
-    virtual void initial(CSSStyleSelector*) const = 0;
-    virtual void value(CSSStyleSelector*, CSSValue*) const = 0;
+    virtual void applyInheritValue(CSSStyleSelector*) const = 0;
+    virtual void applyInitialValue(CSSStyleSelector*) const = 0;
+    virtual void applyValue(CSSStyleSelector*, CSSValue*) const = 0;
 };
 
-class CSSStyleApplyProperty : public RefCounted<CSSStyleApplyProperty> {
+class CSSStyleApplyProperty {
+    WTF_MAKE_NONCOPYABLE(CSSStyleApplyProperty);
 public:
     static const CSSStyleApplyProperty& sharedCSSStyleApplyProperty();
 
-    void inherit(CSSPropertyID property, CSSStyleSelector* selector) const
+    void applyInheritValue(CSSPropertyID property, CSSStyleSelector* selector) const
     {
         ASSERT(implements(property));
-        propertyValue(property)->inherit(selector);
+        propertyValue(property)->applyInheritValue(selector);
     }
 
-    void initial(CSSPropertyID property, CSSStyleSelector* selector) const
+    void applyInitialValue(CSSPropertyID property, CSSStyleSelector* selector) const
     {
         ASSERT(implements(property));
-        propertyValue(property)->initial(selector);
+        propertyValue(property)->applyInitialValue(selector);
     }
 
-    void value(CSSPropertyID property, CSSStyleSelector* selector, CSSValue* value) const
+    void applyValue(CSSPropertyID property, CSSStyleSelector* selector, CSSValue* value) const
     {
         ASSERT(implements(property));
-        propertyValue(property)->value(selector, value);
+        propertyValue(property)->applyValue(selector, value);
     }
 
     bool implements(CSSPropertyID property) const
@@ -88,6 +89,13 @@ private:
     {
         ASSERT(valid(property));
         m_propertyMap[index(property)] = value;
+    }
+
+    void setPropertyValue(CSSPropertyID newProperty, CSSPropertyID equivalentProperty)
+    {
+        ASSERT(valid(newProperty));
+        ASSERT(valid(equivalentProperty));
+        m_propertyMap[index(newProperty)] = m_propertyMap[index(equivalentProperty)];
     }
 
     ApplyPropertyBase* propertyValue(CSSPropertyID property) const

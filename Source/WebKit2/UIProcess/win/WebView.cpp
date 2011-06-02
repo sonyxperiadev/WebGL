@@ -31,6 +31,7 @@
 #include "FindIndicator.h"
 #include "Logging.h"
 #include "NativeWebKeyboardEvent.h"
+#include "NativeWebMouseEvent.h"
 #include "Region.h"
 #include "RunLoop.h"
 #include "WKAPICast.h"
@@ -44,13 +45,14 @@
 #include <WebCore/BitmapInfo.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/FloatRect.h>
-#if PLATFORM(CG)
+#if USE(CG)
 #include <WebCore/GraphicsContextCG.h>
 #endif
 #include <WebCore/IntRect.h>
 #include <WebCore/SoftLinking.h>
 #include <WebCore/WebCoreInstanceHandle.h>
 #include <WebCore/WindowMessageBroadcaster.h>
+#include <WebCore/WindowsTouch.h>
 #include <wtf/text/WTFString.h>
 
 namespace Ime {
@@ -66,6 +68,17 @@ SOFT_LINK(IMM32, ImmSetOpenStatus, BOOL, WINAPI, (HIMC hIMC, BOOL fOpen), (hIMC,
 SOFT_LINK(IMM32, ImmNotifyIME, BOOL, WINAPI, (HIMC hIMC, DWORD dwAction, DWORD dwIndex, DWORD dwValue), (hIMC, dwAction, dwIndex, dwValue))
 SOFT_LINK(IMM32, ImmAssociateContextEx, BOOL, WINAPI, (HWND hWnd, HIMC hIMC, DWORD dwFlags), (hWnd, hIMC, dwFlags))
 };
+
+// Soft link functions for gestures and panning.
+SOFT_LINK_LIBRARY(USER32);
+SOFT_LINK_OPTIONAL(USER32, GetGestureInfo, BOOL, WINAPI, (HGESTUREINFO, PGESTUREINFO));
+SOFT_LINK_OPTIONAL(USER32, SetGestureConfig, BOOL, WINAPI, (HWND, DWORD, UINT, PGESTURECONFIG, UINT));
+SOFT_LINK_OPTIONAL(USER32, CloseGestureInfoHandle, BOOL, WINAPI, (HGESTUREINFO));
+
+SOFT_LINK_LIBRARY(Uxtheme);
+SOFT_LINK_OPTIONAL(Uxtheme, BeginPanningFeedback, BOOL, WINAPI, (HWND));
+SOFT_LINK_OPTIONAL(Uxtheme, EndPanningFeedback, BOOL, WINAPI, (HWND, BOOL));
+SOFT_LINK_OPTIONAL(Uxtheme, UpdatePanningFeedback, BOOL, WINAPI, (HWND, LONG, LONG, BOOL));
 
 using namespace WebCore;
 
@@ -156,6 +169,12 @@ LRESULT WebView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_VSCROLL:
         lResult = onVerticalScroll(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_GESTURENOTIFY:
+        lResult = onGestureNotify(hWnd, message, wParam, lParam, handled);
+        break;
+    case WM_GESTURE:
+        lResult = onGesture(hWnd, message, wParam, lParam, handled);
         break;
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN:
@@ -254,6 +273,10 @@ WebView::WebView(RECT rect, WebContext* context, WebPageGroup* pageGroup, HWND p
     , m_inIMEComposition(0)
     , m_findIndicatorCallback(0)
     , m_findIndicatorCallbackContext(0)
+    , m_lastPanX(0)
+    , m_lastPanY(0)
+    , m_overPanY(0)
+    , m_gestureReachedScrollingLimit(false)
 {
     registerWebViewWindowClass();
 
@@ -365,7 +388,7 @@ void WebView::windowAncestryDidChange()
 
 LRESULT WebView::onMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, bool& handled)
 {
-    WebMouseEvent mouseEvent = WebEventFactory::createWebMouseEvent(hWnd, message, wParam, lParam, m_wasActivatedByMouseEvent);
+    NativeWebMouseEvent mouseEvent = NativeWebMouseEvent(hWnd, message, wParam, lParam, m_wasActivatedByMouseEvent);
     setWasActivatedByMouseEvent(false);
     
     switch (message) {
@@ -480,6 +503,109 @@ LRESULT WebView::onVerticalScroll(HWND hWnd, UINT message, WPARAM wParam, LPARAM
     return 0;
 }
 
+LRESULT WebView::onGestureNotify(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, bool& handled)
+{
+    // We shouldn't be getting any gesture messages without SetGestureConfig soft-linking correctly.
+    ASSERT(SetGestureConfigPtr());
+
+    GESTURENOTIFYSTRUCT* gn = reinterpret_cast<GESTURENOTIFYSTRUCT*>(lParam);
+
+    POINT localPoint = { gn->ptsLocation.x, gn->ptsLocation.y };
+    ::ScreenToClient(m_window, &localPoint);
+
+    bool canPan = m_page->gestureWillBegin(localPoint);
+
+    DWORD dwPanWant = GC_PAN | GC_PAN_WITH_INERTIA | GC_PAN_WITH_GUTTER;
+    DWORD dwPanBlock = GC_PAN_WITH_SINGLE_FINGER_HORIZONTALLY;
+    if (canPan)
+        dwPanWant |= GC_PAN_WITH_SINGLE_FINGER_VERTICALLY;
+    else
+        dwPanBlock |= GC_PAN_WITH_SINGLE_FINGER_VERTICALLY;
+
+    GESTURECONFIG gc = { GID_PAN, dwPanWant, dwPanBlock };
+    return SetGestureConfigPtr()(m_window, 0, 1, &gc, sizeof(gc));
+}
+
+LRESULT WebView::onGesture(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, bool& handled)
+{
+    ASSERT(GetGestureInfoPtr());
+    ASSERT(CloseGestureInfoHandlePtr());
+    ASSERT(UpdatePanningFeedbackPtr());
+    ASSERT(BeginPanningFeedbackPtr());
+    ASSERT(EndPanningFeedbackPtr());
+
+    if (!GetGestureInfoPtr() || !CloseGestureInfoHandlePtr() || !UpdatePanningFeedbackPtr() || !BeginPanningFeedbackPtr() || !EndPanningFeedbackPtr()) {
+        handled = false;
+        return 0;
+    }
+
+    HGESTUREINFO gestureHandle = reinterpret_cast<HGESTUREINFO>(lParam);
+    GESTUREINFO gi = {0};
+    gi.cbSize = sizeof(GESTUREINFO);
+
+    if (!GetGestureInfoPtr()(gestureHandle, &gi)) {
+        handled = false;
+        return 0;
+    }
+
+    switch (gi.dwID) {
+    case GID_BEGIN:
+        m_lastPanX = gi.ptsLocation.x;
+        m_lastPanY = gi.ptsLocation.y;
+        break;
+    case GID_END:
+        m_page->gestureDidEnd();
+        break;
+    case GID_PAN: {
+        int currentX = gi.ptsLocation.x;
+        int currentY = gi.ptsLocation.y;
+
+        // Reverse the calculations because moving your fingers up should move the screen down, and
+        // vice-versa.
+        int deltaX = m_lastPanX - currentX;
+        int deltaY = m_lastPanY - currentY;
+
+        m_lastPanX = currentX;
+        m_lastPanY = currentY;
+
+        // Calculate the overpan for window bounce.
+        m_overPanY -= deltaY;
+
+        if (deltaX || deltaY)
+            m_page->gestureDidScroll(IntSize(deltaX, deltaY));
+
+        if (gi.dwFlags & GF_BEGIN) {
+            BeginPanningFeedbackPtr()(m_window);
+            m_gestureReachedScrollingLimit = false;
+            m_overPanY = 0;
+        } else if (gi.dwFlags & GF_END) {
+            EndPanningFeedbackPtr()(m_window, true);
+            m_overPanY = 0;
+        }
+
+        // FIXME: Support horizontal window bounce - <http://webkit.org/b/58068>.
+        // FIXME: Window Bounce doesn't undo until user releases their finger - <http://webkit.org/b/58069>.
+
+        if (m_gestureReachedScrollingLimit)
+            UpdatePanningFeedbackPtr()(m_window, 0, m_overPanY, gi.dwFlags & GF_INERTIA);
+
+        CloseGestureInfoHandlePtr()(gestureHandle);
+
+        handled = true;
+        return 0;
+    }
+    default:
+        break;
+    }
+
+    // If we get to this point, the gesture has not been handled. We forward
+    // the call to DefWindowProc by returning false, and we don't need to 
+    // to call CloseGestureInfoHandle. 
+    // http://msdn.microsoft.com/en-us/library/dd353228(VS.85).aspx
+    handled = false;
+    return 0;
+}
+
 LRESULT WebView::onKeyEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam, bool& handled)
 {
     m_page->handleKeyboardEvent(NativeWebKeyboardEvent(hWnd, message, wParam, lParam));
@@ -565,7 +691,21 @@ LRESULT WebView::onPrintClientEvent(HWND hWnd, UINT, WPARAM wParam, LPARAM, bool
     RECT winRect;
     ::GetClientRect(hWnd, &winRect);
 
+    // Twidding the visibility flags tells the DrawingArea to resume painting. Right now, the
+    // the visible state of the view only affects whether or not painting happens, but in the
+    // future it could affect more, which we wouldn't want to touch here.
+
+    // FIXME: We should have a better way of telling the WebProcess to draw even if we're
+    // invisible than twiddling the visibility flag.
+
+    bool wasVisible = isViewVisible();
+    if (!wasVisible)
+        setIsVisible(true);
+
     paint(hdc, winRect);
+
+    if (!wasVisible)
+        setIsVisible(false);
 
     handled = true;
     return 0;
@@ -626,11 +766,8 @@ LRESULT WebView::onShowWindowEvent(HWND hWnd, UINT message, WPARAM wParam, LPARA
     // lParam is 0 when the message is sent because of a ShowWindow call.
     // FIXME: Since we don't get notified when an ancestor window is hidden or shown, we will keep
     // painting even when we have a hidden ancestor. <http://webkit.org/b/54104>
-    if (!lParam) {
-        m_isVisible = wParam;
-        if (m_page)
-            m_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
-    }
+    if (!lParam)
+        setIsVisible(wParam);
 
     handled = false;
     return 0;
@@ -760,6 +897,15 @@ void WebView::close()
 {
     m_undoClient.initialize(0);
     ::RevokeDragDrop(m_window);
+    if (m_window) {
+        // We can't check IsWindow(m_window) here, because that will return true even while
+        // we're already handling WM_DESTROY. So we check !m_isBeingDestroyed instead.
+        if (!m_isBeingDestroyed)
+            DestroyWindow(m_window);
+        // Either we just destroyed m_window, or it's in the process of being destroyed. Either
+        // way, we clear it out to make sure we don't try to use it later.
+        m_window = 0;
+    }
     setParentWindow(0);
     m_page->close();
 }
@@ -844,10 +990,6 @@ void WebView::didRelaunchProcess()
     ::InvalidateRect(m_window, 0, TRUE);
 }
 
-void WebView::takeFocus(bool)
-{
-}
-
 void WebView::toolTipChanged(const String&, const String& newToolTip)
 {
     if (!m_toolTipWindow)
@@ -929,6 +1071,16 @@ void WebView::clearAllEditCommands()
     m_undoClient.clearAllEditCommands(this);
 }
 
+bool WebView::canUndoRedo(WebPageProxy::UndoOrRedo undoOrRedo)
+{
+    return m_undoClient.canUndoRedo(this, undoOrRedo);
+}
+
+void WebView::executeUndoRedo(WebPageProxy::UndoOrRedo undoOrRedo)
+{
+    m_undoClient.executeUndoRedo(this, undoOrRedo);
+}
+    
 void WebView::reapplyEditCommand(WebEditCommandProxy* command)
 {
     if (!m_page->isValid() || !m_page->isValidEditCommand(command))
@@ -996,7 +1148,7 @@ void WebView::setInputMethodState(bool enabled)
 
 void WebView::compositionSelectionChanged(bool hasChanged)
 {
-    if (m_page->selectionState().hasComposition && !hasChanged)
+    if (m_page->editorState().hasComposition && !hasChanged)
         resetIME();
 }
 
@@ -1104,7 +1256,7 @@ bool WebView::onIMEComposition(LPARAM lparam)
     if (!hInputContext)
         return true;
 
-    if (!m_page->selectionState().isContentEditable)
+    if (!m_page->editorState().isContentEditable)
         return true;
 
     prepareCandidateWindow(hInputContext);
@@ -1147,7 +1299,7 @@ bool WebView::onIMEEndComposition()
     LOG(TextInput, "onIMEEndComposition");
     // If the composition hasn't been confirmed yet, it needs to be cancelled.
     // This happens after deleting the last character from inline input hole.
-    if (m_page->selectionState().hasComposition)
+    if (m_page->editorState().hasComposition)
         m_page->confirmComposition(String());
 
     if (m_inIMEComposition)
@@ -1158,7 +1310,7 @@ bool WebView::onIMEEndComposition()
 
 LRESULT WebView::onIMERequestCharPosition(IMECHARPOSITION* charPos)
 {
-    if (charPos->dwCharPos && !m_page->selectionState().hasComposition)
+    if (charPos->dwCharPos && !m_page->editorState().hasComposition)
         return 0;
     IntRect caret = m_page->firstRectForCharacterInSelectedRange(charPos->dwCharPos);
     charPos->pt.x = caret.x();
@@ -1190,7 +1342,7 @@ LRESULT WebView::onIMERequestReconvertString(RECONVERTSTRING* reconvertString)
 LRESULT WebView::onIMERequest(WPARAM request, LPARAM data)
 {
     LOG(TextInput, "onIMERequest %s", imeRequestName(request).latin1().data());
-    if (!m_page->selectionState().isContentEditable)
+    if (!m_page->editorState().isContentEditable)
         return 0;
 
     switch (request) {
@@ -1254,7 +1406,7 @@ void WebView::setFindIndicator(PassRefPtr<FindIndicator> prpFindIndicator, bool 
 
             hbmp = CreateDIBSection(0, &bitmapInfo, DIB_RGB_COLORS, static_cast<void**>(&bits), 0, 0);
             HBITMAP hbmpOld = static_cast<HBITMAP>(SelectObject(hdc, hbmp));
-#if PLATFORM(CG)
+#if USE(CG)
             RetainPtr<CGContextRef> context(AdoptCF, CGBitmapContextCreate(bits, width, height,
                 8, width * sizeof(RGBQUAD), deviceRGBColorSpaceRef(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst));
 
@@ -1310,10 +1462,26 @@ void WebView::didChangeScrollbarsForMainFrame() const
 {
 }
 
+void WebView::findStringInCustomRepresentation(const String&, FindOptions, unsigned)
+{
+}
+
+void WebView::countStringMatchesInCustomRepresentation(const String&, FindOptions, unsigned)
+{
+}
+
 void WebView::setIsInWindow(bool isInWindow)
 {
     m_isInWindow = isInWindow;
     m_page->viewStateDidChange(WebPageProxy::ViewIsInWindow);
+}
+
+void WebView::setIsVisible(bool isVisible)
+{
+    m_isVisible = isVisible;
+
+    if (m_page)
+        m_page->viewStateDidChange(WebPageProxy::ViewIsVisible);
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -1425,7 +1593,7 @@ HRESULT STDMETHODCALLTYPE WebView::DragEnter(IDataObject* pDataObject, DWORD grf
     POINTL localpt = pt;
     ::ScreenToClient(m_window, (LPPOINT)&localpt);
     DragData data(pDataObject, IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
-    m_page->performDragControllerAction(DragControllerActionEntered, &data);
+    m_page->dragEntered(&data);
     *pdwEffect = dragOperationToDragCursor(m_page->dragOperation());
 
     m_lastDropEffect = *pdwEffect;
@@ -1443,7 +1611,7 @@ HRESULT STDMETHODCALLTYPE WebView::DragOver(DWORD grfKeyState, POINTL pt, DWORD*
         POINTL localpt = pt;
         ::ScreenToClient(m_window, (LPPOINT)&localpt);
         DragData data(m_dragData.get(), IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
-        m_page->performDragControllerAction(DragControllerActionUpdated, &data);
+        m_page->dragUpdated(&data);
         *pdwEffect = dragOperationToDragCursor(m_page->dragOperation());
     } else
         *pdwEffect = DROPEFFECT_NONE;
@@ -1459,7 +1627,7 @@ HRESULT STDMETHODCALLTYPE WebView::DragLeave()
 
     if (m_dragData) {
         DragData data(m_dragData.get(), IntPoint(), IntPoint(), DragOperationNone);
-        m_page->performDragControllerAction(DragControllerActionExited, &data);
+        m_page->dragExited(&data);
         m_dragData = 0;
         m_page->resetDragOperation();
     }
@@ -1476,7 +1644,9 @@ HRESULT STDMETHODCALLTYPE WebView::Drop(IDataObject* pDataObject, DWORD grfKeySt
     POINTL localpt = pt;
     ::ScreenToClient(m_window, (LPPOINT)&localpt);
     DragData data(pDataObject, IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
-    m_page->performDragControllerAction(DragControllerActionPerformDrag, &data);
+
+    SandboxExtension::Handle sandboxExtensionHandle;
+    m_page->performDrag(&data, String(), sandboxExtensionHandle);
     return S_OK;
 }
 

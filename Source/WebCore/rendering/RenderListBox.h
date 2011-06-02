@@ -53,6 +53,8 @@ public:
 
     int scrollToward(const IntPoint&); // Returns the new index or -1 if no scroll occurred
 
+    int size() const;
+
 private:
     virtual const char* renderName() const { return "RenderListBox"; }
 
@@ -102,7 +104,9 @@ private:
     virtual void setScrollOffset(const IntPoint&);
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual bool isActive() const;
-    virtual bool scrollbarCornerPresent() const { return false; } // We don't support resize on list boxes yet.  If we did this would have to change.
+    virtual bool isScrollCornerVisible() const { return false; } // We don't support resize on list boxes yet. If we did these would have to change.
+    virtual IntRect scrollCornerRect() const { return IntRect(); }
+    virtual void invalidateScrollCornerRect(const IntRect&) { }
     virtual IntRect convertFromScrollbarToContainingView(const Scrollbar*, const IntRect&) const;
     virtual IntRect convertFromContainingViewToScrollbar(const Scrollbar*, const IntRect&) const;
     virtual IntPoint convertFromScrollbarToContainingView(const Scrollbar*, const IntPoint&) const;
@@ -125,7 +129,6 @@ private:
     
     int itemHeight() const;
     void valueChanged(unsigned listIndex);
-    int size() const;
     int numVisibleItems() const;
     int numItems() const;
     int listHeight() const;

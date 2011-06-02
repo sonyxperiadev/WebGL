@@ -24,11 +24,16 @@
  */
 
 #import "WKView.h"
-#import <WebCore/Editor.h>
-#import <WebCore/KeyboardEvent.h>
+#import "WebFindOptions.h"
+#import <wtf/Forward.h>
+#import <wtf/Vector.h>
 
 namespace CoreIPC {
     class DataReference;
+}
+
+namespace WebCore {
+    struct KeypressCommand;
 }
 
 namespace WebKit {
@@ -37,9 +42,7 @@ namespace WebKit {
     class LayerTreeContext;
 }
 
-#if ENABLE(FULLSCREEN_API)
 @class WKFullScreenWindowController;
-#endif
 
 @interface WKView (Internal)
 - (PassOwnPtr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy;
@@ -47,13 +50,12 @@ namespace WebKit {
 - (void)_processDidCrash;
 - (void)_pageClosed;
 - (void)_didRelaunchProcess;
-- (void)_takeFocus:(BOOL)direction;
 - (void)_toolTipChangedFrom:(NSString *)oldToolTip to:(NSString *)newToolTip;
 - (void)_setCursor:(NSCursor *)cursor;
 - (void)_setUserInterfaceItemState:(NSString *)commandName enabled:(BOOL)isEnabled state:(int)newState;
-- (Vector<WebCore::KeypressCommand>&)_interceptKeyEvent:(NSEvent *)theEvent;
-- (void)_getTextInputState:(unsigned)start selectionEnd:(unsigned)end underlines:(Vector<WebCore::CompositionUnderline>&)lines;
+- (BOOL)_interpretKeyEvent:(NSEvent *)theEvent savingCommandsTo:(Vector<WebCore::KeypressCommand>&)commands;
 - (void)_resendKeyDownEvent:(NSEvent *)event;
+- (bool)_executeSavedCommandBySelector:(SEL)selector;
 - (NSRect)_convertToDeviceSpace:(NSRect)rect;
 - (NSRect)_convertToUserSpace:(NSRect)rect;
 - (void)_setFindIndicator:(PassRefPtr<WebKit::FindIndicator>)findIndicator fadeOut:(BOOL)fadeOut;
@@ -68,7 +70,10 @@ namespace WebKit {
 - (void)_didFinishLoadingDataForCustomRepresentationWithSuggestedFilename:(const String&)suggestedFilename dataReference:(const CoreIPC::DataReference&)dataReference;
 - (double)_customRepresentationZoomFactor;
 - (void)_setCustomRepresentationZoomFactor:(double)zoomFactor;
+- (void)_findStringInCustomRepresentation:(NSString *)string withFindOptions:(WebKit::FindOptions)options maxMatchCount:(NSUInteger)count;
+- (void)_countStringMatchesInCustomRepresentation:(NSString *)string withFindOptions:(WebKit::FindOptions)options maxMatchCount:(NSUInteger)count;
 - (void)_setDragImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag;
+- (void)_updateSecureInputState;
 
 - (void)_setDrawingAreaSize:(NSSize)size;
 

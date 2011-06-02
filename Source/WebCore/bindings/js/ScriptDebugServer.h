@@ -78,7 +78,7 @@ public:
     void stepOverStatement();
     void stepOutOfFunction();
 
-    bool editScriptSource(const String& sourceID, const String& newContent, String& newSourceOrErrorMessage);
+    bool editScriptSource(const String& sourceID, const String& newContent, String* error);
 
     void recompileAllJSFunctionsSoon();
     virtual void recompileAllJSFunctions(Timer<ScriptDebugServer>* = 0) = 0;
@@ -102,7 +102,7 @@ protected:
     void dispatchFunctionToListeners(const ListenerSet& listeners, JavaScriptExecutionCallback callback);
     void dispatchDidPause(ScriptDebugListener*);
     void dispatchDidContinue(ScriptDebugListener*);
-    void dispatchDidParseSource(const ListenerSet& listeners, JSC::SourceProvider*, enum ScriptWorldType);
+    void dispatchDidParseSource(const ListenerSet& listeners, JSC::SourceProvider*, bool isContentScript);
     void dispatchFailedToParseSource(const ListenerSet& listeners, JSC::SourceProvider*, int errorLine, const String& errorMessage);
 
     void createCallFrameAndPauseIfNeeded(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);

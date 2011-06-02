@@ -512,6 +512,30 @@ IntSize WebFrame::scrollOffset() const
     return view->scrollOffset();
 }
 
+bool WebFrame::hasHorizontalScrollbar() const
+{
+    if (!m_coreFrame)
+        return false;
+
+    FrameView* view = m_coreFrame->view();
+    if (!view)
+        return false;
+
+    return view->horizontalScrollbar();
+}
+
+bool WebFrame::hasVerticalScrollbar() const
+{
+    if (!m_coreFrame)
+        return false;
+
+    FrameView* view = m_coreFrame->view();
+    if (!view)
+        return false;
+
+    return view->verticalScrollbar();
+}
+
 bool WebFrame::getDocumentBackgroundColor(double* red, double* green, double* blue, double* alpha)
 {
     if (!m_coreFrame)
@@ -550,6 +574,9 @@ WebFrame* WebFrame::frameForContext(JSContextRef context)
 
 JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleNodeHandle* nodeHandle, InjectedBundleScriptWorld* world)
 {
+    if (!m_coreFrame)
+        return 0;
+
     JSDOMWindow* globalObject = m_coreFrame->script()->globalObject(world->coreWorld());
     ExecState* exec = globalObject->globalExec();
 
@@ -559,6 +586,9 @@ JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleNodeHandle* nodeHandle, Inj
 
 JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleRangeHandle* rangeHandle, InjectedBundleScriptWorld* world)
 {
+    if (!m_coreFrame)
+        return 0;
+
     JSDOMWindow* globalObject = m_coreFrame->script()->globalObject(world->coreWorld());
     ExecState* exec = globalObject->globalExec();
 

@@ -52,7 +52,7 @@ public:
 
     bool prepareContentsTexture();
     void cleanupResources();
-    void draw();
+    void draw(const IntRect& targetSurfaceRect);
 
     String name() const;
     void dumpSurface(TextStream&, int indent) const;
@@ -84,7 +84,7 @@ private:
     TransformationMatrix m_replicaDrawTransform;
     TransformationMatrix m_originTransform;
     IntRect m_scissorRect;
-    Vector<CCLayerImpl*> m_layerList;
+    Vector<RefPtr<CCLayerImpl> > m_layerList;
 };
 
 }

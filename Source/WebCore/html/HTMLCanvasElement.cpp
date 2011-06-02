@@ -175,7 +175,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
 #if ENABLE(WEBGL)    
     Settings* settings = document()->settings();
     if (settings && settings->webGLEnabled()
-#if !PLATFORM(CHROMIUM)
+#if !PLATFORM(CHROMIUM) && !PLATFORM(GTK)
         && settings->acceleratedCompositingEnabled()
 #endif
         ) {
@@ -318,27 +318,6 @@ void HTMLCanvasElement::clearPresentationCopy()
     m_presentedImage.clear();
 }
 
-void HTMLCanvasElement::attach()
-{
-    HTMLElement::attach();
-
-    if (m_context && m_context->is2d()) {
-        CanvasRenderingContext2D* ctx = static_cast<CanvasRenderingContext2D*>(m_context.get());
-        ctx->updateFont();
-    }
-}
-
-void HTMLCanvasElement::recalcStyle(StyleChange change)
-{
-    HTMLElement::recalcStyle(change);
-
-    // Update font if needed.
-    if (change == Force && m_context && m_context->is2d()) {
-        CanvasRenderingContext2D* ctx = static_cast<CanvasRenderingContext2D*>(m_context.get());
-        ctx->updateFont();
-    }
-}
-
 void HTMLCanvasElement::setSurfaceSize(const IntSize& size)
 {
     m_size = size;
@@ -363,8 +342,12 @@ String HTMLCanvasElement::toDataURL(const String& mimeType, const double* qualit
     if (mimeType.isNull() || !MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(lowercaseMimeType))
         lowercaseMimeType = "image/png";
 
+<<<<<<< HEAD
 #if PLATFORM(CG) || (USE(SKIA) && !PLATFORM(ANDROID))
     // FIXME: Consider using this code path on Android. http://b/4572024
+=======
+#if USE(CG) || USE(SKIA)
+>>>>>>> WebKit.org at r84325
     // Try to get ImageData first, as that may avoid lossy conversions.
     RefPtr<ImageData> imageData = getImageData();
 
@@ -460,10 +443,8 @@ void HTMLCanvasElement::createImageBuffer() const
     m_imageBuffer->context()->setImageInterpolationQuality(DefaultInterpolationQuality);
 
 #if USE(JSC)
-    if (hasCachedDOMNodeWrapperUnchecked(document(), const_cast<HTMLCanvasElement*>(this))) {
-        JSC::JSLock lock(JSC::SilenceAssertionsOnly);
-        scriptExecutionContext()->globalData()->heap.reportExtraMemoryCost(m_imageBuffer->dataSize());
-    }
+    JSC::JSLock lock(JSC::SilenceAssertionsOnly);
+    scriptExecutionContext()->globalData()->heap.reportExtraMemoryCost(m_imageBuffer->dataSize());
 #endif
 }
 

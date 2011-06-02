@@ -29,6 +29,7 @@
 #include "BinarySemaphore.h"
 #include "CoreIPCMessageKinds.h"
 #include "RunLoop.h"
+#include "WebProcess.h"
 #include "WorkItem.h"
 #include <wtf/CurrentTime.h>
 
@@ -50,6 +51,13 @@ public:
     {
         return m_waitForSyncReplySemaphore.wait(absoluteTime);
     }
+
+#if PLATFORM(WIN)
+    bool waitWhileDispatchingSentWin32Messages(double absoluteTime, const Vector<HWND>& windowsToReceiveMessages)
+    {
+        return RunLoop::dispatchSentMessagesUntil(windowsToReceiveMessages, m_waitForSyncReplySemaphore, absoluteTime);
+    }
+#endif
 
     // Returns true if this message will be handled on a client thread that is currently
     // waiting for a reply to a synchronous message.
@@ -189,6 +197,7 @@ Connection::Connection(Identifier identifier, bool isServer, Client* client, Run
     , m_isServer(isServer)
     , m_syncRequestID(0)
     , m_onlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(false)
+    , m_shouldExitOnSyncMessageSendFailure(false)
     , m_didCloseOnConnectionWorkQueueCallback(0)
     , m_isConnected(false)
     , m_connectionQueue("com.apple.CoreIPC.ReceiveQueue")
@@ -196,6 +205,7 @@ Connection::Connection(Identifier identifier, bool isServer, Client* client, Run
     , m_inDispatchMessageCount(0)
     , m_inDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount(0)
     , m_didReceiveInvalidMessage(false)
+    , m_defaultSyncMessageTimeout(NoTimeout)
     , m_syncMessageState(SyncMessageState::getOrCreate(clientRunLoop))
     , m_shouldWaitForSyncReplies(true)
 {
@@ -216,6 +226,13 @@ void Connection::setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcess
     ASSERT(!m_isConnected);
 
     m_onlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage = flag;
+}
+
+void Connection::setShouldExitOnSyncMessageSendFailure(bool shouldExitOnSyncMessageSendFailure)
+{
+    ASSERT(!m_isConnected);
+
+    m_shouldExitOnSyncMessageSendFailure = shouldExitOnSyncMessageSendFailure;
 }
 
 void Connection::setDidCloseOnConnectionWorkQueueCallback(DidCloseOnConnectionWorkQueueCallback callback)
@@ -244,6 +261,13 @@ void Connection::markCurrentlyDispatchedMessageAsInvalid()
     ASSERT(m_inDispatchMessageCount > 0);
 
     m_didReceiveInvalidMessage = true;
+}
+
+void Connection::setDefaultSyncMessageTimeout(double defaultSyncMessageTimeout)
+{
+    ASSERT(defaultSyncMessageTimeout != DefaultTimeout);
+
+    m_defaultSyncMessageTimeout = defaultSyncMessageTimeout;
 }
 
 PassOwnPtr<ArgumentEncoder> Connection::createSyncMessageArgumentEncoder(uint64_t destinationID, uint64_t& syncRequestID)
@@ -342,14 +366,16 @@ PassOwnPtr<ArgumentDecoder> Connection::sendSyncMessage(MessageID messageID, uin
     // We only allow sending sync messages from the client run loop.
     ASSERT(RunLoop::current() == m_clientRunLoop);
 
-    if (!isValid())
+    if (!isValid()) {
+        didFailToSendSyncMessage();
         return 0;
-    
+    }
+
     // Push the pending sync reply information on our stack.
     {
         MutexLocker locker(m_syncReplyStateMutex);
         if (!m_shouldWaitForSyncReplies) {
-            m_client->didFailToSendSyncMessage(this);
+            didFailToSendSyncMessage();
             return 0;
         }
 
@@ -371,14 +397,21 @@ PassOwnPtr<ArgumentDecoder> Connection::sendSyncMessage(MessageID messageID, uin
         m_pendingSyncReplies.removeLast();
     }
 
-    if (!reply && m_client)
-        m_client->didFailToSendSyncMessage(this);
+    if (!reply)
+        didFailToSendSyncMessage();
 
     return reply.release();
 }
 
 PassOwnPtr<ArgumentDecoder> Connection::waitForSyncReply(uint64_t syncRequestID, double timeout)
 {
+    if (timeout == DefaultTimeout)
+        timeout = m_defaultSyncMessageTimeout;
+
+    // Use a really long timeout.
+    if (timeout == NoTimeout)
+        timeout = 1e10;
+
     double absoluteTime = currentTime() + timeout;
 
     bool timedOut = false;
@@ -401,10 +434,17 @@ PassOwnPtr<ArgumentDecoder> Connection::waitForSyncReply(uint64_t syncRequestID,
         }
 
         // We didn't find a sync reply yet, keep waiting.
+#if PLATFORM(WIN)
+        timedOut = !m_syncMessageState->waitWhileDispatchingSentWin32Messages(absoluteTime, m_client->windowsToReceiveSentMessagesWhileWaitingForSyncReply());
+#else
         timedOut = !m_syncMessageState->wait(absoluteTime);
+#endif
     }
 
     // We timed out.
+    if (m_client)
+        m_client->syncMessageSendTimedOut(this);
+
     return 0;
 }
 
@@ -563,6 +603,14 @@ void Connection::dispatchSyncMessage(MessageID messageID, ArgumentDecoder* argum
 
     // Send the reply.
     sendSyncReply(replyEncoder);
+}
+
+void Connection::didFailToSendSyncMessage()
+{
+    if (!m_shouldExitOnSyncMessageSendFailure)
+        return;
+
+    exit(0);
 }
 
 void Connection::enqueueIncomingMessage(IncomingMessage& incomingMessage)

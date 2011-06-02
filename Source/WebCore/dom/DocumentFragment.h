@@ -36,13 +36,14 @@ public:
     void parseHTML(const String&, Element* contextElement, FragmentScriptingPermission = FragmentScriptingAllowed);
     bool parseXML(const String&, Element* contextElement, FragmentScriptingPermission = FragmentScriptingAllowed);
 
-private:
+protected:
     DocumentFragment(Document*);
-
     virtual String nodeName() const;
+
+private:
     virtual NodeType nodeType() const;
     virtual PassRefPtr<Node> cloneNode(bool deep);
-    virtual bool childTypeAllowed(NodeType);
+    virtual bool childTypeAllowed(NodeType) const;
 };
 
 } //namespace

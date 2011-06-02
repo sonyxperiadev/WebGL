@@ -66,7 +66,6 @@
 
 using namespace WebCore;
 using namespace WebKit;
-using namespace skia;
 using namespace std;
 
 static const int screenWidth = 1920;
@@ -406,7 +405,7 @@ bool WebViewHost::handleCurrentKeyboardEvent()
     return frame->executeCommand(WebString::fromUTF8(m_editCommandName), WebString::fromUTF8(m_editCommandValue));
 }
 
-void WebViewHost::spellCheck(const WebString& text, int& misspelledOffset, int& misspelledLength)
+void WebViewHost::spellCheck(const WebString& text, int& misspelledOffset, int& misspelledLength, WebVector<WebString>* optionalSuggestions)
 {
     // Check the spelling of the given text.
     m_spellcheck.spellCheckWord(text, &misspelledOffset, &misspelledLength);
@@ -933,7 +932,7 @@ void WebViewHost::didClearWindowObject(WebFrame* frame)
     m_shell->bindJSObjectsToWindow(frame);
 }
 
-void WebViewHost::didReceiveTitle(WebFrame* frame, const WebString& title)
+void WebViewHost::didReceiveTitle(WebFrame* frame, const WebString& title, WebTextDirection direction)
 {
     WebCString title8 = title.utf8();
 
@@ -946,6 +945,7 @@ void WebViewHost::didReceiveTitle(WebFrame* frame, const WebString& title)
         printf("TITLE CHANGED: %s\n", title8.data());
 
     setPageTitle(title);
+    layoutTestController()->setTitleTextDirection(direction);
 }
 
 void WebViewHost::didFinishDocumentLoad(WebFrame* frame)
@@ -1470,8 +1470,9 @@ void WebViewHost::paintRect(const WebRect& rect)
     ASSERT(!m_isPainting);
     ASSERT(canvas());
     m_isPainting = true;
-#if PLATFORM(CG)
-    webWidget()->paint(canvas()->getTopPlatformDevice().GetBitmapContext(), rect);
+#if USE(CG)
+    webWidget()->paint(skia::BeginPlatformPaint(canvas()), rect);
+    skia::EndPlatformPaint(canvas());
 #else
     webWidget()->paint(canvas(), rect);
 #endif
@@ -1512,13 +1513,14 @@ void WebViewHost::paintInvalidatedRegion()
     ASSERT(m_paintRect.isEmpty());
 }
 
-PlatformCanvas* WebViewHost::canvas()
+SkCanvas* WebViewHost::canvas()
 {
     if (m_canvas)
         return m_canvas.get();
     WebSize widgetSize = webWidget()->size();
     resetScrollRect();
-    m_canvas.set(new PlatformCanvas(widgetSize.width, widgetSize.height, true));
+    m_canvas.set(skia::CreateBitmapCanvas(
+        widgetSize.width, widgetSize.height, true));
     return m_canvas.get();
 }
 

@@ -119,6 +119,9 @@ public:
     bool canSmartReplace() const;
     bool containsColor() const;
     bool containsFiles() const;
+#if PLATFORM(MAC)
+    NSPasteboard *pasteboard() { return m_pasteboard.get(); }
+#endif
 private:
     IntPoint m_clientPosition;
     IntPoint m_globalPosition;

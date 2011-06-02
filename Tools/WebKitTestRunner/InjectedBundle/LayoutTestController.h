@@ -67,6 +67,7 @@ public:
     void dumpSelectionRect() { } // Will need to do something when we support pixel tests.
     void dumpStatusCallbacks() { m_dumpStatusCallbacks = true; }
     void dumpTitleChanges() { m_dumpTitleChanges = true; }
+    void dumpFullScreenCallbacks() { m_dumpFullScreenCallbacks = true; }
 
     // Special options.
     void keepWebHistory();
@@ -75,6 +76,7 @@ public:
     void setCloseRemainingWindowsWhenComplete(bool value) { m_shouldCloseExtraWindows = value; }
     void setXSSAuditorEnabled(bool);
     void setAllowUniversalAccessFromFileURLs(bool);
+    void setAllowFileAccessFromFileURLs(bool);
 
     // Special DOM functions.
     JSValueRef computedStyleIncludingVisitedInfo(JSValueRef element);
@@ -84,6 +86,7 @@ public:
     bool isCommandEnabled(JSStringRef name);
     JSRetainPtr<JSStringRef> markerTextForListItem(JSValueRef element);
     unsigned windowCount();
+    JSValueRef shadowRoot(JSValueRef element);
 
     // Repaint testing.
     void testRepaint() { m_testRepaint = true; }
@@ -106,6 +109,17 @@ public:
     // Text search testing.
     bool findString(JSStringRef, JSValueRef optionsArray);
 
+    // Local storage
+    void clearAllDatabases();
+    void setDatabaseQuota(uint64_t);
+    JSRetainPtr<JSStringRef> pathToLocalResource(JSStringRef);
+
+    // Printing
+    int numberOfPages(double pageWidthInPixels, double pageHeightInPixels);
+    int pageNumberForElementById(JSStringRef, double pageWidthInPixels, double pageHeightInPixels);
+    JSRetainPtr<JSStringRef> pageSizeAndMarginsInPixels(int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft);
+    bool isPageBoxVisible(int pageIndex);
+
     enum WhatToDump { RenderTree, MainFrameText, AllFramesText };
     WhatToDump whatToDump() const { return m_whatToDump; }
 
@@ -116,6 +130,7 @@ public:
     bool shouldDumpStatusCallbacks() const { return m_dumpStatusCallbacks; }
     bool shouldDumpTitleChanges() const { return m_dumpTitleChanges; }
     bool shouldDumpPixels() const { return m_dumpPixels; }
+    bool shouldDumpFullScreenCallbacks() const { return m_dumpFullScreenCallbacks; }
 
     bool waitToDump() const { return m_waitToDump; }
     void waitToDumpWatchdogTimerFired();
@@ -157,6 +172,7 @@ private:
     bool m_dumpStatusCallbacks;
     bool m_dumpTitleChanges;
     bool m_dumpPixels;
+    bool m_dumpFullScreenCallbacks;
     bool m_waitToDump; // True if waitUntilDone() has been called, but notifyDone() has not yet been called.
     bool m_testRepaint;
     bool m_testRepaintSweepHorizontally;

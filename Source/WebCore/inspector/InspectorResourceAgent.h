@@ -34,6 +34,7 @@
 #include "InspectorFrontend.h"
 #include "PlatformString.h"
 
+#include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 
@@ -51,10 +52,12 @@ class DocumentLoader;
 class Frame;
 class InspectorArray;
 class InspectorFrontend;
+class InspectorFrontendProxy;
 class InspectorObject;
 class InspectorState;
 class InstrumentingAgents;
 class KURL;
+class EventsCollector;
 class Page;
 class ResourceError;
 class ResourceRequest;
@@ -91,11 +94,14 @@ public:
     void willSendRequest(unsigned long identifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     void markResourceAsCached(unsigned long identifier);
     void didReceiveResponse(unsigned long identifier, DocumentLoader* laoder, const ResourceResponse&);
-    void didReceiveContentLength(unsigned long identifier, int dataLength, int lengthReceived);
+    void didReceiveContentLength(unsigned long identifier, int dataLength, int encodedDataLength);
     void didFinishLoading(unsigned long identifier, double finishTime);
     void didFailLoading(unsigned long identifier, const ResourceError&);
     void didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*);
-    void setInitialContent(unsigned long identifier, const String& sourceString, const String& type);
+    void setInitialScriptContent(unsigned long identifier, const String& sourceString);
+    void setInitialXHRContent(unsigned long identifier, const String& sourceString);
+    void domContentEventFired();
+    void loadEventFired();
     void didCommitLoad(DocumentLoader*);
     void frameDetachedFromParent(Frame*);
 
@@ -107,12 +113,13 @@ public:
 #endif
 
     Frame* frameForId(const String& frameId);
+    bool backgroundEventsCollectionEnabled();
 
     // Called from frontend 
     void enable(ErrorString*);
     void disable(ErrorString*);
     void getCachedResources(ErrorString*, RefPtr<InspectorObject>*);
-    void getResourceContent(ErrorString*, const String& frameId, const String& url, bool base64Encode, String* content);
+    void getResourceContent(ErrorString*, const String& frameId, const String& url, const bool* const base64Encode, String* content);
     void setExtraHeaders(ErrorString*, PassRefPtr<InspectorObject>);
 
 private:
@@ -123,7 +130,10 @@ private:
     InstrumentingAgents* m_instrumentingAgents;
     Page* m_page;
     InspectorState* m_state;
+    OwnPtr<EventsCollector> m_eventsCollector;
     InspectorFrontend::Network* m_frontend;
+    OwnPtr<InspectorFrontend::Network> m_mockFrontend;
+    OwnPtr<InspectorFrontendProxy> m_inspectorFrontendProxy;
 };
 
 } // namespace WebCore

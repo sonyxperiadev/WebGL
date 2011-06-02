@@ -35,16 +35,6 @@ namespace JSC {
 
 const ClassInfo JSZombie::s_info = { "Zombie", 0, 0, 0 };
 
-Structure* JSZombie::leakedZombieStructure() {
-    static Structure* structure = 0;
-    if (!structure) {
-        Structure::startIgnoringLeaks();
-        structure = Structure::create(jsNull(), TypeInfo(UnspecifiedType), 0, &s_info).leakRef();
-        Structure::stopIgnoringLeaks();
-    }
-    return structure;
-}
-
 }
 
 #endif // ENABLE(JSC_ZOMBIES)

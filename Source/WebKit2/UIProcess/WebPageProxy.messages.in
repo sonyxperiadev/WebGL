@@ -36,7 +36,7 @@ messages -> WebPageProxy {
     SetStatusText(WTF::String statusText)
     SetToolTip(WTF::String toolTip)
     SetFocus(bool focused)
-    TakeFocus(bool direction)
+    TakeFocus(uint32_t direction)
     FocusedFrameChanged(uint64_t frameID)
     FrameSetLargestFrameChanged(uint64_t frameID)
     SetToolbarsAreVisible(bool toolbarsAreVisible)
@@ -126,17 +126,11 @@ messages -> WebPageProxy {
 
     ViewScaleFactorDidChange(double scaleFactor)
 
-#if PLATFORM(MAC)
-    # Dictionary support.
-    DidPerformDictionaryLookup(WTF::String text, WebKit::DictionaryPopupInfo dictionaryPopupInfo)
-
-    # Keyboard support messages
-    InterpretKeyEvent(uint32_t type) -> (Vector<WebCore::KeypressCommand> commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline> underlines)
-    
-    # Remote accessibility messages
-    RegisterWebProcessAccessibilityToken(CoreIPC::DataReference data)
+#if PLATFORM(GTK)
+    # Support for GTK+ platform keybindings
+    GetEditorCommandsForKeyEvent() -> (Vector<WTF::String> commandsList)
 #endif
-    
+
     # BackForward messages
     BackForwardAddItem(uint64_t itemID)
     BackForwardGoToItem(uint64_t itemID)
@@ -149,10 +143,11 @@ messages -> WebPageProxy {
     # Undo/Redo messages
     RegisterEditCommandForUndo(uint64_t commandID, uint32_t editAction)
     ClearAllEditCommands()
-    
-    # Selection messages
-    SelectionStateChanged(WebKit::SelectionState selectionState)
+    CanUndoRedo(uint32_t action) -> (bool result)
+    ExecuteUndoRedo(uint32_t action) -> (bool result)
 
+    # Editor notifications
+    EditorStateChanged(WebKit::EditorState editorState)
 #if PLATFORM(WIN)
     DidChangeCompositionSelection(bool hasChanged)
 #endif
@@ -166,7 +161,10 @@ messages -> WebPageProxy {
     # PopupMenu messages
     ShowPopupMenu(WebCore::IntRect rect, uint64_t textDirection, Vector<WebKit::WebPopupItem> items, int32_t selectedIndex, WebKit::PlatformPopupMenuData data)
     HidePopupMenu()
-    
+#if PLATFORM(WIN)
+    SetPopupMenuSelectedIndex(int32_t selectedIndex)
+#endif
+
     # ContextMenu messages
     ShowContextMenu(WebCore::IntPoint menuLocation, WebKit::ContextMenuState state, Vector<WebKit::WebContextMenuItemData> items, WebKit::InjectedBundleUserMessageEncoder userData)
 
@@ -180,20 +178,13 @@ messages -> WebPageProxy {
     # Geolocation messages
     RequestGeolocationPermissionForFrame(uint64_t geolocationID, uint64_t frameID, WTF::String originIdentifier)
 
-#if PLATFORM(MAC)
-    # Plug-in complex text input support messages
-    SetComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled)
-#endif
-
-#if PLATFORM(MAC)
-    # Speech messages
-    GetIsSpeaking() -> (bool isSpeaking)
-    Speak(WTF::String string)
-    StopSpeaking()
-#endif
-
     # Spelling and grammar messages
+#if USE(UNIFIED_TEXT_CHECKING)  
     CheckTextOfParagraph(WTF::String text, uint64_t checkingTypes) -> (Vector<WebCore::TextCheckingResult> results)
+#endif
+    CheckSpellingOfString(WTF::String text) -> (int32_t misspellingLocation, int32_t misspellingLength)
+    CheckGrammarOfString(WTF::String text) -> (Vector<WebCore::GrammarDetail> results, int32_t badGrammarLocation, int32_t badGrammarLength)
+    SpellingUIIsShowing() -> (bool isShowing)
     UpdateSpellingUIWithMisspelledWord(WTF::String misspelledWord)
     UpdateSpellingUIWithGrammarString(WTF::String badGrammarPhrase, WebCore::GrammarDetail grammarDetail)
     GetGuessesForWord(WTF::String word, WTF::String context) -> (Vector<WTF::String> guesses)
@@ -209,6 +200,32 @@ messages -> WebPageProxy {
     StartDragDrop(WebCore::IntPoint imagePoint, WebCore::IntPoint dragPoint, uint64_t okEffect, HashMap<UINT,Vector<String> > dataMap, WebCore::IntSize dragImageSize, WebKit::SharedMemory::Handle dragImage, bool linkDrag)
 #endif
 
+#if PLATFORM(MAC)
+    # Dictionary support.
+    DidPerformDictionaryLookup(WTF::String text, WebKit::DictionaryPopupInfo dictionaryPopupInfo)
+
+    # Keyboard input support messages
+    InterpretQueuedKeyEvent(WebKit::EditorState state) -> (bool handled, Vector<WebCore::KeypressCommand> savedCommands)
+    ExecuteSavedCommandBySelector(WTF::String selector) -> (bool handled)
+
+    # Remote accessibility messages
+    RegisterWebProcessAccessibilityToken(CoreIPC::DataReference data)
+
+    # Plug-in complex text input support messages
+    SetComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled)
+
+    # Speech messages
+    GetIsSpeaking() -> (bool isSpeaking)
+    Speak(WTF::String string)
+    StopSpeaking()
+
+    # Spotlight
+    SearchWithSpotlight(WTF::String string)
+#endif
+
+#if PLATFORM(MAC)
+    SubstitutionsPanelIsShowing() -> (bool isShowing)
+#endif
 #if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
     # Autocorrection messages
     ShowCorrectionPanel(int32_t panelType, WebCore::FloatRect boundingBoxOfReplacedString, String replacedString, String replacementString, Vector<String> alternativeReplacementStrings)
@@ -216,4 +233,13 @@ messages -> WebPageProxy {
     DismissCorrectionPanelSoon(int32_t reason) -> (String result)
     RecordAutocorrectionResponse(int32_t responseType, String replacedString, String replacementString);
 #endif
+
+#if PLATFORM(WIN)
+    # Windows 7 Gesture Messages
+    SetGestureReachedScrollingLimit(bool limitReached)
+#endif
+
+    # Search popup menus
+    SaveRecentSearches(WTF::String name, Vector<String> searchItems)
+    LoadRecentSearches(WTF::String name) -> (Vector<String> result)
 }

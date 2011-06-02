@@ -37,7 +37,7 @@
 #include "TransformationMatrix.h"
 #include <wtf/UnusedParam.h>
 
-#if PLATFORM(CG) || PLATFORM(CAIRO) || PLATFORM(QT)
+#if USE(CG) || USE(CAIRO) || PLATFORM(QT)
 #define HAVE_PATH_BASED_BORDER_RADIUS_DRAWING 1
 #endif
 
@@ -79,13 +79,12 @@ enum HitTestAction {
     HitTestForeground
 };
 
-// Sides used when drawing borders and outlines.  This is in RenderObject rather than RenderBoxModelObject since outlines can
-// be drawn by SVG around bounding boxes.
+// Sides used when drawing borders and outlines. The values should run clockwise from top.
 enum BoxSide {
     BSTop,
+    BSRight,
     BSBottom,
-    BSLeft,
-    BSRight
+    BSLeft
 };
 
 const int caretWidth = 1;
@@ -433,13 +432,9 @@ public:
     bool hasTransform() const { return m_hasTransform; }
     bool hasMask() const { return style() && style()->hasMask(); }
 
-    void drawLineForBoxSide(GraphicsContext*, int x1, int y1, int x2, int y2, BoxSide,
-                            Color, EBorderStyle, int adjbw1, int adjbw2);
-#if HAVE(PATH_BASED_BORDER_RADIUS_DRAWING)
-    void drawBoxSideFromPath(GraphicsContext*, const IntRect&, const Path&,
-                            float thickness, float drawThickness, BoxSide, const RenderStyle*, 
-                            Color, EBorderStyle);
-#else
+    inline bool preservesNewline() const;
+
+#if !HAVE(PATH_BASED_BORDER_RADIUS_DRAWING)
     // FIXME: This function should be removed when all ports implement GraphicsContext::clipConvexPolygon()!!
     // At that time, everyone can use RenderObject::drawBoxSideFromPath() instead. This should happen soon.
     void drawArcForBoxSide(GraphicsContext*, int x, int y, float thickness, const IntSize& radius, int angleStart,
@@ -782,6 +777,9 @@ protected:
     // Overrides should call the superclass at the start
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
+    void drawLineForBoxSide(GraphicsContext*, int x1, int y1, int x2, int y2, BoxSide,
+                            Color, EBorderStyle, int adjbw1, int adjbw2, bool antialias = false);
+
     void paintFocusRing(GraphicsContext*, int tx, int ty, RenderStyle*);
     void paintOutline(GraphicsContext*, int tx, int ty, int w, int h);
     void addPDFURLRect(GraphicsContext*, const IntRect&);
@@ -958,8 +956,9 @@ inline void RenderObject::setChildNeedsLayout(bool b, bool markParents)
 
 inline void RenderObject::setNeedsPositionedMovementLayout()
 {
-    bool alreadyNeededLayout = needsLayout();
+    bool alreadyNeededLayout = m_needsPositionedMovementLayout;
     m_needsPositionedMovementLayout = true;
+    ASSERT(!isSetNeedsLayoutForbidden());
     if (!alreadyNeededLayout) {
         markContainingBlocksForLayout();
         if (hasLayer())
@@ -969,8 +968,9 @@ inline void RenderObject::setNeedsPositionedMovementLayout()
 
 inline void RenderObject::setNeedsSimplifiedNormalFlowLayout()
 {
-    bool alreadyNeededLayout = needsLayout();
+    bool alreadyNeededLayout = m_needsSimplifiedNormalFlowLayout;
     m_needsSimplifiedNormalFlowLayout = true;
+    ASSERT(!isSetNeedsLayoutForbidden());
     if (!alreadyNeededLayout) {
         markContainingBlocksForLayout();
         if (hasLayer())
@@ -1037,6 +1037,16 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
         last->scheduleRelayout();
 }
 
+inline bool RenderObject::preservesNewline() const
+{
+#if ENABLE(SVG)
+    if (isSVGInlineText())
+        return false;
+#endif
+        
+    return style()->preserveNewline();
+}
+
 inline void makeMatrixRenderable(TransformationMatrix& matrix, bool has3DRendering)
 {
 #if !ENABLE(3D_RENDERING)
@@ -1077,6 +1087,33 @@ inline void adjustFloatRectForAbsoluteZoom(FloatRect& rect, RenderObject* render
     rect.setY(adjustFloatForAbsoluteZoom(rect.y(), style));
     rect.setWidth(adjustFloatForAbsoluteZoom(rect.width(), style));
     rect.setHeight(adjustFloatForAbsoluteZoom(rect.height(), style));
+}
+
+inline FloatPoint adjustFloatPointForPageScale(const FloatPoint& point, float pageScale)
+{
+    if (pageScale == 1)
+        return point;
+    return FloatPoint(point.x() / pageScale, point.y() / pageScale);
+}
+
+inline void adjustFloatQuadForPageScale(FloatQuad& quad, float pageScale)
+{
+    if (pageScale == 1)
+        return;
+    quad.setP1(adjustFloatPointForPageScale(quad.p1(), pageScale));
+    quad.setP2(adjustFloatPointForPageScale(quad.p2(), pageScale));
+    quad.setP3(adjustFloatPointForPageScale(quad.p3(), pageScale));
+    quad.setP4(adjustFloatPointForPageScale(quad.p4(), pageScale));
+}
+
+inline void adjustFloatRectForPageScale(FloatRect& rect, float pageScale)
+{
+    if (pageScale == 1)
+        return;
+    rect.setX(rect.x() / pageScale);
+    rect.setY(rect.y() / pageScale);
+    rect.setWidth(rect.width() / pageScale);
+    rect.setHeight(rect.height() / pageScale);
 }
 
 } // namespace WebCore

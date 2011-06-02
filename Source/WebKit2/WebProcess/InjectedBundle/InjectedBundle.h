@@ -60,6 +60,7 @@ typedef void* PlatformBundle;
 class ImmutableArray;
 class InjectedBundleScriptWorld;
 class WebCertificateInfo;
+class WebFrame;
 class WebPage;
 class WebPageGroupProxy;
 
@@ -82,7 +83,7 @@ public:
     void postSynchronousMessage(const String&, APIObject*, RefPtr<APIObject>& returnData);
 #if PLATFORM(WIN)
     void setHostAllowsAnyHTTPSCertificate(const String&);
-    void setClientCertificate(const String&, const WebCertificateInfo*);
+    void setClientCertificate(const String& host, const String& certificateSystemStoreName, const WebCertificateInfo*);
 #endif
 
     // TestRunner only SPI
@@ -91,6 +92,11 @@ public:
     void activateMacFontAscentHack();
     void overrideXSSAuditorEnabledForTestRunner(WebPageGroupProxy* pageGroup, bool enabled);
     void overrideAllowUniversalAccessFromFileURLsForTestRunner(WebPageGroupProxy*, bool);
+    void setAllowFileAccessFromFileURLs(WebPageGroupProxy*, bool);
+    int numberOfPages(WebFrame*, double, double);
+    int pageNumberForElementById(WebFrame*, const String&, double, double);
+    String pageSizeAndMarginsInPixels(WebFrame*, int, int, int, int, int, int, int);
+    bool isPageBoxVisible(WebFrame*, int);
 
     // UserContent API
     void addUserScript(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& source, const String& url, ImmutableArray* whitelist, ImmutableArray* blacklist, WebCore::UserScriptInjectionTime, WebCore::UserContentInjectedFrames);
@@ -100,6 +106,10 @@ public:
     void removeUserScripts(WebPageGroupProxy*, InjectedBundleScriptWorld*);
     void removeUserStyleSheets(WebPageGroupProxy*, InjectedBundleScriptWorld*);
     void removeAllUserContent(WebPageGroupProxy*);
+
+    // Local storage API
+    void clearAllDatabases();
+    void setDatabaseQuota(uint64_t);
 
     // Garbage collection API
     void garbageCollectJavaScriptObjects();

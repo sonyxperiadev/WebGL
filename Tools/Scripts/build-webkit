@@ -96,7 +96,9 @@ my (
     $notificationsSupport,
     $offlineWebApplicationSupport,
     $orientationEventsSupport,
+    $pageVisibilityApiSupport,
     $progressTagSupport,
+    $quotaSupport,
     $registerProtocolHandlerSupport,
     $sharedWorkersSupport,
     $svgSupport,
@@ -225,8 +227,14 @@ my @features = (
     { option => "orientation-events", desc => "Toggle Orientation Events support",
       define => "ENABLE_ORIENTATION_EVENTS", default => 0, value => \$orientationEventsSupport },
 
+    { option => "page-visibility-api", desc => "Page Visibility API support",
+      define => "ENABLE_PAGE_VISIBILITY_API", default => 0, value => \$pageVisibilityApiSupport },
+
     { option => "progress-tag", desc => "Progress Tag support",
       define => "ENABLE_PROGRESS_TAG", default => 1, value => \$progressTagSupport },
+
+    { option => "quota", desc => "Toggle Quota support",
+      define => "ENABLE_QUOTA", default => 0, value => \$quotaSupport },
 
     { option => "register-protocol-handler", desc => "Register Protocol Handler support",
       define => "ENABLE_REGISTER_PROTOCOL_HANDLER", default => 0, value => \$registerProtocolHandlerSupport },
@@ -354,6 +362,7 @@ Usage: $programName [options] [options to pass to build system]
   --install-headers=<path>          Set installation path for the headers (Qt only)
   --install-libs=<path>             Set installation path for the libraries (Qt only)
   --v8                              Use V8 as JavaScript engine (Qt only)
+  -2                                build WebKit2 (Qt only)
 
   --prefix=<path>                   Set installation prefix to the given path (Gtk/Efl only)
   --makeargs=<arguments>            Optional Makefile flags
@@ -414,11 +423,14 @@ sub unlinkZeroFiles()
 # Check that all the project directories are there.
 my @projects = ("Source/JavaScriptCore", "Source/WebCore", "Source/WebKit");
 
-my @otherDirs = ("WebKitLibraries");
-for my $dir (@projects, @otherDirs) {
+for my $dir (@projects) {
     if (! -d $dir) {
         die "Error: No $dir directory found. Please do a fresh checkout.\n";
     }
+}
+
+if (!isQt() && !-d "WebKitLibraries") {
+    die "Error: No WebKitLibraries directory found. Please do a fresh checkout.\n";
 }
 
 # Generate the generate project files from .gyp files
@@ -500,11 +512,16 @@ if (isGtk()) {
     # Copy WebKitSupportLibrary to the correct location in WebKitLibraries so it can be found.
     # Will fail if WebKitSupportLibrary.zip is not in source root.
     (system("perl Tools/Scripts/update-webkit-support-libs") == 0) or die;
+    # Update Cairo Dependancies.
+    if (isWinCairo()) {
+        (system("perl Tools/Scripts/update-webkit-wincairo-libs") == 0) or die;
+    }
 } elsif (isQt()) {
-    @options = @ARGV;
     push @options, "--install-headers=" . $installHeaders if defined($installHeaders);
     push @options, "--install-libs=" . $installLibs if defined($installLibs);
     push @options, "--makeargs=" . $makeArgs if $makeArgs;
+    push @options, "--qmakearg=CONFIG+=webkit2" if isWK2();
+    @options = (@ARGV, @options);
 
     foreach (@features) {
         push @options, "DEFINES+=$_->{define}=${$_->{value}}" if ${$_->{value}} != $_->{default};

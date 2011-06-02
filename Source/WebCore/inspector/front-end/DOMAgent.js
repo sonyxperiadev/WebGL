@@ -59,8 +59,6 @@ WebInspector.DOMNode = function(doc, payload) {
     this.style = null;
     this._matchedCSSRules = [];
 
-    this.breakpoints = {};
-
     if (this._nodeType === Node.ELEMENT_NODE) {
         // HTML and BODY from internal iframes should not overwrite top-level ones.
         if (!this.ownerDocument.documentElement && this._nodeName === "HTML")
@@ -223,6 +221,28 @@ WebInspector.DOMNode.prototype = {
         return path.join(",");
     },
 
+    appropriateSelectorFor: function(justSelector)
+    {
+        var lowerCaseName = this.localName() || node.nodeName().toLowerCase();
+
+        var id = this.getAttribute("id");
+        if (id) {
+            var selector = "#" + id;
+            return (justSelector ? selector : lowerCaseName + selector);
+        }
+
+        var className = this.getAttribute("class");
+        if (className) {
+            var selector = "." + className.replace(/\s+/, ".");
+            return (justSelector ? selector : lowerCaseName + selector);
+        }
+
+        if (lowerCaseName === "input" && this.getAttribute("type"))
+            return lowerCaseName + "[type=\"" + this.getAttribute("type") + "\"]";
+
+        return lowerCaseName;
+    },
+
     _setAttributesPayload: function(attrs)
     {
         this._attributes = [];
@@ -328,52 +348,69 @@ WebInspector.DOMAgent.prototype = {
             return;
         }
 
-        function mycallback(error, root)
+        if (this._pendingDocumentRequestCallbacks) {
+            this._pendingDocumentRequestCallbacks.push(callback);
+            return;
+        }
+
+        this._pendingDocumentRequestCallbacks = [callback];
+
+        function onDocumentAvailable(error, root)
         {
             if (!error)
                 this._setDocument(root);
 
-            if (callback)
-                callback(this._document);
+            for (var i = 0; i < this._pendingDocumentRequestCallbacks.length; ++i) {
+                var callback = this._pendingDocumentRequestCallbacks[i];
+                if (callback)
+                    callback(this._document);
+            }
+            delete this._pendingDocumentRequestCallbacks;
         }
-        DOMAgent.getDocument(mycallback.bind(this));
+
+        DOMAgent.getDocument(onDocumentAvailable.bind(this));
     },
 
     pushNodeToFrontend: function(objectId, callback)
     {
-        function callbackWrapper(error, nodeId)
-        {
-            if (callback)
-                callback(error ? 0 : nodeId);
-        }
-
-        function mycallback()
-        {
-            if (this._document)
-                DOMAgent.pushNodeToFrontend(objectId, callbackWrapper);
-            else
-                callbackWrapper("No document");
-        }
-
-        this.requestDocument(mycallback.bind(this));
+        this._dispatchWhenDocumentAvailable(DOMAgent.pushNodeToFrontend.bind(DOMAgent), objectId, callback);
     },
 
     pushNodeByPathToFrontend: function(path, callback)
     {
-        function callbackWrapper(error, nodeId)
-        {
-            if (callback)
-                callback(error ? 0 : nodeId);
-        }
+        this._dispatchWhenDocumentAvailable(DOMAgent.pushNodeByPathToFrontend.bind(DOMAgent), path, callback);
+    },
 
-        function mycallback()
+    _wrapClientCallback: function(callback)
+    {
+        if (!callback)
+            return;
+        return function(error, result)
+        {
+            callback(error ? null : result);
+        }
+    },
+
+    _dispatchWhenDocumentAvailable: function(action)
+    {
+        var requestArguments = Array.prototype.slice.call(arguments, 1);
+        var callbackWrapper;
+
+        if (typeof requestArguments[requestArguments.length - 1] === "function") {
+            var callback = requestArguments.pop();
+            callbackWrapper = this._wrapClientCallback(callback);
+            requestArguments.push(callbackWrapper);
+        }
+        function onDocumentAvailable()
         {
             if (this._document)
-                DOMAgent.pushNodeByPathToFrontend(path, callbackWrapper);
-            else
-                callbackWrapper("No document");
+                action.apply(null, requestArguments);
+            else {
+                if (callbackWrapper)
+                    callbackWrapper("No document");
+            }
         }
-        this.requestDocument(mycallback.bind(this));
+        this.requestDocument(onDocumentAvailable.bind(this));
     },
 
     _attributesUpdated: function(nodeId, attrsArray)
@@ -465,17 +502,8 @@ WebInspector.DOMAgent.prototype = {
         parent.removeChild_(node);
         this.dispatchEventToListeners(WebInspector.DOMAgent.Events.NodeRemoved, {node:node, parent:parent});
         delete this._idToDOMNode[nodeId];
-        this._removeBreakpoints(node);
-    },
-
-    _removeBreakpoints: function(node)
-    {
-        for (var type in node.breakpoints)
-            node.breakpoints[type].remove();
-        if (!node.children)
-            return;
-        for (var i = 0; i < node.children.length; ++i)
-            this._removeBreakpoints(node.children[i]);
+        if (Preferences.nativeInstrumentationEnabled)
+            WebInspector.panels.elements.sidebarPanes.domBreakpoints.nodeRemoved(node);
     },
 
     performSearch: function(query, searchResultCollector, searchSynchronously)
@@ -488,6 +516,16 @@ WebInspector.DOMAgent.prototype = {
     {
         delete this._searchResultCollector;
         DOMAgent.cancelSearch();
+    },
+
+    querySelector: function(nodeId, selectors, callback)
+    {
+        DOMAgent.querySelector(nodeId, selectors, this._wrapClientCallback(callback));
+    },
+
+    querySelectorAll: function(nodeId, selectors, callback)
+    {
+        DOMAgent.querySelectorAll(nodeId, selectors, this._wrapClientCallback(callback));
     }
 }
 

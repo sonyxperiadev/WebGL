@@ -84,9 +84,9 @@ void WKContextSetDownloadClient(WKContextRef contextRef, const WKContextDownload
     toImpl(contextRef)->initializeDownloadClient(wkClient);
 }
 
-void WKContextDownloadURLRequest(WKContextRef contextRef, const WKURLRequestRef requestRef)
+WKDownloadRef WKContextDownloadURLRequest(WKContextRef contextRef, const WKURLRequestRef requestRef)
 {
-    toImpl(contextRef)->download(0, toImpl(requestRef)->resourceRequest());
+    return toAPI(toImpl(contextRef)->download(0, toImpl(requestRef)->resourceRequest()));
 }
 
 void WKContextSetInitializationUserDataForInjectedBundle(WKContextRef contextRef,  WKTypeRef userDataRef)
@@ -146,16 +146,6 @@ void WKContextRegisterURLSchemeAsSecure(WKContextRef contextRef, WKStringRef url
 void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef contextRef, WKStringRef urlScheme)
 {
     toImpl(contextRef)->setDomainRelaxationForbiddenForURLScheme(toImpl(urlScheme)->string());
-}
-
-void WKContextClearResourceCaches(WKContextRef contextRef, WKResourceCachesToClear cachesToClear)
-{
-    toImpl(contextRef)->clearResourceCaches(toResourceCachesToClear(cachesToClear));
-}
-
-void WKContextClearApplicationCache(WKContextRef contextRef)
-{
-    toImpl(contextRef)->clearApplicationCache();
 }
 
 WKCookieManagerRef WKContextGetCookieManager(WKContextRef contextRef)
@@ -226,4 +216,19 @@ void WKContextSetDatabaseDirectory(WKContextRef contextRef, WKStringRef database
 void WKContextSetLocalStorageDirectory(WKContextRef contextRef, WKStringRef localStorageDirectory)
 {
     toImpl(contextRef)->setLocalStorageDirectory(toImpl(localStorageDirectory)->string());
+}
+
+void WKContextDisableProcessTermination(WKContextRef contextRef)
+{
+    toImpl(contextRef)->disableProcessTermination();
+}
+
+void WKContextEnableProcessTermination(WKContextRef contextRef)
+{
+    toImpl(contextRef)->enableProcessTermination();
+}
+
+void _WKContextSetHTTPPipeliningEnabled(WKContextRef contextRef, bool enabled)
+{
+    toImpl(contextRef)->setHTTPPipeliningEnabled(enabled);
 }

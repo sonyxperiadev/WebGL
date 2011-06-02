@@ -60,6 +60,7 @@ public:
     void setParentWindow(HWND);
     void windowAncestryDidChange();
     void setIsInWindow(bool);
+    void setIsVisible(bool);
     void setOverrideCursor(HCURSOR);
     void setInitialFocus(bool forward);
     void setScrollOffsetOnNextResize(const WebCore::IntSize&);
@@ -97,6 +98,8 @@ private:
     LRESULT onWheelEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onHorizontalScroll(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onVerticalScroll(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
+    LRESULT onGestureNotify(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
+    LRESULT onGesture(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onKeyEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onPaintEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onPrintClientEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
@@ -154,13 +157,13 @@ private:
     virtual void processDidCrash();
     virtual void didRelaunchProcess();
     virtual void pageClosed();
-    virtual void takeFocus(bool direction);
-    virtual void setFocus(bool focused) { }
     virtual void toolTipChanged(const WTF::String&, const WTF::String&);
     virtual void setCursor(const WebCore::Cursor&);
     virtual void setViewportArguments(const WebCore::ViewportArguments&);
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo);
     virtual void clearAllEditCommands();
+    virtual bool canUndoRedo(WebPageProxy::UndoOrRedo);
+    virtual void executeUndoRedo(WebPageProxy::UndoOrRedo);
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
     virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&);
@@ -182,7 +185,12 @@ private:
     WebCore::DragOperation keyStateToDragOperation(DWORD grfKeyState) const;
     virtual void didChangeScrollbarsForMainFrame() const;
 
+    virtual void findStringInCustomRepresentation(const String&, FindOptions, unsigned maxMatchCount);
+    virtual void countStringMatchesInCustomRepresentation(const String&, FindOptions, unsigned maxMatchCount);
+
     virtual HWND nativeWindow();
+
+    virtual void setGestureReachedScrollingLimit(bool limitReached) { m_gestureReachedScrollingLimit = limitReached; }
 
     // WebCore::WindowMessageListener
     virtual void windowReceivedMessage(HWND, UINT message, WPARAM, LPARAM);
@@ -219,6 +227,13 @@ private:
     // Thus, on return from DoDragDrop we have the correct pdwEffect for the drag-and-drop operation.
     // (see https://bugs.webkit.org/show_bug.cgi?id=29264)
     DWORD m_lastDropEffect;
+
+    int m_lastPanX;
+    int m_lastPanY;
+
+    int m_overPanY;
+
+    bool m_gestureReachedScrollingLimit;
 };
 
 } // namespace WebKit
