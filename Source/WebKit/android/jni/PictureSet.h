@@ -54,6 +54,7 @@ namespace android {
     public:
         PictureSet();
         PictureSet(const PictureSet& src) { set(src); }
+        PictureSet(SkPicture* picture);
         virtual ~PictureSet();
         void add(const SkRegion& area, SkPicture* picture,
             uint32_t elapsed, bool split)

@@ -44,6 +44,7 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     void setGLWebViewState(GLWebViewState* infos) { m_glWebViewState = infos; }
     void setBackgroundColor(Color& color) { m_color = color; }
+    Color getBackgroundColor() { return m_color; }
 #endif
     void setContent(const android::PictureSet& src);
     void setExtra(SkPicture& extra);

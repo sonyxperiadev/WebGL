@@ -81,6 +81,22 @@ PictureSet::PictureSet()
     mBaseArea = mAdditionalArea = 0;
 }
 
+PictureSet::PictureSet(SkPicture* picture)
+{
+    if (!picture)
+        return;
+    Pictures pictureAndBounds;
+    pictureAndBounds.mPicture = picture;
+    SkSafeRef(pictureAndBounds.mPicture);
+    pictureAndBounds.mEmpty = false;
+    pictureAndBounds.mArea.setRect(0, 0, picture->width(), picture->height());
+    pictureAndBounds.mSplit = false;
+    pictureAndBounds.mBase = true;
+    pictureAndBounds.mElapsed = 0;
+    pictureAndBounds.mWroteElapsed = false;
+    mPictures.append(pictureAndBounds);
+}
+
 PictureSet::~PictureSet()
 {
     clear();

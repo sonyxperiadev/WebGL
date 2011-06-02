@@ -1449,6 +1449,10 @@ Functor* getFunctor() {
     return m_glDrawFunctor;
 }
 
+BaseLayerAndroid* getBaseLayer() {
+    return m_baseLayer;
+}
+
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
     CachedRoot* m_frameCacheUI; // navigation data ready for use
@@ -1836,6 +1840,11 @@ static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject inv
         invalRegion = *GraphicsJNI::getNativeRegion(env, inval);
     GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
                                             isPictureAfterFirstLayout);
+}
+
+static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->getBaseLayer();
 }
 
 static void nativeReplaceBaseContent(JNIEnv *env, jobject obj, jint content)
@@ -2627,6 +2636,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetBaseLayer", "(ILandroid/graphics/Region;ZZ)V",
         (void*) nativeSetBaseLayer },
+    { "nativeGetBaseLayer", "()I",
+        (void*) nativeGetBaseLayer },
     { "nativeReplaceBaseContent", "(I)V",
         (void*) nativeReplaceBaseContent },
     { "nativeCopyBaseContentToPicture", "(Landroid/graphics/Picture;)V",

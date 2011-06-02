@@ -83,6 +83,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/jni/WebStorage.cpp \
 	android/jni/WebSettings.cpp \
 	android/jni/WebViewCore.cpp \
+	android/jni/ViewStateSerializer.cpp \
 	\
 	android/nav/CacheBuilder.cpp \
 	android/nav/CachedColor.cpp \
