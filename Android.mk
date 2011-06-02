@@ -461,7 +461,10 @@ endif  # JAVASCRIPT_ENGINE == jsc
 # Now build the shared library using only the exported jni entry point. This
 # will strip out any unused code from the entry point.
 include $(CLEAR_VARS)
-# if you need to make webcore huge (for debugging), enable this line
+# Do not attempt prelink this library. Needed to keep master-gpl happy, no
+# effect in master.
+# TODO: remove this when master-gpl is updated.
+LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libwebcore
 LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
 LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
