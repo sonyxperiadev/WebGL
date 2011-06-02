@@ -32,12 +32,6 @@
 #include "npruntime.h"
 #include <wtf/text/WTFString.h>
 
-// FIXME: While fully implementing the bindings I noticed some differences between what
-// I wrote and seemed intuitive and what JSC does. Need to verify if my intuition is wrong
-// or there are bugs in the JSC bindings. For now, this macro makes the V8 bindings do the
-// same as the JSC bindings.
-#define EMULATE_JSC_BINDINGS 1
-
 namespace JSC {
 
 namespace Bindings {

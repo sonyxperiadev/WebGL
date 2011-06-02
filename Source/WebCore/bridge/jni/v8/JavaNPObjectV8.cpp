@@ -156,7 +156,7 @@ bool JavaNPObjectGetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* 
     if (!field)
         return false;
 
-#ifdef EMULATE_JSC_BINDINGS
+#if PLATFORM(ANDROID)
     // JSC does not seem to support returning object properties so we emulate that
     // behaviour here.
     jvalue value;
@@ -168,7 +168,7 @@ bool JavaNPObjectGetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* 
                                field->getJNIType(),
                                field->name().utf8(),
                                field->type());
-#endif
+#endif // PLATFORM(ANDROID)
     convertJValueToNPVariant(value, field->getJNIType(), field->type(), result);
 
     return true;
