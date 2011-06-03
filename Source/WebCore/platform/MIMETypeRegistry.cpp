@@ -113,6 +113,7 @@ static void initializeSupportedImageMIMETypes()
 #elif PLATFORM(ANDROID)
     static const char* types[] = {
         "image/jpeg",
+        "image/webp",
         "image/png",
         "image/gif",
         "image/bmp",
