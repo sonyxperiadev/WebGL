@@ -134,7 +134,7 @@ void WebIconDatabase::deliverNotifications()
 
 static void Open(JNIEnv* env, jobject obj, jstring path)
 {
-    WebCore::IconDatabase& iconDb = WebCore::iconDatabase();
+    WebCore::IconDatabaseBase& iconDb = WebCore::iconDatabase();
     if (iconDb.isOpen())
         return;
     iconDb.setEnabled(true);
