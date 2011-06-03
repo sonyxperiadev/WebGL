@@ -2112,7 +2112,7 @@ void WebViewCore::setSelection(int start, int end)
     bool isPasswordField = false;
     if (focus->isElementNode()) {
         WebCore::Element* element = static_cast<WebCore::Element*>(focus);
-        if (WebCore::InputElement* inputElement = WebCore::toInputElement(element))
+        if (WebCore::InputElement* inputElement = element->toInputElement())
             isPasswordField = static_cast<WebCore::HTMLInputElement*>(inputElement)->isPasswordField();
     }
     // For password fields, this is done in the UI side via
