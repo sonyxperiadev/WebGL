@@ -82,6 +82,7 @@ extern int registerWebHistory(JNIEnv*);
 extern int registerWebIconDatabase(JNIEnv*);
 extern int registerWebSettings(JNIEnv*);
 extern int registerWebView(JNIEnv*);
+extern int registerViewStateSerializer(JNIEnv*);
 #if ENABLE(DATABASE)
 extern int registerWebStorage(JNIEnv*);
 #endif
@@ -117,6 +118,7 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "WebStorage", android::registerWebStorage },
 #endif
     { "WebView", android::registerWebView },
+    { "ViewStateSerializer", android::registerViewStateSerializer },
     { "GeolocationPermissions", android::registerGeolocationPermissions },
     { "MockGeolocation", android::registerMockGeolocation },
 #if ENABLE(VIDEO)
