@@ -66,9 +66,18 @@ jobject webcoreImageToJavaBitmap(JNIEnv* env, WebCore::Image* icon)
 
 static WebIconDatabase* gIconDatabaseClient = new WebIconDatabase();
 
-// XXX: Called by the IconDatabase thread
-void WebIconDatabase::dispatchDidAddIconForPageURL(const WTF::String& pageURL)
+bool WebIconDatabase::performImport()
 {
+    // We don't do do any old-style database importing.
+    return true;
+}
+
+// Called on the WebCore thread
+void WebIconDatabase::didImportIconURLForPageURL(const WTF::String& pageURL)
+{
+    // FIXME: After http://trac.webkit.org/changeset/81719 this method is called
+    // on the WebCore thread, so switching threads via this queue is superfluous
+    // and should be removed. http://b/4565022
     mNotificationsMutex.lock();
     mNotifications.append(pageURL);
     if (!mDeliveryRequested) {
@@ -76,6 +85,26 @@ void WebIconDatabase::dispatchDidAddIconForPageURL(const WTF::String& pageURL)
         JavaSharedClient::EnqueueFunctionPtr(DeliverNotifications, this);
     }
     mNotificationsMutex.unlock();
+}
+
+void WebIconDatabase::didImportIconDataForPageURL(const WTF::String& pageURL)
+{
+    // WebKit1 only has a single "icon did change" notification.
+    didImportIconURLForPageURL(pageURL);
+}
+
+void WebIconDatabase::didChangeIconForPageURL(const WTF::String& pageURL)
+{
+    // WebKit1 only has a single "icon did change" notification.
+    didImportIconURLForPageURL(pageURL);
+}
+
+void WebIconDatabase::didRemoveAllIcons()
+{
+}
+
+void WebIconDatabase::didFinishURLImport()
+{
 }
 
 // Called in the WebCore thread
