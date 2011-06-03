@@ -1279,9 +1279,8 @@ void FrameLoaderClientAndroid::transferLoadingResourceFromPage(unsigned long, Do
 
 // This function is used by the <OBJECT> element to determine the type of
 // the contents and work out if it can render it.
-ObjectContentType FrameLoaderClientAndroid::objectContentType(const KURL& url,
-                                        const String& mimeType) {
-    return FrameLoader::defaultObjectContentType(url, mimeType);
+ObjectContentType FrameLoaderClientAndroid::objectContentType(const KURL& url, const String& mimeType, bool shouldPreferPlugInsForImages) {
+    return FrameLoader::defaultObjectContentType(url, mimeType, shouldPreferPlugInsForImages);
 }
 
 // This function allows the application to set the correct CSS media
