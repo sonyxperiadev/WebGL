@@ -157,7 +157,7 @@ static void Open(JNIEnv* env, jobject obj, jstring path)
     }
     if (didSetPermissions) {
         LOGV("Opening WebIconDatabase file '%s'", pathStr.latin1().data());
-        bool res = iconDb.open(pathStr);
+        bool res = iconDb.open(pathStr, WebCore::IconDatabase::defaultDatabaseFilename());
         if (!res)
             LOGE("Open failed!");
     } else
