@@ -1171,7 +1171,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             goto keepNode;
         }
         // Only use the root contentEditable element
-        if (node->isContentEditable() && !node->parentOrHostNode()->isContentEditable()) {
+        if (node->rendererIsEditable() && !node->parentOrHostNode()->rendererIsEditable()) {
             bounds = absBounds;
             takesFocus = true;
             type = CONTENT_EDITABLE_CACHEDNODETYPE;
