@@ -291,8 +291,9 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
         int refIndex = url.reverseFind('#');
         url = url.substring(0, refIndex);
     }
-    WebCore::Image* icon = WebCore::iconDatabase().iconForPageURL(url,
-            WebCore::IntSize(16, 16));
+    // FIXME: This method should not be used from outside WebCore and will be removed.
+    // http://trac.webkit.org/changeset/81484
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(url, WebCore::IntSize(16, 16));
 
     if (icon)
         favicon = webcoreImageToJavaBitmap(env, icon);

@@ -251,14 +251,16 @@ void FrameLoaderClientAndroid::dispatchDidReceiveIcon() {
         return;
     WTF::String url(m_frame->document()->url().string());
     // Try to obtain the icon image.
-    WebCore::Image* icon = WebCore::iconDatabase().iconForPageURL(
-            url, WebCore::IntSize(16, 16));
+    // FIXME: This method should not be used from outside WebCore and will be removed.
+    // http://trac.webkit.org/changeset/81484
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(url, WebCore::IntSize(16, 16));
     // If the request fails, try the original request url.
     if (!icon) {
         DocumentLoader* docLoader = m_frame->loader()->activeDocumentLoader();
         KURL originalURL = docLoader->originalRequest().url();
-        icon = WebCore::iconDatabase().iconForPageURL(
-                   originalURL, WebCore::IntSize(16, 16));
+        // FIXME: This method should not be used from outside WebCore and will be removed.
+        // http://trac.webkit.org/changeset/81484
+        icon = WebCore::iconDatabase().synchronousIconForPageURL(originalURL, WebCore::IntSize(16, 16));
     }
     // There is a bug in webkit where cancelling an icon load is treated as a
     // failure. When this is fixed, we can ASSERT again that we have an icon.

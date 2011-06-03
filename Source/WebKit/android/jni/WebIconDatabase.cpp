@@ -180,8 +180,9 @@ static jobject IconForPageUrl(JNIEnv* env, jobject obj, jstring url)
     LOG_ASSERT(url, "No url given to iconForPageUrl");
     WTF::String urlStr = jstringToWtfString(env, url);
 
-    WebCore::Image* icon = WebCore::iconDatabase().iconForPageURL(urlStr,
-            WebCore::IntSize(16, 16));
+    // FIXME: This method should not be used from outside WebCore and will be removed.
+    // http://trac.webkit.org/changeset/81484
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(urlStr, WebCore::IntSize(16, 16));
     LOGV("Retrieving icon for '%s' %p", urlStr.latin1().data(), icon);
     return webcoreImageToJavaBitmap(env, icon);
 }
