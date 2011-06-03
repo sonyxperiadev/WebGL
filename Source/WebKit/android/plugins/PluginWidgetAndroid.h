@@ -150,6 +150,8 @@ struct PluginWidgetAndroid {
 
     bool inFullScreen() { return m_isFullScreen; }
 
+    void setFullScreenOrientation(ANPScreenOrientation orientation);
+
     /** Called to check if a plugin currently has document focus, which is
         required for certain operations (e.g. show/hide keyboard). It returns
         true if the plugin currently has focus and false otherwise.
@@ -204,6 +206,7 @@ private:
     bool                    m_acceptEvents;
     bool                    m_isSurfaceClippedOut;
     ANPPowerState           m_powerState;
+    int                     m_fullScreenOrientation;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.

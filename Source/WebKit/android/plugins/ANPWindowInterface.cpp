@@ -79,6 +79,12 @@ static ANPRectI anp_visibleRect(NPP instance) {
     return pluginWidget->visibleRect();
 }
 
+static void anp_requestFullScreenOrientation(NPP instance, ANPScreenOrientation orientation) {
+    PluginView* pluginView = pluginViewForInstance(instance);
+    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
+    pluginWidget->setFullScreenOrientation(orientation);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -100,4 +106,12 @@ void ANPWindowInterfaceV1_Init(ANPInterface* value) {
     // add any new functions or override existing functions
     ANPWindowInterfaceV1* i = reinterpret_cast<ANPWindowInterfaceV1*>(value);
     ASSIGN(i, visibleRect);
+}
+
+void ANPWindowInterfaceV2_Init(ANPInterface* value) {
+    // initialize the functions from the previous interface
+    ANPWindowInterfaceV1_Init(value);
+    // add any new functions or override existing functions
+    ANPWindowInterfaceV2* i = reinterpret_cast<ANPWindowInterfaceV2*>(value);
+    ASSIGN(i, requestFullScreenOrientation);
 }
