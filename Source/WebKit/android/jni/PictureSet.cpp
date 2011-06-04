@@ -83,13 +83,19 @@ PictureSet::PictureSet()
 
 PictureSet::PictureSet(SkPicture* picture)
 {
-    if (!picture)
+    mBaseArea = mAdditionalArea = 0;
+    if (!picture) {
+        mWidth = mHeight = 0;
         return;
+    }
+    mWidth = picture->width();
+    mHeight = picture->height();
+    mBaseArea = mWidth * mHeight;
     Pictures pictureAndBounds;
     pictureAndBounds.mPicture = picture;
     SkSafeRef(pictureAndBounds.mPicture);
     pictureAndBounds.mEmpty = false;
-    pictureAndBounds.mArea.setRect(0, 0, picture->width(), picture->height());
+    pictureAndBounds.mArea.setRect(0, 0, mWidth, mHeight);
     pictureAndBounds.mSplit = false;
     pictureAndBounds.mBase = true;
     pictureAndBounds.mElapsed = 0;

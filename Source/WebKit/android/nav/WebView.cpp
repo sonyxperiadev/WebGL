@@ -383,6 +383,7 @@ void resetCursorRing()
 
 bool drawCursorPreamble(CachedRoot* root)
 {
+    if (!root) return false;
     const CachedFrame* frame;
     const CachedNode* node = root->currentCursor(&frame);
     if (!node) {
@@ -444,7 +445,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
             SkIRect rect;
             rect.set(0, 0, m_baseLayer->content()->width(), m_baseLayer->content()->height());
             region.setRect(rect);
-            m_glWebViewState->setBaseLayer(m_baseLayer, region, false, false);
+            m_glWebViewState->setBaseLayer(m_baseLayer, region, false, true);
         }
     }
 
@@ -453,7 +454,6 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
         DBG_NAV_LOG("!root");
         if (extras == DrawExtrasCursorRing)
             resetCursorRing();
-        return false;
     }
     DrawExtra* extra = 0;
     switch (extras) {
@@ -491,7 +491,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
             extra->draw(canvas, &mainPicture, &rect);
             picture.endRecording();
         }
-    } else if (extras == DrawExtrasCursorRing && m_ring.m_isButton) {
+    } else if (root && extras == DrawExtrasCursorRing && m_ring.m_isButton) {
         const CachedFrame* cachedFrame;
         const CachedNode* cachedCursor = root->currentCursor(&cachedFrame);
         if (cachedCursor) {
@@ -538,7 +538,6 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
         DBG_NAV_LOG("!root");
         if (extras == DrawExtrasCursorRing)
             resetCursorRing();
-        return ret;
     }
     LayerAndroid mainPicture(m_navPictureUI);
     DrawExtra* extra = 0;
