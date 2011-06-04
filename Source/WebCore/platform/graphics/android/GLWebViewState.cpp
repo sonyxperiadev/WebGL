@@ -541,6 +541,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     m_previouslyUsedRoot = compositedRoot;
     if (ret) {
         FloatRect frameworkInval = TilesManager::instance()->shader()->rectInInvScreenCoord(m_frameworkInval);
+        // Inflate the invalidate rect to avoid precision lost.
+        frameworkInval.inflate(1);
         IntRect inval(frameworkInval.x(), frameworkInval.y(), frameworkInval.width(), frameworkInval.height());
 
         inval.unite(m_frameworkLayersInval);
