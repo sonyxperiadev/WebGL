@@ -1233,15 +1233,11 @@ bool RenderLayerCompositor::allowsIndependentlyCompositedFrames(const FrameView*
 
 bool RenderLayerCompositor::shouldPropagateCompositingToEnclosingFrame() const
 {
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
-    if (enclosingIFrameElement() && !allowsIndependentlyCompositedIFrames(m_renderView->frameView()))
+    if (enclosingFrameElement() && !allowsIndependentlyCompositedFrames(m_renderView->frameView()))
         return true;
 #endif
-    // Parent document content needs to be able to render on top of a composited iframe, so correct behavior
-=======
     // Parent document content needs to be able to render on top of a composited frame, so correct behavior
->>>>>>> WebKit.org at r84325
     // is to have the parent document become composited too. However, this can cause problems on platforms that
     // use native views for frames (like Mac), so disable that behavior on those platforms for now.
     HTMLFrameOwnerElement* ownerElement = enclosingFrameElement();
