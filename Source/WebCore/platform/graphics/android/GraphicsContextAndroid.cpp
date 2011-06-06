@@ -1144,7 +1144,7 @@ void GraphicsContext::concatCTM(const AffineTransform& affine)
 // If we instead draw into bitmap tiles, we should then perform this
 // transform -> round -> inverse step.
 
-FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
+FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect, RoundingMode)
 {
     return rect;
 }
