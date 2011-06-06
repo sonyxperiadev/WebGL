@@ -274,7 +274,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/visible_units.cpp \
 	\
 	fileapi/Blob.cpp \
-	fileapi/BlobBuilder.cpp \
 	fileapi/BlobURL.cpp \
 	fileapi/DOMFileSystemBase.cpp \
 	fileapi/DOMFileSystemSync.cpp \
@@ -291,6 +290,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	fileapi/FileStreamProxy.cpp \
 	fileapi/FileThread.cpp \
 	fileapi/ThreadableBlobRegistry.cpp \
+	fileapi/WebKitBlobBuilder.cpp \
 	\
 	history/BackForwardController.cpp \
 	history/BackForwardListImpl.cpp \
@@ -409,11 +409,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/TextViewSourceParser.cpp \
 	html/parser/XSSFilter.cpp \
 	\
+	html/shadow/DetailsMarkerControl.cpp \
 	html/shadow/MediaControls.cpp \
 	html/shadow/MediaControlElements.cpp \
 	html/shadow/MediaControlRootElement.cpp \
 	html/shadow/MeterShadowElement.cpp \
-	html/shadow/DetailControlElement.cpp \
 	html/shadow/ProgressShadowElement.cpp \
 	html/shadow/SliderThumbElement.cpp \
 	html/shadow/TextControlInnerElements.cpp \
@@ -553,12 +553,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/LocalizedStrings.cpp \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
-<<<<<<< HEAD
+	platform/RuntimeApplicationChecks.cpp \
 	platform/SchemeRegistry.cpp \
 	platform/ScrollAnimator.cpp \
-=======
-	platform/RuntimeApplicationChecks.cpp \
->>>>>>> WebKit.org at r84325
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
 	platform/ScrollableArea.cpp \
@@ -725,12 +722,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/image-decoders/gif/GIFImageDecoder.cpp \
 	platform/image-decoders/gif/GIFImageReader.cpp \
 	\
-<<<<<<< HEAD
 	platform/image-encoders/skia/JPEGImageEncoder.cpp \
-=======
+	\
 	platform/leveldb/LevelDBDatabase.cpp \
 	platform/leveldb/LevelDBIterator.cpp \
->>>>>>> WebKit.org at r84325
 	\
 	platform/mock/DeviceOrientationClientMock.cpp \
 	platform/mock/GeolocationClientMock.cpp \

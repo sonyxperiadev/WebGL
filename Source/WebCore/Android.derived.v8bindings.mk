@@ -149,8 +149,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # Fileapi
 GEN := \
     $(intermediates)/bindings/V8Blob.h \
-<<<<<<< HEAD
-    $(intermediates)/bindings/V8BlobBuilder.h \
     $(intermediates)/bindings/V8DOMFileSystem.h \
     $(intermediates)/bindings/V8DOMFileSystemSync.h \
     $(intermediates)/bindings/V8DirectoryEntry.h \
@@ -176,9 +174,10 @@ GEN := \
     $(intermediates)/bindings/V8FileSystemCallback.h \
     $(intermediates)/bindings/V8FileWriter.h \
     $(intermediates)/bindings/V8FileWriterCallback.h \
-    $(intermediates)/bindings/V8Flags.h \
     $(intermediates)/bindings/V8Metadata.h \
-    $(intermediates)/bindings/V8MetadataCallback.h
+    $(intermediates)/bindings/V8MetadataCallback.h \
+    $(intermediates)/bindings/V8WebKitBlobBuilder.h \
+    $(intermediates)/bindings/V8WebKitFlags.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include fileapi --outputdir $(dir $@) $<
@@ -193,9 +192,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # HTML
 GEN := \
     $(intermediates)/bindings/V8DOMFormData.h \
-=======
-    $(intermediates)/bindings/V8DOMTokenList.h \
->>>>>>> WebKit.org at r84325
     $(intermediates)/bindings/V8DOMSettableTokenList.h \
     $(intermediates)/bindings/V8DOMTokenList.h \
     $(intermediates)/bindings/V8DOMURL.h \
@@ -281,8 +277,8 @@ GEN := \
     $(intermediates)/bindings/V8TextMetrics.h \
     $(intermediates)/bindings/V8TimeRanges.h \
     $(intermediates)/bindings/V8ValidityState.h \
-    $(intermediates)/bindings/V8VoidCallback.h \
-    $(intermediates)/bindings/V8WebKitBlobBuilder.h
+    $(intermediates)/bindings/V8VoidCallback.h
+
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<

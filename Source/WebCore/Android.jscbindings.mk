@@ -60,12 +60,9 @@ BINDING_C_INCLUDES := \
 	$(WEBCORE_INTERMEDIATES_PATH)/xml
 
 LOCAL_SRC_FILES += \
-<<<<<<< HEAD
+	bindings/js/CallbackFunction.cpp \
 	bindings/js/DOMObjectHashTableMap.cpp \
 	bindings/js/DOMWrapperWorld.cpp \
-=======
-	bindings/js/CallbackFunction.cpp \
->>>>>>> WebKit.org at r84325
 	bindings/js/GCController.cpp \
 	bindings/js/IDBBindingUtilities.cpp \
 	bindings/js/JSArrayBufferCustom.cpp \

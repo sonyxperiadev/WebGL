@@ -157,7 +157,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8MessageChannelConstructor.cpp \
 	bindings/v8/custom/V8MessagePortCustom.cpp \
 	bindings/v8/custom/V8MessageEventCustom.cpp \
-	bindings/v8/custom/V8NavigatorCustom.cpp \
 	bindings/v8/custom/V8NamedNodeMapCustom.cpp \
 	bindings/v8/custom/V8NamedNodesCollection.cpp \
 	bindings/v8/custom/V8NavigatorCustom.cpp \
@@ -200,10 +199,9 @@ LOCAL_SRC_FILES += \
 	bridge/jni/JavaMethodJobject.cpp \
 	bridge/jni/JobjectWrapper.cpp \
 	bridge/jni/v8/JNIUtilityPrivate.cpp \
-<<<<<<< HEAD
-	bridge/jni/v8/JavaClassV8.cpp \
-	bridge/jni/v8/JavaFieldV8.cpp \
-	bridge/jni/v8/JavaInstanceV8.cpp \
+	bridge/jni/v8/JavaClassJobjectV8.cpp \
+	bridge/jni/v8/JavaFieldJobjectV8.cpp \
+	bridge/jni/v8/JavaInstanceJobjectV8.cpp \
 	bridge/jni/v8/JavaNPObjectV8.cpp
 
 # For XPath.
@@ -213,10 +211,3 @@ LOCAL_SRC_FILES += \
 # For XSLT.
 LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8XSLTProcessorCustom.cpp
-=======
-	bridge/jni/v8/JavaClassJobjectV8.cpp \
-	bridge/jni/v8/JavaFieldJobjectV8.cpp \
-	bridge/jni/v8/JavaInstanceJobjectV8.cpp \
-	bridge/jni/v8/JavaNPObject.cpp \
-	bridge/jni/v8/JobjectWrapper.cpp
->>>>>>> WebKit.org at r84325

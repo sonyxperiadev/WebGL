@@ -44,14 +44,13 @@ LOCAL_SRC_FILES := \
 	bytecompiler/BytecodeGenerator.cpp \
 	bytecompiler/NodesCodegen.cpp \
 	\
-	collector/handles/HandleHeap.cpp \
-	collector/handles/HandleStack.cpp \
-	\
 	debugger/Debugger.cpp \
 	debugger/DebuggerActivation.cpp \
 	debugger/DebuggerCallFrame.cpp \
 	\
 	heap/ConservativeRoots.cpp \
+	heap/HandleHeap.cpp \
+	heap/HandleStack.cpp \
 	heap/Heap.cpp \
 	heap/MachineStackMarker.cpp \
 	heap/MarkStack.cpp \

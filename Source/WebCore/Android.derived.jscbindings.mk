@@ -165,7 +165,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/dom/%.cpp : $(intermediates)/dom/
 # Fileapi
 GEN := \
     $(intermediates)/fileapi/JSBlob.h \
-    $(intermediates)/fileapi/JSBlobBuilder.h \
     $(intermediates)/fileapi/JSDOMFileSystem.h \
     $(intermediates)/fileapi/JSDOMFileSystemSync.h \
     $(intermediates)/fileapi/JSDirectoryEntry.h \
@@ -191,9 +190,10 @@ GEN := \
     $(intermediates)/fileapi/JSFileSystemCallback.h \
     $(intermediates)/fileapi/JSFileWriter.h \
     $(intermediates)/fileapi/JSFileWriterCallback.h \
-    $(intermediates)/fileapi/JSFlags.h \
     $(intermediates)/fileapi/JSMetadata.h \
-    $(intermediates)/fileapi/JSMetadataCallback.h
+    $(intermediates)/fileapi/JSMetadataCallback.h \
+    $(intermediates)/fileapi/JSWebKitBlobBuilder.h \
+    $(intermediates)/fileapi/JSWebKitFlags.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --include fileapi --outputdir $(dir $@) $<
@@ -207,10 +207,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/fileapi/%.cpp : $(intermediates)/
 
 # HTML
 GEN := \
-<<<<<<< HEAD
-=======
-    $(intermediates)/html/JSBlob.h \
->>>>>>> WebKit.org at r84325
     $(intermediates)/html/JSDOMFormData.h \
     $(intermediates)/html/JSDOMSettableTokenList.h \
     $(intermediates)/html/JSDOMTokenList.h \
@@ -297,8 +293,8 @@ GEN := \
     $(intermediates)/html/JSTextMetrics.h \
     $(intermediates)/html/JSTimeRanges.h \
     $(intermediates)/html/JSValidityState.h \
-    $(intermediates)/html/JSVoidCallback.h \
-    $(intermediates)/html/JSWebKitBlobBuilder.h
+    $(intermediates)/html/JSVoidCallback.h
+
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<

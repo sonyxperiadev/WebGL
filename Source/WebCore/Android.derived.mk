@@ -73,12 +73,19 @@ $(GEN): $(LOCAL_PATH)/html/DocTypeStrings.gperf
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
-# XMLViewer XSLT
-
-GEN := $(intermediates)/xml/XMLViewerXSL.h
+# XMLViewer CSS
+GEN := $(intermediates)/xml/XMLViewerCSS.h
 $(GEN): SCRIPT := $(LOCAL_PATH)/inspector/xxd.pl
-$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) XMLViewer_xsl $< $@
-$(GEN): $(LOCAL_PATH)/xml/XMLViewer.xsl
+$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) XMLViewer_css $< $@
+$(GEN): $(LOCAL_PATH)/xml/XMLViewer.css
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+# XMLViewer JS
+GEN := $(intermediates)/xml/XMLViewerJS.h
+$(GEN): SCRIPT := $(LOCAL_PATH)/inspector/xxd.pl
+$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) XMLViewer_js $< $@
+$(GEN): $(LOCAL_PATH)/xml/XMLViewer.js
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
