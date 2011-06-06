@@ -62,6 +62,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/ScriptFunctionCall.cpp \
 	bindings/v8/ScriptInstance.cpp \
 	bindings/v8/ScriptObject.cpp \
+	bindings/v8/ScriptProfiler.cpp \
 	bindings/v8/ScriptScope.cpp \
 	bindings/v8/ScriptState.cpp \
 	bindings/v8/ScriptValue.cpp \
