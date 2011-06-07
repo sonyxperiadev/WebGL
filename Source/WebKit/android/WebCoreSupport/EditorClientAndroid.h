@@ -115,7 +115,7 @@ public:
     virtual void getGuessesForWord(const String&, const String& context, WTF::Vector<String>& guesses);
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool);
-    virtual void requestCheckingOfString(SpellChecker*, int, const String&);
+    virtual void requestCheckingOfString(SpellChecker*, int, TextCheckingTypeMask, const String&);
 
     virtual TextCheckerClient* textChecker() { return this; }
 

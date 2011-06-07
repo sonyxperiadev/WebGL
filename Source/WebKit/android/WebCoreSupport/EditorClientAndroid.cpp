@@ -267,7 +267,7 @@ void EditorClientAndroid::willSetInputMethodState()
     notImplemented();
 }
 
-void EditorClientAndroid::requestCheckingOfString(SpellChecker*, int, const String&) {}
+void EditorClientAndroid::requestCheckingOfString(SpellChecker*, int, TextCheckingTypeMask, const String&) {}
 
 #if ENABLE(WEB_AUTOFILL)
 WebAutoFill* EditorClientAndroid::getAutoFill()
