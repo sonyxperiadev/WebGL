@@ -115,7 +115,7 @@
 #include <runtime/JSLock.h>
 #elif USE(V8)
 #include "JavaNPObjectV8.h"
-#include "JavaInstanceV8.h"
+#include "JavaInstanceJobjectV8.h"
 #include "V8Counters.h"
 #endif  // USE(JSC)
 
@@ -1733,7 +1733,11 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
 // Wrap the JavaInstance used when binding custom javascript interfaces. Use a
 // weak reference so that the gc can collect the WebView. Override virtualBegin
 // and virtualEnd and swap the weak reference for the real object.
+#if USE(JSC)
 class WeakJavaInstance : public JavaInstance {
+#elif USE(V8)
+class WeakJavaInstance : public JavaInstanceJobject {
+#endif
 public:
 #if USE(JSC)
     static PassRefPtr<WeakJavaInstance> create(jobject obj, PassRefPtr<RootObject> root)
@@ -1753,7 +1757,7 @@ private:
         : JavaInstance(instance, rootObject)
 #elif USE(V8)
     WeakJavaInstance(jobject instance)
-        : JavaInstance(instance)
+        : JavaInstanceJobject(instance)
 #endif
         , m_beginEndDepth(0)
     {
@@ -1777,7 +1781,7 @@ private:
         env->DeleteWeakGlobalRef(weak);
     }
 
-    virtual void virtualBegin()
+    virtual void begin()
     {
         if (m_beginEndDepth++ > 0)
             return;
@@ -1792,15 +1796,15 @@ private:
         // Point to the real object
         m_instance->setInstance(m_realObject);
         // Call the base class method
-        INHERITED::virtualBegin();
+        INHERITED::begin();
     }
 
-    virtual void virtualEnd()
+    virtual void end()
     {
         if (--m_beginEndDepth > 0)
             return;
         // Call the base class method first to pop the local frame.
-        INHERITED::virtualEnd();
+        INHERITED::end();
         // Get rid of the local reference to the real object.
         getJNIEnv()->DeleteLocalRef(m_realObject);
         // Point back to the WeakReference.
@@ -1808,7 +1812,11 @@ private:
     }
 
 private:
+#if USE(JSC)
     typedef JavaInstance INHERITED;
+#elif USE(V8)
+    typedef JavaInstanceJobject INHERITED;
+#endif
     jobject m_realObject;
     jweak m_weakRef;
     // The current depth of nested calls to virtualBegin and virtualEnd.

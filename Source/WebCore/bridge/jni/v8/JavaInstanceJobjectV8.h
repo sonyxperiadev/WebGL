@@ -36,6 +36,10 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 
+#ifdef ANDROID
+#include "JavaClassV8.h"
+#endif
+
 using namespace WTF;
 
 namespace JSC {

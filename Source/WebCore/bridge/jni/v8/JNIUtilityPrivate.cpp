@@ -209,7 +209,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                 break;
             }
 
-            result.m_objectValue = adoptRef(new JavaInstance(javaArray));
+            result.m_objectValue = adoptRef(new JavaInstanceJobject(javaArray));
         }
         break;
 #endif // PLATFORM(ANDROID)
