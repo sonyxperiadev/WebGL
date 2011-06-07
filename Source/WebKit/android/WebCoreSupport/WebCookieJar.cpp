@@ -207,7 +207,7 @@ public:
 
     // Block until the given number of callbacks has been made.
     void Wait(int numCallbacks) {
-        AutoLock al(m_lock);
+        base::AutoLock al(m_lock);
         int lastCount = m_count;
         while (m_count < numCallbacks) {
             // TODO(husky): Maybe use TimedWait() here? But it's not obvious what
@@ -223,7 +223,7 @@ private:
     friend class base::RefCounted<FlushSemaphore>;
 
     void Callback() {
-        AutoLock al(m_lock);
+        base::AutoLock al(m_lock);
         m_count++;
         m_condition.Broadcast();
     }

@@ -60,8 +60,8 @@ namespace {
 
 void initChromium()
 {
-    static Lock lock;
-    AutoLock aLock(lock);
+    static base::Lock lock;
+    base::AutoLock aLock(lock);
     static bool initCalled = false;
     if (!initCalled) {
         logging::SetLogMessageHandler(logMessageHandler);

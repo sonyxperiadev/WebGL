@@ -34,7 +34,7 @@
 namespace android {
 
 // This class is generally not threadsafe.
-class WebRequestContext : public URLRequestContext {
+class WebRequestContext : public net::URLRequestContext {
 public:
     // URLRequestContext overrides.
     virtual const std::string& GetUserAgent(const GURL&) const;
