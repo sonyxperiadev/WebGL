@@ -27,6 +27,7 @@
 
 #include "CachedPrefix.h"
 #include "BidiResolver.h"
+#include "BidiRunList.h"
 #include "CachedRoot.h"
 #include "LayerAndroid.h"
 #include "ParseCanvas.h"
@@ -98,13 +99,14 @@ void ReverseBidi(UChar* chars, int len) {
     result.reserveCapacity(len);
     TextRun run(chars, len);
     BidiResolver<TextRunIterator, BidiCharacterRun> bidiResolver;
+    BidiRunList<BidiCharacterRun>& bidiRuns = bidiResolver.runs();
     bidiResolver.setStatus(BidiStatus(LeftToRight, LeftToRight, LeftToRight,
         BidiContext::create(0, LeftToRight, false)));
     bidiResolver.setPosition(TextRunIterator(&run, 0));
     bidiResolver.createBidiRunsForLine(TextRunIterator(&run, len));
-    if (!bidiResolver.runCount())
+    if (!bidiRuns.runCount())
         return;
-    BidiCharacterRun* bidiRun = bidiResolver.firstRun();
+    BidiCharacterRun* bidiRun = bidiRuns.firstRun();
     while (bidiRun) {
         int bidiStart = bidiRun->start();
         int bidiStop = bidiRun->stop();
@@ -133,7 +135,7 @@ void ReverseBidi(UChar* chars, int len) {
         }
         bidiRun = bidiRun->next();
     }
-    bidiResolver.deleteRuns();
+    bidiRuns.deleteRuns();
     memcpy(chars, &result[0], len * sizeof(UChar));
 }
 
