@@ -225,8 +225,8 @@ void GLWebViewState::inval(const IntRect& rect)
             else
                 m_frameworkInval.unite(rect);
             XLOG("intermediate invalRect(%d, %d, %d, %d) after unite with rect %d %d %d %d", m_frameworkInval.x(),
-                 m_frameworkInval.y(), m_frameworkInval.right(), m_frameworkInval.bottom(),
-                 rect.x(), rect.y(), rect.right(), rect.bottom());
+                 m_frameworkInval.y(), m_frameworkInval.width(), m_frameworkInval.height(),
+                 rect.x(), rect.y(), rect.width(), rect.height());
         }
     } else {
         m_invalidateRegion.op(rect.x(), rect.y(), rect.maxX(), rect.maxY(), SkRegion::kUnion_Op);
@@ -521,7 +521,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     }
 
     XLOG("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
-         rect.x(), rect.y(), rect.right(), rect.bottom(),
+         rect.x(), rect.y(), rect.width(), rect.height(),
          viewport.fLeft, viewport.fTop, viewport.fRight, viewport.fBottom);
 
     resetLayersDirtyArea();
@@ -553,7 +553,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         invalRect->setHeight(inval.height());
 
         XLOG("invalRect(%d, %d, %d, %d)", inval.x(),
-             inval.y(), inval.right(), inval.bottom());
+             inval.y(), inval.width(), inval.height());
     } else {
         resetFrameworkInval();
     }

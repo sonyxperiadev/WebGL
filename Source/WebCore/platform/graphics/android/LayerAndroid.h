@@ -47,6 +47,8 @@ class SkPicture;
 
 namespace android {
 class DrawExtra;
+void serializeLayer(LayerAndroid* layer, SkWStream* stream);
+LayerAndroid* deserializeLayer(SkStream* stream);
 }
 
 using namespace android;
@@ -256,6 +258,9 @@ public:
     void setIsIframe(bool isIframe) { m_isIframe = isIframe; }
     float zValue() const { return m_zValue; }
 
+    friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
+    friend LayerAndroid* android::deserializeLayer(SkStream* stream);
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
@@ -268,6 +273,10 @@ private:
     void findInner(FindState&) const;
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
+
+    // -------------------------------------------------------------------
+    // Fields to be serialized
+    // -------------------------------------------------------------------
 
     bool m_haveClip;
     bool m_isFixed;
@@ -284,13 +293,10 @@ private:
     SkLength m_fixedMarginBottom;
     SkRect m_fixedRect;
 
-    SkPoint m_iframeOffset;
     // When fixed element is undefined or auto, the render layer's position
     // is needed for offset computation
     IntPoint m_renderLayerPos;
 
-    TransformationMatrix m_transform;
-    float m_zValue;
     bool m_backfaceVisibility;
     bool m_visible;
 
@@ -299,9 +305,6 @@ private:
     bool m_preserves3D;
     float m_anchorPointZ;
     float m_drawOpacity;
-    TransformationMatrix m_drawTransform;
-    TransformationMatrix m_childrenTransform;
-    FloatRect m_clippingRect;
 
     // Note that m_recordingPicture and m_contentsImage are mutually exclusive;
     // m_recordingPicture is used when WebKit is asked to paint the layer's
@@ -315,6 +318,21 @@ private:
 
     typedef HashMap<pair<String, int>, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
+
+    TransformationMatrix m_transform;
+    TransformationMatrix m_childrenTransform;
+
+    // -------------------------------------------------------------------
+    // Fields that are not serialized (generated, cached, or non-serializable)
+    // -------------------------------------------------------------------
+
+    SkPoint m_iframeOffset;
+
+    float m_zValue;
+
+    TransformationMatrix m_drawTransform;
+    FloatRect m_clippingRect;
+
     SkPicture* m_extra;
     int m_uniqueId;
 

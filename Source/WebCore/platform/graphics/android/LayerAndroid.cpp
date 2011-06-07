@@ -510,6 +510,9 @@ const LayerAndroid* LayerAndroid::find(int* xPtr, int* yPtr, SkPicture* root) co
 
 void LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* parentIframeLayer)
 {
+    XLOG("updating fixed positions, using viewport %fx%f - %fx%f",
+         viewport.fLeft, viewport.fTop,
+         viewport.width(), viewport.height());
     // If this is an iframe, accumulate the offset from the parent with
     // current position, and change the parent pointer.
     if (m_isIframe) {
@@ -952,9 +955,9 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         if (textureInfo && (!m_contentsImage || (ready && m_contentsImage))) {
             SkRect bounds;
             bounds.set(m_drawingTexture->rect());
-            XLOG("LayerAndroid %d %x (%.2f, %.2f) drawGL (texture %x, %d, %d, %d, %d)",
+            XLOG("LayerAndroid %d %x (%.2f, %.2f) drawGL (texture %x, %f, %f, %f, %f)",
                  uniqueId(), this, getWidth(), getHeight(),
-                 m_drawingTexture, bounds.x(), bounds.y(),
+                 m_drawingTexture, bounds.fLeft, bounds.fTop,
                  bounds.width(), bounds.height());
             //TODO determine when drawing if the alpha value is used.
             TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), bounds,
