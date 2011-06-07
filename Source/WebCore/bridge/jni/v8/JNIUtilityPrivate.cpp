@@ -30,13 +30,10 @@
 
 #include "JavaInstanceV8.h"
 #include "JavaNPObjectV8.h"
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 #include "npruntime_impl.h"
 #endif // PLATFORM(ANDROID)
-=======
 #include "JavaValueV8.h"
->>>>>>> webkit.org at r82507
 #include <wtf/text/CString.h>
 
 namespace JSC {
@@ -51,10 +48,16 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
     result.m_type = javaType;
     NPVariantType type = value.type;
 
-<<<<<<< HEAD
-    switch (jniType) {
-    case array_type:
+    switch (javaType) {
+    case JavaTypeArray:
 #if PLATFORM(ANDROID)
+        // If we're converting to an array, see if the NPVariant has a length
+        // property. If so, create a JNI array of the relevant length and to get
+        // the elements of the NPVariant. When we interpret the JavaValue later,
+        // we know that the array is represented as a JNI array.
+        //
+        // FIXME: This is a hack. We should not be using JNI here. We should
+        // represent the JavaValue without JNI.
         {
             JNIEnv* env = getJNIEnv();
             jobject javaArray;
@@ -66,7 +69,6 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                 // Treat this as an error.
                 // JSC sends null for an array that is not an array of strings or basic types,
                 // do this also in the unknown length case.
-                memset(&result, 0, sizeof(jvalue));
                 break;
             }
 
@@ -204,21 +206,15 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                 }
             } else {
                 // JSC sends null for an array that is not an array of strings or basic types.
-                memset(&result, 0, sizeof(jvalue));
                 break;
             }
 
-            result.l = javaArray;
+            result.m_objectValue = adoptRef(new JavaInstance(javaArray));
         }
         break;
 #endif // PLATFORM(ANDROID)
 
-    case object_type:
-=======
-    switch (javaType) {
-    case JavaTypeArray:
     case JavaTypeObject:
->>>>>>> webkit.org at r82507
         {
             // See if we have a Java instance.
             if (type == NPVariantType_Object) {
@@ -238,44 +234,26 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
 #else
             if (type == NPVariantType_String)
 #endif
-<<<<<<< HEAD
-                {
-                    NPString src = NPVARIANT_TO_STRING(value);
-                    JNIEnv* env = getJNIEnv();
-                    jobject javaString = env->NewStringUTF(src.UTF8Characters);
-                    result.l = javaString;
-                }
-#if PLATFORM(ANDROID)
-                else if (type == NPVariantType_Int32) {
-                    jint src = NPVARIANT_TO_INT32(value);
-                    jclass integerClass = getJNIEnv()->FindClass("java/lang/Integer");
-                    jmethodID toString = getJNIEnv()->GetStaticMethodID(integerClass, "toString", "(I)Ljava/lang/String;");
-                    result.l = getJNIEnv()->CallStaticObjectMethod(integerClass, toString, src);
-                    getJNIEnv()->DeleteLocalRef(integerClass);
-                } else if (type == NPVariantType_Bool) {
-                    jboolean src = NPVARIANT_TO_BOOLEAN(value);
-                    jclass booleanClass = getJNIEnv()->FindClass("java/lang/Boolean");
-                    jmethodID toString = getJNIEnv()->GetStaticMethodID(booleanClass, "toString", "(Z)Ljava/lang/String;");
-                    result.l = getJNIEnv()->CallStaticObjectMethod(booleanClass, toString, src);
-                    getJNIEnv()->DeleteLocalRef(booleanClass);
-                } else if (type == NPVariantType_Double) {
-                    jdouble src = NPVARIANT_TO_DOUBLE(value);
-                    jclass doubleClass = getJNIEnv()->FindClass("java/lang/Double");
-                    jmethodID toString = getJNIEnv()->GetStaticMethodID(doubleClass, "toString", "(D)Ljava/lang/String;");
-                    result.l = getJNIEnv()->CallStaticObjectMethod(doubleClass, toString, src);
-                    getJNIEnv()->DeleteLocalRef(doubleClass);
-                } else if (!NPVARIANT_IS_NULL(value))
-                    result.l = getJNIEnv()->NewStringUTF("undefined");
-#endif // PLATFORM(ANDROID)
-            } else if (!result.l)
-                memset(&result, 0, sizeof(jvalue)); // Handle it the same as a void case
-=======
             {
                 NPString src = NPVARIANT_TO_STRING(value);
                 result.m_type = JavaTypeString;
                 result.m_stringValue = String::fromUTF8(src.UTF8Characters);
             }
->>>>>>> webkit.org at r82507
+#if PLATFORM(ANDROID)
+            else if (type == NPVariantType_Int32) {
+                result.m_type = JavaTypeString;
+                result.m_stringValue = String::number(NPVARIANT_TO_INT32(value));
+            } else if (type == NPVariantType_Bool) {
+                result.m_type = JavaTypeString;
+                result.m_stringValue = NPVARIANT_TO_BOOLEAN(value) ? "true" : "false";
+            } else if (type == NPVariantType_Double) {
+                result.m_type = JavaTypeString;
+                result.m_stringValue = String::number(NPVARIANT_TO_DOUBLE(value));
+            } else if (!NPVARIANT_IS_NULL(value)) {
+                result.m_type = JavaTypeString;
+                result.m_stringValue = "undefined";
+            }
+#endif // PLATFORM(ANDROID)
         }
         break;
 
@@ -494,6 +472,9 @@ jvalue javaValueToJvalue(const JavaValue& value)
     switch (value.m_type) {
     case JavaTypeVoid:
         break;
+#if PLATFORM(ANDROID)
+    case JavaTypeArray:
+#endif
     case JavaTypeObject:
         if (value.m_objectValue)
             result.l = value.m_objectValue->javaInstance();

@@ -184,24 +184,16 @@ bool JavaNPObjectGetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* 
     if (!field)
         return false;
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // JSC does not seem to support returning object properties so we emulate that
     // behaviour here.
-    jvalue value;
+    JavaValue value;
 #else
-    jvalue value = getJNIField(instance->javaInstance(),
-                               field->getJNIType(),
-                               field->name().utf8(),
-                               field->type());
-#endif // PLATFORM(ANDROID)
-    convertJValueToNPVariant(value, field->getJNIType(), field->type(), result);
-=======
     JavaValue value = instance->getField(field);
+#endif // PLATFORM(ANDROID)
     instance->end();
 
     convertJavaValueToNPVariant(value, result);
->>>>>>> webkit.org at r82507
 
     return true;
 }
