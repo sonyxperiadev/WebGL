@@ -88,30 +88,21 @@ static EditingBehaviorType editingBehaviorTypeForPlatform()
 
 Settings::Settings(Page* page)
     : m_page(page)
-#ifdef ANDROID_LAYOUT
-    , m_layoutAlgorithm(kLayoutFitColumnToScreen)
-#endif
     , m_editableLinkBehavior(EditableLinkDefaultBehavior)
     , m_textDirectionSubmenuInclusionBehavior(TextDirectionSubmenuAutomaticallyIncluded)
     , m_minimumFontSize(0)
     , m_minimumLogicalFontSize(0)
     , m_defaultFontSize(0)
     , m_defaultFixedFontSize(0)
-#ifdef ANDROID_LAYOUT
-    , m_useWideViewport(false)
-#endif
-#ifdef ANDROID_MULTIPLE_WINDOWS
-    , m_supportMultipleWindows(true)
-#endif
-#ifdef ANDROID_BLOCK_NETWORK_IMAGE
-    , m_blockNetworkImage(false)
-#endif
     , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
 #if ENABLE(DOM_STORAGE)
     , m_sessionStorageQuota(StorageMap::noQuota)
 #endif
     , m_pluginAllowedRunTime(numeric_limits<unsigned>::max())
     , m_editingBehaviorType(editingBehaviorTypeForPlatform())
+#ifdef ANDROID_LAYOUT
+    , m_layoutAlgorithm(kLayoutFitColumnToScreen)
+#endif
     , m_isSpatialNavigationEnabled(false)
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
@@ -186,6 +177,15 @@ Settings::Settings(Page* page)
     , m_usePreHTML5ParserQuirks(false)
     , m_hyperlinkAuditingEnabled(false)
     , m_crossOriginCheckInGetMatchedCSSRulesDisabled(false)
+#ifdef ANDROID_LAYOUT
+    , m_useWideViewport(false)
+#endif
+#ifdef ANDROID_MULTIPLE_WINDOWS
+    , m_supportMultipleWindows(true)
+#endif
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+    , m_blockNetworkImage(false)
+#endif
 #if ENABLE(WEB_AUTOFILL)
     , m_autoFillEnabled(false)
 #endif

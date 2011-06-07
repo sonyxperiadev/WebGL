@@ -455,15 +455,18 @@ namespace WebCore {
         AtomicString m_sansSerifFontFamily;
         AtomicString m_cursiveFontFamily;
         AtomicString m_fantasyFontFamily;
-#ifdef ANDROID_LAYOUT
-        LayoutAlgorithm m_layoutAlgorithm;
-#endif
         EditableLinkBehavior m_editableLinkBehavior;
         TextDirectionSubmenuInclusionBehavior m_textDirectionSubmenuInclusionBehavior;
         int m_minimumFontSize;
         int m_minimumLogicalFontSize;
         int m_defaultFontSize;
         int m_defaultFixedFontSize;
+        size_t m_maximumDecodedImageSize;
+#if ENABLE(DOM_STORAGE)
+        unsigned m_sessionStorageQuota;
+#endif
+        unsigned m_pluginAllowedRunTime;
+        unsigned m_editingBehaviorType;
 #ifdef ANDROID_META_SUPPORT
         // range is from 200 to 10,000. 0 is a special value means device-width.
         // default is -1, which means undefined.
@@ -477,34 +480,10 @@ namespace WebCore {
         int m_viewport_minimum_scale;
         // range is from 1 to 1000 in percent. default is 0, which means undefined.
         int m_viewport_maximum_scale;
-        // default is yes
-        bool m_viewport_user_scalable : 1;
-        // range is from 70 to 400. 0 is a special value means device-dpi
-        // default is -1, which means undefined.
-        int m_viewport_target_densitydpi;
-        // default is yes
-        bool m_format_detection_telephone : 1;
-        // default is yes
-        bool m_format_detection_address : 1;
-        // default is yes
-        bool m_format_detection_email : 1;
-        bool m_default_format_detection : 1;
 #endif
 #ifdef ANDROID_LAYOUT
-        bool m_useWideViewport : 1;
+        LayoutAlgorithm m_layoutAlgorithm;
 #endif
-#ifdef ANDROID_MULTIPLE_WINDOWS
-        bool m_supportMultipleWindows : 1;
-#endif
-#ifdef ANDROID_BLOCK_NETWORK_IMAGE
-        bool m_blockNetworkImage : 1;
-#endif
-        size_t m_maximumDecodedImageSize;
-#if ENABLE(DOM_STORAGE)
-        unsigned m_sessionStorageQuota;
-#endif
-        unsigned m_pluginAllowedRunTime;
-        unsigned m_editingBehaviorType;
         bool m_isSpatialNavigationEnabled : 1;
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
@@ -577,7 +556,29 @@ namespace WebCore {
         bool m_usePreHTML5ParserQuirks: 1;
         bool m_hyperlinkAuditingEnabled : 1;
         bool m_crossOriginCheckInGetMatchedCSSRulesDisabled : 1;
-
+#ifdef ANDROID_META_SUPPORT
+        // default is yes
+        bool m_viewport_user_scalable : 1;
+        // range is from 70 to 400. 0 is a special value means device-dpi
+        // default is -1, which means undefined.
+        int m_viewport_target_densitydpi;
+        // default is yes
+        bool m_format_detection_telephone : 1;
+        // default is yes
+        bool m_format_detection_address : 1;
+        // default is yes
+        bool m_format_detection_email : 1;
+        bool m_default_format_detection : 1;
+#endif
+#ifdef ANDROID_LAYOUT
+        bool m_useWideViewport : 1;
+#endif
+#ifdef ANDROID_MULTIPLE_WINDOWS
+        bool m_supportMultipleWindows : 1;
+#endif
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+        bool m_blockNetworkImage : 1;
+#endif
 #if ENABLE(WEB_AUTOFILL)
         bool m_autoFillEnabled: 1;
 #endif
