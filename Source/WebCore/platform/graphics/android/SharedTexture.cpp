@@ -34,33 +34,6 @@
 
 namespace WebCore {
 
-TextureInfo::TextureInfo()
-{
-    m_textureId = GL_NO_TEXTURE;
-    m_width = 0;
-    m_height = 0;
-    m_internalFormat = 0;
-}
-
-bool TextureInfo::equalsAttributes(const TextureInfo* otherTexture)
-{
-    return otherTexture->m_width == m_width
-        && otherTexture->m_height == m_height
-        && otherTexture->m_internalFormat == m_internalFormat;
-}
-
-void TextureInfo::copyAttributes(const TextureInfo* sourceTexture)
-{
-    m_width = sourceTexture->m_width;
-    m_height = sourceTexture->m_height;
-    m_internalFormat = sourceTexture->m_internalFormat;
-}
-
-bool TextureInfo::operator==(const TextureInfo& otherTexture)
-{
-    return otherTexture.m_textureId == m_textureId && equalsAttributes(&otherTexture);
-}
-
 SharedTexture::SharedTexture()
 {
     m_eglImage = EGL_NO_IMAGE_KHR;
