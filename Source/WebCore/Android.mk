@@ -45,6 +45,7 @@ LOCAL_SRC_FILES := \
 	css/CSSImportRule.cpp \
 	css/CSSInheritedValue.cpp \
 	css/CSSInitialValue.cpp \
+	css/CSSLineBoxContainValue.cpp \
 	css/CSSMediaRule.cpp \
 	css/CSSMutableStyleDeclaration.cpp \
 	css/CSSOMUtils.cpp \
@@ -62,6 +63,7 @@ LOCAL_SRC_FILES := \
 	css/CSSSegmentedFontFace.cpp \
 	css/CSSSelector.cpp \
 	css/CSSSelectorList.cpp \
+	css/CSSStyleApplyProperty.cpp \
 	css/CSSStyleDeclaration.cpp \
 	css/CSSStyleRule.cpp \
 	css/CSSStyleSelector.cpp \
@@ -121,12 +123,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/CustomEvent.cpp \
 	dom/DOMImplementation.cpp \
 	dom/DOMStringList.cpp \
-<<<<<<< HEAD
 	dom/DOMStringMap.cpp \
 	dom/DatasetDOMStringMap.cpp \
-=======
-	dom/DataTransferItem.cpp \
->>>>>>> webkit.org at r82507
 	dom/DecodedDataDocumentParser.cpp \
 	dom/DeviceMotionController.cpp \
 	dom/DeviceMotionData.cpp \
@@ -466,11 +464,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/cache/MemoryCache.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
-<<<<<<< HEAD
-=======
 	loader/icon/IconDatabaseBase.cpp \
-	loader/icon/IconFetcher.cpp \
->>>>>>> webkit.org at r82507
 	loader/icon/IconLoader.cpp \
 	loader/icon/IconRecord.cpp \
 	loader/icon/PageURLRecord.cpp \
@@ -536,11 +530,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/ContentType.cpp \
 	platform/ContextMenuItem.cpp \
 	platform/CrossThreadCopier.cpp \
-<<<<<<< HEAD
 	platform/Cursor.cpp \
-=======
-	platform/DefaultLocalizationStrategy.cpp \
->>>>>>> webkit.org at r82507
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
 	platform/FileChooser.cpp \
@@ -987,7 +977,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
 	storage/IDBAny.cpp \
-	storage/IDBBackingStore.cpp \
 	storage/IDBCursor.cpp \
 	storage/IDBCursorBackendImpl.cpp \
 	storage/IDBCursorWithValue.cpp \
@@ -1027,7 +1016,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/StorageMap.cpp \
 	storage/StorageNamespace.cpp \
 	storage/StorageNamespaceImpl.cpp \
-	storage/StorageSyncManager.cpp
+	storage/StorageSyncManager.cpp \
+	storage/StorageTracker.cpp
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

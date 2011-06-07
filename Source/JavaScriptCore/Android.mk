@@ -45,6 +45,7 @@ LOCAL_SRC_FILES := \
 	bytecompiler/NodesCodegen.cpp \
 	\
 	collector/handles/HandleHeap.cpp \
+	collector/handles/HandleStack.cpp \
 	\
 	debugger/Debugger.cpp \
 	debugger/DebuggerActivation.cpp \

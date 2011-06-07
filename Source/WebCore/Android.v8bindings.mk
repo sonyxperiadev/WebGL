@@ -52,11 +52,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/IsolatedWorld.cpp \
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \
-<<<<<<< HEAD
-=======
 	bindings/v8/RetainedDOMInfo.cpp \
-	bindings/v8/RuntimeEnabledFeatures.cpp \
->>>>>>> webkit.org at r82507
 	bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScopedDOMDataStore.cpp \
 	bindings/v8/ScriptCachedFrameData.cpp \
@@ -172,6 +168,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8Uint16ArrayCustom.cpp \
 	bindings/v8/custom/V8Uint32ArrayCustom.cpp \
 	bindings/v8/custom/V8Uint8ArrayCustom.cpp \
+	bindings/v8/custom/V8WebKitAnimationCustom.cpp \
 	bindings/v8/custom/V8WebSocketCustom.cpp
 
 ifeq ($(ENABLE_SVG), true)
@@ -187,11 +184,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8StorageCustom.cpp \
 	bindings/v8/custom/V8StyleSheetCustom.cpp \
 	bindings/v8/custom/V8StyleSheetListCustom.cpp \
-<<<<<<< HEAD
-=======
-	bindings/v8/custom/V8TreeWalkerCustom.cpp \
-	bindings/v8/custom/V8WebKitAnimationCustom.cpp \
->>>>>>> webkit.org at r82507
 	bindings/v8/custom/V8WebKitCSSMatrixConstructor.cpp \
 	bindings/v8/custom/V8WebKitPointConstructor.cpp \
 	bindings/v8/custom/V8WorkerContextCustom.cpp \

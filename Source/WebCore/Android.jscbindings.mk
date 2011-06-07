@@ -183,6 +183,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSUint16ArrayCustom.cpp \
 	bindings/js/JSUint32ArrayCustom.cpp \
 	bindings/js/JSUint8ArrayCustom.cpp \
+	bindings/js/JSWebKitAnimationCustom.cpp \
+	bindings/js/JSWebKitAnimationListCustom.cpp \
 	bindings/js/JSWebKitCSSKeyframeRuleCustom.cpp \
 	bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp \
 	bindings/js/JSWebKitCSSMatrixCustom.cpp \
