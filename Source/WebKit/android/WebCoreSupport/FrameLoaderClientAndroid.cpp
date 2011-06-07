@@ -287,12 +287,13 @@ void FrameLoaderClientAndroid::dispatchDidStartProvisionalLoad() {
     notImplemented();
 }
 
-void FrameLoaderClientAndroid::dispatchDidReceiveTitle(const String& title) {
+void FrameLoaderClientAndroid::dispatchDidReceiveTitle(const StringWithDirection& title) {
     ASSERT(m_frame);
     // Used to check for FrameLoadTypeStandard but we only want to send the title for
     // the top frame and not sub-frames.
+    // FIXME: Use direction of title.
     if (!m_frame->tree() || !m_frame->tree()->parent()) {
-        m_webFrame->setTitle(title);
+        m_webFrame->setTitle(title.string());
     }
 }
 
@@ -883,7 +884,7 @@ PassRefPtr<DocumentLoader> FrameLoaderClientAndroid::createDocumentLoader(
     return loader.release();
 }
 
-void FrameLoaderClientAndroid::setTitle(const String& title, const KURL& url) {
+void FrameLoaderClientAndroid::setTitle(const StringWithDirection& title, const KURL& url) {
     // Not needed. dispatchDidReceiveTitle is called immediately after this.
     // url is used to update the Apple port history items.
     verifiedOk();

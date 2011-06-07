@@ -88,7 +88,7 @@ namespace android {
         virtual void dispatchWillClose();
         virtual void dispatchDidReceiveIcon();
         virtual void dispatchDidStartProvisionalLoad();
-        virtual void dispatchDidReceiveTitle(const String& title);
+        virtual void dispatchDidReceiveTitle(const StringWithDirection& title);
         virtual void dispatchDidCommitLoad();
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const ResourceError&);
@@ -167,7 +167,7 @@ namespace android {
         virtual void prepareForDataSourceReplacement();
 
         virtual PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&);
-        virtual void setTitle(const String& title, const KURL&);
+        virtual void setTitle(const StringWithDirection& title, const KURL&);
 
         // This provides the userAgent to WebCore. It is used by WebCore to
         // populate navigator.userAgent and to set the HTTP header in
