@@ -30,7 +30,7 @@
 
 #include "HashMap.h"
 #include "PerformanceMonitor.h"
-#include "SharedTexture.h"
+#include "TextureInfo.h"
 #include "SkBitmap.h"
 #include "SkCanvas.h"
 #include "SkRect.h"

@@ -26,6 +26,7 @@
 #ifndef SharedTexture_h
 #define SharedTexture_h
 
+#include "TextureInfo.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
@@ -33,28 +34,6 @@
 #include <utils/threads.h>
 
 namespace WebCore {
-
-static const GLuint GL_NO_TEXTURE = 0;
-
-/**
- * TextureInfo is a class that stores both the texture and metadata about the
- * texture.
- */
-class TextureInfo {
-public:
-
-    TextureInfo();
-
-    bool equalsAttributes(const TextureInfo* otherTexture);
-    void copyAttributes(const TextureInfo* sourceTexture);
-
-    bool operator==(const TextureInfo& otherTexture);
-
-    GLuint m_textureId;
-    int32_t m_width;
-    int32_t m_height;
-    GLenum m_internalFormat;
-};
 
 /**
  * SharedTexture is a class that encapsulates all the necessary variables
