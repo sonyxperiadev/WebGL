@@ -161,9 +161,6 @@ bool JavaNPObjectGetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* 
     // behaviour here.
     jvalue value;
 #else
-    // FIXME: Note here that field->type() refers to the Java class name and NOT the
-    // JNI signature i.e. "int" as opposed to "I". This means that the field lookup
-    // will fail.
     jvalue value = getJNIField(instance->javaInstance(),
                                field->getJNIType(),
                                field->name().utf8(),
