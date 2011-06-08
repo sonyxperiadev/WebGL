@@ -53,12 +53,6 @@ namespace WebCore {
         virtual void close();
         virtual void unlock();
 
-<<<<<<< HEAD
-#ifdef ANDROID
-        virtual void clear(Page*);
-#endif
-
-=======
         // Not removing the origin's StorageArea from m_storageAreaMap because
         // we're just deleting the underlying db file. If an item is added immediately
         // after file deletion, we want the same StorageArea to eventually trigger
@@ -67,7 +61,10 @@ namespace WebCore {
         virtual void clearAllOriginsForDeletion();
         virtual void sync();
         
->>>>>>> webkit.org at r82507
+#ifdef ANDROID
+        virtual void clear(Page*);
+#endif
+
     private:
         StorageNamespaceImpl(StorageType, const String& path, unsigned quota);
 

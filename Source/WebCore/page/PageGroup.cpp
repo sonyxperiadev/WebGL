@@ -116,19 +116,57 @@ void PageGroup::closeLocalStorage()
 #endif
 }
 
-<<<<<<< HEAD
-#if ENABLE(DOM_STORAGE) && defined(ANDROID)
-void PageGroup::clearDomStorage()
-=======
 #if ENABLE(DOM_STORAGE)
 
 void PageGroup::clearLocalStorageForAllOrigins()
->>>>>>> webkit.org at r82507
 {
     if (!pageGroups)
         return;
 
-<<<<<<< HEAD
+    PageGroupMap::iterator end = pageGroups->end();
+    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
+        if (it->second->hasLocalStorage())
+            it->second->localStorage()->clearAllOriginsForDeletion();
+    }
+}
+
+void PageGroup::clearLocalStorageForOrigin(SecurityOrigin* origin)
+{
+    if (!pageGroups)
+        return;
+
+    PageGroupMap::iterator end = pageGroups->end();
+    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
+        if (it->second->hasLocalStorage())
+            it->second->localStorage()->clearOriginForDeletion(origin);
+    }    
+}
+    
+void PageGroup::syncLocalStorage()
+{
+    if (!pageGroups)
+        return;
+
+    PageGroupMap::iterator end = pageGroups->end();
+    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
+        if (it->second->hasLocalStorage())
+            it->second->localStorage()->sync();
+    }
+}
+
+unsigned PageGroup::numberOfPageGroups()
+{
+    if (!pageGroups)
+        return 0;
+
+    return pageGroups->size();
+}
+
+#if defined(ANDROID)
+void PageGroup::clearDomStorage()
+{
+    if (!pageGroups)
+        return;
 
     PageGroupMap::iterator end = pageGroups->end();
 
@@ -206,47 +244,8 @@ void PageGroup::removeLocalStorage()
 
     m_localStorage = 0;
 }
-=======
-    PageGroupMap::iterator end = pageGroups->end();
-    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
-        if (it->second->hasLocalStorage())
-            it->second->localStorage()->clearAllOriginsForDeletion();
-    }
-}
+#endif // PLATFORM(ANDROID)
 
-void PageGroup::clearLocalStorageForOrigin(SecurityOrigin* origin)
-{
-    if (!pageGroups)
-        return;
-
-    PageGroupMap::iterator end = pageGroups->end();
-    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
-        if (it->second->hasLocalStorage())
-            it->second->localStorage()->clearOriginForDeletion(origin);
-    }    
-}
-    
-void PageGroup::syncLocalStorage()
-{
-    if (!pageGroups)
-        return;
-
-    PageGroupMap::iterator end = pageGroups->end();
-    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
-        if (it->second->hasLocalStorage())
-            it->second->localStorage()->sync();
-    }
-}
-
-unsigned PageGroup::numberOfPageGroups()
-{
-    if (!pageGroups)
-        return 0;
-
-    return pageGroups->size();
-}
-
->>>>>>> webkit.org at r82507
 #endif
 
 void PageGroup::addPage(Page* page)

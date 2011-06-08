@@ -86,30 +86,6 @@ String homeDirectoryPath()
     return sPluginPath;
 }
 
-Vector<String> listDirectory(const String& path, const String& filter)
-{
-    Vector<String> entries;
-    CString cpath = path.utf8();
-    CString cfilter = filter.utf8();
-    DIR* dir = opendir(cpath.data());
-    if (dir) {
-        struct dirent* dp;
-        while ((dp = readdir(dir))) {
-            const char* name = dp->d_name;
-            if (!strcmp(name, ".") || !strcmp(name, ".."))
-                continue;
-            if (fnmatch(cfilter.data(), name, 0))
-                continue;
-            char filePath[1024];
-            if (static_cast<int>(sizeof(filePath) - 1) < snprintf(filePath, sizeof(filePath), "%s/%s", cpath.data(), name))
-                continue; // buffer overflow
-            entries.append(filePath);
-        }
-        closedir(dir);
-    }
-    return entries;
-}
-
 // We define our own pathGetFileName rather than use the POSIX versions as we
 // may get passed a content URI representing the path to the file. We pass
 // the input through fileSystemRepresentation before using it to resolve it if
