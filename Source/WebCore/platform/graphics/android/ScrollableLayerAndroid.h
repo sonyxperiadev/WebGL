@@ -57,6 +57,9 @@ public:
         m_scrollLimits.set(x, y, x + width, y + height);
     }
 
+    friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
+    friend LayerAndroid* android::deserializeLayer(SkStream* stream);
+
 private:
     SkRect m_scrollLimits;
 };

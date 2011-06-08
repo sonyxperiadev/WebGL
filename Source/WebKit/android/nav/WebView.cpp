@@ -507,6 +507,11 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
 
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
+    // Make sure we have valid coordinates. We might not have valid coords
+    // if the zoom manager is still initializing. We will be redrawn
+    // once the correct scale is set
+    if (!visibleRect.hasValidCoordinates())
+        return false;
     bool ret = m_glWebViewState->drawGL(viewRect, visibleRect, invalRect,
                                         webViewRect, titleBarHeight, clip, scale);
     if (ret || m_glWebViewState->currentPictureCounter() != pic)
