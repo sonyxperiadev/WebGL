@@ -24,8 +24,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PluginTimer_H
-#define PluginTimer_H
+#ifndef PluginTimer_h
+#define PluginTimer_h
 
 #include "FastAllocBase.h"
 #include "RefCounted.h"

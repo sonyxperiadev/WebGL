@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLUGIN_DEBUG_ANDROID_H__
-#define PLUGIN_DEBUG_ANDROID_H__
+#ifndef PluginDebugAndroid_h
+#define PluginDebugAndroid_h
 
 #include "android_npapi.h"
 
@@ -55,4 +55,4 @@ void anp_logPluginEvent(void* npp, const ANPEvent* event, int16_t returnVal, int
 
 #endif
 
-#endif // defined(PLUGIN_DEBUG_ANDROID_H__)
+#endif // defined(PluginDebugAndroid_h)

@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WEBVIEWCORE_H
-#define WEBVIEWCORE_H
+#ifndef WebViewCore_h
+#define WebViewCore_h
 
 #include "CacheBuilder.h"
 #include "CachedHistory.h"
@@ -715,4 +715,4 @@ namespace android {
 
 }   // namespace android
 
-#endif // WEBVIEWCORE_H
+#endif // WebViewCore_h

@@ -25,8 +25,8 @@
 
 // TODO: change name to WebFrame.h
 
-#ifndef WEBFRAME_H
-#define WEBFRAME_H
+#ifndef WebCoreFrameBridge_h
+#define WebCoreFrameBridge_h
 
 #include "FrameLoaderClient.h"
 #include "PlatformBridge.h"
@@ -170,4 +170,4 @@ private:
 
 }   // namespace android
 
-#endif // WEBFRAME_H
+#endif // WebCoreFrameBridge_h

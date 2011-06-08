@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WDS_DEVICE_LIST_H
-#define WDS_DEVICE_LIST_H
+#ifndef DeviceList_h
+#define DeviceList_h
 
 #include <utils/Vector.h>
 

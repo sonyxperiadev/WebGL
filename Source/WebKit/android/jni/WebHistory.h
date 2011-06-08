@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANDROID_WEBKIT_WEBHISTORY_H
-#define ANDROID_WEBKIT_WEBHISTORY_H
+#ifndef WebHistory_h
+#define WebHistory_h
 
 #include "AndroidWebHistoryBridge.h"
 

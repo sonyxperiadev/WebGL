@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PICTURESET_H
-#define PICTURESET_H
+#ifndef PictureSet_h
+#define PictureSet_h
 
 #define PICTURE_SET_DUMP 0
 #define PICTURE_SET_DEBUG 0

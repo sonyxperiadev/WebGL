@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WDS_ADB_CONNECTION_H
-#define WDS_ADB_CONNECTION_H
+#ifndef AdbConnection_h
+#define AdbConnection_h
 
 #include "DeviceList.h"
 

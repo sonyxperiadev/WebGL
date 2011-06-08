@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANDROID_WEBKIT_MESSAGETYPES_H_
-#define ANDROID_WEBKIT_MESSAGETYPES_H_
+#ifndef MessageTypes_h
+#define MessageTypes_h
 
 #include <wtf/CurrentTime.h>
 
@@ -156,4 +156,4 @@ inline Message* NewDelayedMessage(T* object, void (T::*member)(A1),
 }  // namespace android
 
 
-#endif  // ANDROID_WEBKIT_MESSAGETYPES_H_
+#endif  // MessageTypes_h

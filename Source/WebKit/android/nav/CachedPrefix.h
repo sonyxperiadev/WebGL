@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedPrefix_H
-#define CachedPrefix_H
+#ifndef CachedPrefix_h
+#define CachedPrefix_h
 
 #ifndef LOG_TAG
 #define LOG_TAG "navcache"

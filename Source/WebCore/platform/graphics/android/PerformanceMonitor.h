@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PERFORMANCEMONITOR_H_
-#define PERFORMANCEMONITOR_H_
+#ifndef PerformanceMonitor_h
+#define PerformanceMonitor_h
 
 #include "config.h"
 
@@ -55,4 +55,4 @@ private:
 
 }
 
-#endif /* PERFORMANCEMONITOR_H_ */
+#endif // PerformanceMonitor_h

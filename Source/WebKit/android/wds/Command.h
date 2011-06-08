@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WDS_COMMAND_H
-#define WDS_COMMAND_H
+#ifndef Command_h
+#define Command_h
 
 #include "wtf/MainThread.h"
 #include "wtf/Vector.h"

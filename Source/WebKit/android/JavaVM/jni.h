@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _JNI_COVER_H_
-#define _JNI_COVER_H_
+#ifndef jni_h
+#define jni_h
 
 #include "nativehelper/jni.h"
 #define AttachCurrentThread(a, b) AttachCurrentThread((JNIEnv**) a, b)

@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedInput_H
-#define CachedInput_H
+#ifndef CachedInput_h
+#define CachedInput_h
 
 #include "CachedDebug.h"
 #include "HTMLInputElement.h"

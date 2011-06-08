@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANDROIDLOG_H_
-#define ANDROIDLOG_H_
+#ifndef AndroidLog_h
+#define AndroidLog_h
 
 #ifdef ANDROID_DOM_LOGGING
 #include <stdio.h>
@@ -45,4 +45,4 @@ extern FILE* gRenderTreeFile;
 #define DISPLAY_TREE_LOG_FILE "/sdcard/displayTree.txt"
 #define LAYERS_TREE_LOG_FILE "/sdcard/layersTree.plist"
 
-#endif /* ANDROIDLOG_H_ */
+#endif // AndroidLog_h

@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedNodeType_H
-#define CachedNodeType_H
+#ifndef CachedNodeType_h
+#define CachedNodeType_h
 
 namespace android {
 

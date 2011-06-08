@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANDROID_WEBKIT_MESSAGETHREAD_H
-#define ANDROID_WEBKIT_MESSAGETHREAD_H
+#ifndef MessageThread_h
+#define MessageThread_h
 
 #include <list>
 
@@ -105,4 +105,4 @@ MessageThread* messageThread();
 
 }  // namespace android
 
-#endif  // ANDROID_WEBKIT_MESSAGETHREAD_H
+#endif  // MessageThread_h

@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedNode_H
-#define CachedNode_H
+#ifndef CachedNode_h
+#define CachedNode_h
 
 #include "CachedDebug.h"
 #include "CachedNodeType.h"

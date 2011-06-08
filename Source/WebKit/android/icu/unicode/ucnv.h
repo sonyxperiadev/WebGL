@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANDROID_UCNV_H
-#define ANDROID_UCNV_H
+#ifndef ucnv_h
+#define ucnv_h
 
 // Include the real ucnv.h file from icu. Use a more exact reference so we do
 // not conflict with this file.

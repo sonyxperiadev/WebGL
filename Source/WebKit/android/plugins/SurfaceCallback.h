@@ -24,8 +24,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SurfaceCallback_H
-#define SurfaceCallback_H
+#ifndef SurfaceCallback_h
+#define SurfaceCallback_h
 
 namespace android {
 

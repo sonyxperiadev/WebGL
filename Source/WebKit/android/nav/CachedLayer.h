@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedLayer_H
-#define CachedLayer_H
+#ifndef CachedLayer_h
+#define CachedLayer_h
 
 #include "CachedDebug.h"
 #include "IntRect.h"

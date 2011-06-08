@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedRoot_H
-#define CachedRoot_H
+#ifndef CachedRoot_h
+#define CachedRoot_h
 
 #include "CachedFrame.h"
 #include "IntRect.h"

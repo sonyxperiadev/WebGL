@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANPVideo_npapi_H
-#define ANPVideo_npapi_H
+#ifndef ANPVideo_npapi_h
+#define ANPVideo_npapi_h
 
 #include "android_npapi.h"
 #include <android/native_window.h>
@@ -58,4 +58,4 @@ struct ANPVideoInterfaceV0 : ANPInterface {
     void (*releaseNativeWindow)(NPP instance, ANativeWindow* window);
 };
 
-#endif //ANPVideo_npapi_H
+#endif // ANPVideo_npapi_h

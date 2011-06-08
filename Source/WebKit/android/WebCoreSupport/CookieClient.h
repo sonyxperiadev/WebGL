@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef COOKIE_CLIENT_H
-#define COOKIE_CLIENT_H
+#ifndef CookieClient_h
+#define CookieClient_h
 
 #include <KURL.h>
 #include <PlatformString.h>

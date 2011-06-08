@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SELECT_TEXT_H
-#define SELECT_TEXT_H
+#ifndef SelectText_h
+#define SelectText_h
 
 #include "DrawExtra.h"
 #include "IntPoint.h"
