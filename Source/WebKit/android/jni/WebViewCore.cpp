@@ -160,6 +160,10 @@ FILE* gRenderTreeFile = 0;
 #include "RenderLayerCompositor.h"
 #endif
 
+#if USE(V8)
+#include <v8.h>
+#endif
+
 /*  We pass this flag when recording the actual content, so that we don't spend
     time actually regionizing complex path clips, when all we really want to do
     is record them.
@@ -427,6 +431,12 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 
 #if USE(CHROME_NETWORK_STACK)
     AndroidNetworkLibraryImpl::InitWithApplicationContext(env, 0);
+#endif
+
+#if USE(V8)
+    // FIXME: This is a work-around for a V8 bug regarding initializing the
+    // default isolate and should be removed when it is fixed.
+    v8::V8::Initialize();
 #endif
 }
 
