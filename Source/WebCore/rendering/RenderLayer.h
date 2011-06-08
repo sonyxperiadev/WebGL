@@ -733,11 +733,11 @@ protected:
     bool m_hasCompositingDescendant : 1;
     bool m_mustOverlapCompositedLayers : 1;
 #endif
+
+    bool m_containsDirtyOverlayScrollbars : 1;
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     bool m_hasOverflowScroll : 1;
 #endif
-
-    bool m_containsDirtyOverlayScrollbars : 1;
 
     IntPoint m_cachedOverlayScrollbarOffset;
 

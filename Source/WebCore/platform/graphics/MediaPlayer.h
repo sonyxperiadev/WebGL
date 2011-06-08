@@ -182,16 +182,12 @@ public:
     IntSize naturalSize();
     bool hasVideo() const;
     bool hasAudio() const;
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     enum MediaElementType { Video, Audio };
     void setMediaElementType(MediaElementType type) { m_mediaElementType = type; }
     MediaElementType mediaElementType() { return m_mediaElementType; }
 #endif
-    
-=======
 
->>>>>>> webkit.org at r82507
     void setFrameView(FrameView* frameView) { m_frameView = frameView; }
     FrameView* frameView() { return m_frameView; }
     bool inMediaDocument();

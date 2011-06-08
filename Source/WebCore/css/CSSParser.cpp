@@ -1893,7 +1893,19 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyWebkitTextEmphasisStyle:
         return parseTextEmphasisStyle(important);
 
-<<<<<<< HEAD
+    case CSSPropertyWebkitTextOrientation:
+        // FIXME: For now just support upright and vertical-right.
+        if (id == CSSValueVerticalRight || id == CSSValueUpright)
+            validPrimitive = true;
+        break;
+
+    case CSSPropertyWebkitLineBoxContain:
+        if (id == CSSValueNone)
+            validPrimitive = true;
+        else
+            return parseLineBoxContain(important);
+        break;
+
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
     {
@@ -1931,20 +1943,6 @@ bool CSSParser::parseValue(int propId, bool important)
             m_valueList->next();
         break;
 #endif
-=======
-    case CSSPropertyWebkitTextOrientation:
-        // FIXME: For now just support upright and vertical-right.
-        if (id == CSSValueVerticalRight || id == CSSValueUpright)
-            validPrimitive = true;
-        break;
-
-    case CSSPropertyWebkitLineBoxContain:
-        if (id == CSSValueNone)
-            validPrimitive = true;
-        else
-            return parseLineBoxContain(important);
-        break;
->>>>>>> webkit.org at r82507
 
 #if ENABLE(SVG)
     default:

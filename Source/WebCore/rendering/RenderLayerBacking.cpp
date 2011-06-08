@@ -1115,26 +1115,20 @@ void RenderLayerBacking::paintContents(const GraphicsLayer* graphicsLayer, Graph
 {
     InspectorInstrumentationCookie cookie = InspectorInstrumentation::willPaint(m_owningLayer->renderer()->frame(), clip);
 
-<<<<<<< HEAD
-    // We have to use the same root as for hit testing, because both methods
-    // can compute and cache clipRects.
-    IntRect enclosingBBox = compositedBounds();
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    // If we encounter a scrollable layer, layers inside the scrollable layer
-    // will need their entire content recorded.
-    if (m_owningLayer->hasOverflowParent())
-        enclosingBBox.setSize(clip.size());
-#endif
-=======
     IntSize offset = graphicsLayer->offsetFromRenderer();
     context.translate(-offset);
->>>>>>> webkit.org at r82507
 
     IntRect clipRect(clip);
     clipRect.move(offset);
     
     // The dirtyRect is in the coords of the painting root.
     IntRect dirtyRect = compositedBounds();
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    // If we encounter a scrollable layer, layers inside the scrollable layer
+    // will need their entire content recorded.
+    if (m_owningLayer->hasOverflowParent())
+        dirtyRect.setSize(clip.size());
+#endif
     dirtyRect.intersect(clipRect);
 
     // We have to use the same root as for hit testing, because both methods can compute and cache clipRects.

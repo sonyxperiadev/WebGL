@@ -1253,15 +1253,11 @@ private:
     RefPtr<Node> m_activeNode;
     mutable RefPtr<Element> m_documentElement;
 
-<<<<<<< HEAD
-    unsigned m_domTreeVersion;
+    uint64_t m_domTreeVersion;
+    static uint64_t s_globalTreeVersion;
 #ifdef ANDROID_STYLE_VERSION
     unsigned m_styleVersion;
 #endif
-=======
-    uint64_t m_domTreeVersion;
-    static uint64_t s_globalTreeVersion;
->>>>>>> webkit.org at r82507
     
     HashSet<NodeIterator*> m_nodeIterators;
     HashSet<Range*> m_ranges;

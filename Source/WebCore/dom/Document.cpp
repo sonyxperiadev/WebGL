@@ -394,14 +394,10 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     : ContainerNode(0)
     , m_compatibilityMode(NoQuirksMode)
     , m_compatibilityModeLocked(false)
-<<<<<<< HEAD
-    , m_domTreeVersion(0)
+    , m_domTreeVersion(++s_globalTreeVersion)
 #ifdef ANDROID_STYLE_VERSION
     , m_styleVersion(0)
 #endif
-=======
-    , m_domTreeVersion(++s_globalTreeVersion)
->>>>>>> webkit.org at r82507
     , m_styleSheets(StyleSheetList::create(this))
     , m_readyState(Complete)
     , m_styleRecalcTimer(this, &Document::styleRecalcTimerFired)

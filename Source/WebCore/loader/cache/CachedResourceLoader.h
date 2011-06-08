@@ -153,15 +153,9 @@ private:
     bool m_autoLoadImages : 1;
     bool m_loadFinishing : 1;
     bool m_allowStaleResources : 1;
-<<<<<<< HEAD
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     bool m_blockNetworkImage : 1;
 #endif
-    
-    // FIME: For debugging, remove.
-    unsigned m_isInMethod;
-=======
->>>>>>> webkit.org at r82507
 };
 
 }

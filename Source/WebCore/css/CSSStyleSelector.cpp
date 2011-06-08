@@ -6159,7 +6159,57 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
 
         return;
 
-<<<<<<< HEAD
+    case CSSPropertyWebkitTextOrientation: {
+        if (!isInherit && !isInitial && !primitiveValue)
+            return;
+        
+        TextOrientation result;
+        if (isInherit)
+            result = m_parentStyle->fontDescription().textOrientation();
+        else if (isInitial)
+            result = RenderStyle::initialTextOrientation();
+        else
+            result = *primitiveValue;
+        
+        FontDescription fontDescription = m_style->fontDescription();
+        if (fontDescription.textOrientation() != result) {
+            fontDescription.setTextOrientation(result);
+            if (m_style->setFontDescription(fontDescription))
+                m_fontDirty = true;
+        }
+        return;
+    }
+
+    case CSSPropertyWebkitLineBoxContain: {
+        HANDLE_INHERIT_AND_INITIAL(lineBoxContain, LineBoxContain)
+        if (primitiveValue && primitiveValue->getIdent() == CSSValueNone) {
+            m_style->setLineBoxContain(LineBoxContainNone);
+            return;
+        }
+        
+        if (!value->isCSSLineBoxContainValue())
+            return;
+        
+        CSSLineBoxContainValue* lineBoxContainValue = static_cast<CSSLineBoxContainValue*>(value);
+        m_style->setLineBoxContain(lineBoxContainValue->value());
+        return;
+    }
+
+    // These properties are implemented in the CSSStyleApplyProperty lookup table.
+    case CSSPropertyColor:
+    case CSSPropertyBackgroundColor:
+    case CSSPropertyBorderBottomColor:
+    case CSSPropertyBorderLeftColor:
+    case CSSPropertyBorderRightColor:
+    case CSSPropertyBorderTopColor:
+    case CSSPropertyOutlineColor:
+    case CSSPropertyWebkitColumnRuleColor:
+    case CSSPropertyWebkitTextEmphasisColor:
+    case CSSPropertyWebkitTextFillColor:
+    case CSSPropertyWebkitTextStrokeColor:
+        ASSERT_NOT_REACHED();
+        return;
+
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
         if (valueType != CSSValue::CSS_INHERIT || !m_parentNode) return;
@@ -6303,58 +6353,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 #endif
-=======
-    case CSSPropertyWebkitTextOrientation: {
-        if (!isInherit && !isInitial && !primitiveValue)
-            return;
-        
-        TextOrientation result;
-        if (isInherit)
-            result = m_parentStyle->fontDescription().textOrientation();
-        else if (isInitial)
-            result = RenderStyle::initialTextOrientation();
-        else
-            result = *primitiveValue;
-        
-        FontDescription fontDescription = m_style->fontDescription();
-        if (fontDescription.textOrientation() != result) {
-            fontDescription.setTextOrientation(result);
-            if (m_style->setFontDescription(fontDescription))
-                m_fontDirty = true;
-        }
-        return;
-    }
-
-    case CSSPropertyWebkitLineBoxContain: {
-        HANDLE_INHERIT_AND_INITIAL(lineBoxContain, LineBoxContain)
-        if (primitiveValue && primitiveValue->getIdent() == CSSValueNone) {
-            m_style->setLineBoxContain(LineBoxContainNone);
-            return;
-        }
-        
-        if (!value->isCSSLineBoxContainValue())
-            return;
-        
-        CSSLineBoxContainValue* lineBoxContainValue = static_cast<CSSLineBoxContainValue*>(value);
-        m_style->setLineBoxContain(lineBoxContainValue->value());
-        return;
-    }
-
-    // These properties are implemented in the CSSStyleApplyProperty lookup table.
-    case CSSPropertyColor:
-    case CSSPropertyBackgroundColor:
-    case CSSPropertyBorderBottomColor:
-    case CSSPropertyBorderLeftColor:
-    case CSSPropertyBorderRightColor:
-    case CSSPropertyBorderTopColor:
-    case CSSPropertyOutlineColor:
-    case CSSPropertyWebkitColumnRuleColor:
-    case CSSPropertyWebkitTextEmphasisColor:
-    case CSSPropertyWebkitTextFillColor:
-    case CSSPropertyWebkitTextStrokeColor:
-        ASSERT_NOT_REACHED();
-        return;
->>>>>>> webkit.org at r82507
 
 #if ENABLE(SVG)
     default:

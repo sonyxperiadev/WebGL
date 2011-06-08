@@ -178,13 +178,10 @@ RenderLayer::RenderLayer(RenderBoxModelObject* renderer)
     , m_hasCompositingDescendant(false)
     , m_mustOverlapCompositedLayers(false)
 #endif
-<<<<<<< HEAD
+    , m_containsDirtyOverlayScrollbars(false)
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     , m_hasOverflowScroll(false)
 #endif
-=======
-    , m_containsDirtyOverlayScrollbars(false)
->>>>>>> webkit.org at r82507
     , m_marquee(0)
     , m_staticInlinePosition(0)
     , m_staticBlockPosition(0)

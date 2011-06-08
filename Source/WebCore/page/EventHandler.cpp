@@ -98,13 +98,12 @@
 #include "TouchEvent.h"
 #endif
 
-<<<<<<< HEAD
-#if defined(ANDROID_PLUGINS)
-#include "WebViewCore.h"
-=======
 #if ENABLE(GESTURE_RECOGNIZER)
 #include "PlatformGestureRecognizer.h"
->>>>>>> webkit.org at r82507
+#endif
+
+#if defined(ANDROID_PLUGINS)
+#include "WebViewCore.h"
 #endif
 
 namespace WebCore {

@@ -224,13 +224,12 @@ void SliderThumbElement::defaultEventHandler(Event* event)
 #endif
             ) {
         if (m_inDragMode)
-<<<<<<< HEAD
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
         {
             if (event->isMouseEvent()) {
                 MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
 #endif
-            setPosition(mouseEvent->absoluteLocation());
+            setPositionFromPoint(mouseEvent->absoluteLocation());
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
             } else if (event->isTouchEvent()) {
                 TouchEvent* touchEvent = static_cast<TouchEvent*>(event);
@@ -238,7 +237,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
                     IntPoint curPoint;
                     curPoint.setX(touchEvent->touches()->item(0)->pageX());
                     curPoint.setY(touchEvent->touches()->item(0)->pageY());
-                    setPosition(curPoint);
+                    setPositionFromPoint(curPoint);
                     // Tell the webview that webkit will handle the following move events
                     event->setDefaultPrevented(true);
                 }
@@ -246,9 +245,6 @@ void SliderThumbElement::defaultEventHandler(Event* event)
 
         }
 #endif
-=======
-            setPositionFromPoint(mouseEvent->absoluteLocation());
->>>>>>> webkit.org at r82507
         return;
     }
 

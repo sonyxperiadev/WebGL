@@ -2126,7 +2126,6 @@ void RenderBox::computeBlockDirectionMargins(RenderBlock* containingBlock)
 
 int RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode) const
 {
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // Fixed element's position should be decided by the visible screen size.
     // That is in the doc coordindate.
@@ -2136,10 +2135,7 @@ int RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxModelObje
     }
 #endif
 
-    if (checkForPerpendicularWritingMode && containingBlock->style()->isHorizontalWritingMode() != style()->isHorizontalWritingMode())
-=======
     if (checkForPerpendicularWritingMode && containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode())
->>>>>>> webkit.org at r82507
         return containingBlockLogicalHeightForPositioned(containingBlock, false);
 
     if (containingBlock->isBox())
@@ -2170,7 +2166,6 @@ int RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxModelObje
 
 int RenderBox::containingBlockLogicalHeightForPositioned(const RenderBoxModelObject* containingBlock, bool checkForPerpendicularWritingMode) const
 {
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // Fixed element's position should be decided by the visible screen size.
     // That is in the doc coordindate.
@@ -2180,10 +2175,7 @@ int RenderBox::containingBlockLogicalHeightForPositioned(const RenderBoxModelObj
     }
 #endif
 
-    if (checkForPerpendicularWritingMode && containingBlock->style()->isHorizontalWritingMode() != style()->isHorizontalWritingMode())
-=======
     if (checkForPerpendicularWritingMode && containingBlock->isHorizontalWritingMode() != isHorizontalWritingMode())
->>>>>>> webkit.org at r82507
         return containingBlockLogicalWidthForPositioned(containingBlock, false);
 
     if (containingBlock->isBox())

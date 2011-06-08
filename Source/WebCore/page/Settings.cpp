@@ -173,7 +173,8 @@ Settings::Settings(Page* page)
     , m_usePreHTML5ParserQuirks(false)
     , m_hyperlinkAuditingEnabled(false)
     , m_crossOriginCheckInGetMatchedCSSRulesDisabled(false)
-<<<<<<< HEAD
+    , m_useQuickLookResourceCachingQuirks(false)
+    , m_forceCompositingMode(false)
 #ifdef ANDROID_LAYOUT
     , m_useWideViewport(false)
 #endif
@@ -189,10 +190,6 @@ Settings::Settings(Page* page)
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
-=======
-    , m_useQuickLookResourceCachingQuirks(false)
-    , m_forceCompositingMode(false)
->>>>>>> webkit.org at r82507
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.

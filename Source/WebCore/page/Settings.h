@@ -575,7 +575,8 @@ namespace WebCore {
         bool m_usePreHTML5ParserQuirks: 1;
         bool m_hyperlinkAuditingEnabled : 1;
         bool m_crossOriginCheckInGetMatchedCSSRulesDisabled : 1;
-<<<<<<< HEAD
+        bool m_useQuickLookResourceCachingQuirks : 1;
+        bool m_forceCompositingMode : 1;
 #ifdef ANDROID_META_SUPPORT
         // default is yes
         bool m_viewport_user_scalable : 1;
@@ -605,10 +606,6 @@ namespace WebCore {
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
-=======
-        bool m_useQuickLookResourceCachingQuirks : 1;
-        bool m_forceCompositingMode : 1;
->>>>>>> webkit.org at r82507
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
