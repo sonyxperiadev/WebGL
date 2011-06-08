@@ -44,7 +44,6 @@ var Preferences = {
     profilerAlwaysEnabled: false,
     onlineDetectionEnabled: true,
     nativeInstrumentationEnabled: false,
-    resourceExportEnabled: false,
     useDataURLForResourceImageIcons: true,
     showTimingTab: false,
     showCookiesTab: false,
@@ -58,6 +57,7 @@ WebInspector.Settings = function()
     this.installApplicationSetting("colorFormat", "hex");
     this.installApplicationSetting("consoleHistory", []);
     this.installApplicationSetting("debuggerEnabled", false);
+    this.installApplicationSetting("domWordWrap", true);
     this.installApplicationSetting("profilerEnabled", false);
     this.installApplicationSetting("eventListenersFilter", "all");
     this.installApplicationSetting("lastActivePanel", "elements");
@@ -71,6 +71,8 @@ WebInspector.Settings = function()
     this.installApplicationSetting("showUserAgentStyles", true);
     this.installApplicationSetting("watchExpressions", []);
     this.installApplicationSetting("breakpoints", []);
+    this.installApplicationSetting("eventListenerBreakpoints", []);
+    this.installApplicationSetting("xhrBreakpoints", []);
 
     this.installProjectSetting("nativeBreakpoints", []);
 }
@@ -112,6 +114,9 @@ WebInspector.Settings.prototype = {
     findSettingForAllProjects: function(key)
     {
         var result = {};
+        if (window.localStorage == null)
+            return result;
+
         var regexp = "^" + key + ":(.*)";
         for (var i = 0; i < window.localStorage.length; ++i) {
             var fullKey =  window.localStorage.key(i);
@@ -129,7 +134,7 @@ WebInspector.Settings.prototype = {
 
     _get: function(key, defaultValue)
     {
-        if (key in window.localStorage) {
+        if (window.localStorage != null && key in window.localStorage) {
             try {
                 return JSON.parse(window.localStorage[key]);
             } catch(e) {
@@ -141,7 +146,8 @@ WebInspector.Settings.prototype = {
 
     _set: function(key, value)
     {
-        window.localStorage[key] = JSON.stringify(value);
+        if (window.localStorage != null)
+            window.localStorage[key] = JSON.stringify(value);
     },
 
     _getProjectSetting: function(key, defaultValue)

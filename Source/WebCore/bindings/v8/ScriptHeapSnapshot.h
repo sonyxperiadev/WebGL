@@ -54,12 +54,11 @@ public:
     {
         return adoptRef(new ScriptHeapSnapshot(snapshot));
     }
-    virtual ~ScriptHeapSnapshot() {}
+    virtual ~ScriptHeapSnapshot();
 
     String title() const;
     unsigned int uid() const;
     void writeJSON(OutputStream* stream);
-    int exactRetainedSize(uint64_t nodeId);
 
 private:
     ScriptHeapSnapshot(const v8::HeapSnapshot* snapshot)

@@ -41,9 +41,11 @@
 #include "MediaControls.h"
 #include "MouseEvent.h"
 #include "Page.h"
+#include "RenderFlexibleBox.h"
 #include "RenderMedia.h"
 #include "RenderSlider.h"
 #include "RenderTheme.h"
+#include "RenderView.h"
 #include "Settings.h"
 
 namespace WebCore {
@@ -250,11 +252,41 @@ const AtomicString& MediaControlTimelineContainerElement::shadowPseudoId() const
 
 // ----------------------------
 
+class RenderMediaVolumeSliderContainer : public RenderBlock {
+public:
+    RenderMediaVolumeSliderContainer(Node*);
+
+private:
+    virtual void layout();
+};
+
+RenderMediaVolumeSliderContainer::RenderMediaVolumeSliderContainer(Node* node)
+    : RenderBlock(node)
+{
+}
+
+void RenderMediaVolumeSliderContainer::layout()
+{
+    RenderBlock::layout();
+    if (style()->display() == NONE || !previousSibling() || !previousSibling()->isBox())
+        return;
+
+    RenderBox* buttonBox = toRenderBox(previousSibling());
+
+    if (view())
+        view()->disableLayoutState();
+
+    IntPoint offset = theme()->volumeSliderOffsetFromMuteButton(buttonBox, IntSize(width(), height()));
+    setX(offset.x() + buttonBox->offsetLeft());
+    setY(offset.y() + buttonBox->offsetTop());
+
+    if (view())
+        view()->enableLayoutState();
+}
+
 inline MediaControlVolumeSliderContainerElement::MediaControlVolumeSliderContainerElement(HTMLMediaElement* mediaElement)
     : MediaControlElement(mediaElement)
     , m_isVisible(false)
-    , m_x(0)
-    , m_y(0)
 {
 }
 
@@ -263,12 +295,15 @@ PassRefPtr<MediaControlVolumeSliderContainerElement> MediaControlVolumeSliderCon
     return adoptRef(new MediaControlVolumeSliderContainerElement(mediaElement));
 }
 
+RenderObject* MediaControlVolumeSliderContainerElement::createRenderer(RenderArena* arena, RenderStyle*)
+{
+    return new (arena) RenderMediaVolumeSliderContainer(this);
+}
+
 PassRefPtr<RenderStyle> MediaControlVolumeSliderContainerElement::styleForElement()
 {
     RefPtr<RenderStyle> style = MediaControlElement::styleForElement();
     style->setPosition(AbsolutePosition);
-    style->setLeft(Length(m_x, Fixed));
-    style->setTop(Length(m_y, Fixed));
     style->setDisplay(m_isVisible ? BLOCK : NONE);
     return style;
 }
@@ -278,14 +313,6 @@ void MediaControlVolumeSliderContainerElement::setVisible(bool visible)
     if (visible == m_isVisible)
         return;
     m_isVisible = visible;
-}
-
-void MediaControlVolumeSliderContainerElement::setPosition(int x, int y)
-{
-    if (x == m_x && y == m_y)
-        return;
-    m_x = x;
-    m_y = y;
 }
 
 bool MediaControlVolumeSliderContainerElement::hitTest(const IntPoint& absPoint)
@@ -776,6 +803,7 @@ PassRefPtr<MediaControlTimelineElement> MediaControlTimelineElement::create(HTML
 {
     RefPtr<MediaControlTimelineElement> timeline = adoptRef(new MediaControlTimelineElement(mediaElement));
     timeline->setType("range");
+    timeline->setAttribute(precisionAttr, "float");
     return timeline.release();
 }
 
@@ -841,6 +869,9 @@ PassRefPtr<MediaControlVolumeSliderElement> MediaControlVolumeSliderElement::cre
 {
     RefPtr<MediaControlVolumeSliderElement> slider = adoptRef(new MediaControlVolumeSliderElement(mediaElement));
     slider->setType("range");
+    slider->setAttribute(precisionAttr, "float");
+    slider->setAttribute(maxAttr, "1");
+    slider->setAttribute(valueAttr, String::number(mediaElement->volume()));
     return slider.release();
 }
 
@@ -877,6 +908,29 @@ void MediaControlVolumeSliderElement::update()
 const AtomicString& MediaControlVolumeSliderElement::shadowPseudoId() const
 {
     DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-volume-slider"));
+    return id;
+}
+
+// ----------------------------
+
+inline MediaControlFullscreenVolumeSliderElement::MediaControlFullscreenVolumeSliderElement(HTMLMediaElement* mediaElement)
+: MediaControlVolumeSliderElement(mediaElement)
+{
+}
+
+PassRefPtr<MediaControlFullscreenVolumeSliderElement> MediaControlFullscreenVolumeSliderElement::create(HTMLMediaElement* mediaElement)
+{
+    RefPtr<MediaControlFullscreenVolumeSliderElement> slider = adoptRef(new MediaControlFullscreenVolumeSliderElement(mediaElement));
+    slider->setType("range");
+    slider->setAttribute(precisionAttr, "float");
+    slider->setAttribute(maxAttr, "1");
+    slider->setAttribute(valueAttr, String::number(mediaElement->volume()));
+    return slider.release();
+}
+
+const AtomicString& MediaControlFullscreenVolumeSliderElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-fullscreen-volume-slider"));
     return id;
 }
 
@@ -924,41 +978,105 @@ const AtomicString& MediaControlFullscreenButtonElement::shadowPseudoId() const
 
 // ----------------------------
 
+inline MediaControlFullscreenVolumeMinButtonElement::MediaControlFullscreenVolumeMinButtonElement(HTMLMediaElement* mediaElement)
+: MediaControlInputElement(mediaElement, MediaUnMuteButton)
+{
+}
+
+PassRefPtr<MediaControlFullscreenVolumeMinButtonElement> MediaControlFullscreenVolumeMinButtonElement::create(HTMLMediaElement* mediaElement)
+{
+    RefPtr<MediaControlFullscreenVolumeMinButtonElement> button = adoptRef(new MediaControlFullscreenVolumeMinButtonElement(mediaElement));
+    button->setType("button");
+    return button.release();
+}
+
+void MediaControlFullscreenVolumeMinButtonElement::defaultEventHandler(Event* event)
+{
+    if (event->type() == eventNames().clickEvent) {
+        ExceptionCode code = 0;
+        mediaElement()->setVolume(0, code);
+        event->setDefaultHandled();
+    }
+    HTMLInputElement::defaultEventHandler(event);
+}
+
+const AtomicString& MediaControlFullscreenVolumeMinButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-fullscreen-volume-min-button"));
+    return id;
+}
+
+// ----------------------------
+
+inline MediaControlFullscreenVolumeMaxButtonElement::MediaControlFullscreenVolumeMaxButtonElement(HTMLMediaElement* mediaElement)
+: MediaControlInputElement(mediaElement, MediaMuteButton)
+{
+}
+
+PassRefPtr<MediaControlFullscreenVolumeMaxButtonElement> MediaControlFullscreenVolumeMaxButtonElement::create(HTMLMediaElement* mediaElement)
+{
+    RefPtr<MediaControlFullscreenVolumeMaxButtonElement> button = adoptRef(new MediaControlFullscreenVolumeMaxButtonElement(mediaElement));
+    button->setType("button");
+    return button.release();
+}
+
+void MediaControlFullscreenVolumeMaxButtonElement::defaultEventHandler(Event* event)
+{
+    if (event->type() == eventNames().clickEvent) {
+        ExceptionCode code = 0;
+        mediaElement()->setVolume(1, code);
+        event->setDefaultHandled();
+    }
+    HTMLInputElement::defaultEventHandler(event);
+}
+
+const AtomicString& MediaControlFullscreenVolumeMaxButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls-fullscreen-volume-max-button"));
+    return id;
+}
+
+// ----------------------------
+
+class RenderMediaControlTimeDisplay : public RenderFlexibleBox {
+public:
+    RenderMediaControlTimeDisplay(Node*);
+
+private:
+    virtual void layout();
+};
+
+RenderMediaControlTimeDisplay::RenderMediaControlTimeDisplay(Node* node)
+    : RenderFlexibleBox(node)
+{
+}
+
+// We want the timeline slider to be at least 100 pixels wide.
+// FIXME: Eliminate hard-coded widths altogether.
+static const int minWidthToDisplayTimeDisplays = 45 + 100 + 45;
+
+void RenderMediaControlTimeDisplay::layout()
+{
+    RenderFlexibleBox::layout();
+    RenderBox* timelineContainerBox = parentBox();
+    if (timelineContainerBox && timelineContainerBox->width() < minWidthToDisplayTimeDisplays)
+        setWidth(0);
+}
+
 inline MediaControlTimeDisplayElement::MediaControlTimeDisplayElement(HTMLMediaElement* mediaElement)
     : MediaControlElement(mediaElement)
     , m_currentValue(0)
-    , m_isVisible(true)
 {
-}
-
-PassRefPtr<RenderStyle> MediaControlTimeDisplayElement::styleForElement()
-{
-    RefPtr<RenderStyle> style = MediaControlElement::styleForElement();
-    if (!m_isVisible) {
-        style = RenderStyle::clone(style.get());
-        style->setWidth(Length(0, Fixed));
-    }
-    return style;
-}
-
-void MediaControlTimeDisplayElement::setVisible(bool visible)
-{
-    if (visible == m_isVisible)
-        return;
-    m_isVisible = visible;
-
-    // This function is used during the RenderMedia::layout()
-    // call, where we cannot change the renderer at this time.
-    if (!renderer() || !renderer()->style())
-        return;
-
-    RefPtr<RenderStyle> style = styleForElement();
-    renderer()->setStyle(style.get());
 }
 
 void MediaControlTimeDisplayElement::setCurrentValue(float time)
 {
     m_currentValue = time;
+}
+
+RenderObject* MediaControlTimeDisplayElement::createRenderer(RenderArena* arena, RenderStyle*)
+{
+    return new (arena) RenderMediaControlTimeDisplay(this);
 }
 
 // ----------------------------

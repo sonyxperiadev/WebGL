@@ -277,7 +277,7 @@ void RenderTable::layout()
 {
     ASSERT(needsLayout());
 
-    if (layoutOnlyPositionedObjects())
+    if (simplifiedLayout())
         return;
 
     recalcSectionsIfNeeded();
@@ -510,11 +510,14 @@ void RenderTable::paint(PaintInfo& paintInfo, int tx, int ty)
 
     PaintPhase paintPhase = paintInfo.phase;
 
-    int os = 2 * maximalOutlineSize(paintPhase);
-    if (ty + minYVisualOverflow() >= paintInfo.rect.maxY() + os || ty + maxYVisualOverflow() <= paintInfo.rect.y() - os)
-        return;
-    if (tx + minXVisualOverflow() >= paintInfo.rect.maxX() + os || tx + maxXVisualOverflow() <= paintInfo.rect.x() - os)
-        return;
+    if (!isRoot()) {
+        IntRect overflowBox = visualOverflowRect();
+        flipForWritingMode(overflowBox);
+        overflowBox.inflate(maximalOutlineSize(paintInfo.phase));
+        overflowBox.move(tx, ty);
+        if (!overflowBox.intersects(paintInfo.rect))
+            return;
+    }
 
     bool pushedClip = pushContentsClip(paintInfo, tx, ty);    
     paintObject(paintInfo, tx, ty);
@@ -609,7 +612,13 @@ void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
 
     paintBoxShadow(paintInfo.context, rect.x(), rect.y(), rect.width(), rect.height(), style(), Normal);
     
-    paintFillLayers(paintInfo, style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), rect.x(), rect.y(), rect.width(), rect.height());
+    if (isRoot())
+        paintRootBoxFillLayers(paintInfo);
+    else if (!isBody() || document()->documentElement()->renderer()->hasBackground())
+        // The <body> only paints its background if the root element has defined a background
+        // independent of the body.
+        paintFillLayers(paintInfo, style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), rect.x(), rect.y(), rect.width(), rect.height());
+
     paintBoxShadow(paintInfo.context, rect.x(), rect.y(), rect.width(), rect.height(), style(), Inset);
 
     if (style()->hasBorder() && !collapseBorders())
@@ -1199,9 +1208,9 @@ int RenderTable::firstLineBoxBaseline() const
     return firstNonEmptySection->logicalTop() + firstNonEmptySection->firstLineBoxBaseline();
 }
 
-IntRect RenderTable::overflowClipRect(int tx, int ty)
+IntRect RenderTable::overflowClipRect(int tx, int ty, OverlayScrollbarSizeRelevancy relevancy)
 {
-    IntRect rect = RenderBlock::overflowClipRect(tx, ty);
+    IntRect rect = RenderBlock::overflowClipRect(tx, ty, relevancy);
     
     // If we have a caption, expand the clip to include the caption.
     // FIXME: Technically this is wrong, but it's virtually impossible to fix this

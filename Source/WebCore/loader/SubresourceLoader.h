@@ -31,6 +31,8 @@
 
 #include "FrameLoaderTypes.h"
 #include "ResourceLoader.h"
+
+#include <wtf/text/WTFString.h>
  
 namespace WebCore {
 
@@ -39,7 +41,7 @@ namespace WebCore {
     
     class SubresourceLoader : public ResourceLoader {
     public:
-        static PassRefPtr<SubresourceLoader> create(Frame*, SubresourceLoaderClient*, const ResourceRequest&, SecurityCheckPolicy = DoSecurityCheck, bool sendResourceLoadCallbacks = true, bool shouldContentSniff = true);
+        static PassRefPtr<SubresourceLoader> create(Frame*, SubresourceLoaderClient*, const ResourceRequest&, SecurityCheckPolicy = DoSecurityCheck, bool sendResourceLoadCallbacks = true, bool shouldContentSniff = true, const String& optionalOutgoingReferrer = String());
 
         void clearClient() { m_client = 0; }
 
@@ -58,6 +60,11 @@ namespace WebCore {
         virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
         virtual void receivedCancellation(const AuthenticationChallenge&);        
         virtual void didCancel(const ResourceError&);
+
+#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+        virtual bool supportsDataArray() { return true; }
+        virtual void didReceiveDataArray(CFArrayRef);
+#endif
 
         SubresourceLoaderClient* m_client;
         bool m_loadingMultipartContent;

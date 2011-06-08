@@ -120,10 +120,14 @@ public:
     virtual int paddingAfter(bool includeIntrinsicPadding = true) const;
 
     virtual void setOverrideSize(int);
+    void setOverrideSizeFromRowHeight(int);
 
     bool hasVisualOverflow() const { return m_overflow && !borderBoxRect().contains(m_overflow->visualOverflowRect()); }
 
     virtual void scrollbarsChanged(bool horizontalScrollbarChanged, bool verticalScrollbarChanged);
+
+    bool cellWidthChanged() const { return m_cellWidthChanged; }
+    void setCellWidthChanged(bool b = true) { m_cellWidthChanged = b; }
 
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
@@ -135,8 +139,6 @@ private:
     virtual bool isTableCell() const { return true; }
 
     virtual void destroy();
-
-    virtual bool requiresLayer() const { return isPositioned() || isTransparent() || hasOverflowClip() || hasTransform() || hasMask() || hasReflection(); }
 
     virtual void computeLogicalWidth();
 
@@ -152,7 +154,8 @@ private:
     int m_row;
     int m_column;
     int m_rowSpan;
-    int m_columnSpan;
+    int m_columnSpan : 31;
+    bool m_cellWidthChanged : 1;
     int m_intrinsicPaddingBefore;
     int m_intrinsicPaddingAfter;
 };

@@ -65,6 +65,7 @@ public:
     }
 
     FontOrientation orientation() const { return Horizontal; } // FIXME: Implement.
+    void setOrientation(FontOrientation) { } // FIXME: Implement.
 
     FontPlatformData& operator=(const FontPlatformData&);
     bool operator==(const FontPlatformData& a) const;

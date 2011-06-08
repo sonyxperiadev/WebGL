@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,7 +53,6 @@
 #include "WebScriptWorld.h"
 #include "WebURLResponse.h"
 #include "WebView.h"
-#pragma warning( push, 0 )
 #include <WebCore/BString.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/Document.h>
@@ -104,11 +103,11 @@
 #include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSValue.h>
 #include <wtf/MathExtras.h>
-#pragma warning(pop)
 
 #if PLATFORM(CG)
 #include <CoreGraphics/CoreGraphics.h>
 #elif PLATFORM(CAIRO)
+#include "PlatformContextCairo.h"
 #include <cairo-win32.h>
 #endif
 
@@ -1029,7 +1028,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::hasSpellingMarker(
     Frame* coreFrame = core(this);
     if (!coreFrame)
         return E_FAIL;
-    *result = coreFrame->editor()->selectionStartHasSpellingMarkerFor(from, length);
+    *result = coreFrame->editor()->selectionStartHasMarkerFor(DocumentMarker::Spelling, from, length);
     return S_OK;
 }
 
@@ -1899,9 +1898,9 @@ PassRefPtr<Widget> WebFrame::createJavaAppletWidget(const IntSize& pluginSize, H
     return pluginView;
 }
 
-ObjectContentType WebFrame::objectContentType(const KURL& url, const String& mimeType)
+ObjectContentType WebFrame::objectContentType(const KURL& url, const String& mimeType, bool shouldPreferPlugInsForImages)
 {
-    return WebCore::FrameLoader::defaultObjectContentType(url, mimeType);
+    return WebCore::FrameLoader::defaultObjectContentType(url, mimeType, shouldPreferPlugInsForImages);
 }
 
 String WebFrame::overrideMediaType() const
@@ -2188,8 +2187,7 @@ static float scaleFactor(HDC printDC, const IntRect& marginRect, const IntRect& 
 
 static HDC hdcFromContext(PlatformGraphicsContext* pctx)
 {
-    cairo_surface_t* surface = cairo_get_target(pctx);
-    return cairo_win32_surface_get_dc(surface);
+    return cairo_win32_surface_get_dc(cairo_get_target(pctx->cr()));
 }
 
 void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
@@ -2244,13 +2242,14 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
     XFORM original, scaled;
     GetWorldTransform(hdc, &original);
     
+    cairo_t* cr = pctx->cr();
     bool preview = (hdc != printDC);
     if (preview) {
         // If this is a preview, the Windows HDC was set to a non-scaled state so that Cairo will
         // draw correctly.  We need to retain the correct preview scale here for use when the Cairo
         // drawing completes so that we can scale our GDI-based header/footer calls. This is a
         // workaround for a bug in Cairo (see https://bugs.freedesktop.org/show_bug.cgi?id=28161)
-        scaled = buildXFORMFromCairo(hdc, pctx);
+        scaled = buildXFORMFromCairo(hdc, cr);
     }
 
     float scale = scaleFactor(printDC, marginRect, pageRect);
@@ -2260,13 +2259,13 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
 
     // We cannot scale the display HDC because the print surface also scales fonts,
     // resulting in invalid printing (and print preview)
-    cairo_scale(pctx, scale, scale);
-    cairo_translate(pctx, cairoMarginRect.x(), cairoMarginRect.y() + headerHeight);
+    cairo_scale(cr, scale, scale);
+    cairo_translate(cr, cairoMarginRect.x(), cairoMarginRect.y() + headerHeight);
 
     // Modify Cairo (only) to account for page position.
-    cairo_translate(pctx, -pageRect.x(), -pageRect.y());
+    cairo_translate(cr, -pageRect.x(), -pageRect.y());
     coreFrame->view()->paintContents(spoolCtx, pageRect);
-    cairo_translate(pctx, pageRect.x(), pageRect.y());
+    cairo_translate(cr, pageRect.x(), pageRect.y());
     
     if (preview) {
         // If this is a preview, the Windows HDC was set to a non-scaled state so that Cairo would
@@ -2287,8 +2286,8 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
 
     SetWorldTransform(hdc, &original);
 
-    cairo_show_page(pctx);
-    ASSERT(!cairo_status(pctx));
+    cairo_show_page(cr);
+    ASSERT(!cairo_status(cr));
     spoolCtx->restore();
 }
 
@@ -2340,17 +2339,21 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     else
         printSurface = cairo_win32_printing_surface_create(targetDC); // metafile
     
-    PlatformGraphicsContext* pctx = (PlatformGraphicsContext*)cairo_create(printSurface);
-    if (!pctx) {
+    cairo_t* cr = cairo_create(printSurface);
+    if (!cr) {
         cairo_surface_destroy(printSurface);    
         return E_FAIL;
     }
-    
+
+    PlatformContextCairo platformContext(cr);
+    PlatformGraphicsContext* pctx = &platformContext;
+    cairo_destroy(cr);
+
     if (ctx) {
         // If this is a preview, the Windows HDC was sent with scaling information.
         // Retrieve it and reset it so that it draws properly.  This is a workaround
         // for a bug in Cairo (see https://bugs.freedesktop.org/show_bug.cgi?id=28161)
-        setCairoTransformToPreviewHDC(pctx, targetDC);
+        setCairoTransformToPreviewHDC(cr, targetDC);
     }
     
     cairo_surface_set_fallback_resolution(printSurface, 72.0, 72.0);
@@ -2394,7 +2397,6 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
         spoolPage(pctx, &spoolCtx, printDC, ui.get(), headerHeight, footerHeight, ii, pageCount);
 
 #if PLATFORM(CAIRO)
-    cairo_destroy(pctx);
     cairo_surface_finish(printSurface);
     ASSERT(!cairo_surface_status(printSurface));
     cairo_surface_destroy(printSurface);

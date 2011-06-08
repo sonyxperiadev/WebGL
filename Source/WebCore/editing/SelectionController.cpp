@@ -153,16 +153,14 @@ void SelectionController::setSelection(const VisibleSelection& s, SetSelectionOp
         return;
     }
 
-    Node* baseNode = s.base().deprecatedNode();
-    Document* document = 0;
-    if (baseNode)
-        document = baseNode->document();
-    
     // <http://bugs.webkit.org/show_bug.cgi?id=23464>: Infinite recursion at SelectionController::setSelection
     // if document->frame() == m_frame we can get into an infinite loop
-    if (document && document->frame() && document->frame() != m_frame && document != m_frame->document()) {
-        document->frame()->selection()->setSelection(s, options);
-        return;
+    if (s.base().anchorNode()) {
+        Document* document = s.base().anchorNode()->document();
+        if (document && document->frame() && document->frame() != m_frame && document != m_frame->document()) {
+            document->frame()->selection()->setSelection(s, options);
+            return;
+        }
     }
 
     if (closeTyping)
@@ -170,10 +168,13 @@ void SelectionController::setSelection(const VisibleSelection& s, SetSelectionOp
 
     if (shouldClearTypingStyle)
         clearTypingStyle();
-        
-    if (m_selection == s)
+
+    if (m_selection == s) {
+        // Even if selection was not changed, selection offsets may have been changed.
+        notifyRendererOfSelectionChange(userTriggered);
         return;
-    
+    }
+
     VisibleSelection oldSelection = m_selection;
 
     m_selection = s;
@@ -208,17 +209,17 @@ void SelectionController::setSelection(const VisibleSelection& s, SetSelectionOp
 
 static bool removingNodeRemovesPosition(Node* node, const Position& position)
 {
-    if (!position.deprecatedNode())
+    if (!position.anchorNode())
         return false;
 
-    if (position.deprecatedNode() == node)
+    if (position.anchorNode() == node)
         return true;
 
     if (!node->isElementNode())
         return false;
 
     Element* element = static_cast<Element*>(node);
-    return element->contains(position.deprecatedNode()) || element->contains(position.deprecatedNode()->shadowAncestorNode());
+    return element->contains(position.anchorNode()) || element->contains(position.anchorNode()->shadowAncestorNode());
 }
 
 void SelectionController::nodeWillBeRemoved(Node *node)
@@ -336,6 +337,11 @@ void SelectionController::setIsDirectional(bool isDirectional)
     m_isDirectional = !m_frame || m_frame->editor()->behavior().shouldConsiderSelectionAsDirectional() || isDirectional;
 }
 
+TextDirection SelectionController::directionOfEnclosingBlock()
+{
+    return WebCore::directionOfEnclosingBlock(m_selection.extent());
+}
+
 void SelectionController::willBeModified(EAlteration alter, SelectionDirection direction)
 {
     if (alter != AlterationExtend)
@@ -385,17 +391,6 @@ void SelectionController::willBeModified(EAlteration alter, SelectionDirection d
     }
 }
 
-TextDirection SelectionController::directionOfEnclosingBlock()
-{
-    Node* enclosingBlockNode = enclosingBlock(m_selection.extent().deprecatedNode());
-    if (!enclosingBlockNode)
-        return LTR;
-    RenderObject* renderer = enclosingBlockNode->renderer();
-    if (renderer)
-        return renderer->style()->direction();
-    return LTR;
-}
-
 VisiblePosition SelectionController::positionForPlatform(bool isGetStart) const
 {
     Settings* settings = m_frame ? m_frame->settings() : 0;
@@ -431,9 +426,9 @@ VisiblePosition SelectionController::modifyExtendingRight(TextGranularity granul
     switch (granularity) {
     case CharacterGranularity:
         if (directionOfEnclosingBlock() == LTR)
-            pos = pos.next(true);
+            pos = pos.next(CannotCrossEditingBoundary);
         else
-            pos = pos.previous(true);
+            pos = pos.previous(CannotCrossEditingBoundary);
         break;
     case WordGranularity:
         if (directionOfEnclosingBlock() == LTR)
@@ -464,7 +459,7 @@ VisiblePosition SelectionController::modifyExtendingForward(TextGranularity gran
     VisiblePosition pos(m_selection.extent(), m_selection.affinity());
     switch (granularity) {
     case CharacterGranularity:
-        pos = pos.next(true);
+        pos = pos.next(CannotCrossEditingBoundary);
         break;
     case WordGranularity:
         pos = nextWordPosition(pos);
@@ -538,7 +533,7 @@ VisiblePosition SelectionController::modifyMovingForward(TextGranularity granula
         if (isRange())
             pos = VisiblePosition(m_selection.end(), m_selection.affinity());
         else
-            pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).next(true);
+            pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).next(CannotCrossEditingBoundary);
         break;
     case WordGranularity:
         pos = nextWordPosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
@@ -589,9 +584,9 @@ VisiblePosition SelectionController::modifyExtendingLeft(TextGranularity granula
     switch (granularity) {
     case CharacterGranularity:
         if (directionOfEnclosingBlock() == LTR)
-            pos = pos.previous(true);
+            pos = pos.previous(CannotCrossEditingBoundary);
         else
-            pos = pos.next(true);
+            pos = pos.next(CannotCrossEditingBoundary);
         break;
     case WordGranularity:
         if (directionOfEnclosingBlock() == LTR)
@@ -626,7 +621,7 @@ VisiblePosition SelectionController::modifyExtendingBackward(TextGranularity gra
     // over everything.
     switch (granularity) {
     case CharacterGranularity:
-        pos = pos.previous(true);
+        pos = pos.previous(CannotCrossEditingBoundary);
         break;
     case WordGranularity:
         pos = previousWordPosition(pos);
@@ -698,7 +693,7 @@ VisiblePosition SelectionController::modifyMovingBackward(TextGranularity granul
         if (isRange())
             pos = VisiblePosition(m_selection.start(), m_selection.affinity());
         else
-            pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).previous(true);
+            pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).previous(CannotCrossEditingBoundary);
         break;
     case WordGranularity:
         pos = previousWordPosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
@@ -1256,11 +1251,11 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
         int textLength = text.length();
         if (selected) {
             int offset = 0;
-            if (r->node() == m_selection.start().deprecatedNode())
-                offset = m_selection.start().deprecatedEditingOffset();
-            else if (r->node() == m_selection.end().deprecatedNode())
-                offset = m_selection.end().deprecatedEditingOffset();
-                
+            if (r->node() == m_selection.start().containerNode())
+                offset = m_selection.start().computeOffsetInContainerNode();
+            else if (r->node() == m_selection.end().containerNode())
+                offset = m_selection.end().computeOffsetInContainerNode();
+
             int pos;
             InlineTextBox* box = textRenderer->findNextInlineTextBox(offset, pos);
             text = text.substring(box->start(), box->len());
@@ -1368,7 +1363,7 @@ void SelectionController::selectFrameElementInParentIfFullySelected()
         return;
         
     // This method's purpose is it to make it easier to select iframes (in order to delete them).  Don't do anything if the iframe isn't deletable.
-    if (!ownerElementParent->isContentEditable())
+    if (!ownerElementParent->rendererIsEditable())
         return;
 
     // Create compute positions before and after the element.
@@ -1456,7 +1451,9 @@ bool SelectionController::setSelectedRange(Range* range, EAffinity affinity, boo
 
 bool SelectionController::isInPasswordField() const
 {
-    Node* startNode = start().deprecatedNode();
+    ASSERT(start().isNull() || start().anchorType() == Position::PositionIsOffsetInAnchor
+           || start().containerNode() || !start().anchorNode()->shadowAncestorNode());
+    Node* startNode = start().containerNode();
     if (!startNode)
         return false;
 
@@ -1828,7 +1825,7 @@ void SelectionController::setSelectionFromNone()
 
     Document* document = m_frame->document();
     bool caretBrowsing = m_frame->settings() && m_frame->settings()->caretBrowsingEnabled();
-    if (!isNone() || !(document->inDesignMode() || caretBrowsing))
+    if (!isNone() || !(document->rendererIsEditable() || caretBrowsing))
         return;
 
     Node* node = document->documentElement();

@@ -43,7 +43,7 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSObject);
 ASSERT_CLASS_FITS_IN_CELL(JSNonFinalObject);
-ASSERT_CLASS_FILLS_CELL(JSFinalObject);
+ASSERT_CLASS_FITS_IN_CELL(JSFinalObject);
 
 const char* StrictModeReadonlyPropertyWriteError = "Attempted to assign to readonly property.";
 
@@ -489,7 +489,7 @@ UString JSObject::toString(ExecState* exec) const
     return primitive.toString(exec);
 }
 
-JSObject* JSObject::toObject(ExecState*) const
+JSObject* JSObject::toObject(ExecState*, JSGlobalObject*) const
 {
     return const_cast<JSObject*>(this);
 }
@@ -572,9 +572,9 @@ NEVER_INLINE void JSObject::fillGetterPropertySlot(PropertySlot& slot, WriteBarr
         slot.setUndefined();
 }
 
-Structure* JSObject::createInheritorID()
+Structure* JSObject::createInheritorID(JSGlobalData& globalData)
 {
-    m_inheritorID = createEmptyObjectStructure(this);
+    m_inheritorID = createEmptyObjectStructure(globalData, this);
     return m_inheritorID.get();
 }
 
@@ -743,12 +743,12 @@ bool JSObject::defineOwnProperty(ExecState* exec, const Identifier& propertyName
     // Changing the accessor functions of an existing accessor property
     ASSERT(descriptor.isAccessorDescriptor());
     if (!current.configurable()) {
-        if (descriptor.setterPresent() && !(current.setter() && JSValue::strictEqual(exec, current.setter(), descriptor.setter()))) {
+        if (descriptor.setterPresent() && !(current.setterPresent() && JSValue::strictEqual(exec, current.setter(), descriptor.setter()))) {
             if (throwException)
                 throwError(exec, createTypeError(exec, "Attempting to change the setter of an unconfigurable property."));
             return false;
         }
-        if (descriptor.getterPresent() && !(current.getter() && JSValue::strictEqual(exec, current.getter(), descriptor.getter()))) {
+        if (descriptor.getterPresent() && !(current.getterPresent() && JSValue::strictEqual(exec, current.getter(), descriptor.getter()))) {
             if (throwException)
                 throwError(exec, createTypeError(exec, "Attempting to change the getter of an unconfigurable property."));
             return false;

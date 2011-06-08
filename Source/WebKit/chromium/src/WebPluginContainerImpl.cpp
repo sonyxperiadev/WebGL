@@ -164,6 +164,7 @@ void WebPluginContainerImpl::handleEvent(Event* event)
     if (!m_webPlugin->acceptsInputEvents())
         return;
 
+    RefPtr<WebPluginContainerImpl> protector(this);
     // The events we pass are defined at:
     //    http://devedge-temp.mozilla.org/library/manuals/2002/plugin/1.0/structures5.html#1000000
     // Don't take the documentation as truth, however.  There are many cases
@@ -307,6 +308,22 @@ void WebPluginContainerImpl::reportGeometry()
     m_webPlugin->updateGeometry(windowRect, clipRect, cutOutRects, isVisible());
 }
 
+void WebPluginContainerImpl::setBackingTextureId(unsigned id)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    unsigned currId = m_platformLayer->textureId();
+    if (currId == id)
+        return;
+
+    m_platformLayer->setTextureId(id);
+    // If anyone of the IDs is zero we need to switch between hardware
+    // and software compositing. This is done by triggering a style recalc
+    // on the container element.
+    if (!(currId * id))
+        m_element->setNeedsStyleRecalc(WebCore::SyntheticStyleChange);
+#endif
+}
+
 void WebPluginContainerImpl::commitBackingTexture()
 {
 #if USE(ACCELERATED_COMPOSITING)
@@ -427,15 +444,7 @@ void WebPluginContainerImpl::willDestroyPluginLoadObserver(WebPluginLoadObserver
 #if USE(ACCELERATED_COMPOSITING)
 WebCore::LayerChromium* WebPluginContainerImpl::platformLayer() const
 {
-    // FIXME: In the event of a context lost, the texture needs to be recreated on the compositor's
-    // context and rebound to the platform layer here.
-    unsigned backingTextureId = m_webPlugin->getBackingTextureId();
-    if (!backingTextureId)
-        return 0;
-
-    m_platformLayer->setTextureId(backingTextureId);
-
-    return m_platformLayer.get();
+    return m_platformLayer->textureId() ? m_platformLayer.get() : 0;
 }
 #endif
 

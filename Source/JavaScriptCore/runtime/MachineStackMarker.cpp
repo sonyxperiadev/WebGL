@@ -28,6 +28,11 @@
 #include "JSGlobalData.h"
 #include <setjmp.h>
 #include <stdlib.h>
+#include <wtf/StdLibExtras.h>
+
+#if USE(PTHREAD_BASED_QT) && !defined(WTF_USE_PTHREADS)
+#define WTF_USE_PTHREADS 1
+#endif
 
 #if OS(DARWIN)
 
@@ -74,11 +79,13 @@
 #if USE(PTHREADS) && !OS(WINDOWS) && !OS(DARWIN)
 #include <signal.h>
 #ifndef SA_RESTART
-#error MachineStackMarker requires SA_RESTART
+#error MachineThreads requires SA_RESTART
 #endif
 #endif
 
 #endif
+
+using namespace WTF;
 
 namespace JSC {
 
@@ -113,7 +120,7 @@ static void pthreadSignalHandlerSuspendResume(int signo)
 }
 #endif
 
-class MachineStackMarker::Thread {
+class MachineThreads::Thread {
 public:
     Thread(pthread_t pthread, const PlatformThread& platThread, void* base) 
         : posixThread(pthread)
@@ -142,20 +149,20 @@ public:
 
 #endif
 
-MachineStackMarker::MachineStackMarker(Heap* heap)
+MachineThreads::MachineThreads(Heap* heap)
     : m_heap(heap)
 #if ENABLE(JSC_MULTIPLE_THREADS)
     , m_registeredThreads(0)
-    , m_currentThreadRegistrar(0)
+    , m_threadSpecific(0)
 #endif
 {
 }
 
-MachineStackMarker::~MachineStackMarker()
+MachineThreads::~MachineThreads()
 {
 #if ENABLE(JSC_MULTIPLE_THREADS)
-    if (m_currentThreadRegistrar) {
-        int error = pthread_key_delete(m_currentThreadRegistrar);
+    if (m_threadSpecific) {
+        int error = pthread_key_delete(m_threadSpecific);
         ASSERT_UNUSED(error, !error);
     }
 
@@ -181,24 +188,24 @@ static inline PlatformThread getCurrentPlatformThread()
 #endif
 }
 
-void MachineStackMarker::makeUsableFromMultipleThreads()
+void MachineThreads::makeUsableFromMultipleThreads()
 {
-    if (m_currentThreadRegistrar)
+    if (m_threadSpecific)
         return;
 
-    int error = pthread_key_create(&m_currentThreadRegistrar, unregisterThread);
+    int error = pthread_key_create(&m_threadSpecific, removeThread);
     if (error)
         CRASH();
 }
 
-void MachineStackMarker::registerThread()
+void MachineThreads::addCurrentThread()
 {
     ASSERT(!m_heap->globalData()->exclusiveThread || m_heap->globalData()->exclusiveThread == currentThread());
 
-    if (!m_currentThreadRegistrar || pthread_getspecific(m_currentThreadRegistrar))
+    if (!m_threadSpecific || pthread_getspecific(m_threadSpecific))
         return;
 
-    pthread_setspecific(m_currentThreadRegistrar, this);
+    pthread_setspecific(m_threadSpecific, this);
     Thread* thread = new Thread(pthread_self(), getCurrentPlatformThread(), m_heap->globalData()->stack().origin());
 
     MutexLocker lock(m_registeredThreadsMutex);
@@ -207,13 +214,13 @@ void MachineStackMarker::registerThread()
     m_registeredThreads = thread;
 }
 
-void MachineStackMarker::unregisterThread(void* p)
+void MachineThreads::removeThread(void* p)
 {
     if (p)
-        static_cast<MachineStackMarker*>(p)->unregisterThread();
+        static_cast<MachineThreads*>(p)->removeCurrentThread();
 }
 
-void MachineStackMarker::unregisterThread()
+void MachineThreads::removeCurrentThread()
 {
     pthread_t currentPosixThread = pthread_self();
 
@@ -240,21 +247,13 @@ void MachineStackMarker::unregisterThread()
 
 #endif
 
-void NEVER_INLINE MachineStackMarker::markCurrentThreadConservativelyInternal(ConservativeSet& conservativeSet)
-{
-    void* begin = m_heap->globalData()->stack().current();
-    void* end = m_heap->globalData()->stack().origin();
-    swapIfBackwards(begin, end);
-    conservativeSet.add(begin, end);
-}
-
 #if COMPILER(GCC)
 #define REGISTER_BUFFER_ALIGNMENT __attribute__ ((aligned (sizeof(void*))))
 #else
 #define REGISTER_BUFFER_ALIGNMENT
 #endif
 
-void MachineStackMarker::markCurrentThreadConservatively(ConservativeSet& conservativeSet)
+void MachineThreads::gatherFromCurrentThread(ConservativeRoots& conservativeRoots, void* stackCurrent)
 {
     // setjmp forces volatile registers onto the stack
     jmp_buf registers REGISTER_BUFFER_ALIGNMENT;
@@ -267,7 +266,15 @@ void MachineStackMarker::markCurrentThreadConservatively(ConservativeSet& conser
 #pragma warning(pop)
 #endif
 
-    markCurrentThreadConservativelyInternal(conservativeSet);
+    void* registersBegin = &registers;
+    void* registersEnd = reinterpret_cast<void*>(roundUpToMultipleOf<sizeof(void*)>(reinterpret_cast<uintptr_t>(&registers + 1)));
+    swapIfBackwards(registersBegin, registersEnd);
+    conservativeRoots.add(registersBegin, registersEnd);
+
+    void* stackBegin = stackCurrent;
+    void* stackEnd = m_heap->globalData()->stack().origin();
+    swapIfBackwards(stackBegin, stackEnd);
+    conservativeRoots.add(stackBegin, stackEnd);
 }
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
@@ -431,20 +438,19 @@ static void freePlatformThreadRegisters(PlatformThreadRegisters& regs)
 #endif
 }
 
-void MachineStackMarker::markOtherThreadConservatively(ConservativeSet& conservativeSet, Thread* thread)
+void MachineThreads::gatherFromOtherThread(ConservativeRoots& conservativeRoots, Thread* thread)
 {
     suspendThread(thread->platformThread);
 
     PlatformThreadRegisters regs;
     size_t regSize = getPlatformThreadRegisters(thread->platformThread, regs);
 
-    // mark the thread's registers
-    conservativeSet.add(static_cast<void*>(&regs), static_cast<void*>(reinterpret_cast<char*>(&regs) + regSize));
+    conservativeRoots.add(static_cast<void*>(&regs), static_cast<void*>(reinterpret_cast<char*>(&regs) + regSize));
 
     void* stackPointer = otherThreadStackPointer(regs);
     void* stackBase = thread->stackBase;
     swapIfBackwards(stackPointer, stackBase);
-    conservativeSet.add(stackPointer, stackBase);
+    conservativeRoots.add(stackPointer, stackBase);
 
     resumeThread(thread->platformThread);
 
@@ -453,27 +459,27 @@ void MachineStackMarker::markOtherThreadConservatively(ConservativeSet& conserva
 
 #endif
 
-void MachineStackMarker::markMachineStackConservatively(ConservativeSet& conservativeSet)
+void MachineThreads::gatherConservativeRoots(ConservativeRoots& conservativeRoots, void* stackCurrent)
 {
-    markCurrentThreadConservatively(conservativeSet);
+    gatherFromCurrentThread(conservativeRoots, stackCurrent);
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
 
-    if (m_currentThreadRegistrar) {
+    if (m_threadSpecific) {
 
         MutexLocker lock(m_registeredThreadsMutex);
 
 #ifndef NDEBUG
-        // Forbid malloc during the mark phase. Marking a thread suspends it, so 
-        // a malloc inside markChildren() would risk a deadlock with a thread that had been 
-        // suspended while holding the malloc lock.
+        // Forbid malloc during the gather phase. The gather phase suspends
+        // threads, so a malloc during gather would risk a deadlock with a
+        // thread that had been suspended while holding the malloc lock.
         fastMallocForbid();
 #endif
         // It is safe to access the registeredThreads list, because we earlier asserted that locks are being held,
         // and since this is a shared heap, they are real locks.
         for (Thread* thread = m_registeredThreads; thread; thread = thread->next) {
             if (!pthread_equal(thread->posixThread, pthread_self()))
-                markOtherThreadConservatively(conservativeSet, thread);
+                gatherFromOtherThread(conservativeRoots, thread);
         }
 #ifndef NDEBUG
         fastMallocAllow();

@@ -30,6 +30,7 @@ SET(WTF_HEADERS
     HashSet.h
     HashTable.h
     HashTraits.h
+    HexNumber.h
     ListHashSet.h
     ListRefPtr.h
     Locker.h
@@ -76,7 +77,7 @@ SET(WTF_HEADERS
     TCSpinLock.h
     TCSystemAlloc.h
     ThreadIdentifierDataPthreads.h
-    ThreadSafeShared.h
+    ThreadSafeRefCounted.h
     ThreadSpecific.h
     Threading.h
     ThreadingPrimitives.h

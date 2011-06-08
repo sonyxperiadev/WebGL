@@ -45,9 +45,9 @@ namespace JSC {
     public:
         static JSPropertyNameIterator* create(ExecState*, JSObject*);
         
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(CompoundType, OverridesMarkChildren), AnonymousSlotCount, 0);
+            return Structure::create(globalData, prototype, TypeInfo(CompoundType, OverridesMarkChildren), AnonymousSlotCount, 0);
         }
 
         virtual bool isPropertyNameIterator() const { return true; }
@@ -73,7 +73,7 @@ namespace JSC {
         }
         Structure* cachedStructure() { return m_cachedStructure.get(); }
 
-        void setCachedPrototypeChain(NonNullPassRefPtr<StructureChain> cachedPrototypeChain) { m_cachedPrototypeChain = cachedPrototypeChain; }
+        void setCachedPrototypeChain(JSGlobalData& globalData, StructureChain* cachedPrototypeChain) { m_cachedPrototypeChain.set(globalData, this, cachedPrototypeChain); }
         StructureChain* cachedPrototypeChain() { return m_cachedPrototypeChain.get(); }
 
     private:
@@ -84,7 +84,7 @@ namespace JSC {
 #endif
 
         RefPtr<Structure> m_cachedStructure;
-        RefPtr<StructureChain> m_cachedPrototypeChain;
+        WriteBarrier<StructureChain> m_cachedPrototypeChain;
         uint32_t m_numCacheableSlots;
         uint32_t m_jsStringsSize;
         OwnArrayPtr<WriteBarrier<Unknown> > m_jsStrings;
@@ -104,6 +104,11 @@ namespace JSC {
     inline JSPropertyNameIterator* Structure::enumerationCache()
     {
         return m_enumerationCache.get();
+    }
+
+    ALWAYS_INLINE JSPropertyNameIterator* Register::propertyNameIterator() const
+    {
+        return static_cast<JSPropertyNameIterator*>(jsValue().asCell());
     }
 
 } // namespace JSC

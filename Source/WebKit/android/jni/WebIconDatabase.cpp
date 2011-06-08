@@ -66,9 +66,18 @@ jobject webcoreImageToJavaBitmap(JNIEnv* env, WebCore::Image* icon)
 
 static WebIconDatabase* gIconDatabaseClient = new WebIconDatabase();
 
-// XXX: Called by the IconDatabase thread
-void WebIconDatabase::dispatchDidAddIconForPageURL(const WTF::String& pageURL)
+bool WebIconDatabase::performImport()
 {
+    // We don't do do any old-style database importing.
+    return true;
+}
+
+// Called on the WebCore thread
+void WebIconDatabase::didImportIconURLForPageURL(const WTF::String& pageURL)
+{
+    // FIXME: After http://trac.webkit.org/changeset/81719 this method is called
+    // on the WebCore thread, so switching threads via this queue is superfluous
+    // and should be removed. http://b/4565022
     mNotificationsMutex.lock();
     mNotifications.append(pageURL);
     if (!mDeliveryRequested) {
@@ -76,6 +85,26 @@ void WebIconDatabase::dispatchDidAddIconForPageURL(const WTF::String& pageURL)
         JavaSharedClient::EnqueueFunctionPtr(DeliverNotifications, this);
     }
     mNotificationsMutex.unlock();
+}
+
+void WebIconDatabase::didImportIconDataForPageURL(const WTF::String& pageURL)
+{
+    // WebKit1 only has a single "icon did change" notification.
+    didImportIconURLForPageURL(pageURL);
+}
+
+void WebIconDatabase::didChangeIconForPageURL(const WTF::String& pageURL)
+{
+    // WebKit1 only has a single "icon did change" notification.
+    didImportIconURLForPageURL(pageURL);
+}
+
+void WebIconDatabase::didRemoveAllIcons()
+{
+}
+
+void WebIconDatabase::didFinishURLImport()
+{
 }
 
 // Called in the WebCore thread
@@ -134,7 +163,7 @@ void WebIconDatabase::deliverNotifications()
 
 static void Open(JNIEnv* env, jobject obj, jstring path)
 {
-    WebCore::IconDatabase& iconDb = WebCore::iconDatabase();
+    WebCore::IconDatabaseBase& iconDb = WebCore::iconDatabase();
     if (iconDb.isOpen())
         return;
     iconDb.setEnabled(true);
@@ -157,7 +186,7 @@ static void Open(JNIEnv* env, jobject obj, jstring path)
     }
     if (didSetPermissions) {
         LOGV("Opening WebIconDatabase file '%s'", pathStr.latin1().data());
-        bool res = iconDb.open(pathStr);
+        bool res = iconDb.open(pathStr, WebCore::IconDatabase::defaultDatabaseFilename());
         if (!res)
             LOGE("Open failed!");
     } else
@@ -180,8 +209,9 @@ static jobject IconForPageUrl(JNIEnv* env, jobject obj, jstring url)
     LOG_ASSERT(url, "No url given to iconForPageUrl");
     WTF::String urlStr = jstringToWtfString(env, url);
 
-    WebCore::Image* icon = WebCore::iconDatabase().iconForPageURL(urlStr,
-            WebCore::IntSize(16, 16));
+    // FIXME: This method should not be used from outside WebCore and will be removed.
+    // http://trac.webkit.org/changeset/81484
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(urlStr, WebCore::IntSize(16, 16));
     LOGV("Retrieving icon for '%s' %p", urlStr.latin1().data(), icon);
     return webcoreImageToJavaBitmap(env, icon);
 }

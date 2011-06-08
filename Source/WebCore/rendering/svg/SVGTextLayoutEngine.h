@@ -24,6 +24,7 @@
 #include "Path.h"
 #include "SVGTextChunkBuilder.h"
 #include "SVGTextFragment.h"
+#include "SVGTextLayoutAttributes.h"
 #include "SVGTextMetrics.h"
 #include <wtf/Vector.h>
 
@@ -47,7 +48,7 @@ class SVGRenderStyle;
 class SVGTextLayoutEngine {
     WTF_MAKE_NONCOPYABLE(SVGTextLayoutEngine);
 public:
-    SVGTextLayoutEngine();
+    SVGTextLayoutEngine(Vector<SVGTextLayoutAttributes>&);
     SVGTextChunkBuilder& chunkLayoutBuilder() { return m_chunkLayoutBuilder; }
 
     void beginTextPathLayout(RenderObject*, SVGTextLayoutEngine& lineLayout);
@@ -59,20 +60,32 @@ public:
 private:
     void updateCharacerPositionIfNeeded(float& x, float& y);
     void updateCurrentTextPosition(float x, float y, float glyphAdvance);
-    void updateRelativePositionAdjustmentsIfNeeded(Vector<float>& dxValues, Vector<float>& dyValues, unsigned valueListPosition);
+    void updateRelativePositionAdjustmentsIfNeeded(Vector<float>& dxValues, Vector<float>& dyValues);
 
-    void recordTextFragment(SVGInlineTextBox*, RenderSVGInlineText*, unsigned positionListOffset, const SVGTextMetrics& lastCharacterMetrics);
+    void recordTextFragment(SVGInlineTextBox*, Vector<SVGTextMetrics>& textMetricValues);
     bool parentDefinesTextLength(RenderObject*) const;
 
     void layoutTextOnLineOrPath(SVGInlineTextBox*, RenderSVGInlineText*, const RenderStyle*);
     void finalizeTransformMatrices(Vector<SVGInlineTextBox*>&);
 
+    bool currentLogicalCharacterAttributes(SVGTextLayoutAttributes&);
+    bool currentLogicalCharacterMetrics(SVGTextLayoutAttributes&, SVGTextMetrics&);
+    bool currentVisualCharacterMetrics(SVGInlineTextBox*, RenderSVGInlineText*, SVGTextMetrics&);
+
+    void advanceToNextLogicalCharacter(const SVGTextMetrics&);
+    void advanceToNextVisualCharacter(const SVGTextMetrics&);
+
 private:
+    Vector<SVGTextLayoutAttributes> m_layoutAttributes;
     Vector<SVGInlineTextBox*> m_lineLayoutBoxes;
     Vector<SVGInlineTextBox*> m_pathLayoutBoxes;
     SVGTextChunkBuilder m_chunkLayoutBuilder;
 
     SVGTextFragment m_currentTextFragment;
+    unsigned m_logicalCharacterOffset;
+    unsigned m_logicalMetricsListOffset;
+    unsigned m_visualCharacterOffset;
+    unsigned m_visualMetricsListOffset;
     float m_x;
     float m_y;
     float m_dx;

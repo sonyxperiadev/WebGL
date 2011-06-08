@@ -72,11 +72,14 @@ public:
         TypeFormSubmissionListener,
         TypeFrame,
         TypeFramePolicyListener,
+        TypeFullScreenManager,
         TypeGeolocationManager,
         TypeGeolocationPermissionRequest,
         TypeGeolocationPosition,
+        TypeIconDatabase,
         TypeInspector,
         TypeKeyValueStorageManager,
+        TypeMediaCacheManager,
         TypeNavigationData,
         TypeOpenPanelParameters,
         TypeOpenPanelResultListener,
@@ -101,7 +104,8 @@ public:
         TypeBundleScriptWorld,
 
         // Platform specific
-        TypeView
+        TypeView,
+        TypeEditCommandProxy
     };
 
     virtual ~APIObject()

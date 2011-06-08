@@ -27,6 +27,9 @@
     void GetHostnamesWithCookies(uint64_t callbackID)
     void DeleteCookiesForHostname(WTF::String hostname)
     void DeleteAllCookies()
+
+    void SetHTTPCookieAcceptPolicy(uint32_t policy)
+    void GetHTTPCookieAcceptPolicy(uint64_t callbackID)
     
     void StartObservingCookieChanges()
     void StopObservingCookieChanges()

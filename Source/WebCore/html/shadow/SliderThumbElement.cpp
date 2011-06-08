@@ -56,6 +56,8 @@ namespace WebCore {
 class RenderSliderThumb : public RenderBlock {
 public:
     RenderSliderThumb(Node*);
+
+private:
     virtual void layout();
 };
 
@@ -85,6 +87,16 @@ void RenderSliderThumb::layout()
     RenderBlock::layout();
 }
 
+void SliderThumbElement::setPositionFromValue()
+{
+    // Since today the code to calculate position is in the RenderSlider layout
+    // path, we don't actually update the value here. Instead, we poke at the
+    // renderer directly to trigger layout.
+    // FIXME: Move the logic of positioning the thumb here.
+    if (renderer())
+        renderer()->setNeedsLayout(true);
+}
+
 RenderObject* SliderThumbElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSliderThumb(this);
@@ -92,11 +104,11 @@ RenderObject* SliderThumbElement::createRenderer(RenderArena* arena, RenderStyle
 
 void SliderThumbElement::dragFrom(const IntPoint& point)
 {
-    setPosition(point);
+    setPositionFromPoint(point);
     startDragging();
 }
 
-void SliderThumbElement::setPosition(const IntPoint& point)
+void SliderThumbElement::setPositionFromPoint(const IntPoint& point)
 {
     HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowHost());
     ASSERT(input);
@@ -217,7 +229,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
             if (event->isMouseEvent()) {
                 MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
 #endif
-            setPosition(mouseEvent->absoluteLocation());
+            setPositionFromPoint(mouseEvent->absoluteLocation());
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
             } else if (event->isTouchEvent()) {
                 TouchEvent* touchEvent = static_cast<TouchEvent*>(event);
@@ -225,7 +237,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
                     IntPoint curPoint;
                     curPoint.setX(touchEvent->touches()->item(0)->pageX());
                     curPoint.setY(touchEvent->touches()->item(0)->pageY());
-                    setPosition(curPoint);
+                    setPositionFromPoint(curPoint);
                     // Tell the webview that webkit will handle the following move events
                     event->setDefaultPrevented(true);
                 }

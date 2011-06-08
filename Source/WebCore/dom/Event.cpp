@@ -22,6 +22,7 @@
 
 #include "config.h"
 #include "Event.h"
+#include "EventDispatcher.h"
 #include "EventTarget.h"
 
 #include "UserGestureIndicator.h"
@@ -270,8 +271,16 @@ void Event::storeResult(const String&)
 {
 }
 
+bool Event::dispatch(EventDispatcher* dispatcher)
+{
+    return dispatcher->dispatchEvent(this);
+}
+
 void Event::setTarget(PassRefPtr<EventTarget> target)
 {
+    if (m_target == target)
+        return;
+
     m_target = target;
     if (m_target)
         receivedTarget();

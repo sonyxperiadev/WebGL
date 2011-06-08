@@ -47,6 +47,14 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+static bool canAppendNewLineFeed(const VisibleSelection& selection)
+{
+    ExceptionCode ec = 0;
+    RefPtr<BeforeTextInsertedEvent> event = BeforeTextInsertedEvent::create(String("\n"));
+    selection.rootEditableElement()->dispatchEvent(event, ec);
+    return event->text().length();
+}
+
 TypingCommand::TypingCommand(Document *document, ETypingCommand commandType, const String &textToInsert, TypingCommandOptions options, TextGranularity granularity, TextCompositionType compositionType)
     : CompositeEditCommand(document)
     , m_commandType(commandType)
@@ -403,12 +411,18 @@ void TypingCommand::insertTextRunWithoutNewlines(const String &text, bool select
 
 void TypingCommand::insertLineBreak()
 {
+    if (!canAppendNewLineFeed(endingSelection()))
+        return;
+
     applyCommandToComposite(InsertLineBreakCommand::create(document()));
     typingAddedToOpenCommand(InsertLineBreak);
 }
 
 void TypingCommand::insertParagraphSeparator()
 {
+    if (!canAppendNewLineFeed(endingSelection()))
+        return;
+
     applyCommandToComposite(InsertParagraphSeparatorCommand::create(document()));
     typingAddedToOpenCommand(InsertParagraphSeparator);
 }
@@ -429,7 +443,7 @@ void TypingCommand::insertParagraphSeparatorInQuotedContent()
 bool TypingCommand::makeEditableRootEmpty()
 {
     Element* root = endingSelection().rootEditableElement();
-    if (!root->firstChild())
+    if (!root || !root->firstChild())
         return false;
 
     if (root->firstChild() == root->lastChild() && root->firstElementChild() && root->firstElementChild()->hasTagName(brTag)) {
@@ -474,14 +488,14 @@ void TypingCommand::deleteKeyPressed(TextGranularity granularity, bool killRing)
         if (killRing && selection.isCaret() && granularity != CharacterGranularity)
             selection.modify(SelectionController::AlterationExtend, DirectionBackward, CharacterGranularity);
 
-        if (endingSelection().visibleStart().previous(true).isNull()) {
+        if (endingSelection().visibleStart().previous(CannotCrossEditingBoundary).isNull()) {
             // When the caret is at the start of the editable area in an empty list item, break out of the list item.
             if (breakOutOfEmptyListItem()) {
                 typingAddedToOpenCommand(DeleteKey);
                 return;
             }
             // When there are no visible positions in the editing root, delete its entire contents.
-            if (endingSelection().visibleStart().next(true).isNull() && makeEditableRootEmpty()) {
+            if (endingSelection().visibleStart().next(CannotCrossEditingBoundary).isNull() && makeEditableRootEmpty()) {
                 typingAddedToOpenCommand(DeleteKey);
                 return;
             }
@@ -493,7 +507,7 @@ void TypingCommand::deleteKeyPressed(TextGranularity granularity, bool killRing)
             return;
 
         // If the caret is at the start of a paragraph after a table, move content into the last table cell.
-        if (isStartOfParagraph(visibleStart) && isFirstPositionAfterTable(visibleStart.previous(true))) {
+        if (isStartOfParagraph(visibleStart) && isFirstPositionAfterTable(visibleStart.previous(CannotCrossEditingBoundary))) {
             // Unless the caret is just before a table.  We don't want to move a table into the last table cell.
             if (isLastPositionBeforeTable(visibleStart))
                 return;
@@ -574,10 +588,10 @@ void TypingCommand::forwardDeleteKeyPressed(TextGranularity granularity, bool ki
         Position downstreamEnd = endingSelection().end().downstream();
         VisiblePosition visibleEnd = endingSelection().visibleEnd();
         if (visibleEnd == endOfParagraph(visibleEnd))
-            downstreamEnd = visibleEnd.next(true).deepEquivalent().downstream();
+            downstreamEnd = visibleEnd.next(CannotCrossEditingBoundary).deepEquivalent().downstream();
         // When deleting tables: Select the table first, then perform the deletion
         if (downstreamEnd.deprecatedNode() && downstreamEnd.deprecatedNode()->renderer() && downstreamEnd.deprecatedNode()->renderer()->isTable() && !downstreamEnd.deprecatedEditingOffset()) {
-            setEndingSelection(VisibleSelection(endingSelection().end(), lastDeepEditingPositionForNode(downstreamEnd.deprecatedNode()), DOWNSTREAM));
+            setEndingSelection(VisibleSelection(endingSelection().end(), positionAfterNode(downstreamEnd.deprecatedNode()), DOWNSTREAM));
             typingAddedToOpenCommand(ForwardDeleteKey);
             return;
         }

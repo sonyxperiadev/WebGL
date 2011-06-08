@@ -1,3 +1,1713 @@
+2011-03-29  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium]: Remove the code that called WebViewClient for spelling now that chromium is updated
+        https://bugs.webkit.org/show_bug.cgi?id=57396
+
+        * DEPS:
+        * public/WebFrame.h:
+        * public/WebView.h:
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::handleCurrentKeyboardEvent):
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::checkSpellingOfString):
+        (WebKit::EditorClientImpl::requestCheckingOfString):
+        (WebKit::EditorClientImpl::getAutoCorrectSuggestionForMisspelledWord):
+        (WebKit::EditorClientImpl::updateSpellingUIWithMisspelledWord):
+        (WebKit::EditorClientImpl::showSpellingUI):
+        (WebKit::EditorClientImpl::spellingUIIsShowing):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::create):
+        * src/WebViewImpl.h:
+        * src/WebWorkerBase.cpp:
+        (WebKit::WebWorkerBase::initializeLoader):
+        * tests/PopupMenuTest.cpp:
+        (WebKit::SelectPopupMenuTest::SetUp):
+        * tests/WebFrameTest.cpp:
+        (WebKit::TEST_F):
+        * tests/WebPageSerializerTest.cpp:
+        (WebKit::WebPageSerializerTest::SetUp):
+
+2011-03-30  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Expose the shadow DOM to DumpRenderTree JS tests.
+        https://bugs.webkit.org/show_bug.cgi?id=56573
+
+        Added:
+        - WebBindins::makeNode() to convert WebNode to a JS object, and
+        - WebElement::shadowRoot().
+
+        * public/WebBindings.h:
+        * public/WebElement.h:
+        * src/WebBindings.cpp:
+        (WebKit::makeNodeImpl):
+        (WebKit::WebBindings::makeNode):
+        * src/WebElement.cpp:
+        (WebKit::WebElement::shadowRoot):
+
+2011-03-30  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        AX: GTK: ARIA role is not respected on <p> <label> <div> and <form>
+        https://bugs.webkit.org/show_bug.cgi?id=47636
+
+        Duplicate new internal WebCore roles in the Chromium port.
+
+        * public/WebAccessibilityRole.h: Update enumeration
+        WebAccessibilityRole to reflect newly added roles in WebCore.
+        * src/AssertMatchingEnums.cpp: Added new assertions.
+
+2011-03-30  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: split debugger agent into Page and Worker-specific ones
+        https://bugs.webkit.org/show_bug.cgi?id=57345
+
+        ScriptDebugServer and InspectorDebuggerAgent contain only functionality common
+        for Worker and Page debugger. All specifics is moved into Page/WorkerScriptDebugServer
+        and Page/WorkerDebuggerAgent.
+
+        * src/DebuggerAgentManager.cpp:
+        (WebKit::DebuggerAgentManager::setExposeV8DebuggerProtocol):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgent::interruptAndDispatch):
+        (WebKit::WebDevToolsAgent::processPendingMessages):
+
+2011-03-30  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Rollout r82438 and r82436.
+
+        * src/DebuggerAgentManager.cpp:
+        (WebKit::DebuggerAgentManager::setExposeV8DebuggerProtocol):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgent::interruptAndDispatch):
+        (WebKit::WebDevToolsAgent::processPendingMessages):
+
+2011-03-30  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: split debugger agent into Page and Worker-specific ones
+        https://bugs.webkit.org/show_bug.cgi?id=57345
+
+        ScriptDebugServer and InspectorDebuggerAgent contain only functionality common
+        for Worker and Page debugger. All specifics is moved into Page/WorkerScriptDebugServer
+        and Page/WorkerDebuggerAgent.
+
+        * src/DebuggerAgentManager.cpp:
+        (WebKit::DebuggerAgentManager::setExposeV8DebuggerProtocol):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgent::interruptAndDispatch):
+        (WebKit::WebDevToolsAgent::processPendingMessages):
+
+2011-03-29  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r82293.
+        http://trac.webkit.org/changeset/82293
+        https://bugs.webkit.org/show_bug.cgi?id=57390
+
+        Breaks RetrieveCSSResources (Requested by abarth|gardener on
+        #webkit).
+
+        * WebKit.gyp:
+        * src/WebPageSerializer.cpp:
+        (WebCore::getSubResourceURLFromElement):
+        (WebCore::retrieveResourcesForElement):
+        (WebCore::retrieveResourcesForFrame):
+        (WebKit::WebPageSerializer::retrieveAllResources):
+        * tests/WebPageSerializerTest.cpp:
+        * tests/data/pageserialization/css_test_page.html: Removed.
+        * tests/data/pageserialization/import_style_from_link.css: Removed.
+        * tests/data/pageserialization/import_styles.css: Removed.
+        * tests/data/pageserialization/link_styles.css: Removed.
+
+2011-03-29  Tony Chang  <tony@chromium.org>
+
+        Roll chromium version to r79710 to pick up libpng changes.
+
+        * DEPS:
+
+2011-03-29  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r82295 and r82300.
+        http://trac.webkit.org/changeset/82295
+        http://trac.webkit.org/changeset/82300
+        https://bugs.webkit.org/show_bug.cgi?id=57380
+
+        This patch breaks compile on Chromium (Requested by
+        abarth|gardener on #webkit).
+
+        * public/WebAccessibilityRole.h:
+        * src/AssertMatchingEnums.cpp:
+
+2011-03-29  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Adam Barth.
+
+        REGRESSION(r82295): This patch does not compile on Chromium (Requested by abarth|gardener on #webkit).
+        https://bugs.webkit.org/show_bug.cgi?id=57377
+
+        Fix build errors on Chromium bots.
+
+        * public/WebAccessibilityRole.h: Update to reflect newly added roles in WebCore.
+        * src/AssertMatchingEnums.cpp: Ditto.
+
+2011-03-29  Adam Barth  <abarth@webkit.org>
+
+        Roll Chromium DEPS
+        https://bugs.webkit.org/show_bug.cgi?id=57361
+
+        * DEPS:
+
+2011-03-29  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Adding retrieval off CSS resources to WebPageSerializer::retrieveAllResources.
+        https://bugs.webkit.org/show_bug.cgi?id=56650
+
+        * WebKit.gyp:
+        * src/WebPageSerializer.cpp:
+        (WebCore::getResourceAttributeForElement):
+        (WebCore::retrieveStyleSheetForElement):
+        (WebCore::retrieveResourcesForElement):
+        (WebCore::retrieveResourcesForFrame):
+        (WebCore::retrieveResourcesForCSSRule):
+        (WebCore::retrieveResourcesForCSSStyleDeclaration):
+        (WebCore::retrieveResourcesForCSSStyleSheet):
+        (WebKit::WebPageSerializer::retrieveAllResources):
+        * tests/WebPageSerializerTest.cpp:
+        (WebKit::TestWebFrameClient::TestWebFrameClient):
+        (WebKit::TestWebFrameClient::allowScript):
+        (WebKit::WebPageSerializerTest::enableJS):
+        (WebKit::WebPageSerializerTest::runOnLoad):
+        (WebKit::TEST_F):
+        * tests/data/pageserialization/css_test_page.html: Added.
+        * tests/data/pageserialization/import_style_from_link.css: Added.
+        (#divOrange):
+        * tests/data/pageserialization/import_styles.css: Added.
+        (#divYellow):
+        * tests/data/pageserialization/link_styles.css: Added.
+        (#divRed):
+
+2011-03-29  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [Chromium] Inspector does not always shows transferred size correctly (e.g. gzipped/chunked content)
+        https://bugs.webkit.org/show_bug.cgi?id=56602
+
+        Added new methods to interface while keeping the old ones to keep
+        chromium working until it is also patched.
+
+        * public/WebURLLoaderClient.h:
+        (WebKit::WebURLLoaderClient::didReceiveData2):
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveData):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didReceiveData):
+        (WebCore::ResourceHandleInternal::didReceiveData2):
+
+2011-03-29  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: [Chromium] DevTools shows two resources for each plugin resource loaded
+        https://bugs.webkit.org/show_bug.cgi?id=57101
+
+        Remove DevToolsAgent network callbacks as this information is now available through ResourceLoader
+
+        * public/WebDevToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        * src/WebDevToolsAgentImpl.h:
+
+2011-03-29  Emil A Eklund  <eae@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Relative mouse coordinates recalculated for each target
+        https://bugs.webkit.org/show_bug.cgi?id=57130
+
+        * public/WebDOMMouseEvent.h:
+        * src/WebDOMMouseEvent.cpp:
+        (WebKit::WebDOMMouseEvent::layerX):
+        (WebKit::WebDOMMouseEvent::layerY):
+        (WebKit::WebDOMMouseEvent::offsetX):
+        (WebKit::WebDOMMouseEvent::offsetY):
+
+2011-03-29  Yuta Kitamura  <yutak@chromium.org>
+
+        Unreviewed, rolling out r82195.
+        http://trac.webkit.org/changeset/82195
+        https://bugs.webkit.org/show_bug.cgi?id=56602
+
+        Broke Chromium Clang builds.
+
+        * public/WebDevToolsAgent.h:
+        * public/WebURLLoaderClient.h:
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveData):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didReceiveData):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::didReceiveData):
+        * src/WebDevToolsAgentImpl.h:
+
+2011-03-29  Yuta Kitamura  <yutak@chromium.org>
+
+        Unreviewed. Another build fix. The last fix was incorrect.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::supportsFullscreenForNode):
+        (WebKit::ChromeClientImpl::supportsFullScreenForElement):
+        * src/ChromeClientImpl.h:
+
+2011-03-29  Yuta Kitamura  <yutak@chromium.org>
+
+        Unreviewed. Build fix for Chromium Clang bot.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::supportsFullscreenForNode):
+        * src/ChromeClientImpl.h:
+
+2011-03-28  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [Chromium] Inspector does not always shows transferred size correctly (e.g. gzipped/chunked content)
+        https://bugs.webkit.org/show_bug.cgi?id=56602
+
+        Added new methods to interface while keeping the old ones to keep
+        chromium working until it is also patched.
+
+        * public/WebDevToolsAgent.h:
+        * public/WebURLLoaderClient.h:
+        (WebKit::WebURLLoaderClient::didReceiveData):
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveData):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didReceiveData):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::didReceiveData):
+        * src/WebDevToolsAgentImpl.h:
+
+2011-03-28  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [chromium] have DRT write the png checksum into a png comment
+        https://bugs.webkit.org/show_bug.cgi?id=57255
+
+        * DEPS: Pull in version of chromium with comment writing
+
+2011-03-28  Adele Peterson  <adele@apple.com>
+
+        Build fix.
+
+        * src/WebFrameImpl.cpp: (WebKit::WebFrameImpl::selectionStartHasSpellingMarkerFor):
+        Call new selectionStartHasMarkerFor method instead of selectionStartHasSpellingMarkerFor.
+
+2011-03-28  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: fixed chromium build.
+
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgent::shouldInterruptForMessage):
+
+2011-03-25  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        REGRESSION (r70748): latest nightly builds kills AC_QuickTime.js
+        https://bugs.webkit.org/show_bug.cgi?id=49016
+
+        Update objectContentType() implementation to handle the
+        shouldPreferPlugInsForImages flag.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::objectContentType):
+        * src/FrameLoaderClientImpl.h:
+
+2011-03-25  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by David Levin.
+
+        Data race between ~WorkerFileSystemCallbacksBridge and runTasksOnWorkerThread
+        https://bugs.webkit.org/show_bug.cgi?id=56138
+        Stopped passing the WorkerFileSystemCallbacksBridge's reference to
+        MainThreadFileSystemCallbacks so that in most cases (in normal cases)
+        its reference is only maintained by WorkerThread.
+
+        * src/WorkerFileSystemCallbacksBridge.cpp:
+        (WebKit::MainThreadFileSystemCallbacks::createLeakedPtr):
+        (WebKit::MainThreadFileSystemCallbacks::MainThreadFileSystemCallbacks):
+        (WebKit::WorkerFileSystemCallbacksBridge::mayPostTaskToWorker):
+        * src/WorkerFileSystemCallbacksBridge.h:
+
+2011-03-24  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] Add setters for various client interfaces, and add WebSpellCheckClient
+        https://bugs.webkit.org/show_bug.cgi?id=57070
+
+        * public/WebSpellCheckClient.h: Added.
+        (WebKit::WebSpellCheckClient::spellCheck):
+        (WebKit::WebSpellCheckClient::requestCheckingOfText):
+        (WebKit::WebSpellCheckClient::autoCorrectWord):
+        (WebKit::WebSpellCheckClient::showSpellingUI):
+        (WebKit::WebSpellCheckClient::isShowingSpellingUI):
+        (WebKit::WebSpellCheckClient::updateSpellingUIWithMisspelledWord):
+        (WebKit::WebSpellCheckClient::~WebSpellCheckClient):
+        * public/WebView.h:
+        * public/WebViewClient.h:
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::checkSpellingOfString):
+        (WebKit::EditorClientImpl::requestCheckingOfString):
+        (WebKit::EditorClientImpl::getAutoCorrectSuggestionForMisspelledWord):
+        (WebKit::EditorClientImpl::updateSpellingUIWithMisspelledWord):
+        (WebKit::EditorClientImpl::showSpellingUI):
+        (WebKit::EditorClientImpl::spellingUIIsShowing):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setWebDevToolsAgentClient):
+        (WebKit::WebViewImpl::setWebAutoFillClient):
+        (WebKit::WebViewImpl::setWebSpellCheckClient):
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+        (WebKit::WebViewImpl::spellCheckClient):
+
+2011-03-25  Cary Clark  <caryclark@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add CGBitmapContext.h include to WebViewImpl.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=57097
+        
+        No tests. Exposes no new functionality.
+
+        * src/WebViewImpl.cpp:
+
+2011-03-25  Adam Klein  <adamk@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] Remove deprecated overload of openFileSystem for workers
+        https://bugs.webkit.org/show_bug.cgi?id=57062
+
+        * public/WebCommonWorkerClient.h:
+
+2011-03-25  Chang Shu  <cshu@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        rename Node::isContentEditable and all call sites to rendererIsEditable
+        https://bugs.webkit.org/show_bug.cgi?id=54290
+
+        This is part of the effort to separate JS API HTMLElement isContentEditable from
+        internal Node::rendererIsEditable.
+
+        * src/WebNode.cpp:
+        (WebKit::WebNode::isContentEditable):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setFocus):
+        (WebKit::WebViewImpl::setComposition):
+        (WebKit::WebViewImpl::confirmComposition):
+
+2011-03-25  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Roll forward Chromium deps to r79379 to pick up V8 3.2.4.2.
+
+        * DEPS:
+
+2011-03-24  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81916 and r81917.
+        http://trac.webkit.org/changeset/81916
+        http://trac.webkit.org/changeset/81917
+        https://bugs.webkit.org/show_bug.cgi?id=57071
+
+        broke a test on platforms that do not have QuickTime installed
+        (Requested by estes on #webkit).
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::objectContentType):
+        * src/FrameLoaderClientImpl.h:
+
+2011-03-24  Min Qin  <qinmin@google.com>
+
+        Reviewed by James Robinson.
+
+        Allow WebMediaPlayerClient to notify MediaPlayer that the playback state has changed
+
+        https://bugs.webkit.org/show_bug.cgi?id=56837
+
+        * public/WebMediaPlayerClient.h:
+        * src/WebMediaPlayerClientImpl.cpp:
+        (WebKit::WebMediaPlayerClientImpl::playbackStateChanged):
+        * src/WebMediaPlayerClientImpl.h:
+
+2011-03-23  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Get rid of WEB_TEXT_CHECKING_RESULT_IS_A_STRUCT since it&apos;s not needed anymore
+        https://bugs.webkit.org/show_bug.cgi?id=56955
+
+        * DEPS:
+        * public/WebTextCheckingResult.h:
+
+2011-03-24  Bill Budge  <bbudge@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Change a forward declaration of WebURLLoaderOptions to struct to prevent a build break in Chromium.
+        https://bugs.webkit.org/show_bug.cgi?id=57064
+
+        No tests. Exposes no new functionality.
+
+        * public/WebFrame.h:
+
+2011-03-24  Andy Estes  <aestes@apple.com>
+
+        Fix the chromium build.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::objectContentType):
+
+2011-03-24  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r70748): latest nightly builds kills AC_QuickTime.js
+        https://bugs.webkit.org/show_bug.cgi?id=49016
+
+        Update objectContentType() implementation to handle the
+        shouldPreferPlugInsForImages flag.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::objectContentType):
+        * src/FrameLoaderClientImpl.h:
+
+2011-03-24  Bill Budge  <bbudge@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Add an overloaded WebFrame::createAssociatedURLLoader method that takes WebURLLoaderOptions, so clients can specify CORS options to allow cross-origin requests.
+        https://bugs.webkit.org/show_bug.cgi?id=56885
+
+        No new tests. Exposes no new functionality.
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::createAssociatedURLLoader):
+        * src/WebFrameImpl.h:
+
+2011-03-24  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Remove legacy version of findPlainText.
+        https://bugs.webkit.org/show_bug.cgi?id=57056
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::scopeStringMatches):
+        Replace use of legacy findPlainText with a version that
+        takes an options parameter.
+
+2011-03-24  Nat Duca  <nduca@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        [chromium] Add traceEvents to compositor
+        https://bugs.webkit.org/show_bug.cgi?id=56965
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::composite):
+
+2011-03-24  Dominic Mazzoni  <dmazzoni@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add accessibilityObject accessor to WebDocument (needed for
+        building an accessibility tree that includes iframes).
+        https://bugs.webkit.org/show_bug.cgi?id=56984
+
+        * public/WebDocument.h:
+        * src/WebDocument.cpp:
+        (WebKit::WebDocument::accessibilityObject):
+
+2011-03-24  Ilya Sherman  <isherman@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Expose Node::isFocusable() in the Chromium WebKit API
+        In service of https://code.google.com/p/chromium/issues/detail?id=72918
+        https://bugs.webkit.org/show_bug.cgi?id=56809
+
+        * public/WebNode.h:
+        * src/WebNode.cpp:
+        (WebKit::WebNode::isFocusable):
+
+2011-03-24  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: fix chromium compilation.
+
+        * public/WebDevToolsAgent.h:
+
+2011-03-24  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: brush up Network agent API.
+        https://bugs.webkit.org/show_bug.cgi?id=57001
+
+        * public/WebDevToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::identifierForInitialRequest):
+        (WebKit::WebDevToolsAgentImpl::willSendRequest):
+        * src/WebDevToolsAgentImpl.h:
+
+2011-03-24  Noel Gordon  <noel.gordon@gmail.com>
+
+        Reviewed by Ojan Vafai.
+
+        [chromium] WebBindings::getRangeImpl() should NULL check its NPObject argument
+        https://bugs.webkit.org/show_bug.cgi?id=56996
+
+        * src/WebBindings.cpp:
+        (WebKit::getRangeImpl):
+
+2011-03-23  Noel Gordon  <noel.gordon@gmail.com>
+
+        Reviewed by Ojan Vafai.
+
+        [chromium] WebBindings{.h,.cpp}: should use consistent argument naming
+        https://bugs.webkit.org/show_bug.cgi?id=56898
+
+        Address FIXME I noted/added in r81676.  Wanted to just copy/paste the checking
+        code from elsewhere in the file, but inconsistent argument naming made it more
+        difficult than it need be, so first step: use consistent naming.
+
+        * public/WebBindings.h:
+        * src/WebBindings.cpp:
+        (WebKit::WebBindings::construct):
+        (WebKit::WebBindings::enumerate):
+        (WebKit::WebBindings::evaluate):
+        (WebKit::WebBindings::evaluateHelper):
+        (WebKit::WebBindings::getProperty):
+        (WebKit::WebBindings::hasMethod):
+        (WebKit::WebBindings::hasProperty):
+        (WebKit::WebBindings::invoke):
+        (WebKit::WebBindings::invokeDefault):
+        (WebKit::WebBindings::releaseObject):
+        (WebKit::WebBindings::removeProperty):
+        (WebKit::WebBindings::retainObject):
+        (WebKit::WebBindings::setException):
+        (WebKit::WebBindings::setProperty):
+        (WebKit::WebBindings::unregisterObject):
+        (WebKit::WebBindings::extractIdentifierData):
+        (WebKit::getRangeImpl):
+        (WebKit::getElementImpl):
+        (WebKit::makeIntArrayImpl):
+        (WebKit::WebBindings::getRange):
+        (WebKit::WebBindings::makeIntArray):
+
+2011-03-23  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Relanding:
+        Moving the method that is used to retrieve all the resources in
+        a page from the Chromium code (dom_operations.cc) to WebKit.
+        https://bugs.webkit.org/show_bug.cgi?id=55859
+
+        * WebKit.gyp:
+        * public/WebPageSerializer.h:
+        * public/WebURL.h:
+        (WebKit::operator==):
+        (WebKit::operator!=):
+        * public/WebVector.h:
+        (WebKit::WebVector::contains):
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::WebDataSourceImpl):
+        * src/WebPageSerializer.cpp:
+        (WebCore::getSubResourceURLFromElement):
+        (WebCore::retrieveResourcesForElement):
+        (WebCore::retrieveResourcesForFrame):
+        (WebKit::WebPageSerializer::retrieveAllResources):
+        * tests/WebFrameTest.cpp:
+        * tests/WebPageSerializerTest.cpp: Added.
+        * tests/data/pageserialization/awesome.png: Added.
+        * tests/data/pageserialization/embed_iframe.html: Added.
+        * tests/data/pageserialization/object_iframe.html: Added.
+        * tests/data/pageserialization/simple_iframe.html: Added.
+        * tests/data/pageserialization/simple_page.html: Added.
+        * tests/data/pageserialization/top_frame.html: Added.
+
+2011-03-23  Kenneth Russell  <kbr@google.com>
+
+        Rolled forward Chromium DEPS again to fix DumpRenderTree build
+        failure caused by r81821.
+
+        * DEPS:
+
+2011-03-23  Kenneth Russell  <kbr@google.com>
+
+        Rolled forward Chromium DEPS to fix build breakage after r81821.
+
+        * DEPS:
+
+2011-03-23  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] WebGLRenderingContext and other DOMWindow properties should remain if WebGL is disabled
+        https://bugs.webkit.org/show_bug.cgi?id=56947
+
+        Removed the WebRuntimeFeatures setting for WebGL. WebGL support is
+        now controlled exclusively through the page's Settings.
+
+        * public/WebRuntimeFeatures.h:
+        * src/WebRuntimeFeatures.cpp:
+
+2011-03-23  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Add API to retrieve the audio hardware sample-rate
+        https://bugs.webkit.org/show_bug.cgi?id=56882
+
+        * public/WebAudioDevice.h:
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::audioHardwareSampleRate):
+        * src/AudioDestinationChromium.cpp:
+        (WebCore::AudioDestination::hardwareSampleRate):
+
+2011-03-23  Cris Neckar  <cdn@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Add refptr for widget. Mutations can happen within the event handler.
+        https://bugs.webkit.org/show_bug.cgi?id=56774
+
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::handleEvent):
+
+2011-03-23  Viet-Trung Luu  <viettrungluu@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Add FormatPlainText to WebClipboard::Format enumeration.
+        https://bugs.webkit.org/show_bug.cgi?id=56868
+
+        Chromium's WebClipboard::isFormatAvailable() will be correspondingly
+        extended.
+
+        * public/WebClipboard.h:
+        * src/AssertMatchingEnums.cpp:
+
+2011-03-23  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [Chromium] Web Inspector: Remove DebuggerScript.js from Chromium resource bundle.
+        https://bugs.webkit.org/show_bug.cgi?id=56916
+
+        * DEPS: bump up Chromium dependency to the revision where no references to the DebuggerScript.js resource are left.
+        * WebKit.grd:
+
+2011-03-23  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [Chromium] Web Inspector: remove inspectNode method from WebDevToolsAgent
+        https://bugs.webkit.org/show_bug.cgi?id=56926
+
+        * public/WebDevToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        * src/WebDevToolsAgentImpl.h:
+
+2011-03-23  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81686.
+        http://trac.webkit.org/changeset/81686
+        https://bugs.webkit.org/show_bug.cgi?id=56914
+
+        Breaks webkit_tests in Chromium again. (Requested by pfeldman
+        on #webkit).
+
+        * WebKit.gyp:
+        * public/WebPageSerializer.h:
+        * public/WebURL.h:
+        * public/WebVector.h:
+        (WebKit::WebVector::operator[]):
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::WebDataSourceImpl):
+        * src/WebPageSerializer.cpp:
+        * tests/WebFrameTest.cpp:
+        * tests/WebPageSerializerTest.cpp: Removed.
+        * tests/data/pageserialization/awesome.png: Removed.
+        * tests/data/pageserialization/embed_iframe.html: Removed.
+        * tests/data/pageserialization/object_iframe.html: Removed.
+        * tests/data/pageserialization/simple_iframe.html: Removed.
+        * tests/data/pageserialization/simple_page.html: Removed.
+        * tests/data/pageserialization/top_frame.html: Removed.
+
+2011-03-22  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [V8] Web Inspector: compile DebuggerScript.js into DebuggerScriptSource.h
+        https://bugs.webkit.org/show_bug.cgi?id=56843
+
+        * public/WebDevToolsAgentClient.h: the script source is now compiled along with the inspector code.
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::attach):
+
+2011-03-22  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [Chromium] Web Inspector: remove obsolete methods from WebDevToolsAgentClient.h
+        https://bugs.webkit.org/show_bug.cgi?id=56897
+
+        * public/WebDevToolsAgentClient.h:
+
+2011-03-22  Noel Gordon  <noel.gordon@gmail.com>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Remove identity from dragTargetDragEnter() function signature
+        https://bugs.webkit.org/show_bug.cgi?id=56875
+
+        First part of 3-sided patch.  Add new function signature sans identity.
+
+        * public/WebView.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::dragTargetDragEnter):
+        * src/WebViewImpl.h:
+
+2011-03-22  John Bauman  <jbauman@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        Add support for preserveDrawingBuffer context creation attribute
+        https://bugs.webkit.org/show_bug.cgi?id=56431
+
+        * src/GraphicsContext3DChromium.cpp:
+        (WebCore::GraphicsContext3DInternal::markContextChanged):
+        (WebCore::GraphicsContext3DInternal::markLayerComposited):
+        (WebCore::GraphicsContext3DInternal::layerComposited):
+        (WebCore::GraphicsContext3D::layerComposited):
+        * src/GraphicsContext3DInternal.h:
+
+2011-03-22  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Make WebTextCheckingResult&apos;s members be public in preparation for converting it to a struct
+        https://bugs.webkit.org/show_bug.cgi?id=56857
+
+        * DEPS:
+        * public/WebTextCheckingResult.h:
+
+2011-03-22  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Relanding:
+        Moving the method that is used to retrieve all the resources in
+        a page from the Chromium code (dom_operations.cc) to WebKit.
+        https://bugs.webkit.org/show_bug.cgi?id=55859
+
+
+        * WebKit.gyp:
+        * public/WebPageSerializer.h:
+        * public/WebURL.h:
+        (WebKit::operator==):
+        (WebKit::operator!=):
+        * public/WebVector.h:
+        (WebKit::WebVector::contains):
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::WebDataSourceImpl):
+        * src/WebPageSerializer.cpp:
+        (WebCore::getSubResourceURLFromElement):
+        (WebCore::retrieveResourcesForElement):
+        (WebCore::retrieveResourcesForFrame):
+        (WebKit::WebPageSerializer::retrieveAllResources):
+        * tests/WebFrameTest.cpp:
+        * tests/WebPageSerializerTest.cpp: Added.
+        * tests/data/pageserialization/awesome.png: Added.
+        * tests/data/pageserialization/embed_iframe.html: Added.
+        * tests/data/pageserialization/object_iframe.html: Added.
+        * tests/data/pageserialization/simple_iframe.html: Added.
+        * tests/data/pageserialization/simple_page.html: Added.
+        * tests/data/pageserialization/top_frame.html: Added.
+
+2011-03-22  Noel Gordon  <noel.gordon@gmail.com>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Remove Gears from Chromium WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=56808
+
+        Gears has been removed from Chromium 12. Remove Gears drag drop support
+        from WebKit. That work lead to http://webkit.org/b/25916, a proposal to
+        add native file drag drop, and its subsequent standardization in HTML5.
+
+        * public/WebBindings.h:
+        * public/WebView.h:
+        * src/WebBindings.cpp:
+        (WebKit::getRangeImpl): FIXME note added.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::dragTargetDragEnter):
+        (WebKit::WebViewImpl::dragTargetDragLeave):
+        (WebKit::WebViewImpl::dragTargetDrop):
+        (WebKit::WebViewImpl::dragTargetDragEnterOrOver):
+        * src/WebViewImpl.h:
+
+2011-03-21  Adam Klein  <adamk@chromium.org>
+
+        Reviewed by David Levin.
+
+        [fileapi] Add URI resolution support to WorkerContext
+        https://bugs.webkit.org/show_bug.cgi?id=55644
+
+        Pass "create" bool through to allow opening
+        a filesystem without allowing creation.
+
+        * src/LocalFileSystemChromium.cpp:
+        (WebCore::LocalFileSystem::readFileSystem):
+        (WebCore::LocalFileSystem::requestFileSystem):
+        * src/WebWorkerBase.cpp:
+        (WebKit::WebWorkerBase::openFileSystemForWorker):
+        * src/WebWorkerBase.h:
+        * src/WorkerFileSystemCallbacksBridge.cpp:
+        (WebKit::WorkerFileSystemCallbacksBridge::postOpenFileSystemToMainThread):
+        (WebKit::WorkerFileSystemCallbacksBridge::openFileSystemOnMainThread):
+        * src/WorkerFileSystemCallbacksBridge.h:
+
+2011-03-21  Ilya Sherman  <isherman@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Remove WebInputElement::isEnabledFormControl() from Chromium WebKit API
+        Clients should instead call into WebFormControlElement::isEnabled().
+        https://bugs.webkit.org/show_bug.cgi?id=56364
+
+        * public/WebInputElement.h: Removed isEnabledFormControl().
+        * src/WebInputElement.cpp: Removed isEnabledFormControl().
+
+2011-03-21  Robert Kroeger  <rjkroege@chromium.org>
+
+        Reviewed by Antonio Gomes.
+
+        Flag to enable a platform specific GestureReocognizer framework in Chromium.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49345
+
+        * features.gypi:
+
+2011-03-21  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [chromium] remove devtools_html's dependency on WebKit.gypi
+        https://bugs.webkit.org/show_bug.cgi?id=56661
+
+        We want to depend on the values in the gypi file, not the gypi file
+        itself.  Actually, if someone edits a gypi file, s/he should re-run
+        gyp to pick up the new dependencies.
+
+        It turns out that this doesn't matter much for this target anymore
+        since we pull the .js dependencies from the inspector html file.
+
+        * WebKit.gyp: cleanup dependencies
+        * scripts/generate_devtools_html.py: remove unused param
+
+2011-03-21  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81377.
+        http://trac.webkit.org/changeset/81377
+        https://bugs.webkit.org/show_bug.cgi?id=56765
+
+        WebPageSerializerTest.MultipleFrames is broken (Requested by
+        simonjam on #webkit).
+
+        * WebKit.gyp:
+        * public/WebPageSerializer.h:
+        * public/WebURL.h:
+        * public/WebVector.h:
+        (WebKit::WebVector::operator[]):
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::WebDataSourceImpl):
+        * src/WebPageSerializer.cpp:
+        * tests/WebFrameTest.cpp:
+        * tests/WebPageSerializerTest.cpp: Removed.
+        * tests/data/pageserialization/awesome.png: Removed.
+        * tests/data/pageserialization/embed_iframe.html: Removed.
+        * tests/data/pageserialization/object_iframe.html: Removed.
+        * tests/data/pageserialization/simple_iframe.html: Removed.
+        * tests/data/pageserialization/simple_page.html: Removed.
+        * tests/data/pageserialization/top_frame.html: Removed.
+
+2011-03-21  Daniel Sievers  <sievers@google.com>
+
+        Reviewed by Simon Fraser.
+
+        [Chromium] Make RenderAsTextBehavior and LayerTreeAsTextBehavior tweakable from the DumpRenderTree commandline
+        https://bugs.webkit.org/show_bug.cgi?id=56139
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::renderTreeAsText):
+        (WebKit::WebFrameImpl::layerTreeAsText):
+        * src/WebFrameImpl.h:
+
+2011-03-21  Eric Uhrhane <ericu@chromium.org>
+
+        Reviewed by David Levin.
+
+        [fileapi/chromium] Fetch platform path using GetMetadata before creating File from FileEntry*
+        https://bugs.webkit.org/show_bug.cgi?id=56704
+
+        * src/WebFileSystemCallbacksImpl.cpp:
+        (WebFileSystemCallbacksImpl::didReadMetadata)
+        Pass new platformPath member through.
+
+        * src/WorkerFileSystemCallbacksBridge.cpp:
+        (CrossThreadCopierBase)
+        Copy new platformPath member.
+
+        * public/WebFileInfo.h:
+        (struct WebFileInfo)
+        Add new platformPath member.
+
+2011-03-21  Leandro Gracia Gil  <leandrogracia@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Media Stream API patch 0: adding compilation guards.
+        https://bugs.webkit.org/show_bug.cgi?id=56458
+
+        Enabling the feature by default for chromium builds.
+
+        * features.gypi:
+
+2011-03-21  Vsevolod Vlasov  <vsevik@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Inspector does not always show correct transfer size (for compressed/chunked data)
+        https://bugs.webkit.org/show_bug.cgi?id=56691
+
+        Added transfer size support in inspector for compressed data.
+
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didReceiveData):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::didReceiveData):
+
+2011-03-20  Bill Budge  <bbudge@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Rename ThreadSafeShared to ThreadSafeRefCounted
+        https://bugs.webkit.org/show_bug.cgi?id=56714
+
+        No new tests. Exposes no new functionality.
+
+        * src/PlatformMessagePortChannel.h:
+        * src/WebWorkerBase.cpp:
+        * src/WorkerFileSystemCallbacksBridge.h:
+        * src/WorkerFileWriterCallbacksBridge.h:
+
+2011-03-18  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] make devtool concatenation targets conditional based on debug_devtools
+        https://bugs.webkit.org/show_bug.cgi?id=56667
+
+        We don't want to run these targets when debug_devtools=1 because it
+        will overwrite the devtools.js and devtools.css files copied by
+        inspector_resources.  On Linux, this triggers a warning because
+        there are two commands that target the same output file when
+        debug_devtools=1.
+
+        I also removed the 'sources' lines since I don't think they do
+        anything for actions.
+
+        * WebKit.gyp:
+
+2011-03-17  Alexey Marinichev  <amarinichev@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        chromium: uninitialized field in WebViewImpl
+        https://bugs.webkit.org/show_bug.cgi?id=56620
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+
+2011-03-17  Adrienne Walker  <enne@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] Turn off accelerated compositing for RTL style pages.
+        https://bugs.webkit.org/show_bug.cgi?id=56585
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::layout):
+        (WebKit::WebViewImpl::pageHasRTLStyle):
+        (WebKit::WebViewImpl::setRootGraphicsLayer):
+        * src/WebViewImpl.h:
+
+2011-03-17  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Moving the method that is used to retrieve all the resources in
+        a page from the Chromium code (dom_operations.cc) to WebKit.
+        https://bugs.webkit.org/show_bug.cgi?id=55859
+
+        * WebKit.gyp:
+        * public/WebPageSerializer.h:
+        * public/WebURL.h:
+        (WebKit::operator==):
+        (WebKit::operator!=):
+        * public/WebVector.h:
+        (WebKit::WebVector::contains):
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::WebDataSourceImpl):
+        * src/WebPageSerializer.cpp:
+        (WebCore::getSubResourceURLFromElement):
+        (WebCore::retrieveResourcesForElement):
+        (WebCore::retrieveResourcesForFrame):
+        (WebKit::WebPageSerializer::retrieveAllResources):
+        * tests/WebFrameTest.cpp:
+        * tests/WebPageSerializerTest.cpp: Added.
+        * tests/data/pageserialization: Added.
+        * tests/data/pageserialization/awesome.png: Added.
+        * tests/data/pageserialization/embed_iframe.html: Added.
+        * tests/data/pageserialization/object_iframe.html: Added.
+        * tests/data/pageserialization/simple_iframe.html: Added.
+        * tests/data/pageserialization/simple_page.html: Added.
+        * tests/data/pageserialization/top_frame.html: Added.
+
+2011-03-17  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [chromium] don't concatenate devtools files when debug_devtools=1
+        https://bugs.webkit.org/show_bug.cgi?id=56572
+
+        * WebKit.gyp:
+
+2011-03-17  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] minor cleanup of devtools_files variable in WebKit.gyp
+        https://bugs.webkit.org/show_bug.cgi?id=56503
+
+        * WebKit.gyp: Moving duplicate variables out of a condition.
+
+2011-03-16  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by James Robinson.
+
+        Remove USE(BUILTIN_UTF8_CODEC)
+        https://bugs.webkit.org/show_bug.cgi?id=56508
+
+        * features.gypi:
+
+2011-03-16  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [chromium] include inspector gif files in the list of resources
+        https://bugs.webkit.org/show_bug.cgi?id=56504
+
+        * scripts/generate_devtools_grd.py:
+
+2011-03-16  Bill Budge  <bbudge@chromium.org>
+
+        Reviewed by David Levin.
+
+        AssociatedURLLoader does not support Cross Origin Requests
+        https://bugs.webkit.org/show_bug.cgi?id=53925
+
+        No new tests. Exposes no new functionality.
+
+        * public/WebURLLoader.h:
+        (WebKit::WebURLLoaderOptions::WebURLLoaderOptions):
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::ClientAdapter::isDocumentThreadableLoaderClient):
+        (WebKit::AssociatedURLLoader::ClientAdapter::clearClient):
+        (WebKit::AssociatedURLLoader::ClientAdapter::create):
+        (WebKit::AssociatedURLLoader::ClientAdapter::ClientAdapter):
+        (WebKit::AssociatedURLLoader::ClientAdapter::willSendRequest):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didSendData):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveResponse):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveData):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveCachedMetadata):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didFinishLoading):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didFail):
+        (WebKit::AssociatedURLLoader::AssociatedURLLoader):
+        (WebKit::AssociatedURLLoader::~AssociatedURLLoader):
+        (WebKit::AssociatedURLLoader::loadSynchronously):
+        (WebKit::AssociatedURLLoader::loadAsynchronously):
+        (WebKit::AssociatedURLLoader::cancel):
+        (WebKit::AssociatedURLLoader::setDefersLoading):
+        * src/AssociatedURLLoader.h:
+
+2011-03-16  Adam Barth  <abarth@webkit.org>
+
+        Roll Chromium DEPS.
+
+        * DEPS:
+
+2011-03-16  Daniel Sievers  <sievers@google.com>
+
+        Reviewed by James Robinson.
+
+        Add setting to always force compositing mode
+        https://bugs.webkit.org/show_bug.cgi?id=56156
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setForceCompositingMode):
+        * src/WebSettingsImpl.h:
+
+2011-03-16  Sreeram Ramachandran  <sreeram@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Revert of r80451. Decided to do this in WebCore instead.
+        https://bugs.webkit.org/show_bug.cgi?id=55844
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        * src/WebFrameImpl.h:
+
+2011-03-15  Ilya Sherman  <isherman@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Move isReadOnly() from WebInputElement to WebFormControlElement
+        https://bugs.webkit.org/show_bug.cgi?id=55760
+
+        * public/WebFormControlElement.h:
+        * public/WebInputElement.h:
+        * src/WebFormControlElement.cpp:
+        (WebKit::WebFormControlElement::isReadOnly):
+        * src/WebInputElement.cpp:
+
+2011-03-15  John Bauman  <jbauman@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        Non-premultiplied-alpha canvas attribute is ignore for toDataURL, drawImage, texImage2D
+        https://bugs.webkit.org/show_bug.cgi?id=56238
+
+        Add support for reading a webgl context into an ImageData.
+
+        * src/GraphicsContext3DChromium.cpp:
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas):
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToImageData):
+        * src/GraphicsContext3DInternal.h:
+
+2011-03-15  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81144.
+        http://trac.webkit.org/changeset/81144
+        https://bugs.webkit.org/show_bug.cgi?id=56432
+
+        It broke the ui test
+        NPAPITesterBase.GetURLRedirectNotification. (Requested by
+        dave_levin on #webkit).
+
+        * public/WebURLLoader.h:
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::AssociatedURLLoader):
+        (WebKit::AssociatedURLLoader::~AssociatedURLLoader):
+        (WebKit::AssociatedURLLoader::loadSynchronously):
+        (WebKit::AssociatedURLLoader::loadAsynchronously):
+        (WebKit::AssociatedURLLoader::cancel):
+        (WebKit::AssociatedURLLoader::setDefersLoading):
+        (WebKit::AssociatedURLLoader::prepareRequest):
+        (WebKit::AssociatedURLLoader::willSendRequest):
+        (WebKit::AssociatedURLLoader::didSendData):
+        (WebKit::AssociatedURLLoader::didReceiveResponse):
+        (WebKit::AssociatedURLLoader::didDownloadData):
+        (WebKit::AssociatedURLLoader::didReceiveData):
+        (WebKit::AssociatedURLLoader::didReceiveCachedMetadata):
+        (WebKit::AssociatedURLLoader::didFinishLoading):
+        (WebKit::AssociatedURLLoader::didFail):
+        * src/AssociatedURLLoader.h:
+
+2011-03-15  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        pngcrush images used by inspector
+        https://bugs.webkit.org/show_bug.cgi?id=56426
+
+        This saves 120k in WebCore and 8k in WebKit/chromium.  I ran
+        pngcrush -brute, so none of the meta data (ancillary chunks)
+        are modified.
+
+        * src/js/Images/segmentChromium.png:
+        * src/js/Images/segmentHoverChromium.png:
+        * src/js/Images/segmentHoverEndChromium.png:
+        * src/js/Images/segmentSelectedChromium.png:
+        * src/js/Images/segmentSelectedEndChromium.png:
+        * src/js/Images/statusbarBackgroundChromium.png:
+        * src/js/Images/statusbarBottomBackgroundChromium.png:
+        * src/js/Images/statusbarMenuButtonChromium.png:
+        * src/js/Images/statusbarMenuButtonSelectedChromium.png:
+
+2011-03-15  Michael Nordman  <michaeln@google.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        When initiating a main resource load, let the application cache
+        know which frame the load is being conducted for. This patch doesn't
+        resolve the following bug, but the additional WebFrame parameter
+        should provide the chromium port with enough info to pick the
+        "most appropiate" cached resource.
+        https://bugs.webkit.org/show_bug.cgi?id=55505
+
+        Also fixup a stale comment in stopLoadingInFrame.
+
+        * public/WebApplicationCacheHost.h:
+        (WebKit::WebApplicationCacheHost::willStartMainResourceRequest):
+        * src/ApplicationCacheHost.cpp:
+        (WebCore::ApplicationCacheHost::maybeLoadMainResource):
+        (WebCore::ApplicationCacheHost::stopLoadingInFrame):
+
+2011-03-15  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [chromium] add a build target to create a grd file with devtool resources
+        https://bugs.webkit.org/show_bug.cgi?id=56335
+
+        Reland with a fix to avoid really long command lines on Windows.
+
+        * WebKit.gyp:
+        * scripts/generate_devtools_grd.py: Added.
+
+2011-03-15  Alok priyadarshi  <alokp@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Valgrind error due to uninitialized PluginLayerChromium::m_textureId
+        https://bugs.webkit.org/show_bug.cgi?id=56390
+
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::setBackingTextureId):
+        (WebKit::WebPluginContainerImpl::platformLayer):
+
+2011-03-15  Brett Wilson  <brettw@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Make WebConsoleMessage properly respect the log level.
+        https://bugs.webkit.org/show_bug.cgi?id=56386
+
+        * public/WebConsoleMessage.h:
+        (WebKit::WebConsoleMessage::WebConsoleMessage):
+
+2011-03-15  Tony Chang  <tony@chromium.org>
+
+        Revert r81147 and r81149, broke the chromium win build.
+
+        * WebKit.gyp:
+        * scripts/generate_devtools_grd.py: Removed.
+
+2011-03-15  Tony Chang  <tony@chromium.org>
+
+        Fix chromium build using python 2.5 (with statement).
+
+        * scripts/generate_devtools_grd.py:
+
+2011-03-15  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [chromium] add a build target to create a grd file with devtool resources
+        https://bugs.webkit.org/show_bug.cgi?id=56335
+
+        This is the webkit side of the fix for
+        http://code.google.com/p/chromium/issues/detail?id=35793
+
+        * WebKit.gyp:
+        * scripts/generate_devtools_grd.py: Added.
+
+2011-03-15  Bill Budge  <bbudge@chromium.org>
+
+        Reviewed by David Levin.
+
+        AssociatedURLLoader does not support Cross Origin Requests
+        https://bugs.webkit.org/show_bug.cgi?id=53925
+
+        No new tests. No new functionality exposed.
+
+        * public/WebURLLoader.h:
+        (WebKit::WebURLLoaderOptions::WebURLLoaderOptions):
+        * src/AssociatedURLLoader.cpp:
+        (WebKit::AssociatedURLLoader::ClientAdapter::clearClient):
+        (WebKit::AssociatedURLLoader::ClientAdapter::create):
+        (WebKit::AssociatedURLLoader::ClientAdapter::ClientAdapter):
+        (WebKit::AssociatedURLLoader::ClientAdapter::willSendRequest):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didSendData):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveResponse):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveData):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didReceiveCachedMetadata):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didFinishLoading):
+        (WebKit::AssociatedURLLoader::ClientAdapter::didFail):
+        (WebKit::AssociatedURLLoader::AssociatedURLLoader):
+        (WebKit::AssociatedURLLoader::~AssociatedURLLoader):
+        (WebKit::AssociatedURLLoader::loadSynchronously):
+        (WebKit::AssociatedURLLoader::loadAsynchronously):
+        (WebKit::AssociatedURLLoader::cancel):
+        (WebKit::AssociatedURLLoader::setDefersLoading):
+        * src/AssociatedURLLoader.h:
+
+2011-03-15  Alok priyadarshi  <alokp@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Remove unnecessary function WebPlugin::getBackingTextureId
+        https://bugs.webkit.org/show_bug.cgi?id=56122
+
+        It will be tested by Pepper2D and Pepper3D layout/smoke tests
+        on the Chromium side.
+
+        * public/WebPlugin.h:
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::platformLayer):
+
+2011-03-15  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Unreviewed. Update chromium deps to pick up the latest V8.
+
+        * DEPS:
+
+2011-03-14  Alexey Marinichev  <amarinichev@chromium.org>
+
+        Reviewed by Kenneth Russell.
+
+        Graphics Context is not properly recovered if the GPU process dies.
+        https://bugs.webkit.org/show_bug.cgi?id=56148
+
+        Split context recreation into two steps.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::composite):
+        (WebKit::WebViewImpl::doComposite):
+        (WebKit::WebViewImpl::reallocateRenderer):
+        * src/WebViewImpl.h:
+
+2011-03-14  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r81094.
+        http://trac.webkit.org/changeset/81094
+        https://bugs.webkit.org/show_bug.cgi?id=56355
+
+        Broke the chromium DRT related build. (Requested by dave_levin
+        on #webkit).
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::renderTreeAsText):
+        (WebKit::WebFrameImpl::layerTreeAsText):
+        * src/WebFrameImpl.h:
+
+2011-03-14  Daniel Sievers  <sievers@google.com>
+
+        Reviewed by Simon Fraser.
+
+        [Chromium] Make RenderAsTextBehavior and LayerTreeAsTextBehavior tweakable from the DumpRenderTree commandline
+        https://bugs.webkit.org/show_bug.cgi?id=56139
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::renderTreeAsText):
+        (WebKit::WebFrameImpl::layerTreeAsText):
+        * src/WebFrameImpl.h:
+
+2011-03-14  John Knottenbelt  <jknotten@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Detach Geolocation from Frame when Page destroyed.
+        https://bugs.webkit.org/show_bug.cgi?id=52877
+
+        Add accessors to the WebGeolocationClientMock to allow the number of
+        pending geolocation permission requests to be queried.
+
+        * public/WebGeolocationClientMock.h:
+        * src/WebGeolocationClientMock.cpp:
+        (WebKit::WebGeolocationClientMock::numberOfPendingPermissionRequests):
+
+2011-03-11  David Levin  <levin@chromium.org>
+
+        Rollout the chromium deps roll as it adds a dependency on a header
+        that the bots building for WebKit don't seem to have.
+
+        Specifically gfx\gl\gl_context_egl.cc depends on d3dcompiler.h
+
+        * DEPS:
+
+2011-03-11  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [chromium] Correct return type of WebClipboard::readImage.
+        https://bugs.webkit.org/show_bug.cgi?id=56234
+
+        Update the return type to reflect that we are returning a blob of PNG
+        data, not a bitmap.
+
+        * public/WebClipboard.h:
+        (WebKit::WebClipboard::readImage):
+
+2011-03-11  David Levin  <levin@chromium.org>
+
+        Update chromium deps to pick up the skia roll.
+
+        * DEPS:
+
+2011-03-11  Adrienne Walker  <enne@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Add missing unit tests to TilingData.
+        https://bugs.webkit.org/show_bug.cgi?id=54143
+
+        * tests/TilingDataTest.cpp:
+        (WebCore::TEST):
+
+2011-03-11  Anton D'Auria  <adauria@apple.com>
+
+        Reviewed and landed by Brady Eidson.
+
+        Add WebKit1 API to view and delete local storage
+        https://bugs.webkit.org/show_bug.cgi?id=51878
+
+        * src/StorageNamespaceProxy.cpp:
+        (WebCore::StorageNamespaceProxy::clearOriginForDeletion):
+        (WebCore::StorageNamespaceProxy::clearAllOriginsForDeletion):
+        (WebCore::StorageNamespaceProxy::sync):
+        * src/StorageNamespaceProxy.h:
+
+2011-03-11  Dominic Mazzoni  <dmazzoni@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add an accessibilityIsIgnored method to WebAccessibilityObject.
+        https://bugs.webkit.org/show_bug.cgi?id=50969
+
+        * public/WebAccessibilityObject.h:
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::accessibilityIsIgnored):
+
+2011-03-11  Avi Drissman  <avi@google.com>
+
+        Reviewed by Tony Chang.
+
+        Fix missing initialization of new member variables.
+        https://bugs.webkit.org/show_bug.cgi?id=50969
+
+        * public/WebMenuItemInfo.h:
+        (WebKit::WebMenuItemInfo::WebMenuItemInfo):
+
+2011-03-11  Roland Steiner  <rolandsteiner@chromium.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Bug 55570 - Remove dependency of dom/InputElement.cpp on html/ and wml/
+        https://bugs.webkit.org/show_bug.cgi?id=55570
+
+        Add a virtual function toInputElement() to Node that has a default
+        implementation of returning 0.
+        For HTMLInputElement and WMLInputElement (which derive from InputElement)
+        override this to return the object.
+        Change all calling sites of the old toInputElement to use the new member
+        function. This also allows us to save some casts.
+
+        No new tests (refactoring).
+
+        * src/WebInputElement.cpp:
+        (WebKit::toWebInputElement):
+
+2011-03-10  Takayoshi Kochi  <kochi@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Remove default parameter declaration for familiForChars(), which is no longer necessary.
+
+        * public/gtk/WebFontInfo.h:
+
+2011-03-10  Nat Duca  <nduca@chromium.org>
+
+        Reviewed by James Robinson.
+
+        [chromium] Make updateAndDrawLayers argumentless.
+        https://bugs.webkit.org/show_bug.cgi?id=55985
+
+        Made the TilePainters and viewport parameters for
+        LayerRendererChromium member variables instead of arguments on
+        updateAndDrawLayers. In a future change, this will allows us to
+        draw the layer tree without the WebView's assistance.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::resize):
+        (WebKit::WebViewImpl::paint):
+        (WebKit::WebViewImpl::scrollRootLayerRect):
+        (WebKit::WebViewImpl::invalidateRootLayerRect):
+        (WebKit::WebViewImplContentPainter::create):
+        (WebKit::WebViewImplContentPainter::paint):
+        (WebKit::WebViewImplContentPainter::WebViewImplContentPainter):
+        (WebKit::WebViewImplScrollbarPainter::create):
+        (WebKit::WebViewImplScrollbarPainter::paint):
+        (WebKit::WebViewImplScrollbarPainter::WebViewImplScrollbarPainter):
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::doComposite):
+        (WebKit::WebViewImpl::reallocateRenderer):
+        (WebKit::WebViewImpl::updateLayerRendererViewport):
+        * src/WebViewImpl.h:
+
+2011-03-10  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, roll chromium version to r77259 to pick up
+        webfontinfo api change.
+
+        * DEPS:
+
+2011-03-10  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r80701.
+        http://trac.webkit.org/changeset/80701
+        https://bugs.webkit.org/show_bug.cgi?id=56126
+
+        fast/dom/Geolocation/window-close-crash.html fails on Snow
+        Leopard release builds (Requested by mihaip on #webkit).
+
+        * public/WebGeolocationClientMock.h:
+        * src/WebGeolocationClientMock.cpp:
+
+2011-03-10  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: better names for HAR export commands
+        https://bugs.webkit.org/show_bug.cgi?id=56097
+
+        Rename Export to HAR to Copy entry/network log as HAR
+        Expose Copy as HAR unconditionally, remove related settings entry.
+
+        * src/js/DevTools.js: removed override for resourceExportEnabled
+
+2011-01-26  John Knottenbelt  <jknotten@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Detach Geolocation from Frame when Page destroyed.
+        https://bugs.webkit.org/show_bug.cgi?id=52877
+
+        Add accessors to the WebGeolocationClientMock to allow the number of
+        pending geolocation permission requests to be queried.
+
+        * public/WebGeolocationClientMock.h:
+        * src/WebGeolocationClientMock.cpp:
+        (WebKit::WebGeolocationClientMock::numberOfPendingPermissionRequests):
+
+2011-03-08  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        IndexedDB: Add BackingStoreType parameter to IDBFactoryBackendInterface::open
+        https://bugs.webkit.org/show_bug.cgi?id=55948
+
+        Add a parameter that allows for selection of alternative backing store
+        implementations.
+
+        * public/WebIDBFactory.h:
+        (WebKit::WebIDBFactory::open):
+        * src/AssertMatchingEnums.cpp:
+        * src/IDBFactoryBackendProxy.cpp:
+        (WebCore::IDBFactoryBackendProxy::open):
+        * src/IDBFactoryBackendProxy.h:
+        * src/WebIDBFactoryImpl.cpp:
+        (WebKit::WebIDBFactoryImpl::open):
+        * src/WebIDBFactoryImpl.h:
+
+2011-03-08  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by David Levin.
+
+        Destroying WorkerFileSystemCallbacksBridge on main thread results in ASSERT in WorkerContext::Observer::~Observer
+        https://bugs.webkit.org/show_bug.cgi?id=55895
+
+        * src/WorkerFileSystemCallbacksBridge.cpp:
+        (WebKit::WorkerFileSystemCallbacksBridge::runTaskOnWorkerThread):
+        Added stopObserving() so that releasing the bridge on the main thread
+        (this could happen before or after the runTaskOnWorkerThread) does
+        not cause the assertion error.
+
+2011-03-08  Alok priyadarshi  <alokp@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Plugins needs a way to trigger style recalc
+        https://bugs.webkit.org/show_bug.cgi?id=55242
+
+        It will be tested by Pepper2D and Pepper3D layout/smoke tests
+        on the Chromium side.
+        
+        * public/WebPluginContainer.h:
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::setBackingTextureId):
+        * src/WebPluginContainerImpl.h:
+
+2011-03-08  Andrei Popescu  <andreip@google.com>
+
+        Reviewed by Steve Block.
+
+        IDBCallbacks::onsuccess(IDBIndex*) is unused and should be removed.
+        https://bugs.webkit.org/show_bug.cgi?id=55938
+
+        * public/WebIDBCallbacks.h:
+        * src/IDBCallbacksProxy.cpp:
+        * src/IDBCallbacksProxy.h:
+        * src/WebIDBCallbacksImpl.cpp:
+        * src/WebIDBCallbacksImpl.h:
+        * src/WebIDBObjectStoreImpl.cpp:
+
+2011-03-07  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add support for DataTransferItems
+        https://bugs.webkit.org/show_bug.cgi?id=55115
+
+        Add new runtime enabled flag for data transfer items feature.
+
+        * public/WebRuntimeFeatures.h:
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableDataTransferItems):
+        (WebKit::WebRuntimeFeatures::isDataTransferItemsEnabled):
+
 2011-03-07  Ryosuke Niwa  <rniwa@webkit.org>
 
         Chromium build fix.

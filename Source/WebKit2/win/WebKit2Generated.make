@@ -1,6 +1,7 @@
 all:
     touch "%ConfigurationBuildDir%\buildfailed"
     -mkdir 2>NUL "%ConfigurationBuildDir%\include\WebKit2"
+    xcopy /y /d "..\Shared\API\c\cf\WKErrorCF.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\Shared\API\c\cf\WKStringCF.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\Shared\API\c\cf\WKURLCF.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\Shared\API\c\cf\WKURLRequestCF.h" "%ConfigurationBuildDir%\include\WebKit2"
@@ -57,6 +58,7 @@ all:
     xcopy /y /d "..\UIProcess\API\C\WKGeolocationPosition.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\UIProcess\API\C\WKInspector.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\UIProcess\API\C\WKKeyValueStorageManager.h" "%ConfigurationBuildDir%\include\WebKit2"
+    xcopy /y /d "..\UIProcess\API\C\WKMediaCacheManager.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\UIProcess\API\C\WKNativeEvent.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\UIProcess\API\C\WKNavigationData.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\UIProcess\API\C\WKOpenPanelParameters.h" "%ConfigurationBuildDir%\include\WebKit2"
@@ -74,6 +76,7 @@ all:
     xcopy /y /d "..\UIProcess\API\C\win\WKView.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\UIProcess\API\C\win\WKViewPrivate.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\UIProcess\API\cpp\WKRetainPtr.h" "%ConfigurationBuildDir%\include\WebKit2"
+    xcopy /y /d "..\WebProcess\InjectedBundle\API\c\win\WKBundlePrivateWin.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\WebProcess\InjectedBundle\API\c\WKBundle.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\WebProcess\InjectedBundle\API\c\WKBundleBackForwardList.h" "%ConfigurationBuildDir%\include\WebKit2"
     xcopy /y /d "..\WebProcess\InjectedBundle\API\c\WKBundleBackForwardListItem.h" "%ConfigurationBuildDir%\include\WebKit2"

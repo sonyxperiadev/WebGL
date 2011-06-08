@@ -32,6 +32,7 @@ SOURCES = PluginObject.cpp \
           Tests/EvaluateJSAfterRemovingPluginElement.cpp \
           Tests/GetURLWithJavaScriptURLDestroyingPlugin.cpp \
           Tests/GetUserAgentWithNullNPPFromNPPNew.cpp \
+          Tests/NPDeallocateCalledBeforeNPShutdown.cpp \
           Tests/NPRuntimeObjectFromDestroyedPlugin.cpp \
           Tests/NPRuntimeRemoveProperty.cpp \
           Tests/NullNPPGetValuePointer.cpp \
@@ -45,6 +46,8 @@ mac {
 } else {
     SOURCES += ../../unix/TestNetscapePlugin/TestNetscapePlugin.cpp
 }
+
+DEFINES -= QT_ASCII_CAST_WARNINGS
 
 !win32:!embedded:!mac:!symbian {
     LIBS += -lX11

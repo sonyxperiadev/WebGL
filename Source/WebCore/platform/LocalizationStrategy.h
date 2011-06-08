@@ -79,7 +79,7 @@ public:
     virtual String contextMenuItemTagIgnoreSpelling() = 0;
     virtual String contextMenuItemTagLearnSpelling() = 0;
     virtual String contextMenuItemTagSearchWeb() = 0;
-    virtual String contextMenuItemTagLookUpInDictionary() = 0;
+    virtual String contextMenuItemTagLookUpInDictionary(const String& selectedString) = 0;
     virtual String contextMenuItemTagOpenLink() = 0;
     virtual String contextMenuItemTagIgnoreGrammar() = 0;
     virtual String contextMenuItemTagSpellingMenu() = 0;
@@ -165,6 +165,13 @@ public:
 #if PLATFORM(WIN)
     virtual String uploadFileText() = 0;
     virtual String allFilesText() = 0;
+#endif
+
+#if PLATFORM(MAC)
+    virtual String keygenMenuItem512() = 0;
+    virtual String keygenMenuItem1024() = 0;
+    virtual String keygenMenuItem2048() = 0;
+    virtual String keygenKeychainItemName(const String& host) = 0;
 #endif
 
     virtual String imageTitle(const String& filename, const IntSize& size) = 0;

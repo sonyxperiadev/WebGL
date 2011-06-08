@@ -76,9 +76,9 @@ static QString dumpRange(WebCore::Range *range)
         return QLatin1String("(null)");
     WebCore::ExceptionCode code;
 
-    QString str = QString("range from %1 of %2 to %3 of %4")
-        .arg(range->startOffset(code)).arg(dumpPath(range->startContainer(code)))
-        .arg(range->endOffset(code)).arg(dumpPath(range->endContainer(code)));
+    QString str = QString::fromLatin1("range from %1 of %2 to %3 of %4")
+            .arg(range->startOffset(code)).arg(dumpPath(range->startContainer(code)))
+            .arg(range->endOffset(code)).arg(dumpPath(range->endContainer(code)));
 
     return str;
 }
@@ -420,7 +420,7 @@ void EditorClientQt::handleKeyboardEvent(KeyboardEvent* event)
         return;
 
     // FIXME: refactor all of this to use Actions or something like them
-    if (start->isContentEditable()) {
+    if (start->rendererIsEditable()) {
         bool doSpatialNavigation = false;
         if (isSpatialNavigationEnabled(frame)) {
             if (!kevent->modifiers()) {
@@ -530,8 +530,22 @@ void EditorClientQt::handleKeyboardEvent(KeyboardEvent* event)
 #endif // QT_NO_SHORTCUT
 }
 
-void EditorClientQt::handleInputMethodKeydown(KeyboardEvent*)
+void EditorClientQt::handleInputMethodKeydown(KeyboardEvent* event)
 {
+#ifndef QT_NO_SHORTCUT
+    const PlatformKeyboardEvent* kevent = event->keyEvent();
+    if (kevent->type() == PlatformKeyboardEvent::RawKeyDown) {
+        QWebPage::WebAction action = QWebPagePrivate::editorActionForKeyEvent(kevent->qtEvent());
+        switch (action) {
+        case QWebPage::InsertParagraphSeparator:
+        case QWebPage::InsertLineSeparator:
+            m_page->triggerAction(action);
+            break;
+        default:
+            break;
+        }
+    }
+#endif
 }
 
 EditorClientQt::EditorClientQt(QWebPage* page)

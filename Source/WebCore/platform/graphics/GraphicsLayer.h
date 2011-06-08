@@ -46,12 +46,11 @@
 
 #if PLATFORM(MAC)
 #ifdef __OBJC__
-@class WebLayer;
 @class CALayer;
-typedef CALayer PlatformLayer;
 #else
-typedef void* PlatformLayer;
+class CALayer;
 #endif
+typedef CALayer PlatformLayer;
 #elif PLATFORM(WIN)
 typedef struct _CACFLayer PlatformLayer;
 #elif PLATFORM(QT)

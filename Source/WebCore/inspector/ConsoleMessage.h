@@ -39,7 +39,7 @@
 #include <wtf/Vector.h>
 
 namespace WebCore {
-class InjectedScriptHost;
+class InjectedScriptManager;
 class InspectorFrontend;
 class InspectorObject;
 class ScriptArguments;
@@ -55,13 +55,14 @@ public:
     ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, const String& responseUrl, unsigned long identifier);
     ~ConsoleMessage();
 
-    void addToFrontend(InspectorFrontend::Console*, InjectedScriptHost*);
+    void addToFrontend(InspectorFrontend::Console*, InjectedScriptManager*);
     void updateRepeatCountInConsole(InspectorFrontend::Console*);
     void incrementCount() { ++m_repeatCount; }
     bool isEqual(ConsoleMessage* msg) const;
 
     MessageSource source() const { return m_source; }
     const String& message() const { return m_message; }
+    MessageType type() const { return m_type; }
 
 private:
     MessageSource m_source;

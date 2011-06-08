@@ -31,30 +31,24 @@
 
 #include "CharacterData.h"
 #include "Console.h"
-#include "Cookie.h"
 #include "Page.h"
 #include "PlatformString.h"
 #include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
-#include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-class CachedResource;
 class CharacterData;
 class Database;
 class DOMWrapperWorld;
 class Document;
 class DocumentLoader;
 class FloatRect;
-class GraphicsContext;
 class HTTPHeaderMap;
-class HitTestResult;
 class InjectedScript;
-class InjectedScriptHost;
+class InjectedScriptManager;
 class InspectorArray;
 class InspectorBrowserDebuggerAgent;
 class InspectorClient;
@@ -68,6 +62,7 @@ class InspectorDebuggerAgent;
 class InspectorFrontend;
 class InspectorFrontendClient;
 class InspectorObject;
+class InspectorPageAgent;
 class InspectorProfilerAgent;
 class InspectorResourceAgent;
 class InspectorRuntimeAgent;
@@ -100,11 +95,10 @@ class InspectorAgent {
     WTF_MAKE_NONCOPYABLE(InspectorAgent);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    InspectorAgent(Page*, InspectorClient*);
+    InspectorAgent(Page*, InspectorClient*, InjectedScriptManager*);
     virtual ~InspectorAgent();
 
     InspectorClient* inspectorClient() { return m_client; }
-    InjectedScriptHost* injectedScriptHost() { return m_injectedScriptHost.get(); }
 
     void inspectedPageDestroyed();
 
@@ -113,19 +107,10 @@ public:
     Page* inspectedPage() const { return m_inspectedPage; }
     KURL inspectedURL() const;
     KURL inspectedURLWithoutFragment() const;
-    void reloadPage(ErrorString* error, bool ignoreCache);
+    void reloadPage(ErrorString*, bool ignoreCache);
     void showConsole();
 
     void restoreInspectorStateFromCookie(const String& inspectorCookie);
-
-    void highlight(ErrorString* error, Node*);
-    void hideHighlight(ErrorString* error);
-    void inspect(Node*);
-    void highlightDOMNode(ErrorString* error, long nodeId);
-    void hideDOMNodeHighlight(ErrorString* error) { hideHighlight(error); }
-
-    void highlightFrame(ErrorString* error, unsigned long frameId);
-    void hideFrameHighlight(ErrorString* error) { hideHighlight(error); }
 
     void setFrontend(InspectorFrontend*);
     InspectorFrontend* frontend() const { return m_frontend; }
@@ -133,7 +118,7 @@ public:
 
     InstrumentingAgents* instrumentingAgents() const { return m_instrumentingAgents.get(); }
 
-    InspectorAgent* inspectorAgent() { return this; }
+    InspectorPageAgent* pageAgent() { return m_pageAgent.get(); }
     InspectorConsoleAgent* consoleAgent() { return m_consoleAgent.get(); }
     InspectorCSSAgent* cssAgent() { return m_cssAgent.get(); }
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
@@ -155,19 +140,10 @@ public:
     InspectorApplicationCacheAgent* applicationCacheAgent() { return m_applicationCacheAgent.get(); }
 #endif
 
-    bool handleMousePress();
-    bool searchingForNodeInPage() const;
-    void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
-
     void didClearWindowObjectInWorld(Frame*, DOMWrapperWorld*);
 
-    void didCommitLoad(DocumentLoader*);
-
-    void getCookies(ErrorString* error, RefPtr<InspectorArray>* cookies, WTF::String* cookiesString);
-    void deleteCookie(ErrorString* error, const String& cookieName, const String& domain);
-
-    void domContentLoadedEventFired(DocumentLoader*, const KURL&);
-    void loadEventFired(DocumentLoader*, const KURL&);
+    void didCommitLoad();
+    void domContentLoadedEventFired();
 
 #if ENABLE(WORKERS)
     enum WorkerAction { WorkerCreated, WorkerDestroyed };
@@ -179,28 +155,14 @@ public:
 
     bool hasFrontend() const { return m_frontend; }
 
-    void drawNodeHighlight(GraphicsContext&) const;
-    void openInInspectedWindow(ErrorString* error, const String& url);
-    void drawElementTitle(GraphicsContext&, const IntRect& boundingBox, const IntRect& anchorBox, const FloatRect& overlayRect, WebCore::Settings*) const;
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    bool isRecordingUserInitiatedProfile() const;
-    void startProfiling(ErrorString*) { startUserInitiatedProfiling(); }
-    void startUserInitiatedProfiling();
-    void stopProfiling(ErrorString*) { stopUserInitiatedProfiling(); }
-    void stopUserInitiatedProfiling();
-    void enableProfiler(ErrorString* error);
-    void disableProfiler(ErrorString* error);
-    bool profilerEnabled() const;
-
-    void showScriptsPanel();
+    void showProfilesPanel();
 #endif
 
     // Generic code called from custom implementations.
     void evaluateForTestInFrontend(long testCallId, const String& script);
 
-    void addScriptToEvaluateOnLoad(ErrorString* error, const String& source);
-    void removeAllScriptsToEvaluateOnLoad(ErrorString* error);
     void setInspectorExtensionAPI(const String& source);
 
     InspectorState* state() { return m_state.get(); }
@@ -208,24 +170,12 @@ public:
     // InspectorAgent API
     void getInspectorState(RefPtr<InspectorObject>* state);
     void setMonitoringXHREnabled(bool enabled, bool* newState);
-    void populateScriptObjects(ErrorString* error);
     // Following are used from InspectorBackend and internally.
-    void setSearchingForNode(ErrorString* error, bool enabled, bool* newState);
-    void didEvaluateForTestInFrontend(ErrorString* error, long callId, const String& jsonResult);
-
-    void setUserAgentOverride(ErrorString* error, const String& userAgent);
-    void applyUserAgentOverride(String* userAgent) const;
+    void didEvaluateForTestInFrontend(ErrorString*, long callId, const String& jsonResult);
 
 private:
     void showPanel(const String& panel);
-    void pushDataCollectedOffline();
-    enum ProfilerRestoreAction {
-        ProfilerRestoreNoAction = 0,
-        ProfilerRestoreResetAgent = 1
-    };
-    void restoreProfiler(ProfilerRestoreAction);
     void unbindAllResources();
-    void setSearchingForNode(bool enabled);
 
     void releaseFrontendLifetimeAgents();
     void createFrontendLifetimeAgents();
@@ -234,10 +184,6 @@ private:
     void toggleRecordButton(bool);
 #endif
 
-    PassRefPtr<InspectorObject> buildObjectForCookie(const Cookie&);
-    PassRefPtr<InspectorArray> buildArrayForCookies(ListHashSet<Cookie>&);
-
-    void focusNode();
     bool isMainResourceLoader(DocumentLoader*, const KURL& requestUrl);
     void issueEvaluateForTestCommands();
 
@@ -245,8 +191,9 @@ private:
     InspectorClient* m_client;
     InspectorFrontend* m_frontend;
     OwnPtr<InstrumentingAgents> m_instrumentingAgents;
-    RefPtr<InjectedScriptHost> m_injectedScriptHost;
+    InjectedScriptManager* m_injectedScriptManager;
     OwnPtr<InspectorState> m_state;
+    OwnPtr<InspectorPageAgent> m_pageAgent;
     OwnPtr<InspectorDOMAgent> m_domAgent;
     OwnPtr<InspectorCSSAgent> m_cssAgent;
 
@@ -264,8 +211,6 @@ private:
     OwnPtr<InspectorApplicationCacheAgent> m_applicationCacheAgent;
 #endif
 
-    RefPtr<Node> m_highlightedNode;
-    RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResourceAgent> m_resourceAgent;
     OwnPtr<InspectorRuntimeAgent> m_runtimeAgent;
 
@@ -273,14 +218,12 @@ private:
 
     Vector<pair<long, String> > m_pendingEvaluateTestCommands;
     String m_showPanelAfterVisible;
-    Vector<String> m_scriptsToEvaluateOnLoad;
     String m_inspectorExtensionAPI;
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     OwnPtr<InspectorDebuggerAgent> m_debuggerAgent;
     OwnPtr<InspectorBrowserDebuggerAgent> m_browserDebuggerAgent;
     OwnPtr<InspectorProfilerAgent> m_profilerAgent;
 #endif
-    String m_userAgentOverride;
 #if ENABLE(WORKERS)
     typedef HashMap<intptr_t, RefPtr<InspectorWorkerResource> > WorkersMap;
     WorkersMap m_workers;

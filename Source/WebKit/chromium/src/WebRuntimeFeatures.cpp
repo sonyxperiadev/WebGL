@@ -152,6 +152,22 @@ bool WebRuntimeFeatures::isApplicationCacheEnabled()
 #endif
 }
 
+void WebRuntimeFeatures::enableDataTransferItems(bool enable)
+{
+#if ENABLE(DATA_TRANSFER_ITEMS)
+    RuntimeEnabledFeatures::setDataTransferItemsEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isDataTransferItemsEnabled()
+{
+#if ENABLE(DATA_TRANSFER_ITEMS)
+    return RuntimeEnabledFeatures::dataTransferItemsEnabled();
+#else
+    return false;
+#endif
+}
+
 void WebRuntimeFeatures::enableGeolocation(bool enable)
 {
 #if ENABLE(GEOLOCATION)
@@ -195,22 +211,6 @@ bool WebRuntimeFeatures::isWebAudioEnabled()
 {
 #if ENABLE(WEB_AUDIO)
     return RuntimeEnabledFeatures::webkitAudioContextEnabled();
-#else
-    return false;
-#endif
-}
-
-void WebRuntimeFeatures::enableWebGL(bool enable)
-{
-#if ENABLE(WEBGL)
-    RuntimeEnabledFeatures::setWebGLEnabled(enable);
-#endif
-}
-
-bool WebRuntimeFeatures::isWebGLEnabled()
-{
-#if ENABLE(WEBGL)
-    return RuntimeEnabledFeatures::webGLRenderingContextEnabled();
 #else
     return false;
 #endif

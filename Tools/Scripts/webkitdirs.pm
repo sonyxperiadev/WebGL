@@ -1,5 +1,6 @@
 # Copyright (C) 2005, 2006, 2007, 2010 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Google Inc. All rights reserved.
+# Copyright (C) 2011 Research In Motion Limited. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -59,6 +60,7 @@ my $configurationProductDir;
 my $sourceDir;
 my $currentSVNRevision;
 my $osXVersion;
+my $generateDsym;
 my $isQt;
 my $qmakebin = "qmake"; # Allow override of the qmake binary from $PATH
 my $isSymbian;
@@ -291,7 +293,7 @@ sub determineConfigurationForVisualStudio
 {
     return if defined $configurationForVisualStudio;
     determineConfiguration();
-    # FIXME: We should detect when Debug_All or Release_LTCG has been chosen.
+    # FIXME: We should detect when Debug_All or Production has been chosen.
     $configurationForVisualStudio = $configuration;
 }
 
@@ -388,12 +390,31 @@ sub currentSVNRevision
     return $currentSVNRevision;
 }
 
+sub generateDsym()
+{
+    determineGenerateDsym();
+    return $generateDsym;
+}
+
+sub determineGenerateDsym()
+{
+    return if defined($generateDsym);
+    $generateDsym = checkForArgumentAndRemoveFromARGV("--dsym");
+}
+
+sub argumentsForXcode()
+{
+    my @args = ();
+    push @args, "DEBUG_INFORMATION_FORMAT=dwarf-with-dsym" if generateDsym();
+    return @args;
+}
+
 sub XcodeOptions
 {
     determineBaseProductDir();
     determineConfiguration();
     determineArchitecture();
-    return (@baseProductDirOption, "-configuration", $configuration, "ARCHS=$architecture");
+    return (@baseProductDirOption, "-configuration", $configuration, "ARCHS=$architecture", argumentsForXcode());
 }
 
 sub XcodeOptionString
@@ -990,7 +1011,7 @@ sub isWindowsNT()
 
 sub relativeScriptsDir()
 {
-    my $scriptDir = File::Spec->catpath("", File::Spec->abs2rel(dirname($0), getcwd()), "");
+    my $scriptDir = File::Spec->catpath("", File::Spec->abs2rel($FindBin::Bin, getcwd()), "");
     if ($scriptDir eq "") {
         $scriptDir = ".";
     }
@@ -1476,95 +1497,84 @@ sub buildAutotoolsProject($@)
     return $result;
 }
 
-sub buildCMakeProject($@)
+sub generateBuildSystemFromCMakeProject
 {
-    my ($port, $clean, @buildParams) = @_;
-    my $dir = File::Spec->canonpath(baseProductDir());
+    my ($port, $prefixPath, @cmakeArgs) = @_;
     my $config = configuration();
-    my $result;
-    my $cmakeBuildArgs = "";
-    my $makeArgs = "";
-    my @buildArgs;
+    my $buildPath = File::Spec->catdir(baseProductDir(), $config);
+    File::Path::mkpath($buildPath) unless -d $buildPath;
+    my $originalWorkingDirectory = getcwd();
+    chdir($buildPath) or die;
 
-    if ($port =~ m/wince/i) {
-        if ($config =~ m/debug/i) {
-            $cmakeBuildArgs .= " --config Debug";
-        } elsif ($config =~ m/release/i) {
-            $cmakeBuildArgs .= " --config Release";
-        }
-    } else {
-        $makeArgs .= " -j" . numberOfCPUs() if ($makeArgs !~ m/-j\s*\d+/);
+    my @args;
+    push @args, "-DPORT=\"$port\"";
+    push @args, "-DCMAKE_INSTALL_PREFIX=\"$prefixPath\"" if $prefixPath;
+    if ($config =~ /release/i) {
+        push @args, "-DCMAKE_BUILD_TYPE=Release";
+    } elsif ($config =~ /debug/i) {
+        push @args, "-DCMAKE_BUILD_TYPE=Debug";
     }
+    push @args, @cmakeArgs if @cmakeArgs;
+    push @args, '"' . File::Spec->catdir(sourceDir(), "Source") . '"';
 
+    # We call system("cmake @args") instead of system("cmake", @args) so that @args is
+    # parsed for shell metacharacters.
+    my $returnCode = system("cmake @args");
+
+    chdir($originalWorkingDirectory);
+    return $returnCode;
+}
+
+sub buildCMakeGeneratedProject($)
+{
+    my ($makeArgs) = @_;
+    my $config = configuration();
+    my $buildPath = File::Spec->catdir(baseProductDir(), $config);
+    if (! -d $buildPath) {
+        die "Must call generateBuildSystemFromCMakeProject() before building CMake project.";
+    }
+    my @args = ("--build", $buildPath, "--config", $config);
+    push @args, ("--", $makeArgs) if $makeArgs;
+
+    # We call system("cmake @args") instead of system("cmake", @args) so that @args is
+    # parsed for shell metacharacters. In particular, $makeArgs may contain such metacharacters.
+    return system("cmake @args");
+}
+
+sub cleanCMakeGeneratedProject()
+{
+    my $config = configuration();
+    my $buildPath = File::Spec->catdir(baseProductDir(), $config);
+    if (-d $buildPath) {
+        return system("cmake", "--build", $buildPath, "--config", $config, "--target", "clean");
+    }
+    return 0;
+}
+
+sub buildCMakeProjectOrExit($$$$@)
+{
+    my ($clean, $port, $prefixPath, $makeArgs, @cmakeArgs) = @_;
+    my $returnCode;
     if ($clean) {
-        print "Cleaning the build directory '$dir'\n";
-        $dir = File::Spec->catfile($dir, $config);
-        File::Path::remove_tree($dir, {keep_root => 1});
-        $result = 0;
-    } else {
-        my $cmakebin = "cmake";
-        my $cmakeBuildCommand = $cmakebin . " --build .";
-
-        push @buildArgs, "-DPORT=$port";
-
-        for my $i (0 .. $#buildParams) {
-            my $opt = $buildParams[$i];
-            if ($opt =~ /^--makeargs=(.*)/i ) {
-                $makeArgs = $1;
-            } elsif ($opt =~ /^--prefix=(.*)/i ) {
-                push @buildArgs, "-DCMAKE_INSTALL_PREFIX=$1";
-            } else {
-                push @buildArgs, $opt;
-            }
-        }
-
-        if ($config =~ m/debug/i) {
-            push @buildArgs, "-DCMAKE_BUILD_TYPE=Debug";
-        } elsif ($config =~ m/release/i) {
-            push @buildArgs, "-DCMAKE_BUILD_TYPE=Release";
-        }
-
-        push @buildArgs, sourceDir() . "/Source";
-
-        $dir = File::Spec->catfile($dir, $config);
-        File::Path::mkpath($dir);
-        chdir $dir or die "Failed to cd into " . $dir . "\n";
-        
-        print "Calling '$cmakebin @buildArgs' in " . $dir . "\n\n";
-        my $result = system "$cmakebin @buildArgs";
-        if ($result ne 0) {
-            die "Failed while running $cmakebin to generate makefiles!\n";
-        }
-
-        $cmakeBuildArgs .= " -- " . $makeArgs;
-
-        print "Calling '$cmakeBuildCommand $cmakeBuildArgs' in " . $dir . "\n\n";
-        $result = system "$cmakeBuildCommand $cmakeBuildArgs";
-        if ($result ne 0) {
-            die "Failed to build $port port\n";
-        }
-
-        chdir ".." or die;
+        $returnCode = exitStatus(cleanCMakeGeneratedProject());
+        exit($returnCode) if $returnCode;
     }
-
-    return $result; 
-}
-
-sub buildCMakeEflProject($@)
-{
-    my ($clean, @buildArgs) = @_;
-    return buildCMakeProject("Efl", $clean, @buildArgs);
-}
-
-sub buildCMakeWinCEProject($@)
-{
-    my ($sdk, $clean, @buildArgs) = @_;
-    return buildCMakeProject("WinCE -DCMAKE_WINCE_SDK=\"" . $sdk . "\"", $clean, @buildArgs);
+    $returnCode = exitStatus(generateBuildSystemFromCMakeProject($port, $prefixPath, @cmakeArgs));
+    exit($returnCode) if $returnCode;
+    $returnCode = exitStatus(buildCMakeGeneratedProject($makeArgs));
+    exit($returnCode) if $returnCode;
 }
 
 sub buildQMakeProject($@)
 {
-    my ($clean, @buildParams) = @_;
+    my ($project, $clean, @buildParams) = @_;
+
+    my @subdirs = ("JavaScriptCore", "WebCore", "WebKit/qt/Api");
+    if (grep { $_ eq $project } @subdirs) {
+        @subdirs = ($project);
+    } else {
+        $project = 0;
+    }
 
     my @buildArgs = ("-r");
 
@@ -1610,6 +1620,9 @@ sub buildQMakeProject($@)
     my @dsQmakeArgs = @buildArgs;
     push @dsQmakeArgs, "-r";
     push @dsQmakeArgs, sourceDir() . "/Source/DerivedSources.pro";
+    if ($project) {
+        push @dsQmakeArgs, "-after SUBDIRS=" . $project. "/DerivedSources.pro";
+    }
     push @dsQmakeArgs, "-o Makefile.DerivedSources";
     print "Calling '$qmakebin @dsQmakeArgs' in " . $dir . "\n\n";
     my $result = system "$qmakebin @dsQmakeArgs";
@@ -1617,23 +1630,24 @@ sub buildQMakeProject($@)
         die "Failed while running $qmakebin to generate derived sources!\n";
     }
 
-    # FIXME: Iterate over different source directories manually to workaround a problem with qmake+extraTargets+s60
-    # To avoid overwriting of Makefile.DerivedSources in the root dir use Makefile.DerivedSources.Tools for Tools
-    my @subdirs = ("JavaScriptCore", "WebCore", "WebKit/qt/Api");
-    if (grep { $_ eq "CONFIG+=webkit2"} @buildArgs) {
-        push @subdirs, "WebKit2";
-        if ( -e sourceDir() ."/Tools/DerivedSources.pro" ) {
-            @dsQmakeArgs = @buildArgs;
-            push @dsQmakeArgs, "-r";
-            push @dsQmakeArgs, sourceDir() . "/Tools/DerivedSources.pro";
-            push @dsQmakeArgs, "-o Makefile.DerivedSources.Tools";
-            print "Calling '$qmakebin @dsQmakeArgs' in " . $dir . "\n\n";
-            my $result = system "$qmakebin @dsQmakeArgs";
-            if ($result ne 0) {
-                die "Failed while running $qmakebin to generate derived sources for Tools!\n";
+    if ($project ne "JavaScriptCore") {
+        # FIXME: Iterate over different source directories manually to workaround a problem with qmake+extraTargets+s60
+        # To avoid overwriting of Makefile.DerivedSources in the root dir use Makefile.DerivedSources.Tools for Tools
+        if (grep { $_ eq "CONFIG+=webkit2"} @buildArgs) {
+            push @subdirs, "WebKit2";
+            if ( -e sourceDir() ."/Tools/DerivedSources.pro" ) {
+                @dsQmakeArgs = @buildArgs;
+                push @dsQmakeArgs, "-r";
+                push @dsQmakeArgs, sourceDir() . "/Tools/DerivedSources.pro";
+                push @dsQmakeArgs, "-o Makefile.DerivedSources.Tools";
+                print "Calling '$qmakebin @dsQmakeArgs' in " . $dir . "\n\n";
+                my $result = system "$qmakebin @dsQmakeArgs";
+                if ($result ne 0) {
+                    die "Failed while running $qmakebin to generate derived sources for Tools!\n";
+                }
+                push @subdirs, "MiniBrowser";
+                push @subdirs, "WebKitTestRunner";
             }
-            push @subdirs, "MiniBrowser";
-            push @subdirs, "WebKitTestRunner";
         }
     }
 
@@ -1666,6 +1680,12 @@ sub buildQMakeProject($@)
         }
     }
 
+    if ($project) {
+        push @buildArgs, "-after SUBDIRS=" . $project . "/" . $project . ".pro ";
+        if ($project eq "JavaScriptCore") {
+            push @buildArgs, "-after SUBDIRS+=" . $project . "/jsc.pro ";
+        }
+    }
     push @buildArgs, sourceDir() . "/Source/WebKit.pro";
     print "Calling '$qmakebin @buildArgs' in " . $dir . "\n\n";
     print "Installation headers directory: $installHeaders\n" if(defined($installHeaders));
@@ -1676,36 +1696,44 @@ sub buildQMakeProject($@)
        die "Failed to setup build environment using $qmakebin!\n";
     }
 
-    $buildArgs[-1] = sourceDir() . "/Tools/Tools.pro";
-    my $makefile = "Makefile.Tools";
+    my $makefile = "";
+    if (!$project) {
+        $buildArgs[-1] = sourceDir() . "/Tools/Tools.pro";
+        $makefile = "Makefile.Tools";
 
-    # On Symbian qmake needs to run in the same directory where the pro file is located.
-    if (isSymbian()) {
-        $dir = $sourceDir . "/Tools";
-        chdir $dir or die "Failed to cd into " . $dir . "\n";
-        $makefile = "bld.inf";
+        # On Symbian qmake needs to run in the same directory where the pro file is located.
+        if (isSymbian()) {
+            $dir = $sourceDir . "/Tools";
+            chdir $dir or die "Failed to cd into " . $dir . "\n";
+            $makefile = "bld.inf";
+        }
+
+        print "Calling '$qmakebin @buildArgs -o $makefile' in " . $dir . "\n\n";
+        $result = system "$qmakebin @buildArgs -o $makefile";
+        if ($result ne 0) {
+            die "Failed to setup build environment using $qmakebin!\n";
+        }
     }
 
-    print "Calling '$qmakebin @buildArgs -o $makefile' in " . $dir . "\n\n";
-    $result = system "$qmakebin @buildArgs -o $makefile";
-    if ($result ne 0) {
-       die "Failed to setup build environment using $qmakebin!\n";
+    if (!$project) {
+        # Manually create makefiles for the examples so we don't build by default
+        my $examplesDir = $dir . "/WebKit/qt/examples";
+        File::Path::mkpath($examplesDir);
+        $buildArgs[-1] = sourceDir() . "/Source/WebKit/qt/examples/examples.pro";
+        chdir $examplesDir or die;
+        print "Calling '$qmakebin @buildArgs' in " . $examplesDir . "\n\n";
+        $result = system "$qmakebin @buildArgs";
+        die "Failed to create makefiles for the examples!\n" if $result ne 0;
+        chdir $dir or die;
     }
 
-    # Manually create makefiles for the examples so we don't build by default
-    my $examplesDir = $dir . "/WebKit/qt/examples";
-    File::Path::mkpath($examplesDir);
-    $buildArgs[-1] = sourceDir() . "/Source/WebKit/qt/examples/examples.pro";
-    chdir $examplesDir or die;
-    print "Calling '$qmakebin @buildArgs' in " . $examplesDir . "\n\n";
-    $result = system "$qmakebin @buildArgs";
-    die "Failed to create makefiles for the examples!\n" if $result ne 0;
-    chdir $dir or die;
+    my $makeTools = "echo";
+    if (!$project) {
+        $makeTools = "echo No Makefile for Tools. Skipping make";
 
-    my $makeTools = "echo No Makefile for Tools. Skipping make";
-
-    if (-e "$dir/$makefile") {
-        $makeTools = "$make $makeargs -f $makefile";
+        if (-e "$dir/$makefile") {
+            $makeTools = "$make $makeargs -f $makefile";
+        }
     }
 
     if ($clean) {
@@ -1730,7 +1758,7 @@ sub buildQMakeQtProject($$@)
 {
     my ($project, $clean, @buildArgs) = @_;
 
-    return buildQMakeProject($clean, @buildArgs);
+    return buildQMakeProject("", $clean, @buildArgs);
 }
 
 sub buildGtkProject

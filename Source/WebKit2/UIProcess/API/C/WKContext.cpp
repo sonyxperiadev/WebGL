@@ -148,9 +148,9 @@ void WKContextSetDomainRelaxationForbiddenForURLScheme(WKContextRef contextRef, 
     toImpl(contextRef)->setDomainRelaxationForbiddenForURLScheme(toImpl(urlScheme)->string());
 }
 
-void WKContextClearResourceCaches(WKContextRef contextRef)
+void WKContextClearResourceCaches(WKContextRef contextRef, WKResourceCachesToClear cachesToClear)
 {
-    toImpl(contextRef)->clearResourceCaches();
+    toImpl(contextRef)->clearResourceCaches(toResourceCachesToClear(cachesToClear));
 }
 
 void WKContextClearApplicationCache(WKContextRef contextRef)
@@ -178,9 +178,19 @@ WKGeolocationManagerRef WKContextGetGeolocationManager(WKContextRef contextRef)
     return toAPI(toImpl(contextRef)->geolocationManagerProxy());
 }
 
+WKIconDatabaseRef WKContextGetIconDatabase(WKContextRef contextRef)
+{
+    return toAPI(toImpl(contextRef)->iconDatabase());
+}
+
 WKKeyValueStorageManagerRef WKContextGetKeyValueStorageManager(WKContextRef contextRef)
 {
     return toAPI(toImpl(contextRef)->keyValueStorageManagerProxy());
+}
+
+WKMediaCacheManagerRef WKContextGetMediaCacheManager(WKContextRef contextRef)
+{
+    return toAPI(toImpl(contextRef)->mediaCacheManagerProxy());
 }
 
 WKPluginSiteDataManagerRef WKContextGetPluginSiteDataManager(WKContextRef contextRef)
@@ -203,7 +213,17 @@ void WKContextStopMemorySampler(WKContextRef contextRef)
     toImpl(contextRef)->stopMemorySampler();
 }
 
+void WKContextSetIconDatabasePath(WKContextRef contextRef, WKStringRef iconDatabasePath)
+{
+    toImpl(contextRef)->setIconDatabasePath(toImpl(iconDatabasePath)->string());
+}
+
 void WKContextSetDatabaseDirectory(WKContextRef contextRef, WKStringRef databaseDirectory)
 {
     toImpl(contextRef)->setDatabaseDirectory(toImpl(databaseDirectory)->string());
+}
+
+void WKContextSetLocalStorageDirectory(WKContextRef contextRef, WKStringRef localStorageDirectory)
+{
+    toImpl(contextRef)->setLocalStorageDirectory(toImpl(localStorageDirectory)->string());
 }

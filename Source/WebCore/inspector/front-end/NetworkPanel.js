@@ -40,6 +40,7 @@ WebInspector.NetworkPanel = function()
     this._resourcesByURL = {};
     this._staleResources = [];
     this._resourceGridNodes = {};
+    this._lastResourceGridNodeId = 0;
     this._mainResourceLoadTime = -1;
     this._mainResourceDOMContentTime = -1;
     this._hiddenCategories = {};
@@ -82,7 +83,7 @@ WebInspector.NetworkPanel = function()
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceStarted, this._onResourceStarted, this);
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceUpdated, this._onResourceUpdated, this);
     WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceFinished, this._onResourceUpdated, this);
-    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.MainResourceCommitLoad, this._onMainResourceCommitLoad, this);
+    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.FrameCommittedLoad, this._onFrameCommitLoad, this);
 }
 
 WebInspector.NetworkPanel.prototype = {
@@ -367,7 +368,7 @@ WebInspector.NetworkPanel.prototype = {
         for (var i = 0; i < this._resources.length; ++i) {
             var resource = this._resources[i];
             transferSize += (resource.cached || !resource.transferSize) ? 0 : resource.transferSize;
-            if (resource.isMainResource)
+            if (resource === WebInspector.mainResource)
                 baseTime = resource.startTime;
             if (resource.endTime > maxTime)
                 maxTime = resource.endTime;
@@ -564,7 +565,15 @@ WebInspector.NetworkPanel.prototype = {
 
     _resourceGridNode: function(resource)
     {
-        return this._resourceGridNodes[resource.identifier];
+        return this._resourceGridNodes[resource.__gridNodeId];
+    },
+
+    _createResourceGridNode: function(resource)
+    {
+        var node = new WebInspector.NetworkDataGridNode(this, resource);
+        resource.__gridNodeId = this._lastResourceGridNodeId++;
+        this._resourceGridNodes[resource.__gridNodeId] = node;
+        return node;
     },
 
     revealAndSelectItem: function(resource)
@@ -671,8 +680,7 @@ WebInspector.NetworkPanel.prototype = {
             var node = this._resourceGridNode(resource);
             if (!node) {
                 // Create the timeline tree element and graph.
-                node = new WebInspector.NetworkDataGridNode(this, resource);
-                this._resourceGridNodes[resource.identifier] = node;
+                node = this._createResourceGridNode(resource);
                 this._dataGrid.appendChild(node);
             }
             node.refreshResource();
@@ -794,15 +802,29 @@ WebInspector.NetworkPanel.prototype = {
         this._reset();
     },
 
-    _onMainResourceCommitLoad: function()
+    _onFrameCommitLoad: function(event)
     {
+        if (event.data.frame.parentId)
+            return;
+
+        // Main frame committed load.
         if (this._preserveLogToggle.toggled)
             return;
 
+        // Preserve provisional load resources.
+        var loaderId = event.data.loaderId;
+        var resourcesToPreserve = [];
+        for (var i = 0; i < this._resources.length; ++i) {
+            var resource = this._resources[i];
+            if (resource.loaderId === loaderId)
+                resourcesToPreserve.push(resource);
+        }
+
         this._reset();
-        // Now resurrect the main resource along with all redirects that lead to it.
-        var resourcesToAppend = (WebInspector.mainResource.redirects || []).concat(WebInspector.mainResource);
-        resourcesToAppend.forEach(this._appendResource, this);
+
+        // Restore preserved items.
+        for (var i = 0; i < resourcesToPreserve.length; ++i)
+            this._appendResource(resourcesToPreserve[i]);
     },
 
     canShowSourceLine: function(url, line)
@@ -972,16 +994,12 @@ WebInspector.NetworkPanel.prototype = {
 
     _contextMenu: function(event)
     {
-        // createBlobURL is enabled conditionally, do not expose resource export if it's not available.
-        if ((window.webkitURL && typeof window.webkitURL.createObjectURL !== "function") || !Preferences.resourceExportEnabled)
-            return;
-
         var contextMenu = new WebInspector.ContextMenu();
         var gridNode = this._dataGrid.dataGridNodeFromNode(event.target);
         var resource = gridNode && gridNode._resource;
         if (resource)
-            contextMenu.appendItem(WebInspector.UIString("Export to HAR"), this._exportResource.bind(this, resource));
-        contextMenu.appendItem(WebInspector.UIString("Export all to HAR"), this._exportAll.bind(this));
+            contextMenu.appendItem(WebInspector.UIString("Copy entry as HAR"), this._exportResource.bind(this, resource));
+        contextMenu.appendItem(WebInspector.UIString("Copy network log as HAR"), this._exportAll.bind(this));
         contextMenu.show(event);
     },
 
@@ -1359,7 +1377,7 @@ WebInspector.NetworkDataGridNode.prototype = {
 
     _openInNewTab: function()
     {
-        InspectorAgent.openInInspectedWindow(this._resource.url);
+        PageAgent.openInInspectedWindow(this._resource.url);
     },
 
     get selectable()

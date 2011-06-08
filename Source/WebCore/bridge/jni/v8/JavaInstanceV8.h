@@ -30,6 +30,7 @@
 #if ENABLE(JAVA_BRIDGE)
 
 #include "JNIUtility.h"
+#include "JavaValueV8.h"
 #include "JobjectWrapper.h"
 #include "npruntime.h"
 
@@ -43,6 +44,8 @@ namespace JSC {
 namespace Bindings {
 
 class JavaClass;
+class JavaField;
+class JavaMethod;
 
 class JavaInstance : public RefCounted<JavaInstance> {
 public:
@@ -50,9 +53,10 @@ public:
     virtual ~JavaInstance();
 
     JavaClass* getClass() const;
-
-    bool invokeMethod(const char* name, const NPVariant* args, int argsCount, NPVariant* result);
-
+    // args must be an array of length greater than or equal to the number of
+    // arguments expected by the method.
+    JavaValue invokeMethod(const JavaMethod*, JavaValue* args);
+    JavaValue getField(const JavaField*);
     jobject javaInstance() const { return m_instance->m_instance; }
 
     // These functions are called before and after the main entry points into

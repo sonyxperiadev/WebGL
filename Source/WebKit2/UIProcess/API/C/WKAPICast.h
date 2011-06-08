@@ -29,12 +29,16 @@
 
 #include "CacheModel.h"
 #include "FontSmoothingLevel.h"
+#include "HTTPCookieAcceptPolicy.h"
+#include "ResourceCachesToClear.h"
 #include "WKContext.h"
+#include "WKCookieManager.h"
 #include "WKCredentialTypes.h"
 #include "WKPage.h"
 #include "WKPreferencesPrivate.h"
 #include "WKProtectionSpaceTypes.h"
 #include "WKSharedAPICast.h"
+#include <WebCore/CookieJar.h>
 #include <WebCore/Credential.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/ProtectionSpace.h>
@@ -58,8 +62,10 @@ class WebFramePolicyListenerProxy;
 class WebFrameProxy;
 class WebGeolocationManagerProxy;
 class WebGeolocationPosition;
+class WebIconDatabase;
 class WebInspectorProxy;
 class WebKeyValueStorageManagerProxy;
+class WebMediaCacheManagerProxy;
 class WebNavigationData;
 class WebOpenPanelParameters;
 class WebOpenPanelResultListenerProxy;
@@ -86,7 +92,9 @@ WK_ADD_API_MAPPING(WKFrameRef, WebFrameProxy)
 WK_ADD_API_MAPPING(WKGeolocationManagerRef, WebGeolocationManagerProxy)
 WK_ADD_API_MAPPING(WKGeolocationPermissionRequestRef, GeolocationPermissionRequestProxy)
 WK_ADD_API_MAPPING(WKGeolocationPositionRef, WebGeolocationPosition)
+WK_ADD_API_MAPPING(WKIconDatabaseRef, WebIconDatabase)
 WK_ADD_API_MAPPING(WKKeyValueStorageManagerRef, WebKeyValueStorageManagerProxy)
+WK_ADD_API_MAPPING(WKMediaCacheManagerRef, WebMediaCacheManagerProxy)
 WK_ADD_API_MAPPING(WKNavigationDataRef, WebNavigationData)
 WK_ADD_API_MAPPING(WKOpenPanelParametersRef, WebOpenPanelParameters)
 WK_ADD_API_MAPPING(WKOpenPanelResultListenerRef, WebOpenPanelResultListenerProxy)
@@ -233,6 +241,49 @@ inline WebCore::CredentialPersistence toCredentialPersistence(WKCredentialPersis
     default:
         return WebCore::CredentialPersistenceNone;
     }
+}
+
+inline ResourceCachesToClear toResourceCachesToClear(WKResourceCachesToClear wkResourceCachesToClear)
+{
+    switch (wkResourceCachesToClear) {
+    case kWKAllResourceCaches:
+        return AllResourceCaches;
+    case kWKInMemoryResourceCachesOnly:
+        return InMemoryResourceCachesOnly;
+    }
+
+    ASSERT_NOT_REACHED();
+    return AllResourceCaches;
+}
+
+inline HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(WKHTTPCookieAcceptPolicy policy)
+{
+    switch (policy) {
+    case kWKHTTPCookieAcceptPolicyAlways:
+        return HTTPCookieAcceptPolicyAlways;
+    case kWKHTTPCookieAcceptPolicyNever:
+        return HTTPCookieAcceptPolicyNever;
+    case kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
+        return HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+    }
+
+    ASSERT_NOT_REACHED();
+    return HTTPCookieAcceptPolicyAlways;
+}
+
+inline WKHTTPCookieAcceptPolicy toAPI(HTTPCookieAcceptPolicy policy)
+{
+    switch (policy) {
+    case HTTPCookieAcceptPolicyAlways:
+        return kWKHTTPCookieAcceptPolicyAlways;
+    case HTTPCookieAcceptPolicyNever:
+        return kWKHTTPCookieAcceptPolicyNever;
+    case HTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
+        return kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
+    }
+
+    ASSERT_NOT_REACHED();
+    return kWKHTTPCookieAcceptPolicyAlways;
 }
 
 } // namespace WebKit

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Eric Seidel (eric@webkit.org)
- * Copyright (C) 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -165,7 +165,7 @@ public:
     virtual void invalidateContentsForSlowScroll(const IntRect&, bool) {};
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&) { }
 #if ENABLE(TILED_BACKING_STORE)
-    virtual void delegatedScrollRequested(const IntSize&) { }
+    virtual void delegatedScrollRequested(const IntPoint&) { }
 #endif
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     virtual void scheduleAnimation() { }
@@ -374,7 +374,7 @@ public:
     virtual void showMediaPlayerProxyPlugin(Widget*) { }
 #endif
 
-    virtual ObjectContentType objectContentType(const KURL&, const String&) { return ObjectContentType(); }
+    virtual ObjectContentType objectContentType(const KURL&, const String&, bool) { return ObjectContentType(); }
     virtual String overrideMediaType() const { return String(); }
 
     virtual void redirectDataToPlugin(Widget*) { }
@@ -414,7 +414,7 @@ public:
     virtual String getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
     virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if USE(UNIFIED_TEXT_CHECKING)
     virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
 #endif
 
@@ -519,9 +519,9 @@ public:
     TextCheckerClient* textChecker() { return &m_textCheckerClient; }
 
 #if SUPPORT_AUTOCORRECTION_PANEL
-    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect&, const String&, const String&, const Vector<String>&, Editor*) { }
+    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect&, const String&, const String&, const Vector<String>&) { }
     virtual void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel) { }
-    virtual bool isShowingCorrectionPanel() { return false; }
+    virtual String dismissCorrectionPanelSoon(ReasonForDismissingCorrectionPanel) { return String(); }
     virtual void recordAutocorrectionResponse(AutocorrectionResponseType, const String&, const String&) { }
 #endif
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&) { }

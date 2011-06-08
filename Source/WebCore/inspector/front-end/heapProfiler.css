@@ -207,6 +207,18 @@
     position: static;
 }
 
+.detailed-heapshot-view .console-formatted-string {
+    white-space: nowrap;
+}
+
+.detailed-heapshot-view .data-grid tr.selected * {
+    color: inherit;
+}
+
+.detailed-heapshot-view .data-grid:focus tr.selected * {
+    color: white;
+}
+
 .detailed-heapshot-view .delimiter {
     height: 24px;
     background-color: #d6dde5;
@@ -228,8 +240,15 @@
 }
 
 .detailed-heapshot-view .retaining-paths-view .title > span {
+    display: inline-block;
+    padding-top: 3px;
     vertical-align: middle;
     margin-left: 4px;
+    margin-right: 8px;
+}
+
+.detailed-heapshot-view .retaining-paths-to-windows {
+    
 }
 
 .heapshot-help-status-bar-item .glyph {

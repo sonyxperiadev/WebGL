@@ -35,6 +35,7 @@ messages -> WebPageProxy {
     SetCursor(WebCore::Cursor cursor)
     SetStatusText(WTF::String statusText)
     SetToolTip(WTF::String toolTip)
+    SetFocus(bool focused)
     TakeFocus(bool direction)
     FocusedFrameChanged(uint64_t frameID)
     FrameSetLargestFrameChanged(uint64_t frameID)
@@ -48,6 +49,7 @@ messages -> WebPageProxy {
     GetIsResizable() -> (bool isResizable)
     SetWindowFrame(WebCore::FloatRect windowFrame)
     GetWindowFrame() -> (WebCore::FloatRect windowFrame)
+    WindowToScreen(WebCore::IntRect rect) -> (WebCore::IntRect screenFrame)
     RunBeforeUnloadConfirmPanel(WTF::String message, uint64_t frameID) -> (bool shouldClose)
     PageDidScroll()
     RunOpenPanel(uint64_t frameID, WebKit::WebOpenPanelParameters::Data parameters)
@@ -58,7 +60,7 @@ messages -> WebPageProxy {
     DidChangeScrollOffsetPinningForMainFrame(bool hasHorizontalScrollbar, bool hasVerticalScrollbar)
 
 #if ENABLE(TILED_BACKING_STORE)
-    PageDidRequestScroll(WebCore::IntSize delta)
+    PageDidRequestScroll(WebCore::IntPoint point)
 #endif
 #if PLATFORM(QT)
     DidChangeContentsSize(WebCore::IntSize newSize)
@@ -92,7 +94,7 @@ messages -> WebPageProxy {
     DidFirstVisuallyNonEmptyLayoutForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData)
     DidReceiveServerRedirectForProvisionalLoadForFrame(uint64_t frameID, WTF::String url, WebKit::InjectedBundleUserMessageEncoder userData)
     DidRemoveFrameFromHierarchy(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData)
-    DidStartProvisionalLoadForFrame(uint64_t frameID, WTF::String url, bool loadingSubstituteDataForUnreachableURL, WebKit::InjectedBundleUserMessageEncoder userData)
+    DidStartProvisionalLoadForFrame(uint64_t frameID, WTF::String url, WTF::String unreachableURL, WebKit::InjectedBundleUserMessageEncoder userData)
     DidReceiveTitleForFrame(uint64_t frameID, WTF::String title, WebKit::InjectedBundleUserMessageEncoder userData)
     DidDisplayInsecureContentForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData)
     DidRunInsecureContentForFrame(uint64_t frameID, WebKit::InjectedBundleUserMessageEncoder userData)
@@ -157,7 +159,7 @@ messages -> WebPageProxy {
 
     # Find messages
     DidCountStringMatches(WTF::String string, uint32_t matchCount)
-    SetFindIndicator(WebCore::FloatRect selectionRect, Vector<WebCore::FloatRect> textRects, WebKit::SharedMemory::Handle contentImageHandle, bool fadeOut)
+    SetFindIndicator(WebCore::FloatRect selectionRect, Vector<WebCore::FloatRect> textRects, WebKit::ShareableBitmap::Handle contentImageHandle, bool fadeOut)
     DidFindString(WTF::String string, uint32_t matchCount)
     DidFailToFindString(WTF::String string)
 
@@ -201,9 +203,17 @@ messages -> WebPageProxy {
     # Drag and drop messages
     DidPerformDragControllerAction(uint64_t resultOperation)
 #if PLATFORM(MAC)
-    SetDragImage(WebCore::IntPoint clientPosition, WebCore::IntSize imageSize, WebKit::SharedMemory::Handle dragImage, bool linkDrag)
+    SetDragImage(WebCore::IntPoint clientPosition, WebKit::ShareableBitmap::Handle dragImage, bool linkDrag)
 #endif
 #if PLATFORM(WIN)
     StartDragDrop(WebCore::IntPoint imagePoint, WebCore::IntPoint dragPoint, uint64_t okEffect, HashMap<UINT,Vector<String> > dataMap, WebCore::IntSize dragImageSize, WebKit::SharedMemory::Handle dragImage, bool linkDrag)
+#endif
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    # Autocorrection messages
+    ShowCorrectionPanel(int32_t panelType, WebCore::FloatRect boundingBoxOfReplacedString, String replacedString, String replacementString, Vector<String> alternativeReplacementStrings)
+    DismissCorrectionPanel(int32_t reason)
+    DismissCorrectionPanelSoon(int32_t reason) -> (String result)
+    RecordAutocorrectionResponse(int32_t responseType, String replacedString, String replacementString);
 #endif
 }

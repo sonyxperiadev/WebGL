@@ -78,6 +78,7 @@ public:
                  const Vector<uint8_t>& httpBody, bool sendNotification, void* notificationData);
     NPError destroyStream(NPStream*, NPReason);
     void setIsWindowed(bool);
+    void setIsTransparent(bool);
     void setStatusbarText(const String&);
     static void setException(const String&);
     bool evaluate(NPObject*, const String&scriptString, NPVariant* result);
@@ -145,6 +146,7 @@ private:
 #if PLATFORM(MAC)
     virtual PlatformLayer* pluginLayer();
 #endif
+    virtual bool isTransparent();
     virtual void geometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect);
     virtual void frameDidFinishLoading(uint64_t requestID);
     virtual void frameDidFail(uint64_t requestID, bool wasCancelled);
@@ -203,12 +205,13 @@ private:
 
     bool m_isStarted;
     bool m_isWindowed;
+    bool m_isTransparent;
     bool m_inNPPNew;
     bool m_loadManually;
     RefPtr<NetscapePluginStream> m_manualStream;
     Vector<bool, 8> m_popupEnabledStates;
 
-#if PLATFORM(MAC)
+#if PLUGIN_ARCHITECTURE(MAC)
     NPDrawingModel m_drawingModel;
     NPEventModel m_eventModel;
     RetainPtr<PlatformLayer> m_pluginLayer;
@@ -229,8 +232,11 @@ private:
     RunLoop::Timer<NetscapePlugin> m_nullEventTimer;
     NP_CGContext m_npCGContext;
 #endif
-#elif PLATFORM(WIN)
+#elif PLUGIN_ARCHITECTURE(WIN)
     HWND m_window;
+#elif PLUGIN_ARCHITECTURE(X11)
+    Pixmap m_drawable;
+    Display* m_pluginDisplay;
 #endif
 };
 

@@ -42,7 +42,7 @@ namespace JSC {
     class JSActivation : public JSVariableObject {
         typedef JSVariableObject Base;
     public:
-        JSActivation(CallFrame*, NonNullPassRefPtr<FunctionExecutable>);
+        JSActivation(CallFrame*, FunctionExecutable*);
         virtual ~JSActivation();
 
         virtual void markChildren(MarkStack&);
@@ -66,29 +66,12 @@ namespace JSC {
         
         static const ClassInfo s_info;
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); }
+        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); }
 
     protected:
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | NeedsThisConversion | OverridesMarkChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
 
     private:
-        struct JSActivationData : public JSVariableObjectData {
-            JSActivationData(NonNullPassRefPtr<FunctionExecutable> _functionExecutable, Register* registers)
-                : JSVariableObjectData(_functionExecutable->symbolTable(), registers)
-                , functionExecutable(_functionExecutable)
-            {
-                // We have to manually ref and deref the symbol table as JSVariableObjectData
-                // doesn't know about SharedSymbolTable
-                functionExecutable->symbolTable()->ref();
-            }
-            ~JSActivationData()
-            {
-                static_cast<SharedSymbolTable*>(symbolTable)->deref();
-            }
-
-            RefPtr<FunctionExecutable> functionExecutable;
-        };
-
         bool symbolTableGet(const Identifier&, PropertySlot&);
         bool symbolTableGet(const Identifier&, PropertyDescriptor&);
         bool symbolTableGet(const Identifier&, PropertySlot&, bool& slotIsWriteable);
@@ -98,7 +81,10 @@ namespace JSC {
         static JSValue argumentsGetter(ExecState*, JSValue, const Identifier&);
         NEVER_INLINE PropertySlot::GetValueFunc getArgumentsGetter();
 
-        JSActivationData* d() const { return static_cast<JSActivationData*>(JSVariableObject::d); }
+        int m_numParametersMinusThis;
+        int m_numCapturedVars : 31;
+        bool m_requiresDynamicChecks : 1;
+        int m_argumentsRegister;
     };
 
     JSActivation* asActivation(JSValue);
@@ -107,6 +93,11 @@ namespace JSC {
     {
         ASSERT(asObject(value)->inherits(&JSActivation::s_info));
         return static_cast<JSActivation*>(asObject(value));
+    }
+    
+    ALWAYS_INLINE JSActivation* Register::activation() const
+    {
+        return asActivation(jsValue());
     }
 
 } // namespace JSC

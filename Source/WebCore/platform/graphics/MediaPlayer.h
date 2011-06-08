@@ -46,8 +46,10 @@
 #endif
 
 #ifdef __OBJC__
+@class AVPlayer;
 @class QTMovie;
 #else
+class AVPlayer;
 class QTMovie;
 #endif
 class QTMovieGWorld;
@@ -71,6 +73,7 @@ struct PlatformMedia {
         GStreamerGWorldType,
         ChromiumMediaPlayerType,
         QtMediaPlayerType,
+        AVFoundationMediaPlayerType,
     } type;
 
     union {
@@ -80,6 +83,7 @@ struct PlatformMedia {
         GStreamerGWorld* gstreamerGWorld;
         MediaPlayerPrivateInterface* chromiumMediaPlayer;
         MediaPlayerPrivateInterface* qtMediaPlayer;
+        AVPlayer* avfMediaPlayer;
     } media;
 };
 
@@ -115,10 +119,10 @@ public:
 
     // time has jumped, eg. not as a result of normal playback
     virtual void mediaPlayerTimeChanged(MediaPlayer*) { }
-    
+
     // the media file duration has changed, or is now known
     virtual void mediaPlayerDurationChanged(MediaPlayer*) { }
-    
+
     // the playback rate has changed
     virtual void mediaPlayerRateChanged(MediaPlayer*) { }
 
@@ -183,44 +187,44 @@ public:
     void setMediaElementType(MediaElementType type) { m_mediaElementType = type; }
     MediaElementType mediaElementType() { return m_mediaElementType; }
 #endif
-    
+
     void setFrameView(FrameView* frameView) { m_frameView = frameView; }
     FrameView* frameView() { return m_frameView; }
     bool inMediaDocument();
-    
+
     IntSize size() const { return m_size; }
     void setSize(const IntSize& size);
-    
+
     void load(const String& url, const ContentType&);
     void cancelLoad();
-    
+
     bool visible() const;
     void setVisible(bool);
-    
+
     void prepareToPlay();
     void play();
     void pause();    
-    
+
     bool paused() const;
     bool seeking() const;
-    
+
     float duration() const;
     float currentTime() const;
     void seek(float time);
 
     float startTime() const;
-    
+
     float rate() const;
     void setRate(float);
 
     bool preservesPitch() const;    
     void setPreservesPitch(bool);
-    
+
     PassRefPtr<TimeRanges> buffered();
     float maxTimeSeekable();
 
     unsigned bytesLoaded();
-    
+
     float volume() const;
     void setVolume(float);
 
@@ -235,13 +239,13 @@ public:
 
     void paint(GraphicsContext*, const IntRect&);
     void paintCurrentFrameInContext(GraphicsContext*, const IntRect&);
-    
+
     enum NetworkState { Empty, Idle, Loading, Loaded, FormatError, NetworkError, DecodeError };
     NetworkState networkState();
 
     enum ReadyState  { HaveNothing, HaveMetadata, HaveCurrentData, HaveFutureData, HaveEnoughData };
     ReadyState readyState();
-    
+
     enum MovieLoadType { Unknown, Download, StoredStream, LiveStream };
     MovieLoadType movieLoadType() const;
 
@@ -320,6 +324,7 @@ private:
     bool m_muted;
     bool m_preservesPitch;
     bool m_privateBrowsing;
+    bool m_shouldPrepareToRender;
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     WebMediaPlayerProxy* m_playerProxy;    // not owned or used, passed to m_private
 #endif

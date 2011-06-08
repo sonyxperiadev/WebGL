@@ -43,8 +43,8 @@
 #include "RenderProgress.h"
 #include "RenderSlider.h"
 #include "ScrollbarTheme.h"
+#include "SystemInfo.h"
 #include "TransparencyWin.h"
-#include "WindowsVersion.h"
 
 // FIXME: This dependency should eventually be removed.
 #include <skia/ext/skia_utils_win.h>
@@ -141,8 +141,8 @@ bool ThemePainter::s_hasInstance = false;
 
 static void getNonClientMetrics(NONCLIENTMETRICS* metrics)
 {
-    static UINT size = isVistaOrNewer() ?
-        sizeof(NONCLIENTMETRICS) : NONCLIENTMETRICS_SIZE_PRE_VISTA;
+    static UINT size = (windowsVersion() >= WindowsVista) ?
+        (sizeof NONCLIENTMETRICS) : NONCLIENTMETRICS_SIZE_PRE_VISTA;
     metrics->cbSize = size;
     bool success = !!SystemParametersInfo(SPI_GETNONCLIENTMETRICS, size, metrics, 0);
     ASSERT(success);

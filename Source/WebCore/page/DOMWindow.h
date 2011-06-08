@@ -30,6 +30,7 @@
 #include "KURL.h"
 #include "MessagePort.h"
 #include "SecurityOrigin.h"
+#include "Timer.h"
 
 namespace WebCore {
 
@@ -222,6 +223,7 @@ namespace WebCore {
         String crossDomainAccessErrorMessage(DOMWindow* activeWindow);
 
         void pageDestroyed();
+        void resetGeolocation();
 
         void postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
         // FIXME: remove this when we update the ObjC bindings (bug #28774).
@@ -391,7 +393,7 @@ namespace WebCore {
             PERSISTENT,
         };
         void requestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback>, PassRefPtr<ErrorCallback>);
-        void resolveLocalFileSystemURI(const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
+        void resolveLocalFileSystemURL(const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
 #endif
 
 #if ENABLE(INDEXED_DATABASE)
@@ -436,6 +438,8 @@ namespace WebCore {
         virtual EventTargetData* eventTargetData();
         virtual EventTargetData* ensureEventTargetData();
 
+        void printTimerFired(Timer<DOMWindow>*);
+
         static Frame* createWindow(const String& urlString, const AtomicString& frameName, const WindowFeatures&,
             DOMWindow* activeWindow, Frame* firstFrame, Frame* openerFrame,
             PrepareDialogFunction = 0, void* functionContext = 0);
@@ -460,6 +464,8 @@ namespace WebCore {
         mutable RefPtr<Navigator> m_navigator;
         mutable RefPtr<Location> m_location;
         mutable RefPtr<StyleMedia> m_media;
+
+        Timer<DOMWindow> m_printTimer;
 
         EventTargetData m_eventTargetData;
 

@@ -23,6 +23,7 @@
 #define Heap_h
 
 #include "HandleHeap.h"
+#include "HandleStack.h"
 #include "MarkStack.h"
 #include "MarkedSpace.h"
 #include <wtf/Forward.h>
@@ -33,6 +34,7 @@ namespace JSC {
 
     class GCActivityCallback;
     class GlobalCodeBlock;
+    class HeapRootMarker;
     class JSCell;
     class JSGlobalData;
     class JSValue;
@@ -65,7 +67,7 @@ namespace JSC {
 
         JSGlobalData* globalData() const { return m_globalData; }
         MarkedSpace& markedSpace() { return m_markedSpace; }
-        MachineStackMarker& machineStackMarker() { return m_machineStackMarker; }
+        MachineThreads& machineThreads() { return m_machineThreads; }
 
         GCActivityCallback* activityCallback();
         void setActivityCallback(PassOwnPtr<GCActivityCallback>);
@@ -92,14 +94,15 @@ namespace JSC {
 
         void pushTempSortVector(Vector<ValueStringPair>*);
         void popTempSortVector(Vector<ValueStringPair>*);
-        
-        HashSet<GlobalCodeBlock*>& codeBlocks() { return m_codeBlocks; }
-
+    
         HashSet<MarkedArgumentBuffer*>& markListSet() { if (!m_markListSet) m_markListSet = new HashSet<MarkedArgumentBuffer*>; return *m_markListSet; }
         
         template <typename Functor> void forEach(Functor&);
         
         HandleSlot allocateGlobalHandle() { return m_handleHeap.allocate(); }
+        HandleSlot allocateLocalHandle() { return m_handleStack.push(); }
+
+        HandleStack* handleStack() { return &m_handleStack; }
 
     private:
         friend class JSGlobalData;
@@ -111,8 +114,8 @@ namespace JSC {
         void reportExtraMemoryCostSlowCase(size_t);
 
         void markRoots();
-        void markProtectedObjects(MarkStack&);
-        void markTempSortVectors(MarkStack&);
+        void markProtectedObjects(HeapRootMarker&);
+        void markTempSortVectors(HeapRootMarker&);
 
         enum SweepToggle { DoNotSweep, DoSweep };
         void reset(SweepToggle);
@@ -124,7 +127,6 @@ namespace JSC {
 
         ProtectCountSet m_protectedValues;
         Vector<Vector<ValueStringPair>* > m_tempSortingVectors;
-        HashSet<GlobalCodeBlock*> m_codeBlocks;
 
         HashSet<MarkedArgumentBuffer*>* m_markListSet;
 
@@ -132,10 +134,11 @@ namespace JSC {
 
         JSGlobalData* m_globalData;
         
-        MachineStackMarker m_machineStackMarker;
+        MachineThreads m_machineThreads;
         MarkStack m_markStack;
         HandleHeap m_handleHeap;
-        
+        HandleStack m_handleStack;
+
         size_t m_extraCost;
     };
 

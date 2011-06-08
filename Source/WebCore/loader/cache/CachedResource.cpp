@@ -93,8 +93,8 @@ CachedResource::CachedResource(const String& url, Type type)
     , m_loading(false)
     , m_type(type)
     , m_status(Pending)
-    , m_deleted(false)
 #ifndef NDEBUG
+    , m_deleted(false)
     , m_lruIndex(0)
 #endif
     , m_nextInAllResourcesList(0)
@@ -118,13 +118,8 @@ CachedResource::~CachedResource()
     ASSERT(!m_deleted);
     ASSERT(url().isNull() || memoryCache()->resourceForURL(KURL(ParsedURLString, url())) != this);
     
-    if (m_deleted) {
-        // FIXME: Remove when http://webkit.org/b/53045 is fixed.
-        CRASH();
-    }
-    
-    m_deleted = true;
 #ifndef NDEBUG
+    m_deleted = true;
     cachedResourceLeakCounter.decrement();
 #endif
 
@@ -139,15 +134,33 @@ void CachedResource::load(CachedResourceLoader* cachedResourceLoader, bool incre
     m_loading = true;
 }
 
+void CachedResource::checkNotify()
+{
+    if (isLoading())
+        return;
+
+    CachedResourceClientWalker w(m_clients);
+    while (CachedResourceClient* c = w.next())
+        c->notifyFinished(this);
+}
+
 void CachedResource::data(PassRefPtr<SharedBuffer>, bool allDataReceived)
 {
     if (!allDataReceived)
         return;
     
     setLoading(false);
-    CachedResourceClientWalker w(m_clients);
-    while (CachedResourceClient* c = w.next())
-        c->notifyFinished(this);
+    checkNotify();
+}
+
+void CachedResource::error(CachedResource::Status status)
+{
+    setStatus(status);
+    ASSERT(errorOccurred());
+    m_data.clear();
+
+    setLoading(false);
+    checkNotify();
 }
 
 void CachedResource::finish()

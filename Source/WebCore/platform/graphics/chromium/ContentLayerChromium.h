@@ -50,7 +50,8 @@ public:
 
     virtual ~ContentLayerChromium();
 
-    virtual void updateContentsIfDirty();
+    virtual void paintContentsIfDirty();
+    virtual void updateCompositorResources();
     virtual void unreserveContentsTexture();
     virtual void bindContentsTexture();
 
@@ -63,7 +64,7 @@ protected:
     explicit ContentLayerChromium(GraphicsLayerChromium* owner);
 
     virtual void cleanupResources();
-    bool requiresClippedUpdateRect() const;
+    bool requiresClippedUpdateRect();
     void resizeUploadBuffer(const IntSize&);
 
     virtual const char* layerTypeAsString() const { return "ContentLayer"; }
@@ -82,7 +83,6 @@ private:
     PlatformCanvas m_canvas;
 
     IntRect m_visibleRectInLayerCoords;
-    FloatPoint m_layerCenterInSurfaceCoords;
 };
 
 }

@@ -43,7 +43,6 @@
 #include "PlatformMouseEvent.h"
 #include "PopupMenuClient.h"
 #include "ProgressTracker.h"
-#include "appcache/ApplicationCacheStorage.h"
 #include "ewk_private.h"
 
 #include <Ecore.h>
@@ -95,13 +94,13 @@ struct _Ewk_View_Private_Data {
     unsigned int imh; /**< input method hints */
     struct {
         Eina_Bool view_cleared:1;
+        Eina_Bool need_touch_events:1;
     } flags;
     struct {
         const char* user_agent;
         const char* user_stylesheet;
         const char* encoding_default;
         const char* encoding_custom;
-        const char* cache_directory;
         const char* theme;
         const char* local_storage_database_path;
         int font_minimum_size;
@@ -584,9 +583,6 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
         (priv->page_settings->defaultTextEncodingName().utf8().data());
     priv->settings.encoding_custom = 0;
 
-    priv->settings.cache_directory = eina_stringshare_add
-        (WebCore::cacheStorage().cacheDirectory().utf8().data());
-
     s = priv->page_settings->localStorageDatabasePath();
     priv->settings.local_storage_database_path = eina_stringshare_add(s.string().utf8().data());
 
@@ -672,7 +668,6 @@ static void _ewk_view_priv_del(Ewk_View_Private_Data* priv)
     eina_stringshare_del(priv->settings.user_stylesheet);
     eina_stringshare_del(priv->settings.encoding_default);
     eina_stringshare_del(priv->settings.encoding_custom);
-    eina_stringshare_del(priv->settings.cache_directory);
     eina_stringshare_del(priv->settings.font_standard);
     eina_stringshare_del(priv->settings.font_cursive);
     eina_stringshare_del(priv->settings.font_monospace);
@@ -2723,22 +2718,6 @@ Eina_Bool ewk_view_setting_encoding_detector_get(Evas_Object* o)
     return priv->settings.encoding_detector;
 }
 
-const char* ewk_view_setting_cache_directory_get(const Evas_Object* o)
-{
-    EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
-    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
-    return priv->settings.cache_directory;
-}
-
-Eina_Bool ewk_view_setting_cache_directory_set(Evas_Object* o, const char* path)
-{
-    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
-    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    if (eina_stringshare_replace(&priv->settings.cache_directory, path))
-        WebCore::cacheStorage().setCacheDirectory(String::fromUTF8(path));
-    return EINA_TRUE;
-}
-
 int ewk_view_setting_font_minimum_size_get(const Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
@@ -4305,7 +4284,7 @@ void ewk_view_viewport_attributes_get(Evas_Object *o, float* w, float* h, float*
     if (device_pixel_ratio)
         *device_pixel_ratio = attributes.devicePixelRatio;
     if (user_scalable)
-        *user_scalable = attributes.userScalable;
+        *user_scalable = static_cast<bool>(attributes.userScalable);
 }
 
 /**
@@ -4508,7 +4487,7 @@ WebCore::FloatRect ewk_view_page_rect_get(Evas_Object *o)
  *
  * @return device's dpi value.
  */
-int ewk_view_dpi_get()
+int ewk_view_dpi_get(void)
 {
 #ifdef HAVE_ECORE_X
      return ecore_x_dpi_get();
@@ -4516,3 +4495,20 @@ int ewk_view_dpi_get()
      return 160;
 #endif
 }
+
+#if ENABLE(TOUCH_EVENTS)
+void ewk_view_need_touch_events_set(Evas_Object* o, bool needed)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    priv->flags.need_touch_events = needed;
+}
+
+Eina_Bool ewk_view_need_touch_events_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->flags.need_touch_events;
+}
+#endif

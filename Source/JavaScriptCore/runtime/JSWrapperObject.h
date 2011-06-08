@@ -30,19 +30,19 @@ namespace JSC {
     // Number, Boolean and Date which are wrappers for primitive types.
     class JSWrapperObject : public JSNonFinalObject {
     protected:
-        explicit JSWrapperObject(JSGlobalData&, NonNullPassRefPtr<Structure>);
+        explicit JSWrapperObject(NonNullPassRefPtr<Structure>);
 
     public:
-        JSValue internalValue() const { return m_internalValue.get(); }
+        JSValue internalValue() const;
         void setInternalValue(JSGlobalData&, JSValue);
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype) 
+        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype) 
         { 
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
-        static const unsigned AnonymousSlotCount = 1 + JSObject::AnonymousSlotCount;
+        static const unsigned StructureFlags = OverridesMarkChildren | JSNonFinalObject::StructureFlags;
 
     private:
         virtual void markChildren(MarkStack&);
@@ -50,10 +50,14 @@ namespace JSC {
         WriteBarrier<Unknown> m_internalValue;
     };
 
-    inline JSWrapperObject::JSWrapperObject(JSGlobalData& globalData, NonNullPassRefPtr<Structure> structure)
+    inline JSWrapperObject::JSWrapperObject(NonNullPassRefPtr<Structure> structure)
         : JSNonFinalObject(structure)
     {
-        putAnonymousValue(globalData, 0, jsNull());
+    }
+
+    inline JSValue JSWrapperObject::internalValue() const
+    {
+        return m_internalValue.get();
     }
 
     inline void JSWrapperObject::setInternalValue(JSGlobalData& globalData, JSValue value)
@@ -61,7 +65,6 @@ namespace JSC {
         ASSERT(value);
         ASSERT(!value.isObject());
         m_internalValue.set(globalData, this, value);
-        putAnonymousValue(globalData, 0, value);
     }
 
 } // namespace JSC

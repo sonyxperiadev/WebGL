@@ -26,9 +26,11 @@
 #ifndef htmlediting_h
 #define htmlediting_h
 
+#include "EditingBoundary.h"
 #include "ExceptionCode.h"
 #include "HTMLNames.h"
 #include "Position.h"
+#include "TextDirection.h"
 #include <wtf/Forward.h>
 #include <wtf/unicode/CharacterNames.h>
 
@@ -54,18 +56,17 @@ class VisibleSelection;
 
 Node* highestAncestor(Node*);
 Node* highestEditableRoot(const Position&);
-Node* highestEnclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*));
+Node* highestEnclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*), EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
 Node* lowestEditableAncestor(Node*);   
 
-Node* enclosingBlock(Node*);
+Node* enclosingBlock(Node*, EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
 Node* enclosingTableCell(const Position&);
 Node* enclosingEmptyListItem(const VisiblePosition&);
 Node* enclosingAnchorElement(const Position&);
 Node* enclosingNodeWithTag(const Position&, const QualifiedName&);
-Node* enclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*), bool onlyReturnEditableNodes = true);
+Node* enclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*), EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
 
 Node* tabSpanNode(const Node*);
-Node* nearestMailBlockquote(const Node*);
 Node* isLastPositionBeforeTable(const VisiblePosition&);
 Node* isFirstPositionAfterTable(const VisiblePosition&);
 
@@ -96,6 +97,8 @@ bool isNodeVisiblyContainedWithin(Node*, const Range*);
 bool isRenderedAsNonInlineTableImageOrHR(const Node*);
 bool isNodeInTextFormControl(Node* node);
     
+TextDirection directionOfEnclosingBlock(const Position&);
+
 // -------------------------------------------------------------------------
 // Position
 // -------------------------------------------------------------------------
@@ -115,34 +118,18 @@ Position positionOutsideContainingSpecialElement(const Position&, Node** contain
 
 inline Position firstPositionInOrBeforeNode(Node* node)
 {
+    if (!node)
+        return Position();
     return editingIgnoresContent(node) ? positionBeforeNode(node) : firstPositionInNode(node);
 }
 
 inline Position lastPositionInOrAfterNode(Node* node)
 {
+    if (!node)
+        return Position();
     return editingIgnoresContent(node) ? positionAfterNode(node) : lastPositionInNode(node);
 }
 
-// Position creation functions are inline to prevent ref-churn.
-// Other Position creation functions are in Position.h
-// but these depend on lastOffsetForEditing which is defined in htmlediting.h.
-
-// NOTE: first/lastDeepEditingPositionForNode return legacy editing positions (like [img, 0])
-// for elements which editing ignores.  The rest of the editing code will treat [img, 0]
-// as "the last position before the img".
-// New code should use the creation functions in Position.h instead.
-inline Position firstDeepEditingPositionForNode(Node* anchorNode)
-{
-    ASSERT(anchorNode);
-    return Position(anchorNode, 0);
-}
-
-inline Position lastDeepEditingPositionForNode(Node* anchorNode)
-{
-    ASSERT(anchorNode);
-    return Position(anchorNode, lastOffsetForEditing(anchorNode));
-}
-       
 // comparision functions on Position
     
 int comparePositions(const Position&, const Position&);
@@ -237,7 +224,7 @@ inline bool isWhitespace(UChar c)
 {
     return c == noBreakSpace || c == ' ' || c == '\n' || c == '\t';
 }
-String stringWithRebalancedWhitespace(const String&, bool, bool);
+String stringWithRebalancedWhitespace(const String&, bool startIsStartOfParagraph, bool endIsEndOfParagraph);
 const String& nonBreakingSpaceString();
 
 }

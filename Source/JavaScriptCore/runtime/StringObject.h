@@ -31,7 +31,7 @@ namespace JSC {
         StringObject(ExecState*, NonNullPassRefPtr<Structure>);
         StringObject(ExecState*, NonNullPassRefPtr<Structure>, const UString&);
 
-        static StringObject* create(ExecState*, JSString*);
+        static StringObject* create(ExecState*, JSGlobalObject*, JSString*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
@@ -45,15 +45,15 @@ namespace JSC {
 
         JSString* internalValue() const { return asString(JSWrapperObject::internalValue());}
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesMarkChildren | OverridesGetPropertyNames | JSWrapperObject::StructureFlags;
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSWrapperObject::StructureFlags;
         StringObject(JSGlobalData&, NonNullPassRefPtr<Structure>, JSString*);
-  };
+    };
 
     StringObject* asStringObject(JSValue);
 

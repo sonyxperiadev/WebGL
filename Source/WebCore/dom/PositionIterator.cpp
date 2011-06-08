@@ -38,10 +38,13 @@ PositionIterator::operator Position() const
 {
     if (m_nodeAfterPositionInAnchor) {
         ASSERT(m_nodeAfterPositionInAnchor->parentNode() == m_anchorNode);
+        // FIXME: This check is inadaquete because any ancestor could be ignored by editing
+        if (editingIgnoresContent(m_nodeAfterPositionInAnchor->parentNode()))
+            return positionBeforeNode(m_anchorNode);
         return positionInParentBeforeNode(m_nodeAfterPositionInAnchor);
     }
     if (m_anchorNode->hasChildNodes())
-        return lastDeepEditingPositionForNode(m_anchorNode);
+        return lastPositionInOrAfterNode(m_anchorNode);
     return Position(m_anchorNode, m_offsetInAnchor);
 }
 
@@ -166,7 +169,7 @@ bool PositionIterator::isCandidate() const
         if (toRenderBlock(renderer)->height() || m_anchorNode->hasTagName(bodyTag)) {
             if (!Position::hasRenderedNonAnonymousDescendantsWithHeight(renderer))
                 return atStartOfNode() && !Position::nodeIsUserSelectNone(m_anchorNode);
-            return m_anchorNode->isContentEditable() && !Position::nodeIsUserSelectNone(m_anchorNode) && Position(*this).atEditingBoundary();
+            return m_anchorNode->rendererIsEditable() && !Position::nodeIsUserSelectNone(m_anchorNode) && Position(*this).atEditingBoundary();
         }
     }
 

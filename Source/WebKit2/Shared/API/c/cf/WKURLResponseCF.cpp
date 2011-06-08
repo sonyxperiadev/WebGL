@@ -33,6 +33,9 @@ using namespace WebKit;
 
 WKURLResponseRef WKURLResponseCreateWithCFURLResponse(CFURLResponseRef urlResponse)
 {
+    if (!urlResponse)
+        return 0;
+
     CFURLResponseRef copiedURLResponse = CFURLResponseCreateCopy(kCFAllocatorDefault, urlResponse);
     RefPtr<WebURLResponse> response = WebURLResponse::create(copiedURLResponse);
     return toAPI(response.release().releaseRef());
@@ -40,5 +43,12 @@ WKURLResponseRef WKURLResponseCreateWithCFURLResponse(CFURLResponseRef urlRespon
 
 CFURLResponseRef WKURLResponseCopyCFURLResponse(CFAllocatorRef alloc, WKURLResponseRef urlResponse)
 {
+    if (!urlResponse)
+        return 0;
+
+    PlatformResponse platformURLResponse = toImpl(urlResponse)->platformResponse();
+    if (!platformURLResponse)
+        return 0;
+
     return CFURLResponseCreateCopy(alloc, toImpl(urlResponse)->platformResponse());
 }

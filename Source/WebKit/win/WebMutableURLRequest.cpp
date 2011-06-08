@@ -30,16 +30,17 @@
 #include "WebKit.h"
 #include "MarshallingHelpers.h"
 #include "WebKit.h"
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
 #include <WebCore/COMPtr.h>
 #include <WebCore/FormData.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/ResourceHandle.h>
 #include <wtf/text/CString.h>
-#pragma warning(pop)
-
 #include <wtf/RetainPtr.h>
+
+#if USE(CF)
+#include <WebCore/CertificateCFWin.h>
+#endif
 
 #if USE(CFNETWORK)
 #include <CFNetwork/CFURLRequestPriv.h>
@@ -350,26 +351,6 @@ HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setAllowsAnyHTTPSCertificate(voi
     return S_OK;
 }
 
-static void deallocCertContext(void* ptr, void* info)
-{
-    if (ptr)
-        CertFreeCertificateContext(reinterpret_cast<PCCERT_CONTEXT>(ptr));
-}
-
-static CFDataRef copyCert(PCCERT_CONTEXT cert)
-{
-    static CFAllocatorRef certDealloc;
-    PCCERT_CONTEXT certCopy = 0;
-    if (!certDealloc) {
-        CFAllocatorContext allocContext = {
-            0, 0, 0, 0, 0, 0, 0, deallocCertContext, 0
-        };
-        certDealloc = CFAllocatorCreate(kCFAllocatorDefault, &allocContext);
-    }
-    certCopy = CertDuplicateCertificateContext(cert);
-    return CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, reinterpret_cast<const UInt8*>(certCopy), sizeof(*certCopy), certDealloc);
-}
-
 HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setClientCertificate(
     /* [in] */ OLE_HANDLE cert)
 {
@@ -377,7 +358,7 @@ HRESULT STDMETHODCALLTYPE WebMutableURLRequest::setClientCertificate(
         return E_POINTER;
 
     PCCERT_CONTEXT certContext = reinterpret_cast<PCCERT_CONTEXT>((ULONG64)cert);
-    RetainPtr<CFDataRef> certData(AdoptCF, copyCert(certContext));
+    RetainPtr<CFDataRef> certData = WebCore::copyCertificateToData(certContext);
     ResourceHandle::setClientCertificate(m_request.url().host(), certData.get());
     return S_OK;
 }

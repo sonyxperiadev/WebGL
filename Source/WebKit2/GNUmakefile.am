@@ -55,6 +55,7 @@ libWebKit2_la_HEADERS = \
 	$(WebKit2)/UIProcess/API/C/WKFramePolicyListener.h \
 	$(WebKit2)/UIProcess/API/C/WKInspector.h \
 	$(WebKit2)/UIProcess/API/C/WKKeyValueStorageManager.h \
+	$(WebKit2)/UIProcess/API/C/WKMediaCacheManager.h \
 	$(WebKit2)/UIProcess/API/C/WKNativeEvent.h \
 	$(WebKit2)/UIProcess/API/C/WKNavigationData.h \
 	$(WebKit2)/UIProcess/API/C/WKOpenPanelParameters.h \
@@ -320,10 +321,14 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/UIProcess/API/C/WKFrame.h \
 	Source/WebKit2/UIProcess/API/C/WKFramePolicyListener.cpp \
 	Source/WebKit2/UIProcess/API/C/WKFramePolicyListener.h \
+	Source/WebKit2/UIProcess/API/C/WKIconDatabase.cpp \
+	Source/WebKit2/UIProcess/API/C/WKIconDatabase.h \
 	Source/WebKit2/UIProcess/API/C/WKInspector.cpp \
 	Source/WebKit2/UIProcess/API/C/WKInspector.h \
 	Source/WebKit2/UIProcess/API/C/WKKeyValueStorageManager.cpp \
 	Source/WebKit2/UIProcess/API/C/WKKeyValueStorageManager.h \
+	Source/WebKit2/UIProcess/API/C/WKMediaCacheManager.cpp \
+	Source/WebKit2/UIProcess/API/C/WKMediaCacheManager.h \
 	Source/WebKit2/UIProcess/API/C/WKNativeEvent.h \
 	Source/WebKit2/UIProcess/API/C/WKNavigationData.cpp \
 	Source/WebKit2/UIProcess/API/C/WKNavigationData.h \
@@ -371,6 +376,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/UIProcess/gtk/ChunkedUpdateDrawingAreaProxyGtk.cpp \
 	Source/WebKit2/UIProcess/gtk/TextCheckerGtk.cpp \
 	Source/WebKit2/UIProcess/gtk/WebContextGtk.cpp \
+	Source/WebKit2/UIProcess/gtk/WebFullScreenManagerProxyGtk.cpp \
 	Source/WebKit2/UIProcess/gtk/WebInspectorGtk.cpp \
 	Source/WebKit2/UIProcess/gtk/WebViewWidget.cpp \
 	Source/WebKit2/UIProcess/gtk/WebViewWidget.h \
@@ -438,16 +444,22 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/UIProcess/WebFramePolicyListenerProxy.h \
 	Source/WebKit2/UIProcess/WebFrameProxy.cpp \
 	Source/WebKit2/UIProcess/WebFrameProxy.h \
+	Source/WebKit2/UIProcess/WebFullScreenManagerProxy.cpp \
+	Source/WebKit2/UIProcess/WebFullScreenManagerProxy.h \
 	Source/WebKit2/UIProcess/WebGeolocationManagerProxy.cpp \
 	Source/WebKit2/UIProcess/WebGeolocationManagerProxy.h \
 	Source/WebKit2/UIProcess/WebGeolocationProvider.cpp \
 	Source/WebKit2/UIProcess/WebGeolocationProvider.h \
 	Source/WebKit2/UIProcess/WebHistoryClient.cpp \
 	Source/WebKit2/UIProcess/WebHistoryClient.h \
+	Source/WebKit2/UIProcess/WebIconDatabase.cpp \
+	Source/WebKit2/UIProcess/WebIconDatabase.h \
 	Source/WebKit2/UIProcess/WebInspectorProxy.cpp \
 	Source/WebKit2/UIProcess/WebInspectorProxy.h \
 	Source/WebKit2/UIProcess/WebKeyValueStorageManagerProxy.cpp \
 	Source/WebKit2/UIProcess/WebKeyValueStorageManagerProxy.h \
+	Source/WebKit2/UIProcess/WebMediaCacheManagerProxy.cpp \
+	Source/WebKit2/UIProcess/WebMediaCacheManagerProxy.h \
 	Source/WebKit2/UIProcess/WebLoaderClient.cpp \
 	Source/WebKit2/UIProcess/WebLoaderClient.h \
 	Source/WebKit2/UIProcess/WebNavigationData.cpp \
@@ -479,11 +491,16 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/Authentication/AuthenticationManager.h \
 	Source/WebKit2/WebProcess/Cookies/WebCookieManager.h \
 	Source/WebKit2/WebProcess/Cookies/WebCookieManager.cpp \
-	Source/WebKit2/WebProcess/Downloads/curl/DownloadCurl.cpp \
+	Source/WebKit2/WebProcess/Cookies/gtk/WebCookieManagerGtk.cpp \
 	Source/WebKit2/WebProcess/Downloads/Download.cpp \
 	Source/WebKit2/WebProcess/Downloads/Download.h \
 	Source/WebKit2/WebProcess/Downloads/DownloadManager.cpp \
 	Source/WebKit2/WebProcess/Downloads/DownloadManager.h \
+	Source/WebKit2/WebProcess/Downloads/soup/DownloadSoup.cpp \
+	Source/WebKit2/WebProcess/FullScreen/WebFullScreenManager.cpp \
+	Source/WebKit2/WebProcess/FullScreen/WebFullScreenManager.h \
+	Source/WebKit2/WebProcess/FullScreen/gtk/WebFullScreenManagerGtk.cpp \
+	Source/WebKit2/WebProcess/FullScreen/gtk/WebFullScreenManagerGtk.h \
 	Source/WebKit2/WebProcess/Geolocation/GeolocationPermissionRequestManager.cpp \
 	Source/WebKit2/WebProcess/Geolocation/GeolocationPermissionRequestManager.h \
 	Source/WebKit2/WebProcess/Geolocation/WebGeolocationManager.cpp \
@@ -491,6 +508,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/gtk/WebProcessGtk.cpp \
 	Source/WebKit2/WebProcess/gtk/WebProcessMainGtk.cpp \
 	Source/WebKit2/WebProcess/gtk/WebProcessMainGtk.h \
+	Source/WebKit2/WebProcess/IconDatabase/WebIconDatabaseProxy.cpp \
+	Source/WebKit2/WebProcess/IconDatabase/WebIconDatabaseProxy.h \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleAPICast.h \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleBackForwardList.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleBackForwardList.h \
@@ -503,6 +522,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundle.h \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleHitTestResult.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleHitTestResult.h \
+	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleNavigationAction.h \
+	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleNavigationAction.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleInitialize.h \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleInspector.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/API/c/WKBundleInspector.h \
@@ -526,16 +547,18 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/InjectedBundle/DOM/InjectedBundleRangeHandle.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/DOM/InjectedBundleRangeHandle.h \
 	Source/WebKit2/WebProcess/InjectedBundle/gtk/InjectedBundleGtk.cpp \
+	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundle.cpp \
+	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundle.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleBackForwardList.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleBackForwardList.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleBackForwardListItem.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleBackForwardListItem.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleClient.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleClient.h \
-	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundle.cpp \
-	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundle.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleHitTestResult.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleHitTestResult.h \
+	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleNavigationAction.cpp \
+	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleNavigationAction.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageContextMenuClient.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageContextMenuClient.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageEditorClient.cpp \
@@ -544,6 +567,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageFormClient.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.h \
+	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePagePolicyClient.cpp \
+	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePagePolicyClient.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageResourceLoadClient.cpp \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageResourceLoadClient.h \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp \
@@ -553,7 +578,8 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/InjectedBundle/InjectedBundleUserMessageCoders.h \
 	Source/WebKit2/WebProcess/KeyValueStorage/WebKeyValueStorageManager.cpp \
 	Source/WebKit2/WebProcess/KeyValueStorage/WebKeyValueStorageManager.h \
-	Source/WebKit2/WebProcess/Plugins/Netscape/gtk/NetscapePluginGtk.cpp \
+	Source/WebKit2/WebProcess/MediaCache/WebMediaCacheManager.cpp \
+	Source/WebKit2/WebProcess/MediaCache/WebMediaCacheManager.h \
 	Source/WebKit2/WebProcess/Plugins/Netscape/JSNPMethod.cpp \
 	Source/WebKit2/WebProcess/Plugins/Netscape/JSNPMethod.h \
 	Source/WebKit2/WebProcess/Plugins/Netscape/JSNPObject.cpp \
@@ -570,6 +596,7 @@ libWebKit2_la_SOURCES = \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NPRuntimeObjectMap.h \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NPRuntimeUtilities.cpp \
 	Source/WebKit2/WebProcess/Plugins/Netscape/NPRuntimeUtilities.h \
+	Source/WebKit2/WebProcess/Plugins/Netscape/x11/NetscapePluginX11.cpp \
 	Source/WebKit2/WebProcess/Plugins/PluginController.h \
 	Source/WebKit2/WebProcess/Plugins/Plugin.cpp \
 	Source/WebKit2/WebProcess/Plugins/Plugin.h \
@@ -685,8 +712,10 @@ libWebKit2_la_CPPFLAGS = \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Authentication \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Cookies \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Downloads \
+	-I$(srcdir)/Source/WebKit2/WebProcess/FullScreen \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Geolocation \
 	-I$(srcdir)/Source/WebKit2/WebProcess/gtk \
+	-I$(srcdir)/Source/WebKit2/WebProcess/IconDatabase \
 	-I$(srcdir)/Source/WebKit2/WebProcess/InjectedBundle \
 	-I$(srcdir)/Source/WebKit2/WebProcess/InjectedBundle/API \
 	-I$(srcdir)/Source/WebKit2/WebProcess/InjectedBundle/API/c \
@@ -694,6 +723,7 @@ libWebKit2_la_CPPFLAGS = \
 	-I$(srcdir)/Source/WebKit2/WebProcess/InjectedBundle/gtk \
 	-I$(srcdir)/Source/WebKit2/WebProcess/KeyValueStorage \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Launching \
+	-I$(srcdir)/Source/WebKit2/WebProcess/MediaCache \
 	-I$(srcdir)/Source/WebKit2/WebProcess/ResourceCache \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Plugins \
 	-I$(srcdir)/Source/WebKit2/WebProcess/Plugins/Netscape \
@@ -848,10 +878,18 @@ webkit2_built_sources += \
 	DerivedSources/WebKit2/WebDatabaseManagerMessages.h \
 	DerivedSources/WebKit2/WebDatabaseManagerProxyMessageReceiver.cpp \
 	DerivedSources/WebKit2/WebDatabaseManagerProxyMessages.h \
+	DerivedSources/WebKit2/WebFullScreenManagerMessageReceiver.cpp \
+	DerivedSources/WebKit2/WebFullScreenManagerMessages.h \
+	DerivedSources/WebKit2/WebFullScreenManagerProxyMessageReceiver.cpp \
+	DerivedSources/WebKit2/WebFullScreenManagerProxyMessages.h \
 	DerivedSources/WebKit2/WebGeolocationManagerMessageReceiver.cpp \
 	DerivedSources/WebKit2/WebGeolocationManagerMessages.h \
 	DerivedSources/WebKit2/WebGeolocationManagerProxyMessageReceiver.cpp \
 	DerivedSources/WebKit2/WebGeolocationManagerProxyMessages.h \
+	DerivedSources/WebKit2/WebIconDatabaseMessageReceiver.cpp \
+	DerivedSources/WebKit2/WebIconDatabaseMessages.h \
+	DerivedSources/WebKit2/WebIconDatabaseProxyMessageReceiver.cpp \
+	DerivedSources/WebKit2/WebIconDatabaseProxyMessages.h \
 	DerivedSources/WebKit2/WebInspectorMessageReceiver.cpp \
 	DerivedSources/WebKit2/WebInspectorMessages.h \
 	DerivedSources/WebKit2/WebInspectorProxyMessageReceiver.cpp \
@@ -860,6 +898,10 @@ webkit2_built_sources += \
 	DerivedSources/WebKit2/WebKeyValueStorageManagerMessages.h \
 	DerivedSources/WebKit2/WebKeyValueStorageManagerProxyMessageReceiver.cpp \
 	DerivedSources/WebKit2/WebKeyValueStorageManagerProxyMessages.h \
+	DerivedSources/WebKit2/WebMediaCacheManagerMessageReceiver.cpp \
+	DerivedSources/WebKit2/WebMediaCacheManagerMessages.h \
+	DerivedSources/WebKit2/WebMediaCacheManagerProxyMessageReceiver.cpp \
+	DerivedSources/WebKit2/WebMediaCacheManagerProxyMessages.h \
 	DerivedSources/WebKit2/WebPageProxyMessageReceiver.cpp \
 	DerivedSources/WebKit2/WebPageProxyMessages.h \
 	DerivedSources/WebKit2/WebPageMessageReceiver.cpp \
@@ -897,8 +939,11 @@ vpath %.messages.in = \
 	$(WebKit2)/WebProcess/ApplicationCache \
 	$(WebKit2)/WebProcess/Authentication \
 	$(WebKit2)/WebProcess/Cookies \
+	$(WebKit2)/WebProcess/FullScreen \
 	$(WebKit2)/WebProcess/Geolocation \
+	$(WebKit2)/WebProcess/IconDatabase \
 	$(WebKit2)/WebProcess/KeyValueStorage \
+	$(WebKit2)/WebProcess/MediaCache \
 	$(WebKit2)/WebProcess/Plugins \
 	$(WebKit2)/WebProcess/ResourceCache \
 	$(WebKit2)/WebProcess/WebCoreSupport \

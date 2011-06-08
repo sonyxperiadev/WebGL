@@ -27,6 +27,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "ActivateFonts.h"
 
 #include <QApplication>
@@ -56,8 +57,9 @@ void activateFonts()
     if (appFontSet && numFonts >= 0 && appFontSet->nfont == numFonts)
         return;
 
-    QByteArray fontDir = getenv("WEBKIT_TESTFONTS");
-    if (fontDir.isEmpty() || !QDir(fontDir).exists()) {
+    char* const fontDir = getenv("WEBKIT_TESTFONTS");
+    const QString fontDirString = QString::fromLocal8Bit(fontDir);
+    if (fontDirString.isEmpty() || !QDir(fontDirString).exists()) {
         fprintf(stderr,
                 "\n\n"
                 "----------------------------------------------------------------------\n"
@@ -76,7 +78,7 @@ void activateFonts()
     configFile += "/Tools/DumpRenderTree/qt/fonts.conf";
     if (!FcConfigParseAndLoad (config, (FcChar8*) configFile.data(), true))
         qFatal("Couldn't load font configuration file");
-    if (!FcConfigAppFontAddDir (config, (FcChar8*) fontDir.data()))
+    if (!FcConfigAppFontAddDir (config, (FcChar8*) fontDir))
         qFatal("Couldn't add font dir!");
     FcConfigSetCurrent(config);
 
@@ -84,17 +86,19 @@ void activateFonts()
     numFonts = appFontSet->nfont;
 #endif
 
-    QApplication::setGraphicsSystem("raster");
+    QApplication::setGraphicsSystem(QLatin1String("raster"));
     QApplication::setStyle(new QWindowsStyle);
 
-    QFont f("Sans Serif");
+    QFont f(QLatin1String("Sans Serif"));
     f.setPointSize(9);
     f.setWeight(QFont::Normal);
     f.setStyle(QFont::StyleNormal);
     QApplication::setFont(f);
 
+#if defined(Q_WS_X11)
     QX11Info::setAppDpiX(0, 96);
     QX11Info::setAppDpiY(0, 96);
+#endif
 }
 
 }

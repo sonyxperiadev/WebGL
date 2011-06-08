@@ -117,6 +117,13 @@ gboolean mediaPlayerPrivateMessageCallback(GstBus* bus, GstMessage* message, gpo
             || err->code == GST_RESOURCE_ERROR_NOT_FOUND)
             error = MediaPlayer::FormatError;
         else if (err->domain == GST_STREAM_ERROR) {
+            // Let the mediaPlayerClient handle the stream error, in
+            // this case the HTMLMediaElement will emit a stalled
+            // event.
+            if (err->code == GST_STREAM_ERROR_TYPE_NOT_FOUND) {
+                LOG_VERBOSE(Media, "Decode error, let the Media element emit a stalled event.");
+                break;
+            }
             error = MediaPlayer::DecodeError;
             attemptNextLocation = true;
         } else if (err->domain == GST_RESOURCE_ERROR)
@@ -495,7 +502,7 @@ float MediaPlayerPrivateGStreamer::currentTime() const
         return 0.0f;
 
     if (m_seeking)
-        return static_cast<float>(m_seekTime);
+        return m_seekTime;
 
     return playbackPosition(m_playBin);
 
@@ -513,17 +520,28 @@ void MediaPlayerPrivateGStreamer::seek(float time)
     if (m_errorOccured)
         return;
 
-    GstClockTime sec = (GstClockTime)(static_cast<float>(time * GST_SECOND));
-    LOG_VERBOSE(Media, "Seek: %" GST_TIME_FORMAT, GST_TIME_ARGS(sec));
+    // Extract the integer part of the time (seconds) and the
+    // fractional part (microseconds). Attempt to round the
+    // microseconds so no floating point precision is lost and we can
+    // perform an accurate seek.
+    float seconds;
+    float microSeconds = modf(time, &seconds) * 1000000;
+    GTimeVal timeValue;
+    timeValue.tv_sec = static_cast<glong>(seconds);
+    timeValue.tv_usec = static_cast<glong>(roundf(microSeconds / 10000) * 10000);
+
+    GstClockTime clockTime = GST_TIMEVAL_TO_TIME(timeValue);
+    LOG_VERBOSE(Media, "Seek: %" GST_TIME_FORMAT, GST_TIME_ARGS(clockTime));
+
     if (!gst_element_seek(m_playBin, m_player->rate(),
             GST_FORMAT_TIME,
-            (GstSeekFlags)(GST_SEEK_FLAG_FLUSH),
-            GST_SEEK_TYPE_SET, sec,
+            (GstSeekFlags)(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE),
+            GST_SEEK_TYPE_SET, clockTime,
             GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
         LOG_VERBOSE(Media, "Seek to %f failed", time);
     else {
         m_seeking = true;
-        m_seekTime = sec;
+        m_seekTime = time;
     }
 }
 
@@ -1046,15 +1064,9 @@ void MediaPlayerPrivateGStreamer::updateStates()
         if (!m_isStreaming && !m_buffering)
             return;
 
-        // Resume playback if a seek was performed in a live pipeline
-        // or during progressive download. That second use-case
-        // happens when the seek is performed to a region of the media
-        // that hasn't been downloaded yet.
         if (m_seeking) {
             shouldUpdateAfterSeek = true;
             m_seeking = false;
-            if (m_paused)
-                gst_element_set_state(m_playBin, GST_STATE_PLAYING);
         }
         break;
     case GST_STATE_CHANGE_FAILURE:

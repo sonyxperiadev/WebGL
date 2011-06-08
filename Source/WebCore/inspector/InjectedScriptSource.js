@@ -46,6 +46,7 @@ var InjectedScript = function()
 {
     this._lastBoundObjectId = 1;
     this._idToWrappedObject = {};
+    this._idToObjectGroupName = {};
     this._objectGroups = {};
 }
 
@@ -95,8 +96,7 @@ InjectedScript.prototype = {
             if (typeof object === "object" || typeof object === "function" || this._isHTMLAllCollection(object)) {
                 var id = this._lastBoundObjectId++;
                 this._idToWrappedObject[id] = object;
-                var objectId = { injectedScriptId: injectedScriptId, id: id };
-    
+                var objectId = "{\"injectedScriptId\":" + injectedScriptId + ",\"id\":" + id + "}";    
                 if (objectGroupName) {
                     var group = this._objectGroups[objectGroupName];
                     if (!group) {
@@ -104,7 +104,7 @@ InjectedScript.prototype = {
                         this._objectGroups[objectGroupName] = group;
                     }
                     group.push(id);
-                    objectId.groupName = objectGroupName;
+                    this._idToObjectGroupName[id] = objectGroupName;
                 }
             }
             return InjectedScript.RemoteObject.fromObject(object, objectId, abbreviate);
@@ -124,7 +124,7 @@ InjectedScript.prototype = {
         if (!group)
             return;
         for (var i = 0; i < group.length; i++)
-            delete this._idToWrappedObject[group[i]];
+            this._releaseObject(group[i]);
         delete this._objectGroups[objectGroupName];
     },
 
@@ -143,6 +143,7 @@ InjectedScript.prototype = {
     {
         var parsedObjectId = this._parseObjectId(objectId);
         var object = this._objectForId(parsedObjectId);
+        var objectGroupName = this._idToObjectGroupName[parsedObjectId.id];
 
         if (!this._isDefined(object))
             return false;
@@ -161,7 +162,7 @@ InjectedScript.prototype = {
             var isGetter = object["__lookupGetter__"] && object.__lookupGetter__(propertyName);
             if (!isGetter) {
                 try {
-                    property.value = this._wrapObject(object[propertyName], parsedObjectId.groupName, abbreviate);
+                    property.value = this._wrapObject(object[propertyName], objectGroupName, abbreviate);
                 } catch(e) {
                     property.value = new InjectedScript.RemoteObject.fromException(e);
                 }
@@ -180,12 +181,12 @@ InjectedScript.prototype = {
         var parsedObjectId = this._parseObjectId(objectId);
         var object = this._objectForId(parsedObjectId);
         if (!this._isDefined(object))
-            return false;
+            return "Object with given id not found";
     
         var expressionLength = expression.length;
         if (!expressionLength) {
             delete object[propertyName];
-            return !(propertyName in object);
+            return propertyName in object ? "Cound not delete property." : undefined;
         }
     
         try {
@@ -198,14 +199,12 @@ InjectedScript.prototype = {
             var result = inspectedWindow.eval("(" + expression + ")");
             // Store the result in the property.
             object[propertyName] = result;
-            return true;
         } catch(e) {
             try {
                 var result = inspectedWindow.eval("\"" + expression.replace(/"/g, "\\\"") + "\"");
                 object[propertyName] = result;
-                return true;
             } catch(e) {
-                return false;
+                return e.toString();
             }
         }
     },
@@ -213,7 +212,13 @@ InjectedScript.prototype = {
     releaseObject: function(objectId)
     {
         var parsedObjectId = this._parseObjectId(objectId);
-        delete this._idToWrappedObject[parsedObjectId.id];
+        this._releaseObject(parsedObjectId.id);
+    },
+
+    _releaseObject: function(id)
+    {
+        delete this._idToWrappedObject[id];
+        delete this._idToObjectGroupName[id];
     },
 
     _populatePropertyNames: function(object, resultSet)
@@ -245,7 +250,7 @@ InjectedScript.prototype = {
         var parsedObjectId = this._parseObjectId(objectId);
         var object = this._objectForId(parsedObjectId);
         if (!object)
-            return false;
+            return "Could not find object with given id";
         try {
             inspectedWindow.console._objectToEvaluateOn = object;
             return this._evaluateAndWrap(inspectedWindow.eval, inspectedWindow, "(function() {" + expression + "}).call(window.console._objectToEvaluateOn)", parsedObjectId.objectGroup, false, false);
@@ -308,7 +313,7 @@ InjectedScript.prototype = {
     {
         var callFrame = this._callFrameForId(callFrameId);
         if (!callFrame)
-            return false;
+            return "Could not find call frame with given id";
         return this._evaluateAndWrap(callFrame.evaluate, callFrame, expression, objectGroup, true, injectCommandLineAPI);
     },
 
@@ -334,11 +339,6 @@ InjectedScript.prototype = {
         if (!object || this._type(object) !== "node")
             return null;
         return object;
-    },
-
-    resolveNode: function(node)
-    {
-        return this._wrapObject(node);
     },
 
     _isDefined: function(object)
@@ -385,10 +385,14 @@ InjectedScript.prototype = {
         if (obj instanceof inspectedWindow.RegExp)
             return "regexp";
         // FireBug's array detection.
-        if (isFinite(obj.length) && typeof obj.splice === "function")
-            return "array";
-        if (isFinite(obj.length) && typeof obj.callee === "function") // arguments.
-            return "array";
+        try {
+            if (isFinite(obj.length) && typeof obj.splice === "function")
+                return "array";
+            if (isFinite(obj.length) && typeof obj.callee === "function") // arguments.
+                return "array";
+        } catch (e) {
+            return type;
+        }
         if (obj instanceof inspectedWindow.NodeList)
             return "array";
         if (obj instanceof inspectedWindow.HTMLCollection)
@@ -420,11 +424,9 @@ InjectedScript.prototype = {
                 className += "[" + obj.length + "]";
             return className;
         case "string":
-            if (!abbreviated)
-                return obj;
-            if (obj.length > 100)
-                return "\"" + obj.substring(0, 100) + "\u2026\"";
-            return "\"" + obj + "\"";
+            if (abbreviated && obj.length > 100)
+                return obj.substring(0, 100) + "\u2026";
+            return obj;
         case "function":
             var objectText = this._toString(obj);
             if (abbreviated)
@@ -446,10 +448,12 @@ var injectedScript = new InjectedScript();
 
 InjectedScript.RemoteObject = function(objectId, type, description, hasChildren)
 {
-    this.objectId = objectId;
+    if (objectId) {
+        this.objectId = objectId;
+        this.hasChildren = hasChildren;
+    }
     this.type = type;
     this.description = description;
-    this.hasChildren = hasChildren;
 }
 
 InjectedScript.RemoteObject.fromException = function(e)
@@ -473,7 +477,7 @@ InjectedScript.RemoteObject.fromObject = function(object, objectId, abbreviate)
 
 InjectedScript.CallFrameProxy = function(ordinal, callFrame)
 {
-    this.id = { ordinal: ordinal, injectedScriptId: injectedScriptId };
+    this.id = "{\"ordinal\":" + ordinal + ",\"injectedScriptId\":" + injectedScriptId + "}";
     this.type = callFrame.type;
     this.functionName = (this.type === "function" ? callFrame.functionName : "");
     this.sourceID = callFrame.sourceID;

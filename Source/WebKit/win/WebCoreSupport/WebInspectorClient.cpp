@@ -35,7 +35,6 @@
 #include "WebNodeHighlight.h"
 #include "WebView.h"
 
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
 #include <WebCore/Element.h>
 #include <WebCore/FloatRect.h>
@@ -45,9 +44,8 @@
 #include <WebCore/Page.h>
 #include <WebCore/RenderObject.h>
 #include <WebCore/WindowMessageBroadcaster.h>
-#pragma warning(pop)
 
-#include <tchar.h>
+#include <wchar.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/StringConcatenate.h>
 
@@ -320,6 +318,16 @@ void WebInspectorFrontendClient::inspectedURLChanged(const String& newURL)
 {
     m_inspectedURL = newURL;
     updateWindowTitle();
+}
+
+void WebInspectorFrontendClient::saveSessionSetting(const String& key, const String& value)
+{
+    m_inspectorClient->saveSessionSetting(key, value);
+}
+
+void WebInspectorFrontendClient::loadSessionSetting(const String& key, String* value)
+{
+    m_inspectorClient->loadSessionSetting(key, value);
 }
 
 void WebInspectorFrontendClient::closeWindowWithoutNotifications()

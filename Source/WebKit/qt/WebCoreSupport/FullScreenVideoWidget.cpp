@@ -66,6 +66,7 @@ void FullScreenVideoWidget::show(QMediaPlayer* player)
     setMouseTracking(true);
     raise();
     m_mediaPlayer->setVideoOutput(this);
+    setFocus();
     grabMouse();
     hideCursor();
 }
@@ -73,6 +74,7 @@ void FullScreenVideoWidget::show(QMediaPlayer* player)
 void FullScreenVideoWidget::closeEvent(QCloseEvent* event)
 {
     m_mediaPlayer = 0;
+    m_cursorTimer.stop();
     setMouseTracking(false);
     releaseMouse();
     QApplication::restoreOverrideCursor();

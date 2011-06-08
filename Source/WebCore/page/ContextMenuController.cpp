@@ -63,6 +63,7 @@
 #include "SelectionController.h"
 #include "Settings.h"
 #include "TextIterator.h"
+#include "UserTypingGestureIndicator.h"
 #include "WindowFeatures.h"
 #include "markup.h"
 #include <wtf/unicode/Unicode.h>
@@ -259,10 +260,10 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuItem* item)
         frame->loader()->reload();
         break;
     case ContextMenuItemTagCut:
-        frame->editor()->cut();
+        frame->editor()->command("Cut").execute();
         break;
     case ContextMenuItemTagPaste:
-        frame->editor()->paste();
+        frame->editor()->command("Paste").execute();
         break;
 #if PLATFORM(GTK)
     case ContextMenuItemTagDelete:
@@ -632,6 +633,14 @@ static bool selectionContainsPossibleWord(Frame* frame)
     return false;
 }
 
+#if PLATFORM(MAC)
+#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)
+#define INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM 1
+#else
+#define INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM 0
+#endif
+#endif
+
 void ContextMenuController::populate()
 {
     ContextMenuItem OpenLinkItem(ActionType, ContextMenuItemTagOpenLink, contextMenuItemTagOpenLink());
@@ -667,8 +676,6 @@ void ContextMenuController::populate()
 #if PLATFORM(MAC)
     ContextMenuItem SearchSpotlightItem(ActionType, ContextMenuItemTagSearchInSpotlight, 
         contextMenuItemTagSearchInSpotlight());
-    ContextMenuItem LookInDictionaryItem(ActionType, ContextMenuItemTagLookUpInDictionary, 
-        contextMenuItemTagLookUpInDictionary());
 #endif
 #if !PLATFORM(GTK)
     ContextMenuItem SearchWebItem(ActionType, ContextMenuItemTagSearchWeb, contextMenuItemTagSearchWeb());
@@ -758,20 +765,31 @@ void ContextMenuController::populate()
             if (m_hitTestResult.isSelected()) {
                 if (selectionContainsPossibleWord(frame)) {
 #if PLATFORM(MAC)
+                    String selectedString = frame->displayStringModifiedByEncoding(frame->editor()->selectedText());
+                    ContextMenuItem LookUpInDictionaryItem(ActionType, ContextMenuItemTagLookUpInDictionary, contextMenuItemTagLookUpInDictionary(selectedString));
+
+#if INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM
                     appendItem(SearchSpotlightItem, m_contextMenu.get());
+#else
+                    appendItem(LookUpInDictionaryItem, m_contextMenu.get());
 #endif
+#endif
+
 #if !PLATFORM(GTK)
                     appendItem(SearchWebItem, m_contextMenu.get());
                     appendItem(*separatorItem(), m_contextMenu.get());
 #endif
-#if PLATFORM(MAC)
-                    appendItem(LookInDictionaryItem, m_contextMenu.get());
+
+#if PLATFORM(MAC) && INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM
+                    appendItem(LookUpInDictionaryItem, m_contextMenu.get());
                     appendItem(*separatorItem(), m_contextMenu.get());
 #endif
                 }
+
                 appendItem(CopyItem, m_contextMenu.get());
 #if PLATFORM(MAC)
                 appendItem(*separatorItem(), m_contextMenu.get());
+
                 ContextMenuItem SpeechMenuItem(SubmenuType, ContextMenuItemTagSpeechMenu, contextMenuItemTagSpeechMenu());
                 createAndAppendSpeechSubMenu(SpeechMenuItem);
                 appendItem(SpeechMenuItem, m_contextMenu.get());
@@ -813,7 +831,7 @@ void ContextMenuController::populate()
         SelectionController* selection = frame->selection();
         bool inPasswordField = selection->isInPasswordField();
         bool spellCheckingEnabled = frame->editor()->isSpellCheckingEnabledFor(node);
-        
+
         if (!inPasswordField && spellCheckingEnabled) {
             // Consider adding spelling-related or grammar-related context menu items (never both, since a single selected range
             // is never considered a misspelling and bad grammar at the same time)
@@ -873,15 +891,23 @@ void ContextMenuController::populate()
 
         if (m_hitTestResult.isSelected() && !inPasswordField && selectionContainsPossibleWord(frame)) {
 #if PLATFORM(MAC)
+            String selectedString = frame->displayStringModifiedByEncoding(frame->editor()->selectedText());
+            ContextMenuItem LookUpInDictionaryItem(ActionType, ContextMenuItemTagLookUpInDictionary, contextMenuItemTagLookUpInDictionary(selectedString));
+
+#if INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM
             appendItem(SearchSpotlightItem, m_contextMenu.get());
+#else
+            appendItem(LookUpInDictionaryItem, m_contextMenu.get());
 #endif
+#endif
+
 #if !PLATFORM(GTK)
             appendItem(SearchWebItem, m_contextMenu.get());
             appendItem(*separatorItem(), m_contextMenu.get());
 #endif
-     
-#if PLATFORM(MAC)
-            appendItem(LookInDictionaryItem, m_contextMenu.get());
+
+#if PLATFORM(MAC) && INCLUDE_SPOTLIGHT_CONTEXT_MENU_ITEM
+            appendItem(LookUpInDictionaryItem, m_contextMenu.get());
             appendItem(*separatorItem(), m_contextMenu.get());
 #endif
         }

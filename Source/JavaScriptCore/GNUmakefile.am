@@ -115,6 +115,10 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/collector/handles/Handle.h \
 	Source/JavaScriptCore/collector/handles/HandleHeap.cpp \
 	Source/JavaScriptCore/collector/handles/HandleHeap.h \
+	Source/JavaScriptCore/collector/handles/HandleStack.cpp \
+	Source/JavaScriptCore/collector/handles/HandleStack.h \
+	Source/JavaScriptCore/collector/handles/Local.h \
+	Source/JavaScriptCore/collector/handles/LocalScope.h \
 	Source/JavaScriptCore/config.h \
 	Source/JavaScriptCore/debugger/DebuggerActivation.cpp \
 	Source/JavaScriptCore/debugger/DebuggerActivation.h \
@@ -468,6 +472,7 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/wtf/HashTable.cpp \
 	Source/JavaScriptCore/wtf/HashTable.h \
 	Source/JavaScriptCore/wtf/HashTraits.h \
+	Source/JavaScriptCore/wtf/HexNumber.h \
 	Source/JavaScriptCore/wtf/ListHashSet.h \
 	Source/JavaScriptCore/wtf/ListRefPtr.h \
 	Source/JavaScriptCore/wtf/Locker.h \
@@ -549,7 +554,7 @@ javascriptcore_sources += \
 	Source/JavaScriptCore/wtf/Threading.h \
 	Source/JavaScriptCore/wtf/ThreadingPrimitives.h \
 	Source/JavaScriptCore/wtf/ThreadingPthreads.cpp \
-	Source/JavaScriptCore/wtf/ThreadSafeShared.h \
+	Source/JavaScriptCore/wtf/ThreadSafeRefCounted.h \
 	Source/JavaScriptCore/wtf/ThreadSpecific.h \
 	Source/JavaScriptCore/wtf/TypeTraits.cpp \
 	Source/JavaScriptCore/wtf/TypeTraits.h \

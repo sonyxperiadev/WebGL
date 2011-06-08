@@ -81,18 +81,17 @@ public:
 
     static PassRefPtr<InspectorResourceAgent> restore(Page*, InspectorState*, InspectorFrontend*);
 
-    static bool resourceContent(Frame*, const KURL&, String* result);
-    static bool resourceContentBase64(Frame*, const KURL&, String* result);
+    static void resourceContent(ErrorString*, Frame*, const KURL&, String* result);
+    static void resourceContentBase64(ErrorString*, Frame*, const KURL&, String* result);
     static PassRefPtr<SharedBuffer> resourceData(Frame*, const KURL&, String* textEncodingName);
     static CachedResource* cachedResource(Frame*, const KURL&);
 
     ~InspectorResourceAgent();
 
-    void identifierForInitialRequest(unsigned long identifier, const KURL&, DocumentLoader*);
-    void willSendRequest(unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
+    void willSendRequest(unsigned long identifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     void markResourceAsCached(unsigned long identifier);
     void didReceiveResponse(unsigned long identifier, DocumentLoader* laoder, const ResourceResponse&);
-    void didReceiveContentLength(unsigned long identifier, int lengthReceived);
+    void didReceiveContentLength(unsigned long identifier, int dataLength, int lengthReceived);
     void didFinishLoading(unsigned long identifier, double finishTime);
     void didFailLoading(unsigned long identifier, const ResourceError&);
     void didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*);
@@ -107,12 +106,13 @@ public:
     void didCloseWebSocket(unsigned long identifier);
 #endif
 
-    Frame* frameForId(unsigned long);
+    Frame* frameForId(const String& frameId);
 
     // Called from frontend 
-    void enable(ErrorString*, RefPtr<InspectorObject>*);
+    void enable(ErrorString*);
     void disable(ErrorString*);
-    void resourceContent(ErrorString*, unsigned long frameId, const String& url, bool base64Encode, bool* resourceFound, String* content);
+    void getCachedResources(ErrorString*, RefPtr<InspectorObject>*);
+    void getResourceContent(ErrorString*, const String& frameId, const String& url, bool base64Encode, String* content);
     void setExtraHeaders(ErrorString*, PassRefPtr<InspectorObject>);
 
 private:

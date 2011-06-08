@@ -34,6 +34,7 @@
 #include "HTMLInterchange.h"
 #include "HTMLLIElement.h"
 #include "HTMLNames.h"
+#include "HTMLObjectElement.h"
 #include "HTMLOListElement.h"
 #include "HTMLUListElement.h"
 #include "PositionIterator.h"
@@ -73,22 +74,20 @@ bool editingIgnoresContent(const Node* node)
 
 bool canHaveChildrenForEditing(const Node* node)
 {
-    return !node->hasTagName(hrTag) &&
-           !node->hasTagName(brTag) &&
-           !node->hasTagName(imgTag) &&
-           !node->hasTagName(buttonTag) &&
-           !node->hasTagName(inputTag) &&
-           !node->hasTagName(textareaTag) &&
-           !node->hasTagName(objectTag) &&
-           !node->hasTagName(iframeTag) &&
-           !node->hasTagName(embedTag) &&
-           !node->hasTagName(appletTag) &&
-           !node->hasTagName(selectTag) &&
-           !node->hasTagName(datagridTag) &&
+    return !node->isTextNode()
+        && !node->hasTagName(brTag)
+        && !node->hasTagName(imgTag)
+        && !node->hasTagName(inputTag)
+        && !node->hasTagName(textareaTag)
+        && (!node->hasTagName(objectTag) || static_cast<const HTMLObjectElement*>(node)->useFallbackContent())
+        && !node->hasTagName(iframeTag)
+        && !node->hasTagName(embedTag)
+        && !node->hasTagName(appletTag)
+        && !node->hasTagName(selectTag)
 #if ENABLE(WML)
-           !node->hasTagName(WMLNames::doTag) &&
+        && !node->hasTagName(WMLNames::doTag)
 #endif
-           !node->isTextNode();
+        && ((!node->hasTagName(hrTag) && !node->hasTagName(datagridTag)) || node->hasChildNodes());
 }
 
 // Compare two positions, taking into account the possibility that one or both
@@ -144,7 +143,7 @@ Node* highestEditableRoot(const Position& position)
     
     node = highestRoot;
     while (node) {
-        if (node->isContentEditable())
+        if (node->rendererIsEditable())
             highestRoot = node;
         if (node->hasTagName(bodyTag))
             break;
@@ -161,7 +160,7 @@ Node* lowestEditableAncestor(Node* node)
     
     Node *lowestRoot = 0;
     while (node) {
-        if (node->isContentEditable())
+        if (node->rendererIsEditable())
             return node->rootEditableElement();
         if (node->hasTagName(bodyTag))
             break;
@@ -180,7 +179,7 @@ bool isEditablePosition(const Position& p)
     if (node->renderer() && node->renderer()->isTable())
         node = node->parentNode();
     
-    return node->isContentEditable();
+    return node->rendererIsEditable();
 }
 
 bool isAtUnsplittableElement(const Position& pos)
@@ -199,7 +198,7 @@ bool isRichlyEditablePosition(const Position& p)
     if (node->renderer() && node->renderer()->isTable())
         node = node->parentNode();
     
-    return node->isContentRichlyEditable();
+    return node->rendererIsRichlyEditable();
 }
 
 Element* editableRootForPosition(const Position& p)
@@ -221,7 +220,7 @@ Element* unsplittableElementForPosition(const Position& p)
 {
     // Since enclosingNodeOfType won't search beyond the highest root editable node,
     // this code works even if the closest table cell was outside of the root editable node.
-    Element* enclosingCell = static_cast<Element*>(enclosingNodeOfType(p, &isTableCell, true));
+    Element* enclosingCell = static_cast<Element*>(enclosingNodeOfType(p, &isTableCell));
     if (enclosingCell)
         return enclosingCell;
 
@@ -277,14 +276,14 @@ Position previousVisuallyDistinctCandidate(const Position& position)
 VisiblePosition firstEditablePositionAfterPositionInRoot(const Position& position, Node* highestRoot)
 {
     // position falls before highestRoot.
-    if (comparePositions(position, firstDeepEditingPositionForNode(highestRoot)) == -1 && highestRoot->isContentEditable())
-        return firstDeepEditingPositionForNode(highestRoot);
+    if (comparePositions(position, firstPositionInNode(highestRoot)) == -1 && highestRoot->rendererIsEditable())
+        return firstPositionInNode(highestRoot);
 
     Position p = position;
     
     if (Node* shadowAncestor = p.deprecatedNode()->shadowAncestorNode())
         if (shadowAncestor != p.deprecatedNode())
-            p = lastDeepEditingPositionForNode(shadowAncestor);
+            p = positionAfterNode(shadowAncestor);
     
     while (p.deprecatedNode() && !isEditablePosition(p) && p.deprecatedNode()->isDescendantOf(highestRoot))
         p = isAtomicNode(p.deprecatedNode()) ? positionInParentAfterNode(p.deprecatedNode()) : nextVisuallyDistinctCandidate(p);
@@ -298,14 +297,15 @@ VisiblePosition firstEditablePositionAfterPositionInRoot(const Position& positio
 VisiblePosition lastEditablePositionBeforePositionInRoot(const Position& position, Node* highestRoot)
 {
     // When position falls after highestRoot, the result is easy to compute.
-    if (comparePositions(position, lastDeepEditingPositionForNode(highestRoot)) == 1)
-        return lastDeepEditingPositionForNode(highestRoot);
+    if (comparePositions(position, lastPositionInNode(highestRoot)) == 1)
+        return lastPositionInNode(highestRoot);
 
     Position p = position;
-    
-    if (Node* shadowAncestor = p.deprecatedNode()->shadowAncestorNode())
+
+    if (Node* shadowAncestor = p.deprecatedNode()->shadowAncestorNode()) {
         if (shadowAncestor != p.deprecatedNode())
-            p = firstDeepEditingPositionForNode(shadowAncestor);
+            p = firstPositionInOrBeforeNode(shadowAncestor);
+    }
     
     while (p.deprecatedNode() && !isEditablePosition(p) && p.deprecatedNode()->isDescendantOf(highestRoot))
         p = isAtomicNode(p.deprecatedNode()) ? positionInParentBeforeNode(p.deprecatedNode()) : previousVisuallyDistinctCandidate(p);
@@ -327,9 +327,18 @@ bool isBlock(const Node* node)
 // FIXME: Pass a position to this function.  The enclosing block of [table, x] for example, should be the 
 // block that contains the table and not the table, and this function should be the only one responsible for 
 // knowing about these kinds of special cases.
-Node* enclosingBlock(Node* node)
+Node* enclosingBlock(Node* node, EditingBoundaryCrossingRule rule)
 {
-    return static_cast<Element*>(enclosingNodeOfType(firstPositionInOrBeforeNode(node), isBlock));
+    return static_cast<Element*>(enclosingNodeOfType(firstPositionInOrBeforeNode(node), isBlock, rule));
+}
+
+TextDirection directionOfEnclosingBlock(const Position& position)
+{
+    Node* enclosingBlockNode = enclosingBlock(position.containerNode());
+    if (!enclosingBlockNode)
+        return LTR;
+    RenderObject* renderer = enclosingBlockNode->renderer();
+    return renderer ? renderer->style()->direction() : LTR;
 }
 
 // This method is used to create positions in the DOM. It returns the maximum valid offset
@@ -561,7 +570,7 @@ PassRefPtr<Range> extendRangeToWrappingNodes(PassRefPtr<Range> range, const Rang
     Node* ancestor = range->commonAncestorContainer(ec);// find the cloeset common ancestor
     Node* highestNode = 0;
     // traverse through ancestors as long as they are contained within the range, content-editable, and below rootNode (could be =0).
-    while (ancestor && ancestor->isContentEditable() && isNodeVisiblyContainedWithin(ancestor, maximumRange) && ancestor != rootNode) {
+    while (ancestor && ancestor->rendererIsEditable() && isNodeVisiblyContainedWithin(ancestor, maximumRange) && ancestor != rootNode) {
         highestNode = ancestor;
         ancestor = ancestor->parentNode();
     }
@@ -592,7 +601,7 @@ Node* enclosingNodeWithTag(const Position& p, const QualifiedName& tagName)
         
     Node* root = highestEditableRoot(p);
     for (Node* n = p.deprecatedNode(); n; n = n->parentNode()) {
-        if (root && !n->isContentEditable())
+        if (root && !n->rendererIsEditable())
             continue;
         if (n->hasTagName(tagName))
             return n;
@@ -603,18 +612,20 @@ Node* enclosingNodeWithTag(const Position& p, const QualifiedName& tagName)
     return 0;
 }
 
-Node* enclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*), bool onlyReturnEditableNodes)
+Node* enclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*), EditingBoundaryCrossingRule rule)
 {
+    // FIXME: support CanSkipCrossEditingBoundary
+    ASSERT(rule == CanCrossEditingBoundary || rule == CannotCrossEditingBoundary);
     if (p.isNull())
         return 0;
         
-    Node* root = highestEditableRoot(p);
+    Node* root = rule == CannotCrossEditingBoundary ? highestEditableRoot(p) : 0;
     for (Node* n = p.deprecatedNode(); n; n = n->parentNode()) {
         // Don't return a non-editable node if the input position was editable, since
         // the callers from editing will no doubt want to perform editing inside the returned node.
-        if (root && !n->isContentEditable() && onlyReturnEditableNodes)
+        if (root && !n->rendererIsEditable())
             continue;
-        if ((*nodeIsOfType)(n))
+        if (nodeIsOfType(n))
             return n;
         if (n == root)
             return 0;
@@ -623,12 +634,14 @@ Node* enclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*), 
     return 0;
 }
 
-Node* highestEnclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*))
+Node* highestEnclosingNodeOfType(const Position& p, bool (*nodeIsOfType)(const Node*), EditingBoundaryCrossingRule rule)
 {
     Node* highest = 0;
-    Node* root = highestEditableRoot(p);
+    Node* root = rule == CannotCrossEditingBoundary ? highestEditableRoot(p) : 0;
     for (Node* n = p.deprecatedNode(); n; n = n->parentNode()) {
-        if ((*nodeIsOfType)(n))
+        if (root && !n->rendererIsEditable())
+            continue;
+        if (nodeIsOfType(n))
             highest = n;
         if (n == root)
             break;
@@ -721,8 +734,8 @@ Node* enclosingEmptyListItem(const VisiblePosition& visiblePos)
     if (!listChildNode || !isStartOfParagraph(visiblePos) || !isEndOfParagraph(visiblePos))
         return 0;
 
-    VisiblePosition firstInListChild(firstDeepEditingPositionForNode(listChildNode));
-    VisiblePosition lastInListChild(lastDeepEditingPositionForNode(listChildNode));
+    VisiblePosition firstInListChild(firstPositionInOrBeforeNode(listChildNode));
+    VisiblePosition lastInListChild(lastPositionInOrAfterNode(listChildNode));
 
     if (firstInListChild != visiblePos || lastInListChild != visiblePos)
         return 0;
@@ -754,7 +767,7 @@ bool canMergeLists(Element* firstList, Element* secondList)
         return false;
 
     return firstList->hasTagName(secondList->tagQName())// make sure the list types match (ol vs. ul)
-    && firstList->isContentEditable() && secondList->isContentEditable()// both lists are editable
+    && firstList->rendererIsEditable() && secondList->rendererIsEditable() // both lists are editable
     && firstList->rootEditableElement() == secondList->rootEditableElement()// don't cross editing boundaries
     && isVisiblyAdjacent(positionInParentAfterNode(firstList), positionInParentBeforeNode(secondList));
     // Make sure there is no visible content between this li and the previous list
@@ -932,15 +945,6 @@ bool isNodeRendered(const Node *node)
     return renderer->style()->visibility() == VISIBLE;
 }
 
-Node *nearestMailBlockquote(const Node *node)
-{
-    for (Node *n = const_cast<Node *>(node); n; n = n->parentNode()) {
-        if (isMailBlockquote(n))
-            return n;
-    }
-    return 0;
-}
-
 unsigned numEnclosingMailBlockquotes(const Position& p)
 {
     unsigned num = 0;
@@ -1016,7 +1020,7 @@ VisibleSelection selectionForParagraphIteration(const VisibleSelection& original
     // (a table is itself a paragraph).
     if (Node* table = isFirstPositionAfterTable(endOfSelection))
         if (startOfSelection.deepEquivalent().deprecatedNode()->isDescendantOf(table))
-            newSelection = VisibleSelection(startOfSelection, endOfSelection.previous(true));
+            newSelection = VisibleSelection(startOfSelection, endOfSelection.previous(CannotCrossEditingBoundary));
     
     // If the start of the selection to modify is just before a table,
     // and if the end of the selection is inside that table, then the first paragraph
@@ -1024,7 +1028,7 @@ VisibleSelection selectionForParagraphIteration(const VisibleSelection& original
     // containing the table itself.
     if (Node* table = isLastPositionBeforeTable(startOfSelection))
         if (endOfSelection.deepEquivalent().deprecatedNode()->isDescendantOf(table))
-            newSelection = VisibleSelection(startOfSelection.next(true), endOfSelection);
+            newSelection = VisibleSelection(startOfSelection.next(CannotCrossEditingBoundary), endOfSelection);
     
     return newSelection;
 }

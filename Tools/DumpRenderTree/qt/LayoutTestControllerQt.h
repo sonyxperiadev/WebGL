@@ -121,7 +121,7 @@ public slots:
     void queueBackNavigation(int howFarBackward);
     void queueForwardNavigation(int howFarForward);
     void queueLoad(const QString& url, const QString& target = QString());
-    void queueLoadHTMLString(const QString& content, const QString& baseURL = QString());
+    void queueLoadHTMLString(const QString& content, const QString& baseURL = QString(), const QString& failingURL = QString());
     void queueReload();
     void queueLoadingScript(const QString& script);
     void queueNonLoadingScript(const QString& script);
@@ -189,7 +189,9 @@ public slots:
     void disableImageLoading();
 
     void clearAllApplicationCaches();
+    void clearApplicationCacheForOrigin(const QString& url);
     void setApplicationCacheOriginQuota(unsigned long long quota);
+    QStringList originsWithApplicationCache();
 
     void setDatabaseQuota(int size);
     void clearAllDatabases();
@@ -219,6 +221,7 @@ public slots:
     void setMockGeolocationError(int code, const QString& message);
     void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
     void setGeolocationPermission(bool allow);
+    int numberOfPendingGeolocationPermissionRequests();
     bool isGeolocationPermissionSet() const { return m_isGeolocationPermissionSet; }
     bool geolocationPermission() const { return m_geolocationPermission; }
 
@@ -253,6 +256,12 @@ public slots:
     void addUserStyleSheet(const QString& sourceCode);
 
     void setMinimumTimerInterval(double);
+    
+    void originsWithLocalStorage();
+    void deleteAllLocalStorage();
+    void deleteLocalStorageForOrigin(const QString& originIdentifier);
+    void observeStorageTrackerNotifications(unsigned number);
+    void syncLocalStorage();
 
 private slots:
     void processWork();

@@ -29,6 +29,7 @@
 #include "FontOrientation.h"
 #include "FontRenderingMode.h"
 #include "FontWidthVariant.h"
+#include "TextOrientation.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
@@ -47,7 +48,7 @@ public:
 
     SkTypeface* typeface() const { return m_typeface; }
 
-    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontOrientation, FontWidthVariant, FontRenderingMode);
+    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontOrientation, TextOrientation, FontWidthVariant, FontRenderingMode);
 
     static bool supportsFormat(const String&);
 private:

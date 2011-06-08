@@ -47,8 +47,13 @@ namespace android {
     class WebIconDatabase : public WebCore::IconDatabaseClient {
     public:
         WebIconDatabase() : mDeliveryRequested(false) {}
-        // IconDatabaseClient method
-        virtual void dispatchDidAddIconForPageURL(const WTF::String& pageURL);
+        // IconDatabaseClient methods
+        virtual bool performImport();
+        virtual void didRemoveAllIcons();
+        virtual void didImportIconURLForPageURL(const WTF::String&);
+        virtual void didImportIconDataForPageURL(const WTF::String&);
+        virtual void didChangeIconForPageURL(const WTF::String&);
+        virtual void didFinishURLImport();
 
         static void RegisterForIconNotification(WebIconDatabaseClient* client);
         static void UnregisterForIconNotification(WebIconDatabaseClient* client);

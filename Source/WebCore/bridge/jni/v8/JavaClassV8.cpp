@@ -29,7 +29,7 @@
 #if ENABLE(JAVA_BRIDGE)
 
 #include "JavaFieldV8.h"
-#include "JavaMethod.h"
+#include "JavaMethodJobject.h"
 
 using namespace JSC::Bindings;
 
@@ -38,7 +38,7 @@ JavaClass::JavaClass(jobject anInstance)
     jobject aClass = callJNIMethod<jobject>(anInstance, "getClass", "()Ljava/lang/Class;");
 
     if (!aClass) {
-        fprintf(stderr, "%s:  unable to call getClass on instance %p\n", __PRETTY_FUNCTION__, anInstance);
+        LOG_ERROR("unable to call getClass on instance %p", anInstance);
         return;
     }
 
@@ -62,13 +62,13 @@ JavaClass::JavaClass(jobject anInstance)
     int numMethods = env->GetArrayLength(methods);
     for (i = 0; i < numMethods; i++) {
         jobject aJMethod = env->GetObjectArrayElement(static_cast<jobjectArray>(methods), i);
-        JavaMethod* aMethod = new JavaMethod(env, aJMethod); // deleted in the JavaClass destructor
+        JavaMethod* aMethod = new JavaMethodJobject(env, aJMethod); // deleted in the JavaClass destructor
         MethodList* methodList;
         {
-            methodList = m_methods.get(aMethod->name().utf8());
+            methodList = m_methods.get(aMethod->name());
             if (!methodList) {
                 methodList = new MethodList();
-                m_methods.set(aMethod->name().utf8(), methodList);
+                m_methods.set(aMethod->name(), methodList);
             }
         }
         methodList->append(aMethod);

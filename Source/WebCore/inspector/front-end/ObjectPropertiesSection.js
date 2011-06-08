@@ -184,7 +184,7 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
         var description = this.property.value.description;
         // Render \n as a nice unicode cr symbol.
         if (this.property.value.type === "string" && typeof description === "string")
-            description = description.replace(/\n/g, "\u21B5");
+            description = "\"" + description.replace(/\n/g, "\u21B5") + "\"";
         this.valueElement.textContent = description;
 
         if (this.property.isGetter)
@@ -278,23 +278,23 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
     {
         expression = expression.trim();
         var expressionLength = expression.length;
-        var self = this;
-        var callback = function(success) {
+        function callback(error)
+        {
             if (!updateInterface)
                 return;
 
-            if (!success)
-                self.update();
+            if (error)
+                this.update();
 
             if (!expressionLength) {
                 // The property was deleted, so remove this tree element.
-                self.parent.removeChild(this);
+                this.parent.removeChild(this);
             } else {
                 // Call updateSiblings since their value might be based on the value that just changed.
-                self.updateSiblings();
+                this.updateSiblings();
             }
         };
-        this.property.parentObject.setPropertyValue(this.property.name, expression.trim(), callback);
+        this.property.parentObject.setPropertyValue(this.property.name, expression.trim(), callback.bind(this));
     }
 }
 

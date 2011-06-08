@@ -33,6 +33,7 @@
 #include "GroupSettings.h"
 #include "IDBFactoryBackendInterface.h"
 #include "Page.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
 #include "StorageNamespace.h"
 
@@ -115,12 +116,57 @@ void PageGroup::closeLocalStorage()
 #endif
 }
 
-#if ENABLE(DOM_STORAGE) && defined(ANDROID)
-void PageGroup::clearDomStorage()
+#if ENABLE(DOM_STORAGE)
+
+void PageGroup::clearLocalStorageForAllOrigins()
 {
     if (!pageGroups)
         return;
 
+    PageGroupMap::iterator end = pageGroups->end();
+    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
+        if (it->second->hasLocalStorage())
+            it->second->localStorage()->clearAllOriginsForDeletion();
+    }
+}
+
+void PageGroup::clearLocalStorageForOrigin(SecurityOrigin* origin)
+{
+    if (!pageGroups)
+        return;
+
+    PageGroupMap::iterator end = pageGroups->end();
+    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
+        if (it->second->hasLocalStorage())
+            it->second->localStorage()->clearOriginForDeletion(origin);
+    }    
+}
+    
+void PageGroup::syncLocalStorage()
+{
+    if (!pageGroups)
+        return;
+
+    PageGroupMap::iterator end = pageGroups->end();
+    for (PageGroupMap::iterator it = pageGroups->begin(); it != end; ++it) {
+        if (it->second->hasLocalStorage())
+            it->second->localStorage()->sync();
+    }
+}
+
+unsigned PageGroup::numberOfPageGroups()
+{
+    if (!pageGroups)
+        return 0;
+
+    return pageGroups->size();
+}
+
+#if defined(ANDROID)
+void PageGroup::clearDomStorage()
+{
+    if (!pageGroups)
+        return;
 
     PageGroupMap::iterator end = pageGroups->end();
 
@@ -198,6 +244,8 @@ void PageGroup::removeLocalStorage()
 
     m_localStorage = 0;
 }
+#endif // PLATFORM(ANDROID)
+
 #endif
 
 void PageGroup::addPage(Page* page)
@@ -299,6 +347,7 @@ StorageNamespace* PageGroup::localStorage()
 
     return m_localStorage.get();
 }
+
 #endif
 
 #if ENABLE(INDEXED_DATABASE)

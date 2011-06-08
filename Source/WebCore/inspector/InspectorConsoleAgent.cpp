@@ -31,6 +31,7 @@
 #include "Console.h"
 #include "ConsoleMessage.h"
 #include "InjectedScriptHost.h"
+#include "InjectedScriptManager.h"
 #include "InspectorAgent.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorFrontend.h"
@@ -48,18 +49,18 @@
 namespace WebCore {
 
 static const unsigned maximumConsoleMessages = 1000;
-static const unsigned expireConsoleMessagesStep = 100;
+static const int expireConsoleMessagesStep = 100;
 
 namespace ConsoleAgentState {
 static const char monitoringXHR[] = "monitoringXHR";
 static const char consoleMessagesEnabled[] = "consoleMessagesEnabled";
 }
 
-InspectorConsoleAgent::InspectorConsoleAgent(InstrumentingAgents* instrumentingAgents, InspectorAgent* inspectorAgent, InspectorState* state, InjectedScriptHost* injectedScriptHost, InspectorDOMAgent* domAgent)
+InspectorConsoleAgent::InspectorConsoleAgent(InstrumentingAgents* instrumentingAgents, InspectorAgent* inspectorAgent, InspectorState* state, InjectedScriptManager* injectedScriptManager, InspectorDOMAgent* domAgent)
     : m_instrumentingAgents(instrumentingAgents)
     , m_inspectorAgent(inspectorAgent)
     , m_inspectorState(state)
-    , m_injectedScriptHost(injectedScriptHost)
+    , m_injectedScriptManager(injectedScriptManager)
     , m_inspectorDOMAgent(domAgent)
     , m_frontend(0)
     , m_previousMessage(0)
@@ -74,14 +75,24 @@ InspectorConsoleAgent::~InspectorConsoleAgent()
     m_instrumentingAgents = 0;
     m_inspectorAgent = 0;
     m_inspectorState = 0;
-    m_injectedScriptHost = 0;
+    m_injectedScriptManager = 0;
     m_inspectorDOMAgent = 0;
 }
 
-void InspectorConsoleAgent::setConsoleMessagesEnabled(ErrorString*, bool enabled, bool* newState)
+void InspectorConsoleAgent::enable(ErrorString*, int* consoleMessageExpireCount)
 {
-    *newState = enabled;
-    setConsoleMessagesEnabled(enabled);
+    *consoleMessageExpireCount = m_expiredConsoleMessageCount;
+
+    m_inspectorState->setBoolean(ConsoleAgentState::consoleMessagesEnabled, true);
+
+    size_t messageCount = m_consoleMessages.size();
+    for (size_t i = 0; i < messageCount; ++i)
+        m_consoleMessages[i]->addToFrontend(m_frontend, m_injectedScriptManager);
+}
+
+void InspectorConsoleAgent::disable(ErrorString*)
+{
+    m_inspectorState->setBoolean(ConsoleAgentState::consoleMessagesEnabled, false);
 }
 
 void InspectorConsoleAgent::clearConsoleMessages(ErrorString*)
@@ -89,9 +100,8 @@ void InspectorConsoleAgent::clearConsoleMessages(ErrorString*)
     m_consoleMessages.clear();
     m_expiredConsoleMessageCount = 0;
     m_previousMessage = 0;
-    m_injectedScriptHost->releaseObjectGroup(0 /* release the group in all scripts */, "console");
-    if (InspectorDOMAgent* domAgent = m_inspectorAgent->domAgent())
-        domAgent->releaseDanglingNodes();
+    m_injectedScriptManager->releaseObjectGroup("console");
+    m_inspectorDOMAgent->releaseDanglingNodes();
     if (m_frontend)
         m_frontend->consoleMessagesCleared();
 }
@@ -205,7 +215,8 @@ void InspectorConsoleAgent::didFailLoading(unsigned long identifier, const Resou
 {
     if (!m_inspectorAgent->enabled())
         return;
-
+    if (error.isCancellation()) // Report failures only.
+        return;
     String message = "Failed to load resource";
     if (!error.localizedDescription().isEmpty())
         message += ": " + error.localizedDescription();
@@ -217,17 +228,12 @@ void InspectorConsoleAgent::setMonitoringXHREnabled(ErrorString*, bool enabled)
     m_inspectorState->setBoolean(ConsoleAgentState::monitoringXHR, enabled);
 }
 
-void InspectorConsoleAgent::setConsoleMessagesEnabled(bool enabled)
+void InspectorConsoleAgent::addInspectedNode(ErrorString*, int nodeId)
 {
-    m_inspectorState->setBoolean(ConsoleAgentState::consoleMessagesEnabled, enabled);
-    if (!enabled || !m_frontend)
+    Node* node = m_inspectorDOMAgent->nodeForId(nodeId);
+    if (!node)
         return;
-
-    if (m_expiredConsoleMessageCount)
-        m_frontend->updateConsoleMessageExpiredCount(m_expiredConsoleMessageCount);
-    unsigned messageCount = m_consoleMessages.size();
-    for (unsigned i = 0; i < messageCount; ++i)
-        m_consoleMessages[i]->addToFrontend(m_frontend, m_injectedScriptHost);
+    m_injectedScriptManager->injectedScriptHost()->addInspectedNode(node);
 }
 
 void InspectorConsoleAgent::addConsoleMessage(PassOwnPtr<ConsoleMessage> consoleMessage)
@@ -235,7 +241,7 @@ void InspectorConsoleAgent::addConsoleMessage(PassOwnPtr<ConsoleMessage> console
     ASSERT(m_inspectorAgent->enabled());
     ASSERT_ARG(consoleMessage, consoleMessage);
 
-    if (m_previousMessage && m_previousMessage->isEqual(consoleMessage.get())) {
+    if (m_previousMessage && m_previousMessage->type() != EndGroupMessageType && m_previousMessage->isEqual(consoleMessage.get())) {
         m_previousMessage->incrementCount();
         if (m_inspectorState->getBoolean(ConsoleAgentState::consoleMessagesEnabled) && m_frontend)
             m_previousMessage->updateRepeatCountInConsole(m_frontend);
@@ -243,7 +249,7 @@ void InspectorConsoleAgent::addConsoleMessage(PassOwnPtr<ConsoleMessage> console
         m_previousMessage = consoleMessage.get();
         m_consoleMessages.append(consoleMessage);
         if (m_inspectorState->getBoolean(ConsoleAgentState::consoleMessagesEnabled) && m_frontend)
-            m_previousMessage->addToFrontend(m_frontend, m_injectedScriptHost);
+            m_previousMessage->addToFrontend(m_frontend, m_injectedScriptManager);
     }
 
     if (!m_frontend && m_consoleMessages.size() >= maximumConsoleMessages) {

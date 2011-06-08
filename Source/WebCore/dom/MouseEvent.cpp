@@ -23,9 +23,22 @@
 #include "config.h"
 #include "MouseEvent.h"
 
+#include "Frame.h"
+#include "FrameView.h"
 #include "EventNames.h"
+#include "PlatformMouseEvent.h"
 
 namespace WebCore {
+
+PassRefPtr<MouseEvent> MouseEvent::create(const AtomicString& eventType, PassRefPtr<AbstractView> view, const PlatformMouseEvent& event, const IntPoint& position, int detail, PassRefPtr<Node> relatedTarget)
+{
+    bool isCancelable = eventType != eventNames().mousemoveEvent;
+
+    return MouseEvent::create(eventType, true, isCancelable, view,
+        detail, event.globalX(), event.globalY(), position.x(), position.y(),
+        event.ctrlKey(), event.altKey(), event.shiftKey(), event.metaKey(), event.button(),
+        relatedTarget, 0, false);
+}
 
 MouseEvent::MouseEvent()
     : m_button(0)
@@ -113,6 +126,27 @@ Node* MouseEvent::fromElement() const
         return relatedTarget() ? relatedTarget()->toNode() : 0;
     
     return target() ? target()->toNode() : 0;
+}
+
+PassRefPtr<SimulatedMouseEvent> SimulatedMouseEvent::create(const AtomicString& eventType, PassRefPtr<AbstractView> view, PassRefPtr<Event> underlyingEvent)
+{
+    return adoptRef(new SimulatedMouseEvent(eventType, view, underlyingEvent));
+}
+
+SimulatedMouseEvent::~SimulatedMouseEvent()
+{
+}
+
+SimulatedMouseEvent::SimulatedMouseEvent(const AtomicString& eventType, PassRefPtr<AbstractView> view, PassRefPtr<Event> underlyingEvent)
+    : MouseEvent(eventType, true, true, view, 0, 0, 0, 0, 0, false, false, false, false, 0, 0, 0, true)
+{
+    if (UIEventWithKeyState* keyStateEvent = findEventWithKeyState(underlyingEvent.get())) {
+        m_ctrlKey = keyStateEvent->ctrlKey();
+        m_altKey = keyStateEvent->altKey();
+        m_shiftKey = keyStateEvent->shiftKey();
+        m_metaKey = keyStateEvent->metaKey();
+    }
+    setUnderlyingEvent(underlyingEvent);
 }
 
 } // namespace WebCore

@@ -152,6 +152,36 @@ h1 {
     font-weight: bold
 }
 
+:-webkit-any(article,aside,nav,section) h1 {
+    font-size: 1.5em;
+    -webkit-margin-before: 0.83__qem;
+    -webkit-margin-after: 0.83em;
+}
+
+:-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) h1 {
+    font-size: 1.17em;
+    -webkit-margin-before: 1__qem;
+    -webkit-margin-after: 1em;
+}
+
+:-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) h1 {
+    font-size: 1.00em;
+    -webkit-margin-before: 1.33__qem;
+    -webkit-margin-after: 1.33em;
+}
+
+:-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) h1 {
+    font-size: .83em;
+    -webkit-margin-before: 1.67__qem;
+    -webkit-margin-after: 1.67em;
+}
+
+:-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) :-webkit-any(article,aside,nav,section) h1 {
+    font-size: .67em;
+    -webkit-margin-before: 2.33__qem;
+    -webkit-margin-after: 2.33em;
+}
+
 h2 {
     display: block;
     font-size: 1.5em;
@@ -476,6 +506,7 @@ input[type="file"] {
 input:-webkit-autofill {
     background-color: #FAFFBD !important;
     background-image:none !important;
+    color: #000000 !important;
 }
 
 input[type="radio"], input[type="checkbox"] {
@@ -587,55 +618,55 @@ output {
 /* form validation message bubble */
 
 ::-webkit-validation-bubble {
-    display: block;
+    display: inline-block;
     z-index: 2147483647;
     position: absolute;
-    opacity: 0.9;
+    opacity: 0.95;
     line-height: 0;
+    margin: 0;
     -webkit-text-security: none;
     -webkit-transition: opacity 05.5s ease;
 }
 
 ::-webkit-validation-bubble-message {
     display: block;
+    position: relative;
+    top: -4px;
     font: message-box;
+    color: black;
     min-width: 50px;
     max-width: 200px;
-    border: solid 2px black;
-    background: -webkit-gradient(linear, left top, left bottom, from(#fbf9f9), to(#f0e4e4));
+    border: solid 2px #400;
+    background: -webkit-gradient(linear, left top, left bottom, from(#f8ecec), to(#e8cccc));
     padding: 8px;
     -webkit-border-radius: 8px;
-    -webkit-box-shadow: 4px 4px 4px rgba(204,204,204,0.7);
+    -webkit-box-shadow: 4px 4px 4px rgba(100,100,100,0.6),
+        inset -2px -2px 1px #d0c4c4,
+        inset 2px 2px 1px white;
     line-height: normal;
+    z-index: 2147483644;
 }
 
-::-webkit-validation-bubble-top-outer-arrow {
+::-webkit-validation-bubble-arrow {
     display: inline-block;
     position: relative;
-    left: 14px;
-    height: 0;
-    width: 0;
+    left: 32px;
+    width: 16px;
+    height: 16px;
+    background-color: #f8ecec;
+    border-width: 2px 0 0 2px;
     border-style: solid;
-    border-width: 14px;
-    border-bottom-color: black;
-    border-right-color: transparent;
-    border-top-width: 0;
-    border-left-width: 0;
+    border-color: #400;
+    box-shadow: inset 2px 2px 1px white;
+    -webkit-transform-origin: 0 0;
+    -webkit-transform: rotate(45deg);
+    z-index: 2147483645;
 }
 
-::-webkit-validation-bubble-top-inner-arrow {
-    display: inline-block;
-    height: 0;
-    width: 0;
-    border-style: solid;
-    border-width: 10px; /* <border box width of outer-arrow> - <message border width> * 2 */
-    border-bottom-color: #fbf9f9;
-    border-right-color: transparent;
-    border-top-width: 0;
-    border-left-width: 0;
-    position: relative;
-    top: 2px; /* <message border width> */
-    left: 2px; /* <outer-arrow position> + <message border width> - <border box width of outer-arrow>  */
+::-webkit-validation-bubble-arrow-clipper {
+    display: block;
+    overflow: hidden;
+    height: 16px;
 }
 
 /* meter */

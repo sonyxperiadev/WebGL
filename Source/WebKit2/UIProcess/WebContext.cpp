@@ -29,6 +29,7 @@
 #include "DownloadProxy.h"
 #include "ImmutableArray.h"
 #include "InjectedBundleMessageKinds.h"
+#include "Logging.h"
 #include "RunLoop.h"
 #include "SandboxExtension.h"
 #include "TextChecker.h"
@@ -40,7 +41,9 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebDatabaseManagerProxy.h"
 #include "WebGeolocationManagerProxy.h"
+#include "WebIconDatabase.h"
 #include "WebKeyValueStorageManagerProxy.h"
+#include "WebMediaCacheManagerProxy.h"
 #include "WebPluginSiteDataManager.h"
 #include "WebPageGroup.h"
 #include "WebMemorySampler.h"
@@ -116,13 +119,20 @@ WebContext::WebContext(ProcessModel processModel, const String& injectedBundlePa
     , m_cookieManagerProxy(WebCookieManagerProxy::create(this))
     , m_databaseManagerProxy(WebDatabaseManagerProxy::create(this))
     , m_geolocationManagerProxy(WebGeolocationManagerProxy::create(this))
+    , m_iconDatabase(WebIconDatabase::create(this))
     , m_keyValueStorageManagerProxy(WebKeyValueStorageManagerProxy::create(this))
+    , m_mediaCacheManagerProxy(WebMediaCacheManagerProxy::create(this))
     , m_pluginSiteDataManager(WebPluginSiteDataManager::create(this))
     , m_resourceCacheManagerProxy(WebResourceCacheManagerProxy::create(this))
 #if PLATFORM(WIN)
     , m_shouldPaintNativeControls(true)
+    , m_initialHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicyAlways)
 #endif
 {
+#ifndef NDEBUG
+    WebKit::initializeLogChannelsIfNecessary();
+#endif
+
     contexts().append(this);
 
     addLanguageChangeObserver(this, languageChanged);
@@ -147,14 +157,20 @@ WebContext::~WebContext()
     m_cookieManagerProxy->invalidate();
     m_cookieManagerProxy->clearContext();
 
-    m_geolocationManagerProxy->invalidate();
-    m_geolocationManagerProxy->clearContext();
-
     m_databaseManagerProxy->invalidate();
     m_databaseManagerProxy->clearContext();
     
+    m_geolocationManagerProxy->invalidate();
+    m_geolocationManagerProxy->clearContext();
+
+    m_iconDatabase->invalidate();
+    m_iconDatabase->clearContext();
+    
     m_keyValueStorageManagerProxy->invalidate();
     m_keyValueStorageManagerProxy->clearContext();
+
+    m_mediaCacheManagerProxy->invalidate();
+    m_mediaCacheManagerProxy->clearContext();
 
     m_pluginSiteDataManager->invalidate();
     m_pluginSiteDataManager->clearContext();
@@ -162,6 +178,8 @@ WebContext::~WebContext()
     m_resourceCacheManagerProxy->invalidate();
     m_resourceCacheManagerProxy->clearContext();
 
+    platformInvalidateContext();
+    
 #ifndef NDEBUG
     webContextCounter.decrement();
 #endif
@@ -222,6 +240,7 @@ void WebContext::ensureWebProcess()
     parameters.languageCode = defaultLanguage();
     parameters.applicationCacheDirectory = applicationCacheDirectory();
     parameters.databaseDirectory = databaseDirectory();
+    parameters.localStorageDirectory = localStorageDirectory();
     parameters.clearResourceCaches = m_clearResourceCachesForNewWebProcess;
     parameters.clearApplicationCache = m_clearApplicationCacheForNewWebProcess;
 #if PLATFORM(MAC)
@@ -236,6 +255,8 @@ void WebContext::ensureWebProcess()
     copyToVector(m_schemesToSetDomainRelaxationForbiddenFor, parameters.urlSchemesForWhichDomainRelaxationIsForbidden);
 
     parameters.shouldAlwaysUseComplexTextCodePath = m_alwaysUsesComplexTextCodePath;
+    
+    parameters.iconDatabaseEnabled = !iconDatabasePath().isEmpty();
 
     parameters.textCheckerState = TextChecker::state();
 
@@ -261,7 +282,19 @@ bool WebContext::shouldTerminate(WebProcessProxy* process)
     if (!m_downloads.isEmpty())
         return false;
 
+    if (!m_applicationCacheManagerProxy->shouldTerminate(process))
+        return false;
+    if (!m_cookieManagerProxy->shouldTerminate(process))
+        return false;
+    if (!m_databaseManagerProxy->shouldTerminate(process))
+        return false;
+    if (!m_keyValueStorageManagerProxy->shouldTerminate(process))
+        return false;
+    if (!m_mediaCacheManagerProxy->shouldTerminate(process))
+        return false;
     if (!m_pluginSiteDataManager->shouldTerminate(process))
+        return false;
+    if (!m_resourceCacheManagerProxy->shouldTerminate(process))
         return false;
 
     return true;
@@ -306,6 +339,7 @@ void WebContext::disconnectProcess(WebProcessProxy* process)
     m_databaseManagerProxy->invalidate();
     m_geolocationManagerProxy->invalidate();
     m_keyValueStorageManagerProxy->invalidate();
+    m_mediaCacheManagerProxy->invalidate();
     m_resourceCacheManagerProxy->invalidate();
 
     // When out of process plug-ins are enabled, we don't want to invalidate the plug-in site data
@@ -590,9 +624,19 @@ void WebContext::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::Mes
         m_geolocationManagerProxy->didReceiveMessage(connection, messageID, arguments);
         return;
     }
+    
+    if (messageID.is<CoreIPC::MessageClassWebIconDatabase>()) {
+        m_iconDatabase->didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
 
     if (messageID.is<CoreIPC::MessageClassWebKeyValueStorageManagerProxy>()) {
         m_keyValueStorageManagerProxy->didReceiveMessage(connection, messageID, arguments);
+        return;
+    }
+
+    if (messageID.is<CoreIPC::MessageClassWebMediaCacheManagerProxy>()) {
+        m_mediaCacheManagerProxy->didReceiveMessage(connection, messageID, arguments);
         return;
     }
 
@@ -631,6 +675,9 @@ CoreIPC::SyncReplyMode WebContext::didReceiveSyncMessage(CoreIPC::Connection* co
         return CoreIPC::AutomaticReply;
     }
     
+    if (messageID.is<CoreIPC::MessageClassWebIconDatabase>())
+        return m_iconDatabase->didReceiveSyncMessage(connection, messageID, arguments, reply);
+    
     switch (messageID.get<WebContextLegacyMessage::Kind>()) {
         case WebContextLegacyMessage::PostSynchronousMessage: {
             // FIXME: We should probably encode something in the case that the arguments do not decode correctly.
@@ -653,17 +700,20 @@ CoreIPC::SyncReplyMode WebContext::didReceiveSyncMessage(CoreIPC::Connection* co
     return CoreIPC::AutomaticReply;
 }
 
-void WebContext::clearResourceCaches()
+void WebContext::clearResourceCaches(ResourceCachesToClear cachesToClear)
 {
-    if (!hasValidProcess()) {
-        // FIXME <rdar://problem/8727879>: Setting this flag ensures that the next time a WebProcess is created, this request to
-        // clear the resource cache will be respected. But if the user quits the application before another WebProcess is created,
-        // their request will be ignored.
-        m_clearResourceCachesForNewWebProcess = true;
+    if (hasValidProcess()) {
+        m_process->send(Messages::WebProcess::ClearResourceCaches(cachesToClear), 0);
         return;
     }
 
-    m_process->send(Messages::WebProcess::ClearResourceCaches(), 0);
+    if (cachesToClear == InMemoryResourceCachesOnly)
+        return;
+
+    // FIXME <rdar://problem/8727879>: Setting this flag ensures that the next time a WebProcess is created, this request to
+    // clear the resource cache will be respected. But if the user quits the application before another WebProcess is created,
+    // their request will be ignored.
+    m_clearResourceCachesForNewWebProcess = true;
 }
 
 void WebContext::clearApplicationCache()
@@ -677,6 +727,14 @@ void WebContext::clearApplicationCache()
     }
 
     m_process->send(Messages::WebProcess::ClearApplicationCache(), 0);
+}
+   
+void WebContext::setEnhancedAccessibility(bool flag)
+{
+    if (!hasValidProcess())
+        return;
+    
+    m_process->send(Messages::WebProcess::SetEnhancedAccessibility(flag), 0);
 }
     
 void WebContext::startMemorySampler(const double interval)
@@ -724,6 +782,28 @@ String WebContext::databaseDirectory() const
         return m_overrideDatabaseDirectory;
 
     return platformDefaultDatabaseDirectory();
+}
+
+void WebContext::setIconDatabasePath(const String& path)
+{
+    m_overrideIconDatabasePath = path;
+    m_iconDatabase->setDatabasePath(path);
+}
+
+String WebContext::iconDatabasePath() const
+{
+    if (!m_overrideIconDatabasePath.isEmpty())
+        return m_overrideIconDatabasePath;
+
+    return platformDefaultIconDatabasePath();
+}
+
+String WebContext::localStorageDirectory() const
+{
+    if (!m_overrideLocalStorageDirectory.isEmpty())
+        return m_overrideLocalStorageDirectory;
+
+    return platformDefaultLocalStorageDirectory();
 }
 
 } // namespace WebKit

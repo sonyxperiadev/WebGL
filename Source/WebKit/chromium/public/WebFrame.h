@@ -70,10 +70,8 @@ struct WebFindOptions;
 struct WebRect;
 struct WebScriptSource;
 struct WebSize;
+struct WebURLLoaderOptions;
 template <typename T> class WebVector;
-
-// FIXME(jam): take this out once Chromium has this
-#define WEBFRAME_PRINTBEGIN_TAKES_NODE
 
 class WebFrame {
 public:
@@ -345,10 +343,13 @@ public:
     // DEPRECATED: Please use createAssociatedURLLoader instead.
     virtual void dispatchWillSendRequest(WebURLRequest&) = 0;
 
+    // FIXME: Remove this overload when clients have been changed to pass options.
+    virtual WebURLLoader* createAssociatedURLLoader() = 0;
+
     // Returns a WebURLLoader that is associated with this frame.  The loader
     // will, for example, be cancelled when WebFrame::stopLoading is called.
     // FIXME: stopLoading does not yet cancel an associated loader!!
-    virtual WebURLLoader* createAssociatedURLLoader() = 0;
+    virtual WebURLLoader* createAssociatedURLLoader(const WebURLLoaderOptions&) = 0;
 
     // Called from within WebFrameClient::didReceiveDocumentData to commit
     // data for the frame that will be used to construct the frame's
@@ -364,10 +365,6 @@ public:
     // Returns true if this frame is in the process of opening a new frame
     // with a suppressed opener.
     virtual bool willSuppressOpenerInNewFrame() const = 0;
-
-    // Returns true if this frame is in the midst of executing a beforeunload
-    // or unload event handler.
-    virtual bool pageDismissalEventBeingDispatched() const = 0;
 
 
     // Editing -------------------------------------------------------------
@@ -549,7 +546,7 @@ public:
 
     // Returns a text representation of the render tree.  This method is used
     // to support layout tests.
-    virtual WebString renderTreeAsText() const = 0;
+    virtual WebString renderTreeAsText(bool showDebugInfo = false) const = 0;
 
     // Returns the counter value for the specified element.  This method is
     // used to support layout tests.
@@ -582,7 +579,7 @@ public:
 
     // Dumps the layer tree, used by the accelerated compositor, in
     // text form. This is used only by layout tests.
-    virtual WebString layerTreeAsText() const = 0;
+    virtual WebString layerTreeAsText(bool showDebugInfo = false) const = 0;
 
 protected:
     ~WebFrame() { }

@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "TestController.h"
 
 #include "PlatformWebView.h"
@@ -168,6 +169,7 @@ WKPageRef TestController::createOtherPage(WKPageRef oldPage, WKDictionaryRef, WK
         0, // printFrame
         runModal,
         0, // didCompleteRubberBandForMainFrame
+        0, // saveDataToFileInDownloadsFolder
     };
     WKPageSetPageUIClient(newPage, &otherPageUIClient);
 
@@ -301,6 +303,7 @@ void TestController::initialize(int argc, const char* argv[])
         0, // printFrame
         0, // runModal
         0, // didCompleteRubberBandForMainFrame
+        0, // saveDataToFileInDownloadsFolder
     };
     WKPageSetPageUIClient(m_mainWebView->page(), &pageUIClient);
 
@@ -353,6 +356,8 @@ bool TestController::resetStateToConsistentValues()
     WKPreferencesSetJavaScriptCanOpenWindowsAutomatically(preferences, true);
     WKPreferencesSetJavaScriptCanAccessClipboard(preferences, true);
     WKPreferencesSetDOMPasteAllowed(preferences, true);
+    WKPreferencesSetUniversalAccessFromFileURLsAllowed(preferences, true);
+    WKPreferencesSetFileAccessFromFileURLsAllowed(preferences, true);
 
     static WKStringRef standardFontFamily = WKStringCreateWithUTF8CString("Times");
     static WKStringRef cursiveFontFamily = WKStringCreateWithUTF8CString("Apple Chancery");

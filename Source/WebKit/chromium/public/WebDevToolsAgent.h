@@ -33,13 +33,6 @@
 
 #include "WebCommon.h"
 
-#if WEBKIT_USING_V8
-namespace v8 {
-class Value;
-template <class T> class Handle;
-}
-#endif
-
 namespace WebKit {
 class WebDevToolsAgentClient;
 class WebDevToolsMessageTransport;
@@ -65,9 +58,6 @@ public:
     virtual void dispatchOnInspectorBackend(const WebString& message) = 0;
 
     virtual void inspectElementAt(const WebPoint&) = 0;
-#if WEBKIT_USING_V8
-    virtual void inspectNode(v8::Handle<v8::Value>) = 0;
-#endif
     virtual void setRuntimeProperty(const WebString& name, const WebString& value) = 0;
 
     // Exposed for LayoutTestController.
@@ -98,13 +88,6 @@ public:
     // Installs dispatch handle that is going to be called periodically
     // while on a breakpoint.
     WEBKIT_API static void setMessageLoopDispatchHandler(MessageLoopDispatchHandler);
-
-    virtual void identifierForInitialRequest(unsigned long resourceId, WebFrame*, const WebURLRequest&) = 0;
-    virtual void willSendRequest(unsigned long resourceId, WebURLRequest&) = 0;
-    virtual void didReceiveData(unsigned long resourceId, int length) = 0;
-    virtual void didReceiveResponse(unsigned long resourceId, const WebURLResponse&) = 0;
-    virtual void didFinishLoading(unsigned long resourceId) = 0;
-    virtual void didFailLoading(unsigned long resourceId, const WebURLError&) = 0;
 };
 
 } // namespace WebKit

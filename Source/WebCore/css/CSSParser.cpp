@@ -36,6 +36,7 @@
 #include "CSSImportRule.h"
 #include "CSSInheritedValue.h"
 #include "CSSInitialValue.h"
+#include "CSSLineBoxContainValue.h"
 #include "CSSMediaRule.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPageRule.h"
@@ -72,6 +73,7 @@
 #include "WebKitCSSKeyframesRule.h"
 #include "WebKitCSSTransformValue.h"
 #include <limits.h>
+#include <wtf/HexNumber.h>
 #include <wtf/dtoa.h>
 #include <wtf/text/StringBuffer.h>
 
@@ -97,6 +99,7 @@ using namespace WTF;
 namespace WebCore {
 
 static const unsigned INVALID_NUM_PARSED_PROPERTIES = UINT_MAX;
+static const double MAX_SCALE = 1000000;
 
 static bool equal(const CSSParserString& a, const char* b)
 {
@@ -177,6 +180,7 @@ CSSParser::~CSSParser()
     fastFree(m_data);
 
     fastDeleteAllValues(m_floatingSelectors);
+    deleteAllValues(m_floatingSelectorVectors);
     deleteAllValues(m_floatingValueLists);
     deleteAllValues(m_floatingFunctions);
 }
@@ -698,10 +702,11 @@ bool CSSParser::parseValue(int propId, bool important)
         else
             return parseQuotes(propId, important);
         break;
-    case CSSPropertyUnicodeBidi:         // normal | embed | bidi-override | inherit
-        if (id == CSSValueNormal ||
-             id == CSSValueEmbed ||
-             id == CSSValueBidiOverride)
+    case CSSPropertyUnicodeBidi: // normal | embed | bidi-override | isolate | inherit
+        if (id == CSSValueNormal
+            || id == CSSValueEmbed
+            || id == CSSValueBidiOverride
+            || id == CSSValueWebkitIsolate)
             validPrimitive = true;
         break;
 
@@ -838,9 +843,10 @@ bool CSSParser::parseValue(int propId, bool important)
         break;
 
     case CSSPropertyTextAlign:
-        // left | right | center | justify | webkit_left | webkit_right | webkit_center | start | end | <string> | inherit
-        if ((id >= CSSValueWebkitAuto && id <= CSSValueWebkitCenter) || id == CSSValueStart || id == CSSValueEnd ||
-             value->unit == CSSPrimitiveValue::CSS_STRING)
+        // left | right | center | justify | webkit_left | webkit_right | webkit_center | webkit_match_parent |
+        // start | end | <string> | inherit
+        if ((id >= CSSValueWebkitAuto && id <= CSSValueWebkitMatchParent) || id == CSSValueStart || id == CSSValueEnd
+             || value->unit == CSSPrimitiveValue::CSS_STRING)
             validPrimitive = true;
         break;
 
@@ -1887,6 +1893,19 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyWebkitTextEmphasisStyle:
         return parseTextEmphasisStyle(important);
 
+    case CSSPropertyWebkitTextOrientation:
+        // FIXME: For now just support upright and vertical-right.
+        if (id == CSSValueVerticalRight || id == CSSValueUpright)
+            validPrimitive = true;
+        break;
+
+    case CSSPropertyWebkitLineBoxContain:
+        if (id == CSSValueNone)
+            validPrimitive = true;
+        else
+            return parseLineBoxContain(important);
+        break;
+
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
     {
@@ -2608,34 +2627,80 @@ bool CSSParser::parseFillImage(RefPtr<CSSValue>& value)
     return false;
 }
 
-PassRefPtr<CSSValue> CSSParser::parseFillPositionXY(CSSParserValueList* valueList, bool& xFound, bool& yFound)
+PassRefPtr<CSSValue> CSSParser::parseFillPositionX(CSSParserValueList* valueList)
 {
     int id = valueList->current()->id;
-    if (id == CSSValueLeft || id == CSSValueTop || id == CSSValueRight || id == CSSValueBottom || id == CSSValueCenter) {
+    if (id == CSSValueLeft || id == CSSValueRight || id == CSSValueCenter) {
         int percent = 0;
-        if (id == CSSValueLeft || id == CSSValueRight) {
-            if (xFound)
-                return 0;
-            xFound = true;
-            if (id == CSSValueRight)
-                percent = 100;
-        }
-        else if (id == CSSValueTop || id == CSSValueBottom) {
-            if (yFound)
-                return 0;
-            yFound = true;
-            if (id == CSSValueBottom)
-                percent = 100;
-        }
+        if (id == CSSValueRight)
+            percent = 100;
         else if (id == CSSValueCenter)
-            // Center is ambiguous, so we're not sure which position we've found yet, an x or a y.
             percent = 50;
         return primitiveValueCache()->createValue(percent, CSSPrimitiveValue::CSS_PERCENTAGE);
     }
     if (validUnit(valueList->current(), FPercent | FLength, m_strict))
         return primitiveValueCache()->createValue(valueList->current()->fValue,
-                                         (CSSPrimitiveValue::UnitTypes)valueList->current()->unit);
+                                                  (CSSPrimitiveValue::UnitTypes)valueList->current()->unit);
+    return 0;
+}
 
+PassRefPtr<CSSValue> CSSParser::parseFillPositionY(CSSParserValueList* valueList)
+{
+    int id = valueList->current()->id;
+    if (id == CSSValueTop || id == CSSValueBottom || id == CSSValueCenter) {
+        int percent = 0;
+        if (id == CSSValueBottom)
+            percent = 100;
+        else if (id == CSSValueCenter)
+            percent = 50;
+        return primitiveValueCache()->createValue(percent, CSSPrimitiveValue::CSS_PERCENTAGE);
+    }
+    if (validUnit(valueList->current(), FPercent | FLength, m_strict))
+        return primitiveValueCache()->createValue(valueList->current()->fValue,
+                                                  (CSSPrimitiveValue::UnitTypes)valueList->current()->unit);
+    return 0;
+}
+
+PassRefPtr<CSSValue> CSSParser::parseFillPositionComponent(CSSParserValueList* valueList, unsigned& cumulativeFlags, FillPositionFlag& individualFlag)
+{
+    int id = valueList->current()->id;
+    if (id == CSSValueLeft || id == CSSValueTop || id == CSSValueRight || id == CSSValueBottom || id == CSSValueCenter) {
+        int percent = 0;
+        if (id == CSSValueLeft || id == CSSValueRight) {
+            if (cumulativeFlags & XFillPosition)
+                return 0;
+            cumulativeFlags |= XFillPosition;
+            individualFlag = XFillPosition;
+            if (id == CSSValueRight)
+                percent = 100;
+        }
+        else if (id == CSSValueTop || id == CSSValueBottom) {
+            if (cumulativeFlags & YFillPosition)
+                return 0;
+            cumulativeFlags |= YFillPosition;
+            individualFlag = YFillPosition;
+            if (id == CSSValueBottom)
+                percent = 100;
+        } else if (id == CSSValueCenter) {
+            // Center is ambiguous, so we're not sure which position we've found yet, an x or a y.
+            percent = 50;
+            cumulativeFlags |= AmbiguousFillPosition;
+            individualFlag = AmbiguousFillPosition;
+        }
+        return primitiveValueCache()->createValue(percent, CSSPrimitiveValue::CSS_PERCENTAGE);
+    }
+    if (validUnit(valueList->current(), FPercent | FLength, m_strict)) {
+        if (!cumulativeFlags) {
+            cumulativeFlags |= XFillPosition;
+            individualFlag = XFillPosition;
+        } else if (cumulativeFlags & (XFillPosition | AmbiguousFillPosition)) {
+            cumulativeFlags |= YFillPosition;
+            individualFlag = YFillPosition;
+        } else
+            return 0;
+        return primitiveValueCache()->createValue(valueList->current()->fValue,
+                                                  (CSSPrimitiveValue::UnitTypes)valueList->current()->unit);
+    }
     return 0;
 }
 
@@ -2644,8 +2709,10 @@ void CSSParser::parseFillPosition(CSSParserValueList* valueList, RefPtr<CSSValue
     CSSParserValue* value = valueList->current();
 
     // Parse the first value.  We're just making sure that it is one of the valid keywords or a percentage/length.
-    bool value1IsX = false, value1IsY = false;
-    value1 = parseFillPositionXY(valueList, value1IsX, value1IsY);
+    unsigned cumulativeFlags = 0;
+    FillPositionFlag value1Flag = InvalidFillPosition;
+    FillPositionFlag value2Flag = InvalidFillPosition;
+    value1 = parseFillPositionComponent(valueList, cumulativeFlags, value1Flag);
     if (!value1)
         return;
 
@@ -2658,9 +2725,8 @@ void CSSParser::parseFillPosition(CSSParserValueList* valueList, RefPtr<CSSValue
     if (value && value->unit == CSSParserValue::Operator && value->iValue == ',')
         value = 0;
 
-    bool value2IsX = false, value2IsY = false;
     if (value) {
-        value2 = parseFillPositionXY(valueList, value2IsX, value2IsY);
+        value2 = parseFillPositionComponent(valueList, cumulativeFlags, value2Flag);
         if (value2)
             valueList->next();
         else {
@@ -2678,7 +2744,7 @@ void CSSParser::parseFillPosition(CSSParserValueList* valueList, RefPtr<CSSValue
         // For left/right/center, the default of 50% in the y is still correct.
         value2 = primitiveValueCache()->createValue(50, CSSPrimitiveValue::CSS_PERCENTAGE);
 
-    if (value1IsY || value2IsX)
+    if (value1Flag == YFillPosition || value2Flag == XFillPosition)
         value1.swap(value2);
 }
 
@@ -2856,16 +2922,14 @@ bool CSSParser::parseFillProperty(int propId, int& propId1, int& propId2,
                     break;
                 case CSSPropertyBackgroundPositionX:
                 case CSSPropertyWebkitMaskPositionX: {
-                    bool xFound = false, yFound = true;
-                    currValue = parseFillPositionXY(m_valueList, xFound, yFound);
+                    currValue = parseFillPositionX(m_valueList);
                     if (currValue)
                         m_valueList->next();
                     break;
                 }
                 case CSSPropertyBackgroundPositionY:
                 case CSSPropertyWebkitMaskPositionY: {
-                    bool xFound = true, yFound = false;
-                    currValue = parseFillPositionXY(m_valueList, xFound, yFound);
+                    currValue = parseFillPositionY(m_valueList);
                     if (currValue)
                         m_valueList->next();
                     break;
@@ -3940,10 +4004,76 @@ bool CSSParser::parseFontFaceUnicodeRange()
     return true;
 }
 
-static inline bool parseColorInt(const UChar*& string, const UChar* end, UChar terminator, int& value)
+// Returns the number of characters which form a valid double
+// and are terminated by the given terminator character
+static int checkForValidDouble(const UChar* string, const UChar* end, const char terminator)
+{
+    int length = end - string;
+    if (length < 1)
+        return 0;
+
+    bool decimalMarkSeen = false;
+    int processedLength = 0;
+
+    for (int i = 0; i < length; ++i) {
+        if (string[i] == terminator) {
+            processedLength = i;
+            break;
+        }
+        if (!isASCIIDigit(string[i])) {
+            if (!decimalMarkSeen && string[i] == '.')
+                decimalMarkSeen = true;
+            else
+                return 0;
+        }
+    }
+
+    if (decimalMarkSeen && processedLength == 1)
+        return 0;
+
+    return processedLength;
+}
+
+// Returns the number of characters consumed for parsing a valid double
+// terminated by the given terminator character
+static int parseDouble(const UChar* string, const UChar* end, const char terminator, double& value)
+{
+    int length = checkForValidDouble(string, end, terminator);
+    if (!length)
+        return 0;
+
+    int position = 0;
+    double localValue = 0;
+
+    // The consumed characters here are guaranteed to be
+    // ASCII digits with or without a decimal mark
+    for (; position < length; ++position) {
+        if (string[position] == '.')
+            break;
+        localValue = localValue * 10 + string[position] - '0';
+    }
+
+    if (++position == length) {
+        value = localValue;
+        return length;
+    }
+
+    double fraction = 0;
+    double scale = 1;
+
+    while (position < length && scale < MAX_SCALE) {
+        fraction = fraction * 10 + string[position++] - '0';
+        scale *= 10;
+    }
+
+    value = localValue + fraction / scale;
+    return length;
+}
+
+static bool parseColorIntOrPercentage(const UChar*& string, const UChar* end, const char terminator, CSSPrimitiveValue::UnitTypes& expect, int& value)
 {
     const UChar* current = string;
-    int localValue = 0;
+    double localValue = 0;
     bool negative = false;
     while (current != end && isHTMLSpace(*current))
         current++;
@@ -3954,7 +4084,7 @@ static inline bool parseColorInt(const UChar*& string, const UChar* end, UChar t
     if (current == end || !isASCIIDigit(*current))
         return false;
     while (current != end && isASCIIDigit(*current)) {
-        int newValue = localValue * 10 + *current++ - '0';
+        double newValue = localValue * 10 + *current++ - '0';
         if (newValue >= 255) {
             // Clamp values at 255.
             localValue = 255;
@@ -3964,12 +4094,42 @@ static inline bool parseColorInt(const UChar*& string, const UChar* end, UChar t
         }
         localValue = newValue;
     }
+
+    if (expect == CSSPrimitiveValue::CSS_NUMBER && (*current == '.' || *current == '%'))
+        return false;
+
+    if (*current == '.') {
+        // We already parsed the integral part, try to parse
+        // the fraction part of the percentage value.
+        double percentage = 0;
+        int numCharactersParsed = parseDouble(current, end, '%', percentage);
+        if (!numCharactersParsed)
+            return false;
+        current += numCharactersParsed;
+        if (*current != '%')
+            return false;
+        localValue += percentage;
+    }
+
+    if (expect == CSSPrimitiveValue::CSS_PERCENTAGE && *current != '%')
+        return false;
+
+    if (*current == '%') {
+        expect = CSSPrimitiveValue::CSS_PERCENTAGE;
+        localValue = localValue / 100.0 * 256.0;
+        // Clamp values at 255 for percentages over 100%
+        if (localValue > 255)
+            localValue = 255;
+        current++;
+    } else
+        expect = CSSPrimitiveValue::CSS_NUMBER;
+
     while (current != end && isHTMLSpace(*current))
         current++;
     if (current == end || *current++ != terminator)
         return false;
     // Clamp negative values at zero.
-    value = negative ? 0 : localValue;
+    value = negative ? 0 : static_cast<int>(localValue);
     string = current;
     return true;
 }
@@ -3987,21 +4147,7 @@ static inline bool isTenthAlpha(const UChar* string, const int length)
     return false;
 }
 
-static inline bool isValidDouble(const UChar* string, const int length)
-{
-    bool decimalMarkSeen = false;
-    for (int i = 0; i < length; ++i) {
-        if (!isASCIIDigit(string[i])) {
-            if (!decimalMarkSeen && string[i] == '.')
-                decimalMarkSeen = true;
-            else
-                return false;
-        }
-    }
-    return true;
-}
-
-static inline bool parseAlphaValue(const UChar*& string, const UChar* end, UChar terminator, int& value)
+static inline bool parseAlphaValue(const UChar*& string, const UChar* end, const char terminator, int& value)
 {
     while (string != end && isHTMLSpace(*string))
         string++;
@@ -4023,7 +4169,7 @@ static inline bool parseAlphaValue(const UChar*& string, const UChar* end, UChar
         return false;
 
     if (string[0] != '0' && string[0] != '1' && string[0] != '.') {
-        if (isValidDouble(string, length - 1)) {
+        if (checkForValidDouble(string, end, terminator)) {
             value = negative ? 0 : 255;
             string = end;
             return true;
@@ -4044,20 +4190,12 @@ static inline bool parseAlphaValue(const UChar*& string, const UChar* end, UChar
         return true;
     }
 
-    if (!isValidDouble(string, length - 1))
-       return false;
-
-    Vector<char, 8> bytes(length + 1);
-
-    for (int i = 0; i < length; ++i)
-        bytes[i] = string[i];
-
-    bytes[length] = '\0';
-    char* foundTerminator;
-    double d = WTF::strtod(bytes.data(), &foundTerminator);
-    value = negative ? 0 : static_cast<int>(d * nextafter(256.0, 0.0));
-    string += (foundTerminator - bytes.data()) + 1;
-    return *foundTerminator == terminator;
+    double alpha = 0;
+    if (!parseDouble(string, end, terminator, alpha))
+        return false;
+    value = negative ? 0 : static_cast<int>(alpha * nextafter(256.0, 0.0));
+    string = end;
+    return true;
 }
 
 static inline bool mightBeRGBA(const UChar* characters, unsigned length)
@@ -4085,6 +4223,7 @@ bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
 {
     const UChar* characters = name.characters();
     unsigned length = name.length();
+    CSSPrimitiveValue::UnitTypes expect = CSSPrimitiveValue::CSS_UNKNOWN;
 
     if (!strict && length >= 3) {
         if (name[0] == '#') {
@@ -4104,11 +4243,12 @@ bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
         int green;
         int blue;
         int alpha;
-        if (!parseColorInt(current, end, ',', red))
+
+        if (!parseColorIntOrPercentage(current, end, ',', expect, red))
             return false;
-        if (!parseColorInt(current, end, ',', green))
+        if (!parseColorIntOrPercentage(current, end, ',', expect, green))
             return false;
-        if (!parseColorInt(current, end, ',', blue))
+        if (!parseColorIntOrPercentage(current, end, ',', expect, blue))
             return false;
         if (!parseAlphaValue(current, end, ')', alpha))
             return false;
@@ -4125,11 +4265,11 @@ bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
         int red;
         int green;
         int blue;
-        if (!parseColorInt(current, end, ',', red))
+        if (!parseColorIntOrPercentage(current, end, ',', expect, red))
             return false;
-        if (!parseColorInt(current, end, ',', green))
+        if (!parseColorIntOrPercentage(current, end, ',', expect, green))
             return false;
-        if (!parseColorInt(current, end, ')', blue))
+        if (!parseColorIntOrPercentage(current, end, ')', expect, blue))
             return false;
         if (current != end)
             return false;
@@ -5544,15 +5684,13 @@ bool CSSParser::parseTransformOrigin(int propId, int& propId1, int& propId2, int
             // parseTransformOriginShorthand advances the m_valueList pointer
             break;
         case CSSPropertyWebkitTransformOriginX: {
-            bool xFound = false, yFound = true;
-            value = parseFillPositionXY(m_valueList, xFound, yFound);
+            value = parseFillPositionX(m_valueList);
             if (value)
                 m_valueList->next();
             break;
         }
         case CSSPropertyWebkitTransformOriginY: {
-            bool xFound = true, yFound = false;
-            value = parseFillPositionXY(m_valueList, xFound, yFound);
+            value = parseFillPositionY(m_valueList);
             if (value)
                 m_valueList->next();
             break;
@@ -5583,15 +5721,13 @@ bool CSSParser::parsePerspectiveOrigin(int propId, int& propId1, int& propId2, R
             parseFillPosition(m_valueList, value, value2);
             break;
         case CSSPropertyWebkitPerspectiveOriginX: {
-            bool xFound = false, yFound = true;
-            value = parseFillPositionXY(m_valueList, xFound, yFound);
+            value = parseFillPositionX(m_valueList);
             if (value)
                 m_valueList->next();
             break;
         }
         case CSSPropertyWebkitPerspectiveOriginY: {
-            bool xFound = true, yFound = false;
-            value = parseFillPositionXY(m_valueList, xFound, yFound);
+            value = parseFillPositionY(m_valueList);
             if (value)
                 m_valueList->next();
             break;
@@ -5658,6 +5794,46 @@ bool CSSParser::parseTextEmphasisStyle(bool important)
     return false;
 }
 
+bool CSSParser::parseLineBoxContain(bool important)
+{
+    LineBoxContain lineBoxContain = LineBoxContainNone;
+
+    for (CSSParserValue* value = m_valueList->current(); value; value = m_valueList->next()) {
+        if (value->id == CSSValueBlock) {
+            if (lineBoxContain & LineBoxContainBlock)
+                return false;
+            lineBoxContain |= LineBoxContainBlock;
+        } else if (value->id == CSSValueInline) {
+            if (lineBoxContain & LineBoxContainInline)
+                return false;
+            lineBoxContain |= LineBoxContainInline;
+        } else if (value->id == CSSValueFont) {
+            if (lineBoxContain & LineBoxContainFont)
+                return false;
+            lineBoxContain |= LineBoxContainFont;
+        } else if (value->id == CSSValueGlyphs) {
+            if (lineBoxContain & LineBoxContainGlyphs)
+                return false;
+            lineBoxContain |= LineBoxContainGlyphs;
+        } else if (value->id == CSSValueReplaced) {
+            if (lineBoxContain & LineBoxContainReplaced)
+                return false;
+            lineBoxContain |= LineBoxContainReplaced;
+        } else if (value->id == CSSValueInlineBox) {
+            if (lineBoxContain & LineBoxContainInlineBox)
+                return false;
+            lineBoxContain |= LineBoxContainInlineBox;
+        } else
+            return false;
+    }
+    
+    if (!lineBoxContain)
+        return false;
+
+    addProperty(CSSPropertyWebkitLineBoxContain, CSSLineBoxContainValue::create(lineBoxContain), important);
+    return true;
+}
+
 static inline int yyerror(const char*) { return 1; }
 
 #define END_TOKEN 0
@@ -5689,6 +5865,7 @@ int CSSParser::lex(void* yylvalWithoutType)
     case DIMEN:
     case UNICODERANGE:
     case FUNCTION:
+    case ANYFUNCTION:
     case NOTFUNCTION:
         yylval->string.characters = t;
         yylval->string.length = length;
@@ -5900,6 +6077,22 @@ PassOwnPtr<CSSParserSelector> CSSParser::sinkFloatingSelector(CSSParserSelector*
         m_floatingSelectors.remove(selector);
     }
     return adoptPtr(selector);
+}
+
+Vector<OwnPtr<CSSParserSelector> >* CSSParser::createFloatingSelectorVector()
+{
+    Vector<OwnPtr<CSSParserSelector> >* selectorVector = new Vector<OwnPtr<CSSParserSelector> >;
+    m_floatingSelectorVectors.add(selectorVector);
+    return selectorVector;
+}
+
+Vector<OwnPtr<CSSParserSelector> >* CSSParser::sinkFloatingSelectorVector(Vector<OwnPtr<CSSParserSelector> >* selectorVector)
+{
+    if (selectorVector) {
+        ASSERT(m_floatingSelectorVectors.contains(selectorVector));
+        m_floatingSelectorVectors.remove(selectorVector);
+    }
+    return selectorVector;
 }
 
 CSSParserValueList* CSSParser::createFloatingValueList()
@@ -6485,11 +6678,8 @@ String quoteCSSString(const String& string)
             buffer[index++] = ch;
             afterEscape = false;
         } else if (ch < 0x20 || ch == 0x7F) { // Control characters.
-            static const char hexDigits[17] = "0123456789abcdef";
             buffer[index++] = '\\';
-            if (ch >= 0x10)
-                buffer[index++] = hexDigits[ch >> 4];
-            buffer[index++] = hexDigits[ch & 0xF];
+            placeByteAsHexCompressIfPossible(ch, buffer, index, Lowercase);
             afterEscape = true;
         } else {
             // Space character may be required to separate backslash-escape sequence and normal characters.

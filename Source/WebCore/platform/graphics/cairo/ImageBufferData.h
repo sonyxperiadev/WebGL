@@ -26,7 +26,9 @@
 #ifndef ImageBufferData_h
 #define ImageBufferData_h
 
-#include "cairo.h"
+#include "PlatformContextCairo.h"
+
+typedef struct _cairo_surface cairo_surface_t;
 
 namespace WebCore {
 
@@ -37,6 +39,7 @@ public:
     ImageBufferData(const IntSize&);
 
     cairo_surface_t* m_surface;
+    PlatformContextCairo m_platformContext;
 };
 
 }  // namespace WebCore

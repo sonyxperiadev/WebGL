@@ -29,11 +29,13 @@
 #include "CacheModel.h"
 #include "ChildProcess.h"
 #include "DrawingArea.h"
+#include "ResourceCachesToClear.h"
 #include "SandboxExtension.h"
 #include "SharedMemory.h"
 #include "TextCheckerState.h"
 #include "VisitedLinkTable.h"
 #include "WebGeolocationManager.h"
+#include "WebIconDatabaseProxy.h"
 #include "WebPageGroupProxy.h"
 #include <WebCore/LinkHash.h>
 #include <wtf/Forward.h>
@@ -76,7 +78,8 @@ public:
     WebPage* webPage(uint64_t pageID) const;
     void createWebPage(uint64_t pageID, const WebPageCreationParameters&);
     void removeWebPage(uint64_t pageID);
-
+    WebPage* focusedWebPage() const;
+    
     InjectedBundle* injectedBundle() const { return m_injectedBundle.get(); }
 
     bool isSeparateProcess() const;
@@ -116,7 +119,9 @@ public:
     // Geolocation
     WebGeolocationManager& geolocationManager() { return m_geolocationManager; }
 
-    void clearResourceCaches();
+    void clearResourceCaches(uint32_t cachesToClear = AllResourceCaches);
+    
+    const String& localStorageDirectory() const { return m_localStorageDirectory; }
 
 private:
     WebProcess();
@@ -144,9 +149,11 @@ private:
     static void calculateCacheSizes(CacheModel cacheModel, uint64_t memorySize, uint64_t diskFreeSize,
         unsigned& cacheTotalCapacity, unsigned& cacheMinDeadCapacity, unsigned& cacheMaxDeadCapacity, double& deadDecodedDataDeletionInterval,
         unsigned& pageCacheCapacity, unsigned long& urlCacheMemoryCapacity, unsigned long& urlCacheDiskCapacity);
-    void platformClearResourceCaches();
+    void platformClearResourceCaches(ResourceCachesToClear);
     void clearApplicationCache();
 
+    void setEnhancedAccessibility(bool);
+    
 #if !ENABLE(PLUGIN_PROCESS)
     void getSitesWithPluginData(const Vector<String>& pluginPaths, uint64_t callbackID);
     void clearPluginSiteData(const Vector<String>& pluginPaths, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID);
@@ -202,6 +209,9 @@ private:
 
     TextCheckerState m_textCheckerState;
     WebGeolocationManager m_geolocationManager;
+    WebIconDatabaseProxy m_iconDatabaseProxy;
+    
+    String m_localStorageDirectory;
 };
 
 } // namespace WebKit

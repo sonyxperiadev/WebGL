@@ -31,7 +31,7 @@
 #ifndef InjectedScript_h
 #define InjectedScript_h
 
-#include "InjectedScriptHost.h"
+#include "InjectedScriptManager.h"
 #include "ScriptObject.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
@@ -40,9 +40,13 @@
 
 namespace WebCore {
 
+class InspectorArray;
+class InspectorObject;
 class InspectorValue;
 class Node;
 class ScriptFunctionCall;
+
+typedef String ErrorString;
 
 class InjectedScript {
 public:
@@ -51,31 +55,31 @@ public:
 
     bool hasNoValue() const { return m_injectedScriptObject.hasNoValue(); }
 
-    void evaluate(const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
-    void evaluateOn(PassRefPtr<InspectorObject> objectId, const String& expression, RefPtr<InspectorValue>* result);
-    void evaluateOnCallFrame(PassRefPtr<InspectorObject> callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
-    void getProperties(PassRefPtr<InspectorObject> objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorValue>* result);
-    Node* nodeForObjectId(PassRefPtr<InspectorObject> objectId);
-    void resolveNode(long nodeId, RefPtr<InspectorValue>* result);
-    void setPropertyValue(PassRefPtr<InspectorObject> objectId, const String& propertyName, const String& expression, RefPtr<InspectorValue>* result);
-    void releaseObject(PassRefPtr<InspectorObject> objectId);
-    
+    void evaluate(ErrorString*, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result);
+    void evaluateOn(ErrorString*, const String& objectId, const String& expression, RefPtr<InspectorObject>* result);
+    void evaluateOnCallFrame(ErrorString*, const String& callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result);
+    void getProperties(ErrorString*, const String& objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorArray>* result);
+    Node* nodeForObjectId(const String& objectId);
+    void setPropertyValue(ErrorString*, const String& objectId, const String& propertyName, const String& expression);
+    void releaseObject(const String& objectId);
+
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    PassRefPtr<InspectorValue> callFrames();
+    PassRefPtr<InspectorArray> callFrames();
 #endif
 
     PassRefPtr<InspectorObject> wrapObject(ScriptValue, const String& groupName);
-    PassRefPtr<InspectorObject> wrapNode(Node*, const String& groupName);
+    PassRefPtr<InspectorObject> wrapNode(Node*);
     void inspectNode(Node*);
     void releaseObjectGroup(const String&);
     ScriptState* scriptState() const { return m_injectedScriptObject.scriptState(); }
 
 private:
-    friend InjectedScript InjectedScriptHost::injectedScriptFor(ScriptState*);
+    friend InjectedScript InjectedScriptManager::injectedScriptFor(ScriptState*);
     explicit InjectedScript(ScriptObject);
 
     bool canAccessInspectedWindow();
     void makeCall(ScriptFunctionCall&, RefPtr<InspectorValue>* result);
+    void makeObjectCall(ErrorString*, ScriptFunctionCall&, RefPtr<InspectorObject>* result);
     ScriptValue nodeAsScriptValue(Node*);
 
     ScriptObject m_injectedScriptObject;

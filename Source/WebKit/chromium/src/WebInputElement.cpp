@@ -65,16 +65,6 @@ bool WebInputElement::autoComplete() const
     return constUnwrap<HTMLInputElement>()->autoComplete();
 }
 
-bool WebInputElement::isReadOnly() const
-{
-    return constUnwrap<HTMLInputElement>()->readOnly();
-}
-
-bool WebInputElement::isEnabledFormControl() const
-{
-    return constUnwrap<HTMLInputElement>()->isEnabledFormControl();
-}
-
 int WebInputElement::maxLength() const
 {
     return constUnwrap<HTMLInputElement>()->maxLength();
@@ -183,7 +173,7 @@ WebInputElement::operator PassRefPtr<HTMLInputElement>() const
 
 WebInputElement* toWebInputElement(WebElement* webElement)
 {
-    InputElement* inputElement = toInputElement(webElement->unwrap<Element>());
+    InputElement* inputElement = webElement->unwrap<Element>()->toInputElement();
     if (!inputElement)
         return 0;
 

@@ -137,8 +137,8 @@ static WebIconDatabaseClient* defaultClient()
     // FIXME - <rdar://problem/4697934> - Move the handling of FileURLs to WebCore and implement in ObjC++
     if ([URL _webkit_isFileURL])
         return [self _iconForFileURL:URL withSize:size];
-      
-    if (Image* image = iconDatabase().iconForPageURL(URL, IntSize(size)))
+    
+    if (Image* image = iconDatabase().synchronousIconForPageURL(URL, IntSize(size)))
         if (NSImage *icon = webGetNSImage(image, size))
             return icon;
     return [self defaultIconForURL:URL withSize:size];
@@ -155,7 +155,7 @@ static WebIconDatabaseClient* defaultClient()
         return nil;
     ASSERT_MAIN_THREAD();
 
-    return iconDatabase().iconURLForPageURL(URL);
+    return iconDatabase().synchronousIconURLForPageURL(URL);
 }
 
 - (NSImage *)defaultIconWithSize:(NSSize)size
@@ -258,7 +258,7 @@ static WebIconDatabaseClient* defaultClient()
 
 + (void)_checkIntegrityBeforeOpening
 {
-    iconDatabase().checkIntegrityBeforeOpening();
+    IconDatabase::checkIntegrityBeforeOpening();
 }
 
 @end
@@ -296,14 +296,14 @@ static WebIconDatabaseClient* defaultClient()
     NSString *legacyDB = [databaseDirectory stringByAppendingPathComponent:@"icon.db"];
     NSFileManager *defaultManager = [NSFileManager defaultManager];
     if ([defaultManager fileExistsAtPath:legacyDB isDirectory:&isDirectory] && !isDirectory) {
-        NSString *newDB = [databaseDirectory stringByAppendingPathComponent:iconDatabase().defaultDatabaseFilename()];
+        NSString *newDB = [databaseDirectory stringByAppendingPathComponent:IconDatabase::defaultDatabaseFilename()];
         if (![defaultManager fileExistsAtPath:newDB])
             rename([legacyDB fileSystemRepresentation], [newDB fileSystemRepresentation]);
     }
     
     // Set the private browsing pref then open the WebCore icon database
     iconDatabase().setPrivateBrowsingEnabled([[WebPreferences standardPreferences] privateBrowsingEnabled]);
-    if (!iconDatabase().open(databaseDirectory))
+    if (!iconDatabase().open(databaseDirectory, IconDatabase::defaultDatabaseFilename()))
         LOG_ERROR("Unable to open icon database");
     
     // Register for important notifications
@@ -656,7 +656,7 @@ bool importToWebCoreFormat()
     NSFileManager *fileManager = [NSFileManager defaultManager];
     enumerator = [[fileManager contentsOfDirectoryAtPath:databaseDirectory error:NULL] objectEnumerator];
 
-    NSString *databaseFilename = iconDatabase().defaultDatabaseFilename();
+    NSString *databaseFilename = IconDatabase::defaultDatabaseFilename();
 
     BOOL foundIconDB = NO;
     NSString *file;

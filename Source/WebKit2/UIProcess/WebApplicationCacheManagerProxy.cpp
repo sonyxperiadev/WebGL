@@ -52,6 +52,11 @@ void WebApplicationCacheManagerProxy::invalidate()
     invalidateCallbackMap(m_arrayCallbacks);
 }
 
+bool WebApplicationCacheManagerProxy::shouldTerminate(WebProcessProxy*) const
+{
+    return m_arrayCallbacks.isEmpty();
+}
+
 void WebApplicationCacheManagerProxy::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
 {
     didReceiveWebApplicationCacheManagerProxyMessage(connection, messageID, arguments);
@@ -60,10 +65,7 @@ void WebApplicationCacheManagerProxy::didReceiveMessage(CoreIPC::Connection* con
 void WebApplicationCacheManagerProxy::getApplicationCacheOrigins(PassRefPtr<ArrayCallback> prpCallback)
 {
     RefPtr<ArrayCallback> callback = prpCallback;
-    if (!m_webContext->hasValidProcess()) {
-        callback->invalidate();
-        return;
-    }
+    m_webContext->relaunchProcessIfNecessary();
     
     uint64_t callbackID = callback->callbackID();
     m_arrayCallbacks.set(callbackID, callback.release());
@@ -78,8 +80,7 @@ void WebApplicationCacheManagerProxy::didGetApplicationCacheOrigins(const Vector
 
 void WebApplicationCacheManagerProxy::deleteEntriesForOrigin(WebSecurityOrigin* origin)
 {
-    if (!m_webContext->hasValidProcess())
-        return;
+    m_webContext->relaunchProcessIfNecessary();
     
     SecurityOriginData securityOriginData;
     securityOriginData.protocol = origin->protocol();
@@ -91,8 +92,7 @@ void WebApplicationCacheManagerProxy::deleteEntriesForOrigin(WebSecurityOrigin* 
 
 void WebApplicationCacheManagerProxy::deleteAllEntries()
 {
-    if (!m_webContext->hasValidProcess())
-        return;
+    m_webContext->relaunchProcessIfNecessary();
     m_webContext->process()->send(Messages::WebApplicationCacheManager::DeleteAllEntries(), 0);
 }
 

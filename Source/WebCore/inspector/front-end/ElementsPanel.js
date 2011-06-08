@@ -35,6 +35,10 @@ WebInspector.ElementsPanel = function()
     this.contentElement = document.createElement("div");
     this.contentElement.id = "elements-content";
     this.contentElement.className = "outline-disclosure source-code";
+    if (!WebInspector.settings.domWordWrap)
+        this.contentElement.classList.add("nowrap");
+
+    this.element.addEventListener("contextmenu", this._contextMenuEventFired.bind(this), true);
 
     this.treeOutline = new WebInspector.ElementsTreeOutline();
     this.treeOutline.panel = this;
@@ -57,7 +61,7 @@ WebInspector.ElementsPanel = function()
         this.panel.updateEventListeners();
 
         if (this._focusedDOMNode) {
-            DOMAgent.addInspectedNode(this._focusedDOMNode.id);
+            ConsoleAgent.addInspectedNode(this._focusedDOMNode.id);
             WebInspector.extensionServer.notifyObjectSelected(this.panel.name);
         }
     };
@@ -109,7 +113,14 @@ WebInspector.ElementsPanel = function()
 
     this._registerShortcuts();
 
-    this.reset();
+    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.NodeInserted, this._nodeInserted, this);
+    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.NodeRemoved, this._nodeRemoved, this);
+    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.AttrModified, this._attributesUpdated, this);
+    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.CharacterDataModified, this._characterDataModified, this);
+    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.DocumentUpdated, this._documentUpdated, this);
+    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.ChildNodeCountUpdated, this._childNodeCountUpdated, this);
+
+    this.recentlyModifiedNodes = [];
 }
 
 WebInspector.ElementsPanel.prototype = {
@@ -160,7 +171,7 @@ WebInspector.ElementsPanel.prototype = {
         this.updateBreadcrumbSizes();
     },
 
-    reset: function()
+    _reset: function()
     {
         if (this.focusedDOMNode)
             this._selectedPathOnReset = this.focusedDOMNode.path();
@@ -175,18 +186,21 @@ WebInspector.ElementsPanel.prototype = {
         delete this.currentQuery;
     },
 
-    setDocument: function(inspectedRootDocument)
+    _documentUpdated: function(event)
     {
-        this.reset();
+        this._setDocument(event.data);
+    },
+
+    _setDocument: function(inspectedRootDocument)
+    {
+        this._reset();
         this.searchCanceled();
 
         if (!inspectedRootDocument)
             return;
 
-        inspectedRootDocument.addEventListener("DOMNodeInserted", this._nodeInserted.bind(this));
-        inspectedRootDocument.addEventListener("DOMNodeRemoved", this._nodeRemoved.bind(this));
-        inspectedRootDocument.addEventListener("DOMAttrModified", this._attributesUpdated.bind(this));
-        inspectedRootDocument.addEventListener("DOMCharacterDataModified", this._characterDataModified.bind(this));
+        WebInspector.breakpointManager.restoreDOMBreakpoints();
+
 
         this.rootDOMNode = inspectedRootDocument;
 
@@ -229,7 +243,7 @@ WebInspector.ElementsPanel.prototype = {
 
         delete this._currentSearchResultIndex;
         this._searchResults = [];
-        DOMAgent.searchCanceled();
+        WebInspector.domAgent.cancelSearch();
     },
 
     performSearch: function(query)
@@ -245,7 +259,34 @@ WebInspector.ElementsPanel.prototype = {
         this._matchesCountUpdateTimeout = null;
         this._searchQuery = query;
 
-        DOMAgent.performSearch(whitespaceTrimmedQuery, false);
+        WebInspector.domAgent.performSearch(whitespaceTrimmedQuery, this._addNodesToSearchResult.bind(this));
+    },
+
+    _contextMenuEventFired: function(event)
+    {
+        function isTextWrapped()
+        {
+            return !this.contentElement.hasStyleClass("nowrap");
+        }
+
+        function toggleWordWrap()
+        {
+            this.contentElement.classList.toggle("nowrap");
+            WebInspector.settings.domWordWrap = !this.contentElement.classList.contains("nowrap");
+
+            var treeElement = this.treeOutline.findTreeElement(this.focusedDOMNode);
+            if (treeElement)
+                treeElement.updateSelection(); // Recalculate selection highlight dimensions.
+        }
+
+        var contextMenu = new WebInspector.ContextMenu();
+
+        var populated = this.treeOutline.populateContextMenu(contextMenu, event);
+        if (populated)
+            contextMenu.appendSeparator();
+        contextMenu.appendCheckboxItem(WebInspector.UIString("Word Wrap"), toggleWordWrap.bind(this), isTextWrapped.call(this));
+
+        contextMenu.show(event);
     },
 
     populateHrefContextMenu: function(contextMenu, event, anchorElement)
@@ -289,7 +330,7 @@ WebInspector.ElementsPanel.prototype = {
         this._matchesCountUpdateTimeout = setTimeout(this._updateMatchesCount.bind(this), 500);
     },
 
-    addNodesToSearchResult: function(nodeIds)
+    _addNodesToSearchResult: function(nodeIds)
     {
         if (!nodeIds.length)
             return;
@@ -379,33 +420,40 @@ WebInspector.ElementsPanel.prototype = {
 
     _attributesUpdated: function(event)
     {
-        this.recentlyModifiedNodes.push({node: event.target, updated: true});
+        this.recentlyModifiedNodes.push({node: event.data, updated: true});
         if (this.visible)
             this._updateModifiedNodesSoon();
 
-        if (!this.sidebarPanes.styles.isModifyingStyle && event.target === this.focusedDOMNode)
+        if (!this.sidebarPanes.styles.isModifyingStyle && event.data === this.focusedDOMNode)
             this._styleSheetChanged();
     },
 
     _characterDataModified: function(event)
     {
-        this.recentlyModifiedNodes.push({node: event.target, updated: true});
+        this.recentlyModifiedNodes.push({node: event.data, updated: true});
         if (this.visible)
             this._updateModifiedNodesSoon();
     },
 
     _nodeInserted: function(event)
     {
-        this.recentlyModifiedNodes.push({node: event.target, parent: event.relatedNode, inserted: true});
+        this.recentlyModifiedNodes.push({node: event.data, parent: event.data.parentNode, inserted: true});
         if (this.visible)
             this._updateModifiedNodesSoon();
     },
 
     _nodeRemoved: function(event)
     {
-        this.recentlyModifiedNodes.push({node: event.target, parent: event.relatedNode, removed: true});
+        this.recentlyModifiedNodes.push({node: event.data.node, parent: event.data.parent, removed: true});
         if (this.visible)
             this._updateModifiedNodesSoon();
+    },
+
+    _childNodeCountUpdated: function(event)
+    {
+        var treeElement = this.treeOutline.findTreeElement(event.data);
+        if (treeElement)
+            treeElement.hasChildren = event.data.hasChildNodes();
     },
 
     _updateModifiedNodesSoon: function()
@@ -426,7 +474,6 @@ WebInspector.ElementsPanel.prototype = {
         var updateBreadcrumbs = false;
 
         for (var i = 0; i < this.recentlyModifiedNodes.length; ++i) {
-            var replaced = this.recentlyModifiedNodes[i].replaced;
             var parent = this.recentlyModifiedNodes[i].parent;
             var node = this.recentlyModifiedNodes[i].node;
 
@@ -442,7 +489,7 @@ WebInspector.ElementsPanel.prototype = {
 
             var parentNodeItem = this.treeOutline.findTreeElement(parent);
             if (parentNodeItem && !parentNodeItem.alreadyUpdatedChildren) {
-                parentNodeItem.updateChildren(replaced);
+                parentNodeItem.updateChildren();
                 parentNodeItem.alreadyUpdatedChildren = true;
                 updatedParentTreeElements.push(parentNodeItem);
             }
@@ -577,7 +624,7 @@ WebInspector.ElementsPanel.prototype = {
 
         foundRoot = false;
         for (var current = this.focusedDOMNode; current; current = current.parentNode) {
-            if (current.nodeType === Node.DOCUMENT_NODE)
+            if (current.nodeType() === Node.DOCUMENT_NODE)
                 continue;
 
             if (current === this.rootDOMNode)
@@ -589,7 +636,7 @@ WebInspector.ElementsPanel.prototype = {
             crumb.addEventListener("mousedown", selectCrumbFunction, false);
 
             var crumbTitle;
-            switch (current.nodeType) {
+            switch (current.nodeType()) {
                 case Node.ELEMENT_NODE:
                     this.decorateNodeLabel(current, crumb);
                     break;
@@ -610,7 +657,7 @@ WebInspector.ElementsPanel.prototype = {
                     break;
 
                 default:
-                    crumbTitle = this.treeOutline.nodeNameToCorrectCase(current.nodeName);
+                    crumbTitle = this.treeOutline.nodeNameToCorrectCase(current.nodeName());
             }
 
             if (!crumb.childNodes.length) {
@@ -638,7 +685,7 @@ WebInspector.ElementsPanel.prototype = {
 
     decorateNodeLabel: function(node, parentElement)
     {
-        var title = this.treeOutline.nodeNameToCorrectCase(node.nodeName);
+        var title = this.treeOutline.nodeNameToCorrectCase(node.nodeName());
 
         var nameElement = document.createElement("span");
         nameElement.textContent = title;
@@ -1033,7 +1080,7 @@ WebInspector.ElementsPanel.prototype = {
             return;
         event.clipboardData.clearData();
         event.preventDefault();
-        DOMAgent.copyNode(this.focusedDOMNode.id);
+        this.focusedDOMNode.copyNode();
     },
 
     rightSidebarResizerDragStart: function(event)
@@ -1073,14 +1120,15 @@ WebInspector.ElementsPanel.prototype = {
         this._nodeSearchButton.toggled = false;
     },
 
-    _setSearchingForNode: function(enabled)
+    _setSearchingForNode: function(error, enabled)
     {
-        this._nodeSearchButton.toggled = enabled;
+        if (!error)
+            this._nodeSearchButton.toggled = enabled;
     },
 
     setSearchingForNode: function(enabled)
     {
-        InspectorAgent.setSearchingForNode(enabled, this._setSearchingForNode.bind(this));
+        DOMAgent.setSearchingForNode(enabled, this._setSearchingForNode.bind(this));
     },
 
     toggleSearchingForNode: function()

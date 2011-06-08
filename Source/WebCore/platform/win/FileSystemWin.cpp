@@ -31,9 +31,11 @@
 #include "FileSystem.h"
 
 #include "NotImplemented.h"
+#include "PathWalker.h"
 #include "PlatformString.h"
 #include <wtf/HashMap.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 
 #include <windows.h>
 #include <winbase.h>
@@ -184,18 +186,18 @@ static String cachedStorageDirectory(DWORD pathIdentifier)
     return directory;
 }
 
-CString openTemporaryFile(const char*, PlatformFileHandle& handle)
+String openTemporaryFile(const String&, PlatformFileHandle& handle)
 {
     handle = INVALID_HANDLE_VALUE;
 
     char tempPath[MAX_PATH];
     int tempPathLength = ::GetTempPathA(WTF_ARRAY_LENGTH(tempPath), tempPath);
     if (tempPathLength <= 0 || tempPathLength > WTF_ARRAY_LENGTH(tempPath))
-        return CString();
+        return String();
 
     HCRYPTPROV hCryptProv = 0;
     if (!CryptAcquireContext(&hCryptProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
-        return CString();
+        return String();
 
     char proposedPath[MAX_PATH];
     while (1) {
@@ -226,9 +228,28 @@ CString openTemporaryFile(const char*, PlatformFileHandle& handle)
     CryptReleaseContext(hCryptProv, 0);
 
     if (!isHandleValid(handle))
-        return CString();
+        return String();
 
-    return proposedPath;
+    return String::fromUTF8(proposedPath);
+}
+
+PlatformFileHandle openFile(const String& path, FileOpenMode mode)
+{
+    DWORD desiredAccess = 0;
+    DWORD creationDisposition = 0;
+    switch (mode) {
+    case OpenForRead:
+        desiredAccess = GENERIC_READ;
+        creationDisposition = OPEN_EXISTING;
+    case OpenForWrite:
+        desiredAccess = GENERIC_WRITE;
+        creationDisposition = CREATE_ALWAYS;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+
+    String destination = path;
+    return CreateFile(destination.charactersWithNullTermination(), desiredAccess, 0, 0, creationDisposition, FILE_ATTRIBUTE_NORMAL, 0);
 }
 
 void closeFile(PlatformFileHandle& handle)
@@ -297,10 +318,21 @@ bool safeCreateFile(const String& path, CFDataRef data)
     return true;
 }
 
-Vector<String> listDirectory(const String& path, const String& filter)
+Vector<String> listDirectory(const String& directory, const String& filter)
 {
     Vector<String> entries;
-    notImplemented();
+
+    PathWalker walker(directory, filter);
+    if (!walker.isValid())
+        return entries;
+
+    do {
+        if (walker.data().dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            continue;
+
+        entries.append(makeString(directory, "\\", reinterpret_cast<const UChar*>(walker.data().cFileName)));
+    } while (walker.step());
+
     return entries;
 }
 

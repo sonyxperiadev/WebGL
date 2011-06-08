@@ -156,9 +156,6 @@ private:
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     bool m_blockNetworkImage : 1;
 #endif
-    
-    // FIME: For debugging, remove.
-    unsigned m_isInMethod;
 };
 
 }

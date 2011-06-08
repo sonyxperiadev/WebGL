@@ -45,8 +45,8 @@ WebInspector.HeapSnapshotContainmentDataGrid.prototype = {
     {
         this.snapshotView = snapshotView;
         this.snapshot = snapshot;
-        this.snapshotNodeIndex = this.snapshot._rootNodeIndex;
-        this._provider = this._createProvider(snapshot, snapshot.rootNode.rawEdges);
+        this.snapshotNodeIndex = this.snapshot.rootNodeIndex;
+        this._provider = this._createProvider(snapshot, this.snapshotNodeIndex);
         this.sort();
     }
 };
@@ -227,7 +227,7 @@ WebInspector.HeapSnapshotDominatorsDataGrid.prototype = {
     {
         this.snapshotView = snapshotView;
         this.snapshot = snapshot;
-        this.snapshotNodeIndex = this.snapshot._rootNodeIndex;
+        this.snapshotNodeIndex = this.snapshot.rootNodeIndex;
         this._provider = this._createProvider(snapshot, this.snapshotNodeIndex);
         this.sort();
     }
@@ -263,11 +263,21 @@ WebInspector.HeapSnapshotRetainingPathsList.prototype = {
             this.searchCancelled();
 
         this.pathFinder = new WebInspector.HeapSnapshotPathFinder(snapshot, nodeIndex);
+        this._setRootChildrenForFinder();
 
         this.removeChildren();
 
         this._counter = 0;
-        this.showNext(10);
+        this.showNext(100);
+    },
+
+    refresh: function()
+    {
+        this.removeChildren();
+        this._counter = 0;
+        delete this._cancel;
+        this._setRootChildrenForFinder();
+        this.showNext(100);
     },
 
     showNext: function(pathsCount)
@@ -283,7 +293,7 @@ WebInspector.HeapSnapshotRetainingPathsList.prototype = {
                     if (result === null) {
                         WebInspector.PleaseWaitMessage.prototype.hide();
                         if (!this.children.length)
-                            this.appendChild(new WebInspector.DataGridNode({path:WebInspector.UIString("This object is either only accessible via hidden properties, or current path search depth isn't enough."), len:""}, false));
+                            this.appendChild(new WebInspector.DataGridNode({path:WebInspector.UIString("Can't find any paths."), len:""}, false));
                         return;
                     } else if (result !== false) {
                         if (this._prefix)
@@ -309,6 +319,19 @@ WebInspector.HeapSnapshotRetainingPathsList.prototype = {
             this.appendChild(new WebInspector.ShowMoreDataGridNode(this.showNext.bind(this), pathsCount));
             this.sortingChanged();
         }
+    },
+
+    _setRootChildrenForFinder: function()
+    {
+        function FilterDOMWindow(node)
+        {
+            return node.name === "DOMWindow";
+        }
+
+        if (this.snapshotView.isTracingToWindowObjects)
+            this.pathFinder.updateRoots(FilterDOMWindow);
+        else
+            this.pathFinder.updateRoots();
     },
 
     _performSorting: function(sortFunction)
@@ -341,7 +364,6 @@ WebInspector.DetailedHeapshotView = function(parent, profile)
     this.containmentView.element.addStyleClass("view");
     this.containmentDataGrid = new WebInspector.HeapSnapshotContainmentDataGrid();
     this.containmentDataGrid.element.addEventListener("click", this._mouseClickInContainmentGrid.bind(this), true);
-    this.containmentDataGrid.element.addEventListener("dblclick", this._dblClickInContainmentGrid.bind(this), true);
     this.containmentView.element.appendChild(this.containmentDataGrid.element);
     this.element.appendChild(this.containmentView.element);
 
@@ -349,7 +371,6 @@ WebInspector.DetailedHeapshotView = function(parent, profile)
     this.constructorsView.element.addStyleClass("view");
     this.constructorsDataGrid = new WebInspector.HeapSnapshotConstructorsDataGrid();
     this.constructorsDataGrid.element.addEventListener("click", this._mouseClickInContainmentGrid.bind(this), true);
-    this.constructorsDataGrid.element.addEventListener("dblclick", this._dblClickInContainmentGrid.bind(this), true);
     this.constructorsView.element.appendChild(this.constructorsDataGrid.element);
     this.element.appendChild(this.constructorsView.element);
 
@@ -357,7 +378,6 @@ WebInspector.DetailedHeapshotView = function(parent, profile)
     this.diffView.element.addStyleClass("view");
     this.diffDataGrid = new WebInspector.HeapSnapshotDiffDataGrid();
     this.diffDataGrid.element.addEventListener("click", this._mouseClickInContainmentGrid.bind(this), true);
-    this.diffDataGrid.element.addEventListener("dblclick", this._dblClickInContainmentGrid.bind(this), true);
     this.diffView.element.appendChild(this.diffDataGrid.element);
     this.element.appendChild(this.diffView.element);
 
@@ -365,17 +385,27 @@ WebInspector.DetailedHeapshotView = function(parent, profile)
     this.dominatorView.element.addStyleClass("view");
     this.dominatorDataGrid = new WebInspector.HeapSnapshotDominatorsDataGrid();
     this.dominatorDataGrid.element.addEventListener("click", this._mouseClickInContainmentGrid.bind(this), true);
-    this.dominatorDataGrid.element.addEventListener("dblclick", this._dblClickInContainmentGrid.bind(this), true);
     this.dominatorView.element.appendChild(this.dominatorDataGrid.element);
     this.element.appendChild(this.dominatorView.element);
 
     var retainmentView = new WebInspector.View();
-    retainmentView.element.addStyleClass("view retaining-paths-view");
+    retainmentView.element.addStyleClass("view");
+    retainmentView.element.addStyleClass("retaining-paths-view");
     var retainingPathsTitleDiv = document.createElement("div");
     retainingPathsTitleDiv.className = "title";
     var retainingPathsTitle = document.createElement("span");
-    retainingPathsTitle.textContent = WebInspector.UIString("Retaining paths of the selected object");
+    retainingPathsTitle.textContent = WebInspector.UIString("Paths from the selected object");
+    this.retainingPathsRoot = document.createElement("select");
+    this.retainingPathsRoot.className = "status-bar-item";
+    this.retainingPathsRoot.addEventListener("change", this._changeRetainingPathsRoot.bind(this), false);
+    var toGCRootsTraceOption = document.createElement("option");
+    toGCRootsTraceOption.label = WebInspector.UIString("to GC roots");
+    var toWindowObjectsTraceOption = document.createElement("option");
+    toWindowObjectsTraceOption.label = WebInspector.UIString("to window objects");
+    this.retainingPathsRoot.appendChild(toGCRootsTraceOption);
+    this.retainingPathsRoot.appendChild(toWindowObjectsTraceOption);
     retainingPathsTitleDiv.appendChild(retainingPathsTitle);
+    retainingPathsTitleDiv.appendChild(this.retainingPathsRoot);
     retainmentView.element.appendChild(retainingPathsTitleDiv);
     this.retainmentDataGrid = new WebInspector.HeapSnapshotRetainingPathsList();
     retainmentView.element.appendChild(this.retainmentDataGrid.element);
@@ -415,6 +445,8 @@ WebInspector.DetailedHeapshotView = function(parent, profile)
     this.percentButton.addEventListener("click", this._percentClicked.bind(this), false);
     this.helpButton = new WebInspector.StatusBarButton("", "heapshot-help-status-bar-item status-bar-item");
     this.helpButton.addEventListener("click", this._helpClicked.bind(this), false);
+
+    var popoverHelper = new WebInspector.PopoverHelper(this.element, this._getHoverAnchor.bind(this), this._showStringContentPopup.bind(this));
 
     this._loadProfile(this._profileUid, profileCallback.bind(this));
 
@@ -714,24 +746,10 @@ WebInspector.DetailedHeapshotView.prototype = {
         profile.sideBarElement.subtitle = Number.bytesToString(s.totalSize);
     },
 
-    _dblClickInContainmentGrid: function(event)
-    {
-        var cell = event.target.enclosingNodeOrSelfWithNodeName("td");
-        if (!cell || (!cell.hasStyleClass("retainedSize-column")))
-            return;
-        var nodeItem = event.target.enclosingNodeOrSelfWithNodeName("tr")._dataGridNode;
-        ProfilerAgent.getExactHeapSnapshotNodeRetainedSize(this._profileUid, nodeItem.snapshotNodeId, setExactRetainedSize);
-
-        function setExactRetainedSize(exactSize) {
-            if (exactSize && exactSize != -1)
-                nodeItem.exactRetainedSize = exactSize;
-        }
-    },
-
     _mouseClickInContainmentGrid: function(event)
     {
         var cell = event.target.enclosingNodeOrSelfWithNodeName("td");
-        if (!cell || !(cell.hasStyleClass("object-column") ||  cell.hasStyleClass("shallowSize-column")))
+        if (!cell || (!cell.hasStyleClass("object-column") && !cell.hasStyleClass("shallowSize-column") && !cell.hasStyleClass("retainedSize-column")))
             return;
         var row = event.target.enclosingNodeOrSelfWithNodeName("tr");
         if (!row)
@@ -794,6 +812,33 @@ WebInspector.DetailedHeapshotView.prototype = {
         this.performSearch(this.currentQuery, this._searchFinishedCallback);
     },
 
+    _changeRetainingPathsRoot: function(event)
+    {
+        if (!event)
+            return;
+        this.retainmentDataGrid.refresh();
+    },
+
+    _getHoverAnchor: function(target)
+    {
+        var span = target.enclosingNodeOrSelfWithNodeName("span");
+        if (!span || !span.hasStyleClass("console-formatted-string"))
+            return;
+        var row = target.enclosingNodeOrSelfWithNodeName("tr");
+        if (!row)
+            return;
+        var gridNode = row._dataGridNode;
+        if (!gridNode.snapshotNodeIndex)
+            return;
+        span.snapshotNodeIndex = gridNode.snapshotNodeIndex;
+        return span;
+    },
+
+    get isTracingToWindowObjects()
+    {
+        return this.retainingPathsRoot.selectedIndex === 1;
+    },
+
     get _isShowingAsPercent()
     {
         return this.showCountAsPercent && this.showShallowSizeAsPercent && this.showRetainedSizeAsPercent;
@@ -806,6 +851,18 @@ WebInspector.DetailedHeapshotView.prototype = {
         this.showShallowSizeAsPercent = !currentState;
         this.showRetainedSizeAsPercent = !currentState;
         this.refreshShowAsPercents();
+    },
+
+    _showStringContentPopup: function(span)
+    {
+        var snapshotNode = new WebInspector.HeapSnapshotNode(this.profileWrapper, span.snapshotNodeIndex);
+        var stringContentElement = document.createElement("span");
+        stringContentElement.className = "monospace console-formatted-string";
+        stringContentElement.style.whiteSpace = "pre";
+        stringContentElement.textContent = "\"" + snapshotNode.name + "\"";
+        var popover = new WebInspector.Popover(stringContentElement);
+        popover.show(span);
+        return popover;
     },
 
     _helpClicked: function(event)

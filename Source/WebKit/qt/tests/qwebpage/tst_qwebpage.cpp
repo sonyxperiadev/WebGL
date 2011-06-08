@@ -126,6 +126,11 @@ private slots:
     void screenshot_data();
     void screenshot();
 
+#if defined(ENABLE_WEBGL) && ENABLE_WEBGL
+    void acceleratedWebGLScreenshotWithoutView();
+    void unacceleratedWebGLScreenshotWithoutView();
+#endif
+
     void originatingObjectInNetworkRequests();
     void testJSPrompt();
     void showModalDialog();
@@ -135,6 +140,7 @@ private slots:
     void infiniteLoopJS();
     void navigatorCookieEnabled();
     void deleteQWebViewTwice();
+    void renderOnRepaintRequestedShouldNotRecurse();
 
 #ifdef Q_OS_MAC
     void macCopyUnicodeToClipboard();
@@ -2117,6 +2123,28 @@ void tst_QWebPage::inputMethods()
     clickOnPage(page, inputElement.geometry().center());
 
     QVERIFY(!viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
+
+    // START - Newline test for textarea
+    qApp->processEvents();
+    page->mainFrame()->setHtml("<html><body>" \
+                                            "<textarea rows='5' cols='1' id='input5' value=''/>" \
+                                            "</body></html>");
+    page->mainFrame()->evaluateJavaScript("var inputEle = document.getElementById('input5'); inputEle.focus(); inputEle.select();");
+    QKeyEvent keyEnter(QEvent::KeyPress, Qt::Key_Enter, Qt::NoModifier);
+    page->event(&keyEnter);
+    QList<QInputMethodEvent::Attribute> attribs;
+
+    QInputMethodEvent eventText("\n", attribs);
+    page->event(&eventText);
+
+    QInputMethodEvent eventText2("third line", attribs);
+    page->event(&eventText2);
+    qApp->processEvents();
+
+    QString inputValue2 = page->mainFrame()->evaluateJavaScript("document.getElementById('input5').value").toString();
+    QCOMPARE(inputValue2, QString("\n\nthird line"));
+    // END - Newline test for textarea
+
     delete container;
 }
 
@@ -2473,6 +2501,33 @@ void tst_QWebPage::screenshot()
     QDir::setCurrent(QApplication::applicationDirPath());
 }
 
+#if defined(ENABLE_WEBGL) && ENABLE_WEBGL
+// https://bugs.webkit.org/show_bug.cgi?id=54138
+static void webGLScreenshotWithoutView(bool accelerated)
+{
+    QWebPage page;
+    page.settings()->setAttribute(QWebSettings::WebGLEnabled, true);
+    page.settings()->setAttribute(QWebSettings::AcceleratedCompositingEnabled, accelerated);
+    QWebFrame* mainFrame = page.mainFrame();
+    mainFrame->setHtml("<html><body>"
+                       "<canvas id='webgl' width='300' height='300'></canvas>"
+                       "<script>document.getElementById('webgl').getContext('experimental-webgl')</script>"
+                       "</body></html>");
+
+    takeScreenshot(&page);
+}
+
+void tst_QWebPage::acceleratedWebGLScreenshotWithoutView()
+{
+    webGLScreenshotWithoutView(true);
+}
+
+void tst_QWebPage::unacceleratedWebGLScreenshotWithoutView()
+{
+    webGLScreenshotWithoutView(false);
+}
+#endif
+
 void tst_QWebPage::originatingObjectInNetworkRequests()
 {
     TestNetworkManager* networkManager = new TestNetworkManager(m_page);
@@ -2764,6 +2819,55 @@ void tst_QWebPage::deleteQWebViewTwice()
         connect(webView, SIGNAL(loadFinished(bool)), &mainWindow, SLOT(close()));
         QApplication::instance()->exec();
     }
+}
+
+class RepaintRequestedRenderer : public QObject {
+    Q_OBJECT
+public:
+    RepaintRequestedRenderer(QWebPage* page, QPainter* painter)
+        : m_page(page)
+        , m_painter(painter)
+        , m_recursionCount(0)
+    {
+        connect(m_page, SIGNAL(repaintRequested(QRect)), this, SLOT(onRepaintRequested(QRect)));
+    }
+
+signals:
+    void finished();
+
+private slots:
+    void onRepaintRequested(const QRect& rect)
+    {
+        QCOMPARE(m_recursionCount, 0);
+
+        m_recursionCount++;
+        m_page->mainFrame()->render(m_painter, rect);
+        m_recursionCount--;
+
+        QMetaObject::invokeMethod(this, "finished", Qt::QueuedConnection);
+    }
+
+private:
+    QWebPage* m_page;
+    QPainter* m_painter;
+    int m_recursionCount;
+};
+
+void tst_QWebPage::renderOnRepaintRequestedShouldNotRecurse()
+{
+    QSize viewportSize(720, 576);
+    QWebPage page;
+
+    QImage image(viewportSize, QImage::Format_ARGB32);
+    QPainter painter(&image);
+
+    page.setPreferredContentsSize(viewportSize);
+    page.setViewportSize(viewportSize);
+    RepaintRequestedRenderer r(&page, &painter);
+
+    page.mainFrame()->setHtml("zalan loves trunk", QUrl());
+
+    QVERIFY(::waitForSignal(&r, SIGNAL(finished())));
 }
 
 QTEST_MAIN(tst_QWebPage)

@@ -576,7 +576,9 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     // send it along with the page started notification.
     jobject favicon = NULL;
     if (isMainFrame) {
-        WebCore::Image* icon = WebCore::iconDatabase().iconForPageURL(urlString, WebCore::IntSize(16, 16));
+        // FIXME: This method should not be used from outside WebCore and will be removed.
+        // http://trac.webkit.org/changeset/81484
+        WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(urlString, WebCore::IntSize(16, 16));
         if (icon)
             favicon = webcoreImageToJavaBitmap(env, icon);
         LOGV("favicons", "Starting load with icon %p for %s", icon, url.string().utf8().data());

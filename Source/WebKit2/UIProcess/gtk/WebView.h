@@ -85,6 +85,7 @@ private:
     virtual void processDidCrash();
     virtual void didRelaunchProcess();
     virtual void pageClosed();
+    virtual void setFocus(bool focused);
     virtual void takeFocus(bool direction);
     virtual void toolTipChanged(const WTF::String&, const WTF::String&);
     virtual void setCursor(const WebCore::Cursor&);
@@ -93,6 +94,7 @@ private:
     virtual void clearAllEditCommands();
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
+    virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&);
     virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled);
     virtual void didNotHandleKeyEvent(const NativeWebKeyboardEvent&);
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*);
@@ -100,6 +102,7 @@ private:
     virtual void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut);
     virtual void didChangeScrollbarsForMainFrame() const;
     virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
+    virtual float userSpaceScaleFactor() const { return 1; }
 
 #if USE(ACCELERATED_COMPOSITING)
     virtual void pageDidEnterAcceleratedCompositing();

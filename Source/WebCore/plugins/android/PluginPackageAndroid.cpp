@@ -378,8 +378,7 @@ unsigned PluginPackage::hash() const
         m_mimeToExtensions.size(),
     };
 
-    return StringImpl::computeHash(reinterpret_cast<const UChar*>(hashCodes),
-                                   sizeof(hashCodes) / sizeof(UChar));
+    return StringHasher::computeHash(reinterpret_cast<const UChar*>(hashCodes), sizeof(hashCodes) / sizeof(UChar));
 }
 
 bool PluginPackage::equal(const PluginPackage& a, const PluginPackage& b)

@@ -30,6 +30,7 @@
 #include "SecurityOriginData.h"
 #include "WebApplicationCacheManagerProxyMessages.h"
 #include "WebProcess.h"
+#include <WebCore/ApplicationCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginHash.h>
@@ -78,6 +79,7 @@ void WebApplicationCacheManager::getApplicationCacheOrigins(uint64_t callbackID)
     }
 
     WebProcess::shared().connection()->send(Messages::WebApplicationCacheManagerProxy::DidGetApplicationCacheOrigins(identifiers, callbackID), 0);
+    WebProcess::shared().terminateIfPossible();
 }
 
 void WebApplicationCacheManager::deleteEntriesForOrigin(const SecurityOriginData& originData)
@@ -87,8 +89,9 @@ void WebApplicationCacheManager::deleteEntriesForOrigin(const SecurityOriginData
     if (!origin)
         return;
     
-    cacheStorage().deleteEntriesForOrigin(origin.get());
+    ApplicationCache::deleteCacheForOrigin(origin.get());
 #endif
+    WebProcess::shared().terminateIfPossible();
 }
 
 void WebApplicationCacheManager::deleteAllEntries()
@@ -96,6 +99,7 @@ void WebApplicationCacheManager::deleteAllEntries()
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     cacheStorage().deleteAllEntries();
 #endif
+    WebProcess::shared().terminateIfPossible();
 }
 
 } // namespace WebKit

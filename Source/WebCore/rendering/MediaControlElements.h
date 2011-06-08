@@ -142,16 +142,16 @@ public:
     virtual PassRefPtr<RenderStyle> styleForElement();
     void setVisible(bool);
     bool isVisible() { return m_isVisible; }
-    void setPosition(int x, int y);
     bool hitTest(const IntPoint& absPoint);
 
 private:
     MediaControlVolumeSliderContainerElement(HTMLMediaElement*);
+
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual MediaControlElementType displayType() const;
     virtual const AtomicString& shadowPseudoId() const;
 
     bool m_isVisible;
-    int m_x, m_y;
 };
 
 // ----------------------------
@@ -372,9 +372,10 @@ public:
     virtual void defaultEventHandler(Event*);
     void update();
 
-private:
+protected:
     MediaControlVolumeSliderElement(HTMLMediaElement*);
 
+private:
     virtual const AtomicString& shadowPseudoId() const;
 };
 
@@ -394,10 +395,48 @@ private:
 
 // ----------------------------
 
+class MediaControlFullscreenVolumeSliderElement : public MediaControlVolumeSliderElement {
+public:
+    static PassRefPtr<MediaControlFullscreenVolumeSliderElement> create(HTMLMediaElement*);
+    
+private:
+    MediaControlFullscreenVolumeSliderElement(HTMLMediaElement*);
+    
+    virtual const AtomicString& shadowPseudoId() const;
+};
+
+// ----------------------------
+
+class MediaControlFullscreenVolumeMinButtonElement : public MediaControlInputElement {
+public:
+    static PassRefPtr<MediaControlFullscreenVolumeMinButtonElement> create(HTMLMediaElement*);
+    
+    virtual void defaultEventHandler(Event*);
+    
+private:
+    MediaControlFullscreenVolumeMinButtonElement(HTMLMediaElement*);
+    
+    virtual const AtomicString& shadowPseudoId() const;
+};
+
+// ----------------------------
+
+class MediaControlFullscreenVolumeMaxButtonElement : public MediaControlInputElement {
+public:
+    static PassRefPtr<MediaControlFullscreenVolumeMaxButtonElement> create(HTMLMediaElement*);
+    
+    virtual void defaultEventHandler(Event*);
+    
+private:
+    MediaControlFullscreenVolumeMaxButtonElement(HTMLMediaElement*);
+    
+    virtual const AtomicString& shadowPseudoId() const;
+};
+
+// ----------------------------
+
 class MediaControlTimeDisplayElement : public MediaControlElement {
 public:
-    void setVisible(bool);
-
     void setCurrentValue(float);
     float currentValue() const { return m_currentValue; }
 
@@ -405,9 +444,9 @@ protected:
     MediaControlTimeDisplayElement(HTMLMediaElement*);
 
 private:
-    virtual PassRefPtr<RenderStyle> styleForElement();
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+
     float m_currentValue;
-    bool m_isVisible;
 };
 
 // ----------------------------

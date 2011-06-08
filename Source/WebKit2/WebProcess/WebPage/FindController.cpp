@@ -153,6 +153,10 @@ bool FindController::updateFindIndicator(Frame* selectedFrame, bool isShowingOve
         return false;
 
     IntRect selectionRect = enclosingIntRect(selectedFrame->selection()->bounds());
+    
+    // Selection rect can be empty for matches that are currently obscured from view.
+    if (selectionRect.isEmpty())
+        return false;
 
     // We want the selection rect in window coordinates.
     IntRect selectionRectInWindowCoordinates = selectedFrame->view()->contentsToWindow(selectionRect);
@@ -161,7 +165,7 @@ bool FindController::updateFindIndicator(Frame* selectedFrame, bool isShowingOve
     selectedFrame->selection()->getClippedVisibleTextRectangles(textRects);
 
     // Create a backing store and paint the find indicator text into it.
-    RefPtr<ShareableBitmap> findIndicatorTextBackingStore = ShareableBitmap::createShareable(selectionRect.size());
+    RefPtr<ShareableBitmap> findIndicatorTextBackingStore = ShareableBitmap::createShareable(selectionRect.size(), ShareableBitmap::SupportsAlpha);
     if (!findIndicatorTextBackingStore)
         return false;
     
@@ -178,7 +182,7 @@ bool FindController::updateFindIndicator(Frame* selectedFrame, bool isShowingOve
     selectedFrame->view()->paint(graphicsContext.get(), paintRect);
     selectedFrame->view()->setPaintBehavior(PaintBehaviorNormal);
     
-    SharedMemory::Handle handle;
+    ShareableBitmap::Handle handle;
     if (!findIndicatorTextBackingStore->createHandle(handle))
         return false;
 
@@ -203,7 +207,7 @@ void FindController::hideFindIndicator()
     if (!m_isShowingFindIndicator)
         return;
 
-    SharedMemory::Handle handle;
+    ShareableBitmap::Handle handle;
     m_webPage->send(Messages::WebPageProxy::SetFindIndicator(FloatRect(), Vector<FloatRect>(), handle, false));
     m_isShowingFindIndicator = false;
 }

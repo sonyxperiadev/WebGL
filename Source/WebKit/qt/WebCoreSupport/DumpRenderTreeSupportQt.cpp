@@ -531,7 +531,7 @@ QString DumpRenderTreeSupportQt::markerTextForListItem(const QWebElement& listIt
 
 static QString convertToPropertyName(const QString& name)
 {
-    QStringList parts = name.split('-');
+    QStringList parts = name.split(QLatin1Char('-'));
     QString camelCaseName;
     for (int j = 0; j < parts.count(); ++j) {
         QString part = parts.at(j);
@@ -626,11 +626,11 @@ void DumpRenderTreeSupportQt::setEditingBehavior(QWebPage* page, const QString& 
 {
     WebCore::EditingBehaviorType coreEditingBehavior;
 
-    if (editingBehavior == "win")
+    if (editingBehavior == QLatin1String("win"))
         coreEditingBehavior = EditingWindowsBehavior;
-    else if (editingBehavior == "mac")
+    else if (editingBehavior == QLatin1String("mac"))
         coreEditingBehavior = EditingMacBehavior;
-    else if (editingBehavior == "unix")
+    else if (editingBehavior == QLatin1String("unix"))
         coreEditingBehavior = EditingUnixBehavior;
     else {
         ASSERT_NOT_REACHED();
@@ -742,12 +742,13 @@ QString DumpRenderTreeSupportQt::viewportAsText(QWebPage* page, int deviceDPI, c
         availableSize);
 
     QString res;
-    res = res.sprintf("viewport size %dx%d scale %f with limits [%f, %f]\n",
+    res = res.sprintf("viewport size %dx%d scale %f with limits [%f, %f] and userScalable %f\n",
             conf.layoutSize.width(),
             conf.layoutSize.height(),
             conf.initialScale,
             conf.minimumScale,
-            conf.maximumScale);
+            conf.maximumScale,
+            conf.userScalable);
 
     return res;
 }
@@ -922,10 +923,10 @@ void DumpRenderTreeSupportQt::simulateDesktopNotificationClick(const QString& ti
 QString DumpRenderTreeSupportQt::plainText(const QVariant& range)
 {
     QMap<QString, QVariant> map = range.toMap();
-    QVariant startContainer  = map.value("startContainer");
+    QVariant startContainer  = map.value(QLatin1String("startContainer"));
     map = startContainer.toMap();
 
-    return map.value("innerText").toString();
+    return map.value(QLatin1String("innerText")).toString();
 }
 
 QVariantList DumpRenderTreeSupportQt::nodesFromRect(const QWebElement& document, int x, int y, unsigned top, unsigned right, unsigned bottom, unsigned left, bool ignoreClipping)
@@ -949,6 +950,7 @@ QVariantList DumpRenderTreeSupportQt::nodesFromRect(const QWebElement& document,
     return res;
 }
 
+// API Candidate?
 QString DumpRenderTreeSupportQt::responseMimeType(QWebFrame* frame)
 {
     WebCore::Frame* coreFrame = QWebFramePrivate::core(frame);
@@ -1036,6 +1038,18 @@ QUrl DumpRenderTreeSupportQt::mediaContentUrlByElementId(QWebFrame* frame, const
 #endif
 
     return res;
+}
+
+// API Candidate?
+void DumpRenderTreeSupportQt::setAlternateHtml(QWebFrame* frame, const QString& html, const QUrl& baseUrl, const QUrl& failingUrl)
+{
+    KURL kurl(baseUrl);
+    WebCore::Frame* coreFrame = QWebFramePrivate::core(frame);
+    WebCore::ResourceRequest request(kurl);
+    const QByteArray utf8 = html.toUtf8();
+    WTF::RefPtr<WebCore::SharedBuffer> data = WebCore::SharedBuffer::create(utf8.constData(), utf8.length());
+    WebCore::SubstituteData substituteData(data, WTF::String("text/html"), WTF::String("utf-8"), failingUrl);
+    coreFrame->loader()->load(request, substituteData, false);
 }
 
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release

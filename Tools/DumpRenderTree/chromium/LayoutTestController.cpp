@@ -73,6 +73,7 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     : m_shell(shell)
     , m_closeRemainingWindows(false)
     , m_deferMainResourceDataLoad(false)
+    , m_showDebugLayerTree(false)
     , m_workQueue(this)
 {
 
@@ -108,13 +109,14 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("evaluateScriptInIsolatedWorld", &LayoutTestController::evaluateScriptInIsolatedWorld);
     bindMethod("execCommand", &LayoutTestController::execCommand);
     bindMethod("grantDesktopNotificationPermission", &LayoutTestController::grantDesktopNotificationPermission);
+    bindMethod("hasSpellingMarker", &LayoutTestController::hasSpellingMarker);
     bindMethod("isCommandEnabled", &LayoutTestController::isCommandEnabled);
     bindMethod("layerTreeAsText", &LayoutTestController::layerTreeAsText);
     bindMethod("markerTextForListItem", &LayoutTestController::markerTextForListItem);
-    bindMethod("hasSpellingMarker", &LayoutTestController::hasSpellingMarker);
     bindMethod("notifyDone", &LayoutTestController::notifyDone);
     bindMethod("numberOfActiveAnimations", &LayoutTestController::numberOfActiveAnimations);
     bindMethod("numberOfPages", &LayoutTestController::numberOfPages);
+    bindMethod("numberOfPendingGeolocationPermissionRequests", &LayoutTestController:: numberOfPendingGeolocationPermissionRequests);
     bindMethod("objCIdentityIsEqual", &LayoutTestController::objCIdentityIsEqual);
     bindMethod("overridePreference", &LayoutTestController::overridePreference);
     bindMethod("pageNumberForElementById", &LayoutTestController::pageNumberForElementById);
@@ -137,6 +139,7 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("setAllowUniversalAccessFromFileURLs", &LayoutTestController::setAllowUniversalAccessFromFileURLs);
     bindMethod("setAlwaysAcceptCookies", &LayoutTestController::setAlwaysAcceptCookies);
     bindMethod("setAuthorAndUserStylesEnabled", &LayoutTestController::setAuthorAndUserStylesEnabled);
+    bindMethod("setAutofilled", &LayoutTestController::setAutofilled);
     bindMethod("setCanOpenWindows", &LayoutTestController::setCanOpenWindows);
     bindMethod("setCloseRemainingWindowsWhenComplete", &LayoutTestController::setCloseRemainingWindowsWhenComplete);
     bindMethod("setCustomPolicyDelegate", &LayoutTestController::setCustomPolicyDelegate);
@@ -152,6 +155,7 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("setMockGeolocationError", &LayoutTestController::setMockGeolocationError);
     bindMethod("setMockGeolocationPosition", &LayoutTestController::setMockGeolocationPosition);
     bindMethod("addMockSpeechInputResult", &LayoutTestController::addMockSpeechInputResult);
+    bindMethod("setPluginsEnabled", &LayoutTestController::setPluginsEnabled);
     bindMethod("setPopupBlockingEnabled", &LayoutTestController::setPopupBlockingEnabled);
     bindMethod("setPOSIXLocale", &LayoutTestController::setPOSIXLocale);
     bindMethod("setScrollbarPolicy", &LayoutTestController::setScrollbarPolicy);
@@ -162,12 +166,14 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("setTimelineProfilingEnabled", &LayoutTestController::setTimelineProfilingEnabled);
     bindMethod("setUserStyleSheetEnabled", &LayoutTestController::setUserStyleSheetEnabled);
     bindMethod("setUserStyleSheetLocation", &LayoutTestController::setUserStyleSheetLocation);
+    bindMethod("setValueForUser", &LayoutTestController::setValueForUser);
     bindMethod("setWillSendRequestClearHeader", &LayoutTestController::setWillSendRequestClearHeader);
     bindMethod("setWillSendRequestReturnsNull", &LayoutTestController::setWillSendRequestReturnsNull);
     bindMethod("setWillSendRequestReturnsNullOnRedirect", &LayoutTestController::setWillSendRequestReturnsNullOnRedirect);
     bindMethod("setWindowIsKey", &LayoutTestController::setWindowIsKey);
     bindMethod("setXSSAuditorEnabled", &LayoutTestController::setXSSAuditorEnabled);
     bindMethod("setAsynchronousSpellCheckingEnabled", &LayoutTestController::setAsynchronousSpellCheckingEnabled);
+    bindMethod("shadowRoot", &LayoutTestController::shadowRoot);
     bindMethod("showWebInspector", &LayoutTestController::showWebInspector);
     bindMethod("simulateDesktopNotificationClick", &LayoutTestController::simulateDesktopNotificationClick);
     bindMethod("suspendAnimations", &LayoutTestController::suspendAnimations);
@@ -182,6 +188,7 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("addDisallowedURL", &LayoutTestController::addDisallowedURL);
     bindMethod("callShouldCloseOnWebView", &LayoutTestController::callShouldCloseOnWebView);
     bindMethod("clearAllApplicationCaches", &LayoutTestController::clearAllApplicationCaches);
+    bindMethod("clearApplicationCacheForOrigin", &LayoutTestController::clearApplicationCacheForOrigin);
     bindMethod("clearBackForwardList", &LayoutTestController::clearBackForwardList);
     bindMethod("dumpAsWebArchive", &LayoutTestController::dumpAsWebArchive);
     bindMethod("keepWebHistory", &LayoutTestController::keepWebHistory);
@@ -192,7 +199,12 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("setPrivateBrowsingEnabled", &LayoutTestController::setPrivateBrowsingEnabled);
     bindMethod("setUseDashboardCompatibilityMode", &LayoutTestController::setUseDashboardCompatibilityMode);
     bindMethod("storeWebScriptObject", &LayoutTestController::storeWebScriptObject);
-
+    bindMethod("deleteAllLocalStorage", &LayoutTestController::deleteAllLocalStorage);
+    bindMethod("originsWithLocalStorage", &LayoutTestController::originsWithLocalStorage);
+    bindMethod("deleteLocalStorageForOrigin", &LayoutTestController::deleteLocalStorageForOrigin);
+    bindMethod("observeStorageTrackerNotifications", &LayoutTestController::observeStorageTrackerNotifications);
+    bindMethod("syncLocalStorage", &LayoutTestController::syncLocalStorage);
+    
     // The fallback method is called when an unknown method is invoked.
     bindFallbackMethod(&LayoutTestController::fallbackMethod);
 
@@ -636,6 +648,28 @@ void LayoutTestController::setAsynchronousSpellCheckingEnabled(const CppArgument
     result->setNull();
 }
 
+void LayoutTestController::shadowRoot(const CppArgumentList& arguments, CppVariant* result)
+{
+    if (arguments.size() != 1 || !arguments[0].isObject()) {
+        result->setNull();
+        return;
+    }
+
+    WebElement element;
+    if (!WebBindings::getElement(arguments[0].value.objectValue, &element)) {
+        result->setNull();
+        return;
+    }
+
+    WebNode shadowRoot = element.shadowRoot();
+    if (shadowRoot.isNull()) {
+        result->setNull();
+        return;
+    }
+
+    result->set(WebBindings::makeNode(shadowRoot));
+}
+
 void LayoutTestController::showWebInspector(const CppArgumentList&, CppVariant* result)
 {
     m_shell->showDevTools();
@@ -731,13 +765,25 @@ void LayoutTestController::setUseDashboardCompatibilityMode(const CppArgumentLis
 
 void LayoutTestController::clearAllApplicationCaches(const CppArgumentList&, CppVariant* result)
 {
-    // FIXME: implement to support Application Cache Quotas.
+    // FIXME: Implement to support application cache quotas.
+    result->setNull();
+}
+
+void LayoutTestController::clearApplicationCacheForOrigin(const CppArgumentList&, CppVariant* result)
+{
+    // FIXME: Implement to support deleting all application cache for an origin.
     result->setNull();
 }
 
 void LayoutTestController::setApplicationCacheOriginQuota(const CppArgumentList&, CppVariant* result)
 {
-    // FIXME: implement to support Application Cache Quotas.
+    // FIXME: Implement to support application cache quotas.
+    result->setNull();
+}
+
+void LayoutTestController::originsWithApplicationCache(const CppArgumentList&, CppVariant* result)
+{
+    // FIXME: Implement to support getting origins that have application caches.
     result->setNull();
 }
 
@@ -1452,6 +1498,16 @@ void LayoutTestController::numberOfPages(const CppArgumentList& arguments, CppVa
     result->set(numberOfPages);
 }
 
+void LayoutTestController::numberOfPendingGeolocationPermissionRequests(const CppArgumentList& arguments, CppVariant* result)
+{
+    result->setNull();
+    Vector<WebViewHost*> windowList = m_shell->windowList();
+    int numberOfRequests = 0;
+    for (size_t i = 0; i < windowList.size(); i++)
+        numberOfRequests += windowList[i]->geolocationClientMock()->numberOfPendingPermissionRequests();
+    result->set(numberOfRequests);
+}
+
 void LayoutTestController::logErrorToConsole(const std::string& text)
 {
     m_shell->webViewHost()->didAddMessageToConsole(
@@ -1576,7 +1632,7 @@ void LayoutTestController::addMockSpeechInputResult(const CppArgumentList& argum
 
 void LayoutTestController::layerTreeAsText(const CppArgumentList& args, CppVariant* result)
 {
-    result->set(m_shell->webView()->mainFrame()->layerTreeAsText().utf8());
+    result->set(m_shell->webView()->mainFrame()->layerTreeAsText(m_showDebugLayerTree).utf8());
 }
 
 void LayoutTestController::markerTextForListItem(const CppArgumentList& args, CppVariant* result)
@@ -1601,4 +1657,72 @@ void LayoutTestController::setMinimumTimerInterval(const CppArgumentList& argume
     if (arguments.size() < 1 || !arguments[0].isNumber())
         return;
     m_shell->webView()->settings()->setMinimumTimerInterval(arguments[0].toDouble());
+}
+
+void LayoutTestController::setAutofilled(const CppArgumentList& arguments, CppVariant* result)
+{
+    result->setNull();
+    if (arguments.size() != 2 || !arguments[1].isBool())
+        return;
+
+    WebElement element;
+    if (!WebBindings::getElement(arguments[0].value.objectValue, &element))
+        return;
+
+    WebInputElement* input = toWebInputElement(&element);
+    if (!input)
+        return;
+
+    input->setAutofilled(arguments[1].value.boolValue);
+}
+
+void LayoutTestController::setValueForUser(const CppArgumentList& arguments, CppVariant* result)
+{
+    result->setNull();
+    if (arguments.size() != 2)
+        return;
+
+    WebElement element;
+    if (!WebBindings::getElement(arguments[0].value.objectValue, &element))
+        return;
+
+    WebInputElement* input = toWebInputElement(&element);
+    if (!input)
+        return;
+
+    input->setValue(cppVariantToWebString(arguments[1]), true);
+}
+
+void LayoutTestController::deleteAllLocalStorage(const CppArgumentList& arguments, CppVariant*)
+{
+    // Not Implemented
+}
+
+void LayoutTestController::originsWithLocalStorage(const CppArgumentList& arguments, CppVariant*)
+{
+    // Not Implemented
+}
+
+void LayoutTestController::deleteLocalStorageForOrigin(const CppArgumentList& arguments, CppVariant*)
+{
+    // Not Implemented
+}
+
+void LayoutTestController::observeStorageTrackerNotifications(const CppArgumentList&, CppVariant*)
+{
+    // Not Implemented
+}
+
+void LayoutTestController::syncLocalStorage(const CppArgumentList&, CppVariant*)
+{
+    // Not Implemented
+}
+
+void LayoutTestController::setPluginsEnabled(const CppArgumentList& arguments, CppVariant* result)
+{
+    if (arguments.size() > 0 && arguments[0].isBool()) {
+        m_shell->preferences()->pluginsEnabled = arguments[0].toBoolean();
+        m_shell->applyPreferences();
+    }
+    result->setNull();
 }

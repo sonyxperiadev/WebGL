@@ -63,6 +63,9 @@ public:
 
     WEBKIT_API static void enableApplicationCache(bool);
     WEBKIT_API static bool isApplicationCacheEnabled();
+    
+    WEBKIT_API static void enableDataTransferItems(bool);
+    WEBKIT_API static bool isDataTransferItemsEnabled();
 
     WEBKIT_API static void enableGeolocation(bool);
     WEBKIT_API static bool isGeolocationEnabled();
@@ -72,9 +75,6 @@ public:
 
     WEBKIT_API static void enableWebAudio(bool);
     WEBKIT_API static bool isWebAudioEnabled();
-
-    WEBKIT_API static void enableWebGL(bool);
-    WEBKIT_API static bool isWebGLEnabled();
 
     WEBKIT_API static void enablePushState(bool);
     WEBKIT_API static bool isPushStateEnabled(bool);

@@ -320,7 +320,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Release_LTCG|Win32"
+			Name="Production|Win32"
 			ConfigurationType="1"
 			InheritedPropertySheets="..\Configurations\TestWebKitAPIRelease.vsprops"
 			CharacterSet="1"
@@ -412,6 +412,18 @@
 				Name="WebKit2"
 				>
 				<File
+					RelativePath="..\Tests\WebKit2\AboutBlankLoad.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Tests\WebKit2\CanHandleRequest.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Tests\WebKit2\CookieManager.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\Tests\WebKit2\DocumentStartUserScriptAlertCrash.cpp"
 					>
 				</File>
@@ -448,11 +460,11 @@
 					>
 				</File>
 				<File
-					RelativePath="..\Tests\WebKit2\icon.png"
+					RelativePath="..\Tests\WebKit2\HitTestResultNodeHandle.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\Tests\WebKit2\HitTestResultNodeHandle.cpp"
+					RelativePath="..\Tests\WebKit2\icon.png"
 					>
 				</File>
 				<File
@@ -477,6 +489,10 @@
 				</File>
 				<File
 					RelativePath="..\Tests\WebKit2\RestoreSessionStateContainingFormData.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Tests\WebKit2\SendingMessagesToTheWebProcessBeforeItIsValid.cpp"
 					>
 				</File>
 				<File
@@ -517,6 +533,26 @@
 					<File
 						RelativePath="..\Tests\WebKit2\win\AltKeyGeneratesWMSysCommand.cpp"
 						>
+					</File>
+					<File
+						RelativePath="..\Tests\WebKit2\win\DoNotCopyANullCFURLResponse.cpp"
+						>
+						<FileConfiguration
+							Name="Debug_Cairo_CFLite|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo_CFLite|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
 					</File>
 					<File
 						RelativePath="..\Tests\WebKit2\win\HideFindIndicator.cpp"

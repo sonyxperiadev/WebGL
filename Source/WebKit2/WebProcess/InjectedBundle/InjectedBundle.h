@@ -59,6 +59,7 @@ typedef void* PlatformBundle;
 
 class ImmutableArray;
 class InjectedBundleScriptWorld;
+class WebCertificateInfo;
 class WebPage;
 class WebPageGroupProxy;
 
@@ -79,12 +80,17 @@ public:
     void initializeClient(WKBundleClient*);
     void postMessage(const String&, APIObject*);
     void postSynchronousMessage(const String&, APIObject*, RefPtr<APIObject>& returnData);
+#if PLATFORM(WIN)
+    void setHostAllowsAnyHTTPSCertificate(const String&);
+    void setClientCertificate(const String&, const WebCertificateInfo*);
+#endif
 
     // TestRunner only SPI
     void setShouldTrackVisitedLinks(bool);
     void removeAllVisitedLinks();
     void activateMacFontAscentHack();
     void overrideXSSAuditorEnabledForTestRunner(WebPageGroupProxy* pageGroup, bool enabled);
+    void overrideAllowUniversalAccessFromFileURLsForTestRunner(WebPageGroupProxy*, bool);
 
     // UserContent API
     void addUserScript(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& source, const String& url, ImmutableArray* whitelist, ImmutableArray* blacklist, WebCore::UserScriptInjectionTime, WebCore::UserContentInjectedFrames);

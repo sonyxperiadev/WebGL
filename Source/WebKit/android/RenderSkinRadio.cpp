@@ -88,7 +88,7 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
     canvas->scale(scale, scale);
 
     bool checked = false;
-    if (InputElement* inputElement = toInputElement(static_cast<Element*>(element))) {
+    if (InputElement* inputElement = element->toInputElement()) {
         checked = inputElement->isChecked();
     }
 

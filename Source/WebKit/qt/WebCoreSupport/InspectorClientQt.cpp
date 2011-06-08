@@ -140,7 +140,7 @@ public:
         QVariant valueToStore = settingToVariant(value);
         QString settingKey(settingStoragePrefix + QString(name));
         qsettings.setValue(settingKey, valueToStore);
-        qsettings.setValue(settingKey + settingStorageTypeSuffix, QVariant::typeToName(valueToStore.type()));
+        qsettings.setValue(settingKey + settingStorageTypeSuffix, QLatin1String(QVariant::typeToName(valueToStore.type())));
 #endif // QT_NO_SETTINGS
     }
 
@@ -174,22 +174,6 @@ private:
 
 }
 
-#if USE(V8)
-static void ensureDebuggerScriptLoaded()
-{
-    static bool scriptLoaded = false;
-    if (scriptLoaded)
-        return;
-
-    QFile debuggerScriptFile(":/webkit/inspector/DebuggerScript.js");
-    if (debuggerScriptFile.open(QIODevice::ReadOnly)) {
-        QByteArray ba = debuggerScriptFile.readAll();
-        ScriptDebugServer::shared().setDebuggerScriptSource(String(ba.constData(), ba.length()));
-        scriptLoaded = true;
-    }
-}
-#endif
-
 InspectorClientQt::InspectorClientQt(QWebPage* page)
     : m_inspectedWebPage(page)
     , m_frontendWebPage(0)
@@ -218,10 +202,6 @@ void InspectorClientQt::inspectorDestroyed()
 void InspectorClientQt::openInspectorFrontend(WebCore::InspectorController* inspectorController)
 {
 #if ENABLE(INSPECTOR)
-#if USE(V8)
-    ensureDebuggerScriptLoaded();
-#endif
-
     QWebView* inspectorView = new QWebView;
     InspectorClientWebPage* inspectorPage = new InspectorClientWebPage(inspectorView);
     inspectorView->setPage(inspectorPage);
@@ -240,7 +220,7 @@ void InspectorClientQt::openInspectorFrontend(WebCore::InspectorController* insp
     inspectorUrl = inspector->property("_q_inspectorUrl").toUrl();
 #endif
     if (!inspectorUrl.isValid())
-        inspectorUrl = QUrl("qrc:/webkit/inspector/inspector.html");
+        inspectorUrl = QUrl(QLatin1String("qrc:/webkit/inspector/inspector.html"));
 
 #ifndef QT_NO_PROPERTIES
     QVariant inspectorJavaScriptWindowObjects = inspector->property("_q_inspectorJavaScriptWindowObjects");

@@ -112,6 +112,9 @@ private:
     virtual int visibleHeight() const;
     virtual int visibleWidth() const;
     virtual IntPoint currentMousePosition() const;
+    virtual bool shouldSuspendScrollAnimations() const;
+
+    virtual void disconnectFromPage() { m_page = 0; }
 
     // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
     void scrollTo(int newOffset);
@@ -138,6 +141,8 @@ private:
     int m_indexOffset;
 
     RefPtr<Scrollbar> m_vBar;
+
+    Page* m_page;
 };
 
 inline RenderListBox* toRenderListBox(RenderObject* object)

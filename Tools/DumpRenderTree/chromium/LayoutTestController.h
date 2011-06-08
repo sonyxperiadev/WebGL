@@ -270,6 +270,7 @@ public:
     void setAllowUniversalAccessFromFileURLs(const CppArgumentList&, CppVariant*);
     void setAllowFileAccessFromFileURLs(const CppArgumentList&, CppVariant*);
 
+    void shadowRoot(const CppArgumentList&, CppVariant*);
 
     // The fallback method is called when a nonexistent method is called on
     // the layout test controller object.
@@ -282,9 +283,13 @@ public:
     void addOriginAccessWhitelistEntry(const CppArgumentList&, CppVariant*);
     void removeOriginAccessWhitelistEntry(const CppArgumentList&, CppVariant*);
 
-    // Clears all Application Caches.
+    // Clears all application caches.
     void clearAllApplicationCaches(const CppArgumentList&, CppVariant*);
-    // Sets the Application Quota for the localhost origin.
+    // Clears an application cache for an origin.
+    void clearApplicationCacheForOrigin(const CppArgumentList&, CppVariant*);
+    // Returns origins that have application caches.
+    void originsWithApplicationCache(const CppArgumentList&, CppVariant*);
+    // Sets the application cache quota for the localhost origin.
     void setApplicationCacheOriginQuota(const CppArgumentList&, CppVariant*);
 
     // Clears all databases.
@@ -305,6 +310,8 @@ public:
     // Gets the number of pages to be printed.
     void numberOfPages(const CppArgumentList&, CppVariant*);
 
+    // Gets the number of geolocation permissions requests pending.
+    void numberOfPendingGeolocationPermissionRequests(const CppArgumentList&, CppVariant*);
 
     // Allows layout tests to start Timeline profiling.
     void setTimelineProfilingEnabled(const CppArgumentList&, CppVariant*);
@@ -337,6 +344,24 @@ public:
 
     void setMinimumTimerInterval(const CppArgumentList&, CppVariant*);
 
+    // Expects the first argument to be an input element and the second argument to be a boolean.
+    // Forwards the setAutofilled() call to the element.
+    void setAutofilled(const CppArgumentList&, CppVariant*);
+
+    // Expects the first argument to be an input element and the second argument to be a string value.
+    // Forwards the setValueForUser() call to the element.
+    void setValueForUser(const CppArgumentList&, CppVariant*);
+
+    // LocalStorage origin-related
+    void deleteAllLocalStorage(const CppArgumentList&, CppVariant*);
+    void originsWithLocalStorage(const CppArgumentList&, CppVariant*);
+    void deleteLocalStorageForOrigin(const CppArgumentList&, CppVariant*);
+    void observeStorageTrackerNotifications(const CppArgumentList&, CppVariant*);
+    void syncLocalStorage(const CppArgumentList&, CppVariant*);
+
+    // Enable or disable plugins.
+    void setPluginsEnabled(const CppArgumentList&, CppVariant*);
+
 public:
     // The following methods are not exposed to JavaScript.
     void setWorkQueueFrozen(bool frozen) { m_workQueue.setFrozen(frozen); }
@@ -365,6 +390,7 @@ public:
     bool shouldAddFileToPasteboard() { return m_shouldAddFileToPasteboard; }
     bool stopProvisionalFrameLoads() { return m_stopProvisionalFrameLoads; }
     bool deferMainResourceDataLoad() { return m_deferMainResourceDataLoad; }
+    void setShowDebugLayerTree(bool value) { m_showDebugLayerTree = value; }
 
     bool testRepaint() const { return m_testRepaint; }
     bool sweepHorizontally() const { return m_sweepHorizontally; }
@@ -537,6 +563,9 @@ private:
 
     // If false, all new requests will not defer the main resource data load.
     bool m_deferMainResourceDataLoad;
+
+    // If true, we will show extended information in the graphics layer tree.
+    bool m_showDebugLayerTree;
 
     WorkQueue m_workQueue;
 

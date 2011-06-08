@@ -119,7 +119,7 @@ public:
         QByteArray byteArray;
         QBuffer buffer(&byteArray);
         instance->toImage().save(&buffer, "PNG");
-        const QString encodedString = QString("data:image/png;base64,") + byteArray.toBase64();
+        const QString encodedString = QLatin1String("data:image/png;base64,") + QLatin1String(byteArray.toBase64());
         const UString ustring((UChar*)encodedString.utf16(), encodedString.length());
         return jsString(exec, ustring);
     }
@@ -150,9 +150,9 @@ public:
 
     static const ClassInfo s_info;
 
-    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount, &s_info);
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount, &s_info);
     }
 
 protected:
@@ -239,7 +239,7 @@ JSValue QtPixmapInstance::defaultValue(ExecState* exec, PreferredPrimitiveType p
 
 JSValue QtPixmapInstance::valueOf(ExecState* exec) const
 {
-    const QString stringValue = QString("[Qt Native Pixmap %1,%2]").arg(width()).arg(height());
+    const QString stringValue = QString::fromLatin1("[Qt Native Pixmap %1,%2]").arg(width()).arg(height());
     UString ustring((UChar*)stringValue.utf16(), stringValue.length());
     return jsString(exec, ustring);
 }

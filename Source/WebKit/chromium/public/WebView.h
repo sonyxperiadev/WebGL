@@ -36,9 +36,6 @@
 #include "WebVector.h"
 #include "WebWidget.h"
 
-// FIXME(jam): take out once Chromium rolls past this revision
-#define WEBKIT_HAS_WEB_AUTO_FILL_CLIENT
-
 namespace WebKit {
 
 class WebAccessibilityObject;
@@ -51,6 +48,7 @@ class WebFrameClient;
 class WebGraphicsContext3D;
 class WebNode;
 class WebSettings;
+class WebSpellCheckClient;
 class WebString;
 class WebViewClient;
 struct WebMediaPlayerAction;
@@ -86,15 +84,18 @@ public:
     // Creates a WebView that is NOT yet initialized.  You will need to
     // call initializeMainFrame to finish the initialization.  It is valid
     // to pass null client pointers.
-    WEBKIT_API static WebView* create(WebViewClient*,
-                                      WebDevToolsAgentClient*,
-                                      WebAutoFillClient*);
+    WEBKIT_API static WebView* create(WebViewClient*);
 
     // After creating a WebView, you should immediately call this method.
     // You can optionally modify the settings before calling this method.
     // The WebFrameClient will receive events for the main frame and any
     // child frames.  It is valid to pass a null WebFrameClient pointer.
     virtual void initializeMainFrame(WebFrameClient*) = 0;
+
+    // Initializes the various client interfaces.
+    virtual void setDevToolsAgentClient(WebDevToolsAgentClient*) = 0;
+    virtual void setAutoFillClient(WebAutoFillClient*) = 0;
+    virtual void setSpellCheckClient(WebSpellCheckClient*) = 0;
 
 
     // Options -------------------------------------------------------------
@@ -229,7 +230,11 @@ public:
     // Callback methods when a drag-and-drop operation is trying to drop
     // something on the WebView.
     virtual WebDragOperation dragTargetDragEnter(
-        const WebDragData&, int identity,
+        const WebDragData&, int identity, // FIXME: remove identity from this function signature.
+        const WebPoint& clientPoint, const WebPoint& screenPoint,
+        WebDragOperationsMask operationsAllowed) = 0;
+    virtual WebDragOperation dragTargetDragEnter(
+        const WebDragData&,
         const WebPoint& clientPoint, const WebPoint& screenPoint,
         WebDragOperationsMask operationsAllowed) = 0;
     virtual WebDragOperation dragTargetDragOver(
@@ -238,13 +243,6 @@ public:
     virtual void dragTargetDragLeave() = 0;
     virtual void dragTargetDrop(
         const WebPoint& clientPoint, const WebPoint& screenPoint) = 0;
-
-    virtual int dragIdentity() = 0;
-
-    // Helper method for drag and drop target operations: override the
-    // default drop effect with either a "copy" (accept true) or "none"
-    // (accept false) effect.  Return true on success.
-    virtual bool setDropEffect(bool accept) = 0;
 
 
     // Support for resource loading initiated by plugins -------------------

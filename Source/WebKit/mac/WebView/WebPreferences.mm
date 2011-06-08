@@ -136,6 +136,22 @@ static WebCacheModel cacheModelForMainBundle(void)
     return cacheModel;
 }
 
+static bool useQuickLookQuirks(void)
+{
+    NSArray* frameworks = [NSBundle allFrameworks];
+                           
+    if (!frameworks)
+        return false;
+
+    for (unsigned int i = 0; i < [frameworks count]; i++) {
+        NSBundle* bundle = [frameworks objectAtIndex: i];
+        const char* bundleID = [[bundle bundleIdentifier] UTF8String];
+        if (bundleID && !strcasecmp(bundleID, "com.apple.QuickLookUIFramework"))
+            return true;
+    }
+    return false;
+}
+
 @interface WebPreferencesPrivate : NSObject
 {
 @public
@@ -359,6 +375,7 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitXSSAuditorEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAcceleratedCompositingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],  WebKitAcceleratedDrawingEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitCanvasUsesAcceleratedDrawingPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShowDebugBordersPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShowRepaintCounterPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitWebGLEnabledPreferenceKey,
@@ -367,11 +384,12 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:NO],   WebKitFrameFlatteningEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitSpatialNavigationEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],  WebKitDNSPrefetchingEnabledPreferenceKey,
-        [NSNumber numberWithBool:NO],   WebKitFullScreenEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitFullScreenEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitAsynchronousSpellCheckingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitMemoryInfoEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitHyperlinkAuditingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitUsePreHTML5ParserQuirksKey,
+        [NSNumber numberWithBool:useQuickLookQuirks()], WebKitUseQuickLookResourceCachingQuirksPreferenceKey,
         [NSNumber numberWithLongLong:WebCore::ApplicationCacheStorage::noQuota()], WebKitApplicationCacheTotalQuota,
         [NSNumber numberWithLongLong:WebCore::ApplicationCacheStorage::noQuota()], WebKitApplicationCacheDefaultOriginQuota,
         nil];
@@ -1245,6 +1263,16 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:enabled forKey:WebKitAcceleratedDrawingEnabledPreferenceKey];
 }
 
+- (BOOL)canvasUsesAcceleratedDrawing
+{
+    return [self _boolValueForKey:WebKitCanvasUsesAcceleratedDrawingPreferenceKey];
+}
+
+- (void)setCanvasUsesAcceleratedDrawing:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitCanvasUsesAcceleratedDrawingPreferenceKey];
+}
+
 - (BOOL)acceleratedCompositingEnabled
 {
     return [self _boolValueForKey:WebKitAcceleratedCompositingEnabledPreferenceKey];
@@ -1383,6 +1411,11 @@ static NSString *classIBCreatorID = nil;
 - (void)setUsePreHTML5ParserQuirks:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitUsePreHTML5ParserQuirksKey];
+}
+
+- (BOOL)useQuickLookResourceCachingQuirks
+{
+    return [self _boolValueForKey:WebKitUseQuickLookResourceCachingQuirksPreferenceKey];
 }
 
 - (void)didRemoveFromWebView

@@ -183,6 +183,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSUint16ArrayCustom.cpp \
 	bindings/js/JSUint32ArrayCustom.cpp \
 	bindings/js/JSUint8ArrayCustom.cpp \
+	bindings/js/JSWebKitAnimationCustom.cpp \
+	bindings/js/JSWebKitAnimationListCustom.cpp \
 	bindings/js/JSWebKitCSSKeyframeRuleCustom.cpp \
 	bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp \
 	bindings/js/JSWebKitCSSMatrixCustom.cpp \
@@ -217,7 +219,7 @@ LOCAL_SRC_FILES += \
 	bridge/c/c_runtime.cpp \
 	bridge/c/c_utility.cpp \
 	bridge/jni/JNIUtility.cpp \
-	bridge/jni/JavaMethod.cpp \
+	bridge/jni/JavaMethodJobject.cpp \
 	bridge/jni/JobjectWrapper.cpp \
 	bridge/jni/jsc/JNIUtilityPrivate.cpp \
 	bridge/jni/jsc/JavaArrayJSC.cpp \

@@ -29,6 +29,7 @@
 #include "CounterContent.h"
 #include "CursorList.h"
 #include "CSSBorderImageValue.h"
+#include "CSSLineBoxContainValue.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPrimitiveValueCache.h"
@@ -204,6 +205,7 @@ static const int computedProperties[] = {
     CSSPropertyWebkitHyphenateLimitAfter,
     CSSPropertyWebkitHyphenateLimitBefore,
     CSSPropertyWebkitHyphens,
+    CSSPropertyWebkitLineBoxContain,
     CSSPropertyWebkitLineBreak,
     CSSPropertyWebkitLineClamp,
     CSSPropertyWebkitLocale,
@@ -232,6 +234,7 @@ static const int computedProperties[] = {
     CSSPropertyWebkitTextEmphasisPosition,
     CSSPropertyWebkitTextEmphasisStyle,
     CSSPropertyWebkitTextFillColor,
+    CSSPropertyWebkitTextOrientation,
     CSSPropertyWebkitTextSecurity,
     CSSPropertyWebkitTextStrokeColor,
     CSSPropertyWebkitTextStrokeWidth,
@@ -586,6 +589,13 @@ static PassRefPtr<CSSValue> getTimingFunctionValue(const AnimationList* animList
     return list.release();
 }
 
+static PassRefPtr<CSSValue> createLineBoxContainValue(CSSPrimitiveValueCache* primitiveValueCache, unsigned lineBoxContain)
+{
+    if (!lineBoxContain)
+        return primitiveValueCache->createIdentifierValue(CSSValueNone);
+    return CSSLineBoxContainValue::create(lineBoxContain);
+}
+
 CSSComputedStyleDeclaration::CSSComputedStyleDeclaration(PassRefPtr<Node> n, bool allowVisitedStyle, const String& pseudoElementName)
     : m_node(n)
     , m_allowVisitedStyle(allowVisitedStyle)
@@ -672,8 +682,8 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::valueForShadow(const ShadowDat
         RefPtr<CSSPrimitiveValue> x = zoomAdjustedPixelValue(s->x(), style, primitiveValueCache);
         RefPtr<CSSPrimitiveValue> y = zoomAdjustedPixelValue(s->y(), style, primitiveValueCache);
         RefPtr<CSSPrimitiveValue> blur = zoomAdjustedPixelValue(s->blur(), style, primitiveValueCache);
-        RefPtr<CSSPrimitiveValue> spread = propertyID == CSSPropertyTextShadow ? 0 : zoomAdjustedPixelValue(s->spread(), style, primitiveValueCache);
-        RefPtr<CSSPrimitiveValue> style = propertyID == CSSPropertyTextShadow || s->style() == Normal ? 0 : primitiveValueCache->createIdentifierValue(CSSValueInset);
+        RefPtr<CSSPrimitiveValue> spread = propertyID == CSSPropertyTextShadow ? PassRefPtr<CSSPrimitiveValue>() : zoomAdjustedPixelValue(s->spread(), style, primitiveValueCache);
+        RefPtr<CSSPrimitiveValue> style = propertyID == CSSPropertyTextShadow || s->style() == Normal ? PassRefPtr<CSSPrimitiveValue>() : primitiveValueCache->createIdentifierValue(CSSValueInset);
         RefPtr<CSSPrimitiveValue> color = primitiveValueCache->createColorValue(s->color().rgb());
         list->prepend(ShadowValue::create(x.release(), y.release(), blur.release(), spread.release(), style.release(), color.release()));
     }
@@ -780,8 +790,11 @@ static PassRefPtr<CSSValue> contentToCSSValue(const RenderStyle* style, CSSPrimi
 
 static PassRefPtr<CSSValue> counterToCSSValue(const RenderStyle* style, int propertyID, CSSPrimitiveValueCache* primitiveValueCache)
 {
-    RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
     const CounterDirectiveMap* map = style->counterDirectives();
+    if (!map)
+        return 0;
+
+    RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
     for (CounterDirectiveMap::const_iterator it = map->begin(); it != map->end(); ++it) {
         list->append(primitiveValueCache->createValue(it->first.get(), CSSPrimitiveValue::CSS_STRING));
         short number = propertyID == CSSPropertyCounterIncrement ? it->second.m_incrementValue : it->second.m_resetValue;
@@ -1687,7 +1700,10 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return primitiveValueCache->createValue(style->writingMode());
         case CSSPropertyWebkitTextCombine:
             return primitiveValueCache->createValue(style->textCombine());
-
+        case CSSPropertyWebkitTextOrientation:
+            return CSSPrimitiveValue::create(style->fontDescription().textOrientation());
+        case CSSPropertyWebkitLineBoxContain:
+            return createLineBoxContainValue(primitiveValueCache, style->lineBoxContain());
         case CSSPropertyContent:
             return contentToCSSValue(style.get(), primitiveValueCache);
         case CSSPropertyCounterIncrement:

@@ -29,10 +29,10 @@
 
 #include "PluginLayerChromium.h"
 
-#include "cc/CCLayerImpl.h"
 #include "GraphicsContext3D.h"
 #include "LayerRendererChromium.h"
-#include <GLES2/gl2.h>
+#include "cc/CCLayerImpl.h"
+#include "cc/CCPluginLayerImpl.h"
 
 namespace WebCore {
 
@@ -43,7 +43,13 @@ PassRefPtr<PluginLayerChromium> PluginLayerChromium::create(GraphicsLayerChromiu
 
 PluginLayerChromium::PluginLayerChromium(GraphicsLayerChromium* owner)
     : LayerChromium(owner)
+    , m_textureId(0)
 {
+}
+
+PassRefPtr<CCLayerImpl> PluginLayerChromium::createCCLayerImpl()
+{
+    return CCPluginLayerImpl::create(this);
 }
 
 void PluginLayerChromium::setTextureId(unsigned id)
@@ -51,32 +57,12 @@ void PluginLayerChromium::setTextureId(unsigned id)
     m_textureId = id;
 }
 
-void PluginLayerChromium::updateContentsIfDirty()
+void PluginLayerChromium::pushPropertiesTo(CCLayerImpl* layer)
 {
-}
+    LayerChromium::pushPropertiesTo(layer);
 
-void PluginLayerChromium::draw()
-{
-    ASSERT(layerRenderer());
-    const PluginLayerChromium::Program* program = layerRenderer()->pluginLayerProgram();
-    ASSERT(program && program->initialized());
-    GraphicsContext3D* context = layerRendererContext();
-    GLC(context, context->activeTexture(GL_TEXTURE0));
-    GLC(context, context->bindTexture(GL_TEXTURE_2D, m_textureId));
-    
-    // FIXME: setting the texture parameters every time is redundant. Move this code somewhere
-    // where it will only happen once per texture.
-    GLC(context, context->texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-    GLC(context, context->texParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-    GLC(context, context->texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-    GLC(context, context->texParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-    
-    layerRenderer()->useShader(program->program());
-    GLC(context, context->uniform1i(program->fragmentShader().samplerLocation(), 0));
-    drawTexturedQuad(context, layerRenderer()->projectionMatrix(), ccLayerImpl()->drawTransform(),
-                     bounds().width(), bounds().height(), ccLayerImpl()->drawOpacity(),
-                     program->vertexShader().matrixLocation(),
-                     program->fragmentShader().alphaLocation());
+    CCPluginLayerImpl* pluginLayer = static_cast<CCPluginLayerImpl*>(layer);
+    pluginLayer->setTextureId(m_textureId);
 }
 
 }

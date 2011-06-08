@@ -58,7 +58,6 @@
 
 namespace WebCore {
 
-static IconDatabase* sharedIconDatabase = 0;
 static int databaseCleanupCounter = 0;
 
 // This version number is in the DB and marks the current generation of the schema
@@ -85,19 +84,20 @@ static String urlForLogging(const String& url)
 }
 #endif
 
+class DefaultIconDatabaseClient : public IconDatabaseClient {
+public:
+    virtual bool performImport() { return true; }
+    virtual void didImportIconURLForPageURL(const String&) { } 
+    virtual void didImportIconDataForPageURL(const String&) { }
+    virtual void didChangeIconForPageURL(const String&) { }
+    virtual void didRemoveAllIcons() { }
+    virtual void didFinishURLImport() { }
+};
+
 static IconDatabaseClient* defaultClient() 
 {
-    static IconDatabaseClient* defaultClient = new IconDatabaseClient();
+    static IconDatabaseClient* defaultClient = new DefaultIconDatabaseClient();
     return defaultClient;
-}
-
-IconDatabase& iconDatabase()
-{
-    if (!sharedIconDatabase) {
-        ScriptController::initializeThreading();
-        sharedIconDatabase = new IconDatabase;
-    }
-    return *sharedIconDatabase;
 }
 
 // ************************
@@ -117,7 +117,7 @@ void IconDatabase::setClient(IconDatabaseClient* client)
     m_client = client;
 }
 
-bool IconDatabase::open(const String& databasePath)
+bool IconDatabase::open(const String& directory, const String& filename)
 {
     ASSERT_NOT_SYNC_THREAD();
 
@@ -129,10 +129,10 @@ bool IconDatabase::open(const String& databasePath)
         return false;
     }
 
-    m_databaseDirectory = databasePath.crossThreadString();
+    m_databaseDirectory = directory.crossThreadString();
 
     // Formulate the full path for the database file
-    m_completeDatabasePath = pathByAppendingComponent(m_databaseDirectory, defaultDatabaseFilename());
+    m_completeDatabasePath = pathByAppendingComponent(m_databaseDirectory, filename);
 
     // Lock here as well as first thing in the thread so the thread doesn't actually commence until the createThread() call 
     // completes and m_syncThreadRunning is properly set
@@ -217,7 +217,7 @@ void IconDatabase::removeAllIcons()
     wakeSyncThread();
 }
 
-Image* IconDatabase::iconForPageURL(const String& pageURLOriginal, const IntSize& size)
+Image* IconDatabase::synchronousIconForPageURL(const String& pageURLOriginal, const IntSize& size)
 {   
     ASSERT_NOT_SYNC_THREAD();
 
@@ -301,10 +301,10 @@ void IconDatabase::readIconForPageURLFromDisk(const String& pageURL)
     // The effect of asking for an Icon for a pageURL automatically queues it to be read from disk
     // if it hasn't already been set in memory.  The special IntSize (0, 0) is a special way of telling 
     // that method "I don't care about the actual Image, i just want you to make sure you're getting it from disk.
-    iconForPageURL(pageURL, IntSize(0,0));
+    synchronousIconForPageURL(pageURL, IntSize(0, 0));
 }
 
-String IconDatabase::iconURLForPageURL(const String& pageURLOriginal)
+String IconDatabase::synchronousIconURLForPageURL(const String& pageURLOriginal)
 {    
     ASSERT_NOT_SYNC_THREAD(); 
         
@@ -565,7 +565,7 @@ void IconDatabase::setIconDataForIconURL(PassRefPtr<SharedBuffer> dataOriginal, 
 
         for (unsigned i = 0; i < pageURLs.size(); ++i) {
             LOG(IconDatabase, "Dispatching notification that retaining pageURL %s has a new icon", urlForLogging(pageURLs[i]).ascii().data());
-            m_client->dispatchDidAddIconForPageURL(pageURLs[i]);
+            m_client->didChangeIconForPageURL(pageURLs[i]);
 
             pool.cycle();
         }
@@ -637,11 +637,11 @@ void IconDatabase::setIconURLForPageURL(const String& iconURLOriginal, const Str
         
         LOG(IconDatabase, "Dispatching notification that we changed an icon mapping for url %s", urlForLogging(pageURL).ascii().data());
         AutodrainedPool pool;
-        m_client->dispatchDidAddIconForPageURL(pageURL);
+        m_client->didChangeIconForPageURL(pageURL);
     }
 }
 
-IconLoadDecision IconDatabase::loadDecisionForIconURL(const String& iconURL, DocumentLoader* notificationDocumentLoader)
+IconLoadDecision IconDatabase::synchronousLoadDecisionForIconURL(const String& iconURL, DocumentLoader* notificationDocumentLoader)
 {
     ASSERT_NOT_SYNC_THREAD();
 
@@ -667,12 +667,13 @@ IconLoadDecision IconDatabase::loadDecisionForIconURL(const String& iconURL, Doc
     // Otherwise - since we refuse to perform I/O on the main thread to find out for sure - we return the answer that says
     // "You might be asked to load this later, so flag that"
     LOG(IconDatabase, "Don't know if we should load %s or not - adding %p to the set of document loaders waiting on a decision", iconURL.ascii().data(), notificationDocumentLoader);
-    m_loadersPendingDecision.add(notificationDocumentLoader);    
+    if (notificationDocumentLoader)
+        m_loadersPendingDecision.add(notificationDocumentLoader);    
 
     return IconLoadUnknown;
 }
 
-bool IconDatabase::iconDataKnownForIconURL(const String& iconURL)
+bool IconDatabase::synchronousIconDataKnownForIconURL(const String& iconURL)
 {
     ASSERT_NOT_SYNC_THREAD();
     
@@ -775,6 +776,7 @@ IconDatabase::IconDatabase()
     , m_imported(false)
     , m_isImportedSet(false)
 {
+    LOG(IconDatabase, "Creating IconDatabase %p", this);
     ASSERT(isMainThread());
 }
 
@@ -1257,7 +1259,7 @@ void IconDatabase::performURLImport()
         {
             MutexLocker locker(m_pendingReadingLock);
             if (m_pageURLsPendingImport.contains(pageURL)) {
-                m_client->dispatchDidAddIconForPageURL(pageURL);
+                dispatchDidImportIconURLForPageURLOnMainThread(pageURL);
                 m_pageURLsPendingImport.remove(pageURL);
             
                 pool.cycle();
@@ -1292,7 +1294,6 @@ void IconDatabase::performURLImport()
     // Loop through the urls pending import
     // Remove unretained ones if database cleanup is allowed
     // Keep a set of ones that are retained and pending notification
-    
     {
         MutexLocker locker(m_urlAndIconLock);
         
@@ -1331,12 +1332,15 @@ void IconDatabase::performURLImport()
     // Now that we don't hold any locks, perform the actual notifications
     for (unsigned i = 0; i < urlsToNotify.size(); ++i) {
         LOG(IconDatabase, "Notifying icon info known for pageURL %s", urlsToNotify[i].ascii().data());
-        m_client->dispatchDidAddIconForPageURL(urlsToNotify[i]);
+        dispatchDidImportIconURLForPageURLOnMainThread(urlsToNotify[i]);
         if (shouldStopThreadActivity())
             return;
 
         pool.cycle();
     }
+    
+    // Notify the client that the URL import is complete in case it's managing its own pending notifications.
+    dispatchDidFinishURLImportOnMainThread();
     
     // Notify all DocumentLoaders that were waiting for an icon load decision on the main thread
     callOnMainThread(notifyPendingLoadDecisionsOnMainThread, this);
@@ -1540,7 +1544,7 @@ bool IconDatabase::readFromDatabase()
         HashSet<String>::iterator end = urlsToNotify.end();
         for (unsigned iteration = 0; iter != end; ++iter, ++iteration) {
             LOG(IconDatabase, "Notifying icon received for pageURL %s", urlForLogging(*iter).ascii().data());
-            m_client->dispatchDidAddIconForPageURL(*iter);
+            dispatchDidImportIconDataForPageURLOnMainThread(*iter);
             if (shouldStopThreadActivity())
                 return didAnyWork;
             
@@ -1738,7 +1742,7 @@ void IconDatabase::removeAllIconsOnThread()
     createDatabaseTables(m_syncDB);
     
     LOG(IconDatabase, "Dispatching notification that we removed all icons");
-    m_client->dispatchDidRemoveAllIcons();    
+    dispatchDidRemoveAllIconsOnMainThread();    
 }
 
 void IconDatabase::deleteAllPreparedStatements()
@@ -2110,6 +2114,132 @@ void IconDatabase::setWasExcludedFromBackup()
 
     SQLiteStatement(m_syncDB, "INSERT INTO IconDatabaseInfo (key, value) VALUES ('ExcludedFromBackup', 1)").executeCommand();
 }
+
+class ClientWorkItem {
+public:
+    ClientWorkItem(IconDatabaseClient* client)
+        : m_client(client)
+    { }
+    virtual void performWork() = 0;
+    virtual ~ClientWorkItem() { }
+
+protected:
+    IconDatabaseClient* m_client;
+};
+
+class ImportedIconURLForPageURLWorkItem : public ClientWorkItem {
+public:
+    ImportedIconURLForPageURLWorkItem(IconDatabaseClient* client, const String& pageURL)
+        : ClientWorkItem(client)
+        , m_pageURL(new String(pageURL.threadsafeCopy()))
+    { }
+    
+    virtual ~ImportedIconURLForPageURLWorkItem()
+    {
+        delete m_pageURL;
+    }
+
+    virtual void performWork()
+    {
+        ASSERT(m_client);
+        m_client->didImportIconURLForPageURL(*m_pageURL);
+        m_client = 0;
+    }
+    
+private:
+    String* m_pageURL;
+};
+
+class ImportedIconDataForPageURLWorkItem : public ClientWorkItem {
+public:
+    ImportedIconDataForPageURLWorkItem(IconDatabaseClient* client, const String& pageURL)
+        : ClientWorkItem(client)
+        , m_pageURL(new String(pageURL.threadsafeCopy()))
+    { }
+    
+    virtual ~ImportedIconDataForPageURLWorkItem()
+    {
+        delete m_pageURL;
+    }
+
+    virtual void performWork()
+    {
+        ASSERT(m_client);
+        m_client->didImportIconDataForPageURL(*m_pageURL);
+        m_client = 0;
+    }
+    
+private:
+    String* m_pageURL;
+};
+
+class RemovedAllIconsWorkItem : public ClientWorkItem {
+public:
+    RemovedAllIconsWorkItem(IconDatabaseClient* client)
+        : ClientWorkItem(client)
+    { }
+
+    virtual void performWork()
+    {
+        ASSERT(m_client);
+        m_client->didRemoveAllIcons();
+        m_client = 0;
+    }
+};
+
+class FinishedURLImport : public ClientWorkItem {
+public:
+    FinishedURLImport(IconDatabaseClient* client)
+        : ClientWorkItem(client)
+    { }
+
+    virtual void performWork()
+    {
+        ASSERT(m_client);
+        m_client->didFinishURLImport();
+        m_client = 0;
+    }
+};
+
+static void performWorkItem(void* context)
+{
+    ClientWorkItem* item = static_cast<ClientWorkItem*>(context);
+    item->performWork();
+    delete item;
+}
+
+void IconDatabase::dispatchDidImportIconURLForPageURLOnMainThread(const String& pageURL)
+{
+    ASSERT_ICON_SYNC_THREAD();
+
+    ImportedIconURLForPageURLWorkItem* work = new ImportedIconURLForPageURLWorkItem(m_client, pageURL);
+    callOnMainThread(performWorkItem, work);
+}
+
+void IconDatabase::dispatchDidImportIconDataForPageURLOnMainThread(const String& pageURL)
+{
+    ASSERT_ICON_SYNC_THREAD();
+
+    ImportedIconDataForPageURLWorkItem* work = new ImportedIconDataForPageURLWorkItem(m_client, pageURL);
+    callOnMainThread(performWorkItem, work);
+}
+
+void IconDatabase::dispatchDidRemoveAllIconsOnMainThread()
+{
+    ASSERT_ICON_SYNC_THREAD();
+
+    RemovedAllIconsWorkItem* work = new RemovedAllIconsWorkItem(m_client);
+    callOnMainThread(performWorkItem, work);
+}
+
+void IconDatabase::dispatchDidFinishURLImportOnMainThread()
+{
+    ASSERT_ICON_SYNC_THREAD();
+
+    FinishedURLImport* work = new FinishedURLImport(m_client);
+    callOnMainThread(performWorkItem, work);
+}
+
 
 } // namespace WebCore
 

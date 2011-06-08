@@ -133,12 +133,13 @@ public:
     virtual bool isViewSourceModeEnabled() const;
     virtual void setReferrerForRequest(WebURLRequest&, const WebURL& referrer);
     virtual void dispatchWillSendRequest(WebURLRequest&);
+    // FIXME: Remove this overload when clients have been changed to pass options.
     virtual WebURLLoader* createAssociatedURLLoader();
+    virtual WebURLLoader* createAssociatedURLLoader(const WebURLLoaderOptions&);
     virtual void commitDocumentData(const char* data, size_t length);
     virtual unsigned unloadListenerCount() const;
     virtual bool isProcessingUserGesture() const;
     virtual bool willSuppressOpenerInNewFrame() const;
-    virtual bool pageDismissalEventBeingDispatched() const;
     virtual void replaceSelection(const WebString&);
     virtual void insertText(const WebString&);
     virtual void setMarkedText(const WebString&, unsigned location, unsigned length);
@@ -187,7 +188,7 @@ public:
 
     virtual WebString contentAsText(size_t maxChars) const;
     virtual WebString contentAsMarkup() const;
-    virtual WebString renderTreeAsText() const;
+    virtual WebString renderTreeAsText(bool showDebugInfo = false) const;
     virtual WebString counterValueForElementById(const WebString& id) const;
     virtual WebString markerTextForListItem(const WebElement&) const;
     virtual int pageNumberForElementById(const WebString& id,
@@ -199,7 +200,7 @@ public:
     virtual bool pauseSVGAnimation(const WebString& animationId,
                                    double time,
                                    const WebString& elementId);
-    virtual WebString layerTreeAsText() const;
+    virtual WebString layerTreeAsText(bool showDebugInfo = false) const;
 
     static PassRefPtr<WebFrameImpl> create(WebFrameClient* client);
     ~WebFrameImpl();

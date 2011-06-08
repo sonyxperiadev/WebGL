@@ -45,12 +45,6 @@ using namespace std;
 
 namespace WebCore {
 
-static void setNeedsRecalcStyleInAllFrames(Page* page)
-{
-    for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext())
-        frame->document()->styleSelectorChanged(DeferRecalcStyle);
-}
-
 static void setLoadsImagesAutomaticallyInAllFrames(Page* page)
 {
     for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext())
@@ -94,6 +88,7 @@ Settings::Settings(Page* page)
     , m_minimumLogicalFontSize(0)
     , m_defaultFontSize(0)
     , m_defaultFixedFontSize(0)
+    , m_validationMessageTimerMagnification(50)
     , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
 #if ENABLE(DOM_STORAGE)
     , m_sessionStorageQuota(StorageMap::noQuota)
@@ -146,6 +141,7 @@ Settings::Settings(Page* page)
     , m_enforceCSSMIMETypeInNoQuirksMode(true)
     , m_usesEncodingDetector(false)
     , m_allowScriptsToCloseWindows(false)
+    , m_canvasUsesAcceleratedDrawing(false)
     , m_acceleratedDrawingEnabled(false)
     // FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
     // they can't use by. Leaving enabled for now to not change existing behavior.
@@ -177,6 +173,8 @@ Settings::Settings(Page* page)
     , m_usePreHTML5ParserQuirks(false)
     , m_hyperlinkAuditingEnabled(false)
     , m_crossOriginCheckInGetMatchedCSSRulesDisabled(false)
+    , m_useQuickLookResourceCachingQuirks(false)
+    , m_forceCompositingMode(false)
 #ifdef ANDROID_LAYOUT
     , m_useWideViewport(false)
 #endif
@@ -208,7 +206,7 @@ void Settings::setStandardFontFamily(const AtomicString& standardFontFamily)
         return;
 
     m_standardFontFamily = standardFontFamily;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setFixedFontFamily(const AtomicString& fixedFontFamily)
@@ -217,7 +215,7 @@ void Settings::setFixedFontFamily(const AtomicString& fixedFontFamily)
         return;
         
     m_fixedFontFamily = fixedFontFamily;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setSerifFontFamily(const AtomicString& serifFontFamily)
@@ -226,7 +224,7 @@ void Settings::setSerifFontFamily(const AtomicString& serifFontFamily)
         return;
         
     m_serifFontFamily = serifFontFamily;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setSansSerifFontFamily(const AtomicString& sansSerifFontFamily)
@@ -235,7 +233,7 @@ void Settings::setSansSerifFontFamily(const AtomicString& sansSerifFontFamily)
         return;
         
     m_sansSerifFontFamily = sansSerifFontFamily; 
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setCursiveFontFamily(const AtomicString& cursiveFontFamily)
@@ -244,7 +242,7 @@ void Settings::setCursiveFontFamily(const AtomicString& cursiveFontFamily)
         return;
         
     m_cursiveFontFamily = cursiveFontFamily;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setFantasyFontFamily(const AtomicString& fantasyFontFamily)
@@ -253,7 +251,7 @@ void Settings::setFantasyFontFamily(const AtomicString& fantasyFontFamily)
         return;
         
     m_fantasyFontFamily = fantasyFontFamily;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setMinimumFontSize(int minimumFontSize)
@@ -262,7 +260,7 @@ void Settings::setMinimumFontSize(int minimumFontSize)
         return;
 
     m_minimumFontSize = minimumFontSize;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setMinimumLogicalFontSize(int minimumLogicalFontSize)
@@ -271,7 +269,7 @@ void Settings::setMinimumLogicalFontSize(int minimumLogicalFontSize)
         return;
 
     m_minimumLogicalFontSize = minimumLogicalFontSize;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setDefaultFontSize(int defaultFontSize)
@@ -280,7 +278,7 @@ void Settings::setDefaultFontSize(int defaultFontSize)
         return;
 
     m_defaultFontSize = defaultFontSize;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setDefaultFixedFontSize(int defaultFontSize)
@@ -289,7 +287,7 @@ void Settings::setDefaultFixedFontSize(int defaultFontSize)
         return;
 
     m_defaultFixedFontSize = defaultFontSize;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
@@ -414,7 +412,7 @@ void Settings::setTextAreasAreResizable(bool textAreasAreResizable)
         return;
 
     m_textAreasAreResizable = textAreasAreResizable;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setEditableLinkBehavior(EditableLinkBehavior editableLinkBehavior)
@@ -708,7 +706,7 @@ void Settings::setAuthorAndUserStylesEnabled(bool authorAndUserStylesEnabled)
         return;
 
     m_authorAndUserStylesEnabled = authorAndUserStylesEnabled;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setFontRenderingMode(FontRenderingMode mode)
@@ -716,7 +714,7 @@ void Settings::setFontRenderingMode(FontRenderingMode mode)
     if (fontRenderingMode() == mode)
         return;
     m_fontRenderingMode = mode;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 FontRenderingMode Settings::fontRenderingMode() const
@@ -818,7 +816,12 @@ void Settings::setAcceleratedCompositingEnabled(bool enabled)
         return;
         
     m_acceleratedCompositingEnabled = enabled;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
+}
+
+void Settings::setCanvasUsesAcceleratedDrawing(bool enabled)
+{
+    m_canvasUsesAcceleratedDrawing = enabled;
 }
 
 void Settings::setAcceleratedDrawingEnabled(bool enabled)
@@ -857,7 +860,7 @@ void Settings::setShowDebugBorders(bool enabled)
         return;
         
     m_showDebugBorders = enabled;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setShowRepaintCounter(bool enabled)
@@ -866,7 +869,7 @@ void Settings::setShowRepaintCounter(bool enabled)
         return;
         
     m_showRepaintCounter = enabled;
-    setNeedsRecalcStyleInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setExperimentalNotificationsEnabled(bool enabled)

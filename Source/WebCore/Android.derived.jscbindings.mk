@@ -110,6 +110,7 @@ GEN := \
     $(intermediates)/dom/JSDOMImplementation.h \
     $(intermediates)/dom/JSDOMStringList.h \
     $(intermediates)/dom/JSDOMStringMap.h \
+    $(intermediates)/dom/JSDataTransferItems.h \
     $(intermediates)/dom/JSDeviceMotionEvent.h \
     $(intermediates)/dom/JSDeviceOrientationEvent.h \
     $(intermediates)/dom/JSDocument.h \
@@ -376,6 +377,8 @@ GEN := \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSScreen.h \
     $(intermediates)/page/JSSpeechInputEvent.h \
+    $(intermediates)/page/JSWebKitAnimation.h \
+    $(intermediates)/page/JSWebKitAnimationList.h \
     $(intermediates)/page/JSWebKitPoint.h \
     $(intermediates)/page/JSWorkerNavigator.h
 

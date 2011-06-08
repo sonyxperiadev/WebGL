@@ -42,6 +42,8 @@ public:
 
     DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitspeechchange);
 
+    virtual InputElement* toInputElement() { return this; }
+
     bool autoComplete() const;
 
     // For ValidityState
@@ -197,6 +199,8 @@ public:
     void handleBeforeTextInsertedEvent(Event*);
     void updateCheckedRadioButtons();
 
+    bool lastChangeWasUserEdit() const;
+    
 protected:
     HTMLInputElement(const QualifiedName&, Document*, HTMLFormElement*, bool createdByParser);
 

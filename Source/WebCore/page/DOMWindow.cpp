@@ -394,6 +394,7 @@ bool DOMWindow::canShowModalDialogNow(const Frame* frame)
 DOMWindow::DOMWindow(Frame* frame)
     : m_shouldPrintWhenFinishedLoading(false)
     , m_frame(frame)
+    , m_printTimer(this, &DOMWindow::printTimerFired)
 {
 }
 
@@ -711,6 +712,13 @@ void DOMWindow::pageDestroyed()
 #endif
 }
 
+void DOMWindow::resetGeolocation()
+{
+    // Geolocation should cancel activities and permission requests when the page is detached.
+    if (m_navigator)
+        m_navigator->resetGeolocation();
+}
+
 #if ENABLE(INDEXED_DATABASE)
 IDBFactory* DOMWindow::webkitIndexedDB() const
 {
@@ -755,14 +763,14 @@ void DOMWindow::requestFileSystem(int type, long long size, PassRefPtr<FileSyste
     LocalFileSystem::localFileSystem().requestFileSystem(document, fileSystemType, size, FileSystemCallbacks::create(successCallback, errorCallback, document), false);
 }
 
-void DOMWindow::resolveLocalFileSystemURI(const String& uri, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+void DOMWindow::resolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
 {
     Document* document = this->document();
     if (!document)
         return;
 
     SecurityOrigin* securityOrigin = document->securityOrigin();
-    KURL completedURL = document->completeURL(uri);
+    KURL completedURL = document->completeURL(url);
     if (!AsyncFileSystem::isAvailable() || !securityOrigin->canAccessFileSystem() || !securityOrigin->canRequest(completedURL)) {
         DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(FileError::SECURITY_ERR));
         return;
@@ -771,7 +779,7 @@ void DOMWindow::resolveLocalFileSystemURI(const String& uri, PassRefPtr<EntryCal
     AsyncFileSystem::Type type;
     String filePath;
     if (!completedURL.isValid() || !DOMFileSystemBase::crackFileSystemURL(completedURL, type, filePath)) {
-        DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(FileError::SYNTAX_ERR));
+        DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(FileError::ENCODING_ERR));
         return;
     }
 
@@ -941,6 +949,12 @@ void DOMWindow::print()
     }
     m_shouldPrintWhenFinishedLoading = false;
     page->chrome()->print(m_frame);
+}
+
+void DOMWindow::printTimerFired(Timer<DOMWindow>* timer)
+{
+    ASSERT_UNUSED(timer, timer == &m_printTimer);
+    print();
 }
 
 void DOMWindow::stop()
@@ -1571,11 +1585,8 @@ void DOMWindow::dispatchLoadEvent()
     // This is a DOM extension and is independent of bubbling/capturing rules of
     // the DOM.
     Element* ownerElement = m_frame ? m_frame->ownerElement() : 0;
-    if (ownerElement) {
-        RefPtr<Event> ownerEvent = Event::create(eventNames().loadEvent, false, false);
-        ownerEvent->setTarget(ownerElement);
-        ownerElement->dispatchGenericEvent(ownerEvent.release());
-    }
+    if (ownerElement)
+        ownerElement->dispatchEvent(Event::create(eventNames().loadEvent, false, false));
 
     InspectorInstrumentation::loadEventFired(frame(), url());
 }
@@ -1636,7 +1647,9 @@ void DOMWindow::finishedLoading()
 {
     if (m_shouldPrintWhenFinishedLoading) {
         m_shouldPrintWhenFinishedLoading = false;
-        print();
+
+        m_printTimer.stop();
+        m_printTimer.startOneShot(0);
     }
 }
 

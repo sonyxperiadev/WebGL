@@ -30,6 +30,7 @@
 #include "TextEncoding.h"
 #include <wtf/text/CString.h>
 #include <wtf/HashMap.h>
+#include <wtf/HexNumber.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringHash.h>
 
@@ -88,8 +89,6 @@ enum URLCharacterClasses {
     // not allowed in path
     BadChar = 1 << 6
 };
-
-static const char hexDigits[17] = "0123456789ABCDEF";
 
 static const unsigned char characterClassTable[256] = {
     /* 0 nul */ PathSegmentEndChar,    /* 1 soh */ BadChar,
@@ -221,7 +220,6 @@ static const unsigned char characterClassTable[256] = {
 static int copyPathRemovingDots(char* dst, const char* src, int srcStart, int srcEnd);
 static void encodeRelativeString(const String& rel, const TextEncoding&, CharBuffer& ouput);
 static String substituteBackslashes(const String&);
-static bool isValidProtocol(const String&);
 
 static inline bool isSchemeFirstChar(char c) { return characterClassTable[static_cast<unsigned char>(c)] & SchemeFirstChar; }
 static inline bool isSchemeFirstChar(UChar c) { return c <= 0xff && (characterClassTable[c] & SchemeFirstChar); }
@@ -861,7 +859,11 @@ void KURL::setPath(const String& s)
 
     // FIXME: encodeWithURLEscapeSequences does not correctly escape '#' and '?', so fragment and query parts
     // may be inadvertently affected.
-    parse(m_string.left(m_portEnd) + encodeWithURLEscapeSequences(s) + m_string.substring(m_pathEnd));
+    String path = s;
+    if (path.isEmpty() || path[0] != '/')
+        path = "/" + path;
+
+    parse(m_string.left(m_portEnd) + encodeWithURLEscapeSequences(path) + m_string.substring(m_pathEnd));
 }
 
 String KURL::prettyURL() const
@@ -971,8 +973,7 @@ String decodeURLEscapeSequences(const String& str, const TextEncoding& encoding)
 static void appendEscapedChar(char*& buffer, unsigned char c)
 {
     *buffer++ = '%';
-    *buffer++ = hexDigits[c >> 4];
-    *buffer++ = hexDigits[c & 0xF];
+    placeByteAsHex(c, buffer);
 }
 
 static void appendEscapingBadChars(char*& buffer, const char* strStart, size_t length)
@@ -1131,6 +1132,11 @@ static inline bool isDefaultPortForScheme(const char* port, size_t portLength, c
     return false;
 }
 
+static inline bool hostPortIsEmptyButCredentialsArePresent(int hostStart, int portEnd, char userEndChar)
+{
+    return userEndChar == '@' && hostStart == portEnd;
+}
+
 void KURL::parse(const char* url, const String* originalString)
 {
     if (!url || url[0] == '\0') {
@@ -1254,6 +1260,12 @@ void KURL::parse(const char* url, const String* originalString)
             m_string = originalString ? *originalString : url;
             invalidate();
             return;
+        }
+
+        if (hostPortIsEmptyButCredentialsArePresent(hostStart, portEnd, url[userEnd])) {
+            // in this circumstance, act as if there is an erroneous hostname containing an '@'
+            userEnd = userStart;
+            hostStart = userEnd;
         }
 
         if (userStart == portEnd && !m_protocolInHTTPFamily && !isFile) {

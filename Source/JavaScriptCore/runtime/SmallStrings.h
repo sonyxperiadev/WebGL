@@ -33,13 +33,16 @@
 
 namespace JSC {
 
+    class HeapRootMarker;
     class JSGlobalData;
     class JSString;
     class MarkStack;
     class SmallStringsStorage;
 
+    static const unsigned maxSingleCharacterString = 0xFF;
+
     class SmallStrings {
-        WTF_MAKE_NONCOPYABLE(SmallStrings); WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_NONCOPYABLE(SmallStrings);
     public:
         SmallStrings();
         ~SmallStrings();
@@ -48,30 +51,33 @@ namespace JSC {
         {
             if (!m_emptyString)
                 createEmptyString(globalData);
-            return m_emptyString.get();
+            return m_emptyString;
         }
+
         JSString* singleCharacterString(JSGlobalData* globalData, unsigned char character)
         {
             if (!m_singleCharacterStrings[character])
                 createSingleCharacterString(globalData, character);
-            return m_singleCharacterStrings[character].get();
+            return m_singleCharacterStrings[character];
         }
 
         StringImpl* singleCharacterStringRep(unsigned char character);
 
-        void markChildren(MarkStack&);
+        void markChildren(HeapRootMarker&);
         void clear();
 
         unsigned count() const;
 
-        JSCell** singleCharacterStrings() { return m_singleCharacterStrings[0].slot(); }
+        JSString** singleCharacterStrings() { return &m_singleCharacterStrings[0]; }
 
     private:
+        static const unsigned singleCharacterStringCount = maxSingleCharacterString + 1;
+
         void createEmptyString(JSGlobalData*);
         void createSingleCharacterString(JSGlobalData*, unsigned char);
 
-        DeprecatedPtr<JSString> m_emptyString;
-        FixedArray<DeprecatedPtr<JSString>, 0x100> m_singleCharacterStrings;
+        JSString* m_emptyString;
+        JSString* m_singleCharacterStrings[singleCharacterStringCount];
         OwnPtr<SmallStringsStorage> m_storage;
     };
 

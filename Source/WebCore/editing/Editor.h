@@ -36,6 +36,7 @@
 #include "EditorInsertAction.h"
 #include "FindOptions.h"
 #include "SelectionController.h"
+#include "TextChecking.h"
 #include "Timer.h"
 #include "VisibleSelection.h"
 #include "WritingDirection.h"
@@ -222,7 +223,7 @@ public:
     void markMisspellings(const VisibleSelection&, RefPtr<Range>& firstMisspellingRange);
     void markBadGrammar(const VisibleSelection&);
     void markMisspellingsAndBadGrammar(const VisibleSelection& spellingSelection, bool markGrammar, const VisibleSelection& grammarSelection);
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if USE(AUTOMATIC_TEXT_REPLACEMENT)
     void uppercaseWord();
     void lowercaseWord();
     void capitalizeWord();
@@ -239,6 +240,8 @@ public:
     void toggleAutomaticTextReplacement();
     bool isAutomaticSpellingCorrectionEnabled();
     void toggleAutomaticSpellingCorrection();
+#endif
+
     enum TextCheckingOptionFlags {
         MarkSpelling = 1 << 0,
         MarkGrammar = 1 << 1,
@@ -249,7 +252,7 @@ public:
 
     void markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions, Range* spellingRange, Range* grammarRange);
     void changeBackToReplacedString(const String& replacedString);
-#endif
+
     void advanceToNextMisspelling(bool startBeforeSelection = false);
     void showSpellingGuessPanel();
     bool spellingPanelIsShowing();
@@ -320,11 +323,9 @@ public:
 
     void addToKillRing(Range*, bool prepend);
 
-    void handleCancelOperation();
     void startCorrectionPanelTimer(CorrectionPanelInfo::PanelType);
     // If user confirmed a correction in the correction panel, correction has non-zero length, otherwise it means that user has dismissed the panel.
     void handleCorrectionPanelResult(const String& correction);
-    bool isShowingCorrectionPanel();
 
     void pasteAsFragment(PassRefPtr<DocumentFragment>, bool smartReplace, bool matchStyle);
     void pasteAsPlainText(const String&, bool smartReplace);
@@ -376,9 +377,10 @@ public:
     bool canCopyExcludingStandaloneImages();
     void takeFindStringFromSelection();
     void writeSelectionToPasteboard(const String& pasteboardName, const Vector<String>& pasteboardTypes);
+    void readSelectionFromPasteboard(const String& pasteboardName);
 #endif
 
-    bool selectionStartHasSpellingMarkerFor(int from, int length) const;
+    bool selectionStartHasMarkerFor(DocumentMarker::MarkerType, int from, int length) const;
     void removeSpellAndCorrectionMarkersFromWordsToBeEdited(bool doNotRemoveIfSelectionAtWordBoundary);
 
 private:
@@ -425,6 +427,7 @@ private:
     Node* findEventTargetFromSelection() const;
     void stopCorrectionPanelTimer();
     void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel);
+    String dismissCorrectionPanelSoon(ReasonForDismissingCorrectionPanel);
     void applyCorrectionPanelInfo(const Vector<DocumentMarker::MarkerType>& markerTypesToAdd);
     // Return true if correction was applied, false otherwise.
     bool applyAutocorrectionBeforeTypingIfAppropriate();

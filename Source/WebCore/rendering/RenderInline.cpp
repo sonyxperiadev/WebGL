@@ -201,8 +201,7 @@ void RenderInline::addChildIgnoringContinuation(RenderObject* newChild, RenderOb
         // inline into continuations.  This involves creating an anonymous block box to hold
         // |newChild|.  We then make that block box a continuation of this inline.  We take all of
         // the children after |beforeChild| and put them in a clone of this object.
-        RefPtr<RenderStyle> newStyle = RenderStyle::create();
-        newStyle->inheritFrom(style());
+        RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyle(style());
         newStyle->setDisplay(BLOCK);
 
         RenderBlock* newBox = new (renderArena()) RenderBlock(document() /* anonymous box */);
@@ -485,29 +484,21 @@ static int computeMargin(const RenderInline* renderer, const Length& margin)
 
 int RenderInline::marginLeft() const
 {
-    if (!style()->isHorizontalWritingMode())
-        return 0;
     return computeMargin(this, style()->marginLeft());
 }
 
 int RenderInline::marginRight() const
 {
-    if (!style()->isHorizontalWritingMode())
-        return 0;
     return computeMargin(this, style()->marginRight());
 }
 
 int RenderInline::marginTop() const
 {
-    if (style()->isHorizontalWritingMode())
-        return 0;
     return computeMargin(this, style()->marginTop());
 }
 
 int RenderInline::marginBottom() const
 {
-    if (style()->isHorizontalWritingMode())
-        return 0;
     return computeMargin(this, style()->marginBottom());
 }
 
@@ -519,6 +510,16 @@ int RenderInline::marginStart() const
 int RenderInline::marginEnd() const
 {
     return computeMargin(this, style()->marginEnd());
+}
+
+int RenderInline::marginBefore() const
+{
+    return computeMargin(this, style()->marginBefore());
+}
+
+int RenderInline::marginAfter() const
+{
+    return computeMargin(this, style()->marginAfter());
 }
 
 const char* RenderInline::renderName() const

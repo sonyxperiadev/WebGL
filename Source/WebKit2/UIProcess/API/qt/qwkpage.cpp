@@ -194,9 +194,9 @@ void QWKPagePrivate::exitAcceleratedCompositingMode()
     // FIXME: Implement.
 }
 
-void QWKPagePrivate::pageDidRequestScroll(const IntSize& delta)
+void QWKPagePrivate::pageDidRequestScroll(const IntPoint& point)
 {
-    emit q->scrollRequested(delta.width(), delta.height());
+    emit q->scrollRequested(point.x(), point.y());
 }
 
 void QWKPagePrivate::didChangeContentsSize(const IntSize& newSize)
@@ -218,6 +218,11 @@ void QWKPagePrivate::clearAllEditCommands()
 }
 
 FloatRect QWKPagePrivate::convertToDeviceSpace(const FloatRect& rect)
+{
+    return rect;
+}
+
+IntRect QWKPagePrivate::windowToScreen(const IntRect& rect)
 {
     return rect;
 }
@@ -482,7 +487,8 @@ QWKPage::QWKPage(QWKContext* context)
         0,  /* drawFooter */
         0,  /* printFrame */
         0,  /* runModal */
-        0   /* didCompleteRubberBandForMainFrame */
+        0,   /* didCompleteRubberBandForMainFrame */
+        0    /* saveDataToFileInDownloadsFolder */
     };
     WKPageSetPageUIClient(pageRef(), &uiClient);
 }
@@ -561,7 +567,7 @@ QWKPage::ViewportAttributes QWKPage::viewportAttributesForSize(const QSize& avai
     result.m_minimumScaleFactor = conf.minimumScale;
     result.m_maximumScaleFactor = conf.maximumScale;
     result.m_devicePixelRatio = conf.devicePixelRatio;
-    result.m_isUserScalable = conf.userScalable;
+    result.m_isUserScalable = static_cast<bool>(conf.userScalable);
 
     return result;
 }

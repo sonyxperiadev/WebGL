@@ -38,6 +38,7 @@
 #include "GraphicsContext.h"
 #include "HTMLCanvasElement.h"
 #include "ImageBuffer.h"
+#include "ImageData.h"
 #include "Int32Array.h"
 #include "NotImplemented.h"
 #include "Uint8Array.h"
@@ -53,11 +54,12 @@ namespace WebCore {
 
 void GraphicsContext3D::validateAttributes()
 {
-    const char* extensions = reinterpret_cast<const char*>(::glGetString(GL_EXTENSIONS));
+    Extensions3D* extensions = getExtensions();
     if (m_attrs.stencil) {
-        if (std::strstr(extensions, "GL_EXT_packed_depth_stencil")) {
-            if (!m_attrs.depth)
-                m_attrs.depth = true;
+        if (extensions->supports("GL_EXT_packed_depth_stencil")) {
+            extensions->ensureEnabled("GL_EXT_packed_depth_stencil");
+            // Force depth if stencil is true.
+            m_attrs.depth = true;
         } else
             m_attrs.stencil = false;
     }
@@ -67,24 +69,16 @@ void GraphicsContext3D::validateAttributes()
         const char* vendor = reinterpret_cast<const char*>(::glGetString(GL_VENDOR));
         if (!std::strstr(vendor, "NVIDIA"))
             isValidVendor = false;
-        if (!isValidVendor || !std::strstr(extensions, "GL_EXT_framebuffer_multisample"))
+        if (!isValidVendor || !extensions->supports("GL_ANGLE_framebuffer_multisample"))
             m_attrs.antialias = false;
+        else
+            extensions->ensureEnabled("GL_ANGLE_framebuffer_multisample");
     }
-    // FIXME: instead of enforcing premultipliedAlpha = true, implement the
-    // correct behavior when premultipliedAlpha = false is requested.
-    m_attrs.premultipliedAlpha = true;
 }
 
-void GraphicsContext3D::paintRenderingResultsToCanvas(CanvasRenderingContext* context)
+void GraphicsContext3D::readRenderingResults(unsigned char *pixels, int pixelsSize)
 {
-    HTMLCanvasElement* canvas = context->canvas();
-    ImageBuffer* imageBuffer = canvas->buffer();
-
-    int rowBytes = m_currentWidth * 4;
-    int totalBytes = rowBytes * m_currentHeight;
-
-    OwnArrayPtr<unsigned char> pixels = adoptArrayPtr(new unsigned char[totalBytes]);
-    if (!pixels)
+    if (pixelsSize < m_currentWidth * m_currentHeight * 4)
         return;
 
     makeContextCurrent();
@@ -111,16 +105,60 @@ void GraphicsContext3D::paintRenderingResultsToCanvas(CanvasRenderingContext* co
         mustRestorePackAlignment = true;
     }
 
-    ::glReadPixels(0, 0, m_currentWidth, m_currentHeight, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels.get());
+    ::glReadPixels(0, 0, m_currentWidth, m_currentHeight, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
 
     if (mustRestorePackAlignment)
         ::glPixelStorei(GL_PACK_ALIGNMENT, packAlignment);
 
     if (mustRestoreFBO)
         ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
+}
+
+void GraphicsContext3D::paintRenderingResultsToCanvas(CanvasRenderingContext* context)
+{
+    HTMLCanvasElement* canvas = context->canvas();
+    ImageBuffer* imageBuffer = canvas->buffer();
+
+    int rowBytes = m_currentWidth * 4;
+    int totalBytes = rowBytes * m_currentHeight;
+
+    OwnArrayPtr<unsigned char> pixels = adoptArrayPtr(new unsigned char[totalBytes]);
+    if (!pixels)
+        return;
+
+    readRenderingResults(pixels.get(), totalBytes);
+
+    if (!m_attrs.premultipliedAlpha) {
+        for (int i = 0; i < totalBytes; i += 4) {
+            // Premultiply alpha
+            pixels[i + 0] = std::min(255, pixels[i + 0] * pixels[i + 3] / 255);
+            pixels[i + 1] = std::min(255, pixels[i + 1] * pixels[i + 3] / 255);
+            pixels[i + 2] = std::min(255, pixels[i + 2] * pixels[i + 3] / 255);
+        }
+    }
 
     paintToCanvas(pixels.get(), m_currentWidth, m_currentHeight,
                   canvas->width(), canvas->height(), imageBuffer->context()->platformContext());
+}
+
+PassRefPtr<ImageData> GraphicsContext3D::paintRenderingResultsToImageData()
+{
+    // Reading premultiplied alpha would involve unpremultiplying, which is
+    // lossy
+    if (m_attrs.premultipliedAlpha)
+        return 0;
+
+    RefPtr<ImageData> imageData = ImageData::create(IntSize(m_currentWidth, m_currentHeight));
+    unsigned char* pixels = imageData->data()->data()->data();
+    int totalBytes = 4 * m_currentWidth * m_currentHeight;
+
+    readRenderingResults(pixels, totalBytes);
+
+    // Convert to RGBA
+    for (int i = 0; i < totalBytes; i += 4)
+        std::swap(pixels[i], pixels[i + 2]);
+
+    return imageData.release();
 }
 
 void GraphicsContext3D::reshape(int width, int height)
@@ -135,19 +173,23 @@ void GraphicsContext3D::reshape(int width, int height)
     m_currentHeight = height;
     
     makeContextCurrent();
-    
-    GLuint internalColorFormat, colorFormat, internalDepthStencilFormat = 0;
+    validateAttributes();
+
+    GLuint colorFormat, internalDepthStencilFormat = 0;
     if (m_attrs.alpha) {
-        internalColorFormat = GL_RGBA8;
+        m_internalColorFormat = GL_RGBA8;
         colorFormat = GL_RGBA;
     } else {
-        internalColorFormat = GL_RGB8;
+        m_internalColorFormat = GL_RGB8;
         colorFormat = GL_RGB;
     }
     if (m_attrs.stencil || m_attrs.depth) {
         // We don't allow the logic where stencil is required and depth is not.
-        // See GraphicsContext3D constructor.
-        if (m_attrs.stencil && m_attrs.depth)
+        // See GraphicsContext3D::validateAttributes.
+
+        Extensions3D* extensions = getExtensions();
+        // Use a 24 bit depth buffer where we know we have it
+        if (extensions->supports("GL_EXT_packed_depth_stencil"))
             internalDepthStencilFormat = GL_DEPTH24_STENCIL8_EXT;
         else
             internalDepthStencilFormat = GL_DEPTH_COMPONENT;
@@ -167,7 +209,7 @@ void GraphicsContext3D::reshape(int width, int height)
             mustRestoreFBO = true;
         }
         ::glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, m_multisampleColorBuffer);
-        ::glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, sampleCount, internalColorFormat, width, height);
+        ::glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, sampleCount, m_internalColorFormat, width, height);
         ::glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, m_multisampleColorBuffer);
         if (m_attrs.stencil || m_attrs.depth) {
             ::glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, m_multisampleDepthStencilBuffer);
@@ -190,8 +232,10 @@ void GraphicsContext3D::reshape(int width, int height)
         ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
     }
     ::glBindTexture(GL_TEXTURE_2D, m_texture);
-    ::glTexImage2D(GL_TEXTURE_2D, 0, internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
+    ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
     ::glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, m_texture, 0);
+    ::glBindTexture(GL_TEXTURE_2D, m_compositorTexture);
+    ::glTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, width, height, 0, colorFormat, GL_UNSIGNED_BYTE, 0);
     ::glBindTexture(GL_TEXTURE_2D, 0);
     if (!m_attrs.antialias && (m_attrs.stencil || m_attrs.depth)) {
         ::glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, m_depthStencilBuffer);
@@ -278,19 +322,29 @@ IntSize GraphicsContext3D::getInternalFramebufferSize()
 
 void GraphicsContext3D::prepareTexture()
 {
+    if (m_layerComposited)
+        return;
     makeContextCurrent();
     if (m_attrs.antialias) {
         ::glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_multisampleFBO);
         ::glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
         ::glBlitFramebufferEXT(0, 0, m_currentWidth, m_currentHeight, 0, 0, m_currentWidth, m_currentHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
     }
+    ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
+    ::glActiveTexture(0);
+    ::glBindTexture(GL_TEXTURE_2D, m_compositorTexture);
+    ::glCopyTexImage2D(GL_TEXTURE_2D, 0, m_internalColorFormat, 0, 0, m_currentWidth, m_currentHeight, 0);
+    ::glBindTexture(GL_TEXTURE_2D, m_boundTexture0);
+    ::glActiveTexture(m_activeTexture);
+    ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
     ::glFinish();
+    m_layerComposited = true;
 }
 
 void GraphicsContext3D::activeTexture(GC3Denum texture)
 {
     makeContextCurrent();
+    m_activeTexture = texture;
     ::glActiveTexture(texture);
 }
 
@@ -340,6 +394,8 @@ void GraphicsContext3D::bindRenderbuffer(GC3Denum target, Platform3DObject rende
 void GraphicsContext3D::bindTexture(GC3Denum target, Platform3DObject texture)
 {
     makeContextCurrent();
+    if (m_activeTexture && target == GL_TEXTURE_2D)
+        m_boundTexture0 = texture;
     ::glBindTexture(target, texture);
 }
 
@@ -1440,6 +1496,21 @@ void GraphicsContext3D::deleteTexture(Platform3DObject texture)
 void GraphicsContext3D::synthesizeGLError(GC3Denum error)
 {
     m_syntheticErrors.add(error);
+}
+
+void GraphicsContext3D::markContextChanged()
+{
+    m_layerComposited = false;
+}
+
+void GraphicsContext3D::markLayerComposited()
+{
+    m_layerComposited = true;
+}
+
+bool GraphicsContext3D::layerComposited() const
+{
+    return m_layerComposited;
 }
 
 Extensions3D* GraphicsContext3D::getExtensions()

@@ -51,6 +51,9 @@ public:
     static void setApplicationCacheEnabled(bool isEnabled) { isApplicationCacheEnabled = isEnabled; }
     static bool applicationCacheEnabled() { return isApplicationCacheEnabled; }
 
+    static void setDataTransferItemsEnabled(bool isEnabled) { isDataTransferItemsEnabled = isEnabled; }
+    static bool dataTransferItemsEnabled() { return isDataTransferItemsEnabled; }
+
     static void setGeolocationEnabled(bool isEnabled) { isGeolocationEnabled = isEnabled; }
     static bool geolocationEnabled() { return isGeolocationEnabled; }
 
@@ -92,27 +95,6 @@ public:
 #if ENABLE(WEB_AUDIO)
     static void setWebkitAudioContextEnabled(bool isEnabled) { isWebAudioEnabled = isEnabled; }
     static bool webkitAudioContextEnabled() { return isWebAudioEnabled; }
-#endif
-
-#if ENABLE(WEBGL) || ENABLE(BLOB)
-    static void setWebGLEnabled(bool isEnabled) { isWebGLEnabled = isEnabled; }
-    static bool webGLRenderingContextEnabled() { return isWebGLEnabled; }
-    static bool webGLArrayBufferEnabled() { return isWebGLEnabled; }
-    static bool webGLByteArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLUnsignedByteArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLShortArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLUnsignedShortArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLIntArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLUnsignedIntArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLFloatArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLActiveInfoEnabled() { return isWebGLEnabled; }
-    static bool webGLBufferEnabled() { return isWebGLEnabled; }
-    static bool webGLFramebufferEnabled() { return isWebGLEnabled; }
-    static bool webGLProgramEnabled() { return isWebGLEnabled; }
-    static bool webGLRenderbufferEnabled() { return isWebGLEnabled; }
-    static bool webGLShaderEnabled() { return isWebGLEnabled; }
-    static bool webGLTextureEnabled() { return isWebGLEnabled; }
-    static bool webGLUniformLocationEnabled() { return isWebGLEnabled; }
 #endif
 
     static void setPushStateEnabled(bool isEnabled) { isPushStateEnabled = isEnabled; }
@@ -162,6 +144,12 @@ public:
     static void setJavaScriptI18NAPIEnabled(bool isEnabled) { isJavaScriptI18NAPIEnabled = isEnabled; }
 #endif
 
+#if ENABLE(MEDIA_STREAM)
+    static bool mediaStreamEnabled() { return isMediaStreamEnabled; }
+    static void setMediaStreamEnabled(bool isEnabled) { isMediaStreamEnabled = isEnabled; }
+    static bool webkitGetUserMediaEnabled() { return isMediaStreamEnabled; }
+#endif
+
 private:
     // Never instantiate.
     RuntimeEnabledFeatures() { }
@@ -170,10 +158,10 @@ private:
     static bool isSessionStorageEnabled;
     static bool isWebkitNotificationsEnabled;
     static bool isApplicationCacheEnabled;
+    static bool isDataTransferItemsEnabled;
     static bool isGeolocationEnabled;
     static bool isIndexedDBEnabled;
     static bool isWebAudioEnabled;
-    static bool isWebGLEnabled;
     static bool isPushStateEnabled;
     static bool isTouchEnabled;
     static bool isDeviceMotionEnabled;
@@ -189,6 +177,10 @@ private:
 
 #if ENABLE(JAVASCRIPT_I18N_API)
     static bool isJavaScriptI18NAPIEnabled;
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+    static bool isMediaStreamEnabled;
 #endif
 };
 

@@ -192,16 +192,6 @@ const char* WebPage::interpretKeyEvent(const KeyboardEvent* evt)
     return mapKey ? keyPressCommandsMap->get(mapKey) : 0;
 }
 
-static inline void scroll(Page* page, ScrollDirection direction, ScrollGranularity granularity)
-{
-    page->focusController()->focusedOrMainFrame()->eventHandler()->scrollRecursively(direction, granularity);
-}
-
-static inline void logicalScroll(Page* page, ScrollLogicalDirection direction, ScrollGranularity granularity)
-{
-    page->focusController()->focusedOrMainFrame()->eventHandler()->logicalScrollRecursively(direction, granularity);
-}
-
 bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
 {
     if (keyboardEvent.type() != WebEvent::KeyDown && keyboardEvent.type() != WebEvent::RawKeyDown)
@@ -209,33 +199,53 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
 
     switch (keyboardEvent.windowsVirtualKeyCode()) {
     case VK_BACK:
+        if (keyboardEvent.isSystemKey())
+            return false;
         if (keyboardEvent.shiftKey())
             m_page->goForward();
         else
             m_page->goBack();
         break;
     case VK_LEFT:
-        scroll(m_page.get(), ScrollLeft, ScrollByLine);
+        if (keyboardEvent.isSystemKey())
+            m_page->goBack();
+        else
+            scroll(m_page.get(), ScrollLeft, ScrollByLine);
         break;
     case VK_RIGHT:
-        scroll(m_page.get(), ScrollRight, ScrollByLine);
+        if (keyboardEvent.isSystemKey())
+            m_page->goForward();
+        else
+            scroll(m_page.get(), ScrollRight, ScrollByLine);
         break;
     case VK_UP:
+        if (keyboardEvent.isSystemKey())
+            return false;
         scroll(m_page.get(), ScrollUp, ScrollByLine);
         break;
     case VK_DOWN:
+        if (keyboardEvent.isSystemKey())
+            return false;
         scroll(m_page.get(), ScrollDown, ScrollByLine);
         break;
     case VK_HOME:
+        if (keyboardEvent.isSystemKey())
+            return false;
         logicalScroll(m_page.get(), ScrollBlockDirectionBackward, ScrollByDocument);
         break;
     case VK_END:
+        if (keyboardEvent.isSystemKey())
+            return false;
         logicalScroll(m_page.get(), ScrollBlockDirectionForward, ScrollByDocument);
         break;
     case VK_PRIOR:
+        if (keyboardEvent.isSystemKey())
+            return false;
         logicalScroll(m_page.get(), ScrollBlockDirectionBackward, ScrollByPage);
         break;
     case VK_NEXT:
+        if (keyboardEvent.isSystemKey())
+            return false;
         logicalScroll(m_page.get(), ScrollBlockDirectionForward, ScrollByPage);
         break;
     default:
@@ -296,10 +306,9 @@ String WebPage::cachedResponseMIMETypeForURL(const WebCore::KURL& url)
 #endif
 }
 
-bool WebPage::canHandleRequest(const WebCore::ResourceRequest& request)
+bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest& request)
 {
 #if USE(CFNETWORK)
-     // FIXME: Are there other requests we need to be able to handle? WebKit1's WebView.cpp has a FIXME here as well.
     return CFURLProtocolCanHandleRequest(request.cfURLRequest());
 #else
     return true;

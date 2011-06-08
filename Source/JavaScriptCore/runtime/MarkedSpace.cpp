@@ -24,6 +24,7 @@
 #include "JSCell.h"
 #include "JSGlobalData.h"
 #include "JSLock.h"
+#include "JSObject.h"
 #include "ScopeChain.h"
 
 namespace JSC {
@@ -35,7 +36,10 @@ MarkedSpace::MarkedSpace(JSGlobalData* globalData)
     , m_highWaterMark(0)
     , m_globalData(globalData)
 {
-    for (size_t cellSize = preciseStep; cellSize <= preciseCutoff; cellSize += preciseStep)
+    for (size_t cellSize = preciseStep; cellSize < preciseCutoff; cellSize += preciseStep)
+        sizeClassFor(cellSize).cellSize = cellSize;
+
+    for (size_t cellSize = impreciseStep; cellSize < impreciseCutoff; cellSize += impreciseStep)
         sizeClassFor(cellSize).cellSize = cellSize;
 }
 
@@ -148,7 +152,10 @@ void MarkedSpace::reset()
 {
     m_waterMark = 0;
 
-    for (size_t cellSize = preciseStep; cellSize <= preciseCutoff; cellSize += preciseStep)
+    for (size_t cellSize = preciseStep; cellSize < preciseCutoff; cellSize += preciseStep)
+        sizeClassFor(cellSize).reset();
+
+    for (size_t cellSize = impreciseStep; cellSize < impreciseCutoff; cellSize += impreciseStep)
         sizeClassFor(cellSize).reset();
 
     BlockIterator end = m_blocks.end();

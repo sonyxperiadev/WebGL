@@ -36,6 +36,7 @@
 
 #include "cc/CCLayerImpl.h"
 #include "Canvas2DLayerChromium.h"
+#include "FloatQuad.h"
 #include "GeometryBinding.h"
 #include "GraphicsContext3D.h"
 #include "LayerChromium.h"
@@ -43,6 +44,7 @@
 #include "NotImplemented.h"
 #include "TextStream.h"
 #include "TextureManager.h"
+#include "TraceEvent.h"
 #include "WebGLLayerChromium.h"
 #include "cc/CCLayerImpl.h"
 #if USE(SKIA)
@@ -91,21 +93,23 @@ bool LayerRendererChromium::compareLayerZ(const CCLayerImpl* a, const CCLayerImp
     return a->drawDepth() < b->drawDepth();
 }
 
-PassRefPtr<LayerRendererChromium> LayerRendererChromium::create(PassRefPtr<GraphicsContext3D> context)
+PassRefPtr<LayerRendererChromium> LayerRendererChromium::create(PassRefPtr<GraphicsContext3D> context, PassOwnPtr<TilePaintInterface> contentPaint, PassOwnPtr<TilePaintInterface> scrollbarPaint)
 {
     if (!context)
         return 0;
 
-    RefPtr<LayerRendererChromium> layerRenderer(adoptRef(new LayerRendererChromium(context)));
+    RefPtr<LayerRendererChromium> layerRenderer(adoptRef(new LayerRendererChromium(context, contentPaint, scrollbarPaint)));
     if (!layerRenderer->hardwareCompositing())
         return 0;
 
     return layerRenderer.release();
 }
 
-LayerRendererChromium::LayerRendererChromium(PassRefPtr<GraphicsContext3D> context)
-    : m_rootLayer(0)
-    , m_scrollPosition(IntPoint(-1, -1))
+LayerRendererChromium::LayerRendererChromium(PassRefPtr<GraphicsContext3D> context, PassOwnPtr<TilePaintInterface> contentPaint, PassOwnPtr<TilePaintInterface> scrollbarPaint)
+    : m_viewportScrollPosition(IntPoint(-1, -1))
+    , m_rootLayer(0)
+    , m_rootLayerContentPaint(contentPaint)
+    , m_rootLayerScrollbarPaint(scrollbarPaint)
     , m_currentShader(0)
     , m_currentRenderSurface(0)
     , m_offscreenFramebufferId(0)
@@ -114,8 +118,8 @@ LayerRendererChromium::LayerRendererChromium(PassRefPtr<GraphicsContext3D> conte
     , m_defaultRenderSurface(0)
 {
     m_hardwareCompositing = initializeSharedObjects();
-    m_rootLayerTiler = LayerTilerChromium::create(this, IntSize(256, 256), LayerTilerChromium::NoBorderTexels);
-    ASSERT(m_rootLayerTiler);
+    m_rootLayerContentTiler = LayerTilerChromium::create(this, IntSize(256, 256), LayerTilerChromium::NoBorderTexels);
+    ASSERT(m_rootLayerContentTiler);
 
     m_headsUpDisplay = CCHeadsUpDisplay::create(this);
 }
@@ -146,129 +150,149 @@ void LayerRendererChromium::useShader(unsigned programId)
     }
 }
 
-IntRect LayerRendererChromium::verticalScrollbarRect(const IntRect& visibleRect, const IntRect& contentRect)
+IntRect LayerRendererChromium::verticalScrollbarRect() const
 {
-    IntRect verticalScrollbar(IntPoint(contentRect.maxX(), contentRect.y()), IntSize(visibleRect.width() - contentRect.width(), visibleRect.height()));
+    IntRect verticalScrollbar(IntPoint(m_viewportContentRect.maxX(), m_viewportContentRect.y()), IntSize(m_viewportVisibleRect.width() - m_viewportContentRect.width(), m_viewportVisibleRect.height()));
     return verticalScrollbar;
 }
 
-IntRect LayerRendererChromium::horizontalScrollbarRect(const IntRect& visibleRect, const IntRect& contentRect)
+IntRect LayerRendererChromium::horizontalScrollbarRect() const
 {
-    IntRect horizontalScrollbar(IntPoint(contentRect.x(), contentRect.maxY()), IntSize(visibleRect.width(), visibleRect.height() - contentRect.height()));
+    IntRect horizontalScrollbar(IntPoint(m_viewportContentRect.x(), m_viewportContentRect.maxY()), IntSize(m_viewportVisibleRect.width(), m_viewportVisibleRect.height() - m_viewportContentRect.height()));
     return horizontalScrollbar;
 }
 
-void LayerRendererChromium::invalidateRootLayerRect(const IntRect& dirtyRect, const IntRect& visibleRect, const IntRect& contentRect)
+void LayerRendererChromium::invalidateRootLayerRect(const IntRect& dirtyRect)
 {
-    m_rootLayerTiler->invalidateRect(dirtyRect);
+    m_rootLayerContentTiler->invalidateRect(dirtyRect);
+
+    // Scrollbars never need to render beyond the fold, so clip to the viewport.
+    IntRect visibleDirtyRect = dirtyRect;
+    visibleDirtyRect.intersect(m_viewportVisibleRect);
+
     if (m_horizontalScrollbarTiler) {
-        IntRect scrollbar = horizontalScrollbarRect(visibleRect, contentRect);
-        if (dirtyRect.intersects(scrollbar)) {
+        IntRect scrollbar = horizontalScrollbarRect();
+        if (visibleDirtyRect.intersects(scrollbar)) {
             m_horizontalScrollbarTiler->setLayerPosition(scrollbar.location());
-            m_horizontalScrollbarTiler->invalidateRect(dirtyRect);
+            m_horizontalScrollbarTiler->invalidateRect(visibleDirtyRect);
         }
     }
     if (m_verticalScrollbarTiler) {
-        IntRect scrollbar = verticalScrollbarRect(visibleRect, contentRect);
-        if (dirtyRect.intersects(scrollbar)) {
+        IntRect scrollbar = verticalScrollbarRect();
+        if (visibleDirtyRect.intersects(scrollbar)) {
             m_verticalScrollbarTiler->setLayerPosition(scrollbar.location());
-            m_verticalScrollbarTiler->invalidateRect(dirtyRect);
+            m_verticalScrollbarTiler->invalidateRect(visibleDirtyRect);
         }
     }
 }
 
-void LayerRendererChromium::updateRootLayerContents(TilePaintInterface& tilePaint, const IntRect& visibleRect)
+void LayerRendererChromium::updateRootLayerContents()
 {
-    m_rootLayerTiler->update(tilePaint, visibleRect);
+    TRACE_EVENT("LayerRendererChromium::updateRootLayerContents", this, 0);
+    m_rootLayerContentTiler->update(*m_rootLayerContentPaint, m_viewportVisibleRect);
 }
 
-void LayerRendererChromium::updateRootLayerScrollbars(TilePaintInterface& scrollbarPaint, const IntRect& visibleRect, const IntRect& contentRect)
+void LayerRendererChromium::updateRootLayerScrollbars()
 {
-    if (visibleRect.width() > contentRect.width()) {
-        IntRect verticalScrollbar = verticalScrollbarRect(visibleRect, contentRect);
+    TRACE_EVENT("LayerRendererChromium::updateRootLayerScrollbars", this, 0);
+    if (m_viewportVisibleRect.width() > m_viewportContentRect.width()) {
+        IntRect verticalScrollbar = verticalScrollbarRect();
         IntSize tileSize = verticalScrollbar.size().shrunkTo(IntSize(m_maxTextureSize, m_maxTextureSize));
         if (!m_verticalScrollbarTiler)
             m_verticalScrollbarTiler = LayerTilerChromium::create(this, tileSize, LayerTilerChromium::NoBorderTexels);
         else
             m_verticalScrollbarTiler->setTileSize(tileSize);
         m_verticalScrollbarTiler->setLayerPosition(verticalScrollbar.location());
-        m_verticalScrollbarTiler->update(scrollbarPaint, visibleRect);
+        m_verticalScrollbarTiler->update(*m_rootLayerScrollbarPaint, m_viewportVisibleRect);
     } else
         m_verticalScrollbarTiler.clear();
 
-    if (visibleRect.height() > contentRect.height()) {
-        IntRect horizontalScrollbar = horizontalScrollbarRect(visibleRect, contentRect);
+    if (m_viewportVisibleRect.height() > m_viewportContentRect.height()) {
+        IntRect horizontalScrollbar = horizontalScrollbarRect();
         IntSize tileSize = horizontalScrollbar.size().shrunkTo(IntSize(m_maxTextureSize, m_maxTextureSize));
         if (!m_horizontalScrollbarTiler)
             m_horizontalScrollbarTiler = LayerTilerChromium::create(this, tileSize, LayerTilerChromium::NoBorderTexels);
         else
             m_horizontalScrollbarTiler->setTileSize(tileSize);
         m_horizontalScrollbarTiler->setLayerPosition(horizontalScrollbar.location());
-        m_horizontalScrollbarTiler->update(scrollbarPaint, visibleRect);
+        m_horizontalScrollbarTiler->update(*m_rootLayerScrollbarPaint, m_viewportVisibleRect);
     } else
         m_horizontalScrollbarTiler.clear();
 }
 
 void LayerRendererChromium::drawRootLayer()
 {
-    m_rootLayerTiler->draw(m_visibleRect);
+    m_rootLayerContentTiler->draw(m_viewportVisibleRect);
 
     if (m_verticalScrollbarTiler)
-        m_verticalScrollbarTiler->draw(m_visibleRect);
+        m_verticalScrollbarTiler->draw(m_viewportVisibleRect);
 
     if (m_horizontalScrollbarTiler)
-        m_horizontalScrollbarTiler->draw(m_visibleRect);
+        m_horizontalScrollbarTiler->draw(m_viewportVisibleRect);
 }
 
-void LayerRendererChromium::updateAndDrawLayers(const IntRect& visibleRect, const IntRect& contentRect, const IntPoint& scrollPosition,
-                                                TilePaintInterface& tilePaint, TilePaintInterface& scrollbarPaint)
+void LayerRendererChromium::setViewport(const IntRect& visibleRect, const IntRect& contentRect, const IntPoint& scrollPosition)
+{
+    bool visibleRectChanged = m_viewportVisibleRect.size() != visibleRect.size();
+
+    m_viewportVisibleRect = visibleRect;
+    m_viewportContentRect = contentRect;
+    m_viewportScrollPosition = scrollPosition;
+
+    if (visibleRectChanged) {
+        // Reset the current render surface to force an update of the viewport and
+        // projection matrix next time useRenderSurface is called.
+        m_currentRenderSurface = 0;
+
+        m_rootLayerContentTiler->invalidateEntireLayer();
+        if (m_horizontalScrollbarTiler)
+            m_horizontalScrollbarTiler->invalidateEntireLayer();
+        if (m_verticalScrollbarTiler)
+            m_verticalScrollbarTiler->invalidateEntireLayer();
+    }
+}
+
+void LayerRendererChromium::updateAndDrawLayers()
 {
     ASSERT(m_hardwareCompositing);
 
     if (!m_rootLayer)
         return;
 
-    updateRootLayerContents(tilePaint, visibleRect);
+    updateRootLayerContents();
+
     // Recheck that we still have a root layer. This may become null if
     // compositing gets turned off during a paint operation.
     if (!m_rootLayer)
         return;
 
-    updateRootLayerScrollbars(scrollbarPaint, visibleRect, contentRect);
+    updateRootLayerScrollbars();
 
     Vector<CCLayerImpl*> renderSurfaceLayerList;
-    updateLayers(visibleRect, contentRect, scrollPosition, renderSurfaceLayerList);
+    updateLayers(renderSurfaceLayerList);
 
     drawLayers(renderSurfaceLayerList);
+
+    if (isCompositingOffscreen())
+        copyOffscreenTextureToDisplay();
 }
 
-void LayerRendererChromium::updateLayers(const IntRect& visibleRect, const IntRect& contentRect, const IntPoint& scrollPosition,
-                                         Vector<CCLayerImpl*>& renderSurfaceLayerList)
+void LayerRendererChromium::updateLayers(Vector<CCLayerImpl*>& renderSurfaceLayerList)
 {
+    TRACE_EVENT("LayerRendererChromium::updateLayers", this, 0);
+    m_rootLayer->createCCLayerImplIfNeeded();
     CCLayerImpl* rootDrawLayer = m_rootLayer->ccLayerImpl();
 
     if (!rootDrawLayer->renderSurface())
         rootDrawLayer->createRenderSurface();
     ASSERT(rootDrawLayer->renderSurface());
 
-    // If the size of the visible area has changed then allocate a new texture
-    // to store the contents of the root layer and adjust the projection matrix
-    // and viewport.
+    rootDrawLayer->renderSurface()->m_contentRect = IntRect(IntPoint(0, 0), m_viewportVisibleRect.size());
 
-    rootDrawLayer->renderSurface()->m_contentRect = IntRect(IntPoint(0, 0), visibleRect.size());
-
-    if (visibleRect.size() != m_visibleRect.size()) {
-        // Reset the current render surface to force an update of the viewport and
-        // projection matrix next time useRenderSurface is called.
-        m_currentRenderSurface = 0;
-    }
-    m_visibleRect = visibleRect;
-
-    m_scrollPosition = scrollPosition;
     // Scissor out the scrollbars to avoid rendering on top of them.
-    IntRect rootScissorRect(contentRect);
+    IntRect rootScissorRect(m_viewportContentRect);
     // The scissorRect should not include the scroll offset.
-    rootScissorRect.move(-m_scrollPosition.x(), -m_scrollPosition.y());
+    rootScissorRect.move(-m_viewportScrollPosition.x(), -m_viewportScrollPosition.y());
     rootDrawLayer->setScissorRect(rootScissorRect);
 
     m_defaultRenderSurface = rootDrawLayer->renderSurface();
@@ -283,16 +307,19 @@ void LayerRendererChromium::updateLayers(const IntRect& visibleRect, const IntRe
     // concept of a large content layer.
     updatePropertiesAndRenderSurfaces(m_rootLayer.get(), identityMatrix, renderSurfaceLayerList, m_defaultRenderSurface->m_layerList);
 
-    updateContentsRecursive(m_rootLayer.get());
+    paintContentsRecursive(m_rootLayer.get());
+
+    updateCompositorResourcesRecursive(m_rootLayer.get());
 }
 
 void LayerRendererChromium::drawLayers(const Vector<CCLayerImpl*>& renderSurfaceLayerList)
 {
+    TRACE_EVENT("LayerRendererChromium::drawLayers", this, 0);
     CCLayerImpl* rootDrawLayer = m_rootLayer->ccLayerImpl();
     makeContextCurrent();
 
     // The GL viewport covers the entire visible area, including the scrollbars.
-    GLC(m_context.get(), m_context->viewport(0, 0, m_visibleRect.width(), m_visibleRect.height()));
+    GLC(m_context.get(), m_context->viewport(0, 0, m_viewportVisibleRect.width(), m_viewportVisibleRect.height()));
 
     // Bind the common vertex attributes used for drawing all the layers.
     m_sharedGeometry->prepareForDraw();
@@ -363,11 +390,13 @@ void LayerRendererChromium::drawLayers(const Vector<CCLayerImpl*>& renderSurface
 
 void LayerRendererChromium::finish()
 {
+    TRACE_EVENT("LayerRendererChromium::finish", this, 0);
     m_context->finish();
 }
 
 void LayerRendererChromium::present()
 {
+    TRACE_EVENT("LayerRendererChromium::present", this, 0);
     // We're done! Time to swapbuffers!
 
     // Note that currently this has the same effect as swapBuffers; we should
@@ -382,7 +411,7 @@ void LayerRendererChromium::setRootLayer(PassRefPtr<LayerChromium> layer)
     m_rootLayer = layer;
     if (m_rootLayer)
         m_rootLayer->setLayerRenderer(this);
-    m_rootLayerTiler->invalidateEntireLayer();
+    m_rootLayerContentTiler->invalidateEntireLayer();
     if (m_horizontalScrollbarTiler)
         m_horizontalScrollbarTiler->invalidateEntireLayer();
     if (m_verticalScrollbarTiler)
@@ -391,7 +420,7 @@ void LayerRendererChromium::setRootLayer(PassRefPtr<LayerChromium> layer)
 
 void LayerRendererChromium::getFramebufferPixels(void *pixels, const IntRect& rect)
 {
-    ASSERT(rect.maxX() <= visibleRectSize().width() && rect.maxY() <= visibleRectSize().height());
+    ASSERT(rect.maxX() <= m_viewportVisibleRect.width() && rect.maxY() <= m_viewportVisibleRect.height());
 
     if (!pixels)
         return;
@@ -446,8 +475,29 @@ bool LayerRendererChromium::isLayerVisible(LayerChromium* layer, const Transform
 // necessary transformations, scissor rectangles, render surfaces, etc.
 void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* layer, const TransformationMatrix& parentMatrix, Vector<CCLayerImpl*>& renderSurfaceLayerList, Vector<CCLayerImpl*>& layerList)
 {
+    // Make sure we have CCLayerImpls for this subtree.
+    layer->createCCLayerImplIfNeeded();
     layer->setLayerRenderer(this);
+    if (layer->maskLayer()) {
+        layer->maskLayer()->createCCLayerImplIfNeeded();
+        layer->maskLayer()->setLayerRenderer(this);
+    }
+    if (layer->replicaLayer()) {
+        layer->replicaLayer()->createCCLayerImplIfNeeded();
+        layer->replicaLayer()->setLayerRenderer(this);
+    }
+    if (layer->replicaLayer() && layer->replicaLayer()->maskLayer()) {
+        layer->replicaLayer()->maskLayer()->createCCLayerImplIfNeeded();
+        layer->replicaLayer()->maskLayer()->setLayerRenderer(this);
+    }
+
     CCLayerImpl* drawLayer = layer->ccLayerImpl();
+    // Currently we're calling pushPropertiesTo() twice - once here and once in updateCompositorResourcesRecursive().
+    // We should only call pushPropertiesTo() in commit, but because we rely on the draw layer state to update
+    // RenderSurfaces and we rely on RenderSurfaces being up to date in order to paint contents we have
+    // to update the draw layers twice.
+    // FIXME: Remove this call once layer updates no longer depend on render surfaces.
+    layer->pushPropertiesTo(drawLayer);
 
     // Compute the new matrix transformation that will be applied to this layer and
     // all its sublayers. It's important to remember that the layer's position
@@ -467,9 +517,9 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
     // Where: P is the projection matrix
     //        M is the layer's matrix computed above
     //        S is the scale adjustment (to scale up to the layer size)
-    IntSize bounds = layer->bounds();
-    FloatPoint anchorPoint = layer->anchorPoint();
-    FloatPoint position = layer->position();
+    IntSize bounds = drawLayer->bounds();
+    FloatPoint anchorPoint = drawLayer->anchorPoint();
+    FloatPoint position = drawLayer->position();
 
     // Offset between anchor point and the center of the quad.
     float centerOffsetX = (0.5 - anchorPoint.x()) * bounds.width();
@@ -477,16 +527,16 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
 
     TransformationMatrix layerLocalTransform;
     // LT = Tr[l]
-    layerLocalTransform.translate3d(position.x(), position.y(), layer->anchorPointZ());
+    layerLocalTransform.translate3d(position.x(), position.y(), drawLayer->anchorPointZ());
     // LT = Tr[l] * M[l]
-    layerLocalTransform.multiply(layer->transform());
+    layerLocalTransform.multiply(drawLayer->transform());
     // LT = Tr[l] * M[l] * Tr[c]
-    layerLocalTransform.translate3d(centerOffsetX, centerOffsetY, -layer->anchorPointZ());
+    layerLocalTransform.translate3d(centerOffsetX, centerOffsetY, -drawLayer->anchorPointZ());
 
     TransformationMatrix combinedTransform = parentMatrix;
     combinedTransform = combinedTransform.multiply(layerLocalTransform);
 
-    FloatRect layerRect(-0.5 * layer->bounds().width(), -0.5 * layer->bounds().height(), layer->bounds().width(), layer->bounds().height());
+    FloatRect layerRect(-0.5 * drawLayer->bounds().width(), -0.5 * drawLayer->bounds().height(), drawLayer->bounds().width(), drawLayer->bounds().height());
     IntRect transformedLayerRect;
 
     // The layer and its descendants render on a new RenderSurface if any of
@@ -498,12 +548,11 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
     // If a layer preserves-3d then we don't create a RenderSurface for it to avoid flattening
     // out its children. The opacity value of the children layers is multiplied by the opacity
     // of their parent.
-    bool useSurfaceForClipping = layer->masksToBounds() && !isScaleOrTranslation(combinedTransform);
-    bool useSurfaceForOpacity = layer->opacity() != 1 && !layer->preserves3D();
-    bool useSurfaceForMasking = layer->maskDrawLayer();
-    bool useSurfaceForReflection = layer->replicaLayer();
-    if (((useSurfaceForClipping || useSurfaceForOpacity) && layer->descendantsDrawContent())
-        || useSurfaceForMasking || useSurfaceForReflection) {
+    bool useSurfaceForClipping = drawLayer->masksToBounds() && !isScaleOrTranslation(combinedTransform);
+    bool useSurfaceForOpacity = drawLayer->opacity() != 1 && !drawLayer->preserves3D();
+    bool useSurfaceForMasking = drawLayer->maskLayer();
+    bool useSurfaceForReflection = drawLayer->replicaLayer();
+    if (useSurfaceForMasking || useSurfaceForReflection || ((useSurfaceForClipping || useSurfaceForOpacity) && drawLayer->descendantsDrawsContent())) {
         RenderSurfaceChromium* renderSurface = drawLayer->renderSurface();
         if (!renderSurface)
             renderSurface = drawLayer->createRenderSurface();
@@ -516,15 +565,15 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
         transformedLayerRect = IntRect(0, 0, bounds.width(), bounds.height());
 
         // Layer's opacity will be applied when drawing the render surface.
-        renderSurface->m_drawOpacity = layer->opacity();
-        if (layer->superlayer() && layer->superlayer()->preserves3D())
+        renderSurface->m_drawOpacity = drawLayer->opacity();
+        if (drawLayer->superlayer() && drawLayer->superlayer()->preserves3D())
             renderSurface->m_drawOpacity *= drawLayer->superlayer()->drawOpacity();
         drawLayer->setDrawOpacity(1);
 
         TransformationMatrix layerOriginTransform = combinedTransform;
         layerOriginTransform.translate3d(-0.5 * bounds.width(), -0.5 * bounds.height(), 0);
         renderSurface->m_originTransform = layerOriginTransform;
-        if (layerOriginTransform.isInvertible() && layer->superlayer()) {
+        if (layerOriginTransform.isInvertible() && drawLayer->superlayer()) {
             TransformationMatrix parentToLayer = layerOriginTransform.inverse();
 
             drawLayer->setScissorRect(parentToLayer.mapRect(drawLayer->superlayer()->scissorRect()));
@@ -538,17 +587,14 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
 
         renderSurface->m_layerList.clear();
 
-        if (layer->maskDrawLayer()) {
-            renderSurface->m_maskLayer = layer->maskDrawLayer();
-            layer->maskDrawLayer()->setLayerRenderer(this);
-            layer->maskDrawLayer()->setTargetRenderSurface(renderSurface);
+        if (drawLayer->maskLayer()) {
+            renderSurface->m_maskLayer = drawLayer->maskLayer();
+            drawLayer->maskLayer()->setTargetRenderSurface(renderSurface);
         } else
             renderSurface->m_maskLayer = 0;
 
-        if (layer->replicaLayer() && layer->replicaLayer()->maskDrawLayer()) {
-            layer->replicaLayer()->maskDrawLayer()->setLayerRenderer(this);
-            layer->replicaLayer()->maskDrawLayer()->setTargetRenderSurface(renderSurface);
-        }
+        if (drawLayer->replicaLayer() && drawLayer->replicaLayer()->maskLayer())
+            drawLayer->replicaLayer()->maskLayer()->setTargetRenderSurface(renderSurface);
 
         renderSurfaceLayerList.append(drawLayer);
     } else {
@@ -556,10 +602,10 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
         drawLayer->setDrawTransform(combinedTransform);
         transformedLayerRect = enclosingIntRect(drawLayer->drawTransform().mapRect(layerRect));
 
-        drawLayer->setDrawOpacity(layer->opacity());
+        drawLayer->setDrawOpacity(drawLayer->opacity());
 
-        if (layer->superlayer()) {
-            if (layer->superlayer()->preserves3D())
+        if (drawLayer->superlayer()) {
+            if (drawLayer->superlayer()->preserves3D())
                drawLayer->setDrawOpacity(drawLayer->drawOpacity() * drawLayer->superlayer()->drawOpacity());
 
             // Layers inherit the scissor rect from their superlayer.
@@ -571,7 +617,7 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
         if (layer != m_rootLayer)
             drawLayer->clearRenderSurface();
 
-        if (layer->masksToBounds()) {
+        if (drawLayer->masksToBounds()) {
             IntRect scissor = drawLayer->scissorRect();
             scissor.intersect(transformedLayerRect);
             drawLayer->setScissorRect(scissor);
@@ -581,7 +627,7 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
     if (drawLayer->renderSurface())
         drawLayer->setTargetRenderSurface(drawLayer->renderSurface());
     else {
-        ASSERT(layer->superlayer());
+        ASSERT(drawLayer->superlayer());
         drawLayer->setTargetRenderSurface(drawLayer->superlayer()->targetRenderSurface());
     }
 
@@ -595,7 +641,7 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
     TransformationMatrix sublayerMatrix = drawLayer->drawTransform();
 
     // Flatten to 2D if the layer doesn't preserve 3D.
-    if (!layer->preserves3D()) {
+    if (!drawLayer->preserves3D()) {
         sublayerMatrix.setM13(0);
         sublayerMatrix.setM23(0);
         sublayerMatrix.setM31(0);
@@ -606,7 +652,7 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
     }
 
     // Apply the sublayer transform at the center of the layer.
-    sublayerMatrix.multiply(layer->sublayerTransform());
+    sublayerMatrix.multiply(drawLayer->sublayerTransform());
 
     // The origin of the sublayers is the top left corner of the layer, not the
     // center. The matrix passed down to the sublayers is therefore:
@@ -619,6 +665,7 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
 
     const Vector<RefPtr<LayerChromium> >& sublayers = layer->getSublayers();
     for (size_t i = 0; i < sublayers.size(); ++i) {
+        sublayers[i]->createCCLayerImplIfNeeded();
         CCLayerImpl* sublayer = sublayers[i]->ccLayerImpl();
         updatePropertiesAndRenderSurfaces(sublayers[i].get(), sublayerMatrix, renderSurfaceLayerList, descendants);
 
@@ -635,7 +682,7 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
         }
     }
 
-    if (layer->masksToBounds() || useSurfaceForMasking) {
+    if (drawLayer->masksToBounds() || useSurfaceForMasking) {
         IntRect drawableContentRect = drawLayer->drawableContentRect();
         drawableContentRect.intersect(transformedLayerRect);
         drawLayer->setDrawableContentRect(drawableContentRect);
@@ -651,7 +698,7 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
 
         // Don't clip if the layer is reflected as the reflection shouldn't be
         // clipped.
-        if (!layer->replicaLayer()) {
+        if (!drawLayer->replicaLayer()) {
             renderSurface->m_contentRect.intersect(drawLayer->scissorRect());
             FloatPoint clippedSurfaceCenter = renderSurface->contentRectCenter();
             centerOffsetDueToClipping = clippedSurfaceCenter - surfaceCenter;
@@ -675,10 +722,10 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
 
         // Compute the transformation matrix used to draw the replica of the render
         // surface.
-        if (layer->replicaLayer()) {
+        if (drawLayer->replicaLayer()) {
             renderSurface->m_replicaDrawTransform = renderSurface->m_originTransform;
-            renderSurface->m_replicaDrawTransform.translate3d(layer->replicaLayer()->position().x(), layer->replicaLayer()->position().y(), 0);
-            renderSurface->m_replicaDrawTransform.multiply(layer->replicaLayer()->transform());
+            renderSurface->m_replicaDrawTransform.translate3d(drawLayer->replicaLayer()->position().x(), drawLayer->replicaLayer()->position().y(), 0);
+            renderSurface->m_replicaDrawTransform.multiply(drawLayer->replicaLayer()->transform());
             renderSurface->m_replicaDrawTransform.translate3d(surfaceCenter.x() - anchorPoint.x() * bounds.width(), surfaceCenter.y() - anchorPoint.y() * bounds.height(), 0);
         }
     }
@@ -686,8 +733,8 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
     // Compute the depth value of the center of the layer which will be used when
     // sorting the layers for the preserves-3d property.
     const TransformationMatrix& layerDrawMatrix = drawLayer->renderSurface() ? drawLayer->renderSurface()->m_drawTransform : drawLayer->drawTransform();
-    if (layer->superlayer()) {
-        if (!layer->superlayer()->preserves3D())
+    if (drawLayer->superlayer()) {
+        if (!drawLayer->superlayer()->preserves3D())
             drawLayer->setDrawDepth(drawLayer->superlayer()->drawDepth());
         else
             drawLayer->setDrawDepth(layerDrawMatrix.m43());
@@ -697,24 +744,50 @@ void LayerRendererChromium::updatePropertiesAndRenderSurfaces(LayerChromium* lay
     // If preserves-3d then sort all the descendants by the Z coordinate of their
     // center. If the preserves-3d property is also set on the superlayer then
     // skip the sorting as the superlayer will sort all the descendants anyway.
-    if (layer->preserves3D() && (!layer->superlayer() || !layer->superlayer()->preserves3D()))
+    if (drawLayer->preserves3D() && (!drawLayer->superlayer() || !drawLayer->superlayer()->preserves3D()))
         std::stable_sort(&descendants.at(thisLayerIndex), descendants.end(), compareLayerZ);
 }
 
-void LayerRendererChromium::updateContentsRecursive(LayerChromium* layer)
+void LayerRendererChromium::paintContentsRecursive(LayerChromium* layer)
 {
     const Vector<RefPtr<LayerChromium> >& sublayers = layer->getSublayers();
     for (size_t i = 0; i < sublayers.size(); ++i)
-        updateContentsRecursive(sublayers[i].get());
+        paintContentsRecursive(sublayers[i].get());
+
+    if (layer->bounds().isEmpty())
+        return;
 
     if (layer->drawsContent())
-        layer->updateContentsIfDirty();
+        layer->paintContentsIfDirty();
     if (layer->maskLayer() && layer->maskLayer()->drawsContent())
-        layer->maskLayer()->updateContentsIfDirty();
+        layer->maskLayer()->paintContentsIfDirty();
     if (layer->replicaLayer() && layer->replicaLayer()->drawsContent())
-        layer->replicaLayer()->updateContentsIfDirty();
+        layer->replicaLayer()->paintContentsIfDirty();
     if (layer->replicaLayer() && layer->replicaLayer()->maskLayer() && layer->replicaLayer()->maskLayer()->drawsContent())
-        layer->replicaLayer()->maskLayer()->updateContentsIfDirty();
+        layer->replicaLayer()->maskLayer()->paintContentsIfDirty();
+}
+
+void LayerRendererChromium::updateCompositorResourcesRecursive(LayerChromium* layer)
+{
+    const Vector<RefPtr<LayerChromium> >& sublayers = layer->getSublayers();
+    for (size_t i = 0; i < sublayers.size(); ++i)
+        updateCompositorResourcesRecursive(sublayers[i].get());
+
+    if (layer->bounds().isEmpty())
+        return;
+
+    CCLayerImpl* drawLayer = layer->ccLayerImpl();
+
+    if (drawLayer->drawsContent())
+        drawLayer->updateCompositorResources();
+    if (drawLayer->maskLayer() && drawLayer->maskLayer()->drawsContent())
+        drawLayer->maskLayer()->updateCompositorResources();
+    if (drawLayer->replicaLayer() && drawLayer->replicaLayer()->drawsContent())
+        drawLayer->replicaLayer()->updateCompositorResources();
+    if (drawLayer->replicaLayer() && drawLayer->replicaLayer()->maskLayer() && drawLayer->replicaLayer()->maskLayer()->drawsContent())
+        drawLayer->replicaLayer()->maskLayer()->updateCompositorResources();
+
+    layer->pushPropertiesTo(drawLayer);
 }
 
 void LayerRendererChromium::setCompositeOffscreen(bool compositeOffscreen)
@@ -788,22 +861,38 @@ void LayerRendererChromium::drawLayer(CCLayerImpl* layer, RenderSurfaceChromium*
         return;
     }
 
-    if (layer->bounds().isEmpty())
+    if (layer->bounds().isEmpty()) {
+        layer->unreserveContentsTexture();
         return;
+    }
 
     setScissorToRect(layer->scissorRect());
 
     // Check if the layer falls within the visible bounds of the page.
     IntRect layerRect = layer->getDrawRect();
     bool isLayerVisible = layer->scissorRect().intersects(layerRect);
-    if (!isLayerVisible)
+    if (!isLayerVisible) {
+        layer->unreserveContentsTexture();
         return;
+    }
 
     // FIXME: Need to take into account the commulative render surface transforms all the way from
     //        the default render surface in order to determine visibility.
-    TransformationMatrix combinedDrawMatrix = (layer->renderSurface() ? layer->renderSurface()->drawTransform().multiply(layer->drawTransform()) : layer->drawTransform());
-    if (!layer->doubleSided() && combinedDrawMatrix.m33() < 0)
-         return;
+    TransformationMatrix combinedDrawMatrix = (layer->targetRenderSurface() ? layer->targetRenderSurface()->drawTransform().multiply(layer->drawTransform()) : layer->drawTransform());
+    
+    if (!layer->doubleSided()) {
+        FloatRect layerRect(FloatPoint(0, 0), FloatSize(layer->bounds()));
+        FloatQuad mappedLayer = combinedDrawMatrix.mapQuad(FloatQuad(layerRect));
+        FloatSize horizontalDir = mappedLayer.p2() - mappedLayer.p1();
+        FloatSize verticalDir = mappedLayer.p4() - mappedLayer.p1();
+        FloatPoint3D xAxis(horizontalDir.width(), horizontalDir.height(), 0);
+        FloatPoint3D yAxis(verticalDir.width(), verticalDir.height(), 0);
+        FloatPoint3D zAxis = xAxis.cross(yAxis);
+        if (zAxis.z() < 0) {
+            layer->unreserveContentsTexture();
+            return;
+        }
+    }
 
     if (layer->drawsContent())
         layer->draw();
@@ -880,10 +969,10 @@ bool LayerRendererChromium::initializeSharedObjects()
     m_sharedGeometry = adoptPtr(new GeometryBinding(m_context.get()));
     m_borderProgram = adoptPtr(new LayerChromium::BorderProgram(m_context.get()));
     m_contentLayerProgram = adoptPtr(new ContentLayerChromium::Program(m_context.get()));
-    m_canvasLayerProgram = adoptPtr(new CanvasLayerChromium::Program(m_context.get()));
-    m_videoLayerRGBAProgram = adoptPtr(new VideoLayerChromium::RGBAProgram(m_context.get()));
-    m_videoLayerYUVProgram = adoptPtr(new VideoLayerChromium::YUVProgram(m_context.get()));
-    m_pluginLayerProgram = adoptPtr(new PluginLayerChromium::Program(m_context.get()));
+    m_canvasLayerProgram = adoptPtr(new CCCanvasLayerImpl::Program(m_context.get()));
+    m_videoLayerRGBAProgram = adoptPtr(new CCVideoLayerImpl::RGBAProgram(m_context.get()));
+    m_videoLayerYUVProgram = adoptPtr(new CCVideoLayerImpl::YUVProgram(m_context.get()));
+    m_pluginLayerProgram = adoptPtr(new CCPluginLayerImpl::Program(m_context.get()));
     m_renderSurfaceProgram = adoptPtr(new RenderSurfaceChromium::Program(m_context.get()));
     m_renderSurfaceMaskProgram = adoptPtr(new RenderSurfaceChromium::MaskProgram(m_context.get()));
     m_tilerProgram = adoptPtr(new LayerTilerChromium::Program(m_context.get()));
@@ -920,7 +1009,7 @@ void LayerRendererChromium::cleanupSharedObjects()
         GLC(m_context.get(), m_context->deleteFramebuffer(m_offscreenFramebufferId));
 
     // Clear tilers before the texture manager, as they have references to textures.
-    m_rootLayerTiler.clear();
+    m_rootLayerContentTiler.clear();
     m_horizontalScrollbarTiler.clear();
     m_verticalScrollbarTiler.clear();
 

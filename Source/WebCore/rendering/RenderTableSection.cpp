@@ -203,7 +203,7 @@ void RenderTableSection::addCell(RenderTableCell* cell, RenderTableRow* row)
             switch (logicalHeight.type()) {
                 case Percent:
                     if (!(cRowLogicalHeight.isPercent()) ||
-                        (cRowLogicalHeight.isPercent() && cRowLogicalHeight.rawValue() < logicalHeight.rawValue()))
+                        (cRowLogicalHeight.isPercent() && cRowLogicalHeight.percent() < logicalHeight.percent()))
                         m_grid[m_cRow].logicalHeight = logicalHeight;
                         break;
                 case Fixed:
@@ -521,22 +521,22 @@ int RenderTableSection::layoutRows(int toAdd)
             if (m_grid[r].logicalHeight.isAuto())
                 numAuto++;
             else if (m_grid[r].logicalHeight.isPercent())
-                totalPercent += m_grid[r].logicalHeight.rawValue();
+                totalPercent += m_grid[r].logicalHeight.percent();
         }
         if (totalPercent) {
             // try to satisfy percent
             int add = 0;
-            totalPercent = min(totalPercent, 100 * percentScaleFactor);
+            totalPercent = min(totalPercent, 100);
             int rh = m_rowPos[1] - m_rowPos[0];
             for (int r = 0; r < totalRows; r++) {
                 if (totalPercent > 0 && m_grid[r].logicalHeight.isPercent()) {
-                    int toAdd = min(dh, (totalHeight * m_grid[r].logicalHeight.rawValue() / (100 * percentScaleFactor)) - rh);
+                    int toAdd = min(dh, static_cast<int>((totalHeight * m_grid[r].logicalHeight.percent() / 100) - rh));
                     // If toAdd is negative, then we don't want to shrink the row (this bug
                     // affected Outlook Web Access).
                     toAdd = max(0, toAdd);
                     add += toAdd;
                     dh -= toAdd;
-                    totalPercent -= m_grid[r].logicalHeight.rawValue();
+                    totalPercent -= m_grid[r].logicalHeight.percent();
                 }
                 if (r < totalRows - 1)
                     rh = m_rowPos[r + 2] - m_rowPos[r + 1];
@@ -647,9 +647,7 @@ int RenderTableSection::layoutRows(int toAdd)
                 // Alignment within a cell is based off the calculated
                 // height, which becomes irrelevant once the cell has
                 // been resized based off its percentage.
-                cell->setOverrideSize(max(0, 
-                                           rHeight - cell->borderBefore() - cell->paddingBefore() - 
-                                                     cell->borderAfter() - cell->paddingAfter()));
+                cell->setOverrideSizeFromRowHeight(rHeight);
                 cell->layoutIfNeeded();
 
                 // If the baseline moved, we may have to update the data for our row. Find out the new baseline.

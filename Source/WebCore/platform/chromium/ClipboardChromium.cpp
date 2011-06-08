@@ -31,6 +31,7 @@
 #include "ChromiumDataObject.h"
 #include "ClipboardMimeTypes.h"
 #include "ClipboardUtilitiesChromium.h"
+#include "DataTransferItemsChromium.h"
 #include "Document.h"
 #include "DragData.h"
 #include "Element.h"
@@ -341,5 +342,23 @@ bool ClipboardChromium::hasData()
 
     return m_dataObject->hasData();
 }
+
+#if ENABLE(DATA_TRANSFER_ITEMS)
+PassRefPtr<DataTransferItems> ClipboardChromium::items()
+{
+    RefPtr<DataTransferItemsChromium> items = DataTransferItemsChromium::create(this, m_frame->document()->scriptExecutionContext());
+
+    if (!m_dataObject)
+        return items;
+
+    if (isForCopyAndPaste() && policy() == ClipboardReadable) {
+        // Iterate through the types and add them.
+        HashSet<String> types = m_dataObject->types();
+        for (HashSet<String>::const_iterator it = types.begin(); it != types.end(); ++it)
+            items->addPasteboardItem(*it);
+    }
+    return items;
+}
+#endif
 
 } // namespace WebCore

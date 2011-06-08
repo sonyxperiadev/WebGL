@@ -89,8 +89,13 @@ namespace WebCore {
         PassRefPtr<CSSValue> parseBackgroundColor();
 
         bool parseFillImage(RefPtr<CSSValue>&);
-        PassRefPtr<CSSValue> parseFillPositionXY(CSSParserValueList*, bool& xFound, bool& yFound);
+
+        enum FillPositionFlag { InvalidFillPosition = 0, AmbiguousFillPosition = 1, XFillPosition = 2, YFillPosition = 4 };
+        PassRefPtr<CSSValue> parseFillPositionComponent(CSSParserValueList*, unsigned& cumulativeFlags, FillPositionFlag& individualFlag);
+        PassRefPtr<CSSValue> parseFillPositionX(CSSParserValueList*);
+        PassRefPtr<CSSValue> parseFillPositionY(CSSParserValueList*);
         void parseFillPosition(CSSParserValueList*, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
+        
         void parseFillRepeat(RefPtr<CSSValue>&, RefPtr<CSSValue>&);
         PassRefPtr<CSSValue> parseFillSize(int propId, bool &allowComma);
 
@@ -173,10 +178,15 @@ namespace WebCore {
 
         bool parseTextEmphasisStyle(bool important);
 
+        bool parseLineBoxContain(bool important);
+
         int yyparse();
 
         CSSParserSelector* createFloatingSelector();
         PassOwnPtr<CSSParserSelector> sinkFloatingSelector(CSSParserSelector*);
+
+        Vector<OwnPtr<CSSParserSelector> >* createFloatingSelectorVector();
+        Vector<OwnPtr<CSSParserSelector> >* sinkFloatingSelectorVector(Vector<OwnPtr<CSSParserSelector> >*);
 
         CSSParserValueList* createFloatingValueList();
         CSSParserValueList* sinkFloatingValueList(CSSParserValueList*);
@@ -311,6 +321,7 @@ namespace WebCore {
         Vector<RefPtr<StyleBase> > m_parsedStyleObjects;
         Vector<RefPtr<CSSRuleList> > m_parsedRuleLists;
         HashSet<CSSParserSelector*> m_floatingSelectors;
+        HashSet<Vector<OwnPtr<CSSParserSelector> >*> m_floatingSelectorVectors;
         HashSet<CSSParserValueList*> m_floatingValueLists;
         HashSet<CSSParserFunction*> m_floatingFunctions;
 

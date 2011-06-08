@@ -27,6 +27,8 @@
 #include "MarkedBlock.h"
 
 #include "JSCell.h"
+#include "JSObject.h"
+#include "JSZombie.h"
 #include "ScopeChain.h"
 
 namespace JSC {

@@ -54,6 +54,7 @@ struct WebProcessCreationParameters {
 
     String applicationCacheDirectory;
     String databaseDirectory;
+    String localStorageDirectory;
     Vector<String> urlSchemesRegistererdAsEmptyDocument;
     Vector<String> urlSchemesRegisteredAsSecure;
     Vector<String> urlSchemesForWhichDomainRelaxationIsForbidden;
@@ -68,6 +69,8 @@ struct WebProcessCreationParameters {
     bool clearApplicationCache;
 
     bool shouldAlwaysUseComplexTextCodePath;
+
+    bool iconDatabaseEnabled;
 
     String languageCode;
 
@@ -96,6 +99,8 @@ struct WebProcessCreationParameters {
     String cfURLCachePath;
     uint64_t cfURLCacheDiskCapacity;
     uint64_t cfURLCacheMemoryCapacity;
+
+    uint32_t initialHTTPCookieAcceptPolicy;
 
     bool shouldPaintNativeControls;
 #endif

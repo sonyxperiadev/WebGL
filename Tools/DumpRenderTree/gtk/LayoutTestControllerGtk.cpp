@@ -332,9 +332,9 @@ void LayoutTestController::setUserStyleSheetLocation(JSStringRef path)
         setUserStyleSheetEnabled(true);
 }
 
-void LayoutTestController::setValueForUser(JSContextRef context, JSValueRef element, JSStringRef value)
+void LayoutTestController::setValueForUser(JSContextRef context, JSValueRef nodeObject, JSStringRef value)
 {
-    // FIXME: implement
+    DumpRenderTreeSupportGtk::setValueForUser(context, nodeObject, value);
 }
 
 void LayoutTestController::setViewModeMediaFeature(JSStringRef mode)
@@ -458,6 +458,11 @@ void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
     // FIXME: implement
 }
 
+void LayoutTestController::setAutofilled(JSContextRef context, JSValueRef nodeObject, bool isAutofilled)
+{
+    DumpRenderTreeSupportGtk::setAutofilled(context, nodeObject, isAutofilled);
+}
+
 void LayoutTestController::disableImageLoading()
 {
     // FIXME: Implement for testing fix for https://bugs.webkit.org/show_bug.cgi?id=27896
@@ -488,6 +493,12 @@ void LayoutTestController::setGeolocationPermission(bool allow)
     setGeolocationPermissionCommon(allow);
 }
 
+int LayoutTestController::numberOfPendingGeolocationPermissionRequests()
+{
+    // FIXME: Implement for Geolocation layout tests.
+    return -1;
+}
+
 void LayoutTestController::addMockSpeechInputResult(JSStringRef result, double confidence, JSStringRef language)
 {
     // FIXME: Implement for speech input layout tests.
@@ -496,7 +507,12 @@ void LayoutTestController::addMockSpeechInputResult(JSStringRef result, double c
 
 void LayoutTestController::setIconDatabaseEnabled(bool enabled)
 {
-    DumpRenderTreeSupportGtk::setIconDatabaseEnabled(enabled);
+    WebKitIconDatabase* database = webkit_get_icon_database();
+    if (enabled) {
+        GOwnPtr<gchar> iconDatabasePath(g_build_filename(g_get_tmp_dir(), "DumpRenderTree", "icondatabase", NULL));
+        webkit_icon_database_set_path(database, iconDatabasePath.get());
+    } else
+        webkit_icon_database_set_path(database, 0);
 }
 
 void LayoutTestController::setJavaScriptProfilingEnabled(bool flag)
@@ -627,12 +643,23 @@ void LayoutTestController::clearPersistentUserStyleSheet()
 
 void LayoutTestController::clearAllApplicationCaches()
 {
-    // FIXME: implement to support Application Cache quotas.
+    // FIXME: Implement to support application cache quotas.
 }
 
 void LayoutTestController::setApplicationCacheOriginQuota(unsigned long long quota)
 {
-    // FIXME: implement to support Application Cache quotas.
+    // FIXME: Implement to support application cache quotas.
+}
+
+void LayoutTestController::clearApplicationCacheForOrigin(OpaqueJSString*)
+{
+    // FIXME: Implement to support deleting all application caches for an origin.
+}
+
+JSValueRef LayoutTestController::originsWithApplicationCache(JSContextRef context)
+{
+    // FIXME: Implement to get origins that contain application caches.
+    return JSValueMakeUndefined(context);
 }
 
 void LayoutTestController::clearAllDatabases()
@@ -644,6 +671,32 @@ void LayoutTestController::setDatabaseQuota(unsigned long long quota)
 {
     WebKitSecurityOrigin* origin = webkit_web_frame_get_security_origin(mainFrame);
     webkit_security_origin_set_web_database_quota(origin, quota);
+}
+
+JSValueRef LayoutTestController::originsWithLocalStorage(JSContextRef context)
+{
+    // FIXME: implement
+    return JSValueMakeUndefined(context);
+}
+
+void LayoutTestController::deleteAllLocalStorage()
+{
+        // FIXME: implement
+}
+
+void LayoutTestController::deleteLocalStorageForOrigin(JSStringRef originIdentifier)
+{
+        // FIXME: implement
+}
+
+void LayoutTestController::observeStorageTrackerNotifications(unsigned number)
+{
+        // FIXME: implement
+}
+
+void LayoutTestController::syncLocalStorage()
+{
+    // FIXME: implement
 }
 
 void LayoutTestController::setDomainRelaxationForbiddenForURLScheme(bool, JSStringRef)
@@ -871,6 +924,11 @@ void LayoutTestController::abortModal()
 bool LayoutTestController::hasSpellingMarker(int from, int length)
 {
     return DumpRenderTreeSupportGtk::webkitWebFrameSelectionHasSpellingMarker(mainFrame, from, length);
+}
+
+bool LayoutTestController::hasGrammarMarker(int from, int length)
+{
+    return false;
 }
 
 void LayoutTestController::dumpConfigurationForViewport(int deviceDPI, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight)

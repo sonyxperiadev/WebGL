@@ -18,7 +18,7 @@
 		<Configuration
 			Name="Debug|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;.\WebKit2Common.vsprops;.\WebKit2DirectX.vsprops;.\WebKit2Apple.vsprops"
+			InheritedPropertySheets=".\WebKit2Debug.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -79,7 +79,7 @@
 		<Configuration
 			Name="Release|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;.\WebKit2Common.vsprops;.\WebKit2DirectX.vsprops;.\WebKit2Apple.vsprops"
+			InheritedPropertySheets=".\WebKit2Release.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -140,7 +140,7 @@
 		<Configuration
 			Name="Debug_Cairo_CFLite|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_wincairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\cURL.vsprops;.\WebKit2Common.vsprops;.\WebKit2CFLite.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops"
+			InheritedPropertySheets=".\WebKit2DebugCairoCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -202,7 +202,7 @@
 		<Configuration
 			Name="Release_Cairo_CFLite|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\cURL.vsprops;.\WebKit2Common.vsprops;.\WebKit2CFLite.vsprops"
+			InheritedPropertySheets=".\WebKit2ReleaseCairoCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -263,7 +263,7 @@
 		<Configuration
 			Name="Debug_All|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_all.vsprops;.\WebKit2Common.vsprops;.\WebKit2DirectX.vsprops;.\WebKit2Apple.vsprops"
+			InheritedPropertySheets=".\WebKit2DebugAll.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -322,9 +322,9 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Release_LTCG|Win32"
+			Name="Production|Win32"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\FeatureDefines.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;.\WebKit2Common.vsprops;.\WebKit2DirectX.vsprops;.\WebKit2Apple.vsprops"
+			InheritedPropertySheets=".\WebKit2Production.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
@@ -504,6 +504,10 @@
 			</File>
 			<File
 				RelativePath="..\Shared\PrintInfo.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\ResourceCachesToClear.h"
 				>
 			</File>
 			<File
@@ -786,6 +790,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\Shared\API\c\win\WKBaseWin.h"
+					>
+				</File>
+				<File
 					RelativePath="..\Shared\API\c\WKCertificateInfo.cpp"
 					>
 				</File>
@@ -973,6 +981,30 @@
 					Name="cf"
 					>
 					<File
+						RelativePath="..\Shared\API\c\cf\WKErrorCF.cpp"
+						>
+						<FileConfiguration
+							Name="Debug_Cairo_CFLite|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo_CFLite|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\Shared\API\c\cf\WKErrorCF.h"
+						>
+					</File>
+					<File
 						RelativePath="..\Shared\API\c\cf\WKStringCF.cpp"
 						>
 					</File>
@@ -1140,6 +1172,22 @@
 				<File
 					RelativePath="..\Shared\win\LayerTreeContextWin.cpp"
 					>
+					<FileConfiguration
+						Name="Debug_Cairo_CFLite|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo_CFLite|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
 				</File>
 				<File
 					RelativePath="..\Shared\win\NativeWebKeyboardEventWin.cpp"
@@ -1297,7 +1345,7 @@
 						/>
 					</FileConfiguration>
 					<FileConfiguration
-						Name="Release_LTCG|Win32"
+						Name="Production|Win32"
 						ExcludedFromBuild="true"
 						>
 						<Tool
@@ -1411,6 +1459,22 @@
 				</File>
 			</Filter>
 			<Filter
+				Name="IconDatabase"
+				>
+				<File
+					RelativePath="..\WebProcess\IconDatabase\WebIconDatabaseProxy.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\IconDatabase\WebIconDatabaseProxy.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\IconDatabase\WebIconDatabaseProxy.messages.in"
+					>
+				</File>
+			</Filter>
+			<Filter
 				Name="KeyValueStorage"
 				>
 				<File
@@ -1423,6 +1487,22 @@
 				</File>
 				<File
 					RelativePath="..\WebProcess\KeyValueStorage\WebKeyValueStorageManager.messages.in"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="MediaCache"
+				>
+				<File
+					RelativePath="..\WebProcess\MediaCache\WebMediaCacheManager.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\MediaCache\WebMediaCacheManager.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\MediaCache\WebMediaCacheManager.messages.in"
 					>
 				</File>
 			</Filter>
@@ -1465,6 +1545,70 @@
 					RelativePath="..\WebProcess\Cookies\WebCookieManager.messages.in"
 					>
 				</File>
+				<Filter
+					Name="cf"
+					>
+					<File
+						RelativePath="..\WebProcess\Cookies\cf\WebCookieManagerCFNet.cpp"
+						>
+						<FileConfiguration
+							Name="Debug_Cairo_CFLite|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo_CFLite|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+				</Filter>
+				<Filter
+					Name="curl"
+					>
+					<File
+						RelativePath="..\WebProcess\Cookies\curl\WebCookieManagerCurl.cpp"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_All|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Production|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+				</Filter>
 			</Filter>
 			<Filter
 				Name="WebCoreSupport"
@@ -1769,6 +1913,58 @@
 						>
 					</File>
 				</Filter>
+				<Filter
+					Name="ca"
+					>
+					<File
+						RelativePath="..\WebProcess\WebPage\ca\LayerTreeHostCA.cpp"
+						>
+						<FileConfiguration
+							Name="Debug_Cairo_CFLite|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release_Cairo_CFLite|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\WebProcess\WebPage\ca\LayerTreeHostCA.h"
+						>
+					</File>
+					<Filter
+						Name="win"
+						>
+						<File
+							RelativePath="..\WebProcess\WebPage\ca\win\LayerTreeHostCAWin.cpp"
+							>
+							<FileConfiguration
+								Name="Debug_Cairo_CFLite|Win32"
+								ExcludedFromBuild="true"
+								>
+								<Tool
+									Name="VCCLCompilerTool"
+								/>
+							</FileConfiguration>
+							<FileConfiguration
+								Name="Release_Cairo_CFLite|Win32"
+								ExcludedFromBuild="true"
+								>
+								<Tool
+									Name="VCCLCompilerTool"
+								/>
+							</FileConfiguration>
+						</File>
+					</Filter>
+				</Filter>
 			</Filter>
 			<Filter
 				Name="win"
@@ -1805,7 +2001,15 @@
 					Name="cf"
 					>
 					<File
-						RelativePath="..\WebProcess\Downloads\cf\DownloadCFNet.cpp"
+						RelativePath="..\WebProcess\Downloads\cf\win\DownloadCFWin.cpp"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="cfnet"
+					>
+					<File
+						RelativePath="..\WebProcess\Downloads\cfnet\DownloadCFNet.cpp"
 						>
 						<FileConfiguration
 							Name="Debug_Cairo_CFLite|Win32"
@@ -1824,14 +2028,6 @@
 							/>
 						</FileConfiguration>
 					</File>
-					<Filter
-						Name="win"
-						>
-						<File
-							RelativePath="..\WebProcess\Downloads\cf\win\DownloadCFNetWin.cpp"
-							>
-						</File>
-					</Filter>
 				</Filter>
 				<Filter
 					Name="curl"
@@ -1864,7 +2060,7 @@
 							/>
 						</FileConfiguration>
 						<FileConfiguration
-							Name="Release_LTCG|Win32"
+							Name="Production|Win32"
 							ExcludedFromBuild="true"
 							>
 							<Tool
@@ -2127,6 +2323,18 @@
 							RelativePath="..\WebProcess\InjectedBundle\API\c\WKBundleScriptWorld.h"
 							>
 						</File>
+						<Filter
+							Name="win"
+							>
+							<File
+								RelativePath="..\WebProcess\InjectedBundle\API\c\win\WKBundlePrivateWin.cpp"
+								>
+							</File>
+							<File
+								RelativePath="..\WebProcess\InjectedBundle\API\c\win\WKBundlePrivateWin.h"
+								>
+							</File>
+						</Filter>
 					</Filter>
 				</Filter>
 				<Filter
@@ -2511,6 +2719,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\UIProcess\WebFullScreenManagerProxy.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebFullScreenManagerProxy.h"
+				>
+			</File>
+			<File
 				RelativePath="..\UIProcess\WebGeolocationManagerProxy.cpp"
 				>
 			</File>
@@ -2539,6 +2755,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\UIProcess\WebIconDatabase.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebIconDatabase.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebIconDatabase.messages.in"
+				>
+			</File>
+			<File
 				RelativePath="..\UIProcess\WebInspectorProxy.cpp"
 				>
 			</File>
@@ -2564,6 +2792,18 @@
 			</File>
 			<File
 				RelativePath="..\UIProcess\WebLoaderClient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebMediaCacheManagerProxy.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebMediaCacheManagerProxy.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebMediaCacheManagerProxy.messages.in"
 				>
 			</File>
 			<File
@@ -2825,6 +3065,14 @@
 						>
 					</File>
 					<File
+						RelativePath="..\UIProcess\API\C\WKIconDatabase.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKIconDatabase.h"
+						>
+					</File>
+					<File
 						RelativePath="..\UIProcess\API\C\WKInspector.cpp"
 						>
 					</File>
@@ -2838,6 +3086,14 @@
 					</File>
 					<File
 						RelativePath="..\UIProcess\API\C\WKKeyValueStorageManager.h"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKMediaCacheManager.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKMediaCacheManager.h"
 						>
 					</File>
 					<File
@@ -2929,14 +3185,54 @@
 						>
 					</File>
 					<Filter
+						Name="cg"
+						>
+						<File
+							RelativePath="..\UIProcess\API\C\cg\WKIconDatabaseCG.cpp"
+							>
+							<FileConfiguration
+								Name="Debug_Cairo_CFLite|Win32"
+								ExcludedFromBuild="true"
+								>
+								<Tool
+									Name="VCCLCompilerTool"
+								/>
+							</FileConfiguration>
+							<FileConfiguration
+								Name="Release_Cairo_CFLite|Win32"
+								ExcludedFromBuild="true"
+								>
+								<Tool
+									Name="VCCLCompilerTool"
+								/>
+							</FileConfiguration>
+						</File>
+						<File
+							RelativePath="..\UIProcess\API\C\cg\WKIconDatabaseCG.h"
+							>
+							<FileConfiguration
+								Name="Debug_Cairo_CFLite|Win32"
+								ExcludedFromBuild="true"
+								>
+								<Tool
+									Name="VCCustomBuildTool"
+								/>
+							</FileConfiguration>
+							<FileConfiguration
+								Name="Release_Cairo_CFLite|Win32"
+								ExcludedFromBuild="true"
+								>
+								<Tool
+									Name="VCCustomBuildTool"
+								/>
+							</FileConfiguration>
+						</File>
+					</Filter>
+					<Filter
 						Name="win"
 						>
 						<File
 							RelativePath="..\UIProcess\API\C\win\WKAPICastWin.h"
-							>
-						</File>
-						<File
-							RelativePath="..\UIProcess\API\C\win\WKBaseWin.h"
 							>
 						</File>
 						<File
@@ -3107,6 +3403,14 @@
 				</File>
 				<File
 					RelativePath="..\UIProcess\win\WebPopupMenuProxyWin.h"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\win\WebUndoClient.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\win\WebUndoClient.h"
 					>
 				</File>
 				<File
@@ -3547,6 +3851,22 @@
 				>
 			</File>
 			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebFullScreenManagerMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebFullScreenManagerMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebFullScreenManagerProxyMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebFullScreenManagerProxyMessages.h"
+				>
+			</File>
+			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebGeolocationManagerMessageReceiver.cpp"
 				>
 			</File>
@@ -3560,6 +3880,22 @@
 			</File>
 			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebGeolocationManagerProxyMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebIconDatabaseMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebIconDatabaseMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebIconDatabaseProxyMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebIconDatabaseProxyMessages.h"
 				>
 			</File>
 			<File
@@ -3592,6 +3928,22 @@
 			</File>
 			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebKeyValueStorageManagerProxyMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebMediaCacheManagerMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebMediaCacheManagerMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebMediaCacheManagerProxyMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebMediaCacheManagerProxyMessages.h"
 				>
 			</File>
 			<File
@@ -3728,7 +4080,7 @@
 				/>
 			</FileConfiguration>
 			<FileConfiguration
-				Name="Release_LTCG|Win32"
+				Name="Production|Win32"
 				>
 				<Tool
 					Name="VCCLCompilerTool"

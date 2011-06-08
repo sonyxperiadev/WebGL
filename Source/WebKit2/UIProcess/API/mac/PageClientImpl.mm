@@ -45,6 +45,7 @@
 #import <wtf/PassOwnPtr.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
+#import <WebKitSystemInterface.h>
 
 @interface NSApplication (WebNSApplicationDetails)
 - (NSCursor *)_cursorRectCursor;
@@ -195,6 +196,15 @@ void PageClientImpl::didRelaunchProcess()
     [m_wkView _didRelaunchProcess];
 }
 
+void PageClientImpl::setFocus(bool focused)
+{
+    if (focused)
+        [[m_wkView window] makeFirstResponder:m_wkView];
+    else
+        // takeFocus in this context means take focus away from the WKView.
+        takeFocus(true);
+}
+    
 void PageClientImpl::takeFocus(bool direction)
 {
     [m_wkView _takeFocus:direction];
@@ -287,10 +297,11 @@ void PageClientImpl::interceptKeyEvent(const NativeWebKeyboardEvent& event, Vect
     [m_wkView _getTextInputState:selectionStart selectionEnd:selectionEnd underlines:underlines];
 }
 
-void PageClientImpl::setDragImage(const IntPoint& clientPosition, const IntSize& imageSize, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag)
+void PageClientImpl::setDragImage(const IntPoint& clientPosition, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag)
 {
-    OwnPtr<GraphicsContext> graphicsContext = dragImage->createGraphicsContext();
-    RetainPtr<NSImage> dragNSImage(AdoptNS, [[NSImage alloc] initWithCGImage:CGBitmapContextCreateImage(graphicsContext->platformContext()) size:imageSize]);
+    RetainPtr<CGImageRef> dragCGImage = dragImage->makeCGImage();
+    RetainPtr<NSImage> dragNSImage(AdoptNS, [[NSImage alloc] initWithCGImage:dragCGImage.get() size:dragImage->size()]);
+
     [m_wkView _setDragImage:dragNSImage.get() at:clientPosition linkDrag:isLinkDrag];
 }
     
@@ -303,6 +314,14 @@ FloatRect PageClientImpl::convertToUserSpace(const FloatRect& rect)
 {
     return [m_wkView _convertToUserSpace:rect];
 }
+    
+IntRect PageClientImpl::windowToScreen(const IntRect& rect)
+{
+    NSRect tempRect = rect;
+    tempRect = [m_wkView convertRect:tempRect toView:nil];
+    tempRect.origin = [[m_wkView window] convertBaseToScreen:tempRect.origin];
+    return enclosingIntRect(tempRect);
+}
 
 void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool wasEventHandled)
 {
@@ -311,10 +330,8 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool 
         return;
     if (wasEventHandled)
         [NSCursor setHiddenUntilMouseMoves:YES];
-    else {
-        [m_wkView _setEventBeingResent:nativeEvent];
-        [[NSApplication sharedApplication] sendEvent:nativeEvent];
-    }
+    else
+        [m_wkView _resendKeyDownEvent:nativeEvent];
 }
 
 PassRefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy* page)
@@ -353,18 +370,6 @@ void PageClientImpl::exitAcceleratedCompositingMode()
 void PageClientImpl::setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled)
 {
     [m_wkView _setComplexTextInputEnabled:complexTextInputEnabled pluginComplexTextInputIdentifier:pluginComplexTextInputIdentifier];
-}
-
-void PageClientImpl::setAutodisplay(bool newState)
-{
-    if (!newState && [[m_wkView window] isAutodisplay])
-        [m_wkView displayIfNeeded];
-    
-    [[m_wkView window] setAutodisplay:newState];
-
-    // For some reason, painting doesn't happen for a long time without this call, <rdar://problem/8975229>.
-    if (newState)
-        [m_wkView displayIfNeeded];
 }
 
 CGContextRef PageClientImpl::containingWindowGraphicsContext()
@@ -419,9 +424,64 @@ void PageClientImpl::didPerformDictionaryLookup(const String& text, double scale
     NSPoint textBaselineOrigin = dictionaryPopupInfo.origin;
     textBaselineOrigin.y += [font ascender];
     
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    // Convert to screen coordinates.
+    textBaselineOrigin = [m_wkView convertPoint:textBaselineOrigin toView:nil];
+    textBaselineOrigin = [m_wkView.window convertRectToScreen:NSMakeRect(textBaselineOrigin.x, textBaselineOrigin.y, 0, 0)].origin;
+
+    WKShowWordDefinitionWindow(attributedString.get(), textBaselineOrigin, (NSDictionary *)dictionaryPopupInfo.options.get());
+#else
     // If the dictionary lookup is being triggered by a hot key, force the overlay style.
     NSDictionary *options = (dictionaryPopupInfo.type == DictionaryPopupInfo::HotKey) ? [NSDictionary dictionaryWithObject:NSDefinitionPresentationTypeOverlay forKey:NSDefinitionPresentationTypeKey] : 0;
     [m_wkView showDefinitionForAttributedString:attributedString.get() range:NSMakeRange(0, [attributedString.get() length]) options:options baselineOriginProvider:^(NSRange adjustedRange) { return (NSPoint)textBaselineOrigin; }];
+#endif
+}
+
+void PageClientImpl::showCorrectionPanel(CorrectionPanelInfo::PanelType type, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
+{
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    if (!isViewVisible() || !isViewInWindow())
+        return;
+    m_correctionPanel.show(m_wkView, type, boundingBoxOfReplacedString, replacedString, replacementString, alternativeReplacementStrings);
+#endif
+}
+
+void PageClientImpl::dismissCorrectionPanel(ReasonForDismissingCorrectionPanel reason)
+{
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    m_correctionPanel.dismiss(reason);
+#endif
+}
+
+String PageClientImpl::dismissCorrectionPanelSoon(WebCore::ReasonForDismissingCorrectionPanel reason)
+{
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    return m_correctionPanel.dismissSoon(reason);
+#else
+    return String();
+#endif
+}
+
+void PageClientImpl::recordAutocorrectionResponse(EditorClient::AutocorrectionResponseType responseType, const String& replacedString, const String& replacementString)
+{
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    NSCorrectionResponse response = responseType == EditorClient::AutocorrectionReverted ? NSCorrectionResponseReverted : NSCorrectionResponseEdited;
+    CorrectionPanel::recordAutocorrectionResponse(m_wkView, response, replacedString, replacementString);
+#endif
+}
+
+float PageClientImpl::userSpaceScaleFactor() const
+{
+    NSWindow *window = [m_wkView window];
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    if (window)
+        return [window backingScaleFactor];
+    return [[NSScreen mainScreen] backingScaleFactor];
+#else
+    if (window)
+        return [window userSpaceScaleFactor];
+    return [[NSScreen mainScreen] userSpaceScaleFactor];
+#endif
 }
 
 } // namespace WebKit

@@ -128,7 +128,7 @@ sub AddIncludesForType
 
     # When we're finished with the one-file-per-class
     # reorganization, we won't need these special cases.
-    if (!$codeGenerator->IsPrimitiveType($type) and !$codeGenerator->AvoidInclusionOfType($type) and $type ne "Date") {
+    if (!$codeGenerator->IsPrimitiveType($type) and !$codeGenerator->IsStringType($type) and !$codeGenerator->AvoidInclusionOfType($type) and $type ne "Date") {
         # default, include the same named file
         $implIncludes{GetV8HeaderName(${type})} = 1;
 
@@ -1716,8 +1716,22 @@ sub GenerateImplementation
 
     my $toActive = IsActiveDomType($interfaceName) ? "${className}::toActiveDOMObject" : "0";
 
+    # Find the super descriptor.
+    my $parentClass = "";
+    my $parentClassTemplate = "";
+    foreach (@{$dataNode->parents}) {
+        my $parent = $codeGenerator->StripModule($_);
+        if ($parent eq "EventTarget") {
+            next;
+        }
+        $implIncludes{"V8${parent}.h"} = 1;
+        $parentClass = "V8" . $parent;
+        $parentClassTemplate = $parentClass . "::GetTemplate()";
+        last;
+    }
     push(@implContentDecls, "namespace WebCore {\n\n");
-    push(@implContentDecls, "WrapperTypeInfo ${className}::info = { ${className}::GetTemplate, ${className}::derefObject, ${toActive} };\n\n");   
+    my $parentClassInfo = $parentClass ? "&${parentClass}::info" : "0";
+    push(@implContentDecls, "WrapperTypeInfo ${className}::info = { ${className}::GetTemplate, ${className}::derefObject, ${toActive}, ${parentClassInfo} };\n\n");   
     push(@implContentDecls, "namespace ${interfaceName}Internal {\n\n");
     push(@implContentDecls, "template <typename T> void V8_USE(T) { }\n\n");
 
@@ -1941,15 +1955,6 @@ static v8::Persistent<v8::ObjectTemplate> ConfigureShadowObjectTemplate(v8::Pers
 END
     }
 
-    # find the super descriptor
-    my $parentClassTemplate = "";
-    foreach (@{$dataNode->parents}) {
-        my $parent = $codeGenerator->StripModule($_);
-        if ($parent eq "EventTarget") { next; }
-        $implIncludes{"V8${parent}.h"} = 1;
-        $parentClassTemplate = "V8" . $parent . "::GetTemplate()";
-        last;
-    }
     if (!$parentClassTemplate) {
         $parentClassTemplate = "v8::Persistent<v8::FunctionTemplate>()";
     }
@@ -2506,7 +2511,15 @@ END
     }
 
     push(@implContent, <<END);
-    ${domMapFunction}.set(impl, v8::Persistent<v8::Object>::New(wrapper));
+    v8::Persistent<v8::Object> wrapperHandle = v8::Persistent<v8::Object>::New(wrapper);
+END
+    if (IsNodeSubType($dataNode)) {
+        push(@implContent, <<END);
+    wrapperHandle.SetWrapperClassId(v8DOMSubtreeClassId);
+END
+    }    
+    push(@implContent, <<END);
+    ${domMapFunction}.set(impl, wrapperHandle);
 END
 
     push(@implContent, <<END);
@@ -2833,6 +2846,7 @@ sub GetNativeType
 
     return "RefPtr<MediaQueryListListener>" if $type eq "MediaQueryListListener";
 
+    return "PassRefPtr<DOMStringList>" if $type eq "DOMStringList" and $isParameter;
     return "RefPtr<DOMStringList>" if $type eq "DOMStringList";
 
     # Default, assume native type is a pointer with same type name as idl type

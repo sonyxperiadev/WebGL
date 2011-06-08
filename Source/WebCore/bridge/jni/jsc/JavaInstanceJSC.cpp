@@ -29,7 +29,6 @@
 #if ENABLE(JAVA_BRIDGE)
 
 #include "JavaRuntimeObject.h"
-#include "JNIUtility.h"
 #include "JNIUtilityPrivate.h"
 #include "JSDOMBinding.h"
 #include "JavaArrayJSC.h"
@@ -125,9 +124,9 @@ public:
         ASSERT(inherits(&s_info));
     }
 
-    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    static PassRefPtr<Structure> createStructure(JSGlobalData& globalData, JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
 
     static const ClassInfo s_info;
@@ -178,7 +177,7 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
 
     for (i = 0; i < count; i++) {
         CString javaClassName = jMethod->parameterAt(i).utf8();
-        jArgs[i] = convertValueToJValue(exec, m_rootObject.get(), exec->argument(i), JNITypeFromClassName(javaClassName.data()), javaClassName.data());
+        jArgs[i] = convertValueToJValue(exec, m_rootObject.get(), exec->argument(i), javaTypeFromClassName(javaClassName.data()), javaClassName.data());
         LOG(LiveConnect, "JavaInstance::invokeMethod arg[%d] = %s", i, exec->argument(i).toString(exec).ascii().data());
     }
 
@@ -196,7 +195,8 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
         jobject obj = m_instance->m_instance;
         JSValue exceptionDescription;
         const char *callingURL = 0; // FIXME, need to propagate calling URL to Java
-        handled = dispatchJNICall(exec, rootObject->nativeHandle(), obj, jMethod->isStatic(), jMethod->JNIReturnType(), jMethod->methodID(obj), jArgs.data(), result, callingURL, exceptionDescription);
+        jmethodID methodId = getMethodID(obj, jMethod->name().utf8().data(), jMethod->signature());
+        handled = dispatchJNICall(exec, rootObject->nativeHandle(), obj, jMethod->isStatic(), jMethod->returnType(), methodId, jArgs.data(), result, callingURL, exceptionDescription);
         if (exceptionDescription) {
             throwError(exec, createError(exec, exceptionDescription.toString(exec)));
             return jsUndefined();
@@ -206,58 +206,22 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
 // This is a deprecated code path which should not be required on Android.
 // Remove this guard once Bug 39476 is fixed.
 #if PLATFORM(ANDROID) || defined(BUILDING_ON_TIGER)
-    if (!handled) {
-        jobject obj = m_instance->m_instance;
-        switch (jMethod->JNIReturnType()) {
-        case void_type:
-            callJNIMethodIDA<void>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case object_type:
-            result.l = callJNIMethodIDA<jobject>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case boolean_type:
-            result.z = callJNIMethodIDA<jboolean>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case byte_type:
-            result.b = callJNIMethodIDA<jbyte>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case char_type:
-            result.c = callJNIMethodIDA<jchar>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case short_type:
-            result.s = callJNIMethodIDA<jshort>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case int_type:
-            result.i = callJNIMethodIDA<jint>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case long_type:
-            result.j = callJNIMethodIDA<jlong>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case float_type:
-            result.f = callJNIMethodIDA<jfloat>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case double_type:
-            result.d = callJNIMethodIDA<jdouble>(obj, jMethod->methodID(obj), jArgs.data());
-            break;
-        case array_type:
-        case invalid_type:
-            break;
-        }
-    }
+    if (!handled)
+        result = callJNIMethod(m_instance->m_instance, jMethod->returnType(), jMethod->name().utf8().data(), jMethod->signature(), jArgs.data());
 #endif
 
-    switch (jMethod->JNIReturnType()) {
-    case void_type:
+    switch (jMethod->returnType()) {
+    case JavaTypeVoid:
         {
             resultValue = jsUndefined();
         }
         break;
 
-    case object_type:
+    case JavaTypeObject:
         {
             if (result.l) {
-                // FIXME: array_type return type is handled below, can we actually get an array here?
-                const char* arrayType = jMethod->returnType();
+                // FIXME: JavaTypeArray return type is handled below, can we actually get an array here?
+                const char* arrayType = jMethod->returnTypeClassName();
                 if (arrayType[0] == '[')
                     resultValue = JavaArray::convertJObjectToArray(exec, result.l, arrayType, rootObject);
                 else {
@@ -281,63 +245,63 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
         }
         break;
 
-    case boolean_type:
+    case JavaTypeBoolean:
         {
             resultValue = jsBoolean(result.z);
         }
         break;
 
-    case byte_type:
+    case JavaTypeByte:
         {
             resultValue = jsNumber(result.b);
         }
         break;
 
-    case char_type:
+    case JavaTypeChar:
         {
             resultValue = jsNumber(result.c);
         }
         break;
 
-    case short_type:
+    case JavaTypeShort:
         {
             resultValue = jsNumber(result.s);
         }
         break;
 
-    case int_type:
+    case JavaTypeInt:
         {
             resultValue = jsNumber(result.i);
         }
         break;
 
-    case long_type:
+    case JavaTypeLong:
         {
             resultValue = jsNumber(result.j);
         }
         break;
 
-    case float_type:
+    case JavaTypeFloat:
         {
             resultValue = jsNumber(result.f);
         }
         break;
 
-    case double_type:
+    case JavaTypeDouble:
         {
             resultValue = jsNumber(result.d);
         }
         break;
 
-    case array_type:
+    case JavaTypeArray:
         {
-            const char* arrayType = jMethod->returnType();
+            const char* arrayType = jMethod->returnTypeClassName();
             ASSERT(arrayType[0] == '[');
             resultValue = JavaArray::convertJObjectToArray(exec, result.l, arrayType, rootObject);
         }
         break;
 
-    case invalid_type:
+    case JavaTypeInvalid:
         {
             resultValue = jsUndefined();
         }

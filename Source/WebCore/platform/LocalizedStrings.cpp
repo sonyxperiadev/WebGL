@@ -190,9 +190,9 @@ String contextMenuItemTagSearchWeb()
     return platformStrategies()->localizationStrategy()->contextMenuItemTagSearchWeb();
 }
 
-String contextMenuItemTagLookUpInDictionary()
+String contextMenuItemTagLookUpInDictionary(const String& selectedString)
 {
-    return platformStrategies()->localizationStrategy()->contextMenuItemTagLookUpInDictionary();
+    return platformStrategies()->localizationStrategy()->contextMenuItemTagLookUpInDictionary(selectedString);
 }
 
 String contextMenuItemTagOpenLink()
@@ -569,6 +569,29 @@ String allFilesText()
 }
 #endif
 
+#if PLATFORM(MAC)
+String keygenMenuItem512()
+{
+    return platformStrategies()->localizationStrategy()->keygenMenuItem512();
+}
+
+String keygenMenuItem1024()
+{
+    return platformStrategies()->localizationStrategy()->keygenMenuItem1024();
+}
+
+String keygenMenuItem2048()
+{
+    return platformStrategies()->localizationStrategy()->keygenMenuItem2048();
+}
+
+String keygenKeychainItemName(const String& host)
+{
+    return platformStrategies()->localizationStrategy()->keygenKeychainItemName(host);
+}
+
+#endif
+
 String imageTitle(const String& filename, const IntSize& size)
 {
     return platformStrategies()->localizationStrategy()->imageTitle(filename, size);
@@ -675,5 +698,12 @@ String validationMessageStepMismatchText(const String&, const String&)
 }
 
 #endif // USE(PLATFORM_STRATEGIES)
+
+#if !PLATFORM(MAC) && !PLATFORM(WIN)
+String localizedString(const char* key)
+{
+    return String::fromUTF8(key, strlen(key));
+}
+#endif
 
 } // namespace WebCore

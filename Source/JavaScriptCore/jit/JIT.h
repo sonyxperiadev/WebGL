@@ -245,7 +245,6 @@ namespace JSC {
 
         static void linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, CodePtr, CallLinkInfo*, int callerArgCount, JSGlobalData*);
         static void linkConstruct(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, CodePtr, CallLinkInfo*, int callerArgCount, JSGlobalData*);
-        static void unlinkCallOrConstruct(CallLinkInfo*);
 
     private:
         struct JSRInfo {
@@ -310,7 +309,7 @@ namespace JSC {
         void emitStore(unsigned index, RegisterID tag, RegisterID payload, RegisterID base = callFrameRegister);
         void emitStore(unsigned index, const JSValue constant, RegisterID base = callFrameRegister);
         void emitStoreInt32(unsigned index, RegisterID payload, bool indexIsInt32 = false);
-        void emitStoreInt32(unsigned index, Imm32 payload, bool indexIsInt32 = false);
+        void emitStoreInt32(unsigned index, TrustedImm32 payload, bool indexIsInt32 = false);
         void emitStoreCell(unsigned index, RegisterID payload, bool indexIsCell = false);
         void emitStoreBool(unsigned index, RegisterID tag, bool indexIsBool = false);
         void emitStoreDouble(unsigned index, FPRegisterID value);
@@ -854,6 +853,8 @@ namespace JSC {
         void emitInitRegister(unsigned dst);
 
         void emitPutToCallFrameHeader(RegisterID from, RegisterFile::CallFrameHeaderEntry entry);
+        void emitPutCellToCallFrameHeader(RegisterID from, RegisterFile::CallFrameHeaderEntry);
+        void emitPutIntToCallFrameHeader(RegisterID from, RegisterFile::CallFrameHeaderEntry);
         void emitPutImmediateToCallFrameHeader(void* value, RegisterFile::CallFrameHeaderEntry entry);
         void emitGetFromCallFrameHeaderPtr(RegisterFile::CallFrameHeaderEntry entry, RegisterID to, RegisterID from = callFrameRegister);
         void emitGetFromCallFrameHeader32(RegisterFile::CallFrameHeaderEntry entry, RegisterID to, RegisterID from = callFrameRegister);

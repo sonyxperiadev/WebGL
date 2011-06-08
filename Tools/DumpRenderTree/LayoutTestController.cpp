@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <wtf/Assertions.h>
 #include <wtf/MathExtras.h>
+#include <wtf/OwnArrayPtr.h>
 #include <wtf/RefPtr.h>
 
 LayoutTestController::LayoutTestController(const std::string& testPathOrURL, const std::string& expectedPixelHash)
@@ -355,15 +356,15 @@ static JSValueRef addURLToRedirectCallback(JSContextRef context, JSObjectRef fun
     ASSERT(!*exception);
 
     size_t maxLength = JSStringGetMaximumUTF8CStringSize(origin.get());
-    char* originBuffer = new char[maxLength + 1];
-    JSStringGetUTF8CString(origin.get(), originBuffer, maxLength + 1);
+    OwnArrayPtr<char> originBuffer = adoptArrayPtr(new char[maxLength + 1]);
+    JSStringGetUTF8CString(origin.get(), originBuffer.get(), maxLength + 1);
 
     maxLength = JSStringGetMaximumUTF8CStringSize(destination.get());
-    char* destinationBuffer = new char[maxLength + 1];
-    JSStringGetUTF8CString(destination.get(), destinationBuffer, maxLength + 1);
+    OwnArrayPtr<char> destinationBuffer = adoptArrayPtr(new char[maxLength + 1]);
+    JSStringGetUTF8CString(destination.get(), destinationBuffer.get(), maxLength + 1);
 
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
-    controller->addURLToRedirect(originBuffer, destinationBuffer);
+    controller->addURLToRedirect(originBuffer.get(), destinationBuffer.get());
 
     return JSValueMakeUndefined(context);
 }
@@ -385,6 +386,26 @@ static JSValueRef clearAllApplicationCachesCallback(JSContextRef context, JSObje
     return JSValueMakeUndefined(context);
 }
 
+static JSValueRef clearApplicationCacheForOriginCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+
+    JSRetainPtr<JSStringRef> originURL(Adopt, JSValueToStringCopy(context, arguments[0], exception));
+    ASSERT(!*exception);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->clearApplicationCacheForOrigin(originURL.get());
+    
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef originsWithApplicationCacheCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return controller->originsWithApplicationCache(context);
+}
+
 static JSValueRef clearAllDatabasesCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     // Has mac & windows implementation
@@ -392,6 +413,60 @@ static JSValueRef clearAllDatabasesCallback(JSContextRef context, JSObjectRef fu
     controller->clearAllDatabases();
 
     return JSValueMakeUndefined(context);
+}
+
+static JSValueRef syncLocalStorageCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+
+    controller->syncLocalStorage();
+
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef observeStorageTrackerNotificationsCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+
+    unsigned numNotifications = JSValueToNumber(context, arguments[0], exception);
+
+    ASSERT(!*exception);
+
+    controller->observeStorageTrackerNotifications(numNotifications);
+
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef deleteAllLocalStorageCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->deleteAllLocalStorage();
+
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef deleteLocalStorageForOriginCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+
+    JSRetainPtr<JSStringRef> url(Adopt, JSValueToStringCopy(context, arguments[0], exception));
+    ASSERT(!*exception);
+
+    controller->deleteLocalStorageForOrigin(url.get());
+
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef originsWithLocalStorageCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return controller->originsWithLocalStorage(context);
 }
 
 static JSValueRef clearBackForwardListCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
@@ -769,6 +844,12 @@ static JSValueRef numberOfPagesCallback(JSContextRef context, JSObjectRef functi
     return JSValueMakeNumber(context, controller->numberOfPages(pageWidthInPixels, pageHeightInPixels));
 }
 
+static JSValueRef numberOfPendingGeolocationPermissionRequestsCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return JSValueMakeNumber(context, controller->numberOfPendingGeolocationPermissionRequests());
+}
+
 static JSValueRef pagePropertyCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     char* propertyName = 0;
@@ -1035,6 +1116,17 @@ static JSValueRef setAuthorAndUserStylesEnabledCallback(JSContextRef context, JS
 
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     controller->setAuthorAndUserStylesEnabled(JSValueToBoolean(context, arguments[0]));
+
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef setAutofilledCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    if (argumentCount != 2 || !arguments[0])
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setAutofilled(context, arguments[0], JSValueToBoolean(context, arguments[1]));
 
     return JSValueMakeUndefined(context);
 }
@@ -1472,11 +1564,11 @@ static JSValueRef setWillSendRequestClearHeaderCallback(JSContextRef context, JS
     ASSERT(!*exception);
 
     size_t maxLength = JSStringGetMaximumUTF8CStringSize(header.get());
-    char* headerBuffer = new char[maxLength + 1];
-    JSStringGetUTF8CString(header.get(), headerBuffer, maxLength + 1);
+    OwnArrayPtr<char> headerBuffer = adoptArrayPtr(new char[maxLength + 1]);
+    JSStringGetUTF8CString(header.get(), headerBuffer.get(), maxLength + 1);
 
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
-    controller->setWillSendRequestClearHeader(headerBuffer);
+    controller->setWillSendRequestClearHeader(headerBuffer.get());
 
     return JSValueMakeUndefined(context);
 }
@@ -1871,6 +1963,19 @@ static JSValueRef hasSpellingMarkerCallback(JSContextRef context, JSObjectRef fu
     return JSValueMakeBoolean(context, ok);
 }
 
+static JSValueRef hasGrammarMarkerCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    if (argumentCount != 2)
+        return JSValueMakeUndefined(context);
+    
+    int from = JSValueToNumber(context, arguments[0], 0);
+    int length = JSValueToNumber(context, arguments[1], 0);
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    bool ok = controller->hasGrammarMarker(from, length);
+    
+    return JSValueMakeBoolean(context, ok);
+}
+
 static JSValueRef markerTextForListItemCallback(JSContextRef context, JSObjectRef, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
@@ -2031,6 +2136,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "callShouldCloseOnWebView", callShouldCloseOnWebViewCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "clearAllApplicationCaches", clearAllApplicationCachesCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "clearAllDatabases", clearAllDatabasesCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "clearApplicationCacheForOrigin", clearApplicationCacheForOriginCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "clearBackForwardList", clearBackForwardListCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "clearPersistentUserStyleSheet", clearPersistentUserStyleSheetCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "closeWebInspector", closeWebInspectorCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -2067,13 +2173,16 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "execCommand", execCommandCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "findString", findStringCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "counterValueForElementById", counterValueForElementByIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "originsWithApplicationCache", originsWithApplicationCacheCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "grantDesktopNotificationPermission", grantDesktopNotificationPermissionCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete }, 
         { "hasSpellingMarker", hasSpellingMarkerCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "hasGrammarMarker", hasGrammarMarkerCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "isCommandEnabled", isCommandEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "isPageBoxVisible", isPageBoxVisibleCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "keepWebHistory", keepWebHistoryCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "layerTreeAsText", layerTreeAsTextCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "numberOfPages", numberOfPagesCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "numberOfPendingGeolocationPermissionRequests", numberOfPendingGeolocationPermissionRequestsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "markerTextForListItem", markerTextForListItemCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "notifyDone", notifyDoneCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "numberOfActiveAnimations", numberOfActiveAnimationsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -2107,6 +2216,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "setAuthenticationPassword", setAuthenticationPasswordCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setAuthenticationUsername", setAuthenticationUsernameCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setAuthorAndUserStylesEnabled", setAuthorAndUserStylesEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "setAutofilled", setAutofilledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setCacheModel", setCacheModelCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setCallCloseOnWebViews", setCallCloseOnWebViewsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setCanOpenWindows", setCanOpenWindowsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -2144,7 +2254,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "setUseDashboardCompatibilityMode", setUseDashboardCompatibilityModeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setUserStyleSheetEnabled", setUserStyleSheetEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setUserStyleSheetLocation", setUserStyleSheetLocationCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
-        { "setValueForUser", setValueForUserCallback, kJSPropertyAttributeDontDelete },
+        { "setValueForUser", setValueForUserCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setViewModeMediaFeature", setViewModeMediaFeatureCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setWebViewEditable", setWebViewEditableCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setWillSendRequestClearHeader", setWillSendRequestClearHeaderCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -2163,6 +2273,11 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "addOriginAccessWhitelistEntry", addOriginAccessWhitelistEntryCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setScrollbarPolicy", setScrollbarPolicyCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "authenticateSession", authenticateSessionCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "deleteAllLocalStorage", deleteAllLocalStorageCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "syncLocalStorage", syncLocalStorageCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },                
+        { "observeStorageTrackerNotifications", observeStorageTrackerNotificationsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },        
+        { "deleteLocalStorageForOrigin", deleteLocalStorageForOriginCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "originsWithLocalStorage", originsWithLocalStorageCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setShouldPaintBrokenImage", setShouldPaintBrokenImageCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { 0, 0, 0 }
     };

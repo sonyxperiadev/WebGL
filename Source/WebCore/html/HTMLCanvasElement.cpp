@@ -41,6 +41,7 @@
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
 #include "ImageBuffer.h"
+#include "ImageData.h"
 #include "MIMETypeRegistry.h"
 #include "Page.h"
 #include "RenderHTMLCanvas.h"
@@ -76,6 +77,7 @@ static const float MaxSkiaDim = 32767.0F; // Maximum width/height in CSS pixels.
 HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* document)
     : HTMLElement(tagName, document)
     , m_size(DefaultWidth, DefaultHeight)
+    , m_rendererIsCanvas(false)
     , m_ignoreReset(false)
     , m_pageScaleFactor(document->frame() ? document->frame()->page()->chrome()->scaleFactor() : 1)
     , m_originClean(true)
@@ -173,7 +175,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
 #if ENABLE(WEBGL)    
     Settings* settings = document()->settings();
     if (settings && settings->webGLEnabled()
-#if !PLATFORM(CHROMIUM) && !PLATFORM(QT)
+#if !PLATFORM(CHROMIUM)
         && settings->acceleratedCompositingEnabled()
 #endif
         ) {
@@ -275,15 +277,22 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
     if (hasCreatedImageBuffer()) {
         ImageBuffer* imageBuffer = buffer();
         if (imageBuffer) {
-            if (imageBuffer->drawsUsingCopy())
+            if (m_presentedImage)
+                context->drawImage(m_presentedImage.get(), ColorSpaceDeviceRGB, r);
+            else if (imageBuffer->drawsUsingCopy())
                 context->drawImage(copiedImage(), ColorSpaceDeviceRGB, r);
             else
                 context->drawImageBuffer(imageBuffer, ColorSpaceDeviceRGB, r);
         }
     }
-}
 
 #if ENABLE(WEBGL)    
+    if (is3D())
+        static_cast<WebGLRenderingContext*>(m_context.get())->markLayerComposited();
+#endif
+}
+
+#if ENABLE(WEBGL)
 bool HTMLCanvasElement::is3D() const
 {
     return m_context && m_context->is3d();
@@ -294,6 +303,19 @@ void HTMLCanvasElement::makeRenderingResultsAvailable()
 {
     if (m_context)
         m_context->paintRenderingResultsToCanvas();
+}
+
+void HTMLCanvasElement::makePresentationCopy()
+{
+    if (!m_presentedImage) {
+        // The buffer contains the last presented data, so save a copy of it.
+        m_presentedImage = buffer()->copyImage();
+    }
+}
+
+void HTMLCanvasElement::clearPresentationCopy()
+{
+    m_presentedImage.clear();
 }
 
 void HTMLCanvasElement::attach()
@@ -337,13 +359,36 @@ String HTMLCanvasElement::toDataURL(const String& mimeType, const double* qualit
 
     String lowercaseMimeType = mimeType.lower();
 
-    makeRenderingResultsAvailable();
-
     // FIXME: Make isSupportedImageMIMETypeForEncoding threadsafe (to allow this method to be used on a worker thread).
     if (mimeType.isNull() || !MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(lowercaseMimeType))
-        return buffer()->toDataURL("image/png");
+        lowercaseMimeType = "image/png";
 
+#if PLATFORM(CG) || (USE(SKIA) && !PLATFORM(ANDROID))
+    // FIXME: Consider using this code path on Android. http://b/4572024
+    // Try to get ImageData first, as that may avoid lossy conversions.
+    RefPtr<ImageData> imageData = getImageData();
+
+    if (imageData)
+        return ImageDataToDataURL(*imageData, lowercaseMimeType, quality);
+#endif
+
+    makeRenderingResultsAvailable();
+      
     return buffer()->toDataURL(lowercaseMimeType, quality);
+}
+
+PassRefPtr<ImageData> HTMLCanvasElement::getImageData()
+{
+    if (!m_context || !m_context->is3d())
+       return 0;
+
+#if ENABLE(WEBGL)    
+    WebGLRenderingContext* ctx = static_cast<WebGLRenderingContext*>(m_context.get());
+
+    return ctx->paintRenderingResultsToImageData();
+#else
+    return 0;
+#endif
 }
 
 IntRect HTMLCanvasElement::convertLogicalToDevice(const FloatRect& logicalRect) const
@@ -399,7 +444,10 @@ void HTMLCanvasElement::createImageBuffer() const
         return;
 
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
-    m_imageBuffer = ImageBuffer::create(size, ColorSpaceDeviceRGB, Accelerated);
+    if (document()->settings()->canvasUsesAcceleratedDrawing())
+        m_imageBuffer = ImageBuffer::create(size, ColorSpaceDeviceRGB, Accelerated);
+    else
+        m_imageBuffer = ImageBuffer::create(size, ColorSpaceDeviceRGB, Unaccelerated);
 #else
     m_imageBuffer = ImageBuffer::create(size);
 #endif
@@ -434,11 +482,8 @@ ImageBuffer* HTMLCanvasElement::buffer() const
 Image* HTMLCanvasElement::copiedImage() const
 {
     if (!m_copiedImage && buffer()) {
-        if (m_context) {
-            // If we're not rendering to the ImageBuffer, copy the rendering results to it.
-            if (!m_context->paintsIntoCanvasBuffer())
-                m_context->paintRenderingResultsToCanvas();
-        }
+        if (m_context)
+            m_context->paintRenderingResultsToCanvas();
         m_copiedImage = buffer()->copyImage();
     }
     return m_copiedImage.get();

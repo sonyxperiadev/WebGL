@@ -37,7 +37,7 @@ void WebProcess::platformSetCacheModel(CacheModel)
     notImplemented(); 
 }
 
-void WebProcess::platformClearResourceCaches()
+void WebProcess::platformClearResourceCaches(ResourceCachesToClear)
 {
     notImplemented();
 }

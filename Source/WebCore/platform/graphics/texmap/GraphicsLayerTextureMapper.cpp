@@ -336,7 +336,7 @@ void GraphicsLayerTextureMapper::setContentsToMedia(PlatformLayer* media)
     notifyChange(TextureMapperNode::ContentChange);
     m_pendingContent.contentType = media ? TextureMapperNode::MediaContentType : TextureMapperNode::HTMLContentType;
     if (media)
-        m_pendingContent.media = static_cast<TextureMapperVideoLayer*>(media);
+        m_pendingContent.media = static_cast<TextureMapperMediaLayer*>(media);
     else
         m_pendingContent.media = 0;
 }
@@ -363,13 +363,6 @@ void GraphicsLayerTextureMapper::syncCompositingStateForThisLayerOnly()
 void GraphicsLayerTextureMapper::syncCompositingState()
 {
     m_node->syncCompositingState(this, true);
-}
-
-/* \reimp (GraphicsLayer.h)
- */
-NativeLayer GraphicsLayerTextureMapper::nativeLayer() const
-{
-    return m_node.get();
 }
 
 /* \reimp (GraphicsLayer.h)

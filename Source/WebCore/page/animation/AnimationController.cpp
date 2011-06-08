@@ -37,12 +37,14 @@
 #include "Frame.h"
 #include "RenderView.h"
 #include "WebKitAnimationEvent.h"
+#include "WebKitAnimationList.h"
 #include "WebKitTransitionEvent.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
+// FIXME: Why isn't this set to 60fps or something?
 static const double cAnimationTimerDelay = 0.025;
 static const double cBeginAnimationUpdateTimeNotSet = -1;
 
@@ -51,11 +53,9 @@ AnimationControllerPrivate::AnimationControllerPrivate(Frame* frame)
     , m_updateStyleIfNeededDispatcher(this, &AnimationControllerPrivate::updateStyleIfNeededDispatcherFired)
     , m_frame(frame)
     , m_beginAnimationUpdateTime(cBeginAnimationUpdateTimeNotSet)
-    , m_styleAvailableWaiters(0)
-    , m_lastStyleAvailableWaiter(0)
-    , m_startTimeResponseWaiters(0)
-    , m_lastStartTimeResponseWaiter(0)
-    , m_waitingForStartTimeResponse(false)
+    , m_animationsWaitingForStyle()
+    , m_animationsWaitingForStartTimeResponse()
+    , m_waitingForAsyncStartNotification(false)
 {
 }
 
@@ -323,13 +323,13 @@ double AnimationControllerPrivate::beginAnimationUpdateTime()
 void AnimationControllerPrivate::endAnimationUpdate()
 {
     styleAvailable();
-    if (!m_waitingForStartTimeResponse)
+    if (!m_waitingForAsyncStartNotification)
         startTimeResponse(beginAnimationUpdateTime());
 }
 
 void AnimationControllerPrivate::receivedStartTimeResponse(double time)
 {
-    m_waitingForStartTimeResponse = false;
+    m_waitingForAsyncStartNotification = false;
     startTimeResponse(time);
 }
 
@@ -365,52 +365,31 @@ unsigned AnimationControllerPrivate::numberOfActiveAnimations() const
     return count;
 }
 
-void AnimationControllerPrivate::addToStyleAvailableWaitList(AnimationBase* animation)
+void AnimationControllerPrivate::addToAnimationsWaitingForStyle(AnimationBase* animation)
 {
-    ASSERT(!animation->next());
-    
-    if (m_styleAvailableWaiters)
-        m_lastStyleAvailableWaiter->setNext(animation);
-    else
-        m_styleAvailableWaiters = animation;
-        
-    m_lastStyleAvailableWaiter = animation;
-    animation->setNext(0);
+    // Make sure this animation is not in the start time waiters
+    m_animationsWaitingForStartTimeResponse.remove(animation);
+
+    m_animationsWaitingForStyle.add(animation);
 }
 
-void AnimationControllerPrivate::removeFromStyleAvailableWaitList(AnimationBase* animationToRemove)
+void AnimationControllerPrivate::removeFromAnimationsWaitingForStyle(AnimationBase* animationToRemove)
 {
-    AnimationBase* prevAnimation = 0;
-    for (AnimationBase* animation = m_styleAvailableWaiters; animation; animation = animation->next()) {
-        if (animation == animationToRemove) {
-            if (prevAnimation)
-                prevAnimation->setNext(animation->next());
-            else
-                m_styleAvailableWaiters = animation->next();
-            
-            if (m_lastStyleAvailableWaiter == animation)
-                m_lastStyleAvailableWaiter = prevAnimation;
-                
-            animationToRemove->setNext(0);
-        }
-    }
+    m_animationsWaitingForStyle.remove(animationToRemove);
 }
 
 void AnimationControllerPrivate::styleAvailable()
 {
     // Go through list of waiters and send them on their way
-    for (AnimationBase* animation = m_styleAvailableWaiters; animation; ) {
-        AnimationBase* nextAnimation = animation->next();
-        animation->setNext(0);
-        animation->styleAvailable();
-        animation = nextAnimation;
-    }
-    
-    m_styleAvailableWaiters = 0;
-    m_lastStyleAvailableWaiter = 0;
+    WaitingAnimationsSet::const_iterator it = m_animationsWaitingForStyle.begin();
+    WaitingAnimationsSet::const_iterator end = m_animationsWaitingForStyle.end();
+    for (; it != end; ++it)
+        (*it)->styleAvailable();
+
+    m_animationsWaitingForStyle.clear();
 }
 
-void AnimationControllerPrivate::addToStartTimeResponseWaitList(AnimationBase* animation, bool willGetResponse)
+void AnimationControllerPrivate::addToAnimationsWaitingForStartTimeResponse(AnimationBase* animation, bool willGetResponse)
 {
     // If willGetResponse is true, it means this animation is actually waiting for a response
     // (which will come in as a call to notifyAnimationStarted()).
@@ -429,54 +408,48 @@ void AnimationControllerPrivate::addToStartTimeResponseWaitList(AnimationBase* a
     // This will synchronize all software and accelerated animations started in the same 
     // updateStyleIfNeeded cycle.
     //
-    ASSERT(!animation->next());
     
     if (willGetResponse)
-        m_waitingForStartTimeResponse = true;
+        m_waitingForAsyncStartNotification = true;
     
-    if (m_startTimeResponseWaiters)
-        m_lastStartTimeResponseWaiter->setNext(animation);
-    else
-        m_startTimeResponseWaiters = animation;
-        
-    m_lastStartTimeResponseWaiter = animation;
-    animation->setNext(0);
+    m_animationsWaitingForStartTimeResponse.add(animation);
 }
 
-void AnimationControllerPrivate::removeFromStartTimeResponseWaitList(AnimationBase* animationToRemove)
+void AnimationControllerPrivate::removeFromAnimationsWaitingForStartTimeResponse(AnimationBase* animationToRemove)
 {
-    AnimationBase* prevAnimation = 0;
-    for (AnimationBase* animation = m_startTimeResponseWaiters; animation; animation = animation->next()) {
-        if (animation == animationToRemove) {
-            if (prevAnimation)
-                prevAnimation->setNext(animation->next());
-            else
-                m_startTimeResponseWaiters = animation->next();
-            
-            if (m_lastStartTimeResponseWaiter == animation)
-                m_lastStartTimeResponseWaiter = prevAnimation;
-                
-            animationToRemove->setNext(0);
-        }
-        prevAnimation = animation;
-    }
+    m_animationsWaitingForStartTimeResponse.remove(animationToRemove);
     
-    if (!m_startTimeResponseWaiters)
-        m_waitingForStartTimeResponse = false;
+    if (m_animationsWaitingForStartTimeResponse.isEmpty())
+        m_waitingForAsyncStartNotification = false;
 }
 
 void AnimationControllerPrivate::startTimeResponse(double time)
 {
     // Go through list of waiters and send them on their way
-    for (AnimationBase* animation = m_startTimeResponseWaiters; animation; ) {
-        AnimationBase* nextAnimation = animation->next();
-        animation->setNext(0);
-        animation->onAnimationStartResponse(time);
-        animation = nextAnimation;
-    }
+
+    WaitingAnimationsSet::const_iterator it = m_animationsWaitingForStartTimeResponse.begin();
+    WaitingAnimationsSet::const_iterator end = m_animationsWaitingForStartTimeResponse.end();
+    for (; it != end; ++it)
+        (*it)->onAnimationStartResponse(time);
     
-    m_startTimeResponseWaiters = 0;
-    m_lastStartTimeResponseWaiter = 0;
+    m_animationsWaitingForStartTimeResponse.clear();
+    m_waitingForAsyncStartNotification = false;
+}
+
+void AnimationControllerPrivate::animationWillBeRemoved(AnimationBase* animation)
+{
+    removeFromAnimationsWaitingForStyle(animation);
+    removeFromAnimationsWaitingForStartTimeResponse(animation);
+}
+
+PassRefPtr<WebKitAnimationList> AnimationControllerPrivate::animationsForRenderer(RenderObject* renderer) const
+{
+    RefPtr<CompositeAnimation> animation = m_compositeAnimations.get(renderer);
+
+    if (!animation)
+        return 0;
+
+    return animation->animations();
 }
 
 AnimationController::AnimationController(Frame* frame)
@@ -610,6 +583,11 @@ bool AnimationController::supportsAcceleratedAnimationOfProperty(CSSPropertyID p
     UNUSED_PARAM(property);
     return false;
 #endif
+}
+
+PassRefPtr<WebKitAnimationList> AnimationController::animationsForRenderer(RenderObject* renderer) const
+{
+    return m_data->animationsForRenderer(renderer);
 }
 
 } // namespace WebCore

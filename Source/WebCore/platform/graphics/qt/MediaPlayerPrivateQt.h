@@ -33,7 +33,7 @@ QT_END_NAMESPACE
 
 namespace WebCore {
 
-class TextureMapperVideoLayer;
+class TextureMapperMediaLayer;
 
 class MediaPlayerPrivateQt : public QObject, public MediaPlayerPrivateInterface {
 
@@ -120,8 +120,6 @@ private slots:
     void handleError(QMediaPlayer::Error);
     void stateChanged(QMediaPlayer::State);
     void nativeSizeChanged(const QSizeF&);
-    void queuedSeekTimeout();
-    void seekTimeout();
     void positionChanged(qint64);
     void durationChanged(qint64);
     void bufferStatusChanged(int);
@@ -141,7 +139,7 @@ private:
     QGraphicsVideoItem* m_videoItem;
     QGraphicsScene* m_videoScene;
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
-    OwnPtr<TextureMapperVideoLayer> m_platformLayer;
+    OwnPtr<TextureMapperMediaLayer> m_platformLayer;
 #endif
 
     mutable MediaPlayer::NetworkState m_networkState;
@@ -153,7 +151,6 @@ private:
     bool m_isVisible;
     bool m_isSeeking;
     bool m_composited;
-    qint64 m_queuedSeek;
     MediaPlayer::Preload m_preload;
     bool m_delayingLoad;
     String m_mediaUrl;

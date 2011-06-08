@@ -177,6 +177,7 @@ Page::Page(const PageClients& pageClients)
     , m_canStartMedia(true)
     , m_viewMode(ViewModeWindowed)
     , m_minimumTimerInterval(Settings::defaultMinDOMTimerInterval())
+    , m_isEditable(false)
 {
     if (!allPages) {
         allPages = new HashSet<Page*>;
@@ -208,6 +209,12 @@ Page::~Page()
     
     for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext())
         frame->pageDestroyed();
+
+    if (m_scrollableAreaSet) {
+        ScrollableAreaSet::const_iterator end = m_scrollableAreaSet->end(); 
+        for (ScrollableAreaSet::const_iterator it = m_scrollableAreaSet->begin(); it != end; ++it)
+            (*it)->disconnectFromPage();
+    }
 
     m_editorClient->pageDestroyed();
 
@@ -400,6 +407,12 @@ void Page::scheduleForcedStyleRecalcForAllPages()
     for (HashSet<Page*>::iterator it = allPages->begin(); it != end; ++it)
         for (Frame* frame = (*it)->mainFrame(); frame; frame = frame->tree()->traverseNext())
             frame->document()->scheduleForcedStyleRecalc();
+}
+
+void Page::setNeedsRecalcStyleInAllFrames()
+{
+    for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext())
+        frame->document()->styleSelectorChanged(DeferRecalcStyle);
 }
 
 void Page::updateViewportArguments()
@@ -908,6 +921,27 @@ void Page::didStopPlugin(HaltablePlugin* obj)
 {
     if (m_pluginHalter)
         m_pluginHalter->didStopPlugin(obj);
+}
+
+void Page::addScrollableArea(ScrollableArea* scrollableArea)
+{
+    if (!m_scrollableAreaSet)
+        m_scrollableAreaSet = adoptPtr(new ScrollableAreaSet);
+    m_scrollableAreaSet->add(scrollableArea);
+}
+
+void Page::removeScrollableArea(ScrollableArea* scrollableArea)
+{
+    if (!m_scrollableAreaSet)
+        return;
+    m_scrollableAreaSet->remove(scrollableArea);
+}
+
+bool Page::containsScrollableArea(ScrollableArea* scrollableArea) const
+{
+    if (!m_scrollableAreaSet)
+        return false;
+    return m_scrollableAreaSet->contains(scrollableArea);
 }
 
 #if !ASSERT_DISABLED

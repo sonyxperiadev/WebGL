@@ -68,6 +68,27 @@
 
 using namespace WTF;
 
+namespace {
+
+using namespace JSC;
+
+class Recompiler {
+public:
+    void operator()(JSCell*);
+};
+
+inline void Recompiler::operator()(JSCell* cell)
+{
+    if (!cell->inherits(&JSFunction::s_info))
+        return;
+    JSFunction* function = asFunction(cell);
+    if (function->executable()->isHostFunction())
+        return;
+    function->jsExecutable()->discardCode();
+}
+
+} // namespace
+
 namespace JSC {
 
 extern JSC_CONST_HASHTABLE HashTable arrayTable;
@@ -107,8 +128,12 @@ void JSGlobalData::storeVPtrs()
     jsString->~JSCell();
 
     COMPILE_ASSERT(sizeof(JSFunction) <= sizeof(storage), sizeof_JSFunction_must_be_less_than_storage);
-    JSCell* jsFunction = new (storage) JSFunction(JSFunction::createStructure(jsNull()));
+    char executableStorage[sizeof(VPtrHackExecutable)];
+    RefPtr<Structure> executableStructure = Structure::create(Structure::VPtrStealingHack, 0);
+    JSCell* executable = new (executableStorage) VPtrHackExecutable(executableStructure.get());
+    JSCell* jsFunction = new (storage) JSFunction(Structure::create(Structure::VPtrStealingHack, &JSFunction::s_info), static_cast<VPtrHackExecutable*>(executable));
     JSGlobalData::jsFunctionVPtr = jsFunction->vptr();
+    executable->~JSCell();
     jsFunction->~JSCell();
 }
 
@@ -124,18 +149,6 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , regExpTable(fastNew<HashTable>(JSC::regExpTable))
     , regExpConstructorTable(fastNew<HashTable>(JSC::regExpConstructorTable))
     , stringTable(fastNew<HashTable>(JSC::stringTable))
-    , activationStructure(JSActivation::createStructure(jsNull()))
-    , interruptedExecutionErrorStructure(JSNonFinalObject::createStructure(jsNull()))
-    , terminatedExecutionErrorStructure(JSNonFinalObject::createStructure(jsNull()))
-    , staticScopeStructure(JSStaticScopeObject::createStructure(jsNull()))
-    , strictEvalActivationStructure(StrictEvalActivation::createStructure(jsNull()))
-    , stringStructure(JSString::createStructure(jsNull()))
-    , notAnObjectStructure(JSNotAnObject::createStructure(jsNull()))
-    , propertyNameIteratorStructure(JSPropertyNameIterator::createStructure(jsNull()))
-    , getterSetterStructure(GetterSetter::createStructure(jsNull()))
-    , apiWrapperStructure(JSAPIValueWrapper::createStructure(jsNull()))
-    , scopeChainNodeStructure(ScopeChainNode::createStructure(jsNull()))
-    , dummyMarkableCellStructure(JSCell::createDummyStructure())
     , identifierTable(globalDataType == Default ? wtfThreadData().currentIdentifierTable() : createIdentifierTable())
     , propertyNames(new CommonIdentifiers(this))
     , emptyList(new MarkedArgumentBuffer)
@@ -145,7 +158,6 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , heap(this)
     , globalObjectCount(0)
     , dynamicGlobalObject(0)
-    , firstStringifierToMark(0)
     , cachedUTCOffset(NaN)
     , maxReentryDepth(threadStackType == ThreadStackTypeSmall ? MaxSmallThreadReentryDepth : MaxLargeThreadReentryDepth)
     , m_regExpCache(new RegExpCache(this))
@@ -156,6 +168,24 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , exclusiveThread(0)
 #endif
 {
+    activationStructure = JSActivation::createStructure(*this, jsNull());
+    interruptedExecutionErrorStructure = JSNonFinalObject::createStructure(*this, jsNull());
+    terminatedExecutionErrorStructure = JSNonFinalObject::createStructure(*this, jsNull());
+    staticScopeStructure = JSStaticScopeObject::createStructure(*this, jsNull());
+    strictEvalActivationStructure = StrictEvalActivation::createStructure(*this, jsNull());
+    stringStructure = JSString::createStructure(*this, jsNull());
+    notAnObjectStructure = JSNotAnObject::createStructure(*this, jsNull());
+    propertyNameIteratorStructure = JSPropertyNameIterator::createStructure(*this, jsNull());
+    getterSetterStructure = GetterSetter::createStructure(*this, jsNull());
+    apiWrapperStructure = JSAPIValueWrapper::createStructure(*this, jsNull());
+    scopeChainNodeStructure = ScopeChainNode::createStructure(*this, jsNull());
+    executableStructure = ExecutableBase::createStructure(*this, jsNull());
+    evalExecutableStructure = EvalExecutable::createStructure(*this, jsNull());
+    programExecutableStructure = ProgramExecutable::createStructure(*this, jsNull());
+    functionExecutableStructure = FunctionExecutable::createStructure(*this, jsNull());
+    dummyMarkableCellStructure = JSCell::createDummyStructure(*this);
+    structureChainStructure = StructureChain::createStructure(*this, jsNull());
+
     interpreter = new Interpreter(*this);
     if (globalDataType == Default)
         m_stack = wtfThreadData().stack();
@@ -282,18 +312,18 @@ JSGlobalData*& JSGlobalData::sharedInstanceInternal()
 }
 
 #if ENABLE(JIT)
-PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction function)
+NativeExecutable* JSGlobalData::getHostFunction(NativeFunction function)
 {
     return jitStubs->hostFunctionStub(this, function);
 }
-PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction function, ThunkGenerator generator)
+NativeExecutable* JSGlobalData::getHostFunction(NativeFunction function, ThunkGenerator generator)
 {
     return jitStubs->hostFunctionStub(this, function, generator);
 }
 #else
-PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction function)
+NativeExecutable* JSGlobalData::getHostFunction(NativeFunction function)
 {
-    return NativeExecutable::create(function, callHostFunctionAsConstructor);
+    return NativeExecutable::create(*this, function, callHostFunctionAsConstructor);
 }
 #endif
 
@@ -324,22 +354,6 @@ void JSGlobalData::dumpSampleData(ExecState* exec)
 {
     interpreter->dumpSampleData(exec);
 }
-
-class Recompiler {
-public:
-    void operator()(JSCell*);
-};
-
-inline void Recompiler::operator()(JSCell* cell)
-{
-    if (!cell->inherits(&JSFunction::s_info))
-        return;
-    JSFunction* function = asFunction(cell);
-    if (function->executable()->isHostFunction())
-        return;
-    function->jsExecutable()->discardCode();
-}
-
 
 void JSGlobalData::recompileAllJSFunctions()
 {

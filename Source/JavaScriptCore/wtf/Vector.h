@@ -40,7 +40,7 @@ namespace WTF {
     using std::max;
 
     // WTF_ALIGN_OF / WTF_ALIGNED
-    #if COMPILER(GCC) || COMPILER(MINGW) || COMPILER(RVCT) || COMPILER(WINSCW)
+    #if COMPILER(GCC) || COMPILER(MINGW) || COMPILER(RVCT) || COMPILER(WINSCW) || COMPILER(SUNCC)
         #define WTF_ALIGN_OF(type) __alignof__(type)
         #define WTF_ALIGNED(variable_type, variable, n) variable_type variable __attribute__((__aligned__(n)))
     #elif COMPILER(MSVC)
@@ -566,6 +566,7 @@ namespace WTF {
         T& last() { return at(size() - 1); }
         const T& last() const { return at(size() - 1); }
 
+        template<typename U> bool contains(const U&) const;
         template<typename U> size_t find(const U&) const;
         template<typename U> size_t reverseFind(const U&) const;
 
@@ -743,6 +744,13 @@ namespace WTF {
         return *this;
     }
 
+    template<typename T, size_t inlineCapacity>
+    template<typename U>
+    bool Vector<T, inlineCapacity>::contains(const U& value) const
+    {
+        return find(value) != notFound;
+    }
+ 
     template<typename T, size_t inlineCapacity>
     template<typename U>
     size_t Vector<T, inlineCapacity>::find(const U& value) const

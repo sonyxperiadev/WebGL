@@ -27,6 +27,7 @@
 #define WebPageProxy_h
 
 #include "APIObject.h"
+#include "Connection.h"
 #include "ContextMenuState.h"
 #include "DragControllerAction.h"
 #include "DrawingAreaProxy.h"
@@ -37,24 +38,17 @@
 #include "WKBase.h"
 #include "WKPagePrivate.h"
 #include "WebContextMenuItemData.h"
-#include "WebEvent.h"
 #include "WebFindClient.h"
-#include "WebFindOptions.h"
 #include "WebFormClient.h"
 #include "WebFrameProxy.h"
 #include "WebHistoryClient.h"
-#include "WebInspectorProxy.h"
 #include "WebLoaderClient.h"
 #include "WebPageContextMenuClient.h"
 #include "WebPolicyClient.h"
 #include "WebPopupMenuProxy.h"
 #include "WebResourceLoadClient.h"
 #include "WebUIClient.h"
-#include <WebCore/DragActions.h>
-#include <WebCore/EditAction.h>
-#include <WebCore/Editor.h>
-#include <WebCore/FrameLoaderTypes.h>
-#include <WebCore/KeyboardEvent.h>
+#include <WebCore/ScrollTypes.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
@@ -83,7 +77,6 @@ namespace WebCore {
 
 namespace WebKit {
 
-class DrawingAreaProxy;
 class NativeWebKeyboardEvent;
 class PageClient;
 class PlatformCertificateInfo;
@@ -93,15 +86,14 @@ class WebBackForwardListItem;
 class WebContextMenuProxy;
 class WebData;
 class WebEditCommandProxy;
+class WebFullScreenManagerProxy;
 class WebKeyboardEvent;
 class WebMouseEvent;
 class WebOpenPanelResultListenerProxy;
 class WebPageGroup;
-class WebPopupMenuProxy;
 class WebProcessProxy;
 class WebURLRequest;
 class WebWheelEvent;
-struct ContextMenuState;
 struct DictionaryPopupInfo;
 struct PlatformPopupMenuData;
 struct PrintInfo;
@@ -180,6 +172,10 @@ public:
 
 #if ENABLE(INSPECTOR)
     WebInspectorProxy* inspector();
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    WebFullScreenManagerProxy* fullScreenManager();
 #endif
 
     void initializeContextMenuClient(const WKPageContextMenuClient*);
@@ -282,6 +278,8 @@ public:
     void handleTouchEvent(const WebTouchEvent&);
 #endif
 
+    void scrollBy(WebCore::ScrollDirection, WebCore::ScrollGranularity);
+
     String pageTitle() const;
     const String& toolTip() const { return m_toolTip; }
 
@@ -331,6 +329,7 @@ public:
     // Called by the UI process when it is ready to send its tokens to the web process.
     void registerUIProcessAccessibilityTokens(const CoreIPC::DataReference& elemenToken, const CoreIPC::DataReference& windowToken);
     bool writeSelectionToPasteboard(const String& pasteboardName, const Vector<String>& pasteboardTypes);
+    bool readSelectionFromPasteboard(const String& pasteboardName);
 #endif
 
     void viewScaleFactorDidChange(double);
@@ -358,8 +357,6 @@ public:
     void drawFooter(WebFrameProxy*, const WebCore::FloatRect&);
 
 #if PLATFORM(MAC)
-    void setAutodisplay(bool);
-
     // Dictionary.
     void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
 #endif
@@ -373,7 +370,7 @@ public:
     void didPerformDragControllerAction(uint64_t resultOperation);
     void dragEnded(const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, uint64_t operation);
 #if PLATFORM(MAC)
-    void setDragImage(const WebCore::IntPoint& clientPosition, const WebCore::IntSize& imageSize, const SharedMemory::Handle& dragImageHandle, bool isLinkDrag);
+    void setDragImage(const WebCore::IntPoint& clientPosition, const ShareableBitmap::Handle& dragImageHandle, bool isLinkDrag);
 #endif
 #if PLATFORM(WIN)
     void startDragDrop(const WebCore::IntPoint& imagePoint, const WebCore::IntPoint& dragPoint, uint64_t okEffect, const HashMap<UINT, Vector<String> >& dataMap, const WebCore::IntSize& dragImageSize, const SharedMemory::Handle& dragImageHandle, bool isLinkDrag);
@@ -395,6 +392,7 @@ public:
     enum UndoOrRedo { Undo, Redo };
     void addEditCommand(WebEditCommandProxy*);
     void removeEditCommand(WebEditCommandProxy*);
+    bool isValidEditCommand(WebEditCommandProxy*);
     void registerEditCommand(PassRefPtr<WebEditCommandProxy>, UndoOrRedo);
 
     WebProcessProxy* process() const;
@@ -454,13 +452,20 @@ public:
 
     void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
 
+#if PLATFORM(MAC)
+    void handleCorrectionPanelResult(const String& result);
+#endif
+
     static void setDebugPaintFlags(WKPageDebugPaintFlags flags) { s_debugPaintFlags = flags; }
     static WKPageDebugPaintFlags debugPaintFlags() { return s_debugPaintFlags; }
 
     // Color to be used with kWKDebugFlashViewUpdates.
     static WebCore::Color viewUpdatesFlashColor();
+
     // Color to be used with kWKDebugFlashBackingStoreUpdates.
     static WebCore::Color backingStoreUpdatesFlashColor();
+
+    void saveDataToFileInDownloadsFolder(const String& suggestedFilename, const String& mimeType, const String& originatingURLString, WebData*);
 
 private:
     WebPageProxy(PageClient*, WebContext*, WebPageGroup*, uint64_t pageID);
@@ -480,7 +485,7 @@ private:
     void didSaveFrameToPageCache(uint64_t frameID);
     void didRestoreFrameFromPageCache(uint64_t frameID, uint64_t parentFrameID);
 
-    void didStartProvisionalLoadForFrame(uint64_t frameID, const String&, bool loadingSubstituteDataForUnreachableURL, CoreIPC::ArgumentDecoder*);
+    void didStartProvisionalLoadForFrame(uint64_t frameID, const String& url, const String& unreachableURL, CoreIPC::ArgumentDecoder*);
     void didReceiveServerRedirectForProvisionalLoadForFrame(uint64_t frameID, const String&, CoreIPC::ArgumentDecoder*);
     void didFailProvisionalLoadForFrame(uint64_t frameID, const WebCore::ResourceError&, CoreIPC::ArgumentDecoder*);
     void didCommitLoadForFrame(uint64_t frameID, const String& mimeType, bool frameHasCustomRepresentation, const PlatformCertificateInfo&, CoreIPC::ArgumentDecoder*);
@@ -534,6 +539,7 @@ private:
     void getIsResizable(bool& isResizable);
     void setWindowFrame(const WebCore::FloatRect&);
     void getWindowFrame(WebCore::FloatRect&);
+    void windowToScreen(const WebCore::IntRect& viewRect, WebCore::IntRect& result);
     void runBeforeUnloadConfirmPanel(const String& message, uint64_t frameID, bool& shouldClose);
     void didChangeViewportData(const WebCore::ViewportArguments&);
     void pageDidScroll();
@@ -550,7 +556,7 @@ private:
     void reattachToWebProcessWithItem(WebBackForwardListItem*);
 
 #if ENABLE(TILED_BACKING_STORE)
-    void pageDidRequestScroll(const WebCore::IntSize&);
+    void pageDidRequestScroll(const WebCore::IntPoint&);
 #endif
 
 #if PLATFORM(QT)
@@ -580,7 +586,7 @@ private:
     
     // Find.
     void didCountStringMatches(const String&, uint32_t matchCount);
-    void setFindIndicator(const WebCore::FloatRect& selectionRectInWindowCoordinates, const Vector<WebCore::FloatRect>& textRectsInSelectionRectCoordinates, const SharedMemory::Handle& contentImageHandle, bool fadeOut);
+    void setFindIndicator(const WebCore::FloatRect& selectionRectInWindowCoordinates, const Vector<WebCore::FloatRect>& textRectsInSelectionRectCoordinates, const ShareableBitmap::Handle& contentImageHandle, bool fadeOut);
     void didFindString(const String&, uint32_t matchCount);
     void didFailToFindString(const String&);
 
@@ -610,6 +616,7 @@ private:
     void learnWord(const String& word);
     void ignoreWord(const String& word);
 
+    void setFocus(bool focused);
     void takeFocus(bool direction);
     void setToolTip(const String&);
     void setCursor(const WebCore::Cursor&);
@@ -642,6 +649,15 @@ private:
 
     void initializeSandboxExtensionHandle(const WebCore::KURL&, SandboxExtension::Handle&);
 
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    void showCorrectionPanel(int32_t panelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings);
+    void dismissCorrectionPanel(int32_t reason);
+    void dismissCorrectionPanelSoon(int32_t reason, String& result);
+    void recordAutocorrectionResponse(int32_t responseType, const String& replacedString, const String& replacementString);
+#endif
+
+    void clearLoadDependentCallbacks();
+
     PageClient* m_pageClient;
     WebLoaderClient m_loaderClient;
     WebPolicyClient m_policyClient;
@@ -667,9 +683,14 @@ private:
     RefPtr<WebInspectorProxy> m_inspector;
 #endif
 
+#if ENABLE(FULLSCREEN_API)
+    RefPtr<WebFullScreenManagerProxy> m_fullScreenManager;
+#endif
+
     HashMap<uint64_t, RefPtr<VoidCallback> > m_voidCallbacks;
     HashMap<uint64_t, RefPtr<DataCallback> > m_dataCallbacks;
     HashMap<uint64_t, RefPtr<StringCallback> > m_stringCallbacks;
+    HashSet<uint64_t> m_loadDependentStringCallbackIDs;
     HashMap<uint64_t, RefPtr<ScriptValueCallback> > m_scriptValueCallbacks;
     HashMap<uint64_t, RefPtr<ComputedPagesCallback> > m_computedPagesCallbacks;
     HashMap<uint64_t, RefPtr<ValidateCommandCallback> > m_validateCommandCallbacks;

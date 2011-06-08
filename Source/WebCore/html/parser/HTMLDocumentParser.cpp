@@ -26,6 +26,7 @@
 #include "config.h"
 #include "HTMLDocumentParser.h"
 
+#include "ContentSecurityPolicy.h"
 #include "DocumentFragment.h"
 #include "Element.h"
 #include "Frame.h"
@@ -216,6 +217,13 @@ bool HTMLDocumentParser::canTakeNextToken(SynchronousMode mode, PumpSession& ses
 
     // The parser will pause itself when waiting on a script to load or run.
     if (m_treeBuilder->isPaused()) {
+        if (mode == AllowYield)
+            m_parserScheduler->checkForYieldBeforeScript(session);
+
+        // If we don't run the script, we cannot allow the next token to be taken.
+        if (session.needsYield)
+            return false;
+
         // If we're paused waiting for a script, we try to execute scripts before continuing.
         bool shouldContinueParsing = runScriptsForPausedTreeBuilder();
         m_treeBuilder->setPaused(!shouldContinueParsing);
@@ -242,7 +250,6 @@ bool HTMLDocumentParser::canTakeNextToken(SynchronousMode mode, PumpSession& ses
 void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
 {
     ASSERT(!isStopped());
-    ASSERT(!m_treeBuilder->isPaused());
     ASSERT(!isScheduledForResume());
     // ASSERT that this object is both attached to the Document and protected.
     ASSERT(refCount() >= 2);
@@ -483,11 +490,6 @@ void HTMLDocumentParser::watchForLoad(CachedResource* cachedScript)
 void HTMLDocumentParser::stopWatchingForLoad(CachedResource* cachedScript)
 {
     cachedScript->removeClient(this);
-}
-
-bool HTMLDocumentParser::shouldLoadExternalScriptFromSrc(const AtomicString& srcValue)
-{
-    return document()->contentSecurityPolicy()->canLoadExternalScriptFromSrc(srcValue);
 }
 
 void HTMLDocumentParser::notifyFinished(CachedResource* cachedResource)

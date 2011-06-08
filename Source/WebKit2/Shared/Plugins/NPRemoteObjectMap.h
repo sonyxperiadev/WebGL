@@ -39,6 +39,7 @@ namespace WebKit {
 class NPObjectMessageReceiver;
 class NPObjectProxy;
 class NPVariantData;
+class Plugin;
 
 class NPRemoteObjectMap : public RefCounted<NPRemoteObjectMap> {
 public:
@@ -46,23 +47,22 @@ public:
     ~NPRemoteObjectMap();
 
     // Creates an NPObjectProxy wrapper for the remote object with the given remote object ID.
-    NPObject* createNPObjectProxy(uint64_t remoteObjectID);
+    NPObject* createNPObjectProxy(uint64_t remoteObjectID, Plugin*);
     void npObjectProxyDestroyed(NPObject*);
 
     // Expose the given NPObject as a remote object. Returns the objectID.
-    uint64_t registerNPObject(NPObject*);
+    uint64_t registerNPObject(NPObject*, Plugin*);
     void unregisterNPObject(uint64_t);
 
     // Given an NPVariant, creates an NPVariantData object (a CoreIPC representation of an NPVariant).
-    NPVariantData npVariantToNPVariantData(const NPVariant&);
+    NPVariantData npVariantToNPVariantData(const NPVariant&, Plugin*);
 
     // Given an NPVariantData, creates an NPVariant object.
-    NPVariant npVariantDataToNPVariant(const NPVariantData&);
+    NPVariant npVariantDataToNPVariant(const NPVariantData&, Plugin*);
 
     CoreIPC::Connection* connection() const { return m_connection; }
-    bool isInvalidating() const { return m_isInvalidating; }
 
-    void invalidate();
+    void pluginDestroyed(Plugin*);
 
     CoreIPC::SyncReplyMode didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply);
 
@@ -70,14 +70,12 @@ private:
     explicit NPRemoteObjectMap(CoreIPC::Connection*);
     CoreIPC::Connection* m_connection;
 
-    bool m_isInvalidating;
-
     // A map of NPObjectMessageReceiver classes, wrapping objects that we export to the
     // other end of the connection.
     HashMap<uint64_t, NPObjectMessageReceiver*> m_registeredNPObjects;
 
     // A set of NPObjectProxy objects associated with this map.
-    HashSet<NPObject*> m_npObjectProxies;
+    HashSet<NPObjectProxy*> m_npObjectProxies;
 };
 
 } // namespace WebKit

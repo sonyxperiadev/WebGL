@@ -31,11 +31,15 @@
 #include "config.h"
 #include "ValidationMessage.h"
 
+#include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
+#include "CSSValueKeywords.h"
 #include "FormAssociatedElement.h"
 #include "HTMLBRElement.h"
 #include "HTMLNames.h"
+#include "Page.h"
 #include "RenderObject.h"
+#include "Settings.h"
 #include "Text.h"
 #include <wtf/PassOwnPtr.h>
 
@@ -90,8 +94,13 @@ void ValidationMessage::setMessageDOMAndStartTimer(Timer<ValidationMessage>*)
         }
     }
 
-    m_timer.set(new Timer<ValidationMessage>(this, &ValidationMessage::deleteBubbleTree));
-    m_timer->startOneShot(max(5.0, m_message.length() / 20.0));
+    int magnification = doc->page() ? doc->page()->settings()->validationMessageTimerMaginification() : -1;
+    if (magnification <= 0)
+        m_timer.clear();
+    else {
+        m_timer.set(new Timer<ValidationMessage>(this, &ValidationMessage::deleteBubbleTree));
+        m_timer->startOneShot(max(5.0, static_cast<double>(m_message.length()) * magnification / 1000));
+    }
 }
 
 class ElementWithPseudoId : public HTMLElement {
@@ -116,6 +125,9 @@ void ValidationMessage::buildBubbleTree(Timer<ValidationMessage>*)
     HTMLElement* host = toHTMLElement(m_element);
     Document* doc = host->document();
     m_bubble = ElementWithPseudoId::create(doc, "-webkit-validation-bubble");
+    // Need to force position:absolute because RenderMenuList doesn't assume it
+    // contains non-absolute or non-fixed renderers as children.
+    m_bubble->getInlineStyleDecl()->setProperty(CSSPropertyPosition, CSSValueAbsolute);
     ExceptionCode ec = 0;
     // FIXME: We need a way to host multiple shadow roots in a single node, or
     // to inherit an existing shadow tree.
@@ -124,8 +136,9 @@ void ValidationMessage::buildBubbleTree(Timer<ValidationMessage>*)
     else
         host->setShadowRoot(m_bubble);
 
-    m_bubble->appendChild(ElementWithPseudoId::create(doc, "-webkit-validation-bubble-top-outer-arrow"), ec);
-    m_bubble->appendChild(ElementWithPseudoId::create(doc, "-webkit-validation-bubble-top-inner-arrow"), ec);
+    RefPtr<HTMLElement> clipper = ElementWithPseudoId::create(doc, "-webkit-validation-bubble-arrow-clipper");
+    clipper->appendChild(ElementWithPseudoId::create(doc, "-webkit-validation-bubble-arrow"), ec);
+    m_bubble->appendChild(clipper.release(), ec);
     m_bubbleMessage = ElementWithPseudoId::create(doc, "-webkit-validation-bubble-message");
     m_bubble->appendChild(m_bubbleMessage, ec);
 

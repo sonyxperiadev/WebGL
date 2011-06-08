@@ -24,7 +24,9 @@
 #include "BackForwardListImpl.h"
 #include "EWebKit.h"
 #include "HistoryItem.h"
+#include "IconDatabaseBase.h"
 #include "Image.h"
+#include "IntSize.h"
 #include "ewk_private.h"
 #include <wtf/text/CString.h>
 
@@ -578,7 +580,8 @@ double ewk_history_item_time_last_visited_get(const Ewk_History_Item* item)
 cairo_surface_t* ewk_history_item_icon_surface_get(const Ewk_History_Item* item)
 {
     EWK_HISTORY_ITEM_CORE_GET_OR_RETURN(item, core, 0);
-    WebCore::Image* icon = core->icon();
+    
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(core->url(), WebCore::IntSize(16, 16));
     if (!icon) {
         ERR("icon is NULL.");
         return 0;
@@ -606,7 +609,7 @@ Evas_Object* ewk_history_item_icon_object_add(const Ewk_History_Item* item, Evas
 {
     EWK_HISTORY_ITEM_CORE_GET_OR_RETURN(item, core, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(canvas, 0);
-    WebCore::Image* icon = core->icon();
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(core->url(), WebCore::IntSize(16, 16));
     cairo_surface_t* surface;
 
     if (!icon) {

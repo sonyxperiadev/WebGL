@@ -145,9 +145,14 @@ bool WebNode::isTextNode() const
     return m_private->isTextNode();
 }
 
+bool WebNode::isFocusable() const
+{
+    return m_private->isFocusable();
+}
+
 bool WebNode::isContentEditable() const
 {
-    return m_private->isContentEditable();
+    return m_private->rendererIsEditable();
 }
 
 bool WebNode::isElementNode() const

@@ -144,7 +144,7 @@ void CompositeEditCommand::insertNodeAfter(PassRefPtr<Node> insertChild, PassRef
     ASSERT(insertChild);
     ASSERT(refChild);
     ASSERT(!refChild->hasTagName(bodyTag));
-    Element* parent = refChild->parentElement();
+    ContainerNode* parent = refChild->parentNode();
     ASSERT(parent);
     if (parent->lastChild() == refChild)
         appendNode(insertChild, parent);
@@ -184,7 +184,7 @@ void CompositeEditCommand::insertNodeAt(PassRefPtr<Node> insertChild, const Posi
         insertNodeAfter(insertChild, refChild);
 }
 
-void CompositeEditCommand::appendNode(PassRefPtr<Node> node, PassRefPtr<Element> parent)
+void CompositeEditCommand::appendNode(PassRefPtr<Node> node, PassRefPtr<ContainerNode> parent)
 {
     ASSERT(canHaveChildrenForEditing(parent.get()));
     applyCommandToComposite(AppendNodeCommand::create(parent, node));
@@ -830,10 +830,10 @@ void CompositeEditCommand::cloneParagraphUnderNewElement(Position& start, Positi
 // Deleting a paragraph will leave a placeholder. Remove it (and prune
 // empty or unrendered parents).
 
-void CompositeEditCommand::cleanupAfterDeletion()
+void CompositeEditCommand::cleanupAfterDeletion(VisiblePosition destination)
 {
     VisiblePosition caretAfterDelete = endingSelection().visibleStart();
-    if (isStartOfParagraph(caretAfterDelete) && isEndOfParagraph(caretAfterDelete)) {
+    if (caretAfterDelete != destination && isStartOfParagraph(caretAfterDelete) && isEndOfParagraph(caretAfterDelete)) {
         // Note: We want the rightmost candidate.
         Position position = caretAfterDelete.deepEquivalent().downstream();
         Node* node = position.deprecatedNode();
@@ -947,8 +947,8 @@ void CompositeEditCommand::moveParagraphs(const VisiblePosition& startOfParagrap
         }
     }
     
-    VisiblePosition beforeParagraph = startOfParagraphToMove.previous();
-    VisiblePosition afterParagraph(endOfParagraphToMove.next());
+    VisiblePosition beforeParagraph = startOfParagraphToMove.previous(CannotCrossEditingBoundary);
+    VisiblePosition afterParagraph(endOfParagraphToMove.next(CannotCrossEditingBoundary));
 
     // We upstream() the end and downstream() the start so that we don't include collapsed whitespace in the move.
     // When we paste a fragment, spaces after the end and before the start are treated as though they were rendered.
@@ -985,8 +985,7 @@ void CompositeEditCommand::moveParagraphs(const VisiblePosition& startOfParagrap
     deleteSelection(false, false, false, false);
 
     ASSERT(destination.deepEquivalent().anchorNode()->inDocument());
-
-    cleanupAfterDeletion();
+    cleanupAfterDeletion(destination);
     ASSERT(destination.deepEquivalent().anchorNode()->inDocument());
 
     // Add a br if pruning an empty block level element caused a collapse. For example:
@@ -1049,7 +1048,7 @@ bool CompositeEditCommand::breakOutOfEmptyListItem()
     // FIXME: Can't we do something better when the immediate parent wasn't a list node?
     if (!listNode
         || (!listNode->hasTagName(ulTag) && !listNode->hasTagName(olTag))
-        || !listNode->isContentEditable()
+        || !listNode->rendererIsEditable()
         || listNode == emptyListItem->rootEditableElement())
         return false;
 
@@ -1114,7 +1113,7 @@ bool CompositeEditCommand::breakOutOfEmptyMailBlockquotedParagraph()
     if (!isStartOfParagraph(caret) || !isEndOfParagraph(caret))
         return false;
     
-    VisiblePosition previous(caret.previous(true));
+    VisiblePosition previous(caret.previous(CannotCrossEditingBoundary));
     // Only move forward if there's nothing before the caret, or if there's unquoted content before it.
     if (enclosingNodeOfType(previous.deepEquivalent(), &isMailBlockquote))
         return false;
@@ -1173,8 +1172,8 @@ Position CompositeEditCommand::positionAvoidingSpecialElementBoundary(const Posi
 
     // Don't avoid block level anchors, because that would insert content into the wrong paragraph.
     if (enclosingAnchor && !isBlock(enclosingAnchor)) {
-        VisiblePosition firstInAnchor(firstDeepEditingPositionForNode(enclosingAnchor));
-        VisiblePosition lastInAnchor(lastDeepEditingPositionForNode(enclosingAnchor));
+        VisiblePosition firstInAnchor(firstPositionInNode(enclosingAnchor));
+        VisiblePosition lastInAnchor(lastPositionInNode(enclosingAnchor));
         // If visually just after the anchor, insert *inside* the anchor unless it's the last
         // VisiblePosition in the document, to match NSTextView.
         if (visiblePos == lastInAnchor) {

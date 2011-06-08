@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,8 +69,9 @@ typedef enum {
 } WebFrameLoadType;
 
 @interface WebFrame (WebPrivate)
+
 - (BOOL)_isDescendantOfFrame:(WebFrame *)frame;
-- (void)_setShouldCreateRenderers:(BOOL)f;
+- (void)_setShouldCreateRenderers:(BOOL)shouldCreateRenderers;
 - (NSColor *)_bodyBackgroundColor;
 - (BOOL)_isFrameSet;
 - (BOOL)_firstLayoutDone;
@@ -142,11 +143,15 @@ typedef enum {
 // Returns whether there is a spelling marker in the specified range of the focused node.
 - (BOOL)hasSpellingMarker:(int)location length:(int)length;
 
+- (BOOL)hasGrammarMarker:(int)from length:(int)length;
+
 // The top of the accessibility tree.
 - (id)accessibilityRoot;
 
 // Clears frame opener. This is executed between layout tests runs
 - (void)_clearOpener;
 
+// Printing.
+- (NSArray *)_computePageRectsWithPrintScaleFactor:(float)printWidthScaleFactor pageSize:(NSSize)pageSize;
 
 @end

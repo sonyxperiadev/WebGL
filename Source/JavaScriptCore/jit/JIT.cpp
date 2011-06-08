@@ -92,7 +92,7 @@ JIT::JIT(JSGlobalData* globalData, CodeBlock* codeBlock, void* linkerOffset)
 #if USE(JSVALUE32_64)
 void JIT::emitTimeoutCheck()
 {
-    Jump skipTimeout = branchSub32(NonZero, Imm32(1), timeoutCheckRegister);
+    Jump skipTimeout = branchSub32(NonZero, TrustedImm32(1), timeoutCheckRegister);
     JITStubCall stubCall(this, cti_timeout_check);
     stubCall.addArgument(regT1, regT0); // save last result registers.
     stubCall.call(timeoutCheckRegister);
@@ -102,7 +102,7 @@ void JIT::emitTimeoutCheck()
 #else
 void JIT::emitTimeoutCheck()
 {
-    Jump skipTimeout = branchSub32(NonZero, Imm32(1), timeoutCheckRegister);
+    Jump skipTimeout = branchSub32(NonZero, TrustedImm32(1), timeoutCheckRegister);
     JITStubCall(this, cti_timeout_check).call(timeoutCheckRegister);
     skipTimeout.link(this);
 
@@ -475,7 +475,7 @@ JITCode JIT::privateCompile(CodePtr* functionEntryArityCheck)
         emitPutImmediateToCallFrameHeader(m_codeBlock, RegisterFile::CodeBlock);
 
         addPtr(Imm32(m_codeBlock->m_numCalleeRegisters * sizeof(Register)), callFrameRegister, regT1);
-        registerFileCheck = branchPtr(Below, AbsoluteAddress(&m_globalData->interpreter->registerFile().m_end), regT1);
+        registerFileCheck = branchPtr(Below, AbsoluteAddress(m_globalData->interpreter->registerFile().addressOfEnd()), regT1);
     }
 
     Label functionBody = label();
@@ -497,7 +497,7 @@ JITCode JIT::privateCompile(CodePtr* functionEntryArityCheck)
         arityCheck = label();
         preserveReturnAddressAfterCall(regT2);
         emitPutToCallFrameHeader(regT2, RegisterFile::ReturnPC);
-        branch32(Equal, regT1, Imm32(m_codeBlock->m_numParameters)).linkTo(beginLabel, this);
+        branch32(Equal, regT1, TrustedImm32(m_codeBlock->m_numParameters)).linkTo(beginLabel, this);
         restoreArgumentReference();
 
         JITStubCall(this, m_codeBlock->m_isConstructor ? cti_op_construct_arityCheck : cti_op_call_arityCheck).call(callFrameRegister);
@@ -567,7 +567,6 @@ JITCode JIT::privateCompile(CodePtr* functionEntryArityCheck)
 #if ENABLE(JIT_OPTIMIZE_CALL)
     for (unsigned i = 0; i < m_codeBlock->numberOfCallLinkInfos(); ++i) {
         CallLinkInfo& info = m_codeBlock->callLinkInfo(i);
-        info.ownerCodeBlock = m_codeBlock;
         info.callReturnLocation = patchBuffer.locationOfNearCall(m_callStructureStubCompilationInfo[i].callReturnLocation);
         info.hotPathBegin = patchBuffer.locationOf(m_callStructureStubCompilationInfo[i].hotPathBegin);
         info.hotPathOther = patchBuffer.locationOfNearCall(m_callStructureStubCompilationInfo[i].hotPathOther);
@@ -588,18 +587,6 @@ JITCode JIT::privateCompile(CodePtr* functionEntryArityCheck)
 }
 
 #if ENABLE(JIT_OPTIMIZE_CALL)
-void JIT::unlinkCallOrConstruct(CallLinkInfo* callLinkInfo)
-{
-    // When the JSFunction is deleted the pointer embedded in the instruction stream will no longer be valid
-    // (and, if a new JSFunction happened to be constructed at the same location, we could get a false positive
-    // match).  Reset the check so it no longer matches.
-    RepatchBuffer repatchBuffer(callLinkInfo->ownerCodeBlock);
-#if USE(JSVALUE32_64)
-    repatchBuffer.repatch(callLinkInfo->hotPathBegin, 0);
-#else
-    repatchBuffer.repatch(callLinkInfo->hotPathBegin, JSValue::encode(JSValue()));
-#endif
-}
 
 void JIT::linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, JIT::CodePtr code, CallLinkInfo* callLinkInfo, int callerArgCount, JSGlobalData* globalData)
 {
@@ -609,10 +596,7 @@ void JIT::linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* ca
     // If this is a native call calleeCodeBlock is null so the number of parameters is unimportant
     if (!calleeCodeBlock || (callerArgCount == calleeCodeBlock->m_numParameters)) {
         ASSERT(!callLinkInfo->isLinked());
-    
-        if (calleeCodeBlock)
-            calleeCodeBlock->addCaller(callLinkInfo);
-    
+        callLinkInfo->callee.set(*globalData, callerCodeBlock->ownerExecutable(), callee);
         repatchBuffer.repatch(callLinkInfo->hotPathBegin, callee);
         repatchBuffer.relink(callLinkInfo->hotPathOther, code);
     }
@@ -629,10 +613,7 @@ void JIT::linkConstruct(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBloc
     // If this is a native call calleeCodeBlock is null so the number of parameters is unimportant
     if (!calleeCodeBlock || (callerArgCount == calleeCodeBlock->m_numParameters)) {
         ASSERT(!callLinkInfo->isLinked());
-    
-        if (calleeCodeBlock)
-            calleeCodeBlock->addCaller(callLinkInfo);
-    
+        callLinkInfo->callee.set(*globalData, callerCodeBlock->ownerExecutable(), callee);
         repatchBuffer.repatch(callLinkInfo->hotPathBegin, callee);
         repatchBuffer.relink(callLinkInfo->hotPathOther, code);
     }

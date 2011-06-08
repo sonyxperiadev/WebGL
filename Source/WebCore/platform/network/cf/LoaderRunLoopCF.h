@@ -29,7 +29,7 @@
 #if USE(CFNETWORK)
 
 #if !PLATFORM(WIN)
-#error This code is not needed on platforms other than Windows, because main thread's CFRunLoop can be used.
+#error This code is not needed on platforms other than Windows, because the CFRunLoop from the main thread can be used.
 #endif
 
 typedef struct __CFRunLoop* CFRunLoopRef;

@@ -108,6 +108,10 @@ void LauncherWindow::initializeView()
         m_view = view;
     } else {
         WebViewGraphicsBased* view = new WebViewGraphicsBased(splitter);
+        m_view = view;
+#if defined(QT_CONFIGURED_WITH_OPENGL)
+        toggleQGLWidgetViewport(m_windowOptions.useQGLWidgetViewport);
+#endif
         view->setPage(page());
 
         connect(view, SIGNAL(currentFPSUpdated(int)), this, SLOT(updateFPS(int)));
@@ -116,8 +120,6 @@ void LauncherWindow::initializeView()
         // The implementation of QAbstractScrollArea::eventFilter makes us need
         // to install the event filter also on the viewport of a QGraphicsView.
         view->viewport()->installEventFilter(this);
-
-        m_view = view;
     }
 
     m_touchMocking = false;
@@ -127,6 +129,9 @@ void LauncherWindow::initializeView()
     connect(page(), SIGNAL(linkHovered(const QString&, const QString&, const QString&)),
             this, SLOT(showLinkHover(const QString&, const QString&)));
     connect(this, SIGNAL(enteredFullScreenMode(bool)), this, SLOT(toggleFullScreenMode(bool)));
+
+    if (m_windowOptions.printLoadedUrls)
+        connect(page()->mainFrame(), SIGNAL(urlChanged(QUrl)), this, SLOT(printURL(QUrl)));
 
     applyPrefs();
 
@@ -893,6 +898,12 @@ void LauncherWindow::showUserAgentDialog()
 #endif
 
     delete dialog;
+}
+
+void LauncherWindow::printURL(const QUrl& url)
+{
+    QTextStream output(stdout);
+    output << "Loaded: " << url.toString() << endl;
 }
 
 void LauncherWindow::updateFPS(int fps)

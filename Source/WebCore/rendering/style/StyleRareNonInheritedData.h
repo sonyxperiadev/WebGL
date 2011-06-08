@@ -107,7 +107,7 @@ public:
     
     short m_counterIncrement;
     short m_counterReset;
-    
+
 #if USE(ACCELERATED_COMPOSITING)
     bool m_runningAcceleratedAnimation : 1;
 #endif

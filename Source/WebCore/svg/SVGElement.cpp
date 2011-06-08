@@ -316,12 +316,9 @@ void SVGElement::sendSVGLoadEventIfPossible(bool sendParentLoadEvents)
         RefPtr<Node> parent;
         if (sendParentLoadEvents)
             parent = currentTarget->parentNode(); // save the next parent to dispatch too incase dispatching the event changes the tree
-        if (hasLoadListener(currentTarget.get())) {
-            RefPtr<Event> event = Event::create(eventNames().loadEvent, false, false);
-            event->setTarget(currentTarget);
-            currentTarget->dispatchGenericEvent(event.release());
-        }
-        currentTarget = (parent && parent->isSVGElement()) ? static_pointer_cast<SVGElement>(parent) : 0;
+        if (hasLoadListener(currentTarget.get()))
+            currentTarget->dispatchEvent(Event::create(eventNames().loadEvent, false, false));
+        currentTarget = (parent && parent->isSVGElement()) ? static_pointer_cast<SVGElement>(parent) : RefPtr<SVGElement>();
     }
 }
 

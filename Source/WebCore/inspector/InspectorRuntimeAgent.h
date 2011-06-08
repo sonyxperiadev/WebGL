@@ -33,43 +33,38 @@
 
 #if ENABLE(INSPECTOR)
 
-#include "InjectedScript.h"
-#include "PlatformString.h"
-
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/PassOwnPtr.h>
-#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-class InjectedScriptHost;
+class InjectedScriptManager;
+class InspectorArray;
 class InspectorObject;
 class InspectorValue;
+class Page;
 
 typedef String ErrorString;
 
 class InspectorRuntimeAgent {
     WTF_MAKE_NONCOPYABLE(InspectorRuntimeAgent);
 public:
-    static PassOwnPtr<InspectorRuntimeAgent> create(InjectedScriptHost* injectedScriptHost)
-    {
-        return adoptPtr(new InspectorRuntimeAgent(injectedScriptHost));
-    }
-
+    static PassOwnPtr<InspectorRuntimeAgent> create(InjectedScriptManager*, Page*);
     ~InspectorRuntimeAgent();
 
     // Part of the protocol.
-    void evaluate(ErrorString*, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorValue>* result);
-    void evaluateOn(ErrorString*, PassRefPtr<InspectorObject> objectId, const String& expression, RefPtr<InspectorValue>* result);
-    void releaseObject(ErrorString*, PassRefPtr<InspectorObject> objectId);
-    void getProperties(ErrorString*, PassRefPtr<InspectorObject> objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorValue>* result);
-    void setPropertyValue(ErrorString*, PassRefPtr<InspectorObject> objectId, const String& propertyName, const String& expression, RefPtr<InspectorValue>* result);
-    void releaseObjectGroup(ErrorString*, long injectedScriptId, const String& objectGroup);
+    void evaluate(ErrorString*, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result);
+    void evaluateOn(ErrorString*, const String& objectId, const String& expression, RefPtr<InspectorObject>* result);
+    void releaseObject(ErrorString*, const String& objectId);
+    void getProperties(ErrorString*, const String& objectId, bool ignoreHasOwnProperty, bool abbreviate, RefPtr<InspectorArray>* result);
+    void setPropertyValue(ErrorString*, const String& objectId, const String& propertyName, const String& expression);
+    void releaseObjectGroup(ErrorString*, const String& objectGroup);
 
 private:
-    InspectorRuntimeAgent(InjectedScriptHost*);
+    InspectorRuntimeAgent(InjectedScriptManager*, Page*);
 
-    InjectedScriptHost* m_injectedScriptHost;
+    InjectedScriptManager* m_injectedScriptManager;
+    Page* m_inspectedPage;
 };
 
 } // namespace WebCore

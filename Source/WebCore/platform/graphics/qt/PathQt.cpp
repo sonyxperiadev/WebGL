@@ -154,7 +154,7 @@ FloatRect Path::boundingRect() const
     return m_path.boundingRect();
 }
 
-FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
+FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 {
     GraphicsContext* context = scratchContext();
     QPainterPathStroker stroke;
@@ -398,23 +398,15 @@ void Path::apply(void* info, PathApplierFunction function) const
 void Path::transform(const AffineTransform& transform)
 {
     QTransform qTransform(transform);
-#if QT_VERSION < QT_VERSION_CHECK(4, 7, 0)
-    // Workaround for http://bugreports.qt.nokia.com/browse/QTBUG-11264
-    // QTransform.map doesn't handle the MoveTo element because of the isEmpty issue
-    if (m_path.isEmpty() && m_path.elementCount()) {
-        QPointF point = qTransform.map(m_path.currentPosition());
-        moveTo(point);
-    } else 
-#endif
-        m_path = qTransform.map(m_path);
+    m_path = qTransform.map(m_path);
 }
 
-float Path::length()
+float Path::length() const
 {
     return m_path.length();
 }
 
-FloatPoint Path::pointAtLength(float length, bool& ok)
+FloatPoint Path::pointAtLength(float length, bool& ok) const
 {
     ok = (length >= 0 && length <= m_path.length());
 
@@ -424,7 +416,7 @@ FloatPoint Path::pointAtLength(float length, bool& ok)
     return point;
 }
 
-float Path::normalAngleAtLength(float length, bool& ok)
+float Path::normalAngleAtLength(float length, bool& ok) const
 {
     ok = (length >= 0 && length <= m_path.length());
 

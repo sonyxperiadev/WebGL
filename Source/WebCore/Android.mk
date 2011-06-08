@@ -45,6 +45,7 @@ LOCAL_SRC_FILES := \
 	css/CSSImportRule.cpp \
 	css/CSSInheritedValue.cpp \
 	css/CSSInitialValue.cpp \
+	css/CSSLineBoxContainValue.cpp \
 	css/CSSMediaRule.cpp \
 	css/CSSMutableStyleDeclaration.cpp \
 	css/CSSOMUtils.cpp \
@@ -62,6 +63,7 @@ LOCAL_SRC_FILES := \
 	css/CSSSegmentedFontFace.cpp \
 	css/CSSSelector.cpp \
 	css/CSSSelectorList.cpp \
+	css/CSSStyleApplyProperty.cpp \
 	css/CSSStyleDeclaration.cpp \
 	css/CSSStyleRule.cpp \
 	css/CSSStyleSelector.cpp \
@@ -101,7 +103,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	css/WebKitCSSTransformValue.cpp \
 	\
 	dom/ActiveDOMObject.cpp \
-	dom/AsyncScriptRunner.cpp \
 	dom/Attr.cpp \
 	dom/Attribute.cpp \
 	dom/BeforeTextInsertedEvent.cpp \
@@ -141,6 +142,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ErrorEvent.cpp \
 	dom/Event.cpp \
 	dom/EventContext.cpp \
+	dom/EventDispatcher.cpp \
 	dom/EventNames.cpp \
 	dom/EventTarget.cpp \
 	dom/EventQueue.cpp \
@@ -183,11 +185,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ScriptableDocumentParser.cpp \
 	dom/ScriptElement.cpp \
 	dom/ScriptExecutionContext.cpp \
+	dom/ScriptRunner.cpp \
 	dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/SpaceSplitString.cpp \
 	dom/StaticHashSetNodeList.cpp \
 	dom/StaticNodeList.cpp \
+	dom/StringCallback.cpp \
 	dom/StyleElement.cpp \
 	dom/StyledElement.cpp \
 	dom/TagNodeList.cpp \
@@ -460,6 +464,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/cache/MemoryCache.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
+	loader/icon/IconDatabaseBase.cpp \
 	loader/icon/IconLoader.cpp \
 	loader/icon/IconRecord.cpp \
 	loader/icon/PageURLRecord.cpp \
@@ -507,6 +512,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/SpeechInputResult.cpp \
 	page/SuspendableTimer.cpp \
 	page/UserContentURLPattern.cpp \
+	page/WebKitAnimation.cpp \
+	page/WebKitAnimationList.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
 	\
@@ -971,7 +978,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
 	storage/IDBAny.cpp \
-	storage/IDBBackingStore.cpp \
 	storage/IDBCursor.cpp \
 	storage/IDBCursorBackendImpl.cpp \
 	storage/IDBCursorWithValue.cpp \
@@ -1011,7 +1017,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/StorageMap.cpp \
 	storage/StorageNamespace.cpp \
 	storage/StorageNamespaceImpl.cpp \
-	storage/StorageSyncManager.cpp
+	storage/StorageSyncManager.cpp \
+	storage/StorageTracker.cpp
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

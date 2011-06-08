@@ -33,33 +33,26 @@ inline bool isPointerAligned(void* p)
     return !((intptr_t)(p) & (sizeof(char*) - 1));
 }
 
-void ConservativeSet::grow()
+void ConservativeRoots::grow()
 {
     size_t newCapacity = m_capacity == inlineCapacity ? nonInlineCapacity : m_capacity * 2;
-    DeprecatedPtr<JSCell>* newSet = static_cast<DeprecatedPtr<JSCell>*>(OSAllocator::reserveAndCommit(newCapacity * sizeof(JSCell*)));
-    memcpy(newSet, m_set, m_size * sizeof(JSCell*));
-    if (m_set != m_inlineSet)
-        OSAllocator::decommitAndRelease(m_set, m_capacity * sizeof(JSCell*));
+    JSCell** newRoots = static_cast<JSCell**>(OSAllocator::reserveAndCommit(newCapacity * sizeof(JSCell*)));
+    memcpy(newRoots, m_roots, m_size * sizeof(JSCell*));
+    if (m_roots != m_inlineRoots)
+        OSAllocator::decommitAndRelease(m_roots, m_capacity * sizeof(JSCell*));
     m_capacity = newCapacity;
-    m_set = newSet;
+    m_roots = newRoots;
 }
 
-void ConservativeSet::add(void* begin, void* end)
+void ConservativeRoots::add(void* begin, void* end)
 {
     ASSERT(begin <= end);
     ASSERT((static_cast<char*>(end) - static_cast<char*>(begin)) < 0x1000000);
     ASSERT(isPointerAligned(begin));
     ASSERT(isPointerAligned(end));
 
-    for (char** it = static_cast<char**>(begin); it != static_cast<char**>(end); ++it) {
-        if (!m_heap->contains(*it))
-            continue;
-
-        if (m_size == m_capacity)
-            grow();
-
-        m_set[m_size++] = reinterpret_cast<JSCell*>(*it);
-    }
+    for (char** it = static_cast<char**>(begin); it != static_cast<char**>(end); ++it)
+        add(*it);
 }
 
 } // namespace JSC

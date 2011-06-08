@@ -30,6 +30,7 @@
 #include "PageClient.h"
 #include "WKView.h"
 #include "WebPageProxy.h"
+#include "WebUndoClient.h"
 #include <ShlObj.h>
 #include <WebCore/COMPtr.h>
 #include <WebCore/DragActions.h>
@@ -61,9 +62,14 @@ public:
     void setIsInWindow(bool);
     void setOverrideCursor(HCURSOR);
     void setInitialFocus(bool forward);
+    void setScrollOffsetOnNextResize(const WebCore::IntSize&);
     void setFindIndicatorCallback(WKViewFindIndicatorCallback, void*);
     WKViewFindIndicatorCallback getFindIndicatorCallback(void**);
     void initialize();
+    
+    void initializeUndoClient(const WKViewUndoClient*);
+    void reapplyEditCommand(WebEditCommandProxy*);
+    void unapplyEditCommand(WebEditCommandProxy*);
 
     // IUnknown
     virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject);
@@ -89,6 +95,8 @@ private:
 
     LRESULT onMouseEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onWheelEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
+    LRESULT onHorizontalScroll(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
+    LRESULT onVerticalScroll(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onKeyEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onPaintEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
     LRESULT onPrintClientEvent(HWND hWnd, UINT message, WPARAM, LPARAM, bool& handled);
@@ -123,6 +131,8 @@ private:
     void startTrackingMouseLeave();
     void stopTrackingMouseLeave();
 
+    bool shouldInitializeTrackPointHack();
+
     void close();
 
     HCURSOR cursorToShow() const;
@@ -134,6 +144,7 @@ private:
     virtual void displayView();
     virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
     virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
+    virtual float userSpaceScaleFactor() const { return 1; }
     
     virtual WebCore::IntSize viewSize();
     virtual bool isViewWindowActive();
@@ -144,6 +155,7 @@ private:
     virtual void didRelaunchProcess();
     virtual void pageClosed();
     virtual void takeFocus(bool direction);
+    virtual void setFocus(bool focused) { }
     virtual void toolTipChanged(const WTF::String&, const WTF::String&);
     virtual void setCursor(const WebCore::Cursor&);
     virtual void setViewportArguments(const WebCore::ViewportArguments&);
@@ -151,6 +163,7 @@ private:
     virtual void clearAllEditCommands();
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
+    virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&);
     virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled);
     virtual void compositionSelectionChanged(bool);
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*);
@@ -177,6 +190,8 @@ private:
     HWND m_window;
     HWND m_topLevelParentWindow;
     HWND m_toolTipWindow;
+    
+    WebCore::IntSize m_nextResizeScrollOffset;
 
     HCURSOR m_lastCursorSet;
     HCURSOR m_webCoreCursor;
@@ -191,6 +206,8 @@ private:
     RefPtr<WebPageProxy> m_page;
 
     unsigned m_inIMEComposition;
+
+    WebUndoClient m_undoClient;
 
     WKViewFindIndicatorCallback m_findIndicatorCallback;
     void* m_findIndicatorCallbackContext;

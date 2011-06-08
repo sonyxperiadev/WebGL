@@ -74,7 +74,7 @@ void MediaPlayerPrivateQt::getSupportedTypes(HashSet<String> &supported)
 
     for (int i = 0; i < types.size(); i++) {
         QString mime = types.at(i);
-        if (mime.startsWith("audio/") || mime.startsWith("video/"))
+        if (mime.startsWith(QString::fromLatin1("audio/")) || mime.startsWith(QString::fromLatin1("video/")))
             supported.add(mime);
     }
 }
@@ -103,7 +103,6 @@ MediaPlayerPrivateQt::MediaPlayerPrivateQt(MediaPlayer* player)
     , m_isVisible(false)
     , m_isSeeking(false)
     , m_composited(false)
-    , m_queuedSeek(-1)
     , m_preload(MediaPlayer::Auto)
     , m_suppressNextPlaybackChanged(false)
 {
@@ -195,7 +194,7 @@ void MediaPlayerPrivateQt::commitLoad(const String& url)
     HTMLMediaElement* element = static_cast<HTMLMediaElement*>(m_webCorePlayer->mediaPlayerClient());
 
     // Construct the media content with a network request if the resource is http[s]
-    if (scheme == "http" || scheme == "https") {
+    if (scheme == QString::fromLatin1("http") || scheme == QString::fromLatin1("https")) {
         QNetworkRequest request = QNetworkRequest(rUrl);
 
         // Grab the current document
@@ -220,7 +219,7 @@ void MediaPlayerPrivateQt::commitLoad(const String& url)
 
             // Set the refferer, but not when requesting insecure content from a secure page
             QUrl documentUrl = QUrl(QString(document->documentURI()));
-            if (documentUrl.scheme().toLower() == "http" || scheme == "https")
+            if (documentUrl.scheme().toLower() == QString::fromLatin1("http") || scheme == QString::fromLatin1("https"))
                 request.setRawHeader("Referer", documentUrl.toEncoded());
 
             // Set the user agent
@@ -296,32 +295,8 @@ void MediaPlayerPrivateQt::seek(float position)
     if (m_mediaPlayerControl && !m_mediaPlayerControl->availablePlaybackRanges().contains(position * 1000))
         return;
 
-    if (m_isSeeking)
-        return;
-
-    if (position > duration())
-        position = duration();
-
-    // Seeking is most reliable when we're paused.
-    // Webkit will try to pause before seeking, but due to the asynchronous nature
-    // of the backend, the player may not actually be paused yet.
-    // In this case, we should queue the seek and wait until pausing has completed
-    // before attempting to seek.
-    if (m_mediaPlayer->state() == QMediaPlayer::PlayingState) {
-        m_mediaPlayer->pause();
-        m_isSeeking = true;
-        m_queuedSeek = static_cast<qint64>(position * 1000);
-
-        // Set a timeout, so that in the event that we don't get a state changed
-        // signal, we still attempt the seek.
-        QTimer::singleShot(1000, this, SLOT(queuedSeekTimeout()));
-    } else {
-        m_isSeeking = true;
-        m_mediaPlayer->setPosition(static_cast<qint64>(position * 1000));
-
-        // Set a timeout, in case we don't get a position changed signal
-        QTimer::singleShot(10000, this, SLOT(seekTimeout()));
-    }
+    m_isSeeking = true;
+    m_mediaPlayer->setPosition(static_cast<qint64>(position * 1000));
 }
 
 bool MediaPlayerPrivateQt::seeking() const
@@ -443,13 +418,8 @@ void MediaPlayerPrivateQt::handleError(QMediaPlayer::Error)
     updateStates();
 }
 
-void MediaPlayerPrivateQt::stateChanged(QMediaPlayer::State state)
+void MediaPlayerPrivateQt::stateChanged(QMediaPlayer::State)
 {
-    if (state != QMediaPlayer::PlayingState && m_isSeeking && m_queuedSeek >= 0) {
-        m_mediaPlayer->setPosition(m_queuedSeek);
-        m_queuedSeek = -1;
-    }
-
     if (!m_suppressNextPlaybackChanged)
         m_webCorePlayer->playbackStateChanged();
     else
@@ -468,34 +438,12 @@ void MediaPlayerPrivateQt::nativeSizeChanged(const QSizeF& size)
     m_webCorePlayer->sizeChanged();
 }
 
-void MediaPlayerPrivateQt::queuedSeekTimeout()
-{
-    // If we haven't heard anything, assume the player is now paused
-    // and we can attempt the seek
-    if (m_isSeeking && m_queuedSeek >= 0) {
-        m_mediaPlayer->setPosition(m_queuedSeek);
-        m_queuedSeek = -1;
-
-        // Set a timeout, in case we don't get a position changed signal
-        QTimer::singleShot(10000, this, SLOT(seekTimeout()));
-    }
-}
-
-void MediaPlayerPrivateQt::seekTimeout()
-{
-    // If we haven't heard anything, assume the seek succeeded
-    if (m_isSeeking) {
-        m_webCorePlayer->timeChanged();
-        m_isSeeking = false;
-    }
-}
-
 void MediaPlayerPrivateQt::positionChanged(qint64)
 {
     // Only propagate this event if we are seeking
-    if (m_isSeeking && m_queuedSeek == -1) {
-        m_webCorePlayer->timeChanged();
+    if (m_isSeeking) {
         m_isSeeking = false;
+        m_webCorePlayer->timeChanged();
     }
 }
 
@@ -649,7 +597,7 @@ void MediaPlayerPrivateQt::repaint()
 
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
 
-class TextureMapperVideoLayerQt : public virtual TextureMapperVideoLayer {
+class TextureMapperVideoLayerQt : public virtual TextureMapperMediaLayer {
 public:
     TextureMapperVideoLayerQt(QGraphicsVideoItem* videoItem)
         : m_videoItem(videoItem)

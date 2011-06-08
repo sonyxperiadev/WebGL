@@ -35,6 +35,8 @@
 
 namespace JSC {
 
+    class JSGlobalObject;
+
 #if COMPILER(MSVC)
     // If WTF_MAKE_NONCOPYABLE is applied to JSCell we end up with a bunch of
     // undefined references to the JSCell copy constructor and assignment operator
@@ -53,10 +55,9 @@ namespace JSC {
         WTF_MAKE_NONCOPYABLE(JSCell);
 #endif
 
+        friend class ExecutableBase;
         friend class GetterSetter;
         friend class Heap;
-        friend class JIT;
-        friend class JSNumberCell;
         friend class JSObject;
         friend class JSPropertyNameIterator;
         friend class JSString;
@@ -67,15 +68,16 @@ namespace JSC {
         friend class MarkedSpace;
         friend class MarkedBlock;
         friend class ScopeChainNode;
+        friend class StructureChain;
 
     private:
         explicit JSCell(Structure*);
         virtual ~JSCell();
 
     public:
-        static PassRefPtr<Structure> createDummyStructure()
+        static PassRefPtr<Structure> createDummyStructure(JSGlobalData& globalData)
         {
-            return Structure::create(jsNull(), TypeInfo(UnspecifiedType), AnonymousSlotCount, 0);
+            return Structure::create(globalData, jsNull(), TypeInfo(UnspecifiedType), AnonymousSlotCount, 0);
         }
 
         // Querying the type.
@@ -107,7 +109,7 @@ namespace JSC {
         virtual bool toBoolean(ExecState*) const;
         virtual double toNumber(ExecState*) const;
         virtual UString toString(ExecState*) const;
-        virtual JSObject* toObject(ExecState*) const;
+        virtual JSObject* toObject(ExecState*, JSGlobalObject*) const;
 
         // Garbage collection.
         void* operator new(size_t, ExecState*);
@@ -136,6 +138,16 @@ namespace JSC {
         // call this function, not its slower virtual counterpart. (For integer
         // property names, we want a similar interface with appropriate optimizations.)
         bool fastGetOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
+
+        static ptrdiff_t structureOffset()
+        {
+            return OBJECT_OFFSETOF(JSCell, m_structure);
+        }
+
+        Structure* const * addressOfStructure() const
+        {
+            return &m_structure;
+        }
 
     protected:
         static const unsigned AnonymousSlotCount = 0;
@@ -201,6 +213,11 @@ namespace JSC {
     inline UString JSValue::getString(ExecState* exec) const
     {
         return isCell() ? asCell()->getString(exec) : UString();
+    }
+
+    template <typename Base> UString HandleConverter<Base, Unknown>::getString(ExecState* exec) const
+    {
+        return jsValue().getString(exec);
     }
 
     inline JSObject* JSValue::getObject() const
@@ -322,7 +339,12 @@ namespace JSC {
 
     inline JSObject* JSValue::toObject(ExecState* exec) const
     {
-        return isCell() ? asCell()->toObject(exec) : toObjectSlowCase(exec);
+        return isCell() ? asCell()->toObject(exec, exec->lexicalGlobalObject()) : toObjectSlowCase(exec, exec->lexicalGlobalObject());
+    }
+
+    inline JSObject* JSValue::toObject(ExecState* exec, JSGlobalObject* globalObject) const
+    {
+        return isCell() ? asCell()->toObject(exec, globalObject) : toObjectSlowCase(exec, globalObject);
     }
 
     inline JSObject* JSValue::toThisObject(ExecState* exec) const
@@ -330,16 +352,6 @@ namespace JSC {
         return isCell() ? asCell()->toThisObject(exec) : toThisObjectSlowCase(exec);
     }
     
-    template <typename T> void MarkStack::append(DeprecatedPtr<T>* slot)
-    {
-        internalAppend(slot->get());
-    }
-    
-    template <typename T> void MarkStack::append(WriteBarrierBase<T>* slot)
-    {
-        internalAppend(slot->get());
-    }
-
     ALWAYS_INLINE void MarkStack::internalAppend(JSCell* cell)
     {
         ASSERT(!m_isCheckingForDefaultMarkViolation);
@@ -348,31 +360,6 @@ namespace JSC {
             return;
         if (cell->structure()->typeInfo().type() >= CompoundType)
             m_values.append(cell);
-    }
-
-    ALWAYS_INLINE void MarkStack::deprecatedAppend(JSCell** value)
-    {
-        ASSERT(value);
-        internalAppend(*value);
-    }
-
-    ALWAYS_INLINE void MarkStack::deprecatedAppend(JSValue* value)
-    {
-        ASSERT(value);
-        internalAppend(*value);
-    }
-    
-    ALWAYS_INLINE void MarkStack::deprecatedAppend(Register* value)
-    {
-        ASSERT(value);
-        internalAppend(value->jsValue());
-    }
-
-    ALWAYS_INLINE void MarkStack::internalAppend(JSValue value)
-    {
-        ASSERT(value);
-        if (value.isCell())
-            internalAppend(value.asCell());
     }
 
     inline Heap* Heap::heap(JSValue v)
@@ -411,8 +398,10 @@ namespace JSC {
     
     inline MarkedSpace::SizeClass& MarkedSpace::sizeClassFor(size_t bytes)
     {
-        ASSERT(bytes && bytes <= preciseCutoff);
-        return m_preciseSizeClasses[(bytes - 1) / preciseStep];
+        ASSERT(bytes && bytes < maxCellSize);
+        if (bytes < preciseCutoff)
+            return m_preciseSizeClasses[(bytes - 1) / preciseStep];
+        return m_impreciseSizeClasses[(bytes - 1) / impreciseStep];
     }
 
     inline void* MarkedSpace::allocate(size_t bytes)

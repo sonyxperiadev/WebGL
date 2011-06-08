@@ -106,7 +106,12 @@ void ewk_view_viewport_attributes_set(Evas_Object *o, const WebCore::ViewportArg
 
 void ewk_view_download_request(Evas_Object *o, Ewk_Download *download);
 
-int ewk_view_dpi_get();
+int ewk_view_dpi_get(void);
+
+#if ENABLE(TOUCH_EVENTS)
+void ewk_view_need_touch_events_set(Evas_Object*, bool needed);
+Eina_Bool ewk_view_need_touch_events_get(Evas_Object*);
+#endif
 
 Ewk_History *ewk_history_new(WebCore::BackForwardListImpl *history);
 void ewk_history_free(Ewk_History *history);
@@ -160,7 +165,7 @@ void ewk_view_contents_size_changed(Evas_Object *o, Evas_Coord w, Evas_Coord h);
 
 WebCore::FloatRect ewk_view_page_rect_get(Evas_Object *o);
 
-const char* ewk_settings_default_user_agent_get();
+const char* ewk_settings_default_user_agent_get(void);
 
 #ifdef __cplusplus
 

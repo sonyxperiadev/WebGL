@@ -50,7 +50,7 @@ PassRefPtr<InspectorObject> TimelineRecordFactory::createGenericRecord(double st
 
     RefPtr<ScriptCallStack> stackTrace = createScriptCallStack(5, true);
     if (stackTrace && stackTrace->size())
-        record->setArray("stackTrace", stackTrace->buildInspectorObject());
+        record->setArray("stackTrace", stackTrace->buildInspectorArray());
     return record.release();
 }
 
@@ -144,7 +144,6 @@ PassRefPtr<InspectorObject> TimelineRecordFactory::createResourceReceiveResponse
     data->setNumber("identifier", identifier);
     data->setNumber("statusCode", response.httpStatusCode());
     data->setString("mimeType", response.mimeType());
-    data->setNumber("expectedContentLength", response.expectedContentLength());
     return data.release();
 }
 

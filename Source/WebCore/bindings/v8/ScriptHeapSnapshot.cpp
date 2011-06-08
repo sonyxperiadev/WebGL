@@ -40,6 +40,11 @@
 
 namespace WebCore {
 
+ScriptHeapSnapshot::~ScriptHeapSnapshot()
+{
+    const_cast<v8::HeapSnapshot*>(m_snapshot)->Delete();
+}
+
 String ScriptHeapSnapshot::title() const
 {
     v8::HandleScope scope;
@@ -74,12 +79,6 @@ void ScriptHeapSnapshot::writeJSON(ScriptHeapSnapshot::OutputStream* stream)
 {
     OutputStreamAdapter outputStream(stream);
     m_snapshot->Serialize(&outputStream, v8::HeapSnapshot::kJSON);
-}
-
-int ScriptHeapSnapshot::exactRetainedSize(uint64_t nodeId)
-{
-    const v8::HeapGraphNode* node = m_snapshot->GetNodeById(nodeId);
-    return node ? node->GetRetainedSize(true) : -1;
 }
 
 } // namespace WebCore

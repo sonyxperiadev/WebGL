@@ -104,6 +104,9 @@
 #include "Scrollbar.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#if defined Q_OS_WIN32
+#include "SystemInfo.h"
+#endif // Q_OS_WIN32
 #include "TextIterator.h"
 #include "WebPlatformStrategies.h"
 #include "WindowFeatures.h"
@@ -312,9 +315,6 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     ScriptController::initializeThreading();
     WTF::initializeMainThread();
     WebCore::SecurityOrigin::setLocalLoadPolicy(WebCore::SecurityOrigin::AllowLocalLoadsForLocalAndSubstituteData);
-#if QT_VERSION < QT_VERSION_CHECK(4, 7, 0)
-    WebCore::Font::setCodePath(WebCore::Font::Complex);
-#endif
 
     WebPlatformStrategies::initialize();
 
@@ -1168,7 +1168,7 @@ void QWebPagePrivate::dynamicPropertyChangeEvent(QDynamicPropertyChangeEvent* ev
 
         QString p = q->property("_q_RepaintThrottlingPreset").toString();
         for(int i = 0; i < sizeof(presets) / sizeof(presets[0]); i++) {
-            if(p == presets[i].name) {
+            if (p == QLatin1String(presets[i].name)) {
                 FrameView::setRepaintThrottlingDeferredRepaintDelay(
                         presets[i].deferredRepaintDelay);
                 FrameView::setRepaintThrottlingnInitialDeferredRepaintDelayDuringLoading(
@@ -1219,6 +1219,9 @@ void QWebPagePrivate::dynamicPropertyChangeEvent(QDynamicPropertyChangeEvent* ev
     else if (event->propertyName() == "_q_webInspectorServerPort") {
         InspectorServerQt* inspectorServer = InspectorServerQt::server();
         inspectorServer->listen(inspectorServerPort());
+    } else if (event->propertyName() == "_q_deadDecodedDataDeletionInterval") {
+        double interval = q->property("_q_deadDecodedDataDeletionInterval").toDouble();
+        memoryCache()->setDeadDecodedDataDeletionInterval(interval);
     }
 }
 #endif
@@ -2070,7 +2073,7 @@ void QWebPage::javaScriptConsoleMessage(const QString& message, int lineNumber, 
     // Catch plugin logDestroy message for LayoutTests/plugins/open-and-close-window-with-plugin.html
     // At this point DRT's WebPage has already been destroyed
     if (QWebPagePrivate::drtRun) {
-        if (message == "PLUGIN: NPP_Destroy")
+        if (message == QLatin1String("PLUGIN: NPP_Destroy"))
             fprintf (stdout, "CONSOLE MESSAGE: line %d: %s\n", lineNumber, message.toUtf8().constData());
     }
 }
@@ -2540,7 +2543,7 @@ QWebPage::ViewportAttributes QWebPage::viewportAttributesForSize(const QSize& av
     result.m_minimumScaleFactor = conf.minimumScale;
     result.m_maximumScaleFactor = conf.maximumScale;
     result.m_devicePixelRatio = conf.devicePixelRatio;
-    result.m_isUserScalable = conf.userScalable;
+    result.m_isUserScalable = static_cast<bool>(conf.userScalable);
 
     d->pixelRatio = conf.devicePixelRatio;
 
@@ -3169,10 +3172,10 @@ bool QWebPage::focusNextPrevChild(bool next)
 void QWebPage::setContentEditable(bool editable)
 {
     if (isContentEditable() != editable) {
+        d->page->setEditable(editable);
         d->page->setTabKeyCyclesThroughElements(!editable);
         if (d->mainFrame) {
             WebCore::Frame* frame = d->mainFrame->d->frame;
-            frame->document()->setDesignMode(editable ? WebCore::Document::on : WebCore::Document::off);
             if (editable) {
                 frame->editor()->applyEditingStyleToBodyElement();
                 // FIXME: mac port calls this if there is no selectedDOMRange
@@ -3186,7 +3189,7 @@ void QWebPage::setContentEditable(bool editable)
 
 bool QWebPage::isContentEditable() const
 {
-    return d->mainFrame && d->mainFrame->d->frame->document()->inDesignMode();
+    return d->page->isEditable();
 }
 
 /*!
@@ -3772,52 +3775,7 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
 #ifdef Q_OS_AIX
         firstPartTemp += QString::fromLatin1("AIX");
 #elif defined Q_OS_WIN32
-
-        switch (QSysInfo::WindowsVersion) {
-        case QSysInfo::WV_32s:
-            firstPartTemp += QString::fromLatin1("Windows 3.1");
-            break;
-        case QSysInfo::WV_95:
-            firstPartTemp += QString::fromLatin1("Windows 95");
-            break;
-        case QSysInfo::WV_98:
-            firstPartTemp += QString::fromLatin1("Windows 98");
-            break;
-        case QSysInfo::WV_Me:
-            firstPartTemp += QString::fromLatin1("Windows 98; Win 9x 4.90");
-            break;
-        case QSysInfo::WV_NT:
-            firstPartTemp += QString::fromLatin1("WinNT4.0");
-            break;
-        case QSysInfo::WV_2000:
-            firstPartTemp += QString::fromLatin1("Windows NT 5.0");
-            break;
-        case QSysInfo::WV_XP:
-            firstPartTemp += QString::fromLatin1("Windows NT 5.1");
-            break;
-        case QSysInfo::WV_2003:
-            firstPartTemp += QString::fromLatin1("Windows NT 5.2");
-            break;
-        case QSysInfo::WV_VISTA:
-            firstPartTemp += QString::fromLatin1("Windows NT 6.0");
-            break;
-         case QSysInfo::WV_WINDOWS7:
-            firstPartTemp += QString::fromLatin1("Windows NT 6.1");
-            break;
-         case QSysInfo::WV_CE:
-            firstPartTemp += QString::fromLatin1("Windows CE");
-            break;
-         case QSysInfo::WV_CENET:
-            firstPartTemp += QString::fromLatin1("Windows CE .NET");
-            break;
-         case QSysInfo::WV_CE_5:
-            firstPartTemp += QString::fromLatin1("Windows CE 5.x");
-            break;
-         case QSysInfo::WV_CE_6:
-            firstPartTemp += QString::fromLatin1("Windows CE 6.x");
-            break;
-        }
-
+        firstPartTemp += windowsVersionForUAString();
 #elif defined Q_OS_DARWIN
 #ifdef __i386__ || __x86_64__
         firstPartTemp += QString::fromLatin1("Intel Mac OS X");
@@ -4086,7 +4044,8 @@ quint64 QWebPage::bytesReceived() const
 /*!
     \fn void QWebPage::repaintRequested(const QRect& dirtyRect)
 
-    This signal is emitted whenever this QWebPage should be updated and no view was set.
+    This signal is emitted whenever this QWebPage should be updated. It's useful
+    when rendering a QWebPage without a QWebView or QGraphicsWebView.
     \a dirtyRect contains the area that needs to be updated. To paint the QWebPage get
     the mainFrame() and call the render(QPainter*, const QRegion&) method with the
     \a dirtyRect as the second parameter.
@@ -4130,6 +4089,8 @@ quint64 QWebPage::bytesReceived() const
     See RFC 2616 sections 19.5.1 for details about Content-Disposition.
 
     At signal emission time the meta-data of the QNetworkReply \a reply is available.
+
+    \note The receiving slot is responsible for deleting the QNetworkReply \a reply.
 
     \note This signal is only emitted if the forwardUnsupportedContent property is set to true.
 

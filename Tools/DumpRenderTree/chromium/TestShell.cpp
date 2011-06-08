@@ -85,11 +85,13 @@ TestShell::TestShell(bool testShellMode)
     , m_devTools(0)
     , m_allowExternalPages(false)
     , m_acceleratedCompositingEnabled(false)
+    , m_forceCompositingMode(false)
     , m_accelerated2dCanvasEnabled(false)
     , m_stressOpt(false)
     , m_stressDeopt(false)
     , m_dumpWhenFinished(true)
 {
+    WebRuntimeFeatures::enableDataTransferItems(true);
     WebRuntimeFeatures::enableGeolocation(true);
     WebRuntimeFeatures::enableIndexedDatabase(true);
     WebRuntimeFeatures::enableFileSystem(true);
@@ -162,6 +164,7 @@ void TestShell::resetWebSettings(WebView& webView)
 {
     m_prefs.reset();
     m_prefs.acceleratedCompositingEnabled = m_acceleratedCompositingEnabled;
+    m_prefs.forceCompositingMode = m_forceCompositingMode;
     m_prefs.accelerated2dCanvasEnabled = m_accelerated2dCanvasEnabled;
     m_prefs.applyTo(&webView);
 }
@@ -186,6 +189,9 @@ void TestShell::runFileTest(const TestParams& params)
     if (testUrl.find("/inspector/") != string::npos
         || testUrl.find("\\inspector\\") != string::npos)
         showDevTools();
+
+    if (m_params.debugLayerTree)
+        m_layoutTestController->setShowDebugLayerTree(true);
 
     if (m_dumpWhenFinished)
         m_printer->handleTestHeader(testUrl.c_str());
@@ -453,7 +459,7 @@ void TestShell::dump()
             if (fwrite(dataUtf8.c_str(), 1, dataUtf8.size(), stdout) != dataUtf8.size())
                 FATAL("Short write to stdout, disk full?\n");
         } else {
-            printf("%s", frame->renderTreeAsText().utf8().data());
+            printf("%s", frame->renderTreeAsText(m_params.debugRenderTree).utf8().data());
             bool recursive = m_layoutTestController->shouldDumpChildFrameScrollPositions();
             dumpFrameScrollPosition(frame, recursive);
         }
@@ -544,14 +550,12 @@ void TestShell::dumpImage(skia::PlatformCanvas* canvas) const
         md5hash.append(hex);
     }
 
-    // Only encode and dump the png if the hashes don't match. Encoding the image
-    // is really expensive.
+    // Only encode and dump the png if the hashes don't match. Encoding the
+    // image is really expensive.
     if (md5hash.compare(m_params.pixelHash)) {
         std::vector<unsigned char> png;
-        webkit_support::EncodeBGRAPNG(
-            reinterpret_cast<const unsigned char*>(sourceBitmap.getPixels()),
-            sourceBitmap.width(), sourceBitmap.height(),
-            static_cast<int>(sourceBitmap.rowBytes()), discardTransparency, &png);
+        webkit_support::EncodeBGRAPNGWithChecksum(reinterpret_cast<const unsigned char*>(sourceBitmap.getPixels()), sourceBitmap.width(),
+            sourceBitmap.height(), static_cast<int>(sourceBitmap.rowBytes()), discardTransparency, md5hash, &png);
 
         m_printer->handleImage(md5hash.c_str(), m_params.pixelHash.c_str(), &png[0], png.size(), m_params.pixelFileName.c_str());
     } else
@@ -575,7 +579,8 @@ WebViewHost* TestShell::createNewWindow(const WebKit::WebURL& url)
 WebViewHost* TestShell::createNewWindow(const WebKit::WebURL& url, DRTDevToolsAgent* devToolsAgent)
 {
     WebViewHost* host = new WebViewHost(this);
-    WebView* view = WebView::create(host, devToolsAgent, 0);
+    WebView* view = WebView::create(host);
+    view->setDevToolsAgentClient(devToolsAgent);
     host->setWebWidget(view);
     m_prefs.applyTo(view);
     view->initializeMainFrame(host);

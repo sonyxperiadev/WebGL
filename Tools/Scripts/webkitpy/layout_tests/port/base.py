@@ -30,6 +30,8 @@
 """Abstract base class of Port-specific entrypoints for the layout tests
 test infrastructure (the Port and Driver classes)."""
 
+from __future__ import with_statement
+
 import cgi
 import difflib
 import errno
@@ -44,20 +46,19 @@ try:
 except ImportError:
     multiprocessing = None
 
-import apache_http_server
-import config as port_config
-import http_lock
-import http_server
-import test_files
-import websocket_server
-
 from webkitpy.common import system
 from webkitpy.common.system import filesystem
 from webkitpy.common.system import logutils
 from webkitpy.common.system import path
 from webkitpy.common.system.executive import Executive, ScriptError
 from webkitpy.common.system.user import User
-
+from webkitpy.layout_tests import read_checksum_from_png
+from webkitpy.layout_tests.port import apache_http_server
+from webkitpy.layout_tests.port import config as port_config
+from webkitpy.layout_tests.port import http_lock
+from webkitpy.layout_tests.port import http_server
+from webkitpy.layout_tests.port import test_files
+from webkitpy.layout_tests.port import websocket_server
 
 _log = logutils.get_logger(__file__)
 
@@ -139,7 +140,9 @@ class Port(object):
         return self._executive.cpu_count()
 
     def default_worker_model(self):
-        return 'old-threads'
+        if self._multiprocessing_is_available:
+            return 'processes'
+        return 'threads'
 
     def baseline_path(self):
         """Return the absolute path to the directory to store new baselines
@@ -323,10 +326,17 @@ class Port(object):
 
     def expected_checksum(self, test):
         """Returns the checksum of the image we expect the test to produce, or None if it is a text-only test."""
-        path = self.expected_filename(test, '.checksum')
-        if not self.path_exists(path):
-            return None
-        return self._filesystem.read_binary_file(path)
+        png_path = self.expected_filename(test, '.png')
+        checksum_path = self._filesystem.splitext(png_path)[0] + '.checksum'
+
+        if self.path_exists(checksum_path):
+            return self._filesystem.read_binary_file(checksum_path)
+
+        if self.path_exists(png_path):
+            with self._filesystem.open_binary_file_for_reading(png_path) as filehandle:
+                return read_checksum_from_png.read_checksum(filehandle)
+
+        return None
 
     def expected_image(self, test):
         """Returns the image we expect the test to produce."""
@@ -346,6 +356,14 @@ class Port(object):
             return ''
         text = self._filesystem.read_binary_file(path)
         return text.replace("\r\n", "\n")
+
+    def reftest_expected_filename(self, filename):
+        """Return the filename of reference we expect the test matches."""
+        return self.expected_filename(filename, '.html')
+
+    def reftest_expected_mismatch_filename(self, filename):
+        """Return the filename of reference we don't expect the test matches."""
+        return self.expected_filename(filename, '-mismatch.html')
 
     def filename_to_uri(self, filename):
         """Convert a test file (which is an absolute path) to a URI."""
@@ -497,6 +515,9 @@ class Port(object):
 
     def script_path(self, script_name):
         return self._config.script_path(script_name)
+
+    def script_shell_command(self, script_name):
+        return self._config.script_shell_command(script_name)
 
     def path_to_test_expectations_file(self):
         """Update the test expectations to the passed-in string.

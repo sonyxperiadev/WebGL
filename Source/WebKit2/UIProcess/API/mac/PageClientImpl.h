@@ -26,6 +26,7 @@
 #ifndef PageClientImpl_h
 #define PageClientImpl_h
 
+#include "CorrectionPanel.h"
 #include "PageClient.h"
 #include <wtf/RetainPtr.h>
 
@@ -62,6 +63,7 @@ private:
     virtual void processDidCrash();
     virtual void pageClosed();
     virtual void didRelaunchProcess();
+    virtual void setFocus(bool focused);
     virtual void takeFocus(bool direction);
     virtual void toolTipChanged(const String& oldToolTip, const String& newToolTip);
     virtual void setCursor(const WebCore::Cursor&);
@@ -70,11 +72,12 @@ private:
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo);
     virtual void clearAllEditCommands();
     virtual void interceptKeyEvent(const NativeWebKeyboardEvent& event, Vector<WebCore::KeypressCommand>& commandName, uint32_t selectionStart, uint32_t selectionEnd, Vector<WebCore::CompositionUnderline>& underlines);
-    virtual void setDragImage(const WebCore::IntPoint& clientPosition, const WebCore::IntSize& imageSize, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag);
+    virtual void setDragImage(const WebCore::IntPoint& clientPosition, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag);
 
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
-
+    virtual WebCore::IntRect windowToScreen(const WebCore::IntRect&);
+    
     virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled);
 
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*);
@@ -87,7 +90,6 @@ private:
 
     virtual void accessibilityWebProcessTokenReceived(const CoreIPC::DataReference&);    
     virtual void setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled);
-    virtual void setAutodisplay(bool);
 
     virtual CGContextRef containingWindowGraphicsContext();
 
@@ -103,8 +105,18 @@ private:
 
     virtual void didPerformDictionaryLookup(const String&, double scaleFactor, const DictionaryPopupInfo&);
 
+    virtual void showCorrectionPanel(WebCore::CorrectionPanelInfo::PanelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings);
+    virtual void dismissCorrectionPanel(WebCore::ReasonForDismissingCorrectionPanel);
+    virtual String dismissCorrectionPanelSoon(WebCore::ReasonForDismissingCorrectionPanel);
+    virtual void recordAutocorrectionResponse(WebCore::EditorClient::AutocorrectionResponseType, const String& replacedString, const String& replacementString);
+
+    virtual float userSpaceScaleFactor() const;
+
     WKView* m_wkView;
     RetainPtr<WebEditorUndoTargetObjC> m_undoTarget;
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    CorrectionPanel m_correctionPanel;
+#endif
 };
 
 } // namespace WebKit

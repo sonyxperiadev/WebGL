@@ -28,18 +28,19 @@
 
 #if ENABLE(PLUGIN_PROCESS)
 
-#include <WebCore/npruntime.h>
+#include <WebCore/npruntime_internal.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebKit {
 
 class NPRemoteObjectMap;
+class Plugin;
 
 class NPObjectProxy : public NPObject {
     WTF_MAKE_NONCOPYABLE(NPObjectProxy);
 
 public:
-    static NPObjectProxy* create(NPRemoteObjectMap* npRemoteObjectMap, uint64_t npObjectID);
+    static NPObjectProxy* create(NPRemoteObjectMap*, Plugin*, uint64_t npObjectID);
 
     static bool isNPObjectProxy(NPObject*);
     
@@ -49,6 +50,7 @@ public:
         return static_cast<NPObjectProxy*>(npObject);
     }
 
+    Plugin* plugin() const { return m_plugin; }
     uint64_t npObjectID() const { return m_npObjectID; }
 
     void invalidate();
@@ -57,7 +59,7 @@ private:
     NPObjectProxy();
     ~NPObjectProxy();
 
-    void initialize(NPRemoteObjectMap* npRemoteObjectMap, uint64_t npObjectID);
+    void initialize(NPRemoteObjectMap*, Plugin*, uint64_t npObjectID);
 
     bool hasMethod(NPIdentifier methodName);
     bool invoke(NPIdentifier methodName, const NPVariant* arguments, uint32_t argumentCount, NPVariant* result);
@@ -83,6 +85,7 @@ private:
     static bool NP_Construct(NPObject*, const NPVariant* arguments, uint32_t argumentCount, NPVariant* result);
 
     NPRemoteObjectMap* m_npRemoteObjectMap;
+    Plugin* m_plugin;
     uint64_t m_npObjectID;
 };
     

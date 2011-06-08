@@ -29,7 +29,9 @@
 #include "Parser.h"
 #include "Protect.h"
 
-namespace JSC {
+namespace {
+
+using namespace JSC;
 
 class Recompiler {
 public:
@@ -82,6 +84,10 @@ inline void Recompiler::operator()(JSCell* cell)
         m_sourceProviders.add(executable->source().provider(), exec);
 }
 
+} // namespace
+
+namespace JSC {
+
 Debugger::~Debugger()
 {
     HashSet<JSGlobalObject*>::iterator end = m_globalObjects.end();
@@ -118,16 +124,18 @@ void Debugger::recompileAllJSFunctions(JSGlobalData* globalData)
 JSValue evaluateInGlobalCallFrame(const UString& script, JSValue& exception, JSGlobalObject* globalObject)
 {
     CallFrame* globalCallFrame = globalObject->globalExec();
-
-    RefPtr<EvalExecutable> eval = EvalExecutable::create(globalCallFrame, makeSource(script), false);
-    JSObject* error = eval->compile(globalCallFrame, globalCallFrame->scopeChain());
-    if (error)
-        return error;
-
     JSGlobalData& globalData = globalObject->globalData();
-    JSValue result = globalData.interpreter->execute(eval.get(), globalCallFrame, globalObject, globalCallFrame->scopeChain());
+
+    EvalExecutable* eval = EvalExecutable::create(globalCallFrame, makeSource(script), false);
+    if (!eval) {
+        exception = globalData.exception;
+        globalData.exception = JSValue();
+        return exception;
+    }
+
+    JSValue result = globalData.interpreter->execute(eval, globalCallFrame, globalObject, globalCallFrame->scopeChain());
     if (globalData.exception) {
-        exception = globalData.exception.get();
+        exception = globalData.exception;
         globalData.exception = JSValue();
     }
     ASSERT(result);

@@ -320,8 +320,6 @@ public:
     void setChildrenInline(bool b = true) { m_childrenInline = b; }
     bool hasColumns() const { return m_hasColumns; }
     void setHasColumns(bool b = true) { m_hasColumns = b; }
-    bool cellWidthChanged() const { return m_cellWidthChanged; }
-    void setCellWidthChanged(bool b = true) { m_cellWidthChanged = b; }
 
     virtual bool requiresForcedStyleRecalcPropagation() const { return false; }
 
@@ -388,7 +386,11 @@ public:
     void setIsAnonymous(bool b) { m_isAnonymous = b; }
     bool isAnonymousBlock() const
     {
-        return m_isAnonymous && style()->display() == BLOCK && style()->styleType() == NOPSEUDO && !isListMarker();
+        // This function is kept in sync with anonymous block creation conditions in
+        // RenderBlock::createAnonymousBlock(). This includes creating an anonymous
+        // RenderBlock having a BLOCK or BOX display. Other classes such as RenderTextFragment
+        // are not RenderBlocks and will return false. See https://bugs.webkit.org/show_bug.cgi?id=56709. 
+        return m_isAnonymous && (style()->display() == BLOCK || style()->display() == BOX) && style()->styleType() == NOPSEUDO && isRenderBlock() && !isListMarker();
     }
     bool isAnonymousColumnsBlock() const { return style()->specifiesColumns() && isAnonymousBlock(); }
     bool isAnonymousColumnSpanBlock() const { return style()->columnSpan() && isAnonymousBlock(); }
@@ -406,17 +408,19 @@ public:
     bool isRunIn() const { return style()->display() == RUN_IN; } // run-in object
     bool isDragging() const { return m_isDragging; }
     bool isReplaced() const { return m_replaced; } // a "replaced" element (see CSS)
-    
+    bool isHorizontalWritingMode() const { return m_horizontalWritingMode; }
+
     bool hasLayer() const { return m_hasLayer; }
     
     bool hasBoxDecorations() const { return m_paintBackground; }
     bool mustRepaintBackgroundOrBorder() const;
     bool hasBackground() const { return style()->hasBackground(); }
-    bool needsLayout() const { return m_needsLayout || m_normalChildNeedsLayout || m_posChildNeedsLayout || m_needsPositionedMovementLayout; }
+    bool needsLayout() const { return m_needsLayout || m_normalChildNeedsLayout || m_posChildNeedsLayout || m_needsSimplifiedNormalFlowLayout || m_needsPositionedMovementLayout; }
     bool selfNeedsLayout() const { return m_needsLayout; }
     bool needsPositionedMovementLayout() const { return m_needsPositionedMovementLayout; }
-    bool needsPositionedMovementLayoutOnly() const { return m_needsPositionedMovementLayout && !m_needsLayout && !m_normalChildNeedsLayout && !m_posChildNeedsLayout; }
+    bool needsPositionedMovementLayoutOnly() const { return m_needsPositionedMovementLayout && !m_needsLayout && !m_normalChildNeedsLayout && !m_posChildNeedsLayout && !m_needsSimplifiedNormalFlowLayout; }
     bool posChildNeedsLayout() const { return m_posChildNeedsLayout; }
+    bool needsSimplifiedNormalFlowLayout() const { return m_needsSimplifiedNormalFlowLayout; }
     bool normalChildNeedsLayout() const { return m_normalChildNeedsLayout; }
     
     bool preferredLogicalWidthsDirty() const { return m_preferredLogicalWidthsDirty; }
@@ -432,13 +436,13 @@ public:
     void drawLineForBoxSide(GraphicsContext*, int x1, int y1, int x2, int y2, BoxSide,
                             Color, EBorderStyle, int adjbw1, int adjbw2);
 #if HAVE(PATH_BASED_BORDER_RADIUS_DRAWING)
-    void drawBoxSideFromPath(GraphicsContext*, IntRect, Path, 
+    void drawBoxSideFromPath(GraphicsContext*, const IntRect&, const Path&,
                             float thickness, float drawThickness, BoxSide, const RenderStyle*, 
                             Color, EBorderStyle);
 #else
     // FIXME: This function should be removed when all ports implement GraphicsContext::clipConvexPolygon()!!
     // At that time, everyone can use RenderObject::drawBoxSideFromPath() instead. This should happen soon.
-    void drawArcForBoxSide(GraphicsContext*, int x, int y, float thickness, IntSize radius, int angleStart,
+    void drawArcForBoxSide(GraphicsContext*, int x, int y, float thickness, const IntSize& radius, int angleStart,
                            int angleSpan, BoxSide, Color, EBorderStyle, bool firstCorner);
 #endif
 
@@ -485,6 +489,7 @@ public:
     void setNeedsLayout(bool b, bool markParents = true);
     void setChildNeedsLayout(bool b, bool markParents = true);
     void setNeedsPositionedMovementLayout();
+    void setNeedsSimplifiedNormalFlowLayout();
     void setPreferredLogicalWidthsDirty(bool, bool markParents = true);
     void invalidateContainerPreferredLogicalWidths();
     
@@ -502,6 +507,7 @@ public:
     void setIsText() { m_isText = true; }
     void setIsBox() { m_isBox = true; }
     void setReplaced(bool b = true) { m_replaced = b; }
+    void setHorizontalWritingMode(bool b = true) { m_horizontalWritingMode = b; }
     void setHasOverflowClip(bool b = true) { m_hasOverflowClip = b; }
     void setHasLayer(bool b = true) { m_hasLayer = b; }
     void setHasTransform(bool b = true) { m_hasTransform = b; }
@@ -557,8 +563,8 @@ public:
 
     // Convert the given local point to absolute coordinates
     // FIXME: Temporary. If useTransforms is true, take transforms into account. Eventually localToAbsolute() will always be transform-aware.
-    FloatPoint localToAbsolute(FloatPoint localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
-    FloatPoint absoluteToLocal(FloatPoint, bool fixed = false, bool useTransforms = false) const;
+    FloatPoint localToAbsolute(const FloatPoint& localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
+    FloatPoint absoluteToLocal(const FloatPoint&, bool fixed = false, bool useTransforms = false) const;
 
     // Convert a local quad to absolute coordinates, taking transforms into account.
     FloatQuad localToAbsoluteQuad(const FloatQuad& quad, bool fixed = false) const
@@ -730,6 +736,8 @@ public:
     virtual bool isFlexingChildren() const { return false; }
     virtual bool isStretchingChildren() const { return false; }
 
+    virtual bool isCombineText() const { return false; }
+
     virtual int caretMinOffset() const;
     virtual int caretMaxOffset() const;
     virtual unsigned caretMaxRenderedOffset() const;
@@ -840,6 +848,7 @@ private:
     bool m_needsPositionedMovementLayout :1;
     bool m_normalChildNeedsLayout    : 1;
     bool m_posChildNeedsLayout       : 1;
+    bool m_needsSimplifiedNormalFlowLayout  : 1;
     bool m_preferredLogicalWidthsDirty           : 1;
     bool m_floating                  : 1;
 
@@ -853,6 +862,7 @@ private:
     bool m_isBox                     : 1;
     bool m_inline                    : 1;
     bool m_replaced                  : 1;
+    bool m_horizontalWritingMode : 1;
     bool m_isDragging                : 1;
 
     bool m_hasLayer                  : 1;
@@ -924,6 +934,7 @@ inline void RenderObject::setNeedsLayout(bool b, bool markParents)
     } else {
         m_everHadLayout = true;
         m_posChildNeedsLayout = false;
+        m_needsSimplifiedNormalFlowLayout = false;
         m_normalChildNeedsLayout = false;
         m_needsPositionedMovementLayout = false;
     }
@@ -939,6 +950,7 @@ inline void RenderObject::setChildNeedsLayout(bool b, bool markParents)
             markContainingBlocksForLayout();
     } else {
         m_posChildNeedsLayout = false;
+        m_needsSimplifiedNormalFlowLayout = false;
         m_normalChildNeedsLayout = false;
         m_needsPositionedMovementLayout = false;
     }
@@ -948,6 +960,17 @@ inline void RenderObject::setNeedsPositionedMovementLayout()
 {
     bool alreadyNeededLayout = needsLayout();
     m_needsPositionedMovementLayout = true;
+    if (!alreadyNeededLayout) {
+        markContainingBlocksForLayout();
+        if (hasLayer())
+            setLayerNeedsFullRepaint();
+    }
+}
+
+inline void RenderObject::setNeedsSimplifiedNormalFlowLayout()
+{
+    bool alreadyNeededLayout = needsLayout();
+    m_needsSimplifiedNormalFlowLayout = true;
     if (!alreadyNeededLayout) {
         markContainingBlocksForLayout();
         if (hasLayer())
@@ -975,6 +998,8 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
     RenderObject* o = container();
     RenderObject* last = this;
 
+    bool simplifiedNormalFlowLayout = needsSimplifiedNormalFlowLayout() && !selfNeedsLayout() && !normalChildNeedsLayout();
+
     while (o) {
         // Don't mark the outermost object of an unrooted subtree. That object will be 
         // marked when the subtree is added to the document.
@@ -982,17 +1007,15 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
         if (!container && !o->isRenderView())
             return;
         if (!last->isText() && (last->style()->position() == FixedPosition || last->style()->position() == AbsolutePosition)) {
-            if (last->style()->top().isAuto() && last->style()->bottom().isAuto()) {
-                RenderObject* parent = last->parent();
-                if (!parent->normalChildNeedsLayout()) {
-                    parent->setChildNeedsLayout(true, false);
-                    if (parent != newRoot)
-                        parent->markContainingBlocksForLayout(scheduleRelayout, newRoot);
-                }
-            }
             if (o->m_posChildNeedsLayout)
                 return;
             o->m_posChildNeedsLayout = true;
+            simplifiedNormalFlowLayout = true;
+            ASSERT(!o->isSetNeedsLayoutForbidden());
+        } else if (simplifiedNormalFlowLayout) {
+            if (o->m_needsSimplifiedNormalFlowLayout)
+                return;
+            o->m_needsSimplifiedNormalFlowLayout = true;
             ASSERT(!o->isSetNeedsLayoutForbidden());
         } else {
             if (o->m_normalChildNeedsLayout)

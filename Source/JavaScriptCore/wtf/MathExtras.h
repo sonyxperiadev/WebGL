@@ -90,7 +90,7 @@ inline bool isfinite(double x) { return finite(x) && !isnand(x); }
 inline bool isinf(double x) { return !finite(x) && !isnand(x); }
 #endif
 #ifndef signbit
-inline bool signbit(double x) { return x < 0.0; } // FIXME: Wrong for negative 0.
+inline bool signbit(double x) { return copysign(1.0, x) < 0; }
 #endif
 
 #endif
@@ -106,7 +106,7 @@ inline bool signbit(double x) { struct ieee_double *p = (struct ieee_double *)&x
 
 #endif
 
-#if COMPILER(MSVC) || COMPILER(RVCT)
+#if COMPILER(MSVC) || (COMPILER(RVCT) && !(RVCT_VERSION_AT_LEAST(3, 0, 0, 0)))
 
 // We must not do 'num + 0.5' or 'num - 0.5' because they can cause precision loss.
 static double round(double num)
@@ -233,7 +233,12 @@ inline int clampToPositiveInteger(float d)
     return static_cast<int>(std::max<float>(std::min(d, maxIntAsFloat), 0));
 }
 
-#if !COMPILER(MSVC) && !COMPILER(WINSCW) && !(COMPILER(RVCT) && (OS(SYMBIAN) || PLATFORM(BREWMP)))
+inline int clampToInteger(unsigned value)
+{
+    return static_cast<int>(std::min(value, static_cast<unsigned>(std::numeric_limits<int>::max())));
+}
+
+#if !COMPILER(MSVC) && !COMPILER(WINSCW) && !(COMPILER(RVCT) && (OS(SYMBIAN) || PLATFORM(BREWMP))) && !OS(SOLARIS)
 using std::isfinite;
 using std::isinf;
 using std::isnan;

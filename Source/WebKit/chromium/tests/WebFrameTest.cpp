@@ -28,6 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <googleurl/src/gurl.h>
 #include <gtest/gtest.h>
 #include <webkit/support/webkit_support.h>
@@ -85,7 +87,7 @@ TEST_F(WebFrameTest, ContentText)
 
     // Create and initialize the WebView.    
     TestWebFrameClient webFrameClient;
-    WebView* webView = WebView::create(0, 0, 0);
+    WebView* webView = WebView::create(0);
     webView->initializeMainFrame(&webFrameClient);
 
     // Load the main frame URL.

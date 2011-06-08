@@ -487,6 +487,12 @@ Could be worth adding to the API.
 - (void)_setPostsAcceleratedCompositingNotifications:(BOOL)flag;
 - (BOOL)_isUsingAcceleratedCompositing;
 
+// For DumpRenderTree
+- (BOOL)interactiveFormValidationEnabled;
+- (void)setInteractiveFormValidationEnabled:(BOOL)enabled;
+- (int)validationMessageTimerMagnification;
+- (void)setValidationMessageTimerMagnification:(int)newValue;
+
 // Returns YES if NSView -displayRectIgnoringOpacity:inContext: will produce a faithful representation of the content.
 - (BOOL)_isSoftwareRenderable;
 // When drawing into a bitmap context, we normally flatten compositing layers (and distort 3D transforms).
@@ -644,7 +650,9 @@ Could be worth adding to the API.
 - (void)setAutomaticSpellingCorrectionEnabled:(BOOL)flag;
 - (void)toggleAutomaticSpellingCorrection:(id)sender;
 #endif
-
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+- (void)handleCorrectionPanelResult:(NSString*)result;
+#endif
 @end
 
 @interface WebView (WebViewEditingInMail)

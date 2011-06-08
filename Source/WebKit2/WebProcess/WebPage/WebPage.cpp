@@ -54,6 +54,7 @@
 #include "WebEvent.h"
 #include "WebEventConversion.h"
 #include "WebFrame.h"
+#include "WebFullScreenManager.h"
 #include "WebGeolocationClient.h"
 #include "WebImage.h"
 #include "WebInspector.h"
@@ -91,6 +92,7 @@
 #include <WebCore/RenderView.h>
 #include <WebCore/ReplaceSelectionCommand.h>
 #include <WebCore/ResourceRequest.h>
+#include <WebCore/SchemeRegistry.h>
 #include <WebCore/SerializedScriptValue.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SharedBuffer.h>
@@ -158,6 +160,7 @@ WebPage::WebPage(uint64_t pageID, const WebPageCreationParameters& parameters)
     , m_canRunBeforeUnloadConfirmPanel(parameters.canRunBeforeUnloadConfirmPanel)
     , m_canRunModal(parameters.canRunModal)
     , m_isRunningModal(false)
+    , m_userSpaceScaleFactor(parameters.userSpaceScaleFactor)
     , m_cachedMainFrameIsPinnedToLeftSide(false)
     , m_cachedMainFrameIsPinnedToRightSide(false)
 {
@@ -352,6 +355,9 @@ void WebPage::close()
 #if ENABLE(INSPECTOR)
     m_inspector = 0;
 #endif
+#if ENABLE(FULLSCREEN_API)
+    m_fullScreenManager = 0;
+#endif
 
     if (m_activePopupMenu) {
         m_activePopupMenu->disconnectFromPage();
@@ -424,7 +430,7 @@ void WebPage::loadAlternateHTMLString(const String& htmlString, const String& ba
 {
     RefPtr<SharedBuffer> sharedBuffer = SharedBuffer::create(reinterpret_cast<const char*>(htmlString.characters()), htmlString.length() * sizeof(UChar));
     KURL baseURL = baseURLString.isEmpty() ? blankURL() : KURL(KURL(), baseURLString);
-    KURL unreachableURL = unreachableURLString.isEmpty() ? KURL() : KURL(KURL(), unreachableURLString)  ;
+    KURL unreachableURL = unreachableURLString.isEmpty() ? KURL() : KURL(KURL(), unreachableURLString);
     loadData(sharedBuffer, "text/html", "utf-16", baseURL, unreachableURL);
 }
 
@@ -785,9 +791,9 @@ void WebPage::pageDidScroll()
 }
 
 #if ENABLE(TILED_BACKING_STORE)
-void WebPage::pageDidRequestScroll(const IntSize& delta)
+void WebPage::pageDidRequestScroll(const IntPoint& point)
 {
-    send(Messages::WebPageProxy::PageDidRequestScroll(delta));
+    send(Messages::WebPageProxy::PageDidRequestScroll(point));
 }
 #endif
 
@@ -1051,6 +1057,21 @@ void WebPage::touchEvent(const WebTouchEvent& touchEvent)
 }
 #endif
 
+void WebPage::scroll(Page* page, ScrollDirection direction, ScrollGranularity granularity)
+{
+    page->focusController()->focusedOrMainFrame()->eventHandler()->scrollRecursively(direction, granularity);
+}
+
+void WebPage::logicalScroll(Page* page, ScrollLogicalDirection direction, ScrollGranularity granularity)
+{
+    page->focusController()->focusedOrMainFrame()->eventHandler()->logicalScrollRecursively(direction, granularity);
+}
+
+void WebPage::scrollBy(uint32_t scrollDirection, uint32_t scrollGranularity)
+{
+    scroll(m_page.get(), static_cast<ScrollDirection>(scrollDirection), static_cast<ScrollGranularity>(scrollGranularity));
+}
+
 void WebPage::setActive(bool isActive)
 {
     m_page->focusController()->setActive(isActive);
@@ -1121,6 +1142,8 @@ void WebPage::viewWillEndLiveResize()
 
 void WebPage::setFocused(bool isFocused)
 {
+    if (!isFocused)
+        m_page->focusController()->focusedOrMainFrame()->selection()->clear();
     m_page->focusController()->setFocused(isFocused);
 }
 
@@ -1175,6 +1198,13 @@ void WebPage::show()
 void WebPage::setUserAgent(const String& userAgent)
 {
     m_userAgent = userAgent;
+}
+    
+IntRect WebPage::windowToScreen(const IntRect& rect)
+{
+    IntRect screenRect;
+    sendSync(Messages::WebPageProxy::WindowToScreen(rect), Messages::WebPageProxy::WindowToScreen::Reply(screenRect));
+    return screenRect;
 }
 
 IntRect WebPage::windowResizerRect() const
@@ -1353,6 +1383,9 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     settings->setDOMPasteAllowed(store.getBoolValueForKey(WebPreferencesKey::domPasteAllowedKey()));
     settings->setJavaScriptCanAccessClipboard(store.getBoolValueForKey(WebPreferencesKey::javaScriptCanAccessClipboardKey()));
     settings->setShouldPrintBackgrounds(store.getBoolValueForKey(WebPreferencesKey::shouldPrintBackgroundsKey()));
+    settings->setWebSecurityEnabled(store.getBoolValueForKey(WebPreferencesKey::webSecurityEnabledKey()));
+    settings->setAllowUniversalAccessFromFileURLs(store.getBoolValueForKey(WebPreferencesKey::allowUniversalAccessFromFileURLsKey()));
+    settings->setAllowFileAccessFromFileURLs(store.getBoolValueForKey(WebPreferencesKey::allowFileAccessFromFileURLsKey()));
 
     settings->setMinimumFontSize(store.getUInt32ValueForKey(WebPreferencesKey::minimumFontSizeKey()));
     settings->setMinimumLogicalFontSize(store.getUInt32ValueForKey(WebPreferencesKey::minimumLogicalFontSizeKey()));
@@ -1363,9 +1396,11 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     // Temporarily turn off accelerated compositing until we have a good solution for rendering it.
     settings->setAcceleratedCompositingEnabled(false);
     settings->setAcceleratedDrawingEnabled(false);
+    settings->setCanvasUsesAcceleratedDrawing(false);
 #else
     settings->setAcceleratedCompositingEnabled(store.getBoolValueForKey(WebPreferencesKey::acceleratedCompositingEnabledKey()));
     settings->setAcceleratedDrawingEnabled(store.getBoolValueForKey(WebPreferencesKey::acceleratedDrawingEnabledKey()));
+    settings->setCanvasUsesAcceleratedDrawing(store.getBoolValueForKey(WebPreferencesKey::canvasUsesAcceleratedDrawingKey()));
 #endif
     settings->setShowDebugBorders(store.getBoolValueForKey(WebPreferencesKey::compositingBordersVisibleKey()));
     settings->setShowRepaintCounter(store.getBoolValueForKey(WebPreferencesKey::compositingRepaintCountersVisibleKey()));
@@ -1373,6 +1408,14 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 
 #if ENABLE(DATABASE)
     AbstractDatabase::setIsAvailable(store.getBoolValueForKey(WebPreferencesKey::databasesEnabledKey()));
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    settings->setFullScreenEnabled(store.getBoolValueForKey(WebPreferencesKey::fullScreenEnabledKey()));
+#endif
+
+#if ENABLE(DOM_STORAGE)
+    settings->setLocalStorageDatabasePath(WebProcess::shared().localStorageDirectory());
 #endif
 
     platformPreferencesDidChange(store);
@@ -1386,6 +1429,15 @@ WebInspector* WebPage::inspector()
     if (!m_inspector)
         m_inspector = WebInspector::create(this);
     return m_inspector.get();
+}
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+WebFullScreenManager* WebPage::fullScreenManager()
+{
+    if (!m_fullScreenManager)
+        m_fullScreenManager = WebFullScreenManager::create(this);
+    return m_fullScreenManager.get();
 }
 #endif
 
@@ -1488,6 +1540,7 @@ void WebPage::dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint glob
     IntPoint adjustedClientPosition(clientPosition.x() + m_page->dragController()->dragOffset().x(), clientPosition.y() + m_page->dragController()->dragOffset().y());
     IntPoint adjustedGlobalPosition(globalPosition.x() + m_page->dragController()->dragOffset().x(), globalPosition.y() + m_page->dragController()->dragOffset().y());
     
+    platformDragEnded();
     m_page->dragController()->dragEnded();
     FrameView* view = m_page->mainFrame()->view();
     if (!view)
@@ -1729,13 +1782,13 @@ void WebPage::windowAndViewFramesChanged(const WebCore::IntRect& windowFrameInSc
         (*it)->windowAndViewFramesChanged(windowFrameInScreenCoordinates, viewFrameInWindowCoordinates);
 }
 
+#endif
+    
 bool WebPage::windowIsFocused() const
 {
     return m_page->focusController()->isActive();
 }
-
-#endif
-
+    
 void WebPage::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
 {
     if (messageID.is<CoreIPC::MessageClassDrawingAreaLegacy>()) {
@@ -1756,6 +1809,13 @@ void WebPage::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::Messag
     if (messageID.is<CoreIPC::MessageClassWebInspector>()) {
         if (WebInspector* inspector = this->inspector())
             inspector->didReceiveWebInspectorMessage(connection, messageID, arguments);
+        return;
+    }
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    if (messageID.is<CoreIPC::MessageClassWebFullScreenManager>()) {
+        fullScreenManager()->didReceiveMessage(connection, messageID, arguments);
         return;
     }
 #endif
@@ -1998,6 +2058,7 @@ void WebPage::drawRectToPDF(uint64_t frameID, const WebCore::IntRect& rect, uint
     if (coreFrame) {
         ASSERT(coreFrame->document()->printing());
 
+#if PLATFORM(CG)
         // FIXME: Use CGDataConsumerCreate with callbacks to avoid copying the data.
         RetainPtr<CGDataConsumerRef> pdfDataConsumer(AdoptCF, CGDataConsumerCreateWithCFData(pdfPageData.get()));
 
@@ -2013,6 +2074,7 @@ void WebPage::drawRectToPDF(uint64_t frameID, const WebCore::IntRect& rect, uint
 
         CGPDFContextEndPage(context.get());
         CGPDFContextClose(context.get());
+#endif
     }
 
     send(Messages::WebPageProxy::DataCallback(CoreIPC::DataReference(CFDataGetBytePtr(pdfPageData.get()), CFDataGetLength(pdfPageData.get())), callbackID));
@@ -2028,6 +2090,7 @@ void WebPage::drawPagesToPDF(uint64_t frameID, uint32_t first, uint32_t count, u
     if (coreFrame) {
         ASSERT(coreFrame->document()->printing());
 
+#if PLATFORM(CG)
         // FIXME: Use CGDataConsumerCreate with callbacks to avoid copying the data.
         RetainPtr<CGDataConsumerRef> pdfDataConsumer(AdoptCF, CGDataConsumerCreateWithCFData(pdfPageData.get()));
 
@@ -2048,6 +2111,7 @@ void WebPage::drawPagesToPDF(uint64_t frameID, uint32_t first, uint32_t count, u
             CGPDFContextEndPage(context.get());
         }
         CGPDFContextClose(context.get());
+#endif
     }
 
     send(Messages::WebPageProxy::DataCallback(CoreIPC::DataReference(CFDataGetBytePtr(pdfPageData.get()), CFDataGetLength(pdfPageData.get())), callbackID));
@@ -2071,5 +2135,28 @@ void WebPage::setMemoryCacheMessagesEnabled(bool memoryCacheMessagesEnabled)
 {
     m_page->setMemoryCacheClientCallsEnabled(memoryCacheMessagesEnabled);
 }
+
+#if !PLATFORM(MAC)
+void WebPage::platformDragEnded()
+{
+}
+#endif
+
+bool WebPage::canHandleRequest(const WebCore::ResourceRequest& request)
+{
+    if (SchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(request.url().protocol()))
+        return true;
+    return platformCanHandleRequest(request);
+}
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
+void WebPage::handleCorrectionPanelResult(const String& result)
+{
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (!frame)
+        return;
+    frame->editor()->handleCorrectionPanelResult(result);
+}
+#endif
 
 } // namespace WebKit

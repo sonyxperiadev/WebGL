@@ -179,6 +179,11 @@ void WebView::didRelaunchProcess()
     notImplemented();
 }
 
+void WebView::setFocus(bool)
+{
+    notImplemented();
+}
+
 void WebView::takeFocus(bool)
 {
     notImplemented();
@@ -189,9 +194,17 @@ void WebView::toolTipChanged(const String&, const String&)
     notImplemented();
 }
 
-void WebView::setCursor(const Cursor&)
+void WebView::setCursor(const Cursor& cursor)
 {
-    notImplemented();
+    // [GTK] Widget::setCursor() gets called frequently
+    // http://bugs.webkit.org/show_bug.cgi?id=16388
+    // Setting the cursor may be an expensive operation in some backends,
+    // so don't re-set the cursor if it's already set to the target value.
+    GdkWindow* window = gtk_widget_get_window(m_viewWidget);
+    GdkCursor* currentCursor = gdk_window_get_cursor(window);
+    GdkCursor* newCursor = cursor.platformCursor().get();
+    if (currentCursor != newCursor)
+        gdk_window_set_cursor(window, newCursor);
 }
 
 void WebView::setViewportArguments(const WebCore::ViewportArguments&)
@@ -219,6 +232,12 @@ FloatRect WebView::convertToUserSpace(const FloatRect& viewRect)
 {
     notImplemented();
     return viewRect;
+}
+
+IntRect WebView::windowToScreen(const IntRect& rect)
+{
+    notImplemented();
+    return IntRect();
 }
 
 void WebView::doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,6 +46,7 @@
 #import <WebCore/ScrollView.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/WindowsKeyboardCodes.h>
+#import <WebCore/visible_units.h>
 #import <WebKitSystemInterface.h>
 
 using namespace WebCore;
@@ -76,8 +77,6 @@ void WebPage::platformPreferencesDidChange(const WebPreferencesStore&)
 {
 }
 
-// FIXME: need to add support for input methods
-    
 bool WebPage::interceptEditingKeyboardEvent(KeyboardEvent* evt, bool shouldSaveCommand)
 {
     Node* node = evt->target()->toNode();
@@ -164,12 +163,12 @@ void WebPage::getMarkedRange(uint64_t& location, uint64_t& length)
     getLocationAndLengthFromRange(frame->editor()->compositionRange().get(), location, length);
 }
 
-static PassRefPtr<Range> characterRangeAtPoint(Frame* frame, const IntPoint& point)
+
+static PassRefPtr<Range> characterRangeAtPositionForPoint(Frame* frame, const VisiblePosition& position, const IntPoint& point)
 {
-    VisiblePosition position = frame->visiblePositionForPoint(point);
     if (position.isNull())
         return 0;
-    
+
     VisiblePosition previous = position.previous();
     if (previous.isNotNull()) {
         RefPtr<Range> previousCharacterRange = makeRange(previous, position);
@@ -188,7 +187,12 @@ static PassRefPtr<Range> characterRangeAtPoint(Frame* frame, const IntPoint& poi
     
     return 0;
 }
-    
+
+static PassRefPtr<Range> characterRangeAtPoint(Frame* frame, const IntPoint& point)
+{
+    return characterRangeAtPositionForPoint(frame, frame->visiblePositionForPoint(point), point);
+}
+
 void WebPage::characterIndexForPoint(IntPoint point, uint64_t& index)
 {
     index = NSNotFound;
@@ -242,6 +246,32 @@ void WebPage::firstRectForCharacterRange(uint64_t location, uint64_t length, Web
     resultRect = frame->view()->contentsToWindow(rect);
 }
 
+static bool isPositionInRange(const VisiblePosition& position, Range* range)
+{
+    RefPtr<Range> positionRange = makeRange(position, position);
+
+    ExceptionCode ec = 0;
+    range->compareBoundaryPoints(Range::START_TO_START, positionRange.get(), ec);
+    if (ec)
+        return false;
+
+    if (!range->isPointInRange(positionRange->startContainer(), positionRange->startOffset(), ec))
+        return false;
+    if (ec)
+        return false;
+
+    return true;
+}
+
+static bool shouldUseSelection(const VisiblePosition& position, const VisibleSelection& selection)
+{
+    RefPtr<Range> selectedRange = selection.toNormalizedRange();
+    if (!selectedRange)
+        return false;
+
+    return isPositionInRange(position, selectedRange.get());
+}
+
 void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
 {
     Frame* frame = m_page->mainFrame();
@@ -250,46 +280,78 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
 
     // Find the frame the point is over.
     IntPoint point = roundedIntPoint(floatPoint);
-
     HitTestResult result = frame->eventHandler()->hitTestResultAtPoint(point, false);
     frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document()->frame() : m_page->focusController()->focusedOrMainFrame();
 
-    // Figure out if there are any characters under the point.
-    RefPtr<Range> characterRange = characterRangeAtPoint(frame, frame->view()->windowToContents(point));
-    if (!characterRange)
+    IntPoint translatedPoint = frame->view()->windowToContents(point);
+    VisiblePosition position = frame->visiblePositionForPoint(translatedPoint);
+
+    // Don't do anything if there is no character at the point.
+    if (!characterRangeAtPositionForPoint(frame, position, translatedPoint))
         return;
 
-    // Grab the currently selected text.
-    RefPtr<Range> selectedRange = m_page->focusController()->focusedOrMainFrame()->selection()->selection().toNormalizedRange();
-
-    // Use the selected text if the point was anywhere in it. Assertain this by seeing if either character range
-    // the mouse is over is contained by the selection range.
-    if (characterRange && selectedRange) {
-        ExceptionCode ec = 0;
-        selectedRange->compareBoundaryPoints(Range::START_TO_START, characterRange.get(), ec);
-        if (!ec) {
-            if (selectedRange->isPointInRange(characterRange->startContainer(), characterRange->startOffset(), ec)) {
-                if (!ec)
-                    characterRange = selectedRange;
-            }
-        }
+    VisibleSelection selection = m_page->focusController()->focusedOrMainFrame()->selection()->selection();
+    if (shouldUseSelection(position, selection)) {
+        performDictionaryLookupForSelection(DictionaryPopupInfo::HotKey, frame, selection);
+        return;
     }
 
-    if (!characterRange)
-        return;
+    NSDictionary *options = nil;
 
-    // Ensure we have whole words.
-    VisibleSelection selection(characterRange.get());
-    selection.expandUsingGranularity(WordGranularity);
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    // As context, we are going to use the surrounding paragraph of text.
+    VisiblePosition paragraphStart = startOfParagraph(position);
+    VisiblePosition paragraphEnd = endOfParagraph(position);
 
-    RefPtr<Range> finalRange = selection.toNormalizedRange();
+    NSRange rangeToPass = NSMakeRange(TextIterator::rangeLength(makeRange(paragraphStart, position).get()), 0);
+
+    RefPtr<Range> fullCharacterRange = makeRange(paragraphStart, paragraphEnd);
+    String fullPlainTextString = plainText(fullCharacterRange.get());
+
+    NSRange extractedRange = WKExtractWordDefinitionTokenRangeFromContextualString(fullPlainTextString, rangeToPass, &options);
+
+    RefPtr<Range> finalRange = TextIterator::subrange(fullCharacterRange.get(), extractedRange.location, extractedRange.length);
     if (!finalRange)
         return;
+#else
+    RefPtr<Range> finalRange = makeRange(startOfWord(position), endOfWord(position));
+    if (!finalRange)
+        return;
+#endif
 
-    performDictionaryLookupForRange(DictionaryPopupInfo::HotKey, frame, finalRange.get());
+    performDictionaryLookupForRange(DictionaryPopupInfo::HotKey, frame, finalRange.get(), options);
 }
 
-void WebPage::performDictionaryLookupForRange(DictionaryPopupInfo::Type type, Frame* frame, Range* range)
+void WebPage::performDictionaryLookupForSelection(DictionaryPopupInfo::Type type, Frame* frame, const VisibleSelection& selection)
+{
+    RefPtr<Range> selectedRange = selection.toNormalizedRange();
+    if (!selectedRange)
+        return;
+
+    NSDictionary *options = nil;
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    VisiblePosition selectionStart = selection.visibleStart();
+    VisiblePosition selectionEnd = selection.visibleEnd();
+
+    // As context, we are going to use the surrounding paragraphs of text.
+    VisiblePosition paragraphStart = startOfParagraph(selectionStart);
+    VisiblePosition paragraphEnd = endOfParagraph(selectionEnd);
+
+    int lengthToSelectionStart = TextIterator::rangeLength(makeRange(paragraphStart, selectionStart).get());
+    int lengthToSelectionEnd = TextIterator::rangeLength(makeRange(paragraphStart, selectionEnd).get());
+    NSRange rangeToPass = NSMakeRange(lengthToSelectionStart, lengthToSelectionEnd - lengthToSelectionStart);
+
+    String fullPlainTextString = plainText(makeRange(paragraphStart, paragraphEnd).get());
+
+    // Since we already have the range we want, we just need to grab the returned options.
+    WKExtractWordDefinitionTokenRangeFromContextualString(fullPlainTextString, rangeToPass, &options);
+#endif
+
+    performDictionaryLookupForRange(type, frame, selectedRange.get(), options);
+}
+
+void WebPage::performDictionaryLookupForRange(DictionaryPopupInfo::Type type, Frame* frame, Range* range, NSDictionary *options)
 {
     String rangeText = range->text();
     if (rangeText.stripWhiteSpace().isEmpty())
@@ -316,18 +378,9 @@ void WebPage::performDictionaryLookupForRange(DictionaryPopupInfo::Type type, Fr
     dictionaryPopupInfo.type = type;
     dictionaryPopupInfo.origin = FloatPoint(rangeRect.x(), rangeRect.y());
     dictionaryPopupInfo.fontInfo.fontAttributeDictionary = fontDescriptorAttributes;
+    dictionaryPopupInfo.options = (CFDictionaryRef)options;
 
     send(Messages::WebPageProxy::DidPerformDictionaryLookup(rangeText, dictionaryPopupInfo));
-}
-
-static inline void scroll(Page* page, ScrollDirection direction, ScrollGranularity granularity)
-{
-    page->focusController()->focusedOrMainFrame()->eventHandler()->scrollRecursively(direction, granularity);
-}
-
-static inline void logicalScroll(Page* page, ScrollLogicalDirection direction, ScrollGranularity granularity)
-{
-    page->focusController()->focusedOrMainFrame()->eventHandler()->logicalScrollRecursively(direction, granularity);
 }
 
 bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
@@ -390,7 +443,7 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
         if (keyboardEvent.metaKey())
             m_page->goBack();
         else {
-            if (keyboardEvent.altKey()  | keyboardEvent.controlKey())
+            if (keyboardEvent.altKey() || keyboardEvent.controlKey())
                 scroll(m_page.get(), ScrollLeft, ScrollByPage);
             else
                 scroll(m_page.get(), ScrollLeft, ScrollByLine);
@@ -435,6 +488,13 @@ void WebPage::writeSelectionToPasteboard(const String& pasteboardName, const Vec
     result = true;
 }
 
+void WebPage::readSelectionFromPasteboard(const String& pasteboardName, bool& result)
+{
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    frame->editor()->readSelectionFromPasteboard(pasteboardName);
+    result = true;
+}
+    
 AccessibilityWebPageObject* WebPage::accessibilityRemoteObject()
 {
     return m_mockAccessibilityElement.get();
@@ -472,13 +532,26 @@ String WebPage::cachedResponseMIMETypeForURL(const WebCore::KURL& url)
     return [[cachedResponse response] MIMEType];
 }
 
-bool WebPage::canHandleRequest(const WebCore::ResourceRequest& request)
+bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest& request)
 {
     if ([NSURLConnection canHandleRequest:request.nsURLRequest()])
-        return YES;
+        return true;
 
     // FIXME: Return true if this scheme is any one WebKit2 knows how to handle.
     return request.url().protocolIs("applewebdata");
+}
+
+void WebPage::setDragSource(NSObject *dragSource)
+{
+    m_dragSource = dragSource;
+}
+
+void WebPage::platformDragEnded()
+{
+    // The drag source we care about here is NSFilePromiseDragSource, which doesn't look at
+    // the arguments. It's OK to just pass arbitrary constant values, so we just pass all zeroes.
+    [m_dragSource.get() draggedImage:nil endedAt:NSZeroPoint operation:NSDragOperationNone];
+    m_dragSource = nullptr;
 }
 
 } // namespace WebKit

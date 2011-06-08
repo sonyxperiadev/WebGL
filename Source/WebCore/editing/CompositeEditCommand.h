@@ -32,7 +32,6 @@
 
 namespace WebCore {
 
-class CSSStyleDeclaration;
 class EditingStyle;
 class HTMLElement;
 class StyledElement;
@@ -50,7 +49,7 @@ protected:
     //
     // sugary-sweet convenience functions to help create and apply edit commands in composite commands
     //
-    void appendNode(PassRefPtr<Node>, PassRefPtr<Element> parent);
+    void appendNode(PassRefPtr<Node>, PassRefPtr<ContainerNode> parent);
     void applyCommandToComposite(PassRefPtr<EditCommand>);
     void applyStyle(const EditingStyle*, EditAction = EditActionChangeAttributes);
     void applyStyle(const EditingStyle*, const Position& start, const Position& end, EditAction = EditActionChangeAttributes);
@@ -110,7 +109,7 @@ protected:
     void moveParagraphs(const VisiblePosition&, const VisiblePosition&, const VisiblePosition&, bool preserveSelection = false, bool preserveStyle = true);
     void moveParagraphWithClones(const VisiblePosition& startOfParagraphToMove, const VisiblePosition& endOfParagraphToMove, Element* blockElement, Node* outerNode);
     void cloneParagraphUnderNewElement(Position& start, Position& end, Node* outerNode, Element* blockElement);
-    void cleanupAfterDeletion();
+    void cleanupAfterDeletion(VisiblePosition destination = VisiblePosition());
     
     bool breakOutOfEmptyListItem();
     bool breakOutOfEmptyMailBlockquotedParagraph();

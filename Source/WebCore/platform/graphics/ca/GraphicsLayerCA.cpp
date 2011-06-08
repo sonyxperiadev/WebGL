@@ -550,11 +550,17 @@ void GraphicsLayerCA::setNeedsDisplay()
     setNeedsDisplayInRect(hugeRect);
 }
 
-void GraphicsLayerCA::setNeedsDisplayInRect(const FloatRect& rect)
+void GraphicsLayerCA::setNeedsDisplayInRect(const FloatRect& r)
 {
     if (!drawsContent())
         return;
 
+    FloatRect rect(r);
+    FloatRect layerBounds(FloatPoint(), m_size);
+    rect.intersect(layerBounds);
+    if (rect.isEmpty())
+        return;
+    
     const size_t maxDirtyRects = 32;
     
     for (size_t i = 0; i < m_dirtyRects.size(); ++i) {
@@ -1601,9 +1607,11 @@ bool GraphicsLayerCA::createTransformAnimationsFromKeyframes(const KeyframeValue
         TransformOperation::OperationType transformOp = isMatrixAnimation ? TransformOperation::MATRIX_3D : functionList[animationIndex];
         RefPtr<PlatformCAAnimation> caAnimation;
 
-#if defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)
+#if defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD) || PLATFORM(WIN)
         // CA applies animations in reverse order (<rdar://problem/7095638>) so we need the last one we add (per property)
         // to be non-additive.
+        // FIXME: This fix has not been added to QuartzCore on Windows yet (<rdar://problem/9112233>) so we expect the
+        // reversed animation behavior
         bool additive = animationIndex < (numAnimations - 1);
 #else
         bool additive = animationIndex > 0;

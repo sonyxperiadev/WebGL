@@ -105,7 +105,7 @@ WebInspector.ConsoleView.prototype = {
     _registerConsoleDomainDispatcher: function() {
         var console = this;
         var dispatcher = {
-            addConsoleMessage: function(payload)
+            consoleMessage: function(payload)
             {
                 var consoleMessage = new WebInspector.ConsoleMessage(
                     payload.source,
@@ -121,13 +121,7 @@ WebInspector.ConsoleView.prototype = {
                 console.addMessage(consoleMessage);
             },
 
-            updateConsoleMessageExpiredCount: function(count)
-            {
-                var message = String.sprintf(WebInspector.UIString("%d console messages are not shown."), count);
-                console.addMessage(WebInspector.ConsoleMessage.createTextMessage(message, WebInspector.ConsoleMessage.MessageLevel.Warning));
-            },
-
-            updateConsoleMessageRepeatCount: function(count)
+            consoleMessageRepeatCountUpdated: function(count)
             {
                 var msg = console.previousMessage;
                 var prevRepeatCount = msg.totalRepeatCount;
@@ -152,6 +146,14 @@ WebInspector.ConsoleView.prototype = {
             },
         }
         InspectorBackend.registerDomainDispatcher("Console", dispatcher);
+    },
+
+    setConsoleMessageExpiredCount: function(count)
+    {
+        if (count) {
+            var message = String.sprintf(WebInspector.UIString("%d console messages are not shown."), count);
+            this.addMessage(WebInspector.ConsoleMessage.createTextMessage(message, WebInspector.ConsoleMessage.MessageLevel.Warning));
+        }
     },
 
     _updateFilter: function(e)
@@ -298,7 +300,8 @@ WebInspector.ConsoleView.prototype = {
             this.currentGroup.addMessage(msg);
         }
 
-        if (shouldScrollToLastMessage)
+        // Always scroll when command result arrives.
+        if (shouldScrollToLastMessage || (msg instanceof WebInspector.ConsoleCommandResult))
             this._scheduleScrollIntoView();
     },
 
@@ -364,7 +367,7 @@ WebInspector.ConsoleView.prototype = {
 
         function evaluatedProperties(properties)
         {
-            RuntimeAgent.releaseObjectGroup(0, "completion");
+            RuntimeAgent.releaseObjectGroup("completion");
             var propertyNames = [];
             for (var i = 0; properties && i < properties.length; ++i)
                 propertyNames.push(properties[i].name);
@@ -531,9 +534,10 @@ WebInspector.ConsoleView.prototype = {
             expression = "this";
         }
 
-        function evalCallback(result)
+        function evalCallback(error, result)
         {
-            callback(WebInspector.RemoteObject.fromPayload(result));
+            if (!error)
+                callback(WebInspector.RemoteObject.fromPayload(result));
         }
         RuntimeAgent.evaluate(expression, objectGroup, includeCommandLineAPI, evalCallback);
     },

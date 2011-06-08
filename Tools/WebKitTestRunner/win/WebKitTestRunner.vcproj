@@ -18,7 +18,7 @@
 		<Configuration
 			Name="Debug|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;..\Configurations\WebKitTestRunnerCommon.vsprops;..\Configurations\WebKitTestRunnerCoreFoundation.vsprops"
+			InheritedPropertySheets=".\WebKitTestRunnerDebug.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -79,7 +79,7 @@
 		<Configuration
 			Name="Release|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;..\Configurations\WebKitTestRunnerCommon.vsprops;..\Configurations\WebKitTestRunnerCoreFoundation.vsprops"
+			InheritedPropertySheets=".\WebKitTestRunnerRelease.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -140,7 +140,7 @@
 		<Configuration
 			Name="Debug_All|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_all.vsprops;..\Configurations\WebKitTestRunnerCommon.vsprops;..\Configurations\WebKitTestRunnerCoreFoundation.vsprops"
+			InheritedPropertySheets=".\WebKitTestRunnerDebugAll.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -201,7 +201,7 @@
 		<Configuration
 			Name="Debug_Cairo_CFLite|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\debug_wincairo.vsprops;..\Configurations\WebKitTestRunnerCommon.vsprops;..\Configurations\WebKitTestRunnerCFLite.vsprops"
+			InheritedPropertySheets=".\WebKitTestRunnerDebugCairoCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -262,7 +262,7 @@
 		<Configuration
 			Name="Release_Cairo_CFLite|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\WinCairo.vsprops;..\Configurations\WebKitTestRunnerCommon.vsprops;..\Configurations\WebKitTestRunnerCFLite.vsprops"
+			InheritedPropertySheets=".\WebKitTestRunnerReleaseCairoCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
@@ -321,9 +321,9 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Release_LTCG|Win32"
+			Name="Production|Win32"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\common.vsprops;$(WebKitVSPropsRedirectionDir)..\..\..\WebKitLibraries\win\tools\vsprops\release.vsprops;..\Configurations\WebKitTestRunnerCommon.vsprops;..\Configurations\WebKitTestRunnerCoreFoundation.vsprops"
+			InheritedPropertySheets=".\WebKitTestRunnerProduction.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
@@ -404,6 +404,70 @@
 			<File
 				RelativePath=".\TestInvocationWin.cpp"
 				>
+			</File>
+		</Filter>
+		<Filter
+			Name="cg"
+			>
+			<File
+				RelativePath="..\cg\TestInvocationCG.cpp"
+				>
+				<FileConfiguration
+					Name="Debug_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo_CFLite|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+		</Filter>
+		<Filter
+			Name="cairo"
+			>
+			<File
+				RelativePath="..\cairo\TestInvocationCairo.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Production|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
 			</File>
 		</Filter>
 		<File

@@ -49,7 +49,7 @@ public:
         return adoptRef(new CCLayerImpl(owner));
     }
     // When this class gets subclasses, remember to add 'virtual' here.
-    ~CCLayerImpl();
+    virtual ~CCLayerImpl();
 
 #ifndef NDEBUG
     int debugID() const { return m_debugID; }
@@ -59,12 +59,42 @@ public:
     CCLayerImpl* maskLayer() const;
     CCLayerImpl* replicaLayer() const;
 
-    void draw();
-    bool drawsContent() const;
+    virtual void draw();
+    virtual void updateCompositorResources();
     void unreserveContentsTexture();
     void bindContentsTexture();
 
+    // Returns true if this layer has content to draw.
+    virtual bool drawsContent() const;
+
+    // Returns true if any of the layer's descendants has content to draw.
+    bool descendantsDrawsContent();
+
     void cleanupResources();
+
+    void setAnchorPoint(const FloatPoint& anchorPoint) { m_anchorPoint = anchorPoint; }
+    const FloatPoint& anchorPoint() const { return m_anchorPoint; }
+
+    void setAnchorPointZ(float anchorPointZ) { m_anchorPointZ = anchorPointZ; }
+    float anchorPointZ() const { return m_anchorPointZ; }
+
+    void setMasksToBounds(bool masksToBounds) { m_masksToBounds = masksToBounds; }
+    bool masksToBounds() const { return m_masksToBounds; }
+
+    void setOpacity(float opacity) { m_opacity = opacity; }
+    float opacity() const { return m_opacity; }
+
+    void setPosition(const FloatPoint& position) { m_position = position; }
+    const FloatPoint& position() const { return m_position; }
+
+    void setPreserves3D(bool preserves3D) { m_preserves3D = preserves3D; }
+    bool preserves3D() const { return m_preserves3D; }
+
+    void setSublayerTransform(const TransformationMatrix& sublayerTransform) { m_sublayerTransform = sublayerTransform; }
+    const TransformationMatrix& sublayerTransform() const { return m_sublayerTransform; }
+
+    void setTransform(const TransformationMatrix& transform) { m_transform = transform; }
+    const TransformationMatrix& transform() const { return m_transform; }
 
     void setName(const String& name) { m_name = name; }
     const String& name() const { return m_name; }
@@ -108,11 +138,30 @@ public:
 
     virtual void dumpLayerProperties(TextStream&, int indent) const;
 
-private:
+protected:
     // For now, CCLayers are owned directly by a LayerChromium.
     LayerChromium* m_owner;
     explicit CCLayerImpl(LayerChromium*);
 
+    static void writeIndent(TextStream&, int indent);
+
+private:
+    // Properties synchronized from the associated LayerChromium.
+    FloatPoint m_anchorPoint;
+    float m_anchorPointZ;
+    IntSize m_bounds;
+
+    // Whether the "back" of this layer should draw.
+    bool m_doubleSided;
+
+    bool m_masksToBounds;
+    float m_opacity;
+    FloatPoint m_position;
+    bool m_preserves3D;
+    TransformationMatrix m_sublayerTransform;
+    TransformationMatrix m_transform;
+
+    // Properties owned exclusively by this CCLayerImpl.
     // Debugging.
 #ifndef NDEBUG
     int m_debugID;
@@ -131,16 +180,11 @@ private:
     float m_drawDepth;
     float m_drawOpacity;
 
-    // Whether the "back" of this layer should draw.
-    bool m_doubleSided;
-
     // Debug borders.
     Color m_debugBorderColor;
     float m_debugBorderWidth;
 
     TransformationMatrix m_drawTransform;
-
-    IntSize m_bounds;
 
     // The scissor rectangle that should be used when this layer is drawn.
     // Inherited by the parent layer and further restricted if this layer masks

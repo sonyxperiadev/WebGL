@@ -73,6 +73,8 @@ INCLUDEPATH += \
     $$OUTPUT_DIR/include \
     $$QT.script.includes
 
+DEFINES += QT_ASCII_CAST_WARNINGS
+
 webkit2:INCLUDEPATH *= $$OUTPUT_DIR/include/WebKit2
 
 # Pick up 3rdparty libraries from INCLUDE/LIB just like with MSVC
@@ -93,7 +95,7 @@ linux-g++* {
 
 symbian|*-armcc {
     # Enable GNU compiler extensions to the ARM compiler for all Qt ports using RVCT
-    RVCT_COMMON_CFLAGS = --gnu --diag_suppress 68,111,177,368,830,1293
+    RVCT_COMMON_CFLAGS = --gnu --diag_suppress 68,111,177,368,830,1293 --signed_bitfields
     RVCT_COMMON_CXXFLAGS = $$RVCT_COMMON_CFLAGS --no_parse_templates
     # Make debug symbols leaner in RVCT4.x. Ignored by compiler for release builds
     QMAKE_CXXFLAGS.ARMCC_4_0 += --remove_unneeded_entities
@@ -132,9 +134,9 @@ symbian|maemo5|maemo6 {
 
 ####
 
-contains(QT_CONFIG, modular):!contains(QT_CONFIG, uitools)|disable_uitools: DEFINES *= QT_NO_UITOOLS
+!contains(QT_CONFIG, uitools)|disable_uitools: DEFINES *= QT_NO_UITOOLS
 
-!contains(QT_CONFIG, modular) {
+isEmpty(QT.phonon.includes) {
     QT.phonon.includes = $$QMAKE_INCDIR_QT/phonon
     QT.phonon.libs = $$QMAKE_LIBDIR_QT
 }

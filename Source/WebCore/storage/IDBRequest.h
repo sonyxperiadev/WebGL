@@ -76,7 +76,6 @@ public:
     virtual void onError(PassRefPtr<IDBDatabaseError>);
     virtual void onSuccess(PassRefPtr<IDBDatabaseBackendInterface>);
     virtual void onSuccess(PassRefPtr<IDBCursorBackendInterface>);
-    virtual void onSuccess(PassRefPtr<IDBIndexBackendInterface>);
     virtual void onSuccess(PassRefPtr<IDBKey>);
     virtual void onSuccess(PassRefPtr<IDBTransactionBackendInterface>);
     virtual void onSuccess(PassRefPtr<SerializedScriptValue>);
@@ -92,8 +91,8 @@ public:
     bool dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec) { return EventTarget::dispatchEvent(event, ec); }
     virtual void uncaughtExceptionInEventHandler();
 
-    using ThreadSafeShared<IDBCallbacks>::ref;
-    using ThreadSafeShared<IDBCallbacks>::deref;
+    using ThreadSafeRefCounted<IDBCallbacks>::ref;
+    using ThreadSafeRefCounted<IDBCallbacks>::deref;
 
 protected:
     IDBRequest(ScriptExecutionContext*, PassRefPtr<IDBAny> source, IDBTransaction*);

@@ -23,24 +23,30 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef ConservativeSet_h
-#define ConservativeSet_h
+#ifndef ConservativeRoots_h
+#define ConservativeRoots_h
 
 #include "Heap.h"
-#include "MarkStack.h"
+#include <wtf/OSAllocator.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
 
 class JSCell;
+class Heap;
 
-class ConservativeSet {
+// May contain duplicates.
+
+class ConservativeRoots {
 public:
-    ConservativeSet(Heap*);
-    ~ConservativeSet();
+    ConservativeRoots(Heap*);
+    ~ConservativeRoots();
 
+    void add(void*);
     void add(void* begin, void* end);
-    void mark(MarkStack&);
+    
+    size_t size();
+    JSCell** roots();
 
 private:
     static const size_t inlineCapacity = 128;
@@ -49,32 +55,47 @@ private:
     void grow();
 
     Heap* m_heap;
-    DeprecatedPtr<JSCell>* m_set;
+    JSCell** m_roots;
     size_t m_size;
     size_t m_capacity;
-    DeprecatedPtr<JSCell> m_inlineSet[inlineCapacity];
+    JSCell* m_inlineRoots[inlineCapacity];
 };
 
-inline ConservativeSet::ConservativeSet(Heap* heap)
+inline ConservativeRoots::ConservativeRoots(Heap* heap)
     : m_heap(heap)
-    , m_set(m_inlineSet)
+    , m_roots(m_inlineRoots)
     , m_size(0)
     , m_capacity(inlineCapacity)
 {
 }
 
-inline ConservativeSet::~ConservativeSet()
+inline ConservativeRoots::~ConservativeRoots()
 {
-    if (m_set != m_inlineSet)
-        OSAllocator::decommitAndRelease(m_set, m_capacity * sizeof(DeprecatedPtr<JSCell>*));
+    if (m_roots != m_inlineRoots)
+        OSAllocator::decommitAndRelease(m_roots, m_capacity * sizeof(JSCell*));
 }
 
-inline void ConservativeSet::mark(MarkStack& markStack)
+inline void ConservativeRoots::add(void* p)
 {
-    for (size_t i = 0; i < m_size; ++i)
-        markStack.append(&m_set[i]);
+    if (!m_heap->contains(p))
+        return;
+
+    if (m_size == m_capacity)
+        grow();
+
+    m_roots[m_size++] = reinterpret_cast<JSCell*>(p);
+}
+
+inline size_t ConservativeRoots::size()
+{
+    return m_size;
+}
+
+inline JSCell** ConservativeRoots::roots()
+{
+    return m_roots;
 }
 
 } // namespace JSC
 
-#endif // ConservativeSet_h
+#endif // ConservativeRoots_h

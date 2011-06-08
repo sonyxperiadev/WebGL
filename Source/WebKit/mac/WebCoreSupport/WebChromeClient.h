@@ -164,7 +164,7 @@ public:
 #endif
     
 #if ENABLE(FULLSCREEN_API)
-    virtual bool supportsFullScreenForElement(const WebCore::Element*);
+    virtual bool supportsFullScreenForElement(const WebCore::Element*, bool withKeyboard);
     virtual void enterFullScreenForElement(WebCore::Element*);
     virtual void exitFullScreenForElement(WebCore::Element*);
 #endif
@@ -180,7 +180,7 @@ public:
     virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 
 #if ENABLE(CONTEXT_MENUS)
-    virtual void showContextMenu() { }
+    virtual void showContextMenu();
 #endif
 private:
     WebView *m_webView;

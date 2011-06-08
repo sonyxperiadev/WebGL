@@ -46,7 +46,7 @@
 
 namespace WebCore {
 
-WrapperTypeInfo V8TestObj::info = { V8TestObj::GetTemplate, V8TestObj::derefObject, 0 };
+WrapperTypeInfo V8TestObj::info = { V8TestObj::GetTemplate, V8TestObj::derefObject, 0, 0 };
 
 namespace TestObjInternal {
 
@@ -1380,7 +1380,8 @@ v8::Handle<v8::Object> V8TestObj::wrapSlow(TestObj* impl)
         return wrapper;
 
     impl->ref();
-    getDOMObjectMap().set(impl, v8::Persistent<v8::Object>::New(wrapper));
+    v8::Persistent<v8::Object> wrapperHandle = v8::Persistent<v8::Object>::New(wrapper);
+    getDOMObjectMap().set(impl, wrapperHandle);
     return wrapper;
 }
 

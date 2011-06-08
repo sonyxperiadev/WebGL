@@ -23,12 +23,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "TestInvocation.h"
 
 namespace WTR {
 
-void TestInvocation::dumpPixelsAndCompareWithExpected()
+#if !PLATFORM(CG)
+void TestInvocation::dumpPixelsAndCompareWithExpected(WKImageRef)
 {
 }
+#endif
 
 } // namespace WTR

@@ -52,6 +52,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/IsolatedWorld.cpp \
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \
+	bindings/v8/RetainedDOMInfo.cpp \
 	bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScopedDOMDataStore.cpp \
 	bindings/v8/ScriptCachedFrameData.cpp \
@@ -61,6 +62,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/ScriptFunctionCall.cpp \
 	bindings/v8/ScriptInstance.cpp \
 	bindings/v8/ScriptObject.cpp \
+	bindings/v8/ScriptProfiler.cpp \
 	bindings/v8/ScriptScope.cpp \
 	bindings/v8/ScriptState.cpp \
 	bindings/v8/ScriptValue.cpp \
@@ -167,6 +169,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8Uint16ArrayCustom.cpp \
 	bindings/v8/custom/V8Uint32ArrayCustom.cpp \
 	bindings/v8/custom/V8Uint8ArrayCustom.cpp \
+	bindings/v8/custom/V8WebKitAnimationCustom.cpp \
 	bindings/v8/custom/V8WebSocketCustom.cpp
 
 ifeq ($(ENABLE_SVG), true)
@@ -193,7 +196,7 @@ LOCAL_SRC_FILES += \
 
 LOCAL_SRC_FILES += \
 	bridge/jni/JNIUtility.cpp \
-	bridge/jni/JavaMethod.cpp \
+	bridge/jni/JavaMethodJobject.cpp \
 	bridge/jni/JobjectWrapper.cpp \
 	bridge/jni/v8/JNIUtilityPrivate.cpp \
 	bridge/jni/v8/JavaClassV8.cpp \

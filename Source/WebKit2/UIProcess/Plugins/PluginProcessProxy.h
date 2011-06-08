@@ -33,6 +33,12 @@
 #include "ProcessLauncher.h"
 #include <wtf/Deque.h>
 
+#if PLATFORM(MAC)
+#include <wtf/RetainPtr.h>
+OBJC_CLASS NSObject;
+OBJC_CLASS WKPlaceholderModalWindow;
+#endif
+
 // FIXME: This is platform specific.
 namespace CoreIPC {
     class MachPort;
@@ -47,6 +53,9 @@ struct PluginProcessCreationParameters;
 
 class PluginProcessProxy : CoreIPC::Connection::Client, ProcessLauncher::Client {
 public:
+#if PLATFORM(MAC)
+    static bool pluginNeedsExecutableHeap(const PluginInfoStore::Plugin&);
+#endif
     static PassOwnPtr<PluginProcessProxy> create(PluginProcessManager*, const PluginInfoStore::Plugin&);
     ~PluginProcessProxy();
 
@@ -81,6 +90,22 @@ private:
     void didGetSitesWithData(const Vector<String>& sites, uint64_t callbackID);
     void didClearSiteData(uint64_t callbackID);
 
+#if PLATFORM(MAC)
+    bool getPluginProcessSerialNumber(ProcessSerialNumber&);
+    void makePluginProcessTheFrontProcess();
+    void makeUIProcessTheFrontProcess();
+
+    void setFullscreenWindowIsShowing(bool);
+    void enterFullscreen();
+    void exitFullscreen();
+
+    void setModalWindowIsShowing(bool);
+    void beginModal();
+    void endModal();
+
+    void applicationDidBecomeActive();
+#endif
+
     void platformInitializePluginProcess(PluginProcessCreationParameters& parameters);
 
     // The plug-in host process manager.
@@ -112,6 +137,13 @@ private:
     // If createPluginConnection is called while the process is still launching we'll keep count of it and send a bunch of requests
     // when the process finishes launching.
     unsigned m_numPendingConnectionRequests;
+
+#if PLATFORM(MAC)
+    RetainPtr<NSObject> m_activationObserver;
+    RetainPtr<WKPlaceholderModalWindow *> m_placeholderWindow;
+    bool m_modalWindowIsShowing;
+    bool m_fullscreenWindowIsShowing;
+#endif
 };
 
 } // namespace WebKit

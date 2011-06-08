@@ -78,11 +78,21 @@ bool PluginControllerProxy::initialize(const Plugin::Parameters& parameters)
     ASSERT(!m_plugin);
 
     m_plugin = NetscapePlugin::create(PluginProcess::shared().netscapePluginModule());
-    if (!m_plugin)
+    if (!m_plugin) {
+        // This will delete the plug-in controller proxy object.
+        m_connection->removePluginControllerProxy(this, 0);
         return false;
+    }
 
     if (!m_plugin->initialize(this, parameters)) {
+        // Get the plug-in so we can pass it to removePluginControllerProxy. The pointer is only
+        // used as an identifier so it's OK to just get a weak reference.
+        Plugin* plugin = m_plugin.get();
+        
         m_plugin = 0;
+
+        // This will delete the plug-in controller proxy object.
+        m_connection->removePluginControllerProxy(this, plugin);
         return false;
     }
 
@@ -102,13 +112,17 @@ void PluginControllerProxy::destroy()
         return;
     }
 
+    // Get the plug-in so we can pass it to removePluginControllerProxy. The pointer is only
+    // used as an identifier so it's OK to just get a weak reference.
+    Plugin* plugin = m_plugin.get();
+
     m_plugin->destroy();
     m_plugin = 0;
 
     platformDestroy();
 
     // This will delete the plug-in controller proxy object.
-    m_connection->removePluginControllerProxy(this);
+    m_connection->removePluginControllerProxy(this, plugin);
 }
 
 void PluginControllerProxy::paint()
@@ -122,11 +136,16 @@ void PluginControllerProxy::paint()
     IntRect dirtyRect = m_dirtyRect;
     m_dirtyRect = IntRect();
 
+    ASSERT(m_plugin);
+
     // Create a graphics context.
     OwnPtr<GraphicsContext> graphicsContext = m_backingStore->createGraphicsContext();
+
     graphicsContext->translate(-m_frameRect.x(), -m_frameRect.y());
 
-    ASSERT(m_plugin);
+    if (m_plugin->isTransparent())
+        graphicsContext->clearRect(dirtyRect);
+
     m_plugin->paint(graphicsContext.get(), dirtyRect);
 
     m_connection->connection()->send(Messages::PluginProxy::Update(dirtyRect), m_pluginInstanceID);
@@ -199,7 +218,7 @@ NPObject* PluginControllerProxy::windowScriptNPObject()
     if (!windowScriptNPObjectID)
         return 0;
 
-    return m_connection->npRemoteObjectMap()->createNPObjectProxy(windowScriptNPObjectID);
+    return m_connection->npRemoteObjectMap()->createNPObjectProxy(windowScriptNPObjectID, m_plugin.get());
 }
 
 NPObject* PluginControllerProxy::pluginElementNPObject()
@@ -212,7 +231,7 @@ NPObject* PluginControllerProxy::pluginElementNPObject()
     if (!pluginElementNPObjectID)
         return 0;
 
-    return m_connection->npRemoteObjectMap()->createNPObjectProxy(pluginElementNPObjectID);
+    return m_connection->npRemoteObjectMap()->createNPObjectProxy(pluginElementNPObjectID, m_plugin.get());
 }
 
 bool PluginControllerProxy::evaluate(NPObject* npObject, const String& scriptString, NPVariant* result, bool allowPopups)
@@ -223,7 +242,7 @@ bool PluginControllerProxy::evaluate(NPObject* npObject, const String& scriptStr
     OBJECT_TO_NPVARIANT(npObject, npObjectAsNPVariant);
 
     // Send the NPObject over as an NPVariantData.
-    NPVariantData npObjectAsNPVariantData = m_connection->npRemoteObjectMap()->npVariantToNPVariantData(npObjectAsNPVariant);
+    NPVariantData npObjectAsNPVariantData = m_connection->npRemoteObjectMap()->npVariantToNPVariantData(npObjectAsNPVariant, m_plugin.get());
 
     bool returnValue = false;
     NPVariantData resultData;
@@ -234,7 +253,7 @@ bool PluginControllerProxy::evaluate(NPObject* npObject, const String& scriptStr
     if (!returnValue)
         return false;
 
-    *result = m_connection->npRemoteObjectMap()->npVariantDataToNPVariant(resultData);
+    *result = m_connection->npRemoteObjectMap()->npVariantDataToNPVariant(resultData, m_plugin.get());
     return true;
 }
 
@@ -321,7 +340,7 @@ void PluginControllerProxy::frameDidFail(uint64_t requestID, bool wasCancelled)
     m_plugin->frameDidFail(requestID, wasCancelled);
 }
 
-void PluginControllerProxy::geometryDidChange(const IntRect& frameRect, const IntRect& clipRect, const SharedMemory::Handle& backingStoreHandle)
+void PluginControllerProxy::geometryDidChange(const IntRect& frameRect, const IntRect& clipRect, const ShareableBitmap::Handle& backingStoreHandle)
 {
     m_frameRect = frameRect;
     m_clipRect = clipRect;
@@ -330,7 +349,7 @@ void PluginControllerProxy::geometryDidChange(const IntRect& frameRect, const In
 
     if (!backingStoreHandle.isNull()) {
         // Create a new backing store.
-        m_backingStore = ShareableBitmap::create(frameRect.size(), backingStoreHandle);
+        m_backingStore = ShareableBitmap::create(backingStoreHandle);
     }
 
     m_plugin->geometryDidChange(frameRect, clipRect);
@@ -429,7 +448,7 @@ void PluginControllerProxy::paintEntirePlugin()
     paint();
 }
 
-void PluginControllerProxy::snapshot(WebCore::IntSize& bufferSize, SharedMemory::Handle& backingStoreHandle)
+void PluginControllerProxy::snapshot(ShareableBitmap::Handle& backingStoreHandle)
 {
     ASSERT(m_plugin);
     RefPtr<ShareableBitmap> bitmap = m_plugin->snapshot();
@@ -437,7 +456,6 @@ void PluginControllerProxy::snapshot(WebCore::IntSize& bufferSize, SharedMemory:
         return;
 
     bitmap->createHandle(backingStoreHandle);
-    bufferSize = bitmap->size();
 }
 
 void PluginControllerProxy::setFocus(bool hasFocus)
@@ -459,7 +477,7 @@ void PluginControllerProxy::getPluginScriptableNPObject(uint64_t& pluginScriptab
         return;
     }
     
-    pluginScriptableNPObjectID = m_connection->npRemoteObjectMap()->registerNPObject(pluginScriptableNPObject);
+    pluginScriptableNPObjectID = m_connection->npRemoteObjectMap()->registerNPObject(pluginScriptableNPObject, m_plugin.get());
     releaseNPObject(pluginScriptableNPObject);
 }
 
