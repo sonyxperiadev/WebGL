@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedColor_H
-#define CachedColor_H
+#ifndef CachedColor_h
+#define CachedColor_h
 
 #include "CachedDebug.h"
 #include "Color.h"

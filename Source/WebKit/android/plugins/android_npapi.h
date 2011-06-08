@@ -32,8 +32,8 @@
     functionality is provided via function-ptrs (e.g. time, sound)
  */
 
-#ifndef android_npapi_H
-#define android_npapi_H
+#ifndef android_npapi_h
+#define android_npapi_h
 
 #include <stdint.h>
 

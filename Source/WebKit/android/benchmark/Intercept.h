@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef INTERCEPT_H
-#define INTERCEPT_H
+#ifndef Intercept_h
+#define Intercept_h
 
 #include "MyJavaVM.h"
 #include "PlatformString.h"

@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TIME_COUNTER_H
-#define TIME_COUNTER_H
+#ifndef TimeCounter_h
+#define TimeCounter_h
 
 #include "hardware_legacy/qemu_tracing.h"
 

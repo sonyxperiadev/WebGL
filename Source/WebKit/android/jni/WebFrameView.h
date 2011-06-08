@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WEB_FRAMEVIEW_H
-#define WEB_FRAMEVIEW_H
+#ifndef WebFrameView_h
+#define WebFrameView_h
 
 #include "WebCoreViewBridge.h"
 
@@ -62,4 +62,4 @@ namespace android {
 
 } // namespace android
 
-#endif // WEB_FRAMEVIEW_H
+#endif // WebFrameView_h

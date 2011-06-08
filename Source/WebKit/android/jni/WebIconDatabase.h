@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANDROID_WEBKIT_WEBICONDATABASE_H
-#define ANDROID_WEBKIT_WEBICONDATABASE_H
+#ifndef WebIconDatabase_h
+#define WebIconDatabase_h
 
 #include "IconDatabaseClient.h"
 #include "PlatformString.h"

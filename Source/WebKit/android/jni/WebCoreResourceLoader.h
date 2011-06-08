@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANDROID_WEBKIT_RESOURCELOADLISTENER_H
-#define ANDROID_WEBKIT_RESOURCELOADLISTENER_H
+#ifndef WebCoreResourceLoader_h
+#define WebCoreResourceLoader_h
 
 #include <KURL.h>
 #include <ResourceLoaderAndroid.h>

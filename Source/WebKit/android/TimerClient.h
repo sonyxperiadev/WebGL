@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TIMER_CLIENT_H
-#define TIMER_CLIENT_H
+#ifndef TimerClient_h
+#define TimerClient_h
 
 namespace android {
 

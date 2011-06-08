@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CacheBuilder_H
-#define CacheBuilder_H
+#ifndef CacheBuilder_h
+#define CacheBuilder_h
 
 #include "CachedDebug.h"
 #include "CachedNodeType.h"

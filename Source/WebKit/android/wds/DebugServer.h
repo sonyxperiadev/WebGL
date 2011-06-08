@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DEBUGSERVER_H
-#define DEBUGSERVER_H
+#ifndef DebugServer_h
+#define DebugServer_h
 
 // Turn on the wds feature in webkit
 #define ENABLE_WDS 0

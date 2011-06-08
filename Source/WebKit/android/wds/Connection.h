@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WDS_CONNECTION_H
-#define WDS_CONNECTION_H
+#ifndef Connection_h
+#define Connection_h
 
 #include <unistd.h>
 #include <sys/socket.h>

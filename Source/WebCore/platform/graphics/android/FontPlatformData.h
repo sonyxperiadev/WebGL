@@ -27,8 +27,8 @@
 // This file is part of the internal font implementation.  It should not be included by anyone other than
 // FontMac.cpp, FontWin.cpp and Font.cpp.
 
-#ifndef FontPlatformData_H
-#define FontPlatformData_H
+#ifndef FontPlatformData_h
+#define FontPlatformData_h
 
 #include "FontOrientation.h"
 #include <wtf/text/StringImpl.h>

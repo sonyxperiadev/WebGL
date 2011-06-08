@@ -25,8 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PluginViewBridgeAndroid_H
-#define PluginViewBridgeAndroid_H
+#ifndef PluginViewBridgeAndroid_h
+#define PluginViewBridgeAndroid_h
 
 #include "PluginView.h"
 #include "WebCoreViewBridge.h"

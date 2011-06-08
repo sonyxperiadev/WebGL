@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedHistory_H
-#define CachedHistory_H
+#ifndef CachedHistory_h
+#define CachedHistory_h
 
 #include "CachedFrame.h"
 

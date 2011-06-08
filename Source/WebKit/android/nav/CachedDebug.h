@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedDebug_H
-#define CachedDebug_H
+#ifndef CachedDebug_h
+#define CachedDebug_h
 
 #define DUMP_NAV_CACHE 0
 #define DEBUG_NAV_UI 0

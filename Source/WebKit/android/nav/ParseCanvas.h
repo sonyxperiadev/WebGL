@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PARSE_CANVAS_H
-#define PARSE_CANVAS_H
+#ifndef ParseCanvas_h
+#define ParseCanvas_h
 
 #include "SkCanvas.h"
 

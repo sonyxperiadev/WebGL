@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANPOpenGL_npapi_H
-#define ANPOpenGL_npapi_H
+#ifndef ANPOpenGL_npapi_h
+#define ANPOpenGL_npapi_h
 
 #include "android_npapi.h"
 #include <EGL/egl.h>
@@ -60,4 +60,4 @@ struct ANPOpenGLInterfaceV0 : ANPInterface {
     void (*invertPluginContent)(NPP instance, bool isContentInverted);
 };
 
-#endif //ANPOpenGL_npapi_H
+#endif // ANPOpenGL_npapi_h

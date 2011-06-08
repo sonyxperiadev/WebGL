@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef KEY_GENERATOR_CLIENT_H
-#define KEY_GENERATOR_CLIENT_H
+#ifndef KeyGeneratorClient_h
+#define KeyGeneratorClient_h
 
 #include "KURL.h"
 #include "PlatformString.h"

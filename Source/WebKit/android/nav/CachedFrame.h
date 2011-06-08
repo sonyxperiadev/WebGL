@@ -23,8 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CachedFrame_H
-#define CachedFrame_H
+// FIXME: A file of this name already exists in WebCore/history.
+// This file should be renamed.
+#ifndef AndroidCachedFrame_h
+#define AndroidCachedFrame_h
 
 #include "CachedColor.h"
 #include "CachedInput.h"
@@ -282,4 +284,4 @@ public:
 
 }
 
-#endif
+#endif // AndroidCachedFrame_h

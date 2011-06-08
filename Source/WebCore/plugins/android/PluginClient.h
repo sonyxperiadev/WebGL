@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PLUGINCLIENT_H_
-#define PLUGINCLIENT_H_
+#ifndef PluginClient_h
+#define PluginClient_h
 
 #include "PlatformString.h"
 #include <wtf/Vector.h>
@@ -42,4 +42,4 @@ namespace android {
     };
 }
 
-#endif /* PLUGINCLIENT_H_ */
+#endif // PluginClient_h

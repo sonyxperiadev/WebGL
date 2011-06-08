@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANPSystem_npapi_H
-#define ANPSystem_npapi_H
+#ifndef ANPSystem_npapi_h
+#define ANPSystem_npapi_h
 
 #include "android_npapi.h"
 #include <jni.h>
@@ -69,4 +69,4 @@ struct ANPSystemInterfaceV2 : ANPInterface {
     void (*setPowerState)(NPP instance, ANPPowerState powerState);
 };
 
-#endif //ANPSystem_npapi_H
+#endif // ANPSystem_npapi_h

@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WEBCORE_VIEW_BRIDGE_H
-#define WEBCORE_VIEW_BRIDGE_H
+#ifndef WebCoreViewBridge_h
+#define WebCoreViewBridge_h
 
 // TODO: move this outside of jni directory
 
@@ -103,4 +103,4 @@ private:
     WebCore::IntRect    m_visibleBounds;
 };
 
-#endif // WEBCORE_VIEW_BRIDGE_H
+#endif // WebCoreViewBridge_h

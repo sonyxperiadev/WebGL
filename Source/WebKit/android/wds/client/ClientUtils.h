@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WDS_CLIENT_UTILS_H
-#define WDS_CLIENT_UTILS_H
+#ifndef ClientUtils_h
+#define ClientUtils_h
 
 #include <arpa/inet.h>
 

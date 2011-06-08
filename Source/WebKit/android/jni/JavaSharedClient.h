@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JAVA_SHARED_CLIENT_H
-#define JAVA_SHARED_CLIENT_H
+#ifndef JavaSharedClient_h
+#define JavaSharedClient_h
 
 namespace android {
 

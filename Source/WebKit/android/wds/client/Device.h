@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WDS_DEVICE_H
-#define WDS_DEVICE_H
+#ifndef Device_h
+#define Device_h
 
 #include <stdlib.h>
 

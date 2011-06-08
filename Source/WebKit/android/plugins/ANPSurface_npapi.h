@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ANPSurface_npapi_H
-#define ANPSurface_npapi_H
+#ifndef ANPSurface_npapi_h
+#define ANPSurface_npapi_h
 
 #include "android_npapi.h"
 #include <jni.h>
@@ -45,4 +45,4 @@ struct ANPSurfaceInterfaceV0 : ANPInterface {
     void (*unlock)(JNIEnv* env, jobject surface);
 };
 
-#endif //ANPSurface_npapi_H
+#endif // ANPSurface_npapi_h

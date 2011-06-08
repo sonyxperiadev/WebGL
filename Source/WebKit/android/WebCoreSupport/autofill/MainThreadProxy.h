@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MAIN_THREAD_PROXY_H
-#define MAIN_THREAD_PROXY_H
+#ifndef MainThreadProxy_h
+#define MainThreadProxy_h
 
 typedef void CallOnMainThreadFunction(void*);
 

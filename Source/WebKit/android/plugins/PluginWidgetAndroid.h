@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PluginWidgetAndroid_H
-#define PluginWidgetAndroid_H
+#ifndef PluginWidgetAndroid_h
+#define PluginWidgetAndroid_h
 
 #include "android_npapi.h"
 #include "ANPSystem_npapi.h"

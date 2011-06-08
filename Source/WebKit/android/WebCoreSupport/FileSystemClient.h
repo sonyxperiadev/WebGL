@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FILESYSTEM_CLIENT_H
-#define FILESYSTEM_CLIENT_H
+#ifndef FileSystemClient_h
+#define FileSystemClient_h
 
 #include "PlatformString.h"
 
