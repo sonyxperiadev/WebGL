@@ -93,8 +93,11 @@
 
 #include <JNIUtility.h>
 #include <JNIHelp.h>
+#include <ScopedPrimitiveArray.h>
+#include <ScopedLocalRef.h>
 #include <SkGraphics.h>
 #include <android_runtime/android_util_AssetManager.h>
+#include <openssl/x509.h>
 #include <utils/misc.h>
 #include <utils/AssetManager.h>
 #include <wtf/CurrentTime.h>
@@ -212,6 +215,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mGetFile;
     jmethodID   mDidReceiveAuthenticationChallenge;
     jmethodID   mReportSslCertError;
+    jmethodID   mRequestClientCert;
     jmethodID   mDownloadStart;
     jmethodID   mDidReceiveData;
     jmethodID   mDidFinishLoading;
@@ -285,6 +289,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mDidReceiveAuthenticationChallenge = env->GetMethodID(clazz, "didReceiveAuthenticationChallenge",
             "(ILjava/lang/String;Ljava/lang/String;Z)V");
     mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[B)V");
+    mJavaFrame->mRequestClientCert = env->GetMethodID(clazz, "requestClientCert", "(I[B)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
     mJavaFrame->mDidReceiveData = env->GetMethodID(clazz, "didReceiveData", "([BI)V");
@@ -320,6 +325,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mGetFile, "Could not find method getFile");
     LOG_ASSERT(mJavaFrame->mDidReceiveAuthenticationChallenge, "Could not find method didReceiveAuthenticationChallenge");
     LOG_ASSERT(mJavaFrame->mReportSslCertError, "Could not find method reportSslCertError");
+    LOG_ASSERT(mJavaFrame->mRequestClientCert, "Could not find method requestClientCert");
     LOG_ASSERT(mJavaFrame->mDownloadStart, "Could not find method downloadStart");
     LOG_ASSERT(mJavaFrame->mDidReceiveData, "Could not find method didReceiveData");
     LOG_ASSERT(mJavaFrame->mDidFinishLoading, "Could not find method didFinishLoading");
@@ -978,6 +984,25 @@ WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const s
 
     env->CallVoidMethod(javaFrame.get(), mJavaFrame->mReportSslCertError, jHandle, cert_error, jCert);
     env->DeleteLocalRef(jCert);
+    checkException(env);
+}
+
+void
+WebFrame::requestClientCert(WebUrlLoaderClient* client, const std::string& host_and_port)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    JNIEnv* env = getJNIEnv();
+    int jHandle = reinterpret_cast<int>(client);
+
+    int len = host_and_port.length();
+    jbyteArray jHostAndPort = env->NewByteArray(len);
+    jbyte* bytes = env->GetByteArrayElements(jHostAndPort, NULL);
+    host_and_port.copy(reinterpret_cast<char*>(bytes), len);
+
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mRequestClientCert, jHandle, jHostAndPort);
+    env->DeleteLocalRef(jHostAndPort);
     checkException(env);
 }
 
@@ -2107,6 +2132,84 @@ static void SslCertErrorCancel(JNIEnv *env, jobject obj, int handle, int cert_er
     client->cancelSslCertError(cert_error);
 }
 
+static void SslClientCert(JNIEnv *env, jobject obj, int handle, jbyteArray pkey, jobjectArray chain)
+{
+    WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
+    if (pkey == NULL || chain == NULL) {
+        client->sslClientCert(NULL, NULL);
+        return;
+    }
+
+    // Based on Android's NativeCrypto_SSL_use_PrivateKey
+    ScopedByteArrayRO pkeyBytes(env, pkey);
+    if (pkeyBytes.get() == NULL) {
+        client->sslClientCert(NULL, NULL);
+        return;
+    }
+
+    base::ScopedOpenSSL<PKCS8_PRIV_KEY_INFO, PKCS8_PRIV_KEY_INFO_free> pkcs8;
+    const unsigned char* pkeyChars = reinterpret_cast<const unsigned char*>(pkeyBytes.get());
+    pkcs8.reset(d2i_PKCS8_PRIV_KEY_INFO(NULL, &pkeyChars, pkeyBytes.size()));
+    if (!pkcs8.get()) {
+        client->sslClientCert(NULL, NULL);
+        return;
+    }
+    base::ScopedOpenSSL<EVP_PKEY, EVP_PKEY_free> privateKey(EVP_PKCS82PKEY(pkcs8.get()));
+    if (!privateKey.get()) {
+        client->sslClientCert(NULL, NULL);
+        return;
+    }
+
+    // Based on Android's NativeCrypto_SSL_use_certificate
+    int length = env->GetArrayLength(chain);
+    if (length == 0) {
+        client->sslClientCert(NULL, NULL);
+        return;
+    }
+
+    base::ScopedOpenSSL<X509, X509_free> first;
+    ScopedVector<base::ScopedOpenSSL<X509, X509_free> > rest;
+    for (int i = 0; i < length; i++) {
+        ScopedLocalRef<jbyteArray> cert(env,
+                reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(chain, i)));
+        if (cert.get() == NULL) {
+            client->sslClientCert(NULL, NULL);
+            return;
+        }
+        ScopedByteArrayRO certBytes(env, cert.get());
+        if (certBytes.get() == NULL) {
+            client->sslClientCert(NULL, NULL);
+            return;
+        }
+        const char* data = reinterpret_cast<const char*>(certBytes.get());
+        int length = certBytes.size();
+        X509* x509 = net::X509Certificate::CreateOSCertHandleFromBytes(data, length);
+        if (x509 == NULL) {
+            client->sslClientCert(NULL, NULL);
+            return;
+        }
+        if (i == 0) {
+            first.reset(x509);
+        } else {
+            rest.push_back(new base::ScopedOpenSSL<X509, X509_free>(x509));
+        }
+    }
+
+    std::vector<X509*> certChain(rest.size());
+    for (size_t i = 0; i < rest.size(); i++) {
+        certChain[i] = rest[i]->get();
+    }
+    net::X509Certificate* certificate
+            = net::X509Certificate::CreateFromHandle(first.get(),
+                                                     net::X509Certificate::SOURCE_FROM_NETWORK,
+                                                     certChain);
+    if (certificate == NULL) {
+        client->sslClientCert(NULL, NULL);
+        return;
+    }
+    client->sslClientCert(privateKey.release(), certificate);
+}
+
 #else
 
 static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
@@ -2129,6 +2232,10 @@ static void SslCertErrorCancel(JNIEnv *env, jobject obj, int handle, int cert_er
     LOGW("Chromium SSL API called, but libchromium is not available");
 }
 
+static void SslClientCert(JNIEnv *env, jobject obj, int handle, jbyteArray privateKey, jobjectArray chain)
+{
+    LOGW("Chromium SSL API called, but libchromium is not available");
+}
 #endif // USE(CHROME_NETWORK_STACK)
 
 // ----------------------------------------------------------------------------
@@ -2193,6 +2300,8 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) SslCertErrorProceed },
     { "nativeSslCertErrorCancel", "(II)V",
         (void*) SslCertErrorCancel },
+    { "nativeSslClientCert", "(I[B[[B)V",
+        (void*) SslClientCert },
 };
 
 int registerWebFrame(JNIEnv* env)

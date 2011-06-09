@@ -49,6 +49,7 @@
 #include <base/callback.h>
 #include <base/lock.h>
 #include <base/message_loop_proxy.h>
+#include <base/openssl_util.h>
 #include <base/ref_counted.h>
 #include <base/string_util.h>
 #include <base/synchronization/condition_variable.h>
@@ -67,6 +68,8 @@
 #include <net/base/load_flags.h>
 #include <net/base/net_errors.h>
 #include <net/base/mime_util.h>
+#include <net/base/openssl_private_key_store.h>
+#include <net/base/ssl_cert_request_info.h>
 #include <net/base/ssl_config_service.h>
 #include <net/disk_cache/disk_cache.h>
 #include <net/http/http_auth_handler_factory.h>

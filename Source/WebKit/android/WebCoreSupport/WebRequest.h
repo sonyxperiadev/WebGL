@@ -77,6 +77,7 @@ public:
     virtual void OnReadCompleted(net::URLRequest*, int bytesRead);
     virtual void OnAuthRequired(net::URLRequest*, net::AuthChallengeInfo*);
     virtual void OnSSLCertificateError(net::URLRequest* request, int cert_error, net::X509Certificate* cert);
+    virtual void OnCertificateRequested(net::URLRequest* request, net::SSLCertRequestInfo* cert_request_info);
 
     // Methods called during a request by the UI code (via WebUrlLoaderClient).
     void setAuth(const string16& username, const string16& password);
@@ -84,6 +85,7 @@ public:
     void followDeferredRedirect();
     void proceedSslCertError();
     void cancelSslCertError(int cert_error);
+    void sslClientCert(EVP_PKEY* pkey, scoped_refptr<net::X509Certificate> chain);
 
     const std::string& getUrl() const;
     const std::string& getUserAgent() const;

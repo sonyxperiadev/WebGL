@@ -119,6 +119,8 @@ class WebFrame : public WebCoreRefObject {
 
     void reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert);
 
+    void requestClientCert(WebUrlLoaderClient* client, const std::string& host_and_port);
+
     void downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength);
 
     void didReceiveData(const char* data, int size);
