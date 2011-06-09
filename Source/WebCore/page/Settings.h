@@ -109,18 +109,11 @@ namespace WebCore {
         void setLoadsImagesAutomatically(bool);
         bool loadsImagesAutomatically() const { return m_loadsImagesAutomatically; }
 
-<<<<<<< HEAD
-#ifdef ANDROID_BLOCK_NETWORK_IMAGE
-        void setBlockNetworkImage(bool);
-        bool blockNetworkImage() const { return m_blockNetworkImage; }
-#endif
-=======
         // This setting only affects site icon image loading if loadsImagesAutomatically setting is false and this setting is true.
         // All other permutations still heed loadsImagesAutomatically setting.
         void setLoadsSiteIconsIgnoringImageLoadingSetting(bool);
         bool loadsSiteIconsIgnoringImageLoadingSetting() const { return m_loadsSiteIconsIgnoringImageLoadingSetting; }
 
->>>>>>> WebKit.org at r84325
         void setJavaScriptEnabled(bool);
         // Instead of calling isJavaScriptEnabled directly, please consider calling
         // ScriptController::canExecuteScripts, which takes things like the
@@ -470,6 +463,11 @@ namespace WebCore {
         bool autoFillEnabled() { return m_autoFillEnabled; }
 #endif
 
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+        void setBlockNetworkImage(bool);
+        bool blockNetworkImage() const { return m_blockNetworkImage; }
+#endif
+
     private:
         Page* m_page;
 
@@ -589,7 +587,7 @@ namespace WebCore {
         bool m_crossOriginCheckInGetMatchedCSSRulesDisabled : 1;
         bool m_useQuickLookResourceCachingQuirks : 1;
         bool m_forceCompositingMode : 1;
-<<<<<<< HEAD
+        bool m_shouldInjectUserScriptsInInitialEmptyDocument : 1;
 #ifdef ANDROID_META_SUPPORT
         // default is yes
         bool m_viewport_user_scalable : 1;
@@ -619,9 +617,6 @@ namespace WebCore {
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
-=======
-        bool m_shouldInjectUserScriptsInInitialEmptyDocument : 1;
->>>>>>> WebKit.org at r84325
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

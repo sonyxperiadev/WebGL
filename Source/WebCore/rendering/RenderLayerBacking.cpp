@@ -1207,28 +1207,8 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
 
 static void paintScrollbar(Scrollbar* scrollbar, GraphicsContext& context, const IntRect& clip)
 {
-<<<<<<< HEAD
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willPaint(m_owningLayer->renderer()->frame(), clip);
-
-    IntSize offset = graphicsLayer->offsetFromRenderer();
-    context.translate(-offset);
-
-    IntRect clipRect(clip);
-    clipRect.move(offset);
-    
-    // The dirtyRect is in the coords of the painting root.
-    IntRect dirtyRect = compositedBounds();
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    // If we encounter a scrollable layer, layers inside the scrollable layer
-    // will need their entire content recorded.
-    if (m_owningLayer->hasOverflowParent())
-        dirtyRect.setSize(clip.size());
-#endif
-    dirtyRect.intersect(clipRect);
-=======
     if (!scrollbar)
         return;
->>>>>>> WebKit.org at r84325
 
     context.save();
     const IntRect& scrollbarRect = scrollbar->frameRect();
@@ -1254,6 +1234,13 @@ void RenderLayerBacking::paintContents(const GraphicsLayer* graphicsLayer, Graph
         // The dirtyRect is in the coords of the painting root.
         IntRect dirtyRect = compositedBounds();
         dirtyRect.intersect(clipRect);
+
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        // If we encounter a scrollable layer, layers inside the scrollable layer
+        // will need their entire content recorded.
+        if (m_owningLayer->hasOverflowParent())
+            dirtyRect.setSize(clip.size());
+#endif
 
         // We have to use the same root as for hit testing, because both methods can compute and cache clipRects.
         paintIntoLayer(m_owningLayer, &context, dirtyRect, PaintBehaviorNormal, paintingPhase, renderer());

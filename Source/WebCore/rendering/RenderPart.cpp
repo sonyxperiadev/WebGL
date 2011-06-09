@@ -80,6 +80,13 @@ bool RenderPart::requiresAcceleratedCompositing() const
     if (!node() || !node()->isFrameOwnerElement())
         return false;
 
+#if PLATFORM(ANDROID)
+    // FIXME: Upstream this to webkit.org
+    // https://bugs.webkit.org/show_bug.cgi?id=52655
+    if (style()->visibility() != VISIBLE)
+        return false;
+#endif
+
     HTMLFrameOwnerElement* element = static_cast<HTMLFrameOwnerElement*>(node());
     if (Document* contentDocument = element->contentDocument()) {
         if (RenderView* view = contentDocument->renderView())

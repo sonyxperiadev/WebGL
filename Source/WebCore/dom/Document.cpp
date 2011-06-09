@@ -689,8 +689,8 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
     ASSERT(!m_docType || !docType);
     m_docType = docType;
     if (m_docType)
-<<<<<<< HEAD
-        m_docType->setDocument(this);
+        m_docType->setTreeScope(this);
+
 #ifdef ANDROID_META_SUPPORT
     if (m_docType && !ownerElement()
             && m_docType->publicId().startsWith("-//wapforum//dtd xhtml mobile 1.", false)) {
@@ -701,9 +701,6 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
             PlatformBridge::updateViewport(frameView);
     }
 #endif
-=======
-        m_docType->setTreeScope(this);
->>>>>>> WebKit.org at r84325
 }
 
 DOMImplementation* Document::implementation()
@@ -1482,19 +1479,16 @@ void Document::recalcStyle(StyleChange change)
     suspendPostAttachCallbacks();
     RenderWidget::suspendWidgetHierarchyUpdates();
     
-<<<<<<< HEAD
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::CalculateStyleTimeCounter);
-#endif
-    
-=======
     RefPtr<FrameView> frameView = view();
     if (frameView) {
         frameView->pauseScheduledEvents();
         frameView->beginDeferredRepaints();
     }
 
->>>>>>> WebKit.org at r84325
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::CalculateStyleTimeCounter);
+#endif
+
     ASSERT(!renderer() || renderArena());
     if (!renderer() || !renderArena())
         goto bail_out;

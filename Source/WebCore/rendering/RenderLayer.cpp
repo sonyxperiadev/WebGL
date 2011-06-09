@@ -3416,8 +3416,7 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
         }
         
         if (renderer()->hasOverflowClip()) {
-<<<<<<< HEAD
-            IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y);
+            IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y, relevancy);
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
             clipRects.setHitTestClip(intersection(clipRects.fixed() ? clipRects.fixedClipRect()
                     : newOverflowClip, clipRects.hitTestClip()));
@@ -3428,9 +3427,6 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
                             m_scrollWidth, m_scrollHeight);
             }
 #endif
-=======
-            IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y, relevancy);
->>>>>>> WebKit.org at r84325
             clipRects.setOverflowClipRect(intersection(newOverflowClip, clipRects.overflowClipRect()));
             if (renderer()->isPositioned() || renderer()->isRelPositioned())
                 clipRects.setPosClipRect(intersection(newOverflowClip, clipRects.posClipRect()));

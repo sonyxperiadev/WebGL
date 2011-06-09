@@ -23,17 +23,14 @@
 #include "config.h"
 #include "JSNavigator.h"
 
-<<<<<<< HEAD
-#include "ExceptionCode.h"
-=======
 #include "CallbackFunction.h"
 #include "JSNavigatorUserMediaErrorCallback.h"
 #include "JSNavigatorUserMediaSuccessCallback.h"
->>>>>>> WebKit.org at r84325
 #include "Navigator.h"
 #include <runtime/InternalFunction.h>
 
 #if PLATFORM(ANDROID)
+#include "ExceptionCode.h"
 #include "JSCustomApplicationInstalledCallback.h"
 #endif
 
@@ -50,9 +47,29 @@ void JSNavigator::markChildren(MarkStack& markStack)
     markDOMObjectWrapper(markStack, globalData, impl()->optionalGeolocation());
 }
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+#if ENABLE(MEDIA_STREAM)
+JSValue JSNavigator::webkitGetUserMedia(ExecState* exec)
+{
+    // Arguments: Options, successCallback, (optional)errorCallback
 
+    String options = ustringToString(exec->argument(0).toString(exec));
+    if (exec->hadException())
+        return jsUndefined();
+
+    RefPtr<NavigatorUserMediaSuccessCallback> successCallback = createFunctionOnlyCallback<JSNavigatorUserMediaSuccessCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(1));
+    if (exec->hadException())
+        return jsUndefined();
+
+    RefPtr<NavigatorUserMediaErrorCallback> errorCallback = createFunctionOnlyCallback<JSNavigatorUserMediaErrorCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(2), CallbackAllowUndefined);
+    if (exec->hadException())
+        return jsUndefined();
+
+    m_impl->webkitGetUserMedia(options, successCallback.release(), errorCallback.release());
+    return jsUndefined();
+}
+#endif // ENABLE(MEDIA_STREAM)
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 JSC::JSValue  WebCore::JSNavigator::isApplicationInstalled(JSC::ExecState* exec)
 {
     if (exec->argumentCount() < 2) {
@@ -80,30 +97,6 @@ JSC::JSValue  WebCore::JSNavigator::isApplicationInstalled(JSC::ExecState* exec)
         setDOMException(exec, INVALID_STATE_ERR);
     return jsUndefined();
 }
-
 #endif
-=======
-#if ENABLE(MEDIA_STREAM)
-JSValue JSNavigator::webkitGetUserMedia(ExecState* exec)
-{
-    // Arguments: Options, successCallback, (optional)errorCallback
-
-    String options = ustringToString(exec->argument(0).toString(exec));
-    if (exec->hadException())
-        return jsUndefined();
-
-    RefPtr<NavigatorUserMediaSuccessCallback> successCallback = createFunctionOnlyCallback<JSNavigatorUserMediaSuccessCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(1));
-    if (exec->hadException())
-        return jsUndefined();
-
-    RefPtr<NavigatorUserMediaErrorCallback> errorCallback = createFunctionOnlyCallback<JSNavigatorUserMediaErrorCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(2), CallbackAllowUndefined);
-    if (exec->hadException())
-        return jsUndefined();
-
-    m_impl->webkitGetUserMedia(options, successCallback.release(), errorCallback.release());
-    return jsUndefined();
-}
-#endif // ENABLE(MEDIA_STREAM)
->>>>>>> WebKit.org at r84325
 
 }

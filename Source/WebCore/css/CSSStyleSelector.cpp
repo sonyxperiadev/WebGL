@@ -6053,7 +6053,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyOverflowY:
         ASSERT_NOT_REACHED();
         return;
-<<<<<<< HEAD
 
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
@@ -6199,8 +6198,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     }
 #endif
 
-=======
->>>>>>> WebKit.org at r84325
 #if ENABLE(SVG)
     default:
         // Try the SVG properties

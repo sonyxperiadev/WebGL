@@ -438,11 +438,7 @@ public:
 
 private:
 
-<<<<<<< HEAD
-#if defined(XP_UNIX) || OS(SYMBIAN) || defined(ANDROID_PLUGINS)
-=======
-#if defined(XP_UNIX) || OS(SYMBIAN) || PLATFORM(GTK)
->>>>>>> WebKit.org at r84325
+#if defined(XP_UNIX) || OS(SYMBIAN) || PLATFORM(GTK) || defined(ANDROID_PLUGINS)
         void setNPWindowIfNeeded();
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;

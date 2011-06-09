@@ -308,11 +308,6 @@ namespace WebCore {
 
         virtual void didCompleteRubberBandForMainFrame(const IntSize&) const { }
 
-<<<<<<< HEAD
-#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
-        virtual void webAppCanBeInstalled() = 0;
-#endif
-=======
         enum DialogType {
             AlertDialog = 0,
             ConfirmDialog = 1,
@@ -321,7 +316,10 @@ namespace WebCore {
             NumDialogTypes = 4
         };
         virtual void willRunModalDialogDuringPageDismissal(const DialogType&) const { }
->>>>>>> WebKit.org at r84325
+
+#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
+        virtual void webAppCanBeInstalled() = 0;
+#endif
 
     protected:
         virtual ~ChromeClient() { }

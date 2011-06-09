@@ -398,13 +398,11 @@ public:
     IntRect logicalLayoutOverflowRectForPropagation(RenderStyle*) const;
     IntRect layoutOverflowRectForPropagation(RenderStyle*) const;
 
-<<<<<<< HEAD
+    RenderOverflow* hasRenderOverflow() const { return m_overflow.get(); }
+
 #ifdef ANDROID_LAYOUT
     int getVisibleWidth() const { return m_visibleWidth; }
 #endif
-=======
-    RenderOverflow* hasRenderOverflow() const { return m_overflow.get(); }
->>>>>>> WebKit.org at r84325
 
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);

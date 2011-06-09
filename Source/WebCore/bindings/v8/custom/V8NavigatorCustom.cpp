@@ -1,33 +1,4 @@
 /*
-<<<<<<< HEAD
- * Copyright (C) 2010 Google Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- *     * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- * copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the
- * distribution.
- *     * Neither the name of Google Inc. nor the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-=======
  * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,22 +20,56 @@
  * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
->>>>>>> WebKit.org at r84325
  */
 
 #include "config.h"
 #include "V8Navigator.h"
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+#if ENABLE(MEDIA_STREAM) || (PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED))
 
+#include "Navigator.h"
+#include "V8Binding.h"
+#include "V8NavigatorUserMediaErrorCallback.h"
+#include "V8NavigatorUserMediaSuccessCallback.h"
+#include "V8Utilities.h"
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 #include "ExceptionCode.h"
 #include "V8CustomApplicationInstalledCallback.h"
-#include "V8Binding.h"
 #include "V8Proxy.h"
+#endif
+
+using namespace WTF;
 
 namespace WebCore {
+#if ENABLE(MEDIA_STREAM) // ANDROID
+v8::Handle<v8::Value> V8Navigator::webkitGetUserMediaCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.Navigator.webkitGetUserMedia()");
 
+    v8::TryCatch exceptionCatcher;
+    String options = toWebCoreString(args[0]);
+    if (exceptionCatcher.HasCaught())
+        return throwError(exceptionCatcher.Exception());
+
+    bool succeeded = false;
+
+    RefPtr<NavigatorUserMediaSuccessCallback> successCallback = createFunctionOnlyCallback<V8NavigatorUserMediaSuccessCallback>(args[1], succeeded);
+    if (!succeeded)
+        return v8::Undefined();
+
+    // Argument is optional, hence undefined is allowed.
+    RefPtr<NavigatorUserMediaErrorCallback> errorCallback = createFunctionOnlyCallback<V8NavigatorUserMediaErrorCallback>(args[2], succeeded, CallbackAllowUndefined);
+    if (!succeeded)
+        return v8::Undefined();
+
+    Navigator* navigator = V8Navigator::toNative(args.Holder());
+    navigator->webkitGetUserMedia(options, successCallback.release(), errorCallback.release());
+    return v8::Undefined();
+}
+#endif // ANDROID
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 static PassRefPtr<ApplicationInstalledCallback> createApplicationInstalledCallback(
         v8::Local<v8::Value> value, bool& succeeded)
 {
@@ -102,49 +107,11 @@ v8::Handle<v8::Value> V8Navigator::isApplicationInstalledCallback(const v8::Argu
     if (!navigator->isApplicationInstalled(toWebCoreString(args[0]), callback.release()))
         return throwError(INVALID_STATE_ERR);
 
-=======
-#if ENABLE(MEDIA_STREAM)
-
-#include "Navigator.h"
-#include "V8Binding.h"
-#include "V8NavigatorUserMediaErrorCallback.h"
-#include "V8NavigatorUserMediaSuccessCallback.h"
-#include "V8Utilities.h"
-
-using namespace WTF;
-
-namespace WebCore {
-
-v8::Handle<v8::Value> V8Navigator::webkitGetUserMediaCallback(const v8::Arguments& args)
-{
-    INC_STATS("DOM.Navigator.webkitGetUserMedia()");
-
-    v8::TryCatch exceptionCatcher;
-    String options = toWebCoreString(args[0]);
-    if (exceptionCatcher.HasCaught())
-        return throwError(exceptionCatcher.Exception());
-
-    bool succeeded = false;
-
-    RefPtr<NavigatorUserMediaSuccessCallback> successCallback = createFunctionOnlyCallback<V8NavigatorUserMediaSuccessCallback>(args[1], succeeded);
-    if (!succeeded)
-        return v8::Undefined();
-
-    // Argument is optional, hence undefined is allowed.
-    RefPtr<NavigatorUserMediaErrorCallback> errorCallback = createFunctionOnlyCallback<V8NavigatorUserMediaErrorCallback>(args[2], succeeded, CallbackAllowUndefined);
-    if (!succeeded)
-        return v8::Undefined();
-
-    Navigator* navigator = V8Navigator::toNative(args.Holder());
-    navigator->webkitGetUserMedia(options, successCallback.release(), errorCallback.release());
->>>>>>> WebKit.org at r84325
     return v8::Undefined();
 }
+#endif // PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 
 } // namespace WebCore
 
-<<<<<<< HEAD
-#endif // PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
-=======
-#endif // ENABLE(MEDIA_STREAM)
->>>>>>> WebKit.org at r84325
+#endif // ENABLE(MEDIA_STREAM) || PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+

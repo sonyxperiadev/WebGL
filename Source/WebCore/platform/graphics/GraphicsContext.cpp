@@ -678,11 +678,7 @@ void GraphicsContext::setPlatformStrokePattern(Pattern*)
 }
 #endif
 
-<<<<<<< HEAD
-#if !PLATFORM(CG) && !(USE(SKIA) && !PLATFORM(ANDROID))
-=======
-#if !USE(CG) && !USE(SKIA)
->>>>>>> WebKit.org at r84325
+#if !USE(CG) && !(USE(SKIA) && !PLATFORM(ANDROID))
 // Implement this if you want to go ahead and push the drawing mode into your native context
 // immediately.
 void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
@@ -690,11 +686,7 @@ void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
 }
 #endif
 
-<<<<<<< HEAD
-#if !PLATFORM(QT) && !PLATFORM(CAIRO) && !(USE(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
-=======
-#if !PLATFORM(QT) && !USE(CAIRO) && !USE(SKIA) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
->>>>>>> WebKit.org at r84325
+#if !PLATFORM(QT) && !USE(CAIRO) && !(USE(SKIA) && !PLATFORM(ANDROID)) && !PLATFORM(HAIKU) && !PLATFORM(OPENVG)
 void GraphicsContext::setPlatformStrokeStyle(StrokeStyle)
 {
 }

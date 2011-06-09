@@ -443,21 +443,15 @@ void HTMLInputElement::setType(const String& type)
 
 void HTMLInputElement::updateType()
 {
-<<<<<<< HEAD
-    const AtomicString& typeString = fastGetAttribute(typeAttr);
-
-    OwnPtr<InputType> newType = InputType::create(this, typeString);
+    OwnPtr<InputType> newType = InputType::create(this, fastGetAttribute(typeAttr));
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
     if (newType->isPasswordField() && document()->focusedNode() == this)
         PlatformBridge::updateTextfield(document()->view(), this, true, String());
 #endif
-=======
-    OwnPtr<InputType> newType = InputType::create(this, fastGetAttribute(typeAttr));
     bool hadType = m_hasType;
     m_hasType = true;
     if (m_inputType->formControlType() == newType->formControlType())
         return;
->>>>>>> WebKit.org at r84325
 
     if (hadType && !newType->canChangeFromAnotherType()) {
         // Set the attribute back to the old value.

@@ -636,17 +636,10 @@
 #define ENABLE_WEB_ARCHIVE 1
 #endif /* PLATFORM(MAC) && !PLATFORM(IOS) */
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 #define ENABLE_FULLSCREEN_API 1
 #endif
 
-#if PLATFORM(MAC)
-#define WTF_USE_CARBON_SECURE_INPUT_MODE 1
-#endif
-
-=======
->>>>>>> WebKit.org at r84325
 #if PLATFORM(CHROMIUM) && OS(DARWIN)
 #define WTF_USE_CF 1
 #define WTF_USE_PTHREADS 1
@@ -686,10 +679,7 @@
 
 #if PLATFORM(ANDROID)
 #define WTF_USE_PTHREADS 1
-<<<<<<< HEAD
 #define WTF_USE_SKIA 1
-=======
->>>>>>> WebKit.org at r84325
 #define USE_SYSTEM_MALLOC 1
 #define ENABLE_JAVA_BRIDGE 1
 #define LOG_DISABLED 1

@@ -287,14 +287,6 @@ public:
     int horizontalScrollbarHeight(OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize) const;
 
     bool hasOverflowControls() const;
-<<<<<<< HEAD
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    bool hasOverflowScroll() const { return m_hasOverflowScroll; }
-    bool hasOverflowParent() const;
-#endif
-    void positionOverflowControls(int tx, int ty);
-=======
->>>>>>> WebKit.org at r84325
     bool isPointInResizeControl(const IntPoint& absolutePoint) const;
     bool hitTestOverflowControls(HitTestResult&, const IntPoint& localPoint);
     IntSize offsetFromResizeCorner(const IntPoint& absolutePoint) const;
@@ -501,6 +493,11 @@ public:
 
     bool containsDirtyOverlayScrollbars() const { return m_containsDirtyOverlayScrollbars; }
     void setContainsDirtyOverlayScrollbars(bool dirtyScrollbars) { m_containsDirtyOverlayScrollbars = dirtyScrollbars; }
+
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    bool hasOverflowScroll() const { return m_hasOverflowScroll; }
+    bool hasOverflowParent() const;
+#endif
 
 private:
     // The normal operator new is disallowed on all render objects.
