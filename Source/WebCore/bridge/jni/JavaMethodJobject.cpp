@@ -130,7 +130,7 @@ const char* JavaMethodJobject::signature() const
                 appendClassName(signatureBuilder, javaClassName.data());
             else {
                 signatureBuilder.append(signatureFromJavaType(type));
-#if PLATFORM(ANDROID)
+#if PLATFORM(ANDROID) && USE(V8)
                 // FIXME: Upstream to WebKit
                 // https://bugs.webkit.org/show_bug.cgi?id=62389
                 if (type == JavaTypeObject || type == JavaTypeString) {
@@ -149,7 +149,7 @@ const char* JavaMethodJobject::signature() const
             appendClassName(signatureBuilder, returnType);
         else {
             signatureBuilder.append(signatureFromJavaType(m_returnType));
-#if PLATFORM(ANDROID)
+#if PLATFORM(ANDROID) && USE(V8)
             // FIXME: Upstream to WebKit
             // https://bugs.webkit.org/show_bug.cgi?id=62389
             if (m_returnType == JavaTypeObject || m_returnType == JavaTypeString) {
