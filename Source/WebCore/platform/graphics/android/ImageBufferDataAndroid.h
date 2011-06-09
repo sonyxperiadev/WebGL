@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ImageBufferData_h
-#define ImageBufferData_h
+#ifndef ImageBufferDataAndroid_h
+#define ImageBufferDataAndroid_h
 
 namespace WebCore {
 
@@ -35,6 +35,6 @@ public:
     ImageBufferData(const IntSize&);
 };
 
-}  // namespace WebCore
+} // namespace WebCore
 
-#endif  // ImageBufferData_h
+#endif // ImageBufferDataAndroid_h

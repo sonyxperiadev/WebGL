@@ -30,7 +30,11 @@
 #elif PLATFORM(QT)
 #include "ImageBufferDataQt.h"
 #elif USE(SKIA)
+#if PLATFORM(ANDROID)
+#include "ImageBufferDataAndroid.h"
+#else
 #include "ImageBufferDataSkia.h"
+#endif
 #elif PLATFORM(HAIKU)
 #include "ImageBufferDataHaiku.h"
 #elif OS(WINCE)
