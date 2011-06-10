@@ -434,8 +434,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
 
 #if USE(V8)
-    // FIXME: This is a work-around for a V8 bug regarding initializing the
-    // default isolate and should be removed when it is fixed.
+    // Static initialisation of certain important V8 static data gets performed at system startup when
+    // libwebcore gets loaded. We now need to associate the WebCore thread with V8 to complete
+    // initialisation.
     v8::V8::Initialize();
 #endif
 }
