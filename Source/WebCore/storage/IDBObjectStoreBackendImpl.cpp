@@ -341,6 +341,8 @@ public:
         RefPtr<SerializedScriptValue> objectValue = SerializedScriptValue::createFromWire(value);
         RefPtr<IDBKey> indexKey = fetchKeyFromKeyPath(objectValue.get(), m_indexKeyPath);
 
+        if (!indexKey)
+            return true;
         if (!m_backingStore.putIndexDataForRecord(m_databaseId, m_objectStoreId, m_indexId, *indexKey, recordIdentifier))
             return false;
 

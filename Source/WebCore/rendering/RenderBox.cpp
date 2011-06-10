@@ -234,7 +234,7 @@ void RenderBox::removeFloatingOrPositionedChildFromBlockLists()
         for (RenderObject* curr = parent(); curr && !curr->isRenderView(); curr = curr->parent()) {
             if (curr->isRenderBlock()) {
                 RenderBlock* currBlock = toRenderBlock(curr);
-                if (currBlock->containsFloat(this))
+                if (!parentBlock || currBlock->containsFloat(this))
                     parentBlock = currBlock;
             }
         }

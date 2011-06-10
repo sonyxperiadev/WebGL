@@ -916,7 +916,7 @@ TriState Editor::selectionHasStyle(int propertyID, const String& value) const
     return state;
 }
 
-bool Editor::hasTransparentBackgroundColor(CSSStyleDeclaration* style)
+static bool hasTransparentBackgroundColor(CSSStyleDeclaration* style)
 {
     RefPtr<CSSValue> cssValue = style->getPropertyCSSValue(CSSPropertyBackgroundColor);
     if (!cssValue)
@@ -1051,7 +1051,7 @@ Editor::Editor(Frame* frame)
     // This is off by default, since most editors want this behavior (this matches IE but not FF).
     , m_shouldStyleWithCSS(false)
     , m_killRing(adoptPtr(new KillRing))
-    , m_spellChecker(adoptPtr(new SpellChecker(frame, frame->page() ? frame->page()->editorClient()->textChecker() : 0)))
+    , m_spellChecker(adoptPtr(new SpellChecker(frame)))
     , m_spellingCorrector(adoptPtr(new SpellingCorrectionController(frame)))
     , m_areMarkedTextMatchesHighlighted(false)
 {

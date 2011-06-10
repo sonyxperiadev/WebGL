@@ -2293,6 +2293,7 @@
             'css/CSSMediaRule.cpp',
             'css/CSSMediaRule.h',
             'css/CSSMutableStyleDeclaration.cpp',
+            'css/CSSMutableStyleDeclaration.h',
             'css/CSSNamespace.h',
             'css/CSSOMUtils.cpp',
             'css/CSSOMUtils.h',

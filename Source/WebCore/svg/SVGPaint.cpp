@@ -67,7 +67,19 @@ void SVGPaint::setUri(const String& uri)
     m_paintType = SVG_PAINTTYPE_URI_NONE;
     setColor(Color());
     setColorType(colorTypeForPaintType(m_paintType));
-    setNeedsStyleRecalc();
+    // FIXME: A follow up patch will call valueChanged() here.
+}
+
+SVGPaint* SVGPaint::defaultFill()
+{
+    static SVGPaint* staticDefaultFill = createColor(Color::black).releaseRef();
+    return staticDefaultFill;
+}
+
+SVGPaint* SVGPaint::defaultStroke()
+{
+    static SVGPaint* staticDefaultStroke = createNone().releaseRef();
+    return staticDefaultStroke;
 }
 
 void SVGPaint::setPaint(unsigned short paintType, const String& uri, const String& rgbColor, const String& iccColor, ExceptionCode& ec)
@@ -120,7 +132,7 @@ void SVGPaint::setPaint(unsigned short paintType, const String& uri, const Strin
 
     m_paintType = type;
     m_uri = requiresURI ? uri : String();
-    setNeedsStyleRecalc();
+    // FIXME: A follow up patch will call valueChanged() here.
 }
 
 String SVGPaint::cssText() const

@@ -112,7 +112,7 @@ void InspectorController::connectFrontend()
     InspectorInstrumentation::frontendCreated();
 
     ASSERT(m_inspectorClient);
-    m_inspectorBackendDispatcher = new InspectorBackendDispatcher(
+    m_inspectorBackendDispatcher = adoptRef(new InspectorBackendDispatcher(
         m_inspectorClient,
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         m_inspectorAgent->applicationCacheAgent(),
@@ -138,7 +138,7 @@ void InspectorController::connectFrontend()
         m_inspectorAgent->profilerAgent(),
 #endif
         m_inspectorAgent->runtimeAgent(),
-        m_inspectorAgent->timelineAgent());
+        m_inspectorAgent->timelineAgent()));
 
     if (m_startUserInitiatedDebuggingWhenFrontedIsConnected) {
         m_inspectorFrontend->inspector()->startUserInitiatedDebugging();
@@ -150,6 +150,7 @@ void InspectorController::disconnectFrontend()
 {
     if (!m_inspectorFrontend)
         return;
+    m_inspectorBackendDispatcher->clearFrontend();
     m_inspectorBackendDispatcher.clear();
 
     m_inspectorAgent->disconnectFrontend();

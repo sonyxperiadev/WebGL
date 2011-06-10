@@ -57,8 +57,6 @@ private:
 
 class CSSMutableStyleDeclaration : public CSSStyleDeclaration {
 public:
-    virtual ~CSSMutableStyleDeclaration();
-
     static PassRefPtr<CSSMutableStyleDeclaration> create()
     {
         return adoptRef(new CSSMutableStyleDeclaration);

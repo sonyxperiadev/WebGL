@@ -763,6 +763,11 @@ WebInspector.AuditRules.CssInHeadRule.prototype = {
 
         function externalStylesheetsReceived(root, inlineStyleNodeIds, nodeIds)
         {
+            if (!nodeIds) {
+                callback(null);
+                return;
+            }
+
             var externalStylesheetNodeIds = nodeIds;
             var result = null;
             if (inlineStyleNodeIds.length || externalStylesheetNodeIds.length) {
@@ -781,6 +786,11 @@ WebInspector.AuditRules.CssInHeadRule.prototype = {
 
         function inlineStylesReceived(root, nodeIds)
         {
+            if (!nodeIds) {
+                callback(null);
+                return;
+            }
+
             WebInspector.domAgent.querySelectorAll(root.id, "body link[rel~='stylesheet'][href]", externalStylesheetsReceived.bind(null, root, nodeIds));
         }
 
@@ -825,6 +835,11 @@ WebInspector.AuditRules.StylesScriptsOrderRule.prototype = {
 
         function cssBeforeInlineReceived(lateStyleIds, nodeIds)
         {
+            if (!nodeIds) {
+                callback(null);
+                return;
+            }
+
             var cssBeforeInlineCount = nodeIds.length;
             var result = null;
             if (lateStyleIds.length || cssBeforeInlineCount) {
@@ -842,6 +857,11 @@ WebInspector.AuditRules.StylesScriptsOrderRule.prototype = {
 
         function lateStylesReceived(root, nodeIds)
         {
+            if (!nodeIds) {
+                callback(null);
+                return;
+            }
+
             WebInspector.domAgent.querySelectorAll(root.id, "head link[rel~='stylesheet'][href] ~ script:not([src])", cssBeforeInlineReceived.bind(null, nodeIds));
         }
 

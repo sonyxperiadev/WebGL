@@ -70,19 +70,15 @@ public:
     static SVGWritingMode initialWritingMode() { return WM_LRTB; }
     static EGlyphOrientation initialGlyphOrientationHorizontal() { return GO_0DEG; }
     static EGlyphOrientation initialGlyphOrientationVertical() { return GO_AUTO; }
-    static float initialFillOpacity() { return 1; }
-    static SVGPaint::SVGPaintType initialFillPaintType() { return SVGPaint::SVG_PAINTTYPE_RGBCOLOR; }
-    static Color initialFillPaintColor() { return Color::black; }
-    static String initialFillPaintUri() { return String(); }
-    static float initialStrokeOpacity() { return 1; }
-    static SVGPaint::SVGPaintType initialStrokePaintType() { return SVGPaint::SVG_PAINTTYPE_NONE; }
-    static Color initialStrokePaintColor() { return Color(); }
-    static String initialStrokePaintUri() { return String(); }
+    static float initialFillOpacity() { return 1.0f; }
+    static SVGPaint* initialFillPaint() { return SVGPaint::defaultFill(); }
+    static float initialStrokeOpacity() { return 1.0f; }
+    static SVGPaint* initialStrokePaint() { return SVGPaint::defaultStroke(); }
     static Vector<SVGLength> initialStrokeDashArray() { return Vector<SVGLength>(); }
-    static float initialStrokeMiterLimit() { return 4; }
-    static float initialStopOpacity() { return 1; }
+    static float initialStrokeMiterLimit() { return 4.0f; }
+    static float initialStopOpacity() { return 1.0f; }
     static Color initialStopColor() { return Color(0, 0, 0); }
-    static float initialFloodOpacity() { return 1; }
+    static float initialFloodOpacity() { return 1.0f; }
     static Color initialFloodColor() { return Color(0, 0, 0); }
     static Color initialLightingColor() { return Color(255, 255, 255); }
     static ShadowData* initialShadow() { return 0; }
@@ -154,14 +150,10 @@ public:
             fill.access()->opacity = obj;
     }
 
-    void setFillPaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri)
+    void setFillPaint(PassRefPtr<SVGPaint> obj)
     {
-        if (!(fill->paintType == type))
-            fill.access()->paintType = type;
-        if (!(fill->paintColor == color))
-            fill.access()->paintColor = color;
-        if (!(fill->paintUri == uri))
-            fill.access()->paintUri = uri;
+        if (!(fill->paint == obj))
+            fill.access()->paint = obj;
     }
 
     void setStrokeOpacity(float obj)
@@ -170,14 +162,10 @@ public:
             stroke.access()->opacity = obj;
     }
 
-    void setStrokePaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri)
+    void setStrokePaint(PassRefPtr<SVGPaint> obj)
     {
-        if (!(stroke->paintType == type))
-            stroke.access()->paintType = type;
-        if (!(stroke->paintColor == color))
-            stroke.access()->paintColor = color;
-        if (!(stroke->paintUri == uri))
-            stroke.access()->paintUri = uri;
+        if (!(stroke->paint == obj))
+            stroke.access()->paint = obj;
     }
 
     void setStrokeDashArray(const Vector<SVGLength>& obj)
@@ -305,13 +293,9 @@ public:
     EGlyphOrientation glyphOrientationHorizontal() const { return (EGlyphOrientation) svg_inherited_flags._glyphOrientationHorizontal; }
     EGlyphOrientation glyphOrientationVertical() const { return (EGlyphOrientation) svg_inherited_flags._glyphOrientationVertical; }
     float fillOpacity() const { return fill->opacity; }
-    const SVGPaint::SVGPaintType& fillPaintType() const { return fill->paintType; }
-    const Color& fillPaintColor() const { return fill->paintColor; }
-    const String& fillPaintUri() const { return fill->paintUri; }    
+    SVGPaint* fillPaint() const { return fill->paint.get(); }
     float strokeOpacity() const { return stroke->opacity; }
-    const SVGPaint::SVGPaintType& strokePaintType() const { return stroke->paintType; }
-    const Color& strokePaintColor() const { return stroke->paintColor; }
-    const String& strokePaintUri() const { return stroke->paintUri; }
+    SVGPaint* strokePaint() const { return stroke->paint.get(); }
     Vector<SVGLength> strokeDashArray() const { return stroke->dashArray; }
     float strokeMiterLimit() const { return stroke->miterLimit; }
     SVGLength strokeWidth() const { return stroke->width; }
@@ -336,8 +320,8 @@ public:
     bool hasMasker() const { return !maskerResource().isEmpty(); }
     bool hasFilter() const { return !filterResource().isEmpty(); }
     bool hasMarkers() const { return !markerStartResource().isEmpty() || !markerMidResource().isEmpty() || !markerEndResource().isEmpty(); }
-    bool hasStroke() const { return strokePaintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
-    bool hasFill() const { return fillPaintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
+    bool hasStroke() const { return strokePaint()->paintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
+    bool hasFill() const { return fillPaint()->paintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
     bool isVerticalWritingMode() const { return writingMode() == WM_TBRL || writingMode() == WM_TB; }
 
 protected:

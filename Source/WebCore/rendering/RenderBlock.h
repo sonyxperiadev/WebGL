@@ -95,6 +95,7 @@ public:
     bool generatesLineBoxesForInlineChild(RenderObject*, bool isLineEmpty = true, bool previousLineBrokeCleanly = true);
 
     void markAllDescendantsWithFloatsForLayout(RenderBox* floatToRemove = 0, bool inLayout = true);
+    void markSiblingsWithFloatsForLayout();
     void markPositionedObjectsForLayout();
     virtual void markForPaginationRelayoutIfNeeded();
     
@@ -384,6 +385,7 @@ private:
 
         FloatingObject(Type type)
             : m_renderer(0)
+            , m_originatingLine(0)
             , m_paginationStrut(0)
             , m_type(type)
             , m_shouldPaint(true)
@@ -394,6 +396,7 @@ private:
 
         FloatingObject(Type type, const IntRect& frameRect)
             : m_renderer(0)
+            , m_originatingLine(0)
             , m_frameRect(frameRect)
             , m_paginationStrut(0)
             , m_type(type)
@@ -425,6 +428,7 @@ private:
         void setFrameRect(const IntRect& frameRect) { m_frameRect = frameRect; }
 
         RenderBox* m_renderer;
+        RootInlineBox* m_originatingLine;
         IntRect m_frameRect;
         int m_paginationStrut;
         unsigned m_type : 2; // Type (left or right aligned)
@@ -537,7 +541,7 @@ private:
 
     virtual bool avoidsFloats() const;
 
-    bool hasOverhangingFloats() { return parent() && !hasColumns() && lowestFloatLogicalBottom() > logicalHeight(); }
+    bool hasOverhangingFloats() { return parent() && !hasColumns() && containsFloats() && lowestFloatLogicalBottom() > logicalHeight(); }
     void addIntrudingFloats(RenderBlock* prev, int xoffset, int yoffset);
     int addOverhangingFloats(RenderBlock* child, int xoffset, int yoffset, bool makeChildPaintOtherFloats);
 
@@ -787,6 +791,10 @@ private:
     // (calling moveChildTo, moveAllChildrenTo, and makeChildrenNonInline).
     friend class RenderRubyBase;
     friend class LineWidth; // Needs to know FloatingObject
+
+private:
+    // Used to store state between styleWillChange and styleDidChange
+    static bool s_canPropagateFloatIntoSibling;
 };
 
 inline RenderBlock* toRenderBlock(RenderObject* object)

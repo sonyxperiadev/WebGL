@@ -931,7 +931,8 @@ WebViewImpl* WebViewImpl::fromPage(Page* page)
     if (!page)
         return 0;
 
-    return static_cast<ChromeClientImpl*>(page->chrome()->client())->webView();
+    ChromeClientImpl* chromeClient = static_cast<ChromeClientImpl*>(page->chrome()->client());
+    return static_cast<WebViewImpl*>(chromeClient->webView());
 }
 
 // WebWidget ------------------------------------------------------------------
@@ -1134,7 +1135,7 @@ const WebInputEvent* WebViewImpl::m_currentInputEvent = 0;
 
 bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
 {
-    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
+    UserGestureIndicator gestureIndicator(WebInputEvent::isUserGestureEventType(inputEvent.type) ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
 
     // If we've started a drag and drop operation, ignore input events until
     // we're done.
@@ -1147,49 +1148,36 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
     m_currentInputEvent = &inputEvent;
 
     if (m_mouseCaptureNode.get() && WebInputEvent::isMouseEventType(inputEvent.type)) {
-        const int mouseButtonModifierMask = WebInputEvent::LeftButtonDown | WebInputEvent::MiddleButtonDown | WebInputEvent::RightButtonDown;
-        if (inputEvent.type == WebInputEvent::MouseDown ||
-            (inputEvent.modifiers & mouseButtonModifierMask) == 0) {
-            // It's possible the mouse was released and we didn't get the "up"
-            // message. This can happen if a dialog pops up while the mouse is
-            // held, for example. This will leave us "stuck" in capture mode.
-            // If we get a new mouse down message or any other mouse message
-            // where no "down" flags are set, we know the user is no longer
-            // dragging and we can release the capture and fall through to the
-            // regular event processing.
+        // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
+        RefPtr<Node> node = m_mouseCaptureNode;
+
+        // Not all platforms call mouseCaptureLost() directly.
+        if (inputEvent.type == WebInputEvent::MouseUp)
             mouseCaptureLost();
-        } else {
-            // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
-            RefPtr<Node> node = m_mouseCaptureNode;
 
-            // Not all platforms call mouseCaptureLost() directly.
-            if (inputEvent.type == WebInputEvent::MouseUp)
-                mouseCaptureLost();
-
-            AtomicString eventType;
-            switch (inputEvent.type) {
-            case WebInputEvent::MouseMove:
-                eventType = eventNames().mousemoveEvent;
-                break;
-            case WebInputEvent::MouseLeave:
-                eventType = eventNames().mouseoutEvent;
-                break;
-            case WebInputEvent::MouseDown:
-                eventType = eventNames().mousedownEvent;
-                break;
-            case WebInputEvent::MouseUp:
-                eventType = eventNames().mouseupEvent;
-                break;
-            default:
-                ASSERT_NOT_REACHED();
-            }
-
-            node->dispatchMouseEvent(
-                  PlatformMouseEventBuilder(mainFrameImpl()->frameView(), *static_cast<const WebMouseEvent*>(&inputEvent)),
-                  eventType, static_cast<const WebMouseEvent*>(&inputEvent)->clickCount);
-            m_currentInputEvent = 0;
-            return true;
+        AtomicString eventType;
+        switch (inputEvent.type) {
+        case WebInputEvent::MouseMove:
+            eventType = eventNames().mousemoveEvent;
+            break;
+        case WebInputEvent::MouseLeave:
+            eventType = eventNames().mouseoutEvent;
+            break;
+        case WebInputEvent::MouseDown:
+            eventType = eventNames().mousedownEvent;
+            break;
+        case WebInputEvent::MouseUp:
+            eventType = eventNames().mouseupEvent;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
         }
+
+        node->dispatchMouseEvent(
+              PlatformMouseEventBuilder(mainFrameImpl()->frameView(), *static_cast<const WebMouseEvent*>(&inputEvent)),
+              eventType, static_cast<const WebMouseEvent*>(&inputEvent)->clickCount);
+        m_currentInputEvent = 0;
+        return true;
     }
 
     bool handled = true;

@@ -231,36 +231,17 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         // end of ident only properties
         case CSSPropertyFill:
         {
-            if (isInherit) {
-                const SVGRenderStyle* svgParentStyle = m_parentStyle->svgStyle();
-                svgstyle->setFillPaint(svgParentStyle->fillPaintType(), svgParentStyle->fillPaintColor(), svgParentStyle->fillPaintUri());
-                return;
-            }
-            if (isInitial) {
-                svgstyle->setFillPaint(SVGRenderStyle::initialFillPaintType(), SVGRenderStyle::initialFillPaintColor(), SVGRenderStyle::initialFillPaintUri());
-                return;
-            }
-            if (value->isSVGPaint()) {
-                SVGPaint* svgPaint = static_cast<SVGPaint*>(value);
-                svgstyle->setFillPaint(svgPaint->paintType(), colorFromSVGColorCSSValue(svgPaint, m_style->color()), svgPaint->uri());
-            }
+            HANDLE_INHERIT_AND_INITIAL(fillPaint, FillPaint)
+            if (value->isSVGPaint())
+                svgstyle->setFillPaint(static_cast<SVGPaint*>(value));
             break;
         }
         case CSSPropertyStroke:
         {
-            if (isInherit) {
-                const SVGRenderStyle* svgParentStyle = m_parentStyle->svgStyle();
-                svgstyle->setStrokePaint(svgParentStyle->strokePaintType(), svgParentStyle->strokePaintColor(), svgParentStyle->strokePaintUri());
-                return;
-            }
-            if (isInitial) {
-                svgstyle->setStrokePaint(SVGRenderStyle::initialStrokePaintType(), SVGRenderStyle::initialStrokePaintColor(), SVGRenderStyle::initialStrokePaintUri());
-                return;
-            }
-            if (value->isSVGPaint()) {
-                SVGPaint* svgPaint = static_cast<SVGPaint*>(value);
-                svgstyle->setStrokePaint(svgPaint->paintType(), colorFromSVGColorCSSValue(svgPaint, m_style->color()), svgPaint->uri());
-            }
+            HANDLE_INHERIT_AND_INITIAL(strokePaint, StrokePaint)
+            if (value->isSVGPaint())
+                svgstyle->setStrokePaint(static_cast<SVGPaint*>(value));
+            
             break;
         }
         case CSSPropertyStrokeWidth:

@@ -81,6 +81,8 @@ typedef WTF::HashSet<RenderBlock*> DelayedUpdateScrollInfoSet;
 static int gDelayUpdateScrollInfo = 0;
 static DelayedUpdateScrollInfoSet* gDelayedUpdateScrollInfoSet = 0;
 
+bool RenderBlock::s_canPropagateFloatIntoSibling = false;
+
 // Our MarginInfo state used when laying out block children.
 RenderBlock::MarginInfo::MarginInfo(RenderBlock* block, int beforeBorderPadding, int afterBorderPadding)
     : m_atBeforeSideOfBlock(true)
@@ -200,6 +202,8 @@ void RenderBlock::destroy()
 
 void RenderBlock::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)
 {
+    s_canPropagateFloatIntoSibling = style() ? !isFloatingOrPositioned() && !avoidsFloats() : false;
+
     setReplaced(newStyle->isDisplayInlineType());
     
     if (style() && parent() && diff == StyleDifferenceLayout && style()->position() != newStyle->position()) {
@@ -262,6 +266,15 @@ void RenderBlock::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
     if (!isAnonymous() && document()->usesBeforeAfterRules() && canHaveChildren()) {
         updateBeforeAfterContent(BEFORE);
         updateBeforeAfterContent(AFTER);
+    }
+
+    // After our style changed, if we lose our ability to propagate floats into next sibling
+    // blocks, then we need to mark our descendants with floats for layout and clear all floats
+    // from next sibling blocks that exist in our floating objects list. See bug 56299.
+    bool canPropagateFloatIntoSibling = !isFloatingOrPositioned() && !avoidsFloats();
+    if (diff == StyleDifferenceLayout && s_canPropagateFloatIntoSibling && !canPropagateFloatIntoSibling && hasOverhangingFloats()) {
+        markAllDescendantsWithFloatsForLayout();
+        markSiblingsWithFloatsForLayout();
     }
 }
 
@@ -2221,30 +2234,26 @@ void RenderBlock::markForPaginationRelayoutIfNeeded()
 void RenderBlock::repaintOverhangingFloats(bool paintAllDescendants)
 {
     // Repaint any overhanging floats (if we know we're the one to paint them).
-    if (hasOverhangingFloats()) {
-        // We think that we must be in a bad state if m_floatingObjects is nil at this point, so 
-        // we assert on Debug builds and nil-check Release builds.
-        ASSERT(m_floatingObjects);
-        if (!m_floatingObjects)
-            return;
+    // Otherwise, bail out.
+    if (!hasOverhangingFloats())
+        return;
 
-        // FIXME: Avoid disabling LayoutState. At the very least, don't disable it for floats originating
-        // in this block. Better yet would be to push extra state for the containers of other floats.
-        view()->disableLayoutState();
-        FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
-        FloatingObjectSetIterator end = floatingObjectSet.end();
-        for (FloatingObjectSetIterator it = floatingObjectSet.begin(); it != end; ++it) {
-            FloatingObject* r = *it;
-            // Only repaint the object if it is overhanging, is not in its own layer, and
-            // is our responsibility to paint (m_shouldPaint is set). When paintAllDescendants is true, the latter
-            // condition is replaced with being a descendant of us.
-            if (logicalBottomForFloat(r) > logicalHeight() && ((paintAllDescendants && r->m_renderer->isDescendantOf(this)) || r->m_shouldPaint) && !r->m_renderer->hasSelfPaintingLayer()) {
-                r->m_renderer->repaint();
-                r->m_renderer->repaintOverhangingFloats();
-            }
+    // FIXME: Avoid disabling LayoutState. At the very least, don't disable it for floats originating
+    // in this block. Better yet would be to push extra state for the containers of other floats.
+    view()->disableLayoutState();
+    FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
+    FloatingObjectSetIterator end = floatingObjectSet.end();
+    for (FloatingObjectSetIterator it = floatingObjectSet.begin(); it != end; ++it) {
+        FloatingObject* r = *it;
+        // Only repaint the object if it is overhanging, is not in its own layer, and
+        // is our responsibility to paint (m_shouldPaint is set). When paintAllDescendants is true, the latter
+        // condition is replaced with being a descendant of us.
+        if (logicalBottomForFloat(r) > logicalHeight() && ((paintAllDescendants && r->m_renderer->isDescendantOf(this)) || r->m_shouldPaint) && !r->m_renderer->hasSelfPaintingLayer()) {
+            r->m_renderer->repaint();
+            r->m_renderer->repaintOverhangingFloats();
         }
-        view()->enableLayoutState();
     }
+    view()->enableLayoutState();
 }
  
 void RenderBlock::paint(PaintInfo& paintInfo, int tx, int ty)
@@ -3181,10 +3190,18 @@ void RenderBlock::removeFloatingObject(RenderBox* o)
                     // accomplished by pretending they have a height of 1.
                     logicalBottom = max(logicalBottom, logicalTop + 1);
                 }
+                if (r->m_originatingLine) {
+                    ASSERT(r->m_originatingLine->renderer() == this);
+                    r->m_originatingLine->markDirty();
+#if !ASSERT_DISABLED
+                    r->m_originatingLine = 0;
+#endif
+                }
                 markLinesDirtyInBlockRange(0, logicalBottom);
             }
             m_floatingObjects->decreaseObjectsCount(r->type());
             floatingObjectSet.remove(it);
+            ASSERT(!r->m_originatingLine);
             delete r;
         }
     }
@@ -3200,6 +3217,7 @@ void RenderBlock::removeFloatingObjectsBelow(FloatingObject* lastFloat, int logi
     while (curr != lastFloat && (!curr->isPlaced() || logicalTopForFloat(curr) >= logicalOffset)) {
         m_floatingObjects->decreaseObjectsCount(curr->type());
         floatingObjectSet.removeLast();
+        ASSERT(!curr->m_originatingLine);
         delete curr;
         curr = floatingObjectSet.last();
     }
@@ -3637,6 +3655,10 @@ void RenderBlock::clearFloats()
                     }
 
                     floatMap.remove(f->m_renderer);
+                    if (oldFloatingObject->m_originatingLine) {
+                        ASSERT(oldFloatingObject->m_originatingLine->renderer() == this);
+                        oldFloatingObject->m_originatingLine->markDirty();
+                    }
                     delete oldFloatingObject;
                 } else {
                     changeLogicalTop = 0;
@@ -3796,6 +3818,30 @@ void RenderBlock::markAllDescendantsWithFloatsForLayout(RenderBox* floatToRemove
             RenderBlock* childBlock = toRenderBlock(child);
             if ((floatToRemove ? childBlock->containsFloat(floatToRemove) : childBlock->containsFloats()) || childBlock->shrinkToAvoidFloats())
                 childBlock->markAllDescendantsWithFloatsForLayout(floatToRemove, inLayout);
+        }
+    }
+}
+
+void RenderBlock::markSiblingsWithFloatsForLayout()
+{
+    FloatingObjectSet& floatingObjectSet = m_floatingObjects->set();
+    FloatingObjectSetIterator end = floatingObjectSet.end();
+    for (FloatingObjectSetIterator it = floatingObjectSet.begin(); it != end; ++it) {
+        if (logicalBottomForFloat(*it) > logicalHeight()) {
+            RenderBox* floatingBox = (*it)->renderer();
+
+            RenderObject* next = nextSibling();
+            while (next) {
+                if (next->isRenderBlock() && !next->isFloatingOrPositioned() && !toRenderBlock(next)->avoidsFloats()) {
+                    RenderBlock* nextBlock = toRenderBlock(next);
+                    if (nextBlock->containsFloat(floatingBox))
+                        nextBlock->markAllDescendantsWithFloatsForLayout(floatingBox);
+                    else
+                        break;
+                }
+
+                next = next->nextSibling();
+            }
         }
     }
 }

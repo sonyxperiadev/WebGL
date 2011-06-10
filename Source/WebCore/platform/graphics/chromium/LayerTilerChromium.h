@@ -68,20 +68,16 @@ public:
     void uploadCanvas();
 
     // Reserve and upload tile textures from an externally painted buffer.
-    void updateFromPixels(const IntRect& paintRect, const uint8_t* pixels);
+    void updateFromPixels(const IntRect& contentRect, const IntRect& paintRect, const uint8_t* pixels);
 
     // Draw all tiles that intersect with the content rect.
     void draw(const IntRect& contentRect, const TransformationMatrix&, float opacity);
-
-    // If uploadCanvas/updateFromPixels is called, this must be called after
-    // draw() to unreserve any textures that were reserved prior to uploading.
-    void unreserveTextures();
 
     // Set position of this tiled layer in content space.
     void setLayerPosition(const IntPoint& position);
     // Change the tile size.  This may invalidate all the existing tiles.
     void setTileSize(const IntSize& size);
-    void setLayerRenderer(LayerRendererChromium* layerRenderer) { m_layerRenderer = layerRenderer; }
+    void setLayerRenderer(LayerRendererChromium*);
 
     bool skipsDraw() const { return m_skipsDraw; }
 
@@ -161,7 +157,9 @@ private:
     // Tightly packed set of unused tiles.
     Vector<RefPtr<Tile> > m_unusedTiles;
 
+    // State held between update and uploadCanvas.
     IntRect m_paintRect;
+    IntRect m_updateRect;
     PlatformCanvas m_canvas;
 
     // Cache a tile-sized pixel buffer to draw into.

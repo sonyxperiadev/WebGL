@@ -100,7 +100,11 @@ void ContentLayerChromium::paintContentsIfDirty(const IntRect& targetSurfaceRect
     IntRect layerRect = visibleLayerRect(targetSurfaceRect);
     if (layerRect.isEmpty())
         return;
-    m_tiler->invalidateRect(enclosingIntRect(m_dirtyRect));
+
+    IntRect dirty = enclosingIntRect(m_dirtyRect);
+    dirty.intersect(layerBounds());
+    m_tiler->invalidateRect(dirty);
+
     m_tiler->update(painter, layerRect);
     m_dirtyRect = FloatRect();
 }
@@ -182,7 +186,6 @@ void ContentLayerChromium::draw(const IntRect& targetSurfaceRect)
     IntRect layerRect = visibleLayerRect(targetSurfaceRect);
     if (!layerRect.isEmpty())
         m_tiler->draw(layerRect, transform, ccLayerImpl()->drawOpacity());
-    m_tiler->unreserveTextures();
 }
 
 void ContentLayerChromium::createTilerIfNeeded()
@@ -213,11 +216,6 @@ void ContentLayerChromium::bindContentsTexture()
     ASSERT(texture);
 
     texture->bindTexture();
-}
-
-void ContentLayerChromium::unreserveContentsTexture()
-{
-    m_tiler->unreserveTextures();
 }
 
 void ContentLayerChromium::setIsMask(bool isMask)

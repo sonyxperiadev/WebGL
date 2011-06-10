@@ -217,6 +217,9 @@ RenderLayer::~RenderLayer()
     destroyScrollbar(HorizontalScrollbar);
     destroyScrollbar(VerticalScrollbar);
 
+    if (m_reflection)
+        removeReflection();
+
     // Child layers will be deleted by their corresponding render objects, so
     // we don't need to delete them ourselves.
 
@@ -231,9 +234,6 @@ RenderLayer::~RenderLayer()
     
     // Make sure we have no lingering clip rects.
     ASSERT(!m_clipRects);
-    
-    if (m_reflection)
-        removeReflection();
     
     if (m_scrollCorner)
         m_scrollCorner->destroy();

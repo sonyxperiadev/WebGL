@@ -106,7 +106,7 @@ private:
 
     OwnPtr<InjectedScriptManager> m_injectedScriptManager;
     OwnPtr<InspectorAgent> m_inspectorAgent;
-    OwnPtr<InspectorBackendDispatcher> m_inspectorBackendDispatcher;
+    RefPtr<InspectorBackendDispatcher> m_inspectorBackendDispatcher;
     OwnPtr<InspectorFrontendClient> m_inspectorFrontendClient;
     OwnPtr<InspectorFrontend> m_inspectorFrontend;
     InspectorClient* m_inspectorClient;

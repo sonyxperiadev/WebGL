@@ -498,6 +498,7 @@ WebInspector.StylesSidebarPane.prototype = {
 
     _createNewRule: function(event)
     {
+        this.expanded = true;
         this.addBlankSection().startEditingSelector();
     },
 

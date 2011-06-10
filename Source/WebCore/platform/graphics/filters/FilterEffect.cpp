@@ -46,6 +46,14 @@ FilterEffect::~FilterEffect()
 {
 }
 
+inline bool isFilterSizeValid(IntRect rect)
+{
+    if (rect.width() < 0 || rect.width() > kMaxFilterSize
+        || rect.height() < 0 || rect.height() > kMaxFilterSize)
+        return false;
+    return true;
+}
+
 void FilterEffect::determineAbsolutePaintRect()
 {
     m_absolutePaintRect = IntRect();
@@ -54,7 +62,7 @@ void FilterEffect::determineAbsolutePaintRect()
         m_absolutePaintRect.unite(m_inputEffects.at(i)->absolutePaintRect());
     
     // SVG specification wants us to clip to primitive subregion.
-    m_absolutePaintRect.intersect(m_maxEffectRect);
+    m_absolutePaintRect.intersect(enclosingIntRect(m_maxEffectRect));
 }
 
 IntRect FilterEffect::requestedRegionOfInputImageData(const IntRect& effectRect) const
@@ -104,6 +112,7 @@ ImageBuffer* FilterEffect::asImageBuffer()
 
 PassRefPtr<ByteArray> FilterEffect::asUnmultipliedImage(const IntRect& rect)
 {
+    ASSERT(isFilterSizeValid(rect));
     RefPtr<ByteArray> imageData = ByteArray::create(rect.width() * rect.height() * 4);
     copyUnmultipliedImage(imageData.get(), rect);
     return imageData.release();
@@ -111,6 +120,7 @@ PassRefPtr<ByteArray> FilterEffect::asUnmultipliedImage(const IntRect& rect)
 
 PassRefPtr<ByteArray> FilterEffect::asPremultipliedImage(const IntRect& rect)
 {
+    ASSERT(isFilterSizeValid(rect));
     RefPtr<ByteArray> imageData = ByteArray::create(rect.width() * rect.height() * 4);
     copyPremultipliedImage(imageData.get(), rect);
     return imageData.release();
@@ -118,9 +128,13 @@ PassRefPtr<ByteArray> FilterEffect::asPremultipliedImage(const IntRect& rect)
 
 inline void FilterEffect::copyImageBytes(ByteArray* source, ByteArray* destination, const IntRect& rect)
 {
-    // Copy the necessary lines.
-    if (rect.x() < 0 || rect.y() < 0 || rect.maxY() > m_absolutePaintRect.width() || rect.maxY() > m_absolutePaintRect.height())
+    // Initialize the destination to transparent black, if not entirely covered by the source.
+    if (rect.x() < 0 || rect.y() < 0 || rect.maxX() > m_absolutePaintRect.width() || rect.maxY() > m_absolutePaintRect.height())
         memset(destination->data(), 0, destination->length());
+
+    // Early return if the rect does not intersect with the source.
+    if (rect.maxX() <= 0 || rect.maxY() <= 0 || rect.x() >= m_absolutePaintRect.width() || rect.y() >= m_absolutePaintRect.height())
+        return;
 
     int xOrigin = rect.x();
     int xDest = 0;
@@ -165,6 +179,7 @@ void FilterEffect::copyUnmultipliedImage(ByteArray* destination, const IntRect& 
         if (m_imageBufferResult)
             m_unmultipliedImageResult = m_imageBufferResult->getUnmultipliedImageData(IntRect(IntPoint(), m_absolutePaintRect.size()));
         else {
+            ASSERT(isFilterSizeValid(m_absolutePaintRect));
             m_unmultipliedImageResult = ByteArray::create(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
             unsigned char* sourceComponent = m_premultipliedImageResult->data();
             unsigned char* destinationComponent = m_unmultipliedImageResult->data();
@@ -198,6 +213,7 @@ void FilterEffect::copyPremultipliedImage(ByteArray* destination, const IntRect&
         if (m_imageBufferResult)
             m_premultipliedImageResult = m_imageBufferResult->getPremultipliedImageData(IntRect(IntPoint(), m_absolutePaintRect.size()));
         else {
+            ASSERT(isFilterSizeValid(m_absolutePaintRect));
             m_premultipliedImageResult = ByteArray::create(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
             unsigned char* sourceComponent = m_unmultipliedImageResult->data();
             unsigned char* destinationComponent = m_premultipliedImageResult->data();
@@ -234,6 +250,8 @@ ByteArray* FilterEffect::createUnmultipliedImageResult()
 {
     // Only one result type is allowed.
     ASSERT(!hasResult());
+    ASSERT(isFilterSizeValid(m_absolutePaintRect));
+
     determineAbsolutePaintRect();
     if (m_absolutePaintRect.isEmpty())
         return 0;
@@ -245,6 +263,8 @@ ByteArray* FilterEffect::createPremultipliedImageResult()
 {
     // Only one result type is allowed.
     ASSERT(!hasResult());
+    ASSERT(isFilterSizeValid(m_absolutePaintRect));
+
     determineAbsolutePaintRect();
     if (m_absolutePaintRect.isEmpty())
         return 0;

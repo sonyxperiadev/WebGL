@@ -99,6 +99,9 @@ void EventDispatcher::dispatchScopedEvent(Node* node, PassRefPtr<Event> event)
 
 void EventDispatcher::dispatchSimulatedClick(Node* node, PassRefPtr<Event> underlyingEvent, bool sendMouseEvents, bool showPressedLook)
 {
+    if (node->disabled())
+        return;
+
     EventDispatcher dispatcher(node);
 
     if (!gNodesDispatchingSimulatedClicks)
@@ -160,8 +163,8 @@ PassRefPtr<EventTarget> EventDispatcher::adjustToShadowBoundaries(PassRefPtr<Nod
     }
 
     if (!diverged) {
-        // The relatedTarget is a parent or shadowHost of the target.
-        if (isShadowRootOrSVGShadowRoot(m_node.get()))
+        // The relatedTarget is an ancestor or shadowHost of the target.
+        if (m_node->shadowHost() == relatedTarget.get())
             lowestCommonBoundary = m_ancestors.begin();
     } else if ((*firstDivergentBoundary) == m_node.get()) {
         // Since ancestors does not contain target itself, we must account

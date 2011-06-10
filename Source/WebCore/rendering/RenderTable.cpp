@@ -122,11 +122,15 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
             RenderObject* o = beforeChild->previousSibling();
             while (o && o != m_caption)
                 o = o->previousSibling();
-            if (!o)
+            if (!o) {
                 m_caption = 0;
+                setNeedsSectionRecalc();
+            }
         }
         if (!m_caption)
             m_caption = toRenderBlock(child);
+        else
+            setNeedsSectionRecalc();
         wrapInAnonymousSection = false;
     } else if (child->isTableCol()) {
         m_hasColElements = true;
@@ -204,6 +208,9 @@ void RenderTable::addChild(RenderObject* child, RenderObject* beforeChild)
 void RenderTable::removeChild(RenderObject* oldChild)
 {
     RenderBox::removeChild(oldChild);
+    
+    if (m_caption && oldChild == m_caption && node())
+        node()->setNeedsStyleRecalc();
     setNeedsSectionRecalc();
 }
 
@@ -747,6 +754,21 @@ RenderTableCol* RenderTable::colElement(int col, bool* startEdge, bool* endEdge)
     return 0;
 }
 
+void RenderTable::recalcCaption(RenderBlock* caption) const
+{
+    if (!m_caption) {
+        m_caption = caption;
+        m_caption->setNeedsLayout(true);
+    } else {
+        // Make sure to null out the child's renderer.
+        if (Node* node = caption->node())
+            node->setRenderer(0);
+
+        // Destroy the child now.
+        caption->destroy();
+    }
+}
+
 void RenderTable::recalcSections() const
 {
     m_caption = 0;
@@ -756,13 +778,13 @@ void RenderTable::recalcSections() const
     m_hasColElements = false;
 
     // We need to get valid pointers to caption, head, foot and first body again
-    for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
+    RenderObject* nextSibling;
+    for (RenderObject* child = firstChild(); child; child = nextSibling) {
+        nextSibling = child->nextSibling();
         switch (child->style()->display()) {
             case TABLE_CAPTION:
-                if (!m_caption && child->isRenderBlock()) {
-                    m_caption = toRenderBlock(child);
-                    m_caption->setNeedsLayout(true);
-                }
+                if (child->isRenderBlock())
+                    recalcCaption(toRenderBlock(child));
                 break;
             case TABLE_COLUMN:
             case TABLE_COLUMN_GROUP:

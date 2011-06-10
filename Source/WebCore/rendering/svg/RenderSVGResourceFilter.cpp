@@ -27,6 +27,7 @@
 #include "RenderSVGResourceFilter.h"
 
 #include "AffineTransform.h"
+#include "FilterEffect.h"
 #include "FloatPoint.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
@@ -47,8 +48,6 @@
 
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
-
-static const float kMaxFilterSize = 5000.0f;
 
 using namespace std;
 
@@ -84,8 +83,12 @@ void RenderSVGResourceFilter::removeClientFromCache(RenderObject* client, bool m
 {
     ASSERT(client);
 
-    if (m_filter.contains(client))
-        delete m_filter.take(client);
+    if (FilterData* filterData = m_filter.get(client)) {
+        if (filterData->savedContext)
+            filterData->markedForRemoval = true;
+        else
+            delete m_filter.take(client);
+    }
 
     markClientForInvalidation(client, markForInvalidation ? BoundariesInvalidation : ParentOnlyInvalidation);
 }
@@ -266,10 +269,15 @@ void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsCo
     UNUSED_PARAM(resourceMode);
 #endif
 
-    if (!m_filter.contains(object))
+    FilterData* filterData = m_filter.get(object);
+    if (!filterData)
         return;
 
-    FilterData* filterData = m_filter.get(object);
+    if (filterData->markedForRemoval) {
+        delete m_filter.take(object);
+        return;
+    }
+
     if (!filterData->builded) {
         if (!filterData->savedContext) {
             removeClientFromCache(object);

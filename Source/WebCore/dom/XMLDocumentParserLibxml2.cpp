@@ -847,12 +847,16 @@ void XMLDocumentParser::endElementNs()
         return;
     }
 
+    // JavaScript can detach the parser.  Make sure this is not released
+    // before the end of this method.
+    RefPtr<XMLDocumentParser> protect(this);
+
     exitText();
 
-    Node* n = m_currentNode;
+    RefPtr<Node> n = m_currentNode;
     n->finishParsingChildren();
 
-    if (m_scriptingPermission == FragmentScriptingNotAllowed && n->isElementNode() && toScriptElement(static_cast<Element*>(n))) {
+    if (m_scriptingPermission == FragmentScriptingNotAllowed && n->isElementNode() && toScriptElement(static_cast<Element*>(n.get()))) {
         popCurrentNode();
         ExceptionCode ec;
         n->remove(ec);
@@ -864,7 +868,7 @@ void XMLDocumentParser::endElementNs()
         return;
     }
 
-    Element* element = static_cast<Element*>(n);
+    Element* element = static_cast<Element*>(n.get());
 
     // The element's parent may have already been removed from document.
     // Parsing continues in this case, but scripts aren't executed.
@@ -892,10 +896,6 @@ void XMLDocumentParser::endElementNs()
     } else {
         // FIXME: Script execution should be shared between
         // the libxml2 and Qt XMLDocumentParser implementations.
-
-        // JavaScript can detach the parser.  Make sure this is not released
-        // before the end of this method.
-        RefPtr<XMLDocumentParser> protect(this);
 
         if (scriptElement->readyToBeParserExecuted())
             scriptElement->executeScript(ScriptSourceCode(scriptElement->scriptContent(), document()->url(), m_scriptStartPosition));

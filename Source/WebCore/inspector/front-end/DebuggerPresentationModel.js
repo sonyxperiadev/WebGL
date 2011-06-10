@@ -63,7 +63,10 @@ WebInspector.DebuggerPresentationModel.Events = {
 WebInspector.DebuggerPresentationModel.prototype = {
     _debuggerWasEnabled: function()
     {
+        if (this._breakpointsRestored)
+            return;
         this._restoreBreakpointsFromSettings();
+        this._breakpointsRestored = true;
     },
 
     sourceFile: function(sourceFileId)
@@ -497,8 +500,15 @@ WebInspector.DebuggerPresentationModel.prototype = {
             serializedBreakpoints = serializedBreakpoints.concat(this._breakpointsWithoutSourceFile[sourceFileId]);
 
         // Sanitize debugger ids.
-        for (var i = 0; i < serializedBreakpoints.length; ++i)
-            delete serializedBreakpoints[i].debuggerId;
+        for (var i = 0; i < serializedBreakpoints.length; ++i) {
+            var breakpoint = serializedBreakpoints[i];
+            var breakpointCopy = {};
+            for (var property in breakpoint) {
+                if (property !== "debuggerId")
+                    breakpointCopy[property] = breakpoint[property];
+            }
+            serializedBreakpoints[i] = breakpointCopy;
+        }
 
         WebInspector.settings.breakpoints = serializedBreakpoints;
     },

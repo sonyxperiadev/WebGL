@@ -74,19 +74,19 @@ void ImageLayerChromium::paintContentsIfDirty(const IntRect&)
 
     if (!m_dirtyRect.isEmpty()) {
         m_decodedImage.updateFromImage(m_contents->nativeImageForCurrentFrame());
+        updateLayerSize(m_decodedImage.size());
+        IntRect paintRect(IntPoint(0, 0), m_decodedImage.size());
+        if (!m_dirtyRect.isEmpty()) {
+            m_tiler->invalidateRect(paintRect);
+            m_dirtyRect = IntRect();
+        }
     }
 }
 
 void ImageLayerChromium::updateCompositorResources()
 {
-    updateLayerSize(m_decodedImage.size());
-
     IntRect paintRect(IntPoint(0, 0), m_decodedImage.size());
-    if (!m_dirtyRect.isEmpty()) {
-        m_tiler->invalidateRect(paintRect);
-        m_dirtyRect = IntRect();
-    }
-    m_tiler->updateFromPixels(paintRect, m_decodedImage.pixels());
+    m_tiler->updateFromPixels(paintRect, paintRect, m_decodedImage.pixels());
 }
 
 IntRect ImageLayerChromium::layerBounds() const
