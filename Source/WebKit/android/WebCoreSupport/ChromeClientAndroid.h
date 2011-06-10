@@ -196,6 +196,8 @@ namespace android {
         virtual void exitFullscreenForNode(WebCore::Node*);
 #endif
 
+        virtual void* webView() const { return 0; }
+
     private:
         android::WebFrame* m_webFrame;
         // The Geolocation permissions manager.
