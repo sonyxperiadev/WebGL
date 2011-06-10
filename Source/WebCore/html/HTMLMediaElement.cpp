@@ -2372,6 +2372,11 @@ void HTMLMediaElement::defaultEventHandler(Event* event)
         }
     }
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    if (event->isTouchEvent())
+        m_mouseOver = !(event->type() == eventNames().touchendEvent || event->type() == eventNames().touchcancelEvent);
+#endif
+
     HTMLElement::defaultEventHandler(event);
 #endif
 }

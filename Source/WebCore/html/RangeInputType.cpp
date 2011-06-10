@@ -202,7 +202,7 @@ void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
 void RangeInputType::handleTouchStartEvent(TouchEvent* touchEvent)
 {
-    if (SliderThumbElement* thumb = toSliderThumbElement(element()->shadowRoot())) {
+    if (SliderThumbElement* thumb = shadowSliderThumb()) {
         if (touchEvent->touches() && touchEvent->touches()->item(0)) {
             IntPoint curPoint;
             curPoint.setX(touchEvent->touches()->item(0)->pageX());

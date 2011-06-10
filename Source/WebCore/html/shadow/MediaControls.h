@@ -54,17 +54,8 @@ class MediaControls : public HTMLDivElement {
     virtual void playbackStarted() = 0;
     virtual void playbackStopped() = 0;
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-    void updateLastTouch();
-#endif
-
-private:
-    PassRefPtr<MediaControlShadowRootElement> create(HTMLMediaElement*);
-=======
     virtual void changedMute() = 0;
     virtual void changedVolume() = 0;
->>>>>>> WebKit.org at r84325
 
     virtual void enteredFullscreen() = 0;
     virtual void exitedFullscreen() = 0;
@@ -81,45 +72,7 @@ protected:
     MediaControls(HTMLMediaElement*);
 
 private:
-<<<<<<< HEAD
-    RefPtr<MediaControlShadowRootElement> m_controlsShadowRoot;
-    RefPtr<MediaControlElement> m_panel;
-    RefPtr<MediaControlMuteButtonElement> m_muteButton;
-    RefPtr<MediaControlPlayButtonElement> m_playButton;
-    RefPtr<MediaControlSeekButtonElement> m_seekBackButton;
-    RefPtr<MediaControlSeekButtonElement> m_seekForwardButton;
-    RefPtr<MediaControlRewindButtonElement> m_rewindButton;
-    RefPtr<MediaControlReturnToRealtimeButtonElement> m_returnToRealtimeButton;
-    RefPtr<MediaControlToggleClosedCaptionsButtonElement> m_toggleClosedCaptionsButton;
-    RefPtr<MediaControlTimelineElement> m_timeline;
-    RefPtr<MediaControlVolumeSliderElement> m_volumeSlider;
-    RefPtr<MediaControlMuteButtonElement> m_volumeSliderMuteButton;
-    RefPtr<MediaControlFullscreenButtonElement> m_fullscreenButton;
-    RefPtr<MediaControlTimelineContainerElement> m_timelineContainer;
-    RefPtr<MediaControlVolumeSliderContainerElement> m_volumeSliderContainer;
-    RefPtr<MediaControlTimeDisplayElement> m_currentTimeDisplay;
-    RefPtr<MediaControlTimeDisplayElement> m_timeRemainingDisplay;
-    RefPtr<MediaControlStatusDisplayElement> m_statusDisplay;
-    RefPtr<MediaControlFullscreenVolumeMinButtonElement> m_fullScreenMinVolumeButton;
-    RefPtr<MediaControlFullscreenVolumeSliderElement> m_fullScreenVolumeSlider;
-    RefPtr<MediaControlFullscreenVolumeMaxButtonElement> m_fullScreenMaxVolumeButton;
-
-    HTMLMediaElement* m_mediaElement;
-    Timer<MediaControls> m_opacityAnimationTimer;
-
-    double m_opacityAnimationStartTime;
-    double m_opacityAnimationDuration;
-    float m_opacityAnimationFrom;
-    float m_opacityAnimationTo;
-
-    bool m_mouseOver;
-
-#if PLATFORM(ANDROID)
-    double m_lastTouch;
-#endif
-=======
     MediaControls();
->>>>>>> WebKit.org at r84325
 };
 
 }

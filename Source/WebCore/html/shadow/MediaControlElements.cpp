@@ -654,10 +654,20 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
     if (event->type() == eventNames().mousedownEvent)
         mediaElement()->beginScrubbing();
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    if (event->type() == eventNames().touchstartEvent)
+        mediaElement()->beginScrubbing();
+#endif
+
     MediaControlInputElement::defaultEventHandler(event);
 
     if (event->type() == eventNames().mouseoverEvent || event->type() == eventNames().mouseoutEvent || event->type() == eventNames().mousemoveEvent)
         return;
+
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    if (event->type() == eventNames().touchmoveEvent || event->type() == eventNames().touchcancelEvent)
+        return;
+#endif
 
     float time = narrowPrecisionToFloat(value().toDouble());
     if (time != mediaElement()->currentTime()) {
@@ -667,20 +677,16 @@ void MediaControlTimelineElement::defaultEventHandler(Event* event)
     }
 
     RenderSlider* slider = toRenderSlider(renderer());
-<<<<<<< HEAD:Source/WebCore/rendering/MediaControlElements.cpp
-    if (slider && slider->inDragMode()) {
-        toRenderMedia(mediaElement()->renderer())->controls()->updateTimeDisplay();
-#if PLATFORM(ANDROID)
-        toRenderMedia(mediaElement()->renderer())->controls()->updateLastTouch();
-#endif
-    }
-=======
     if (slider && slider->inDragMode())
         m_controls->updateTimeDisplay();
->>>>>>> WebKit.org at r84325:Source/WebCore/html/shadow/MediaControlElements.cpp
 
     if (event->type() == eventNames().mouseupEvent)
         mediaElement()->endScrubbing();
+
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    if (event->type() == eventNames().touchendEvent)
+        mediaElement()->endScrubbing();
+#endif
 }
 
 void MediaControlTimelineElement::setPosition(float currentTime) 
