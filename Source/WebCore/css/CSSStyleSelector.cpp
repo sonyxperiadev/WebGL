@@ -6848,6 +6848,19 @@ void CSSStyleSelector::checkForTextSizeAdjust()
 {
     if (m_style->textSizeAdjust())
         return;
+
+    /* TODO: Remove this when a fix for webkit bug 56543 is submitted and can
+     * be cherry picked.
+     * This is a quick fix for Android to prevent sites from using
+     * -webkit-text-size-adjust: none; which breaks font size accessibility
+     * options on all platforms. The purpose of the property is to prevent
+     * the automatic font size changes done by platforms like iOS when the
+     * rotation changes. Since Android doesn't do this, we can safely ignore
+     * the 'none' option.
+     */
+#if PLATFORM(ANDROID)
+    return;
+#endif
  
     FontDescription newFontDescription(m_style->fontDescription());
     newFontDescription.setComputedSize(newFontDescription.specifiedSize());
