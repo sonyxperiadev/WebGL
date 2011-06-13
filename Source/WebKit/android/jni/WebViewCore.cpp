@@ -2118,6 +2118,12 @@ void WebViewCore::setSelection(int start, int end)
             m_mainFrame->editor()->client());
     client->setUiGeneratedSelectionChange(true);
     setSelectionRange(focus, start, end);
+    if (start != end) {
+        // Fire a select event. No event is sent when the selection reduces to
+        // an insertion point
+        RenderTextControl* control = toRenderTextControl(renderer);
+        control->selectionChanged(true);
+    }
     client->setUiGeneratedSelectionChange(false);
     WebCore::Frame* focusedFrame = focus->document()->frame();
     bool isPasswordField = false;
