@@ -636,10 +636,6 @@
 #define ENABLE_WEB_ARCHIVE 1
 #endif /* PLATFORM(MAC) && !PLATFORM(IOS) */
 
-#if PLATFORM(ANDROID)
-#define ENABLE_FULLSCREEN_API 1
-#endif
-
 #if PLATFORM(CHROMIUM) && OS(DARWIN)
 #define WTF_USE_CF 1
 #define WTF_USE_PTHREADS 1
@@ -678,13 +674,24 @@
 #endif
 
 #if PLATFORM(ANDROID)
+#define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
+
+#define LOG_DISABLED 1
+// This must be defined before we include FastMalloc.h in config.h.
+#define USE_SYSTEM_MALLOC 1
+
+// USE defines
 #define WTF_USE_PTHREADS 1
 #define WTF_USE_SKIA 1
-#define USE_SYSTEM_MALLOC 1
+#if !defined WTF_USE_ACCELERATED_COMPOSITING
+#define WTF_USE_ACCELERATED_COMPOSITING 1
+#define ENABLE_3D_RENDERING 1
+#endif
+
+// ENABLE guards
 #define ENABLE_JAVA_BRIDGE 1
-#define LOG_DISABLED 1
-/* Prevents Webkit from drawing the caret in textfields and textareas
-   This prevents unnecessary invals. */
+// Prevents Webkit from drawing the caret in textfields and textareas
+// This prevents unnecessary invals.
 #define ENABLE_TEXT_CARET 1
 #define ENABLE_JAVASCRIPT_DEBUGGER 0
 #define ENABLE_ORIENTATION_EVENTS 1
@@ -692,7 +699,94 @@
 #define ENABLE_JIT 0
 #endif
 #define ENABLE_WEB_ARCHIVE 1
+#define ENABLE_FULLSCREEN_API 1
+#define ENABLE_DOM_STORAGE 1
+#define ENABLE_FTPDIR 0
+#ifndef ENABLE_SVG
+#define ENABLE_SVG 0
 #endif
+#define ENABLE_VIDEO 1
+#if ENABLE_SVG
+#if !defined(ENABLE_SVG_ANIMATION)
+#define ENABLE_SVG_ANIMATION 0
+#endif
+#define ENABLE_SVG_AS_IMAGE 1
+#define ENABLE_SVG_FILTERS 1
+#define ENABLE_SVG_FONTS 1
+#define ENABLE_SVG_FOREIGN_OBJECT 1
+#define ENABLE_SVG_USE 1
+#endif
+#define ENABLE_XBL 0
+#define ENABLE_XHTMLMP 0
+#define ENABLE_XPATH 1
+#define ENABLE_XSLT 1
+#define ENABLE_OFFLINE_WEB_APPLICATIONS 1
+#define ENABLE_TOUCH_EVENTS 1
+#define ENABLE_GEOLOCATION 1
+#define ENABLE_INSPECTOR 0
+#define ENABLE_EVENT_SOURCE 0
+#define ENABLE_DEVICE_ORIENTATION 1
+#define ENABLE_FILE_READER 1
+#define ENABLE_BLOB 1
+// Converts ListBoxes to dropdown popup lists.
+#define ENABLE_NO_LISTBOX_RENDERING 1
+#define ENABLE_LINK_PREFETCH 1
+
+// Android ENABLE guards not present upstream
+#define ENABLE_COMPOSITED_FIXED_ELEMENTS 1 // FIXME: Rename to ENABLE_ANDROID_COMPOSITED_FIXED_ELEMENTS
+#define ENABLE_APPLICATION_INSTALLED 1 // FIXME: Rename to ENABLE_ANDROID_APPLICATION_INSTALLED
+#define ENABLE_ANDROID_INSTALLABLE_WEB_APPS 1
+// Enable scrollable divs in separate layers.  This might be upstreamed to
+// webkit.org but for now, it is just an Android feature.
+#define ENABLE_ANDROID_OVERFLOW_SCROLL 1
+
+// Other Android guards not present upstream
+#define ANDROID_FLATTEN_FRAMESET
+#define ANDROID_LAYOUT
+#define ANDROID_FIX
+// Ensure that the fixed elements are always relative to the top document.
+#define ANDROID_FIXED_ELEMENTS
+// Passes the webkit-originated changes of a focused textfield to our UI
+// thread
+#define ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
+// Allow us to turn off the blinking caret as desired.
+#define ANDROID_ALLOW_TURNING_OFF_CARET
+#define ANDROID_META_SUPPORT
+#define ANDROID_MULTIPLE_WINDOWS
+#define ANDROID_CSS_RING
+#define ANDROID_CSS_TAP_HIGHLIGHT_COLOR
+#define ANDROID_BLOCK_NETWORK_IMAGE
+// Changes needed to support native plugins (npapi.h). If the change is generic,
+// it may be under a different #define (see: PLUGIN_PLATFORM_SETVALUE,
+// PLUGIN_SCHEDULE_TIMER)
+#define ANDROID_PLUGINS
+// This enables a portable implementation of NPN_[Un]ScheduleTimer
+// Will submit this as a patch to apple
+#define PLUGIN_SCHEDULE_TIMER // FIXME: Rename to ANDROID_PLUGIN_SCHEDULE_TIMER
+// This adds platformInit() and platformSetValue() to pluginview
+// Will submit this as a patch to apple
+#define PLUGIN_PLATFORM_SETVALUE // FIXME: Rename to ANDROID_PLUGIN_PLATFORM_SETVALUE
+// This enables logging the DOM tree, Render tree even for the release build
+#define ANDROID_DOM_LOGGING
+// Notify WebViewCore when a clipped out rectangle is drawn,
+// so that all invals are captured by the display tree.
+#define ANDROID_CAPTURE_OFFSCREEN_PAINTS
+// Enable dumping the display tree to a file (triggered in WebView.java)
+#define ANDROID_DUMP_DISPLAY_TREE
+// Animated GIF support.
+#define ANDROID_ANIMATED_GIF
+// apple-touch-icon support in <link> tags
+#define ANDROID_APPLE_TOUCH_ICON
+// track changes to the style that may change what is drawn
+#define ANDROID_STYLE_VERSION
+
+#if !defined(WTF_USE_CHROME_NETWORK_STACK)
+#define WTF_USE_CHROME_NETWORK_STACK 0
+#endif /* !defined(WTF_USE_CHROME_NETWORK_STACK) */
+
+// This is present in JavaScriptCore/config.h, which Android does not use.
+#define WTF_CHANGES 1
+#endif /* PLATFORM(ANDROID) */
 
 #if PLATFORM(WIN) && !OS(WINCE)
 #define WTF_USE_CF 1
@@ -984,10 +1078,6 @@
 #define ENABLE_TEXT_CARET 1
 #endif
 
-#if !defined(ENABLE_COMPOSITED_FIXED_ELEMENTS)
-#define ENABLE_COMPOSITED_FIXED_ELEMENTS 0
-#endif
-
 #if !defined(ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL)
 #define ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL 0
 #endif
@@ -1156,11 +1246,6 @@
 #endif
 
 /* Accelerated compositing */
-#if PLATFORM(ANDROID) && !defined WTF_USE_ACCELERATED_COMPOSITING
-#define WTF_USE_ACCELERATED_COMPOSITING 1
-#define ENABLE_3D_RENDERING 1
-#endif
-
 #if (PLATFORM(MAC) && !defined(BUILDING_ON_TIGER)) || PLATFORM(IOS) || PLATFORM(QT) || (PLATFORM(WIN) && !OS(WINCE) &&!defined(WIN_CAIRO))
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
