@@ -31,7 +31,7 @@ js_binding_scripts := \
 	$(LOCAL_PATH)/bindings/scripts/generate-bindings.pl
 
 # Add ACCELERATED_COMPOSITING=1 and ENABLE_3D_RENDERING=1 for layers support
-FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1 ENABLE_XPATH=1 ENABLE_XSLT=1 ENABLE_DEVICE_ORIENTATION=1 ENABLE_FILE_READER=1 ENABLE_BLOB=1
+FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1 ENABLE_XPATH=1 ENABLE_XSLT=1 ENABLE_DEVICE_ORIENTATION=1 ENABLE_FILE_READER=1 ENABLE_BLOB=1 ENABLE_WEB_TIMING=1
 # The defines above should be identical to those for JSC.
 FEATURE_DEFINES += V8_BINDING
 
@@ -364,6 +364,9 @@ GEN := \
     $(intermediates)/bindings/V8NavigatorUserMediaError.h \
     $(intermediates)/bindings/V8NavigatorUserMediaErrorCallback.h \
     $(intermediates)/bindings/V8NavigatorUserMediaSuccessCallback.h \
+    $(intermediates)/bindings/V8Performance.h \
+    $(intermediates)/bindings/V8PerformanceNavigation.h \
+    $(intermediates)/bindings/V8PerformanceTiming.h \
     $(intermediates)/bindings/V8PositionError.h \
     $(intermediates)/bindings/V8Screen.h \
     $(intermediates)/bindings/V8SpeechInputEvent.h \

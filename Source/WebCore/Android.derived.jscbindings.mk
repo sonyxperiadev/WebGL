@@ -50,7 +50,7 @@ js_binding_scripts := $(addprefix $(LOCAL_PATH)/,\
 			bindings/scripts/generate-bindings.pl \
 		)
 
-FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1 ENABLE_XPATH=1 ENABLE_XSLT=1 ENABLE_DEVICE_ORIENTATION=1 ENABLE_FILE_READER=1 ENABLE_BLOB=1
+FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1 ENABLE_XPATH=1 ENABLE_XSLT=1 ENABLE_DEVICE_ORIENTATION=1 ENABLE_FILE_READER=1 ENABLE_BLOB=1 ENABLE_WEB_TIMING=1
 
 ifeq ($(ENABLE_SVG), true)
     FEATURE_DEFINES += ENABLE_SVG=1
@@ -378,6 +378,9 @@ GEN := \
     $(intermediates)/page/JSNavigatorUserMediaError.h \
     $(intermediates)/page/JSNavigatorUserMediaErrorCallback.h \
     $(intermediates)/page/JSNavigatorUserMediaSuccessCallback.h \
+    $(intermediates)/page/JSPerformance.h \
+    $(intermediates)/page/JSPerformanceNavigation.h \
+    $(intermediates)/page/JSPerformanceTiming.h \
     $(intermediates)/page/JSPositionError.h \
     $(intermediates)/page/JSScreen.h \
     $(intermediates)/page/JSSpeechInputEvent.h \

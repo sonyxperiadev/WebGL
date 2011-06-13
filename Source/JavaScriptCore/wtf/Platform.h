@@ -731,6 +731,7 @@
 // Converts ListBoxes to dropdown popup lists.
 #define ENABLE_NO_LISTBOX_RENDERING 1
 #define ENABLE_LINK_PREFETCH 1
+#define ENABLE_WEB_TIMING 1
 
 // Android ENABLE guards not present upstream
 #define ENABLE_COMPOSITED_FIXED_ELEMENTS 1 // FIXME: Rename to ENABLE_ANDROID_COMPOSITED_FIXED_ELEMENTS
