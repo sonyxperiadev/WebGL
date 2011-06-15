@@ -2527,6 +2527,19 @@ static void nativeSetExpandedTileBounds(JNIEnv*, jobject, jboolean enabled)
     TilesManager::instance()->setExpandedTileBounds(enabled);
 }
 
+static int nativeGetBackgroundColor(JNIEnv* env, jobject obj)
+{
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    BaseLayerAndroid* baseLayer = view->getBaseLayer();
+    if (baseLayer) {
+        WebCore::Color color = baseLayer->getBackgroundColor();
+        if (color.isValid())
+            return SkColorSetARGB(color.alpha(), color.red(),
+                                  color.green(), color.blue());
+    }
+    return SK_ColorWHITE;
+}
+
 /*
  * JNI registration
  */
@@ -2709,6 +2722,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeScrollLayer },
     { "nativeSetExpandedTileBounds", "(Z)V",
         (void*) nativeSetExpandedTileBounds },
+    { "nativeGetBackgroundColor", "()I",
+        (void*) nativeGetBackgroundColor },
 };
 
 int registerWebView(JNIEnv* env)
