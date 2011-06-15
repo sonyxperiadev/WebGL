@@ -122,7 +122,7 @@ void WebAutoFill::searchDocument(WebCore::Frame* frame)
 void WebAutoFill::formsSeenImpl()
 {
     MutexLocker lock(mFormsSeenMutex);
-    mAutoFillManager->FormsSeen(mForms);
+    mAutoFillManager->OnFormsSeenWrapper(mForms);
     mParsingForms = false;
     mFormsSeenCondition.signal();
 }
@@ -166,7 +166,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     mFormManager->FindFormWithFormControlElement(formFieldElement, FormManager::REQUIRE_AUTOCOMPLETE, form);
     mQueryMap[mQueryId] = new FormDataAndField(form, formField);
 
-    bool suggestions = mAutoFillManager->GetAutoFillSuggestions(*form, *formField);
+    bool suggestions = mAutoFillManager->OnQueryFormFieldAutoFillWrapper(0, *form, *formField); // First param not used on Android
 
     mQueryId++;
     if (!suggestions) {
@@ -207,7 +207,7 @@ void WebAutoFill::fillFormFields(int queryId)
         // but stop here to be certain.
         return;
     }
-    mAutoFillManager->FillAutoFillFormData(queryId, *form, *field, iter->second);
+    mAutoFillManager->OnFillAutoFillFormDataWrapper(queryId, *form, *field, iter->second);
     mUniqueIdMap.erase(iter);
 }
 

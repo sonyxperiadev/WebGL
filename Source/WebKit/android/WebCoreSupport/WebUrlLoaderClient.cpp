@@ -39,6 +39,9 @@
 
 #include <wtf/text/CString.h>
 
+using base::Lock;
+using base::AutoLock;
+
 namespace android {
 
 base::Thread* WebUrlLoaderClient::ioThread()

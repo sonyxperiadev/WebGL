@@ -47,7 +47,7 @@
 
 #include <android/net/android_network_library_impl.h>
 #include <base/callback.h>
-#include <base/lock.h>
+#include <base/synchronization/lock.h>
 #include <base/message_loop_proxy.h>
 #include <base/openssl_util.h>
 #include <base/ref_counted.h>
