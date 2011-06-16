@@ -166,7 +166,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     mFormManager->FindFormWithFormControlElement(formFieldElement, FormManager::REQUIRE_AUTOCOMPLETE, form);
     mQueryMap[mQueryId] = new FormDataAndField(form, formField);
 
-    bool suggestions = mAutoFillManager->OnQueryFormFieldAutoFillWrapper(0, *form, *formField); // First param not used on Android
+    bool suggestions = mAutoFillManager->OnQueryFormFieldAutoFillWrapper(*form, *formField);
 
     mQueryId++;
     if (!suggestions) {
