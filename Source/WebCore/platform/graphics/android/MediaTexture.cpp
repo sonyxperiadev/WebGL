@@ -48,7 +48,7 @@
 
 namespace WebCore {
 
-MediaTexture::MediaTexture(EGLContext sharedContext) : DoubleBufferedTexture(sharedContext)
+MediaTexture::MediaTexture(EGLContext sharedContext) : DoubleBufferedTexture(sharedContext, EglImageMode)
 {
     m_producerRefCount = 0;
     m_consumerRefCount = 0;

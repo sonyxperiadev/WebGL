@@ -41,7 +41,7 @@ namespace WebCore {
 BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
                                                          SkBitmap* bitmap,
                                                          SkBitmap::Config config)
-    : DoubleBufferedTexture(eglGetCurrentContext())
+    : DoubleBufferedTexture(eglGetCurrentContext(), EglImageMode)
     , m_usedLevel(-1)
     , m_config(config)
     , m_owner(0)
@@ -82,7 +82,7 @@ BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
     if (!m_sharedBitmap)
         delete m_bitmap;
     delete m_canvas;
-    SharedTexture* textures[3] = { &m_textureA, &m_textureB, 0 };
+    SharedTexture* textures[3] = { m_textureA, m_textureB, 0 };
     destroyTextures(textures);
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("BackedDoubleBufferedTexture");

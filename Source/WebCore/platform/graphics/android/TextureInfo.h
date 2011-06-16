@@ -27,6 +27,15 @@
 #define TextureInfo_h
 
 #include <GLES2/gl2.h>
+#include <jni.h>
+#include <ui/GraphicBuffer.h>
+#include <utils/RefBase.h>
+
+using android::sp;
+
+namespace android {
+    class SurfaceTexture;
+}
 
 namespace WebCore {
 
@@ -35,10 +44,15 @@ static const GLuint GL_NO_TEXTURE = 0;
  * TextureInfo is a class that stores both the texture and metadata about the
  * texture.
  */
+enum SharedTextureMode {
+    EglImageMode,
+    SurfaceTextureMode
+};
+
 class TextureInfo {
 public:
 
-    TextureInfo();
+    TextureInfo(SharedTextureMode mode);
 
     bool equalsAttributes(const TextureInfo* otherTexture);
     void copyAttributes(const TextureInfo* sourceTexture);
@@ -50,6 +64,12 @@ public:
     int32_t m_height;
     GLenum m_internalFormat;
 
+    // Surface Texture specific data
+    sp<android::SurfaceTexture> m_surfaceTexture;
+    sp<ANativeWindow> m_ANW;
+
+private:
+    SharedTextureMode m_sharedTextureMode;
 };
 
 } // namespace WebCore
