@@ -38,7 +38,14 @@ namespace WebCore
 
 class WebCoreViewBridge : public WebCoreRefObject {
 public:
-    WebCoreViewBridge() { }
+    WebCoreViewBridge()
+    {
+        m_bounds.setWidth(320);
+        m_bounds.setHeight(240);
+        m_visibleBounds = m_bounds;
+        m_windowBounds = m_bounds;
+    }
+
     virtual ~WebCoreViewBridge() { }
 
     virtual void draw(WebCore::GraphicsContext* ctx, 
