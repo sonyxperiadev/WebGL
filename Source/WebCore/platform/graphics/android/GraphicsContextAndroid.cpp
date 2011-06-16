@@ -771,6 +771,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     path.addRoundRect(rect, radii);
 
     m_data->setupPaintFill(&paint);
+    paint.setColor(color.rgb());
     GC2CANVAS(this)->drawPath(path, paint);
 }
 
