@@ -35,12 +35,20 @@
 
 namespace WebCore {
 
-DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext)
+DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext, SharedTextureMode mode)
 {
+    m_sharedTextureMode = mode;
+
+    m_textureA = new SharedTexture(m_sharedTextureMode);
+    if (m_sharedTextureMode == EglImageMode)
+        m_textureB = new SharedTexture(m_sharedTextureMode);
+    else
+        m_textureB = 0;
+
     m_display = eglGetCurrentDisplay();
     m_pContext = EGL_NO_CONTEXT;
     m_cContext = sharedContext;
-    m_writeableTexture = &m_textureA;
+    m_writeableTexture = m_textureA;
     m_lockedConsumerTexture = GL_NO_TEXTURE;
     m_supportsEGLImage = GLUtils::isEGLImageSupported();
 #ifdef DEBUG_COUNT
@@ -53,17 +61,23 @@ DoubleBufferedTexture::~DoubleBufferedTexture()
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("DoubleBufferedTexture");
 #endif
+    delete m_textureA;
+    delete m_textureB;
 }
 
 SharedTexture* DoubleBufferedTexture::getWriteableTexture()
 {
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return m_textureA;
     return reinterpret_cast<SharedTexture*>(
         android_atomic_release_load((int32_t*)&m_writeableTexture));
 }
 
 SharedTexture* DoubleBufferedTexture::getReadableTexture()
 {
-    return (getWriteableTexture() != &m_textureA) ? &m_textureA : &m_textureB;
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return m_textureA;
+    return (getWriteableTexture() != m_textureA) ? m_textureA : m_textureB;
 }
 
 EGLContext DoubleBufferedTexture::producerAcquireContext()
@@ -89,41 +103,61 @@ EGLContext DoubleBufferedTexture::producerAcquireContext()
     }
 
     // initialize the producer's textures
-    m_textureA.lock();
-    m_textureB.lock();
-    m_textureA.initSourceTexture();
-    m_textureB.initSourceTexture();
-    LOGV("Initialized Textures A/B (%d:%d)", m_textureA.getSourceTextureId(),
-                                             m_textureB.getSourceTextureId());
-    m_textureA.unlock();
-    m_textureB.unlock();
+    m_textureA->lock();
+    if (m_sharedTextureMode == EglImageMode)
+        m_textureB->lock();
+
+    m_textureA->initSourceTexture();
+    LOGV("Initialized Textures A (%d)", m_textureA->getSourceTextureId());
+    if (m_sharedTextureMode == EglImageMode) {
+        m_textureB->initSourceTexture();
+        LOGV("Initialized Textures B (%d)", m_textureB->getSourceTextureId());
+    }
+
+    m_textureA->unlock();
+    if (m_sharedTextureMode == EglImageMode)
+        m_textureB->unlock();
 
     m_pContext = context;
     return context;
 }
 
+// For MediaTexture only
 void DoubleBufferedTexture::producerDeleteTextures()
 {
-    m_textureA.lock();
-    m_textureB.lock();
-    LOGV("Deleting Producer Textures A/B (%d:%d)", m_textureA.getSourceTextureId(),
-                                                   m_textureB.getSourceTextureId());
-    m_textureA.deleteSourceTexture();
-    m_textureB.deleteSourceTexture();
-    m_textureA.unlock();
-    m_textureB.unlock();
+    m_textureA->lock();
+    if (m_sharedTextureMode == EglImageMode)
+        m_textureB->lock();
+
+    LOGV("Deleting Producer Textures A (%d)", m_textureA->getSourceTextureId());
+    m_textureA->deleteSourceTexture();
+    if (m_sharedTextureMode == EglImageMode){
+        LOGV("Deleting Producer Textures B (%d)", m_textureB->getSourceTextureId());
+        m_textureB->deleteSourceTexture();
+    }
+
+    m_textureA->unlock();
+    if (m_sharedTextureMode == EglImageMode)
+        m_textureB->unlock();
 }
 
+// For MediaTexture only
 void DoubleBufferedTexture::consumerDeleteTextures()
 {
-    m_textureA.lock();
-    m_textureB.lock();
-    LOGV("Deleting Consumer Textures A/B (%d:%d)", m_textureA.getTargetTextureId(),
-                                                   m_textureB.getTargetTextureId());
-    m_textureA.deleteTargetTexture();
-    m_textureB.deleteTargetTexture();
-    m_textureA.unlock();
-    m_textureB.unlock();
+    m_textureA->lock();
+    if (m_sharedTextureMode == EglImageMode)
+        m_textureB->lock();
+
+    LOGV("Deleting Consumer Textures A (%d)", m_textureA->getTargetTextureId());
+    m_textureA->deleteTargetTexture();
+    if (m_sharedTextureMode == EglImageMode) {
+        LOGV("Deleting Consumer Textures B (%d)", m_textureB->getTargetTextureId());
+        m_textureB->deleteTargetTexture();
+    }
+
+    m_textureA->unlock();
+    if (m_sharedTextureMode == EglImageMode)
+        m_textureB->unlock();
 }
 
 TextureInfo* DoubleBufferedTexture::producerLock()
@@ -148,9 +182,10 @@ void DoubleBufferedTexture::producerRelease()
 void DoubleBufferedTexture::producerReleaseAndSwap()
 {
     producerRelease();
-
-    // swap the front and back buffers using an atomic op for the memory barrier
-    android_atomic_acquire_store((int32_t)getReadableTexture(), (int32_t*)&m_writeableTexture);
+    if (m_sharedTextureMode == EglImageMode) {
+        // swap the front and back buffers using an atomic op for the memory barrier
+        android_atomic_acquire_store((int32_t)getReadableTexture(), (int32_t*)&m_writeableTexture);
+    }
 }
 
 TextureInfo* DoubleBufferedTexture::consumerLock()

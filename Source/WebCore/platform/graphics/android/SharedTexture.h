@@ -45,7 +45,7 @@ namespace WebCore {
 class SharedTexture {
 public:
     // consumer thread functions
-    SharedTexture();
+    SharedTexture(SharedTextureMode mode);
     ~SharedTexture();
 
     TextureInfo* lockSource();
@@ -61,8 +61,8 @@ public:
     void initSourceTexture(); // producer thread only
     void deleteSourceTexture(); // producer thread only
     void deleteTargetTexture(); // consumer thread only
-    GLuint getSourceTextureId() { return m_sourceTexture.m_textureId; }
-    GLuint getTargetTextureId() { return m_targetTexture.m_textureId; }
+    GLuint getSourceTextureId() { return m_sourceTexture->m_textureId; }
+    GLuint getTargetTextureId() { return m_targetTexture->m_textureId; }
     EGLImageKHR getEGLImage() { return m_eglImage; }
 
 private:
@@ -78,13 +78,13 @@ private:
      * metadata is used to track changes to the texture that would orphan the
      * target texture and require a new EGLImage to be constructed.
      */
-    TextureInfo m_sourceTexture;
+    TextureInfo* m_sourceTexture;
     /**
      * The target texture stores the id and metadata of the texture that is to be
      * used by the consumer. In the case where EGLImages are supported this hold
      * the current eglImage target.
      */
-    TextureInfo m_targetTexture;
+    TextureInfo* m_targetTexture;
     /**
      * The EGLImage is used to share the texture between EGLContexts on two
      * different threads. This serves as an alternative to sharing the contexts
@@ -109,6 +109,8 @@ private:
 
     bool m_supportsEGLImage;
     bool m_supportsEGLFenceSyncKHR;
+
+    SharedTextureMode m_sharedTextureMode;
 };
 
 } // namespace WebCore

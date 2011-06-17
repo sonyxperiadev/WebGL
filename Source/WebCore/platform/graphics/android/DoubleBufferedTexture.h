@@ -34,7 +34,7 @@ namespace WebCore {
 class DoubleBufferedTexture {
 public:
     // consumer thread functions
-    DoubleBufferedTexture(EGLContext sharedContext);
+    DoubleBufferedTexture(EGLContext sharedContext, SharedTextureMode mode);
     virtual ~DoubleBufferedTexture();
 
     // provider thread functions
@@ -53,8 +53,8 @@ protected:
     SharedTexture* getReadableTexture();
     SharedTexture* getWriteableTexture();
 
-    SharedTexture m_textureA;
-    SharedTexture m_textureB;
+    SharedTexture* m_textureA;
+    SharedTexture* m_textureB;
 
 private:
 
@@ -66,6 +66,8 @@ private:
     EGLContext m_cContext;
 
     bool m_supportsEGLImage;
+
+    SharedTextureMode m_sharedTextureMode;
 };
 
 } // namespace WebCore

@@ -23,16 +23,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "TextureInfo.h"
+#include "WebCoreJni.h"
+
+#include <JNIUtility.h>
+#include <android/native_window.h>
+#include <gui/SurfaceTexture.h>
+#include <gui/SurfaceTextureClient.h>
 
 namespace WebCore {
 
-TextureInfo::TextureInfo()
+TextureInfo::TextureInfo(SharedTextureMode mode)
 {
     m_textureId = GL_NO_TEXTURE;
     m_width = 0;
     m_height = 0;
     m_internalFormat = 0;
+    m_sharedTextureMode = mode;
 }
 
 bool TextureInfo::equalsAttributes(const TextureInfo* otherTexture)

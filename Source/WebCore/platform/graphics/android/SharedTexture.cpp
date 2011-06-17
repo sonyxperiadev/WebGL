@@ -27,6 +27,7 @@
 #include "SharedTexture.h"
 
 #include "GLUtils.h"
+#include <gui/SurfaceTexture.h>
 
 #define LOG_NDEBUG 1
 #define LOG_TAG "SharedTexture.cpp"
@@ -34,18 +35,26 @@
 
 namespace WebCore {
 
-SharedTexture::SharedTexture()
+SharedTexture::SharedTexture(SharedTextureMode mode)
 {
-    m_eglImage = EGL_NO_IMAGE_KHR;
-    m_isNewImage = true;
-    m_syncObject = EGL_NO_SYNC_KHR;
+    m_sharedTextureMode = mode;
 
-    // Defer initialization of these values until we initialize the source
-    // texture. This ensures that this initialization happens in the appropriate
-    // thread.
-    m_display = 0;
-    m_supportsEGLImage = false;
-    m_supportsEGLFenceSyncKHR = false;
+    m_sourceTexture = new TextureInfo(m_sharedTextureMode);
+    m_targetTexture = 0;
+
+    if (m_sharedTextureMode == EglImageMode) {
+        m_targetTexture = new TextureInfo(m_sharedTextureMode);
+        m_eglImage = EGL_NO_IMAGE_KHR;
+        m_isNewImage = true;
+        m_syncObject = EGL_NO_SYNC_KHR;
+
+        // Defer initialization of these values until we initialize the source
+        // texture. This ensures that this initialization happens in the appropriate
+        // thread.
+        m_display = 0;
+        m_supportsEGLImage = false;
+        m_supportsEGLFenceSyncKHR = false;
+    }
 }
 
 // called by the consumer when it no longer wants to consume and after it has
@@ -53,11 +62,18 @@ SharedTexture::SharedTexture()
 // source texture and EGLImage is the responsibility of the caller.
 SharedTexture::~SharedTexture()
 {
-    deleteTargetTexture();
+    if (m_sharedTextureMode == EglImageMode)
+        deleteTargetTexture();
+
+    delete m_sourceTexture;
+    delete m_targetTexture;
 }
+
 
 void SharedTexture::initSourceTexture()
 {
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return;
 
     m_display = eglGetCurrentDisplay();
     m_supportsEGLImage = GLUtils::isEGLImageSupported();
@@ -69,18 +85,21 @@ void SharedTexture::initSourceTexture()
 
     LOGI("imageEGL: %d syncKHR: %d", m_supportsEGLImage, m_supportsEGLFenceSyncKHR);
 
-    glGenTextures(1, &m_sourceTexture.m_textureId);
+    glGenTextures(1, &m_sourceTexture->m_textureId);
+
 }
 
-
+// For MediaTexture only
 void SharedTexture::deleteSourceTexture()
 {
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return;
     // We need to delete the source texture and EGLImage in the thread in which
     // it was created. In theory we should be able to delete the EGLImage
     // from either thread, but it currently throws an error if not deleted
     // in the same EGLContext from which it was created.
     if (m_supportsEGLImage) {
-        GLUtils::deleteTexture(&m_sourceTexture.m_textureId);
+        GLUtils::deleteTexture(&m_sourceTexture->m_textureId);
         if (m_eglImage != EGL_NO_IMAGE_KHR) {
             eglDestroyImageKHR(eglGetCurrentDisplay(), m_eglImage);
             m_eglImage = EGL_NO_IMAGE_KHR;
@@ -90,16 +109,23 @@ void SharedTexture::deleteSourceTexture()
     }
 }
 
+// For MediaTexture only
 void SharedTexture::deleteTargetTexture()
 {
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return;
+
     if (m_supportsEGLImage)
-        GLUtils::deleteTexture(&m_targetTexture.m_textureId);
+        GLUtils::deleteTexture(&m_targetTexture->m_textureId);
     else
-        GLUtils::deleteTexture(&m_sourceTexture.m_textureId);
+        GLUtils::deleteTexture(&m_sourceTexture->m_textureId);
 }
 
 TextureInfo* SharedTexture::lockSource()
 {
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return m_sourceTexture;
+
     m_lock.lock();
 
     if (m_supportsEGLFenceSyncKHR && m_syncObject != EGL_NO_SYNC_KHR) {
@@ -107,33 +133,35 @@ TextureInfo* SharedTexture::lockSource()
         EGLint status = eglClientWaitSyncKHR(m_display, m_syncObject, 0, 1000000);
 
         if (status == EGL_TIMEOUT_EXPIRED_KHR)
-            LOGE("Sync timeout for shared texture (%d)", m_sourceTexture.m_textureId);
+            LOGE("Sync timeout for shared texture (%d)", m_sourceTexture->m_textureId);
 
         eglDestroySyncKHR(m_display, m_syncObject);
         m_syncObject = EGL_NO_SYNC_KHR;
     }
-
-    return &m_sourceTexture;
+    return m_sourceTexture;
 }
 
 void SharedTexture::releaseSource()
 {
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return;
+
     if (m_supportsEGLImage) {
         // delete the existing image if needed
-        if (!m_sourceTexture.equalsAttributes(&m_targetTexture)) {
+        if (!m_sourceTexture->equalsAttributes(m_targetTexture)) {
             if (m_eglImage != EGL_NO_IMAGE_KHR) {
                 eglDestroyImageKHR(m_display, m_eglImage);
                 m_eglImage = EGL_NO_IMAGE_KHR;
                 m_isNewImage = true;
             }
-            m_targetTexture.copyAttributes(&m_sourceTexture);
+            m_targetTexture->copyAttributes(m_sourceTexture);
         }
 
         // create an image from the texture, only when the texture is valid
-        if (m_eglImage == EGL_NO_IMAGE_KHR && m_sourceTexture.m_width
-            && m_sourceTexture.m_height) {
-            GLUtils::createEGLImageFromTexture(m_sourceTexture.m_textureId, &m_eglImage);
-            LOGV("Generating Image (%d) 0x%x", m_sourceTexture.m_textureId, m_eglImage);
+        if (m_eglImage == EGL_NO_IMAGE_KHR && m_sourceTexture->m_width
+            && m_sourceTexture->m_height) {
+            GLUtils::createEGLImageFromTexture(m_sourceTexture->m_textureId, &m_eglImage);
+            LOGV("Generating Image (%d) 0x%x", m_sourceTexture->m_textureId, m_eglImage);
 
             glFinish(); // ensures the texture is ready to be used by the consumer
         }
@@ -153,28 +181,33 @@ void SharedTexture::releaseSource()
 
 TextureInfo* SharedTexture::lockTarget()
 {
+    // Note that the source and targe are the same when using Surface Texture.
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return m_sourceTexture;
+
     m_lock.lock();
 
-    if ((!m_supportsEGLImage && m_targetTexture.m_textureId == GL_NO_TEXTURE)
+    if ((!m_supportsEGLImage && m_targetTexture->m_textureId == GL_NO_TEXTURE)
         || (m_supportsEGLImage && m_eglImage == EGL_NO_IMAGE_KHR)) {
         m_lock.unlock();
         return 0;
     }
 
-    if (m_supportsEGLImage && (m_isNewImage || m_targetTexture.m_textureId == GL_NO_TEXTURE)) {
-        if (m_targetTexture.m_textureId == GL_NO_TEXTURE)
-            glGenTextures(1, &m_targetTexture.m_textureId);
+    if (m_supportsEGLImage && (m_isNewImage || m_targetTexture->m_textureId == GL_NO_TEXTURE)) {
+        if (m_targetTexture->m_textureId == GL_NO_TEXTURE)
+            glGenTextures(1, &m_targetTexture->m_textureId);
 
-        GLUtils::createTextureFromEGLImage(m_targetTexture.m_textureId, m_eglImage);
+        GLUtils::createTextureFromEGLImage(m_targetTexture->m_textureId, m_eglImage);
         LOGV("Generating Consumer Texture from 0x%x", m_eglImage);
         m_isNewImage = false;
     }
-
-    return &m_targetTexture;
+    return m_targetTexture;
 }
 
 void SharedTexture::releaseTarget()
 {
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return;
 
     if (m_supportsEGLFenceSyncKHR) {
         if (m_syncObject != EGL_NO_SYNC_KHR)
