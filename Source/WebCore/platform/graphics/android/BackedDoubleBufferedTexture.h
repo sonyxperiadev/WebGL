@@ -75,7 +75,6 @@ public:
     // swaps) the texture.
     virtual void producerUpdate(TextureInfo* textureInfo);
     void producerUpdate(TextureInfo* textureInfo, SkBitmap* bitmap, SkIRect& rect);
-    bool textureExist(TextureInfo* textureInfo);
 
     // The level can be one of the following values:
     //  * -1 for an unused texture.

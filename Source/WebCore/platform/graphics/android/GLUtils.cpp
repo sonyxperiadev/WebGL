@@ -31,11 +31,14 @@
 #include "ShaderProgram.h"
 
 #include <cutils/log.h>
+#include <gui/SurfaceTexture.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GLUtils", __VA_ARGS__)
+
+struct ANativeWindowBuffer;
 
 namespace WebCore {
 
@@ -140,6 +143,11 @@ bool GLUtils::checkGlErrorOn(void* p, const char* op)
     return ret;
 }
 
+void GLUtils::checkSurfaceTextureError(const char* functionName, int status)
+{
+    if (status !=  NO_ERROR)
+        XLOG("ERROR at calling %s status is (%d)", functionName, status);
+}
 /////////////////////////////////////////////////////////////////////////////////////////
 // GL & EGL extension checks
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -328,6 +336,104 @@ GLuint GLUtils::createSampleTexture()
     return texture;
 }
 
+bool GLUtils::textureExist(TextureInfo* textureInfo, const SkBitmap* bitmap)
+{
+    if (!bitmap)
+        return false;
+
+    if (!bitmap->width() || !bitmap->height())
+        return false;
+
+    if (textureInfo->m_width == bitmap->width()
+        && textureInfo->m_height == bitmap->height())
+        return true;
+
+    return false;
+}
+
+void GLUtils::paintTextureWithBitmap(TextureInfo* textureInfo,
+                                     SkBitmap* bitmap,
+                                     int x,
+                                     int y,
+                                     BackedDoubleBufferedTexture* texture)
+{
+    SharedTextureMode mode = textureInfo->getSharedTextureMode();
+    if (textureExist(textureInfo, texture->bitmap())) {
+        if (mode == EglImageMode)
+            GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, x, y, *bitmap);
+        else if (mode == SurfaceTextureMode)
+            GLUtils::updateSurfaceTextureWithBitmap(textureInfo, x, y, *bitmap);
+    } else {
+        if (mode == EglImageMode)
+            GLUtils::createTextureWithBitmap(textureInfo->m_textureId, *bitmap);
+        else if (mode == SurfaceTextureMode)
+            GLUtils::createSurfaceTextureWithBitmap(textureInfo, *bitmap);
+
+        textureInfo->m_width = bitmap->width();
+        textureInfo->m_height = bitmap->height();
+    }
+}
+
+void GLUtils::createSurfaceTextureWithBitmap(TextureInfo* texture, SkBitmap& bitmap, GLint filter)
+{
+    sp<android::SurfaceTexture> surfaceTexture = texture->m_surfaceTexture;
+    sp<ANativeWindow> ANW = texture->m_ANW;
+
+    texture->m_width = bitmap.width();
+    texture->m_height = bitmap.height();
+    texture->m_internalFormat = GL_RGBA;
+
+    int result;
+    result = native_window_set_buffers_geometry(ANW.get(),
+            texture->m_width, texture->m_height, HAL_PIXEL_FORMAT_RGBA_8888);
+    checkSurfaceTextureError("native_window_set_buffers_geometry", result);
+    result = native_window_set_usage(ANW.get(),
+            GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
+    checkSurfaceTextureError("native_window_set_usage", result);
+
+    updateSurfaceTextureWithBitmap(texture, 0, 0, bitmap, filter);
+}
+
+void GLUtils::updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y, SkBitmap& bitmap, GLint filter)
+{
+    sp<android::SurfaceTexture> surfaceTexture = texture->m_surfaceTexture;
+    sp<ANativeWindow> ANW = texture->m_ANW;
+
+    ANativeWindowBuffer* anb;
+    int status = ANW->dequeueBuffer(ANW.get(), &anb);
+    checkSurfaceTextureError("dequeueBuffer", status);
+
+    sp<android::GraphicBuffer> buf(new android::GraphicBuffer(anb, false));
+    status |= ANW->lockBuffer(ANW.get(), buf->getNativeBuffer());
+    checkSurfaceTextureError("lockBuffer", status);
+
+    // Fill the buffer with the content of the bitmap
+    uint8_t* img = 0;
+    status |= buf->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, (void**)(&img));
+    checkSurfaceTextureError("lock", status);
+
+    if (status == NO_ERROR) {
+        int row, col;
+        int bpp = 4; // Now only deal with RGBA8888 format.
+
+        bitmap.lockPixels();
+        uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
+
+        // Copied pixel by pixel since we need to handle the offsets and stride.
+        for (row = 0 ; row < bitmap.height(); row ++) {
+            for (col = 0 ; col < bitmap.width(); col ++) {
+                uint8_t* dst = &(img[(buf->getStride() * (row + x) + (col + y)) * bpp]);
+                uint8_t* src = &(bitmapOrigin[(bitmap.width() * row + col) * bpp]);
+                memcpy(dst, src, bpp);
+            }
+        }
+        bitmap.unlockPixels();
+    }
+    buf->unlock();
+    status = ANW->queueBuffer(ANW.get(), buf->getNativeBuffer());
+    checkSurfaceTextureError("queueBuffer", status);
+}
+
 void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter)
 {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -357,27 +463,6 @@ void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint fi
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
     glDeleteFramebuffers(1, &fboID);
-}
-
-void GLUtils::updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter)
-{
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    GLUtils::checkGlError("glBindTexture");
-    SkBitmap::Config config = bitmap.getConfig();
-    int internalformat = getInternalFormat(config);
-    int type = getType(config);
-    bitmap.lockPixels();
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, bitmap.width(), bitmap.height(),
-                    internalformat, type, bitmap.getPixels());
-    bitmap.unlockPixels();
-    if (GLUtils::checkGlError("glTexSubImage2D")) {
-        XLOG("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
-             " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
-             bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
-    }
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 }
 
 void GLUtils::updateTextureWithBitmap(GLuint texture, int x, int y, SkBitmap& bitmap, GLint filter)

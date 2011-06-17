@@ -27,7 +27,9 @@
 #include "SharedTexture.h"
 
 #include "GLUtils.h"
+#include <android/native_window.h>
 #include <gui/SurfaceTexture.h>
+#include <gui/SurfaceTextureClient.h>
 
 #define LOG_NDEBUG 1
 #define LOG_TAG "SharedTexture.cpp"
@@ -54,6 +56,15 @@ SharedTexture::SharedTexture(SharedTextureMode mode)
         m_display = 0;
         m_supportsEGLImage = false;
         m_supportsEGLFenceSyncKHR = false;
+    } else if (m_sharedTextureMode == SurfaceTextureMode) {
+        glGenTextures(1, &m_sourceTexture->m_textureId);
+
+        m_sourceTexture->m_surfaceTexture =
+            new android::SurfaceTexture(m_sourceTexture->m_textureId);
+        m_sourceTexture->m_ANW =
+            new android::SurfaceTextureClient(m_sourceTexture->m_surfaceTexture);
+
+        m_sourceTexture->m_surfaceTexture->setSynchronousMode(false);
     }
 }
 
@@ -64,7 +75,10 @@ SharedTexture::~SharedTexture()
 {
     if (m_sharedTextureMode == EglImageMode)
         deleteTargetTexture();
-
+    else if (m_sharedTextureMode == SurfaceTextureMode) {
+        m_sourceTexture->m_surfaceTexture.clear();
+        m_sourceTexture->m_ANW.clear();
+    }
     delete m_sourceTexture;
     delete m_targetTexture;
 }
@@ -182,8 +196,16 @@ void SharedTexture::releaseSource()
 TextureInfo* SharedTexture::lockTarget()
 {
     // Note that the source and targe are the same when using Surface Texture.
-    if (m_sharedTextureMode == SurfaceTextureMode)
+    if (m_sharedTextureMode == SurfaceTextureMode) {
+        m_sourceTexture->m_surfaceTexture->updateTexImage();
+
+        // Surface Texture requires the filter to be non mipmap
+        glBindTexture(GL_TEXTURE_2D, m_sourceTexture->m_textureId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
         return m_sourceTexture;
+    }
 
     m_lock.lock();
 
