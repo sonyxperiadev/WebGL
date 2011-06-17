@@ -41,7 +41,7 @@ namespace WebCore {
 BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
                                                          SkBitmap* bitmap,
                                                          SkBitmap::Config config)
-    : DoubleBufferedTexture(eglGetCurrentContext(), EglImageMode)
+    : DoubleBufferedTexture(eglGetCurrentContext(), SurfaceTextureMode)
     , m_usedLevel(-1)
     , m_config(config)
     , m_owner(0)
@@ -82,8 +82,10 @@ BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
     if (!m_sharedBitmap)
         delete m_bitmap;
     delete m_canvas;
-    SharedTexture* textures[3] = { m_textureA, m_textureB, 0 };
-    destroyTextures(textures);
+    if (m_sharedTextureMode == EglImageMode) {
+        SharedTexture* textures[3] = { m_textureA, m_textureB, 0 };
+        destroyTextures(textures);
+    }
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("BackedDoubleBufferedTexture");
 #endif
@@ -146,21 +148,6 @@ bool BackedDoubleBufferedTexture::busy()
     return m_busy;
 }
 
-bool BackedDoubleBufferedTexture::textureExist(TextureInfo* textureInfo)
-{
-    if (!m_bitmap)
-        return false;
-
-    if (!m_bitmap->width() || !m_bitmap->height())
-        return false;
-
-    if (textureInfo->m_width == m_bitmap->width() &&
-        textureInfo->m_height == m_bitmap->height())
-        return true;
-
-    return false;
-}
-
 void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
 {
     if (!m_bitmap)
@@ -172,13 +159,7 @@ void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
         return;
     }
 
-    if (textureExist(textureInfo))
-        GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, *m_bitmap);
-    else {
-        GLUtils::createTextureWithBitmap(textureInfo->m_textureId, *m_bitmap);
-        textureInfo->m_width = m_bitmap->width();
-        textureInfo->m_height = m_bitmap->height();
-    }
+    GLUtils::paintTextureWithBitmap(textureInfo, m_bitmap, 0, 0, this);
 
     if (!m_sharedBitmap) {
         delete m_bitmap;

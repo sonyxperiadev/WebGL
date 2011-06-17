@@ -56,6 +56,7 @@ protected:
     SharedTexture* m_textureA;
     SharedTexture* m_textureB;
 
+    SharedTextureMode m_sharedTextureMode;
 private:
 
     SharedTexture* m_writeableTexture;
@@ -66,8 +67,6 @@ private:
     EGLContext m_cContext;
 
     bool m_supportsEGLImage;
-
-    SharedTextureMode m_sharedTextureMode;
 };
 
 } // namespace WebCore

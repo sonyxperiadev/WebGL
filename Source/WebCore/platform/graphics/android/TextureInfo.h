@@ -34,7 +34,7 @@
 using android::sp;
 
 namespace android {
-    class SurfaceTexture;
+class SurfaceTexture;
 }
 
 namespace WebCore {
@@ -57,6 +57,7 @@ public:
     bool equalsAttributes(const TextureInfo* otherTexture);
     void copyAttributes(const TextureInfo* sourceTexture);
 
+    SharedTextureMode getSharedTextureMode() { return m_sharedTextureMode; }
     bool operator==(const TextureInfo& otherTexture);
 
     GLuint m_textureId;

@@ -449,7 +449,9 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
     SkIRect rect = r;
     float tx = ptx;
     float ty = pty;
-    if (!texture->textureExist(textureInfo)) {
+    // TODO: Implement the partial invalidate in Surface Texture Mode
+    if (!GLUtils::textureExist(textureInfo, texture->bitmap())
+        || textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
         fullRepaint = true;
     }
 
@@ -517,17 +519,11 @@ int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
         drawTileInfo(&canvas, texture, x(), y(), scale, pictureCount);
     }
 
-    if (!texture->textureExist(textureInfo)) {
-        GLUtils::createTextureWithBitmap(textureInfo->m_textureId, bitmap);
-        textureInfo->m_width = rect.width();
-        textureInfo->m_height = rect.height();
-    } else {
-        if (measurePerf)
-            m_perfMon.start(TAG_UPDATE_TEXTURE);
-        GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, rect.fLeft, rect.fTop, bitmap);
-        if (measurePerf)
-            m_perfMon.stop(TAG_UPDATE_TEXTURE);
-    }
+    if (measurePerf)
+        m_perfMon.start(TAG_UPDATE_TEXTURE);
+    GLUtils::paintTextureWithBitmap(textureInfo, &bitmap, rect.fLeft, rect.fTop, texture);
+    if (measurePerf)
+        m_perfMon.stop(TAG_UPDATE_TEXTURE);
 
     if (measurePerf)
         m_perfMon.start(TAG_RESET_BITMAP);
