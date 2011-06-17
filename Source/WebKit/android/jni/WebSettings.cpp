@@ -67,8 +67,7 @@ struct FieldIds {
     FieldIds(JNIEnv* env, jclass clazz) {
         mLayoutAlgorithm = env->GetFieldID(clazz, "mLayoutAlgorithm",
                 "Landroid/webkit/WebSettings$LayoutAlgorithm;");
-        mTextSize = env->GetFieldID(clazz, "mTextSize",
-                "Landroid/webkit/WebSettings$TextSize;");
+        mTextSize = env->GetFieldID(clazz, "mTextSize", "I");
         mStandardFontFamily = env->GetFieldID(clazz, "mStandardFontFamily",
                 "Ljava/lang/String;");
         mFixedFontFamily = env->GetFieldID(clazz, "mFixedFontFamily",
@@ -195,11 +194,6 @@ struct FieldIds {
         mOrdinal = env->GetMethodID(enumClass, "ordinal", "()I");
         LOG_ASSERT(mOrdinal, "Could not find method ordinal");
         env->DeleteLocalRef(enumClass);
-
-        jclass textSizeClass = env->FindClass("android/webkit/WebSettings$TextSize");
-        LOG_ASSERT(textSizeClass, "Could not find TextSize enum");
-        mTextSizeValue = env->GetFieldID(textSizeClass, "value", "I");
-        env->DeleteLocalRef(textSizeClass);
     }
 
     // Field ids
@@ -347,8 +341,8 @@ public:
             }
         }
 #endif
-        jobject textSize = env->GetObjectField(obj, gFieldIds->mTextSize);
-        float zoomFactor = env->GetIntField(textSize, gFieldIds->mTextSizeValue) / 100.0f;
+        jint textSize = env->GetIntField(obj, gFieldIds->mTextSize);
+        float zoomFactor = textSize / 100.0f;
         if (pFrame->textZoomFactor() != zoomFactor)
             pFrame->setTextZoomFactor(zoomFactor);
 
