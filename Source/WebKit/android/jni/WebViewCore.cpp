@@ -1251,6 +1251,11 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     int textWrapWidth, float scale, int screenWidth, int screenHeight,
     int anchorX, int anchorY, bool ignoreHeight)
 {
+    // Ignore the initial empty document.
+    const WebCore::KURL& url = m_mainFrame->document()->url();
+    if (url.isEmpty())
+        return;
+
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
     int ow = window->width();
     int oh = window->height();
