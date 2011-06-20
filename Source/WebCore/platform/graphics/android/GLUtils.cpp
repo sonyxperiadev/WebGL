@@ -418,14 +418,11 @@ void GLUtils::updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y,
 
         bitmap.lockPixels();
         uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
-
-        // Copied pixel by pixel since we need to handle the offsets and stride.
+        // Copied line by line since we need to handle the offsets and stride.
         for (row = 0 ; row < bitmap.height(); row ++) {
-            for (col = 0 ; col < bitmap.width(); col ++) {
-                uint8_t* dst = &(img[(buf->getStride() * (row + x) + (col + y)) * bpp]);
-                uint8_t* src = &(bitmapOrigin[(bitmap.width() * row + col) * bpp]);
-                memcpy(dst, src, bpp);
-            }
+            uint8_t* dst = &(img[(buf->getStride() * (row + x) + y) * bpp]);
+            uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
+            memcpy(dst, src, bpp * bitmap.width());
         }
         bitmap.unlockPixels();
     }
