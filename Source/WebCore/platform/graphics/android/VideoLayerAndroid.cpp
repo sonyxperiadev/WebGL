@@ -168,7 +168,7 @@ bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         // Show the progressing animation, with two rotating circles
         TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
                                                           m_backgroundTextureId,
-                                                          0.5, true);
+                                                          1, true);
 
         TransformationMatrix addReverseRotation;
         TransformationMatrix addRotation = drawTransform();
@@ -217,7 +217,7 @@ bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
             // Show the static poster b/c there is no screen shot available.
             TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
                                                               m_backgroundTextureId,
-                                                              0.5, true);
+                                                              1, true);
             TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), innerRect,
                                                               m_posterTextureId,
                                                               1, true);
