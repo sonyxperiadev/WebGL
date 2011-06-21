@@ -37,7 +37,8 @@ class SkDevice;
 namespace WebCore {
 
 class TextureInfo;
-class TiledPage;
+class TilePainter;
+class BaseTile;
 
 struct TileRenderInfo {
     // coordinates of the tile
@@ -53,8 +54,11 @@ struct TileRenderInfo {
     // the expected size of the tile
     SkSize tileSize;
 
-    // the tiled page that contains the content to be drawn
-    TiledPage* tiledPage;
+    // the painter object in charge of drawing our content
+    TilePainter* tilePainter;
+
+    // the base tile calling us
+    BaseTile* baseTile;
 
     // info about the texture that we are to render into
     TextureInfo* textureInfo;

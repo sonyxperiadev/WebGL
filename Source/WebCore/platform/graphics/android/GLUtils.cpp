@@ -394,6 +394,11 @@ void GLUtils::updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y,
     int status = ANW->dequeueBuffer(ANW.get(), &anb);
     checkSurfaceTextureError("dequeueBuffer", status);
 
+    if (status != NO_ERROR) { // FIXME: add proper error handling!
+        native_window_set_buffer_count(ANW.get(), 3);
+        return;
+    }
+
     sp<android::GraphicBuffer> buf(new android::GraphicBuffer(anb, false));
     status |= ANW->lockBuffer(ANW.get(), buf->getNativeBuffer());
     checkSurfaceTextureError("lockBuffer", status);

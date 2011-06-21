@@ -24,9 +24,10 @@
 #include "FloatRect.h"
 #include "GraphicsLayerClient.h"
 #include "Layer.h"
-#include "LayerTexture.h"
 #include "RefPtr.h"
+#include "SkBitmap.h"
 #include "SkColor.h"
+#include "SkStream.h"
 #include "TextureOwner.h"
 #include "TransformationMatrix.h"
 
@@ -45,10 +46,14 @@ class SkCanvas;
 class SkMatrix;
 class SkPicture;
 
+namespace WebCore {
+class LayerAndroid;
+}
+
 namespace android {
 class DrawExtra;
-void serializeLayer(LayerAndroid* layer, SkWStream* stream);
-LayerAndroid* deserializeLayer(SkStream* stream);
+void serializeLayer(WebCore::LayerAndroid* layer, SkWStream* stream);
+WebCore::LayerAndroid* deserializeLayer(SkStream* stream);
 }
 
 using namespace android;
@@ -88,19 +93,15 @@ class BaseTileTexture;
 class LayerAndroidFindState;
 class RenderLayer;
 class TiledPage;
+class PaintedSurface;
 
-class LayerAndroid : public Layer, public TextureOwner {
-
+class LayerAndroid : public Layer {
 public:
     LayerAndroid(RenderLayer* owner);
     LayerAndroid(const LayerAndroid& layer);
     LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
 
-    // TextureOwner methods
-    virtual bool removeTexture(BaseTileTexture* texture);
-
-    LayerTexture* texture() { return m_reservedTexture; }
     virtual TiledPage* page() { return 0; }
     virtual GLWebViewState* state() { return 0; }
 
@@ -111,33 +112,16 @@ public:
     IntRect clippedRect() const;
     bool outsideViewport();
 
-    // Debug/info functions
-    int countTextureSize();
-    int nbLayers();
-    void showLayers(int indent = 0);
-
-    // Texture size functions
-    void computeTextureSize(double time);
-    void collect(Vector<LayerAndroid*>& layers,
-                 int& size);
-    int clippedTextureSize() const;
-    int fullTextureSize() const;
-
-    // called on the root layer
-    void reserveGLTextures();
-    void createGLTextures();
-
     virtual bool needsTexture();
-    bool needsScheduleRepaint(LayerTexture* texture);
 
     void setScale(float scale);
     float getScale() { return m_scale; }
     virtual bool drawGL(GLWebViewState*, SkMatrix&);
     bool drawChildrenGL(GLWebViewState*, SkMatrix&);
-    virtual void paintBitmapGL();
     void updateGLPositions(const TransformationMatrix& parentMatrix,
                            const FloatRect& clip, float opacity);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
+    float drawOpacity() { return m_drawOpacity; }
     void setVisible(bool value) { m_visible = value; }
 
     bool preserves3D() { return m_preserves3D; }
@@ -145,7 +129,7 @@ public:
     void setAnchorPointZ(float z) { m_anchorPointZ = z; }
     float anchorPointZ() { return m_anchorPointZ; }
     void setDrawTransform(const TransformationMatrix& transform) { m_drawTransform = transform; }
-    const TransformationMatrix& drawTransform() const { return m_drawTransform; }
+    const TransformationMatrix* drawTransform() const { return &m_drawTransform; }
     void setChildrenTransform(const TransformationMatrix& t) { m_childrenTransform = t; }
     void setDrawClip(const FloatRect& rect) { m_clippingRect = rect; }
     const FloatRect& drawClip() { return m_clippingRect; }
@@ -262,8 +246,13 @@ public:
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
     friend LayerAndroid* android::deserializeLayer(SkStream* stream);
 
+    PaintedSurface* texture() { return m_texture; }
+    void assignTexture(LayerAndroid* oldTree);
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
+
+    TransformationMatrix m_drawTransform;
 
 private:
     class FindState;
@@ -331,23 +320,12 @@ private:
 
     float m_zValue;
 
-    TransformationMatrix m_drawTransform;
     FloatRect m_clippingRect;
 
     SkPicture* m_extra;
     int m_uniqueId;
 
-    // We have two textures pointers -- one if the texture we are currently
-    // using to draw (m_drawingTexture), the other one is the one we get
-    // from trying to reserve a texture from the TilesManager. Usually, they
-    // are identical, but in some cases they are not (different scaling
-    // resulting in the need for different geometry, at initilisation, and
-    // if the texture asked does not fit in memory)
-    LayerTexture* m_drawingTexture;
-    LayerTexture* m_reservedTexture;
-
-    // rect used to query TilesManager for the right texture
-    IntRect m_layerTextureRect;
+    PaintedSurface* m_texture;
 
     // used to signal that the tile is out-of-date and needs to be redrawn
     bool m_dirty;

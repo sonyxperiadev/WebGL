@@ -62,7 +62,7 @@ void BaseRenderer::drawTileInfo(SkCanvas* canvas,
     SkPaint paint;
     char str[256];
     snprintf(str, 256, "(%d,%d) %.2f, tl%x p%x c%d", renderInfo.x, renderInfo.y,
-            renderInfo.scale, this, renderInfo.tiledPage, pictureCount);
+            renderInfo.scale, this, renderInfo.tilePainter, pictureCount);
     paint.setARGB(255, 0, 0, 0);
     canvas->drawText(str, strlen(str), 0, 10, paint);
     paint.setARGB(255, 255, 0, 0);
@@ -104,11 +104,13 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
     setupPartialInval(renderInfo, &canvas);
     canvas.translate(-renderInfo.x * tileSize.width(), -renderInfo.y * tileSize.height());
     canvas.scale(renderInfo.scale, renderInfo.scale);
-    int pictureCount = renderInfo.tiledPage->paintBaseLayerContent(&canvas);
+    unsigned int pictureCount = 0;
+    renderInfo.tilePainter->paint(renderInfo.baseTile, &canvas, &pictureCount);
+    if (renderInfo.baseTile->isLayerTile())
+        renderInfo.tilePainter->paintExtra(&canvas);
 
     if (visualIndicator) {
         canvas.restore();
-
         const int color = 20 + (pictureCount % 100);
 
         // only color the invalidated area

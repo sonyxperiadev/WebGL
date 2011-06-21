@@ -31,15 +31,50 @@
 namespace WebCore {
 
 class PaintTileOperation : public QueuedOperation {
- public:
+public:
     PaintTileOperation(BaseTile* tile);
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
     virtual int priority();
+    TilePainter* painter() { return m_tile->painter(); }
+    float scale() { return m_tile->scale(); }
 
- private:
+private:
     BaseTile* m_tile;
+};
+
+class ScaleFilter : public OperationFilter {
+public:
+    ScaleFilter(float scale) : m_scale(scale) {}
+    virtual bool check(QueuedOperation* operation)
+    {
+        if (operation->type() == QueuedOperation::PaintTile) {
+            PaintTileOperation* op = static_cast<PaintTileOperation*>(operation);
+            if (op->scale() != m_scale)
+                return true;
+        }
+        return false;
+    }
+private:
+    float m_scale;
+};
+
+
+class TilePainterFilter : public OperationFilter {
+public:
+    TilePainterFilter(TilePainter* painter) : m_painter(painter) {}
+    virtual bool check(QueuedOperation* operation)
+    {
+        if (operation->type() == QueuedOperation::PaintTile) {
+            PaintTileOperation* op = static_cast<PaintTileOperation*>(operation);
+            if (op->painter() == m_painter)
+                return true;
+        }
+        return false;
+    }
+private:
+    TilePainter* m_painter;
 };
 
 }

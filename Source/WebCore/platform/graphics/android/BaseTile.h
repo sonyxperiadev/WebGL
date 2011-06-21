@@ -32,6 +32,7 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "TextureOwner.h"
+#include "TilePainter.h"
 
 #include <utils/threads.h>
 
@@ -60,10 +61,13 @@ class GLWebViewState;
  */
 class BaseTile : public TextureOwner {
 public:
-    BaseTile();
+    BaseTile(bool isLayerTile = false);
     ~BaseTile();
 
-    void setContents(TiledPage* page, int x, int y);
+    bool isLayerTile() { return m_isLayerTile; }
+
+    void setContents(TilePainter* painter, int x, int y, float scale);
+    void setPage(TiledPage* page) { m_page = page; }
     bool isAvailable() const { return !m_texture; }
 
     void reserveTexture();
@@ -74,11 +78,6 @@ public:
 
     // the only thread-safe function called by the background thread
     void paintBitmap();
-    int paintPartialBitmap(SkIRect rect, float tx, float ty,
-                            float scale, BaseTileTexture* texture,
-                            TextureInfo* textureInfo,
-                            TiledPage* tiledPage,
-                            bool fullRepaint = false);
 
     void markAsDirty(const unsigned int pictureCount,
                      const SkRegion& dirtyArea);
@@ -87,7 +86,6 @@ public:
     void setRepaintPending(bool pending);
     void setUsable(bool usable);
     float scale() const { return m_scale; }
-    void setScale(float scale);
     void fullInval();
 
     int x() const { return m_x; }
@@ -101,16 +99,19 @@ public:
     virtual bool removeTexture(BaseTileTexture* texture);
     virtual TiledPage* page() { return m_page; }
     virtual GLWebViewState* state() { return m_glWebViewState; }
+    TilePainter* painter() { return m_painter; }
 
 private:
     GLWebViewState* m_glWebViewState;
 
-    // these variables are only set when the object is constructed
-    TiledPage* m_page;
+    TilePainter* m_painter;
     int m_x;
     int m_y;
 
+    TiledPage* m_page;
+
     // The remaining variables can be updated throughout the lifetime of the object
+    int m_usedLevel;
     BaseTileTexture* m_texture;
     float m_scale;
     // used to signal that the that the tile is out-of-date and needs to be redrawn
@@ -141,6 +142,8 @@ private:
     android::Mutex m_atomicSync;
 
     BaseRenderer* m_renderer;
+
+    bool m_isLayerTile;
 };
 
 } // namespace WebCore

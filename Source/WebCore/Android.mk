@@ -657,11 +657,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/ImageSourceAndroid.cpp \
 	platform/graphics/android/Layer.cpp \
 	platform/graphics/android/LayerAndroid.cpp \
-	platform/graphics/android/LayerTexture.cpp \
 	platform/graphics/android/MediaLayer.cpp \
 	platform/graphics/android/MediaTexture.cpp \
-	platform/graphics/android/PaintLayerOperation.cpp \
 	platform/graphics/android/PaintTileOperation.cpp \
+	platform/graphics/android/PaintedSurface.cpp \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
@@ -676,6 +675,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/TilesManager.cpp \
 	platform/graphics/android/TilesProfiler.cpp \
 	platform/graphics/android/TiledPage.cpp \
+	platform/graphics/android/TiledTexture.cpp \
 	platform/graphics/android/VideoLayerAndroid.cpp \
 	platform/graphics/android/VideoLayerManager.cpp \
 	platform/graphics/android/android_graphics.cpp \

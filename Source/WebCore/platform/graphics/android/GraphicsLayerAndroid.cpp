@@ -502,6 +502,7 @@ void GraphicsLayerAndroid::updateScrollingLayers()
             m_foregroundClipLayer->setMasksToBounds(true);
             m_foregroundClipLayer->addChild(m_foregroundLayer);
             m_contentLayer->addChild(m_foregroundClipLayer);
+            m_contentLayer->setHasOverflowChildren(true);
         } else {
             ASSERT(iframeNeedsOverflow && !m_contentLayer->contentIsScrollable());
             // No need to copy the children as they will be removed and synced.
@@ -866,7 +867,7 @@ void GraphicsLayerAndroid::setContentsToMedia(PlatformLayer* mediaLayer)
         mediaLayer->setPosition(m_contentLayer->getPosition().fX,
                                 m_contentLayer->getPosition().fY);
         mediaLayer->setSize(m_contentLayer->getWidth(), m_contentLayer->getHeight());
-        mediaLayer->setDrawTransform(m_contentLayer->drawTransform());
+        mediaLayer->setDrawTransform(*m_contentLayer->drawTransform());
 
         mediaLayer->ref();
         m_contentLayer->unref();

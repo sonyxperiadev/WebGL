@@ -28,7 +28,7 @@
 namespace WebCore {
 
 class ShaderProgram {
- public:
+public:
     ShaderProgram();
     void init();
     int projectionMatrix() { return m_hProjectionMatrix; }
@@ -78,7 +78,7 @@ class ShaderProgram {
 
     void resetBlending();
 
- private:
+private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
     GLuint createProgram(const char* vertexSource, const char* fragmentSource);
     void setProjectionMatrix(SkRect& geometry, GLint projectionMatrixHandle);

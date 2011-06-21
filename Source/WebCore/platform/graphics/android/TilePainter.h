@@ -1,5 +1,5 @@
 /*
- * Copyright 2010, The Android Open Source Project
+ * Copyright 2011, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,53 +23,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LayerTexture_h
-#define LayerTexture_h
+#ifndef TilePainter_h
+#define TilePainter_h
 
-#include "BaseTileTexture.h"
-#include "ClassTracker.h"
-#include "IntRect.h"
+#include "TransformationMatrix.h"
+
+class SkCanvas;
 
 namespace WebCore {
 
-class LayerTexture : public BaseTileTexture {
- public:
-    LayerTexture(uint32_t w, uint32_t h)
-        : BaseTileTexture(w, h)
-        , m_layerId(0)
-        , m_scale(1)
-        , m_ready(false)
-    {
-#ifdef DEBUG_COUNT
-        ClassTracker::instance()->increment("LayerTexture");
-#endif
-    }
-    virtual ~LayerTexture()
-    {
-#ifdef DEBUG_COUNT
-        ClassTracker::instance()->decrement("LayerTexture");
-#endif
-    };
+class BaseTile;
 
-    void setTextureInfoFor(LayerAndroid* layer);
-    bool readyFor(LayerAndroid* layer);
-    void setRect(const IntRect& r) { m_rect = r; }
-    IntRect& rect() { return m_rect; }
-    int id() { return m_layerId; }
-    float scale() { return m_scale; }
-    void setId(int id) { m_layerId = id; }
-    void setScale(float scale) { m_scale = scale; }
-    bool ready() { return m_ready; }
-    unsigned int pictureUsed();
-
- private:
-
-    IntRect m_rect;
-    int m_layerId;
-    float m_scale;
-    bool m_ready;
+class TilePainter {
+public:
+   virtual ~TilePainter() { }
+   virtual bool paint(BaseTile* tile, SkCanvas*, unsigned int*) = 0;
+   virtual void paintExtra(SkCanvas*) = 0;
+   virtual const TransformationMatrix* transform() { return 0; }
 };
 
-} // namespace WebCore
+}
 
-#endif // LayerTexture_h
+#endif // TilePainter_h

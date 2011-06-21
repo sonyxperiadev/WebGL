@@ -32,7 +32,7 @@
 namespace WebCore {
 
 class DeleteTextureOperation : public QueuedOperation {
- public:
+public:
     DeleteTextureOperation(GLuint textureId, EGLImageKHR eglImage)
         : QueuedOperation(QueuedOperation::DeleteTexture, 0)
         , m_textureId(textureId)
@@ -51,7 +51,7 @@ class DeleteTextureOperation : public QueuedOperation {
         if (m_eglImage)
             eglDestroyImageKHR(eglGetCurrentDisplay(), m_eglImage);
     }
- private:
+private:
     GLuint m_textureId;
     EGLImageKHR m_eglImage;
 };

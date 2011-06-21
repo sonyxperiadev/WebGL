@@ -29,16 +29,21 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "BaseTile.h"
+#include "PaintedSurface.h"
 #include "SkCanvas.h"
 #include "SkDevice.h"
 #include "SkPaint.h"
 #include <cutils/atomic.h>
 
-#ifdef DEBUG
 
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "TilesManager", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TilesManager", __VA_ARGS__)
@@ -65,6 +70,9 @@
 #define MAX_TEXTURE_ALLOCATION 3+(6+EXPANDED_TILE_BOUNDS_X*2)*(4+EXPANDED_TILE_BOUNDS_Y*2)*2
 #define TILE_WIDTH 300
 #define TILE_HEIGHT 300
+#define LAYER_TILE_WIDTH 256
+#define LAYER_TILE_HEIGHT 256
+#define LAYER_TILES 10
 
 // Define a maximum amount of ram used by layers
 #define MAX_LAYERS_ALLOCATION 33554432 // 32Mb
@@ -117,6 +125,17 @@ void TilesManager::allocateTiles()
         m_textures.append(loadedTexture);
         nbTexturesAllocated++;
     }
+
+    for (int i = 0; i < LAYER_TILES; i++) {
+        BaseTileTexture* texture = new BaseTileTexture(
+            layerTileWidth(), layerTileHeight());
+        // the atomic load ensures that the texture has been fully initialized
+        // before we pass a pointer for other threads to operate on
+        BaseTileTexture* loadedTexture =
+            reinterpret_cast<BaseTileTexture*>(
+            android_atomic_acquire_load(reinterpret_cast<int32_t*>(&texture)));
+        m_tilesTextures.append(loadedTexture);
+    }
     XLOG("allocated %d textures", nbTexturesAllocated);
 }
 
@@ -156,6 +175,50 @@ void TilesManager::resetTextureUsage(TiledPage* page)
     }
 }
 
+void TilesManager::swapLayersTextures(LayerAndroid* oldTree, LayerAndroid* newTree)
+{
+    if (newTree)
+        newTree->assignTexture(oldTree);
+}
+
+void TilesManager::addPaintedSurface(PaintedSurface* surface)
+{
+    m_paintedSurfaces.append(surface);
+}
+
+void TilesManager::cleanupTilesTextures()
+{
+    // release existing surfaces without layers
+    Vector<PaintedSurface*> collect;
+    for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
+        PaintedSurface* surface = m_paintedSurfaces[i];
+        if (!surface->layer())
+            collect.append(surface);
+    }
+    XLOG("remove %d / %d PaintedSurfaces", collect.size(), m_paintedSurfaces.size());
+    for (unsigned int i = 0; i < collect.size(); i++) {
+        m_paintedSurfaces.remove(m_paintedSurfaces.find(collect[i]));
+        TilePainter* painter = collect[i]->texture();
+        m_pixmapsGenerationThread->removeOperationsForPainter(painter, true);
+        XLOG("destroy %x (%x)", collect[i], painter);
+        delete collect[i];
+    }
+    for (unsigned int i = 0; i < m_tilesTextures.size(); i++) {
+        BaseTileTexture* texture = m_tilesTextures[i];
+        texture->setUsedLevel(-1);
+        if (texture->owner()) {
+            bool keep = false;
+            for (unsigned int j = 0; j < m_paintedSurfaces.size(); j++) {
+                if (m_paintedSurfaces[j]->owns(texture))
+                    keep = true;
+            }
+            if (!keep) {
+                texture->release(texture->owner());
+            }
+        }
+    }
+}
+
 BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 {
     android::Mutex::Autolock lock(m_texturesLock);
@@ -166,6 +229,23 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         XLOG("same owner (%d, %d), getAvailableTexture(%x) => texture %x",
              owner->x(), owner->y(), owner, owner->texture());
         return owner->texture();
+    }
+
+    if (owner->isLayerTile()) {
+        unsigned int max = m_tilesTextures.size();
+        for (unsigned int i = 0; i < max; i++) {
+            BaseTileTexture* texture = m_tilesTextures[i];
+            if (!texture->owner() && texture->acquire(owner)) {
+                return texture;
+            }
+            if (texture->usedLevel() != 0 && texture->acquire(owner)) {
+                return texture;
+            }
+            if (texture->scale() != owner->scale() && texture->acquire(owner)) {
+                return texture;
+            }
+        }
+        return 0;
     }
 
     // The heuristic for selecting a texture is as follows:
@@ -212,160 +292,6 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     return 0;
 }
 
-LayerTexture* TilesManager::getExistingTextureForLayer(LayerAndroid* layer,
-                                                       const IntRect& rect,
-                                                       bool any,
-                                                       LayerTexture* texture)
-{
-    android::Mutex::Autolock lock(m_texturesLock);
-    LayerTexture* best = 0;
-    unsigned newestPictureUsed = 0;
-    for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
-        if (m_layersTextures[i]->id() != layer->uniqueId())
-            continue;
-        if (!any && rect != m_layersTextures[i]->rect())
-            continue;
-        if (!any && layer->getScale() != m_layersTextures[i]->scale())
-            continue;
-        if (any && texture == m_layersTextures[i])
-            continue;
-
-        if (m_layersTextures[i]->ready()) {
-            unsigned int pictureUsed = m_layersTextures[i]->pictureUsed();
-            if (pictureUsed >= newestPictureUsed) {
-                newestPictureUsed = pictureUsed;
-                best = m_layersTextures[i];
-            }
-        }
-
-        XLOG("return layer %d (%x) for tile %d (%x)",
-             i, m_layersTextures[i],
-             layer->uniqueId(), layer);
-    }
-
-    if (best && best->acquire(layer, any))
-        return best;
-    return 0;
-}
-
-void TilesManager::printLayersTextures(const char* s)
-{
-#ifdef DEBUG
-    XLOG(">>> print layers textures (%s)", s);
-    for (unsigned int i = 0; i< m_layersTextures.size(); i++) {
-        XLOG("[%d] %s, texture %x for layer %d (w: %.2f, h: %.2f), owner: %x",
-             i, s, m_layersTextures[i],
-             m_layersTextures[i]->id(),
-             m_layersTextures[i]->getSize().fWidth,
-             m_layersTextures[i]->getSize().fHeight,
-             m_layersTextures[i]->owner());
-    }
-    XLOG("<<< print layers textures (%s)", s);
-#endif
-}
-
-void TilesManager::cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup)
-{
-    android::Mutex::Autolock lock(m_texturesLock);
-    Layer* rootLayer = 0;
-    if (layer)
-        rootLayer = layer->getRootLayer();
-#ifdef DEBUG
-    if (forceCleanup)
-        XLOG("FORCE cleanup");
-    XLOG("before cleanup, memory %d", m_layersMemoryUsage);
-    printLayersTextures("before cleanup");
-#endif
-    for (unsigned int i = 0; i< m_layersTextures.size();) {
-        LayerTexture* texture = m_layersTextures[i];
-
-        if (forceCleanup && texture->owner()) {
-            LayerAndroid* textureLayer =
-                static_cast<LayerAndroid*>(texture->owner());
-            if (textureLayer->getRootLayer() != rootLayer) {
-                // We only want to force destroy layers
-                // that are not used by the current page
-                XLOG("force removing texture %x for layer %d",
-                     texture, textureLayer->uniqueId());
-                textureLayer->removeTexture(texture);
-            }
-        }
-
-        // We only try to destroy textures that have no owners.
-        // This could be due to:
-        // 1) - the LayerAndroid dtor has been called (i.e. when swapping
-        // a LayerAndroid tree with a new one)
-        // 2) - or due to the above code, forcing a destroy.
-        // If the texture has been forced to be released (case #2), it
-        // could still be in use (in the middle of being painted). So we
-        // need to check that's not the case by checking busy(). See
-        // LayerAndroid::paintBitmapGL().
-        if (!texture->owner() && !texture->busy()) {
-            m_layersMemoryUsage -= (int) texture->getSize().fWidth
-                * (int) texture->getSize().fHeight * BYTES_PER_PIXEL;
-            m_layersTextures.remove(i);
-            // We can destroy the texture. We first remove it from the textures
-            // list, and then remove any queued drawing. At this point we know
-            // the texture has been removed from the layer, and that it's not
-            // busy, so it's safe to delete.
-            m_pixmapsGenerationThread->removeOperationsForTexture(texture);
-            XLOG("delete texture %x", texture);
-            delete texture;
-        } else {
-            // only iterate if we don't delete (if we delete, no need to as we
-            // remove the element from the array)
-            i++;
-        }
-    }
-#ifdef DEBUG
-    printLayersTextures("after cleanup");
-    XLOG("after cleanup, memory %d", m_layersMemoryUsage);
-#endif
-}
-
-LayerTexture* TilesManager::createTextureForLayer(LayerAndroid* layer, const IntRect& rect)
-{
-    int w = rect.width() * layer->getScale();
-    int h = rect.height() * layer->getScale();
-    unsigned int size = w * h * BYTES_PER_PIXEL;
-
-    // We will not allocate textures that:
-    // 1) cannot be handled by the graphic card (maxTextureSize &
-    // totalMaxTextureSize)
-    // 2) will make us go past our texture limit (MAX_LAYERS_ALLOCATION)
-
-    GLint maxTextureSize = getMaxTextureSize();
-    unsigned totalMaxTextureSize = maxTextureSize * maxTextureSize * BYTES_PER_PIXEL;
-    bool large = w > maxTextureSize || h > maxTextureSize || size > totalMaxTextureSize;
-    XLOG("createTextureForLayer(%d) @scale %.2f => %d, %d (too large? %x)", layer->uniqueId(),
-         layer->getScale(), w, h, large);
-
-    // For now just return 0 if too large
-    if (large)
-        return 0;
-
-    if (w == 0 || h == 0) // empty layer
-        return 0;
-
-    if (m_layersMemoryUsage + size > MAX_LAYERS_ALLOCATION)
-        cleanupLayersTextures(layer, true);
-
-    // If the cleanup can't achieve the goal, then don't create a layerTexture.
-    if (m_layersMemoryUsage + size > MAX_LAYERS_ALLOCATION)
-        return 0;
-
-    LayerTexture* texture = new LayerTexture(w, h);
-    texture->setId(layer->uniqueId());
-    texture->setRect(rect);
-    texture->setScale(layer->getScale());
-
-    android::Mutex::Autolock lock(m_texturesLock);
-    m_layersTextures.append(texture);
-    texture->acquire(layer);
-    m_layersMemoryUsage += size;
-    return texture;
-}
-
 int TilesManager::maxLayersAllocation()
 {
     return MAX_LAYERS_ALLOCATION;
@@ -409,6 +335,16 @@ float TilesManager::tileWidth()
 float TilesManager::tileHeight()
 {
     return TILE_HEIGHT;
+}
+
+float TilesManager::layerTileWidth()
+{
+    return LAYER_TILE_WIDTH;
+}
+
+float TilesManager::layerTileHeight()
+{
+    return LAYER_TILE_HEIGHT;
 }
 
 int TilesManager::expandedTileBoundsX() {

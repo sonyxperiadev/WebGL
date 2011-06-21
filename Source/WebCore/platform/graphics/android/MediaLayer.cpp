@@ -100,7 +100,7 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     // check to see if we need to create a video texture
     m_videoTexture->initNativeWindowIfNeeded();
     // draw any video content if present
-    m_videoTexture->drawVideo(drawTransform(), mediaBounds);
+    m_videoTexture->drawVideo(m_drawTransform, mediaBounds);
 
     // draw the primary content
     if (m_bufferedTexture) {
@@ -108,7 +108,7 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         if (textureInfo && textureInfo->m_width != 0 && textureInfo->m_height != 0) {
             // the layer's shader draws the content inverted so we must undo
             // that change in the transformation matrix
-            TransformationMatrix m = drawTransform();
+            TransformationMatrix m = m_drawTransform;
             if (!m_isContentInverted) {
                 m.flipY();
                 m.translate(0, -getSize().height());

@@ -65,6 +65,10 @@ int PaintTileOperation::priority()
 {
     if (!m_tile || m_tile->usedLevel() < 0)
         return -1;
+
+    if (m_tile->isLayerTile())
+        return 25; // for now, use a constant value.
+
     bool goingDown = m_tile->page()->scrollingDown();
     SkIRect *rect = m_tile->page()->expandedTileBounds();
     int firstTileX = rect->fLeft;

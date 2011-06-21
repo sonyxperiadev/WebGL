@@ -35,12 +35,12 @@
 namespace WebCore {
 
 class ClassTracker {
- public:
+public:
     static ClassTracker* instance();
     void show();
     void increment(String name);
     void decrement(String name);
- private:
+private:
     ClassTracker() {};
     HashMap<String, int> m_classes;
     static ClassTracker* gInstance;

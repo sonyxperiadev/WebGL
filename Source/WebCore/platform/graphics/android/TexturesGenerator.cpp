@@ -30,7 +30,7 @@
 
 #include "BaseLayerAndroid.h"
 #include "GLUtils.h"
-#include "PaintLayerOperation.h"
+#include "PaintTileOperation.h"
 #include "TilesManager.h"
 
 #ifdef DEBUG
@@ -70,14 +70,9 @@ void TexturesGenerator::removePaintOperationsForPage(TiledPage* page, bool waitF
     removeOperationsForFilter(new PagePaintFilter(page), waitForRunning);
 }
 
-void TexturesGenerator::removeOperationsForBaseLayer(BaseLayerAndroid* layer)
+void TexturesGenerator::removeOperationsForPainter(TilePainter* painter, bool waitForRunning)
 {
-    removeOperationsForFilter(new PaintLayerBaseFilter(layer));
-}
-
-void TexturesGenerator::removeOperationsForTexture(LayerTexture* texture)
-{
-    removeOperationsForFilter(new PaintLayerTextureFilter(texture));
+    removeOperationsForFilter(new TilePainterFilter(painter), waitForRunning);
 }
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
@@ -87,6 +82,9 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter, bool waitForRunning)
 {
+    if (!filter)
+        return;
+
     android::Mutex::Autolock lock(mRequestedOperationsLock);
     for (unsigned int i = 0; i < mRequestedOperations.size();) {
         QueuedOperation* operation = mRequestedOperations[i];
@@ -98,7 +96,7 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter, bool 
         }
     }
 
-    if (waitForRunning) {
+    if (waitForRunning && m_currentOperation) {
         QueuedOperation* operation = m_currentOperation;
         if (operation && filter->check(operation))
             m_waitForCompletion = true;
@@ -168,6 +166,7 @@ bool TexturesGenerator::threadLoop()
     bool stop = false;
     while (!stop) {
         mRequestedOperationsLock.lock();
+        XLOG("threadLoop, %d operations in the queue", mRequestedOperations.size());
         if (mRequestedOperations.size())
             m_currentOperation = popNext();
         mRequestedOperationsLock.unlock();

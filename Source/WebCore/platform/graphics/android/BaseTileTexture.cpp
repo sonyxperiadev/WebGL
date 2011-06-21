@@ -208,7 +208,8 @@ bool BaseTileTexture::release(TextureOwner* owner)
 }
 
 void BaseTileTexture::setTile(TextureInfo* info, int x, int y,
-                                          float scale, unsigned int pictureCount)
+                                          float scale, TilePainter* painter,
+                                          unsigned int pictureCount)
 {
     TextureTileInfo* textureInfo = m_texturesInfo.get(getWriteableTexture());
     if (!textureInfo) {
@@ -217,8 +218,17 @@ void BaseTileTexture::setTile(TextureInfo* info, int x, int y,
     textureInfo->m_x = x;
     textureInfo->m_y = y;
     textureInfo->m_scale = scale;
+    textureInfo->m_painter = painter;
     textureInfo->m_picture = pictureCount;
     m_texturesInfo.set(getWriteableTexture(), textureInfo);
+}
+
+float BaseTileTexture::scale()
+{
+    TextureTileInfo* textureInfo = m_texturesInfo.get(getWriteableTexture());
+    if (!textureInfo)
+       return 1.0;
+    return textureInfo->m_scale;
 }
 
 bool BaseTileTexture::readyFor(BaseTile* baseTile)
@@ -228,6 +238,7 @@ bool BaseTileTexture::readyFor(BaseTile* baseTile)
         (info->m_x == baseTile->x()) &&
         (info->m_y == baseTile->y()) &&
         (info->m_scale == baseTile->scale()) &&
+        (info->m_painter == baseTile->painter()) &&
         (info->m_picture == baseTile->lastPaintedPicture())) {
         return true;
     }

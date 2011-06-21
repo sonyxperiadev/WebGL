@@ -53,11 +53,13 @@
 
 namespace WebCore {
 
-BaseTile::BaseTile()
+BaseTile::BaseTile(bool isLayerTile)
     : m_glWebViewState(0)
-    , m_page(0)
+    , m_painter(0)
     , m_x(-1)
     , m_y(-1)
+    , m_page(0)
+    , m_usedLevel(-1)
     , m_texture(0)
     , m_scale(1)
     , m_dirty(true)
@@ -65,6 +67,7 @@ BaseTile::BaseTile()
     , m_usable(true)
     , m_lastDirtyPicture(0)
     , m_lastPaintedPicture(0)
+    , m_isLayerTile(isLayerTile)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("BaseTile");
@@ -102,12 +105,19 @@ BaseTile::~BaseTile()
 
 // All the following functions must be called from the main GL thread.
 
-void BaseTile::setContents(TiledPage* page, int x, int y)
+void BaseTile::setContents(TilePainter* painter, int x, int y, float scale)
 {
     android::AutoMutex lock(m_atomicSync);
-    m_page = page;
+    if ((m_painter != painter)
+        || (m_x != x)
+        || (m_y != y)
+        || (m_scale != scale))
+        fullInval();
+
+    m_painter = painter;
     m_x = x;
     m_y = y;
+    m_scale = scale;
 }
 
 void BaseTile::reserveTexture()
@@ -118,8 +128,10 @@ void BaseTile::reserveTexture()
     if (texture && m_texture != texture) {
         m_lastPaintedPicture = 0;
         fullInval();
-        m_texture = texture;
     }
+    m_texture = texture;
+    if (m_texture)
+        m_texture->setUsedLevel(m_usedLevel);
 }
 
 bool BaseTile::removeTexture(BaseTileTexture* texture)
@@ -139,15 +151,6 @@ void BaseTile::fullInval()
         m_fullRepaint[i] = true;
     }
     m_dirty = true;
-}
-
-void BaseTile::setScale(float scale)
-{
-    android::AutoMutex lock(m_atomicSync);
-    if (m_scale != scale) {
-        m_scale = scale;
-        fullInval();
-    }
 }
 
 void BaseTile::markAsDirty(int unsigned pictureCount,
@@ -189,14 +192,16 @@ void BaseTile::setUsedLevel(int usedLevel)
 {
     if (m_texture)
         m_texture->setUsedLevel(usedLevel);
+    m_usedLevel = usedLevel;
 }
 
 int BaseTile::usedLevel()
 {
     if (m_texture)
         return m_texture->usedLevel();
-    return -1;
+    return m_usedLevel;
 }
+
 
 void BaseTile::draw(float transparency, SkRect& rect, float scale)
 {
@@ -232,10 +237,16 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
     }
 
     if (m_texture->readyFor(this)) {
-        XLOG("draw tile %d, %d, %.2f with texture %x", x(), y(), scale, m_texture);
-        TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
-                                                     transparency,
-                                                     textureInfo->getTextureTarget());
+        XLOG("draw tile %x : %d, %d, %.2f with texture %x", this, x(), y(), scale(), m_texture);
+        if (isLayerTile())
+            TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
+                                                              rect, textureInfo->m_textureId,
+                                                              transparency, true,
+                                                              textureInfo->getTextureTarget());
+        else
+            TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
+                                                         transparency,
+                                                         textureInfo->getTextureTarget());
     }
     m_texture->consumerRelease();
 }
@@ -265,7 +276,6 @@ bool BaseTile::isTileReady()
 // This is called from the texture generation thread
 void BaseTile::paintBitmap()
 {
-
     // We acquire the values below atomically. This ensures that we are reading
     // values correctly across cores. Further, once we have these values they
     // can be updated by other threads without consequence.
@@ -276,15 +286,16 @@ void BaseTile::paintBitmap()
     float scale = m_scale;
     const int x = m_x;
     const int y = m_y;
-    m_atomicSync.unlock();
+    TilePainter* painter = m_painter;
 
-    if (!dirty || !texture)
+    if (!dirty || !texture) {
+        m_atomicSync.unlock();
         return;
-
-    TiledPage* tiledPage = m_page;
+    }
 
     texture->producerAcquireContext();
     TextureInfo* textureInfo = texture->producerLock();
+    m_atomicSync.unlock();
 
     // at this point we can safely check the ownership (if the texture got
     // transferred to another BaseTile under us)
@@ -301,7 +312,8 @@ void BaseTile::paintBitmap()
     renderInfo.y = y;
     renderInfo.scale = scale;
     renderInfo.tileSize = texture->getSize();
-    renderInfo.tiledPage = tiledPage;
+    renderInfo.tilePainter = painter;
+    renderInfo.baseTile = this;
     renderInfo.textureInfo = textureInfo;
 
     const float tileWidth = renderInfo.tileSize.width();
@@ -383,7 +395,7 @@ void BaseTile::paintBitmap()
     XLOG("%x update texture %x for tile %d, %d scale %.2f (m_scale: %.2f)", this, textureInfo, x, y, scale, m_scale);
 
     m_atomicSync.lock();
-    texture->setTile(textureInfo, x, y, scale, pictureCount);
+    texture->setTile(textureInfo, x, y, scale, painter, pictureCount);
     texture->producerReleaseAndSwap();
 
     if (texture == m_texture) {
