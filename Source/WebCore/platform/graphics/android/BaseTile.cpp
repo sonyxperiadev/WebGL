@@ -236,7 +236,7 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
     }
 
     if (m_texture->readyFor(this)) {
-        XLOG("draw tile %d, %d, %.2f with texture %x", x(), y(), scale(), m_texture);
+        XLOG("draw tile %d, %d, %.2f with texture %x", x(), y(), scale, m_texture);
         TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
                                                      transparency);
     }

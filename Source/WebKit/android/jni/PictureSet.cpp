@@ -221,7 +221,7 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
     if (!clearUp) {
         if (mBaseArea > 0 && mBaseArea * MAX_ADDITIONAL_AREA <= mAdditionalArea) {
             XLOG("+++ the sum of the additional area is > %.2f\% of the base Area (%.2f (%.2f) <= %.2f",
-                 MAX_ADDITIONAL_AREA * 100, baseArea * 0.65, baseArea, addArea);
+                 MAX_ADDITIONAL_AREA * 100, mBaseArea * 0.65, mBaseArea, mAdditionalArea);
             clearUp = true;
         }
     }
