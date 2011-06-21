@@ -51,6 +51,7 @@ static const char gVertexShader[] =
     "}\n";
 
 static const char gFragmentShader[] =
+    "#extension GL_OES_EGL_image_external : require\n"
     "precision mediump float;\n"
     "varying vec2 v_texCoord; \n"
     "uniform float alpha; \n"
