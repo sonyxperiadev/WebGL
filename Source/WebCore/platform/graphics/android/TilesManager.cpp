@@ -55,15 +55,14 @@
 // We need n textures for one TiledPage, and another n textures for the
 // second page used when scaling.
 // In our case, we use 300x300 textures. On the tablet, this equates to
-// at least 5 * 3 = 15 textures. We also enable offscreen textures to a maximum
-// of 101 textures used (i.e. ~70Mb max, accounting for the double buffer textures)
-// Now we switch to Surface Texture, which is triple buffering. In order to
-// avoid OOM issue, we limit the bounds number to 0.
+// at least 24 textures. That is consuming almost 50MB GPU memory.
+// 24*300*300*4(bpp)*2(pages)*3(triple buffering in Surface Texture) = 49.4MB
+// In order to avoid OOM issue, we limit the bounds number to 0 for now.
 // TODO: We should either dynamically change the outer bound by detecting the
 // HW limit or save further in the GPU memory consumption.
 #define EXPANDED_TILE_BOUNDS_X 0
 #define EXPANDED_TILE_BOUNDS_Y 0
-#define MAX_TEXTURE_ALLOCATION 3+(5+EXPANDED_TILE_BOUNDS_X*2)*(3+EXPANDED_TILE_BOUNDS_Y*2)*2
+#define MAX_TEXTURE_ALLOCATION 3+(6+EXPANDED_TILE_BOUNDS_X*2)*(4+EXPANDED_TILE_BOUNDS_Y*2)*2
 #define TILE_WIDTH 300
 #define TILE_HEIGHT 300
 
