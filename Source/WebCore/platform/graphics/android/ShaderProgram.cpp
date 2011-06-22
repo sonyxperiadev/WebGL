@@ -32,6 +32,7 @@
 #include "GLUtils.h"
 
 #include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
@@ -51,7 +52,6 @@ static const char gVertexShader[] =
     "}\n";
 
 static const char gFragmentShader[] =
-    "#extension GL_OES_EGL_image_external : require\n"
     "precision mediump float;\n"
     "varying vec2 v_texCoord; \n"
     "uniform float alpha; \n"
@@ -78,6 +78,33 @@ static const char gVideoFragmentShader[] =
     "varying vec2 v_texCoord;\n"
     "void main() {\n"
     "  gl_FragColor = texture2D(s_yuvTexture, v_texCoord);\n"
+    "}\n";
+
+// In the long run, the gSurfaceTextureOESFragmentShader is the official way of
+// doing Surface Texture for RGBA format.
+// Now since the driver is not ready for it yet, we had to support both to be
+// ready for the switch.
+// TODO: remove SurfaceTexture2D support after switching to OES method.
+static const char gSurfaceTexture2DFragmentShader[] =
+    "#extension GL_OES_EGL_image_external : require\n"
+    "precision mediump float;\n"
+    "varying vec2 v_texCoord; \n"
+    "uniform float alpha; \n"
+    "uniform sampler2D s_texture; \n"
+    "void main() {\n"
+    "  gl_FragColor = texture2D(s_texture, v_texCoord); \n"
+    "  gl_FragColor *= alpha; "
+    "}\n";
+
+static const char gSurfaceTextureOESFragmentShader[] =
+    "#extension GL_OES_EGL_image_external : require\n"
+    "precision mediump float;\n"
+    "varying vec2 v_texCoord; \n"
+    "uniform float alpha; \n"
+    "uniform samplerExternalOES s_texture; \n"
+    "void main() {\n"
+    "  gl_FragColor = texture2D(s_texture, v_texCoord); \n"
+    "  gl_FragColor *= alpha; "
     "}\n";
 
 GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource)
@@ -157,20 +184,40 @@ void ShaderProgram::init()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
     m_videoProgram = createProgram(gVideoVertexShader, gVideoFragmentShader);
-    if (m_program == -1 || m_videoProgram == -1)
+    m_surfTex2DProgram =
+        createProgram(gVertexShader, gSurfaceTexture2DFragmentShader);
+    m_surfTexOESProgram =
+        createProgram(gVertexShader, gSurfaceTextureOESFragmentShader);
+
+    if (m_program == -1
+        || m_videoProgram == -1
+        || m_surfTex2DProgram == -1
+        || m_surfTexOESProgram == -1)
         return;
 
     m_hProjectionMatrix = glGetUniformLocation(m_program, "projectionMatrix");
     m_hAlpha = glGetUniformLocation(m_program, "alpha");
     m_hTexSampler = glGetUniformLocation(m_program, "s_texture");
-
     m_hPosition = glGetAttribLocation(m_program, "vPosition");
 
-    m_hVideoProjectionMatrix = glGetUniformLocation(m_videoProgram, "projectionMatrix");
+    m_hVideoProjectionMatrix =
+        glGetUniformLocation(m_videoProgram, "projectionMatrix");
     m_hVideoTextureMatrix = glGetUniformLocation(m_videoProgram, "textureMatrix");
     m_hVideoTexSampler = glGetUniformLocation(m_videoProgram, "s_yuvTexture");
-
     m_hVideoPosition = glGetAttribLocation(m_program, "vPosition");
+
+    m_hST2DProjectionMatrix =
+        glGetUniformLocation(m_surfTex2DProgram, "projectionMatrix");
+    m_hST2DAlpha = glGetUniformLocation(m_surfTex2DProgram, "alpha");
+    m_hST2DTexSampler = glGetUniformLocation(m_surfTex2DProgram, "s_texture");
+    m_hST2DPosition = glGetAttribLocation(m_surfTex2DProgram, "vPosition");
+
+    m_hSTOESProjectionMatrix =
+        glGetUniformLocation(m_surfTexOESProgram, "projectionMatrix");
+    m_hSTOESAlpha = glGetUniformLocation(m_surfTexOESProgram, "alpha");
+    m_hSTOESTexSampler = glGetUniformLocation(m_surfTexOESProgram, "s_texture");
+    m_hSTOESPosition = glGetAttribLocation(m_surfTexOESProgram, "vPosition");
+
 
     const GLfloat coord[] = {
         0.0f, 0.0f, // C
@@ -182,6 +229,8 @@ void ShaderProgram::init()
     glGenBuffers(1, m_textureBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
     glBufferData(GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), coord, GL_STATIC_DRAW);
+
+    GLUtils::checkGlError("init");
 }
 
 void ShaderProgram::resetBlending()
@@ -232,21 +281,51 @@ void ShaderProgram::setProjectionMatrix(SkRect& geometry)
     glUniformMatrix4fv(m_hProjectionMatrix, 1, GL_FALSE, projectionMatrix);
 }
 
-void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity)
+void ShaderProgram::drawQuadInternal(SkRect& geometry,
+                                     GLint textureId,
+                                     float opacity,
+                                     GLint program,
+                                     GLint texSampler,
+                                     GLenum textureTarget,
+                                     GLint position,
+                                     GLint alpha)
 {
+    glUseProgram(program);
     setProjectionMatrix(geometry);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureId);
+    glUniform1i(texSampler, 0);
+    glBindTexture(textureTarget, textureId);
+    glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
-    glEnableVertexAttribArray(m_hPosition);
-    glVertexAttribPointer(m_hPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glUniform1f(alpha(), opacity);
+    glEnableVertexAttribArray(position);
+    glVertexAttribPointer(position, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glUniform1f(alpha, opacity);
 
     setBlendingState(opacity < 1.0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
 
+void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
+                             GLenum textureTarget)
+{
+    if (textureTarget == GL_TEXTURE_2D) {
+        drawQuadInternal(geometry, textureId, opacity, m_program,
+                         m_hTexSampler, GL_TEXTURE_2D,
+                         m_hPosition, alpha());
+    } else if (textureTarget == GL_TEXTURE_EXTERNAL_OES) {
+        drawQuadInternal(geometry, textureId, opacity, m_surfTexOESProgram,
+                         m_hSTOESTexSampler, GL_TEXTURE_EXTERNAL_OES,
+                         m_hSTOESPosition, m_hSTOESAlpha);
+    } else if (!textureTarget) {
+        drawQuadInternal(geometry, textureId, opacity, m_surfTex2DProgram,
+                         m_hST2DTexSampler, GL_TEXTURE_2D,
+                         m_hST2DPosition, m_hST2DAlpha);
+    }
     GLUtils::checkGlError("drawQuad");
 }
 
@@ -373,9 +452,34 @@ float ShaderProgram::zValue(const TransformationMatrix& drawMatrix, float w, flo
     return result.z();
 }
 
+void ShaderProgram::drawLayerQuadInternal(const GLfloat* projectionMatrix,
+                                          int textureId, float opacity,
+                                          GLenum textureTarget, GLint program,
+                                          GLint matrix, GLint texSample,
+                                          GLint position, GLint alpha)
+{
+    glUseProgram(program);
+    glUniformMatrix4fv(matrix, 1, GL_FALSE, projectionMatrix);
+
+    glActiveTexture(GL_TEXTURE0);
+    glUniform1i(texSample, 0);
+    glBindTexture(textureTarget, textureId);
+    glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
+    glEnableVertexAttribArray(position);
+    glVertexAttribPointer(position, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glUniform1f(alpha, opacity);
+}
+
+
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
                                   SkRect& geometry, int textureId, float opacity,
-                                  bool forceBlending)
+                                  bool forceBlending, GLenum textureTarget)
 {
 
     TransformationMatrix modifiedDrawMatrix = drawMatrix;
@@ -386,18 +490,27 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
-    glUniformMatrix4fv(m_hProjectionMatrix, 1, GL_FALSE, projectionMatrix);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureId);
-
-    glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
-    glEnableVertexAttribArray(m_hPosition);
-    glVertexAttribPointer(m_hPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glUniform1f(alpha(), opacity);
+    if (textureTarget == GL_TEXTURE_2D) {
+        drawLayerQuadInternal(projectionMatrix, textureId, opacity,
+                              GL_TEXTURE_2D, m_program,
+                              m_hProjectionMatrix, m_hTexSampler,
+                              m_hPosition, alpha());
+    } else if (textureTarget == GL_TEXTURE_EXTERNAL_OES) {
+        drawLayerQuadInternal(projectionMatrix, textureId, opacity,
+                              GL_TEXTURE_EXTERNAL_OES, m_surfTexOESProgram,
+                              m_hSTOESProjectionMatrix, m_hSTOESTexSampler,
+                              m_hSTOESPosition, m_hSTOESAlpha);
+    } else if (!textureTarget) {
+        drawLayerQuadInternal(projectionMatrix, textureId, opacity,
+                              GL_TEXTURE_2D, m_surfTex2DProgram,
+                              m_hST2DProjectionMatrix, m_hST2DTexSampler,
+                              m_hST2DPosition, m_hST2DAlpha);
+    }
 
     setBlendingState(forceBlending || opacity < 1.0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    GLUtils::checkGlError("drawLayerQuad");
 }
 
 void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
@@ -418,6 +531,7 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
     glUniformMatrix4fv(m_hVideoTextureMatrix, 1, GL_FALSE, textureMatrix);
 
     glActiveTexture(GL_TEXTURE0);
+    glUniform1i(m_hVideoTexSampler, 0);
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
@@ -426,9 +540,6 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
 
     setBlendingState(false);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-    // switch back to our normal rendering program
-    glUseProgram(m_program);
 }
 
 } // namespace WebCore

@@ -119,7 +119,8 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
                                  textureInfo->m_internalFormat == GL_ALPHA;
             TilesManager::instance()->shader()->drawLayerQuad(m, mediaBounds,
                                                               textureInfo->m_textureId,
-                                                              1.0f, forceBlending);
+                                                              1.0f, forceBlending,
+                                                              textureInfo->getTextureTarget());
         }
         m_bufferedTexture->consumerRelease();
     }

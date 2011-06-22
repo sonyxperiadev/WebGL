@@ -198,14 +198,6 @@ TextureInfo* SharedTexture::lockTarget()
     // Note that the source and targe are the same when using Surface Texture.
     if (m_sharedTextureMode == SurfaceTextureMode) {
         m_sourceTexture->m_surfaceTexture->updateTexImage();
-
-        // Surface Texture requires the filter to be non mipmap
-        glBindTexture(GL_TEXTURE_2D, m_sourceTexture->m_textureId);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
         return m_sourceTexture;
     }
 

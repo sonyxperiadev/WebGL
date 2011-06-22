@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "TextureInfo.h"
+
 #include "WebCoreJni.h"
 
 #include <JNIUtility.h>
@@ -60,6 +61,19 @@ void TextureInfo::copyAttributes(const TextureInfo* sourceTexture)
 bool TextureInfo::operator==(const TextureInfo& otherTexture)
 {
     return otherTexture.m_textureId == m_textureId && equalsAttributes(&otherTexture);
+}
+
+GLenum TextureInfo::getTextureTarget()
+{
+    if (m_surfaceTexture.get()) {
+        GLenum target = m_surfaceTexture->getCurrentTextureTarget();
+        // TODO: remove this translation when TEXTURE_2D+RGBA surface texture
+        // support is deprecated.
+        if (target == GL_TEXTURE_2D)
+            return 0;
+        return target;
+    }
+    return GL_TEXTURE_2D;
 }
 
 } // namespace WebCore
