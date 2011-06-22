@@ -57,8 +57,12 @@
 // In our case, we use 300x300 textures. On the tablet, this equates to
 // at least 5 * 3 = 15 textures. We also enable offscreen textures to a maximum
 // of 101 textures used (i.e. ~70Mb max, accounting for the double buffer textures)
-#define EXPANDED_TILE_BOUNDS_X 1
-#define EXPANDED_TILE_BOUNDS_Y 2
+// Now we switch to Surface Texture, which is triple buffering. In order to
+// avoid OOM issue, we limit the bounds number to 0.
+// TODO: We should either dynamically change the outer bound by detecting the
+// HW limit or save further in the GPU memory consumption.
+#define EXPANDED_TILE_BOUNDS_X 0
+#define EXPANDED_TILE_BOUNDS_Y 0
 #define MAX_TEXTURE_ALLOCATION 3+(5+EXPANDED_TILE_BOUNDS_X*2)*(3+EXPANDED_TILE_BOUNDS_Y*2)*2
 #define TILE_WIDTH 300
 #define TILE_HEIGHT 300
