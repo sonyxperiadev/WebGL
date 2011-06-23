@@ -777,7 +777,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
             EFloat cssfloat = style()->floating();
             const int lineHeight = style()->computedLineHeight();
             const int fontSize = style()->fontSize();
-            doTextWrap = autowrap && !positioned &&
+            doTextWrap = autowrap && !positioned && !style()->hasBorder() &&
                     (fontSize <= lineHeight) && !style()->hasBackground() &&
                     (((dir == LTR && cssfloat != FRIGHT) ||
                     (dir == RTL && cssfloat != FLEFT)) &&
