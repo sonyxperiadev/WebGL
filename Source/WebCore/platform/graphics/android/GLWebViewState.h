@@ -280,7 +280,6 @@ private:
     SkRegion m_invalidateRegion;
 
     SkColor m_backgroundColor;
-    double m_prevDrawTime;
 
 #ifdef MEASURES_PERF
     unsigned int m_totalTimeCounter;

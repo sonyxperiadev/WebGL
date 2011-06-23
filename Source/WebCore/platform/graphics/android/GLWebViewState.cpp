@@ -78,7 +78,6 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_globalButtonMutex(buttonMutex)
     , m_baseLayerUpdate(true)
     , m_backgroundColor(SK_ColorWHITE)
-    , m_prevDrawTime(0)
     , m_displayRings(false)
     , m_focusRingTexture(-1)
 {
@@ -498,16 +497,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& clip, float scale, SkColor color)
 {
     glFinish();
-
-    double currentTime = WTF::currentTime();
-    double delta = currentTime - m_prevDrawTime;
-
-    if (delta < FRAMERATE_CAP) {
-        unsigned int usecs = (FRAMERATE_CAP - delta) * 1E6;
-        usleep(usecs);
-    }
-
-    m_prevDrawTime = currentTime;
 
     m_baseLayerLock.lock();
     BaseLayerAndroid* baseLayer = m_currentBaseLayer;
