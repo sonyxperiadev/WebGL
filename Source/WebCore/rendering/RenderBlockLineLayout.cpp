@@ -777,7 +777,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
             EFloat cssfloat = style()->floating();
             const int lineHeight = style()->computedLineHeight();
             const int fontSize = style()->fontSize();
-            doTextWrap = autowrap && !positioned && !style()->hasBorder() &&
+            doTextWrap = autowrap && !positioned &&
                     (fontSize <= lineHeight) && !style()->hasBackground() &&
                     (((dir == LTR && cssfloat != FRIGHT) ||
                     (dir == RTL && cssfloat != FLEFT)) &&
@@ -812,7 +812,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                 else {
 #ifdef ANDROID_LAYOUT
                     // ignore text wrap for textField or menuList
-                    if (doTextWrap && (o->isTextField() || o->isMenuList()))
+                    if (doTextWrap && (o->isTextField() || o->isMenuList() || o->isFloating()))
                         doTextWrap = false;
 #endif
                     if (o->isFloating())
