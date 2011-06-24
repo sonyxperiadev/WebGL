@@ -58,6 +58,7 @@ public:
     void copyAttributes(const TextureInfo* sourceTexture);
 
     SharedTextureMode getSharedTextureMode() { return m_sharedTextureMode; }
+    GLenum getTextureTarget();
     bool operator==(const TextureInfo& otherTexture);
 
     GLuint m_textureId;

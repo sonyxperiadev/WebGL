@@ -962,7 +962,8 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
             //TODO determine when drawing if the alpha value is used.
             TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), bounds,
                                                               textureInfo->m_textureId,
-                                                              m_drawOpacity, true);
+                                                              m_drawOpacity, true,
+                                                              textureInfo->getTextureTarget());
         }
         if (!ready)
             m_dirty = true;
