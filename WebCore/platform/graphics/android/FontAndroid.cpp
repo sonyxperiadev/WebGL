@@ -71,24 +71,30 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     if ((mode & (cTextFill | cTextStroke)) == (cTextFill | cTextStroke)) {
         SkLayerDrawLooper* looper = new SkLayerDrawLooper;
         paint->setLooper(looper)->unref();
-        
+
+         // Specify the behavior of the looper
+         SkLayerDrawLooper::LayerInfo info;
+         info.fPaintBits = SkLayerDrawLooper::kEntirePaint_Bits;
+         info.fColorMode = SkXfermode::kSrc_Mode;
+
         // we clear the looper, in case we have a shadow
 
         SkPaint* fillP = NULL;
         SkPaint* strokeP = NULL;
         if (gc->willStroke()) {
-            strokeP = setupStroke(looper->addLayer(), gc, font);
-            strokeP->setLooper(NULL);
+            strokeP = setupStroke(looper->addLayer(info), gc, font);
         }
         if (gc->willFill()) {
-            fillP = setupFill(looper->addLayer(), gc, font);
-            fillP->setLooper(NULL);
+            fillP = setupFill(looper->addLayer(info), gc, font);
         }
 
         SkPaint shadowPaint;
         SkPoint offset;
         if (gc->setupShadowPaint(&shadowPaint, &offset)) {
-            SkPaint* p = looper->addLayer(offset.fX, offset.fY);
+            // add an offset to the looper when creating a shadow layer
+           info.fOffset.set(offset.fX, offset.fY);
+
+            SkPaint* p = looper->addLayer(info);
             *p = shadowPaint;
             if (strokeP && !fillP) {
                 // stroke the shadow if we have stroke but no fill
