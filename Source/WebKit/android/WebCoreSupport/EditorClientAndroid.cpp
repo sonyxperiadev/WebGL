@@ -270,10 +270,10 @@ void EditorClientAndroid::willSetInputMethodState()
 void EditorClientAndroid::requestCheckingOfString(SpellChecker*, int, TextCheckingTypeMask, const String&) {}
 
 #if ENABLE(WEB_AUTOFILL)
-WebAutoFill* EditorClientAndroid::getAutoFill()
+WebAutofill* EditorClientAndroid::getAutofill()
 {
     if (!m_autoFill)
-        m_autoFill.set(new WebAutoFill());
+        m_autoFill.set(new WebAutofill());
 
     return m_autoFill.get();
 }

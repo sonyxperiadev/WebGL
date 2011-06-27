@@ -117,7 +117,7 @@
 #include "WebFrameView.h"
 #include "WindowsKeyboardCodes.h"
 #include "android_graphics.h"
-#include "autofill/WebAutoFill.h"
+#include "autofill/WebAutofill.h"
 #include "htmlediting.h"
 #include "markup.h"
 
@@ -3279,7 +3279,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
 #if ENABLE(WEB_AUTOFILL)
                 if (renderer->isTextField()) {
                     EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(framePtr->page()->editorClient());
-                    WebAutoFill* autoFill = editorC->getAutoFill();
+                    WebAutofill* autoFill = editorC->getAutofill();
                     autoFill->formFieldFocused(static_cast<HTMLFormControlElement*>(focusNode));
                 }
 #endif
@@ -4566,7 +4566,7 @@ static void AutoFillForm(JNIEnv* env, jobject obj, jint queryId)
     WebCore::Frame* frame = viewImpl->mainFrame();
     if (frame) {
         EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(frame->page()->editorClient());
-        WebAutoFill* autoFill = editorC->getAutoFill();
+        WebAutofill* autoFill = editorC->getAutofill();
         autoFill->fillFormFields(queryId);
     }
 #endif

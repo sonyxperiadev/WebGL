@@ -32,7 +32,7 @@
 #include "EditorClient.h"
 #include "Page.h"
 #include "TextCheckerClient.h"
-#include "autofill/WebAutoFill.h"
+#include "autofill/WebAutofill.h"
 
 #include <wtf/OwnPtr.h>
 
@@ -124,14 +124,14 @@ public:
     void setShouldChangeSelectedRange(bool shouldChangeSelectedRange) { m_shouldChangeSelectedRange = shouldChangeSelectedRange; }
     void setUiGeneratedSelectionChange(bool uiGenerated) { m_uiGeneratedSelectionChange = uiGenerated; }
 #if ENABLE(WEB_AUTOFILL)
-    WebAutoFill* getAutoFill();
+    WebAutofill* getAutofill();
 #endif
 private:
     Page* m_page;
     bool  m_shouldChangeSelectedRange;
     bool  m_uiGeneratedSelectionChange;
 #if ENABLE(WEB_AUTOFILL)
-    OwnPtr<WebAutoFill> m_autoFill;
+    OwnPtr<WebAutofill> m_autoFill;
 #endif
 };
 

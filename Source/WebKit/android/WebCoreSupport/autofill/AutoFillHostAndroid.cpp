@@ -26,26 +26,26 @@
 #include "config.h"
 #include "AutoFillHostAndroid.h"
 
-#include "autofill/WebAutoFill.h"
+#include "autofill/WebAutofill.h"
 
 namespace android {
 
-AutoFillHostAndroid::AutoFillHostAndroid(WebAutoFill* autoFill)
-    : mAutoFill(autoFill)
+AutoFillHostAndroid::AutoFillHostAndroid(WebAutofill* autofill)
+    : mAutofill(autofill)
 {
 }
 
 void AutoFillHostAndroid::AutoFillSuggestionsReturned(const std::vector<string16>& names, const std::vector<string16>& labels, const std::vector<string16>& icons, const std::vector<int>& uniqueIds)
 {
     // TODO: what do we do with icons?
-    if (mAutoFill)
-        mAutoFill->querySuccessful(names[0], labels[0], uniqueIds[0]);
+    if (mAutofill)
+        mAutofill->querySuccessful(names[0], labels[0], uniqueIds[0]);
 }
 
 void AutoFillHostAndroid::AutoFillFormDataFilled(int queryId, const webkit_glue::FormData& form)
 {
-    if (mAutoFill)
-        mAutoFill->fillFormInPage(queryId, form);
+    if (mAutofill)
+        mAutofill->fillFormInPage(queryId, form);
 }
 
 }

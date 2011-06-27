@@ -36,7 +36,7 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/ThreadingPrimitives.h>
 
-class AutoFillManager;
+class AutofillManager;
 class AutoFillProfile;
 class AutoFillHost;
 
@@ -66,12 +66,12 @@ private:
     OwnPtr<webkit_glue::FormField> mField;
 };
 
-class WebAutoFill
+class WebAutofill
 {
-    WTF_MAKE_NONCOPYABLE(WebAutoFill);
+    WTF_MAKE_NONCOPYABLE(WebAutofill);
 public:
-    WebAutoFill();
-    virtual ~WebAutoFill();
+    WebAutofill();
+    virtual ~WebAutofill();
     void formFieldFocused(WebCore::HTMLFormControlElement*);
     void fillFormFields(int queryId);
     void querySuccessful(const string16& value, const string16& label, int uniqueId);
@@ -96,19 +96,19 @@ private:
     void cleanUpQueryMap();
 
     OwnPtr<FormManager> mFormManager;
-    OwnPtr<AutoFillManager> mAutoFillManager;
-    OwnPtr<AutoFillHost> mAutoFillHost;
+    OwnPtr<AutofillManager> mAutofillManager;
+    OwnPtr<AutoFillHost> mAutofillHost;
     OwnPtr<TabContents> mTabContents;
-    OwnPtr<AutoFillProfile> mAutoFillProfile;
+    OwnPtr<AutoFillProfile> mAutofillProfile;
 
     typedef std::vector<webkit_glue::FormData, std::allocator<webkit_glue::FormData> > FormList;
     FormList mForms;
 
-    typedef std::map<int, FormDataAndField*> AutoFillQueryFormDataMap;
-    AutoFillQueryFormDataMap mQueryMap;
+    typedef std::map<int, FormDataAndField*> AutofillQueryFormDataMap;
+    AutofillQueryFormDataMap mQueryMap;
 
-    typedef std::map<int, int> AutoFillQueryToUniqueIdMap;
-    AutoFillQueryToUniqueIdMap mUniqueIdMap;
+    typedef std::map<int, int> AutofillQueryToUniqueIdMap;
+    AutofillQueryToUniqueIdMap mUniqueIdMap;
     int mQueryId;
 
     WebViewCore* mWebViewCore;
@@ -122,7 +122,7 @@ private:
 
 }
 
-DISABLE_RUNNABLE_METHOD_REFCOUNT(android::WebAutoFill);
+DISABLE_RUNNABLE_METHOD_REFCOUNT(android::WebAutofill);
 
 #endif // ENABLE(WEB_AUTOFILL)
 #endif // WebAutoFill_h

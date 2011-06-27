@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "WebAutoFill.h"
+#include "WebAutofill.h"
 
 #if ENABLE(WEB_AUTOFILL)
 
@@ -48,7 +48,7 @@
 
 namespace android
 {
-WebAutoFill::WebAutoFill()
+WebAutofill::WebAutofill()
     : mQueryId(1)
     , mWebViewCore(0)
     , mLastSearchDomVersion(0)
@@ -58,34 +58,34 @@ WebAutoFill::WebAutoFill()
     setEmptyProfile();
 }
 
-void WebAutoFill::init()
+void WebAutofill::init()
 {
-    if (mAutoFillManager)
+    if (mAutofillManager)
         return;
 
     mFormManager = new FormManager();
     // We use the WebView's WebRequestContext, which may be a private browsing context.
     ASSERT(mWebViewCore);
-    mAutoFillManager = new AutoFillManager(mTabContents.get());
-    mAutoFillHost = new AutoFillHostAndroid(this);
+    mAutofillManager = new AutofillManager(mTabContents.get());
+    mAutofillHost = new AutoFillHostAndroid(this);
     mTabContents->SetProfileRequestContext(new AndroidURLRequestContextGetter(mWebViewCore->webRequestContext(), WebUrlLoaderClient::ioThread()));
-    mTabContents->SetAutoFillHost(mAutoFillHost.get());
+    mTabContents->SetAutoFillHost(mAutofillHost.get());
 }
 
-WebAutoFill::~WebAutoFill()
+WebAutofill::~WebAutofill()
 {
     cleanUpQueryMap();
     mUniqueIdMap.clear();
 }
 
-void WebAutoFill::cleanUpQueryMap()
+void WebAutofill::cleanUpQueryMap()
 {
-    for (AutoFillQueryFormDataMap::iterator it = mQueryMap.begin(); it != mQueryMap.end(); it++)
+    for (AutofillQueryFormDataMap::iterator it = mQueryMap.begin(); it != mQueryMap.end(); it++)
         delete it->second;
     mQueryMap.clear();
 }
 
-void WebAutoFill::searchDocument(WebCore::Frame* frame)
+void WebAutofill::searchDocument(WebCore::Frame* frame)
 {
     if (!enabled())
         return;
@@ -100,41 +100,41 @@ void WebAutoFill::searchDocument(WebCore::Frame* frame)
     mQueryId = 1;
 
     ASSERT(mFormManager);
-    ASSERT(mAutoFillManager);
+    ASSERT(mAutofillManager);
 
-    mAutoFillManager->Reset();
+    mAutofillManager->Reset();
     mFormManager->Reset();
 
     mFormManager->ExtractForms(frame);
     mFormManager->GetFormsInFrame(frame, FormManager::REQUIRE_AUTOCOMPLETE, &mForms);
 
-    // Needs to be done on a Chrome thread as it will make a URL request to the AutoFill server.
+    // Needs to be done on a Chrome thread as it will make a URL request to the Autofill server.
     // TODO: Use our own Autofill thread instead of the IO thread.
     // TODO: For now, block here. Would like to make this properly async.
     base::Thread* thread = WebUrlLoaderClient::ioThread();
     mParsingForms = true;
-    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebAutoFill::formsSeenImpl));
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebAutofill::formsSeenImpl));
     while (mParsingForms)
         mFormsSeenCondition.wait(mFormsSeenMutex);
 }
 
 // Called on the Chromium IO thread.
-void WebAutoFill::formsSeenImpl()
+void WebAutofill::formsSeenImpl()
 {
     MutexLocker lock(mFormsSeenMutex);
-    mAutoFillManager->OnFormsSeenWrapper(mForms);
+    mAutofillManager->OnFormsSeenWrapper(mForms);
     mParsingForms = false;
     mFormsSeenCondition.signal();
 }
 
-void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldElement)
+void WebAutofill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldElement)
 {
     ASSERT(formFieldElement);
 
     Document* doc = formFieldElement->document();
     Frame* frame = doc->frame();
 
-    // FIXME: AutoFill only works in main frame for now. Should consider
+    // FIXME: Autofill only works in main frame for now. Should consider
     // child frames.
     if (frame != frame->page()->mainFrame())
         return;
@@ -166,7 +166,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     mFormManager->FindFormWithFormControlElement(formFieldElement, FormManager::REQUIRE_AUTOCOMPLETE, form);
     mQueryMap[mQueryId] = new FormDataAndField(form, formField);
 
-    bool suggestions = mAutoFillManager->OnQueryFormFieldAutoFillWrapper(*form, *formField);
+    bool suggestions = mAutofillManager->OnQueryFormFieldAutoFillWrapper(*form, *formField);
 
     mQueryId++;
     if (!suggestions) {
@@ -177,7 +177,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     }
 }
 
-void WebAutoFill::querySuccessful(const string16& value, const string16& label, int uniqueId)
+void WebAutofill::querySuccessful(const string16& value, const string16& label, int uniqueId)
 {
     if (!enabled())
         return;
@@ -187,10 +187,10 @@ void WebAutoFill::querySuccessful(const string16& value, const string16& label, 
     mUniqueIdMap[mQueryId] = uniqueId;
 
     ASSERT(mWebViewCore);
-    mWebViewCore->setWebTextViewAutoFillable(mQueryId, mAutoFillProfile->Label());
+    mWebViewCore->setWebTextViewAutoFillable(mQueryId, mAutofillProfile->Label());
 }
 
-void WebAutoFill::fillFormFields(int queryId)
+void WebAutofill::fillFormFields(int queryId)
 {
     if (!enabled())
         return;
@@ -200,23 +200,23 @@ void WebAutoFill::fillFormFields(int queryId)
     ASSERT(form);
     ASSERT(field);
 
-    AutoFillQueryToUniqueIdMap::iterator iter = mUniqueIdMap.find(queryId);
+    AutofillQueryToUniqueIdMap::iterator iter = mUniqueIdMap.find(queryId);
     if (iter == mUniqueIdMap.end()) {
-        // The user has most likely tried to AutoFill the form again without
+        // The user has most likely tried to Autofill the form again without
         // refocussing the form field. The UI should protect against this
         // but stop here to be certain.
         return;
     }
-    mAutoFillManager->OnFillAutoFillFormDataWrapper(queryId, *form, *field, iter->second);
+    mAutofillManager->OnFillAutoFillFormDataWrapper(queryId, *form, *field, iter->second);
     mUniqueIdMap.erase(iter);
 }
 
-void WebAutoFill::fillFormInPage(int queryId, const webkit_glue::FormData& form)
+void WebAutofill::fillFormInPage(int queryId, const webkit_glue::FormData& form)
 {
     if (!enabled())
         return;
 
-    // FIXME: Pass a pointer to the Node that triggered the AutoFill flow here instead of 0.
+    // FIXME: Pass a pointer to the Node that triggered the Autofill flow here instead of 0.
     // The consquence of passing 0 is that we should always fail the test in FormManader::ForEachMathcingFormField():169
     // that says "only overwrite an elements current value if the user triggered autofill through that element"
     // for elements that have a value already. But by a quirk of Android text views we are OK. We should still
@@ -224,58 +224,58 @@ void WebAutoFill::fillFormInPage(int queryId, const webkit_glue::FormData& form)
     mFormManager->FillForm(form, 0);
 }
 
-bool WebAutoFill::enabled() const
+bool WebAutofill::enabled() const
 {
     Page* page = mWebViewCore->mainFrame()->page();
     return page ? page->settings()->autoFillEnabled() : false;
 }
 
-void WebAutoFill::setProfile(const string16& fullName, const string16& emailAddress, const string16& companyName,
+void WebAutofill::setProfile(const string16& fullName, const string16& emailAddress, const string16& companyName,
                              const string16& addressLine1, const string16& addressLine2, const string16& city,
                              const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber)
 {
-    if (!mAutoFillProfile)
-        mAutoFillProfile.set(new AutoFillProfile());
+    if (!mAutofillProfile)
+        mAutofillProfile.set(new AutoFillProfile());
 
     // Update the profile.
-    // Constants for AutoFill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
-    mAutoFillProfile->SetInfo(AutoFillType(NAME_FULL), fullName);
-    mAutoFillProfile->SetInfo(AutoFillType(EMAIL_ADDRESS), emailAddress);
-    mAutoFillProfile->SetInfo(AutoFillType(COMPANY_NAME), companyName);
-    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_LINE1), addressLine1);
-    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_LINE2), addressLine2);
-    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_CITY), city);
-    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_STATE), state);
-    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_ZIP), zipCode);
-    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_COUNTRY), country);
-    mAutoFillProfile->SetInfo(AutoFillType(PHONE_HOME_WHOLE_NUMBER), phoneNumber);
+    // Constants for Autofill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
+    mAutofillProfile->SetInfo(AutofillType(NAME_FULL), fullName);
+    mAutofillProfile->SetInfo(AutofillType(EMAIL_ADDRESS), emailAddress);
+    mAutofillProfile->SetInfo(AutofillType(COMPANY_NAME), companyName);
+    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_LINE1), addressLine1);
+    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_LINE2), addressLine2);
+    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_CITY), city);
+    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_STATE), state);
+    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_ZIP), zipCode);
+    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_COUNTRY), country);
+    mAutofillProfile->SetInfo(AutofillType(PHONE_HOME_WHOLE_NUMBER), phoneNumber);
 
     std::vector<AutoFillProfile> profiles;
-    profiles.push_back(*mAutoFillProfile);
+    profiles.push_back(*mAutofillProfile);
     updateProfileLabel();
     mTabContents->profile()->GetPersonalDataManager()->SetProfiles(&profiles);
 }
 
-bool WebAutoFill::updateProfileLabel()
+bool WebAutofill::updateProfileLabel()
 {
     std::vector<AutoFillProfile*> profiles;
-    profiles.push_back(mAutoFillProfile.get());
+    profiles.push_back(mAutofillProfile.get());
     return AutoFillProfile::AdjustInferredLabels(&profiles);
 }
 
-void WebAutoFill::clearProfiles()
+void WebAutofill::clearProfiles()
 {
-    if (!mAutoFillProfile)
+    if (!mAutofillProfile)
         return;
     // For now Chromium only ever knows about one profile, so we can just
     // remove it. If we support multiple profiles in the future
     // we need to remove them all here.
-    std::string profileGuid = mAutoFillProfile->guid();
+    std::string profileGuid = mAutofillProfile->guid();
     mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(profileGuid);
     setEmptyProfile();
 }
 
-void WebAutoFill::setEmptyProfile()
+void WebAutofill::setEmptyProfile()
 {
     // Set an empty profile. This will ensure that when autofill is enabled,
     // we will still search the document for autofillable forms and inform
@@ -285,7 +285,7 @@ void WebAutoFill::setEmptyProfile()
     // Chromium code will strip the values sent into the profile so we need them to be
     // at least one non-whitespace character long. We need to set all fields of the
     // profile to a non-empty string so that any field type can trigger the autofill
-    // suggestion. AutoFill will not detect form fields if the profile value for that
+    // suggestion. Autofill will not detect form fields if the profile value for that
     // field is an empty string.
     static const string16 empty = string16(ASCIIToUTF16("a"));
     setProfile(empty, empty, empty, empty, empty, empty, empty, empty, empty, empty);

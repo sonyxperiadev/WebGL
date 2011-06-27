@@ -293,7 +293,7 @@ inline string16 getStringFieldAsString16(JNIEnv* env, jobject autoFillProfile, j
     return str ? jstringToString16(env, str) : string16();
 }
 
-void syncAutoFillProfile(JNIEnv* env, jobject autoFillProfile, WebAutoFill* webAutoFill)
+void syncAutoFillProfile(JNIEnv* env, jobject autoFillProfile, WebAutofill* webAutofill)
 {
     string16 fullName = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileFullName);
     string16 emailAddress = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileEmailAddress);
@@ -306,7 +306,7 @@ void syncAutoFillProfile(JNIEnv* env, jobject autoFillProfile, WebAutoFill* webA
     string16 country = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileCountry);
     string16 phoneNumber = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfilePhoneNumber);
 
-    webAutoFill->setProfile(fullName, emailAddress, companyName, addressLine1, addressLine2, city, state, zipCode, country, phoneNumber);
+    webAutofill->setProfile(fullName, emailAddress, companyName, addressLine1, addressLine2, city, state, zipCode, country, phoneNumber);
 }
 #endif
 
@@ -554,16 +554,16 @@ public:
 
         if (flag) {
             EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(pFrame->page()->editorClient());
-            WebAutoFill* webAutoFill = editorC->getAutoFill();
-            // Set the active AutoFillProfile data.
+            WebAutofill* webAutofill = editorC->getAutofill();
+            // Set the active AutofillProfile data.
             jobject autoFillProfile = env->GetObjectField(obj, gFieldIds->mAutoFillProfile);
             if (autoFillProfile)
-                syncAutoFillProfile(env, autoFillProfile, webAutoFill);
+                syncAutoFillProfile(env, autoFillProfile, webAutofill);
             else {
                 // The autofill profile is null. We need to tell Chromium about this because
                 // this may be because the user just deleted their profile but left the
                 // autofill feature setting enabled.
-                webAutoFill->clearProfiles();
+                webAutofill->clearProfiles();
             }
         }
 #endif
