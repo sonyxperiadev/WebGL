@@ -61,15 +61,15 @@ WebRequestContext::WebRequestContext(bool isPrivateBrowsing)
     }
 
     WebCache* cache = WebCache::get(m_isPrivateBrowsing);
-    host_resolver_ = cache->hostResolver();
-    http_transaction_factory_ = cache->cache();
+    set_host_resolver(cache->hostResolver());
+    set_http_transaction_factory(cache->cache());
 
     WebCookieJar* cookieJar = WebCookieJar::get(m_isPrivateBrowsing);
-    cookie_store_ = cookieJar->cookieStore();
-    cookie_policy_ = cookieJar;
+    set_cookie_store(cookieJar->cookieStore());
+    set_cookie_policy(cookieJar);
 
     // Also hardcoded in FrameLoader.java
-    accept_charset_ = "utf-8, iso-8859-1, utf-16, *;q=0.7";
+    set_accept_charset("utf-8, iso-8859-1, utf-16, *;q=0.7");
 }
 
 WebRequestContext::~WebRequestContext()
