@@ -33,13 +33,9 @@
 #include "SkBitmap.h"
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
+#include "SkDevice.h"
 #include "SkPicture.h"
 #include "TilesManager.h"
-
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
 
 #include <wtf/text/CString.h>
 
@@ -63,16 +59,14 @@ namespace WebCore {
 static const String TAG_CREATE_BITMAP = "create_bitmap";
 static const String TAG_DRAW_PICTURE = "draw_picture";
 static const String TAG_UPDATE_TEXTURE = "update_texture";
-static const String TAG_RESET_BITMAP = "reset_bitmap";
 #define TAG_COUNT 4
 static const String TAGS[] = {
     TAG_CREATE_BITMAP,
     TAG_DRAW_PICTURE,
     TAG_UPDATE_TEXTURE,
-    TAG_RESET_BITMAP
 };
 
-RasterRenderer::RasterRenderer()
+RasterRenderer::RasterRenderer() : BaseRenderer(BaseRenderer::Raster)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("RasterRenderer");
@@ -86,20 +80,47 @@ RasterRenderer::~RasterRenderer()
 #endif
 }
 
-void RasterRenderer::drawTileInfo(SkCanvas* canvas,
-                            BaseTileTexture* texture,
-                            TiledPage* tiledPage,
-                            int x, int y, float scale,
-                            int pictureCount)
+SkDevice* RasterRenderer::setupDevice(const TileRenderInfo& renderInfo)
+{
+    if (renderInfo.measurePerf)
+        m_perfMon.start(TAG_CREATE_BITMAP);
+
+
+    SkBitmap bitmap;
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config,
+            renderInfo.invalRect->width(), renderInfo.invalRect->height());
+    bitmap.allocPixels();
+
+    SkDevice* device = new SkDevice(NULL, bitmap, false);
+
+    if (renderInfo.measurePerf) {
+        m_perfMon.stop(TAG_CREATE_BITMAP);
+        m_perfMon.start(TAG_DRAW_PICTURE);
+    }
+
+    return device;
+}
+
+void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
+{
+    if (renderInfo.measurePerf) {
+        m_perfMon.stop(TAG_DRAW_PICTURE);
+        m_perfMon.start(TAG_UPDATE_TEXTURE);
+    }
+
+    const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
+
+    GLUtils::paintTextureWithBitmap(renderInfo.textureInfo, renderInfo.tileSize,
+            bitmap, renderInfo.invalRect->fLeft, renderInfo.invalRect->fTop);
+
+    if (renderInfo.measurePerf)
+        m_perfMon.stop(TAG_UPDATE_TEXTURE);
+}
+
+void RasterRenderer::drawPerformanceInfo(SkCanvas* canvas)
 {
     SkPaint paint;
     char str[256];
-    snprintf(str, 256, "(%d,%d) %.2f, tl%x tx%x p%x c%d",
-             x, y, scale, this, texture, tiledPage, pictureCount);
-    paint.setARGB(255, 0, 0, 0);
-    canvas->drawText(str, strlen(str), 0, 10, paint);
-    paint.setARGB(255, 255, 0, 0);
-    canvas->drawText(str, strlen(str), 0, 11, paint);
     float total = 0;
     for (int i = 0; i < TAG_COUNT; i++) {
         float tagDuration = m_perfMon.getAverageDuration(TAGS[i]);
@@ -117,79 +138,6 @@ void RasterRenderer::drawTileInfo(SkCanvas* canvas,
     canvas->drawText(str, strlen(str), 0, textY, paint);
     paint.setARGB(255, 255, 0, 0);
     canvas->drawText(str, strlen(str), 0, textY + 1, paint);
-}
-
-int RasterRenderer::renderContent(int x, int y, SkIRect rect, float tx, float ty,
-                            float scale, BaseTileTexture* texture,
-                            TextureInfo* textureInfo,
-                            TiledPage* tiledPage, bool fullRepaint)
-{
-    bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
-    bool measurePerf = fullRepaint && visualIndicator;
-
-#ifdef DEBUG
-    visualIndicator = true;
-    measurePerf = true;
-#endif
-
-    if (measurePerf)
-        m_perfMon.start(TAG_CREATE_BITMAP);
-    SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, rect.width(), rect.height());
-    bitmap.allocPixels();
-    bitmap.eraseColor(0);
-
-    SkCanvas canvas(bitmap);
-    canvas.drawARGB(255, 255, 255, 255);
-
-    if (measurePerf) {
-        m_perfMon.stop(TAG_CREATE_BITMAP);
-        m_perfMon.start(TAG_DRAW_PICTURE);
-    }
-    if (visualIndicator)
-        canvas.save();
-
-    canvas.scale(scale, scale);
-    canvas.translate(-tx, -ty);
-    int pictureCount = tiledPage->paintBaseLayerContent(&canvas);
-
-    if (measurePerf) {
-        m_perfMon.stop(TAG_DRAW_PICTURE);
-    }
-    if (visualIndicator) {
-        canvas.restore();
-
-        int color = 20 + pictureCount % 100;
-        canvas.drawARGB(color, 0, 255, 0);
-
-        SkPaint paint;
-        paint.setARGB(128, 255, 0, 0);
-        paint.setStrokeWidth(3);
-        canvas.drawLine(0, 0, rect.width(), rect.height(), paint);
-        paint.setARGB(128, 0, 255, 0);
-        canvas.drawLine(0, rect.height(), rect.width(), 0, paint);
-        paint.setARGB(128, 0, 0, 255);
-        canvas.drawLine(0, 0, rect.width(), 0, paint);
-        canvas.drawLine(rect.width(), 0, rect.width(), rect.height(), paint);
-
-        drawTileInfo(&canvas, texture, tiledPage, x, y, scale, pictureCount);
-    }
-
-    if (measurePerf)
-        m_perfMon.start(TAG_UPDATE_TEXTURE);
-    GLUtils::paintTextureWithBitmap(textureInfo, texture->getSize(), bitmap, rect.fLeft, rect.fTop);
-    if (measurePerf)
-        m_perfMon.stop(TAG_UPDATE_TEXTURE);
-
-    if (measurePerf)
-        m_perfMon.start(TAG_RESET_BITMAP);
-
-    bitmap.reset();
-
-    if (measurePerf)
-        m_perfMon.stop(TAG_RESET_BITMAP);
-
-    return pictureCount;
 }
 
 } // namespace WebCore
