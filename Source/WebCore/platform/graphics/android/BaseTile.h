@@ -28,22 +28,16 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "HashMap.h"
-#include "PerformanceMonitor.h"
-#include "TextureInfo.h"
-#include "SkBitmap.h"
-#include "SkCanvas.h"
+#include "RasterRenderer.h"
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "TextureOwner.h"
 
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES2/gl2.h>
 #include <utils/threads.h>
 
 namespace WebCore {
 
+class TextureInfo;
 class TiledPage;
 class BackedDoubleBufferedTexture;
 
@@ -84,9 +78,6 @@ public:
                             TextureInfo* textureInfo,
                             TiledPage* tiledPage,
                             bool fullRepaint = false);
-    void drawTileInfo(SkCanvas* canvas,
-                      BackedDoubleBufferedTexture* texture,
-                      int x, int y, float scale, int pictureCount);
 
     void markAsDirty(const unsigned int pictureCount,
                      const SkRegion& dirtyArea);
@@ -144,8 +135,7 @@ private:
     // across all threads and cores.
     android::Mutex m_atomicSync;
 
-    // Performance tracking
-    PerformanceMonitor m_perfMon;
+    RasterRenderer m_renderer;
 };
 
 } // namespace WebCore

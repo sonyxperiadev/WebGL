@@ -29,23 +29,16 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "GLUtils.h"
-#include "SkBitmap.h"
-#include "SkBitmapRef.h"
-#include "SkCanvas.h"
-#include "SkPicture.h"
+#include "TextureInfo.h"
 #include "TilesManager.h"
 
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
 #include <cutils/atomic.h>
-#include <wtf/text/CString.h>
 
 #ifdef DEBUG
 
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTile", __VA_ARGS__)
@@ -58,20 +51,6 @@
 #endif // DEBUG
 
 namespace WebCore {
-
-static const String TAG_CREATE_BITMAP = "create_bitmap";
-static const String TAG_RECORD_PICTURE = "record_picture";
-static const String TAG_DRAW_PICTURE = "draw_picture";
-static const String TAG_UPDATE_TEXTURE = "update_texture";
-static const String TAG_RESET_BITMAP = "reset_bitmap";
-#define TAG_COUNT 5
-static const String TAGS[] = {
-    TAG_CREATE_BITMAP,
-    TAG_RECORD_PICTURE,
-    TAG_DRAW_PICTURE,
-    TAG_UPDATE_TEXTURE,
-    TAG_RESET_BITMAP
-};
 
 BaseTile::BaseTile()
     : m_page(0)
@@ -266,38 +245,6 @@ bool BaseTile::isTileReady()
     return false;
 }
 
-void BaseTile::drawTileInfo(SkCanvas* canvas,
-                            BackedDoubleBufferedTexture* texture,
-                            int x, int y, float scale,
-                            int pictureCount)
-{
-    SkPaint paint;
-    char str[256];
-    snprintf(str, 256, "(%d,%d) %.2f, tl%x tx%x p%x c%x",
-             x, y, scale, this, texture, m_page, pictureCount);
-    paint.setARGB(255, 0, 0, 0);
-    canvas->drawText(str, strlen(str), 0, 10, paint);
-    paint.setARGB(255, 255, 0, 0);
-    canvas->drawText(str, strlen(str), 0, 11, paint);
-    float total = 0;
-    for (int i = 0; i < TAG_COUNT; i++) {
-        float tagDuration = m_perfMon.getAverageDuration(TAGS[i]);
-        total += tagDuration;
-        snprintf(str, 256, "%s: %.2f", TAGS[i].utf8().data(), tagDuration);
-        paint.setARGB(255, 0, 0, 0);
-        int textY = (i * 12) + 25;
-        canvas->drawText(str, strlen(str), 0, textY, paint);
-        paint.setARGB(255, 255, 0, 0);
-        canvas->drawText(str, strlen(str), 0, textY + 1, paint);
-    }
-    snprintf(str, 256, "total: %.2f", total);
-    paint.setARGB(255, 0, 0, 0);
-    int textY = (TAG_COUNT * 12) + 30;
-    canvas->drawText(str, strlen(str), 0, textY, paint);
-    paint.setARGB(255, 255, 0, 0);
-    canvas->drawText(str, strlen(str), 0, textY + 1, paint);
-}
-
 // This is called from the texture generation thread
 void BaseTile::paintBitmap()
 {
@@ -331,73 +278,89 @@ void BaseTile::paintBitmap()
     }
 
     SkSize size = texture->getSize();
-    float tileWidth = size.width();
-    float tileHeight = size.height();
+    const float tileWidth = size.width();
+    const float tileHeight = size.height();
 
-    const float invScale = 1 / scale;
-    float w = tileWidth * invScale;
-    float h = tileHeight * invScale;
-
-    SkCanvas* canvas;
     unsigned int pictureCount = 0;
 
     SkRegion::Iterator cliperator(dirtyArea);
 
     bool fullRepaint = false;
-    if (((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA) ||
-        ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB))
+    // TODO: Implement the partial invalidate in Surface Texture Mode
+    if (((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA)
+            || ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB)
+            || !GLUtils::textureExist(textureInfo, texture->bitmap())
+            || textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
         fullRepaint = true;
+    }
 
-    if (fullRepaint) {
-        SkIRect rect;
-        pictureCount = paintPartialBitmap(rect, 0, 0, scale, texture,
-                           textureInfo, tiledPage, true);
-    } else {
+    if (!fullRepaint) {
         while (!cliperator.done()) {
             SkRect dirtyRect;
             dirtyRect.set(cliperator.rect());
 
-            float left = x * tileWidth;
-            float top = y * tileHeight;
-
             // compute the rect to corresponds to pixels
             SkRect realTileRect;
-            realTileRect.fLeft = left;
-            realTileRect.fTop = top;
-            realTileRect.fRight = left + tileWidth;
-            realTileRect.fBottom = top + tileHeight;
+            realTileRect.fLeft = x * tileWidth;
+            realTileRect.fTop = y * tileHeight;
+            realTileRect.fRight = realTileRect.fLeft + tileWidth;
+            realTileRect.fBottom = realTileRect.fTop + tileHeight;
 
             // scale the dirtyRect for intersect computation.
             SkRect realDirtyRect = SkRect::MakeWH(dirtyRect.width() * scale,
                                                   dirtyRect.height() * scale);
             realDirtyRect.offset(dirtyRect.fLeft * scale, dirtyRect.fTop * scale);
 
+            // set realTileRect to the intersection of itself and the dirty rect
             if (!realTileRect.intersect(realDirtyRect)) {
                 cliperator.next();
                 continue;
             }
 
-            realTileRect.fLeft = floorf(realTileRect.fLeft);
-            realTileRect.fTop = floorf(realTileRect.fTop);
-            realTileRect.fRight = ceilf(realTileRect.fRight);
-            realTileRect.fBottom = ceilf(realTileRect.fBottom);
-
+            // initialize finalRealRect to the rounded values of realTileRect
             SkIRect finalRealRect;
-            finalRealRect.fLeft = static_cast<int>(realTileRect.fLeft) % static_cast<int>(tileWidth);
-            finalRealRect.fTop = static_cast<int>(realTileRect.fTop) % static_cast<int>(tileHeight);
-            finalRealRect.fRight = finalRealRect.fLeft + realTileRect.width();
-            finalRealRect.fBottom = finalRealRect.fTop + realTileRect.height();
+            realTileRect.roundOut(&finalRealRect);
+
+            // stash the int values of the current width and height
+            const int iWidth = finalRealRect.width();
+            const int iHeight = finalRealRect.height();
+
+            if (iWidth == tileWidth || iHeight == tileHeight) {
+                fullRepaint = true;
+                break;
+            }
+
+            // translate the rect into tile space coordinates
+            finalRealRect.fLeft = finalRealRect.fLeft % static_cast<int>(tileWidth);
+            finalRealRect.fTop = finalRealRect.fTop % static_cast<int>(tileHeight);
+            finalRealRect.fRight = finalRealRect.fLeft + iWidth;
+            finalRealRect.fBottom = finalRealRect.fTop + iHeight;
 
             // the canvas translate can be recomputed accounting for the scale
-            float tx = - realTileRect.fLeft / scale;
-            float ty = - realTileRect.fTop / scale;
+            float tx = realTileRect.fLeft / scale;
+            float ty = realTileRect.fTop / scale;
 
-            pictureCount = paintPartialBitmap(finalRealRect, tx, ty, scale, texture,
-                                              textureInfo, tiledPage);
+            pictureCount = m_renderer.renderContent(x, y, finalRealRect,
+                                                    tx, ty, scale, texture,
+                                                    textureInfo, tiledPage,
+                                                    fullRepaint);
 
             cliperator.next();
         }
     }
+
+    if (fullRepaint) {
+        SkIRect rect;
+        rect.set(0, 0, tileWidth, tileHeight);
+        float tx = x * tileWidth / scale;
+        float ty = y * tileHeight / scale;
+
+        pictureCount = m_renderer.renderContent(x, y, rect,
+                                                tx, ty, scale, texture,
+                                                textureInfo, tiledPage,
+                                                fullRepaint);
+    }
+
     XLOG("%x update texture %x for tile %d, %d scale %.2f (m_scale: %.2f)", this, textureInfo, x, y, scale, m_scale);
 
     m_atomicSync.lock();
@@ -422,7 +385,9 @@ void BaseTile::paintBitmap()
         if (m_scale != scale)
             m_dirty = true;
 
-        if (!fullRepaint)
+        if (fullRepaint)
+            m_currentDirtyArea->setEmpty();
+        else
             m_currentDirtyArea->op(dirtyArea, SkRegion::kDifference_Op);
 
         if (!m_currentDirtyArea->isEmpty())
@@ -440,101 +405,6 @@ void BaseTile::paintBitmap()
     }
 
     m_atomicSync.unlock();
-}
-
-int BaseTile::paintPartialBitmap(SkIRect r, float ptx, float pty,
-                                  float scale, BackedDoubleBufferedTexture* texture,
-                                  TextureInfo* textureInfo,
-                                  TiledPage* tiledPage, bool fullRepaint)
-{
-    SkIRect rect = r;
-    float tx = ptx;
-    float ty = pty;
-    // TODO: Implement the partial invalidate in Surface Texture Mode
-    if (!GLUtils::textureExist(textureInfo, texture->bitmap())
-        || textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
-        fullRepaint = true;
-    }
-
-    if ((rect.width() > TilesManager::instance()->tileWidth()) ||
-        (rect.height() > TilesManager::instance()->tileHeight()))
-        fullRepaint = true;
-
-    if (fullRepaint) {
-        rect.set(0, 0, TilesManager::instance()->tileWidth(),
-                 TilesManager::instance()->tileHeight());
-        tx = - x() * TilesManager::instance()->tileWidth() / scale;
-        ty = - y() * TilesManager::instance()->tileHeight() / scale;
-    }
-    bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
-    bool measurePerf = fullRepaint && visualIndicator;
-
-    if (measurePerf)
-        m_perfMon.start(TAG_CREATE_BITMAP);
-    SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, rect.width(), rect.height());
-    bitmap.allocPixels();
-    bitmap.eraseColor(0);
-
-    SkCanvas canvas(bitmap);
-    canvas.drawARGB(255, 255, 255, 255);
-
-    if (measurePerf) {
-        m_perfMon.stop(TAG_CREATE_BITMAP);
-        m_perfMon.start(TAG_RECORD_PICTURE);
-    }
-    SkPicture picture;
-    SkCanvas* nCanvas = picture.beginRecording(rect.width(), rect.height());
-    nCanvas->scale(scale, scale);
-    nCanvas->translate(tx, ty);
-    int pictureCount = tiledPage->paintBaseLayerContent(nCanvas);
-    picture.endRecording();
-
-    if (measurePerf) {
-        m_perfMon.stop(TAG_RECORD_PICTURE);
-        m_perfMon.start(TAG_DRAW_PICTURE);
-    }
-    if (visualIndicator)
-        canvas.save();
-    picture.draw(&canvas);
-    if (visualIndicator)
-        canvas.restore();
-    if (measurePerf) {
-        m_perfMon.stop(TAG_DRAW_PICTURE);
-    }
-
-    if (visualIndicator) {
-        int color = 20 + pictureCount % 100;
-        canvas.drawARGB(color, 0, 255, 0);
-
-        SkPaint paint;
-        paint.setARGB(128, 255, 0, 0);
-        paint.setStrokeWidth(3);
-        canvas.drawLine(0, 0, rect.width(), rect.height(), paint);
-        paint.setARGB(128, 0, 255, 0);
-        canvas.drawLine(0, rect.height(), rect.width(), 0, paint);
-        paint.setARGB(128, 0, 0, 255);
-        canvas.drawLine(0, 0, rect.width(), 0, paint);
-        canvas.drawLine(rect.width(), 0, rect.width(), rect.height(), paint);
-
-        drawTileInfo(&canvas, texture, x(), y(), scale, pictureCount);
-    }
-
-    if (measurePerf)
-        m_perfMon.start(TAG_UPDATE_TEXTURE);
-    GLUtils::paintTextureWithBitmap(textureInfo, &bitmap, rect.fLeft, rect.fTop, texture);
-    if (measurePerf)
-        m_perfMon.stop(TAG_UPDATE_TEXTURE);
-
-    if (measurePerf)
-        m_perfMon.start(TAG_RESET_BITMAP);
-
-    bitmap.reset();
-
-    if (measurePerf)
-        m_perfMon.stop(TAG_RESET_BITMAP);
-
-    return pictureCount;
 }
 
 } // namespace WebCore
