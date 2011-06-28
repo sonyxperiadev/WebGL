@@ -488,7 +488,7 @@ void WebUrlLoaderClient::reportSslCertError(int cert_error, net::X509Certificate
     std::vector<std::string> chain_bytes;
     cert->GetChainDEREncodedBytes(&chain_bytes);
     this->AddRef();
-    m_webFrame->reportSslCertError(this, cert_error, chain_bytes[0]);
+    m_webFrame->reportSslCertError(this, cert_error, chain_bytes[0], m_request->getUrl());
 }
 
 void WebUrlLoaderClient::requestClientCert(net::SSLCertRequestInfo* cert_request_info)
