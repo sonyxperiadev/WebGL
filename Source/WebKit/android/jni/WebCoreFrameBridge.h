@@ -117,7 +117,7 @@ class WebFrame : public WebCoreRefObject {
 
     void didReceiveAuthenticationChallenge(WebUrlLoaderClient*, const std::string& host, const std::string& realm, bool useCachedCredentials);
 
-    void reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert);
+    void reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert, const std::string& url);
 
     void requestClientCert(WebUrlLoaderClient* client, const std::string& host_and_port);
 
