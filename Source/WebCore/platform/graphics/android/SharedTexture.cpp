@@ -78,6 +78,7 @@ SharedTexture::~SharedTexture()
     else if (m_sharedTextureMode == SurfaceTextureMode) {
         m_sourceTexture->m_surfaceTexture.clear();
         m_sourceTexture->m_ANW.clear();
+        GLUtils::deleteTexture(&m_sourceTexture->m_textureId);
     }
     delete m_sourceTexture;
     delete m_targetTexture;
