@@ -288,7 +288,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BII)I");
     mJavaFrame->mDidReceiveAuthenticationChallenge = env->GetMethodID(clazz, "didReceiveAuthenticationChallenge",
             "(ILjava/lang/String;Ljava/lang/String;Z)V");
-    mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[B)V");
+    mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[BLjava/lang/String;)V");
     mJavaFrame->mRequestClientCert = env->GetMethodID(clazz, "requestClientCert", "(I[B)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
@@ -966,7 +966,7 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
 #endif
 
 void
-WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert)
+WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert, const std::string& url)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -982,8 +982,11 @@ WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const s
     jbyte* bytes = env->GetByteArrayElements(jCert, NULL);
     cert.copy(reinterpret_cast<char*>(bytes), len);
 
-    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mReportSslCertError, jHandle, cert_error, jCert);
+    jstring jUrl = stdStringToJstring(env, url, true);
+
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mReportSslCertError, jHandle, cert_error, jCert, jUrl);
     env->DeleteLocalRef(jCert);
+    env->DeleteLocalRef(jUrl);
     checkException(env);
 }
 
