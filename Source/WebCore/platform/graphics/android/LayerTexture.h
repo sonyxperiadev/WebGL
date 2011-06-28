@@ -26,17 +26,16 @@
 #ifndef LayerTexture_h
 #define LayerTexture_h
 
-#include "BackedDoubleBufferedTexture.h"
+#include "BaseTileTexture.h"
 #include "ClassTracker.h"
 #include "IntRect.h"
 
 namespace WebCore {
 
-class LayerTexture : public BackedDoubleBufferedTexture {
+class LayerTexture : public BaseTileTexture {
  public:
-    LayerTexture(uint32_t w, uint32_t h,
-                 SkBitmap::Config config = SkBitmap::kARGB_8888_Config)
-        : BackedDoubleBufferedTexture(w, h, 0, config)
+    LayerTexture(uint32_t w, uint32_t h)
+        : BaseTileTexture(w, h)
         , m_layerId(0)
         , m_scale(1)
         , m_ready(false)

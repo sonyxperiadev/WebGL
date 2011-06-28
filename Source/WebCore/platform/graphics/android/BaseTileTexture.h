@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BackedDoubleBufferedTexture_h
-#define BackedDoubleBufferedTexture_h
+#ifndef BaseTileTexture_h
+#define BaseTileTexture_h
 
 #include "DoubleBufferedTexture.h"
 #include "GLWebViewState.h"
@@ -57,14 +57,12 @@ class TextureTileInfo {
 };
 
 // DoubleBufferedTexture using a SkBitmap as backing mechanism
-class BackedDoubleBufferedTexture : public DoubleBufferedTexture {
+class BaseTileTexture : public DoubleBufferedTexture {
 public:
     // This object is to be constructed on the consumer's thread and must have
     // a width and height greater than 0.
-    BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
-                                SkBitmap* bitmap = 0,
-                                SkBitmap::Config config = SkBitmap::kARGB_8888_Config);
-    virtual ~BackedDoubleBufferedTexture();
+    BaseTileTexture(uint32_t w, uint32_t h);
+    virtual ~BaseTileTexture();
 
     // these functions override their parent
     virtual TextureInfo* producerLock();
@@ -73,8 +71,7 @@ public:
 
     // updates the texture with current bitmap and releases (and if needed also
     // swaps) the texture.
-    virtual void producerUpdate(TextureInfo* textureInfo);
-    void producerUpdate(TextureInfo* textureInfo, SkBitmap* bitmap, SkIRect& rect);
+    virtual void producerUpdate(TextureInfo* textureInfo, const SkBitmap& bitmap);
 
     // The level can be one of the following values:
     //  * -1 for an unused texture.
@@ -97,8 +94,6 @@ public:
     // private member accessor functions
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread
     TextureOwner* delayedReleaseOwner() { return m_delayedReleaseOwner; }
-    SkCanvas* canvas(); // only used by the producer thread
-    SkBitmap* bitmap() { return m_bitmap; }
 
     bool busy();
     void setNotBusy();
@@ -114,10 +109,7 @@ protected:
 private:
     void destroyTextures(SharedTexture** textures);
 
-    SkBitmap* m_bitmap;
-    bool m_sharedBitmap;
     SkSize m_size;
-    SkCanvas* m_canvas;
     int m_usedLevel;
     SkBitmap::Config m_config;
     TextureOwner* m_owner;
@@ -142,4 +134,4 @@ private:
 
 } // namespace WebCore
 
-#endif // BackedDoubleBufferedTexture_h
+#endif // BaseTileTexture_h

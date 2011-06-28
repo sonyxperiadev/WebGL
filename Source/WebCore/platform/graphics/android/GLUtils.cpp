@@ -336,45 +336,36 @@ GLuint GLUtils::createSampleTexture()
     return texture;
 }
 
-bool GLUtils::textureExist(TextureInfo* textureInfo, const SkBitmap* bitmap)
-{
-    if (!bitmap)
-        return false;
-
-    if (!bitmap->width() || !bitmap->height())
-        return false;
-
-    if (textureInfo->m_width == bitmap->width()
-        && textureInfo->m_height == bitmap->height())
-        return true;
-
-    return false;
-}
-
 void GLUtils::paintTextureWithBitmap(TextureInfo* textureInfo,
-                                     SkBitmap* bitmap,
-                                     int x,
-                                     int y,
-                                     BackedDoubleBufferedTexture* texture)
+                                     const SkSize& requiredSize,
+                                     const SkBitmap& bitmap,
+                                     int x, int y)
 {
     SharedTextureMode mode = textureInfo->getSharedTextureMode();
-    if (textureExist(textureInfo, texture->bitmap())) {
+    if (requiredSize.equals(textureInfo->m_width, textureInfo->m_height)) {
         if (mode == EglImageMode)
-            GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, x, y, *bitmap);
+            GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, x, y, bitmap);
         else if (mode == SurfaceTextureMode)
-            GLUtils::updateSurfaceTextureWithBitmap(textureInfo, x, y, *bitmap);
+            GLUtils::updateSurfaceTextureWithBitmap(textureInfo, x, y, bitmap);
     } else {
-        if (mode == EglImageMode)
-            GLUtils::createTextureWithBitmap(textureInfo->m_textureId, *bitmap);
-        else if (mode == SurfaceTextureMode)
-            GLUtils::createSurfaceTextureWithBitmap(textureInfo, *bitmap);
 
-        textureInfo->m_width = bitmap->width();
-        textureInfo->m_height = bitmap->height();
+        if (!requiredSize.equals(bitmap.width(), bitmap.height())) {
+            XLOG("The bitmap size (%d,%d) does not equal the texture size (%d,%d)",
+                    bitmap.width(), bitmap.height(),
+                    requiredSize.width(), requiredSize.height());
+        }
+
+        if (mode == EglImageMode)
+            GLUtils::createTextureWithBitmap(textureInfo->m_textureId, bitmap);
+        else if (mode == SurfaceTextureMode)
+            GLUtils::createSurfaceTextureWithBitmap(textureInfo, bitmap);
+
+        textureInfo->m_width = bitmap.width();
+        textureInfo->m_height = bitmap.height();
     }
 }
 
-void GLUtils::createSurfaceTextureWithBitmap(TextureInfo* texture, SkBitmap& bitmap, GLint filter)
+void GLUtils::createSurfaceTextureWithBitmap(TextureInfo* texture, const SkBitmap& bitmap, GLint filter)
 {
     sp<android::SurfaceTexture> surfaceTexture = texture->m_surfaceTexture;
     sp<ANativeWindow> ANW = texture->m_ANW;
@@ -394,7 +385,7 @@ void GLUtils::createSurfaceTextureWithBitmap(TextureInfo* texture, SkBitmap& bit
     updateSurfaceTextureWithBitmap(texture, 0, 0, bitmap, filter);
 }
 
-void GLUtils::updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y, SkBitmap& bitmap, GLint filter)
+void GLUtils::updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y, const SkBitmap& bitmap, GLint filter)
 {
     sp<android::SurfaceTexture> surfaceTexture = texture->m_surfaceTexture;
     sp<ANativeWindow> ANW = texture->m_ANW;
@@ -431,7 +422,7 @@ void GLUtils::updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y,
     checkSurfaceTextureError("queueBuffer", status);
 }
 
-void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter)
+void GLUtils::createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GLint filter)
 {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -462,7 +453,7 @@ void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint fi
     glDeleteFramebuffers(1, &fboID);
 }
 
-void GLUtils::updateTextureWithBitmap(GLuint texture, int x, int y, SkBitmap& bitmap, GLint filter)
+void GLUtils::updateTextureWithBitmap(GLuint texture, int x, int y, const SkBitmap& bitmap, GLint filter)
 {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glBindTexture(GL_TEXTURE_2D, texture);

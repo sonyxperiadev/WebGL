@@ -96,10 +96,6 @@ TilesManager::TilesManager()
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
-    m_tilesBitmap = new SkBitmap();
-    m_tilesBitmap->setConfig(SkBitmap::kARGB_8888_Config, tileWidth(), tileHeight());
-    m_tilesBitmap->allocPixels();
-    m_tilesBitmap->eraseColor(0);
     m_pixmapsGenerationThread = new TexturesGenerator();
     m_pixmapsGenerationThread->run("TexturesGenerator");
 }
@@ -110,12 +106,12 @@ void TilesManager::allocateTiles()
     XLOG("%d tiles to allocate (%d textures planned)", nbTexturesToAllocate, m_maxTextureCount);
     int nbTexturesAllocated = 0;
     for (int i = 0; i < nbTexturesToAllocate; i++) {
-        BackedDoubleBufferedTexture* texture = new BackedDoubleBufferedTexture(
-            tileWidth(), tileHeight(), m_tilesBitmap);
+        BaseTileTexture* texture = new BaseTileTexture(
+            tileWidth(), tileHeight());
         // the atomic load ensures that the texture has been fully initialized
         // before we pass a pointer for other threads to operate on
-        BackedDoubleBufferedTexture* loadedTexture =
-            reinterpret_cast<BackedDoubleBufferedTexture*>(
+        BaseTileTexture* loadedTexture =
+            reinterpret_cast<BaseTileTexture*>(
             android_atomic_acquire_load(reinterpret_cast<int32_t*>(&texture)));
         m_textures.append(loadedTexture);
         nbTexturesAllocated++;
@@ -128,7 +124,7 @@ void TilesManager::printTextures()
 #ifdef DEBUG
     XLOG("++++++");
     for (unsigned int i = 0; i < m_textures.size(); i++) {
-        BackedDoubleBufferedTexture* texture = m_textures[i];
+        BaseTileTexture* texture = m_textures[i];
         BaseTile* o = 0;
         if (texture->owner())
             o = (BaseTile*) texture->owner();
@@ -150,7 +146,7 @@ void TilesManager::resetTextureUsage(TiledPage* page)
 {
     android::Mutex::Autolock lock(m_texturesLock);
     for (unsigned int i = 0; i < m_textures.size(); i++) {
-        BackedDoubleBufferedTexture* texture = m_textures[i];
+        BaseTileTexture* texture = m_textures[i];
         TextureOwner* owner = texture->owner();
         if (owner) {
             if (owner->page() == page)
@@ -159,7 +155,7 @@ void TilesManager::resetTextureUsage(TiledPage* page)
     }
 }
 
-BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
+BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 {
     android::Mutex::Autolock lock(m_texturesLock);
 
@@ -177,11 +173,11 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     //  3. return any texture not used by the tile's page or the page's sibiling
     //
     // The texture level indicates a tiles closeness to the current viewport
-    BackedDoubleBufferedTexture* farthestTexture = 0;
+    BaseTileTexture* farthestTexture = 0;
     int farthestTextureLevel = 0;
     const unsigned int max = m_textures.size();
     for (unsigned int i = 0; i < max; i++) {
-        BackedDoubleBufferedTexture* texture = m_textures[i];
+        BaseTileTexture* texture = m_textures[i];
         if (texture->usedLevel() == -1) { // found an unused texture, grab it
             farthestTexture = texture;
             break;
@@ -204,7 +200,7 @@ BackedDoubleBufferedTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     TiledPage* currentPage = owner->page();
     TiledPage* nextPage = currentPage->sibling();
     for (unsigned int i = 0; i < max; i++) {
-        BackedDoubleBufferedTexture* texture = m_textures[i];
+        BaseTileTexture* texture = m_textures[i];
         if (texture->tryAcquire(owner, currentPage, nextPage)) {
             XLOG("grab a texture that wasn't ours, (%x != %x) at %d => texture %x",
                  owner->page(), texture->owner()->page(), i, texture);
