@@ -28,9 +28,9 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BackedDoubleBufferedTexture.h"
 #include "SkBitmap.h"
 #include "SkMatrix.h"
+#include "SkSize.h"
 #include "TextureInfo.h"
 #include "TransformationMatrix.h"
 #include <EGL/egl.h>
@@ -64,16 +64,15 @@ public:
     static void deleteTexture(GLuint* texture);
     static GLuint createSampleColorTexture(int r, int g, int b);
     static GLuint createSampleTexture();
-    static void createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter = GL_LINEAR);
-    static void updateTextureWithBitmap(GLuint texture, int x, int y, SkBitmap& bitmap, GLint filter = GL_LINEAR);
+    static void createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GLint filter = GL_LINEAR);
+    static void updateTextureWithBitmap(GLuint texture, int x, int y, const SkBitmap& bitmap, GLint filter = GL_LINEAR);
     static void createEGLImageFromTexture(GLuint texture, EGLImageKHR* image);
     static void createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter = GL_LINEAR);
 
-    static bool textureExist(TextureInfo* textureInfo, const SkBitmap* bitmap);
-    static void paintTextureWithBitmap(TextureInfo* textureInfo, SkBitmap* bitmap, int x, int y, BackedDoubleBufferedTexture* texture);
+    static void paintTextureWithBitmap(TextureInfo* textureInfo, const SkSize& requiredSize, const SkBitmap& bitmap, int x, int y);
 
-    static void createSurfaceTextureWithBitmap(TextureInfo* texture, SkBitmap& bitmap, GLint filter  = GL_LINEAR);
-    static void updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y, SkBitmap& bitmap, GLint filter  = GL_LINEAR);
+    static void createSurfaceTextureWithBitmap(TextureInfo* texture, const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
+    static void updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y, const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
 };
 
 } // namespace WebCore

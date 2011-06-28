@@ -632,9 +632,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/WidthIterator.cpp \
 	\
 	platform/graphics/android/AndroidAnimation.cpp \
-	platform/graphics/android/BackedDoubleBufferedTexture.cpp \
 	platform/graphics/android/BaseLayerAndroid.cpp \
 	platform/graphics/android/BaseTile.cpp \
+	platform/graphics/android/BaseTileTexture.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
 	platform/graphics/android/ClassTracker.cpp \
 	platform/graphics/android/DoubleBufferedTexture.cpp \

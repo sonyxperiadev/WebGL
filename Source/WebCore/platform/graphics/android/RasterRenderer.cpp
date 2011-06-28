@@ -87,7 +87,7 @@ RasterRenderer::~RasterRenderer()
 }
 
 void RasterRenderer::drawTileInfo(SkCanvas* canvas,
-                            BackedDoubleBufferedTexture* texture,
+                            BaseTileTexture* texture,
                             TiledPage* tiledPage,
                             int x, int y, float scale,
                             int pictureCount)
@@ -120,7 +120,7 @@ void RasterRenderer::drawTileInfo(SkCanvas* canvas,
 }
 
 int RasterRenderer::renderContent(int x, int y, SkIRect rect, float tx, float ty,
-                            float scale, BackedDoubleBufferedTexture* texture,
+                            float scale, BaseTileTexture* texture,
                             TextureInfo* textureInfo,
                             TiledPage* tiledPage, bool fullRepaint)
 {
@@ -177,7 +177,7 @@ int RasterRenderer::renderContent(int x, int y, SkIRect rect, float tx, float ty
 
     if (measurePerf)
         m_perfMon.start(TAG_UPDATE_TEXTURE);
-    GLUtils::paintTextureWithBitmap(textureInfo, &bitmap, rect.fLeft, rect.fTop, texture);
+    GLUtils::paintTextureWithBitmap(textureInfo, texture->getSize(), bitmap, rect.fLeft, rect.fTop);
     if (measurePerf)
         m_perfMon.stop(TAG_UPDATE_TEXTURE);
 

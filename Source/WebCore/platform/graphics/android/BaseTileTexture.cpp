@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "BackedDoubleBufferedTexture.h"
+#include "BaseTileTexture.h"
 
 #include "BaseTile.h"
 #include "ClassTracker.h"
@@ -33,65 +33,38 @@
 #include "TilesManager.h"
 
 #define LOG_NDEBUG 1
-#define LOG_TAG "BackedDoubleBufferedTexture.cpp"
+#define LOG_TAG "BaseTileTexture.cpp"
 #include <utils/Log.h>
 
 namespace WebCore {
 
-BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
-                                                         SkBitmap* bitmap,
-                                                         SkBitmap::Config config)
+BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
     : DoubleBufferedTexture(eglGetCurrentContext(), SurfaceTextureMode)
     , m_usedLevel(-1)
-    , m_config(config)
     , m_owner(0)
     , m_delayedReleaseOwner(0)
     , m_delayedRelease(false)
     , m_busy(false)
 {
     m_size.set(w, h);
-    if (bitmap) {
-        m_bitmap = bitmap;
-        m_sharedBitmap = true;
-        m_canvas = new SkCanvas(*m_bitmap);
-    } else {
-        m_bitmap = 0;
-        m_sharedBitmap = false;
-        m_canvas = 0;
-    }
 
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("BackedDoubleBufferedTexture");
+    ClassTracker::instance()->increment("BaseTileTexture");
 #endif
 }
 
-SkCanvas* BackedDoubleBufferedTexture::canvas()
+BaseTileTexture::~BaseTileTexture()
 {
-    if (!m_bitmap && !m_sharedBitmap) {
-        m_bitmap = new SkBitmap();
-        m_bitmap->setConfig(m_config, m_size.width(), m_size.height());
-        m_bitmap->allocPixels();
-        m_bitmap->eraseColor(0);
-        m_canvas = new SkCanvas(*m_bitmap);
-    }
-    return m_canvas;
-}
-
-BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
-{
-    if (!m_sharedBitmap)
-        delete m_bitmap;
-    delete m_canvas;
     if (m_sharedTextureMode == EglImageMode) {
         SharedTexture* textures[3] = { m_textureA, m_textureB, 0 };
         destroyTextures(textures);
     }
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->decrement("BackedDoubleBufferedTexture");
+    ClassTracker::instance()->decrement("BaseTileTexture");
 #endif
 }
 
-void BackedDoubleBufferedTexture::destroyTextures(SharedTexture** textures)
+void BaseTileTexture::destroyTextures(SharedTexture** textures)
 {
     int x = 0;
     while (textures[x]) {
@@ -108,7 +81,7 @@ void BackedDoubleBufferedTexture::destroyTextures(SharedTexture** textures)
     }
 }
 
-TextureInfo* BackedDoubleBufferedTexture::producerLock()
+TextureInfo* BaseTileTexture::producerLock()
 {
     m_busyLock.lock();
     m_busy = true;
@@ -116,19 +89,19 @@ TextureInfo* BackedDoubleBufferedTexture::producerLock()
     return DoubleBufferedTexture::producerLock();
 }
 
-void BackedDoubleBufferedTexture::producerRelease()
+void BaseTileTexture::producerRelease()
 {
     DoubleBufferedTexture::producerRelease();
     setNotBusy();
 }
 
-void BackedDoubleBufferedTexture::producerReleaseAndSwap()
+void BaseTileTexture::producerReleaseAndSwap()
 {
     DoubleBufferedTexture::producerReleaseAndSwap();
     setNotBusy();
 }
 
-void BackedDoubleBufferedTexture::setNotBusy()
+void BaseTileTexture::setNotBusy()
 {
     android::Mutex::Autolock lock(m_busyLock);
     m_busy = false;
@@ -142,36 +115,26 @@ void BackedDoubleBufferedTexture::setNotBusy()
     m_busyCond.signal();
 }
 
-bool BackedDoubleBufferedTexture::busy()
+bool BaseTileTexture::busy()
 {
     android::Mutex::Autolock lock(m_busyLock);
     return m_busy;
 }
 
-void BackedDoubleBufferedTexture::producerUpdate(TextureInfo* textureInfo)
+void BaseTileTexture::producerUpdate(TextureInfo* textureInfo, const SkBitmap& bitmap)
 {
-    if (!m_bitmap)
-        return;
-
     // no need to upload a texture since the bitmap is empty
-    if (!m_bitmap->width() && !m_bitmap->height()) {
+    if (!bitmap.width() && !bitmap.height()) {
         producerRelease();
         return;
     }
 
-    GLUtils::paintTextureWithBitmap(textureInfo, m_bitmap, 0, 0, this);
-
-    if (!m_sharedBitmap) {
-        delete m_bitmap;
-        delete m_canvas;
-        m_bitmap = 0;
-        m_canvas = 0;
-    }
+    GLUtils::paintTextureWithBitmap(textureInfo, m_size, bitmap, 0, 0);
 
     producerReleaseAndSwap();
 }
 
-bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner, bool force)
+bool BaseTileTexture::acquire(TextureOwner* owner, bool force)
 {
     if (m_owner == owner) {
         if (m_delayedRelease) {
@@ -184,7 +147,7 @@ bool BackedDoubleBufferedTexture::acquire(TextureOwner* owner, bool force)
     return setOwner(owner, force);
 }
 
-bool BackedDoubleBufferedTexture::tryAcquire(TextureOwner* owner, TiledPage* currentPage, TiledPage* nextPage)
+bool BaseTileTexture::tryAcquire(TextureOwner* owner, TiledPage* currentPage, TiledPage* nextPage)
 {
     m_busyLock.lock();
     if (!m_busy
@@ -198,7 +161,7 @@ bool BackedDoubleBufferedTexture::tryAcquire(TextureOwner* owner, TiledPage* cur
     return false;
 }
 
-bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner, bool force)
+bool BaseTileTexture::setOwner(TextureOwner* owner, bool force)
 {
     // if the writable texture is busy (i.e. currently being written to) then we
     // can't change the owner out from underneath that texture
@@ -215,7 +178,7 @@ bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner, bool force)
         // first and paintBitmapGL() will bail out, or we execute it after,
         // and paintBitmapGL() will mark the texture as busy before
         // relinquishing the lock. LayerAndroid::removeTexture() will call
-        // BackedDoubleBufferedTexture::release(), which will then do nothing
+        // BaseTileTexture::release(), which will then do nothing
         // if the texture is busy and we then don't return true.
         bool proceed = true;
         if (m_owner && m_owner != owner)
@@ -229,7 +192,7 @@ bool BackedDoubleBufferedTexture::setOwner(TextureOwner* owner, bool force)
     return false;
 }
 
-bool BackedDoubleBufferedTexture::release(TextureOwner* owner)
+bool BaseTileTexture::release(TextureOwner* owner)
 {
     android::Mutex::Autolock lock(m_busyLock);
     if (m_owner != owner)
@@ -244,7 +207,7 @@ bool BackedDoubleBufferedTexture::release(TextureOwner* owner)
     return true;
 }
 
-void BackedDoubleBufferedTexture::setTile(TextureInfo* info, int x, int y,
+void BaseTileTexture::setTile(TextureInfo* info, int x, int y,
                                           float scale, unsigned int pictureCount)
 {
     TextureTileInfo* textureInfo = m_texturesInfo.get(getWriteableTexture());
@@ -258,7 +221,7 @@ void BackedDoubleBufferedTexture::setTile(TextureInfo* info, int x, int y,
     m_texturesInfo.set(getWriteableTexture(), textureInfo);
 }
 
-bool BackedDoubleBufferedTexture::readyFor(BaseTile* baseTile)
+bool BaseTileTexture::readyFor(BaseTile* baseTile)
 {
     TextureTileInfo* info = m_texturesInfo.get(getReadableTexture());
     if (info &&

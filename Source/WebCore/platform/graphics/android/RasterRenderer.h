@@ -35,7 +35,7 @@ class SkCanvas;
 
 namespace WebCore {
 
-class BackedDoubleBufferedTexture;
+class BaseTileTexture;
 class TextureInfo;
 class TiledPage;
 
@@ -48,12 +48,12 @@ public:
     ~RasterRenderer();
 
     void drawTileInfo(SkCanvas* canvas,
-                      BackedDoubleBufferedTexture* texture,
+                      BaseTileTexture* texture,
                       TiledPage* tiledPage,
                       int x, int y, float scale, int pictureCount);
 
     int renderContent(int x, int y, SkIRect rect, float tx, float ty,
-                      float scale, BackedDoubleBufferedTexture* texture,
+                      float scale, BaseTileTexture* texture,
                       TextureInfo* textureInfo,
                       TiledPage* tiledPage,
                       bool fullRepaint);

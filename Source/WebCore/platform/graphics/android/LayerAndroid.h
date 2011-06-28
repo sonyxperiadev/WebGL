@@ -84,7 +84,7 @@ struct SkLength {
 namespace WebCore {
 
 class AndroidAnimation;
-class BackedDoubleBufferedTexture;
+class BaseTileTexture;
 class LayerAndroidFindState;
 class RenderLayer;
 class TiledPage;
@@ -98,7 +98,7 @@ public:
     virtual ~LayerAndroid();
 
     // TextureOwner methods
-    virtual bool removeTexture(BackedDoubleBufferedTexture* texture);
+    virtual bool removeTexture(BaseTileTexture* texture);
 
     LayerTexture* texture() { return m_reservedTexture; }
     virtual TiledPage* page() { return 0; }

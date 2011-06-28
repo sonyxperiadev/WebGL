@@ -28,8 +28,8 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BackedDoubleBufferedTexture.h"
 #include "BaseTile.h"
+#include "BaseTileTexture.h"
 #include "LayerAndroid.h"
 #include "LayerTexture.h"
 #include "ShaderProgram.h"
@@ -79,7 +79,7 @@ public:
     ShaderProgram* shader() { return &m_shader; }
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
-    BackedDoubleBufferedTexture* getAvailableTexture(BaseTile* owner);
+    BaseTileTexture* getAvailableTexture(BaseTile* owner);
 
     void printLayersTextures(const char* s);
     void cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup = false);
@@ -134,7 +134,7 @@ private:
             m_generatorReadyCond.wait(m_generatorLock);
     }
 
-    Vector<BackedDoubleBufferedTexture*> m_textures;
+    Vector<BaseTileTexture*> m_textures;
     Vector<LayerTexture*> m_layersTextures;
 
     unsigned int m_layersMemoryUsage;
@@ -156,7 +156,6 @@ private:
 
     ShaderProgram m_shader;
     VideoLayerManager m_videoLayerManager;
-    SkBitmap* m_tilesBitmap;
 };
 
 } // namespace WebCore

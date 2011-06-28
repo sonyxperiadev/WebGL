@@ -95,7 +95,7 @@ void BaseTile::setContents(TiledPage* page, int x, int y)
 
 void BaseTile::reserveTexture()
 {
-    BackedDoubleBufferedTexture* texture = TilesManager::instance()->getAvailableTexture(this);
+    BaseTileTexture* texture = TilesManager::instance()->getAvailableTexture(this);
 
     android::AutoMutex lock(m_atomicSync);
     if (texture && m_texture != texture) {
@@ -105,7 +105,7 @@ void BaseTile::reserveTexture()
     }
 }
 
-bool BaseTile::removeTexture(BackedDoubleBufferedTexture* texture)
+bool BaseTile::removeTexture(BaseTileTexture* texture)
 {
     XLOG("%x removeTexture res: %x... page %x", this, m_texture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
@@ -254,7 +254,7 @@ void BaseTile::paintBitmap()
     // can be updated by other threads without consequence.
     m_atomicSync.lock();
     bool dirty = m_dirty;
-    BackedDoubleBufferedTexture* texture = m_texture;
+    BaseTileTexture* texture = m_texture;
     SkRegion dirtyArea = *m_currentDirtyArea;
     float scale = m_scale;
     const int x = m_x;
@@ -289,7 +289,8 @@ void BaseTile::paintBitmap()
     // TODO: Implement the partial invalidate in Surface Texture Mode
     if (((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA)
             || ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB)
-            || !GLUtils::textureExist(textureInfo, texture->bitmap())
+            || textureInfo->m_width != tileWidth
+            || textureInfo->m_height != tileHeight
             || textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
         fullRepaint = true;
     }

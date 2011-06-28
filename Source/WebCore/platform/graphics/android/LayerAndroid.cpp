@@ -163,7 +163,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
 #endif
 }
 
-bool LayerAndroid::removeTexture(BackedDoubleBufferedTexture* aTexture)
+bool LayerAndroid::removeTexture(BaseTileTexture* aTexture)
 {
     LayerTexture* texture = static_cast<LayerTexture*>(aTexture);
     android::AutoMutex lock(m_atomicSync);
@@ -1051,14 +1051,21 @@ void LayerAndroid::paintBitmapGL()
     }
 
     XLOG("LayerAndroid %d %x (%.2f, %.2f) paintBitmapGL WE ARE PAINTING", uniqueId(), this, getWidth(), getHeight());
-    SkCanvas* canvas = texture->canvas();
+
+    SkBitmap bitmap;
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, texture->getSize().width(), texture->getSize().height());
+    bitmap.allocPixels();
+
+    SkCanvas canvas(bitmap);
+    canvas.drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
+
     float scale = texture->scale();
 
     IntRect textureRect = texture->rect();
-    canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
+
 
     if (m_contentsImage) {
-        contentDraw(canvas);
+        contentDraw(&canvas);
     } else {
         SkPicture picture;
         SkCanvas* nCanvas = picture.beginRecording(textureRect.width(),
@@ -1067,9 +1074,9 @@ void LayerAndroid::paintBitmapGL()
         nCanvas->translate(-textureRect.x(), -textureRect.y());
         contentDraw(nCanvas);
         picture.endRecording();
-        picture.draw(canvas);
+        picture.draw(&canvas);
     }
-    extraDraw(canvas);
+    extraDraw(&canvas);
 
     m_atomicSync.lock();
     texture->setTextureInfoFor(this);
@@ -1078,7 +1085,7 @@ void LayerAndroid::paintBitmapGL()
     m_requestSent = false;
 
     XLOG("LayerAndroid %d paintBitmapGL PAINTING DONE, updating the texture", uniqueId());
-    texture->producerUpdate(textureInfo);
+    texture->producerUpdate(textureInfo, bitmap);
 
     m_atomicSync.unlock();
 

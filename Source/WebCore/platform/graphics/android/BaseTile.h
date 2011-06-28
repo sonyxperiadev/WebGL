@@ -39,7 +39,7 @@ namespace WebCore {
 
 class TextureInfo;
 class TiledPage;
-class BackedDoubleBufferedTexture;
+class BaseTileTexture;
 
 /**
  * An individual tile that is used to construct part of a webpage's BaseLayer of
@@ -74,7 +74,7 @@ public:
     // the only thread-safe function called by the background thread
     void paintBitmap();
     int paintPartialBitmap(SkIRect rect, float tx, float ty,
-                            float scale, BackedDoubleBufferedTexture* texture,
+                            float scale, BaseTileTexture* texture,
                             TextureInfo* textureInfo,
                             TiledPage* tiledPage,
                             bool fullRepaint = false);
@@ -92,10 +92,10 @@ public:
     int x() const { return m_x; }
     int y() const { return m_y; }
     unsigned int lastPaintedPicture() const { return m_lastPaintedPicture; }
-    BackedDoubleBufferedTexture* texture() { return m_texture; }
+    BaseTileTexture* texture() { return m_texture; }
 
     // TextureOwner implementation
-    virtual bool removeTexture(BackedDoubleBufferedTexture* texture);
+    virtual bool removeTexture(BaseTileTexture* texture);
     virtual TiledPage* page() { return m_page; }
 
 private:
@@ -105,7 +105,7 @@ private:
     int m_y;
 
     // The remaining variables can be updated throughout the lifetime of the object
-    BackedDoubleBufferedTexture* m_texture;
+    BaseTileTexture* m_texture;
     float m_scale;
     // used to signal that the that the tile is out-of-date and needs to be redrawn
     bool m_dirty;
