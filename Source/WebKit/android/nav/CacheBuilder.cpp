@@ -2893,7 +2893,7 @@ bool CacheBuilder::setData(CachedFrame* cachedFrame)
     if ((x | y) != 0)
         viewBounds.setLocation(WebCore::IntPoint(x, y));
     cachedFrame->setLocalViewBounds(viewBounds);
-    cachedFrame->setContentsSize(layer->width(), layer->height());
+    cachedFrame->setContentsSize(layer->scrollWidth(), layer->scrollHeight());
     if (cachedFrame->childCount() == 0)
         return true;
     CachedFrame* lastCachedFrame = cachedFrame->lastChild();
