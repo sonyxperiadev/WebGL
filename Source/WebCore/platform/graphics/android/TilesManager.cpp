@@ -355,6 +355,10 @@ LayerTexture* TilesManager::createTextureForLayer(LayerAndroid* layer, const Int
     if (m_layersMemoryUsage + size > MAX_LAYERS_ALLOCATION)
         cleanupLayersTextures(layer, true);
 
+    // If the cleanup can't achieve the goal, then don't create a layerTexture.
+    if (m_layersMemoryUsage + size > MAX_LAYERS_ALLOCATION)
+        return 0;
+
     LayerTexture* texture = new LayerTexture(w, h);
     texture->setId(layer->uniqueId());
     texture->setRect(rect);
