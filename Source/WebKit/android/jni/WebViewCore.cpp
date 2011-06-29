@@ -3102,7 +3102,7 @@ GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
 }
 #endif
 
-bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int actionIndex, int metaState)
+bool WebViewCore::handleTouchEvent(int action, long eventTimeInMs, Vector<int>& ids, Vector<IntPoint>& points, Vector<float>& pressures, Vector<int>& touchMajor, Vector<int>& touchMinor, Vector<float>& orientation, int actionIndex, int metaState)
 {
     bool preventDefault = false;
 
@@ -3175,6 +3175,9 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
         };
     }
 
+    // TODO: use the pressure, size and timestamp data once WebKit is synced to
+    // the upstream version that has the fields for these data in Touch.h and
+    // PlatformTouchPoint.h.
     WebCore::PlatformTouchEvent te(ids, points, type, touchStates, metaState);
     preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
 #endif
@@ -4170,8 +4173,10 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
     return ret;
 }
 
-static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArray idArray,
-                                 jintArray xArray, jintArray yArray,
+static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jlong eventTimeInMs,
+                                 jintArray idArray, jintArray xArray, jintArray yArray,
+                                 jfloatArray pressureArray, jintArray touchMajorArray,
+                                 jintArray touchMinorArray, jfloatArray orientationArray,
                                  jint count, jint actionIndex, jint metaState)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -4182,18 +4187,34 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArra
     jint* ptrIdArray = env->GetIntArrayElements(idArray, 0);
     jint* ptrXArray = env->GetIntArrayElements(xArray, 0);
     jint* ptrYArray = env->GetIntArrayElements(yArray, 0);
+    jfloat* ptrPressureArray = env->GetFloatArrayElements(pressureArray, 0);
+    jint* ptrTouchMajorArray = env->GetIntArrayElements(touchMajorArray, 0);
+    jint* ptrTouchMinorArray = env->GetIntArrayElements(touchMinorArray, 0);
+    jfloat* ptrOrientationArray = env->GetFloatArrayElements(orientationArray, 0);
     Vector<int> ids(count);
     Vector<IntPoint> points(count);
+    Vector<float> pressures(count);
+    Vector<int> touchMajor(count);
+    Vector<int> touchMinor(count);
+    Vector<float> orientation(count);
     for (int c = 0; c < count; c++) {
         ids[c] = ptrIdArray[c];
         points[c].setX(ptrXArray[c]);
         points[c].setY(ptrYArray[c]);
+        pressures[c] = ptrPressureArray[c];
+        touchMajor[c] = ptrTouchMajorArray[c];
+        touchMinor[c] = ptrTouchMinorArray[c];
+        orientation[c] = ptrOrientationArray[c];
     }
     env->ReleaseIntArrayElements(idArray, ptrIdArray, JNI_ABORT);
     env->ReleaseIntArrayElements(xArray, ptrXArray, JNI_ABORT);
     env->ReleaseIntArrayElements(yArray, ptrYArray, JNI_ABORT);
+    env->ReleaseFloatArrayElements(pressureArray, ptrPressureArray, JNI_ABORT);
+    env->ReleaseIntArrayElements(touchMajorArray, ptrTouchMajorArray, JNI_ABORT);
+    env->ReleaseIntArrayElements(touchMinorArray, ptrTouchMinorArray, JNI_ABORT);
+    env->ReleaseFloatArrayElements(orientationArray, ptrOrientationArray, JNI_ABORT);
 
-    return viewImpl->handleTouchEvent(action, ids, points, actionIndex, metaState);
+    return viewImpl->handleTouchEvent(action, eventTimeInMs, ids, points, pressures, touchMajor, touchMinor, orientation, actionIndex, metaState);
 }
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
@@ -4629,7 +4650,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
-    { "nativeHandleTouchEvent", "(I[I[I[IIII)Z",
+    { "nativeHandleTouchEvent", "(IJ[I[I[I[F[I[I[FIII)Z",
             (void*) HandleTouchEvent },
     { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },
