@@ -23,12 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RasterRenderer_h
-#define RasterRenderer_h
+#ifndef BaseRenderer_h
+#define BaseRenderer_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseRenderer.h"
+#include "PerformanceMonitor.h"
 #include "SkRect.h"
 
 class SkCanvas;
@@ -36,27 +36,68 @@ class SkDevice;
 
 namespace WebCore {
 
-class BaseTileTexture;
 class TextureInfo;
 class TiledPage;
+
+struct TileRenderInfo {
+    // coordinates of the tile
+    int x;
+    int y;
+
+    // current scale factor
+    float scale;
+
+    // inval rectangle with coordinates in the tile's coordinate space
+    SkIRect* invalRect;
+
+    // coordinates for the invalRect (upper-left) in the DOM's coordinate space
+    float invalX;
+    float invalY;
+
+    // the expected size of the tile
+    SkSize tileSize;
+
+    // the tiled page that contains the content to be drawn
+    TiledPage* tiledPage;
+
+    // info about the texture that we are to render into
+    TextureInfo* textureInfo;
+
+    // specifies whether or not to measure the rendering performance
+    bool measurePerf;
+};
 
 /**
  *
  */
-class RasterRenderer : public BaseRenderer {
+class BaseRenderer {
 public:
-    RasterRenderer();
-    ~RasterRenderer();
+    enum RendererType { Raster, Ganesh };
+    BaseRenderer(RendererType type) : m_type(type) {}
+    virtual ~BaseRenderer() {}
+
+    int renderTiledContent(const TileRenderInfo& renderInfo);
+
+    RendererType getType() { return m_type; }
 
 protected:
 
-    virtual SkDevice* setupDevice(const TileRenderInfo& renderInfo);
-    virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas);
-    virtual void drawPerformanceInfo(SkCanvas* canvas);
+    virtual SkDevice* setupDevice(const TileRenderInfo& renderInfo) = 0;
+    virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
 
+    void drawTileInfo(SkCanvas* canvas, const TileRenderInfo& renderInfo,
+            int pictureCount);
+
+    virtual void drawPerformanceInfo(SkCanvas* canvas) {}
+
+    // Performance tracking
+    PerformanceMonitor m_perfMon;
+
+private:
+    RendererType m_type;
 };
 
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
-#endif // RasterRenderer_h
+#endif // BaseRenderer_h

@@ -633,6 +633,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/graphics/android/AndroidAnimation.cpp \
 	platform/graphics/android/BaseLayerAndroid.cpp \
+	platform/graphics/android/BaseRenderer.cpp \
 	platform/graphics/android/BaseTile.cpp \
 	platform/graphics/android/BaseTileTexture.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \

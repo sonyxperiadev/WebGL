@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "BaseRenderer.h"
 #include "GLUtils.h"
 #include "TextureInfo.h"
 #include "TilesManager.h"
@@ -277,11 +278,19 @@ void BaseTile::paintBitmap()
         return;
     }
 
-    SkSize size = texture->getSize();
-    const float tileWidth = size.width();
-    const float tileHeight = size.height();
-
     unsigned int pictureCount = 0;
+
+    // setup the common renderInfo fields;
+    TileRenderInfo renderInfo;
+    renderInfo.x = x;
+    renderInfo.y = y;
+    renderInfo.scale = scale;
+    renderInfo.tileSize = texture->getSize();
+    renderInfo.tiledPage = tiledPage;
+    renderInfo.textureInfo = textureInfo;
+
+    const float tileWidth = renderInfo.tileSize.width();
+    const float tileHeight = renderInfo.tileSize.height();
 
     SkRegion::Iterator cliperator(dirtyArea);
 
@@ -337,14 +346,12 @@ void BaseTile::paintBitmap()
             finalRealRect.fRight = finalRealRect.fLeft + iWidth;
             finalRealRect.fBottom = finalRealRect.fTop + iHeight;
 
-            // the canvas translate can be recomputed accounting for the scale
-            float tx = realTileRect.fLeft / scale;
-            float ty = realTileRect.fTop / scale;
+            renderInfo.invalRect = &finalRealRect;
+            renderInfo.invalX = realTileRect.fLeft / scale;
+            renderInfo.invalY = realTileRect.fTop / scale;
+            renderInfo.measurePerf = false;
 
-            pictureCount = m_renderer.renderContent(x, y, finalRealRect,
-                                                    tx, ty, scale, texture,
-                                                    textureInfo, tiledPage,
-                                                    fullRepaint);
+            pictureCount = m_renderer.renderTiledContent(renderInfo);
 
             cliperator.next();
         }
@@ -353,13 +360,13 @@ void BaseTile::paintBitmap()
     if (fullRepaint) {
         SkIRect rect;
         rect.set(0, 0, tileWidth, tileHeight);
-        float tx = x * tileWidth / scale;
-        float ty = y * tileHeight / scale;
 
-        pictureCount = m_renderer.renderContent(x, y, rect,
-                                                tx, ty, scale, texture,
-                                                textureInfo, tiledPage,
-                                                fullRepaint);
+        renderInfo.invalRect = &rect;
+        renderInfo.invalX = x * tileWidth / scale;
+        renderInfo.invalY = y * tileHeight / scale;
+        renderInfo.measurePerf = TilesManager::instance()->getShowVisualIndicator();
+
+        pictureCount = m_renderer.renderTiledContent(renderInfo);
     }
 
     XLOG("%x update texture %x for tile %d, %d scale %.2f (m_scale: %.2f)", this, textureInfo, x, y, scale, m_scale);
