@@ -115,7 +115,7 @@ void WebRequestContext::setAcceptLanguage(const String& string)
     acceptLanguageWtfString = string;
 }
 
-const std::string& WebRequestContext::GetAcceptLanguage() const
+const std::string& WebRequestContext::accept_language() const
 {
     MutexLocker lock(acceptLanguageMutex);
     return acceptLanguageStdString;

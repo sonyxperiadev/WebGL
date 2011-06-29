@@ -38,7 +38,7 @@ class WebRequestContext : public net::URLRequestContext {
 public:
     // URLRequestContext overrides.
     virtual const std::string& GetUserAgent(const GURL&) const;
-    virtual const std::string& GetAcceptLanguage() const;
+    virtual const std::string& accept_language() const;
 
     WebRequestContext(bool isPrivateBrowsing);
 
