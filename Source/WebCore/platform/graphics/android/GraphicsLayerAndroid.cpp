@@ -24,6 +24,7 @@
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "Image.h"
+#include "Layer.h"
 #include "Length.h"
 #include "MediaLayer.h"
 #include "PlatformBridge.h"
@@ -34,7 +35,6 @@
 #include "ScaleTransformOperation.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkCanvas.h"
-#include "SkLayer.h"
 #include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
 

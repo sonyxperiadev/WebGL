@@ -23,10 +23,10 @@
 #include "FloatPoint3D.h"
 #include "FloatRect.h"
 #include "GraphicsLayerClient.h"
+#include "Layer.h"
 #include "LayerTexture.h"
 #include "RefPtr.h"
 #include "SkColor.h"
-#include "SkLayer.h"
 #include "TextureOwner.h"
 #include "TransformationMatrix.h"
 
@@ -89,7 +89,7 @@ class LayerAndroidFindState;
 class RenderLayer;
 class TiledPage;
 
-class LayerAndroid : public SkLayer, public TextureOwner {
+class LayerAndroid : public Layer, public TextureOwner {
 
 public:
     LayerAndroid(RenderLayer* owner);
@@ -371,7 +371,7 @@ private:
 
     RenderLayer* m_owningLayer;
 
-    typedef SkLayer INHERITED;
+    typedef Layer INHERITED;
 };
 
 }

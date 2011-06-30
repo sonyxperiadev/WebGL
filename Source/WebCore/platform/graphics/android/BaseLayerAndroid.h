@@ -29,13 +29,13 @@
 #include "Color.h"
 #include "GLWebViewState.h"
 #include "IntRect.h"
+#include "Layer.h"
 #include "PictureSet.h"
-#include "SkLayer.h"
 #include "SkPicture.h"
 
 namespace WebCore {
 
-class BaseLayerAndroid : public SkLayer {
+class BaseLayerAndroid : public Layer {
 
 public:
     BaseLayerAndroid();
