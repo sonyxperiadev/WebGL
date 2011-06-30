@@ -28,7 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "RasterRenderer.h"
+#include "BaseRenderer.h"
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "TextureOwner.h"
@@ -135,7 +135,7 @@ private:
     // across all threads and cores.
     android::Mutex m_atomicSync;
 
-    RasterRenderer m_renderer;
+    BaseRenderer* m_renderer;
 };
 
 } // namespace WebCore

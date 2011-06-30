@@ -151,8 +151,10 @@ LOCAL_C_INCLUDES := \
 	external/libxslt \
 	external/hyphenation \
 	external/skia/emoji \
+	external/skia/gpu/include \
 	external/skia/include/core \
 	external/skia/include/effects \
+	external/skia/include/gpu \
 	external/skia/include/images \
 	external/skia/include/ports \
 	external/skia/include/utils \
@@ -402,7 +404,7 @@ LOCAL_CFLAGS += -DSUPPORT_COMPLEX_SCRIPTS=1
 endif
 
 # Build the list of static libraries
-LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation
+LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 LOCAL_STATIC_LIBRARIES += libv8
 endif

@@ -67,48 +67,68 @@ void BaseRenderer::drawTileInfo(SkCanvas* canvas,
     canvas->drawText(str, strlen(str), 0, 10, paint);
     paint.setARGB(255, 255, 0, 0);
     canvas->drawText(str, strlen(str), 0, 11, paint);
-    drawPerformanceInfo(canvas);
+
+    int tagCount = 0;
+    const String* tags = getPerformanceTags(tagCount);
+
+    float total = 0;
+    for (int i = 0; i < tagCount; i++) {
+        float tagDuration = m_perfMon.getAverageDuration(tags[i]);
+        total += tagDuration;
+        snprintf(str, 256, "%s: %.2f", tags[i].utf8().data(), tagDuration);
+        paint.setARGB(255, 0, 0, 0);
+        int textY = (i * 12) + 25;
+        canvas->drawText(str, strlen(str), 0, textY, paint);
+        paint.setARGB(255, 255, 0, 0);
+        canvas->drawText(str, strlen(str), 0, textY + 1, paint);
+    }
+    snprintf(str, 256, "total: %.2f", total);
+    paint.setARGB(255, 0, 0, 0);
+    int textY = (tagCount * 12) + 30;
+    canvas->drawText(str, strlen(str), 0, textY, paint);
+    paint.setARGB(255, 255, 0, 0);
+    canvas->drawText(str, strlen(str), 0, textY + 1, paint);
 }
 
 int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
 {
-    bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
+    const bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
+    const SkSize& tileSize = renderInfo.tileSize;
 
-#ifdef DEBUG
-    visualIndicator = true;
-    measurePerf = true;
-#endif
-
-    SkIRect* invalRect = renderInfo.invalRect;
-
-    SkDevice* device = setupDevice(renderInfo);
-    SkCanvas canvas(device);
-    device->unref();
+    SkCanvas canvas;
+    setupCanvas(renderInfo, &canvas);
 
     if (visualIndicator)
         canvas.save();
 
+    setupPartialInval(renderInfo, &canvas);
+    canvas.translate(-renderInfo.x * tileSize.width(), -renderInfo.y * tileSize.height());
     canvas.scale(renderInfo.scale, renderInfo.scale);
-    canvas.translate(-renderInfo.invalX, -renderInfo.invalY);
     int pictureCount = renderInfo.tiledPage->paintBaseLayerContent(&canvas);
 
     if (visualIndicator) {
         canvas.restore();
 
-        int color = 20 + pictureCount % 100;
-        canvas.drawARGB(color, 0, 255, 0);
+        const int color = 20 + (pictureCount % 100);
 
+        // only color the invalidated area
+        SkPaint invalPaint;
+        invalPaint.setARGB(color, 0, 255, 0);
+        canvas.drawIRect(*renderInfo.invalRect, invalPaint);
+
+        // paint the tile boundaries
         SkPaint paint;
         paint.setARGB(128, 255, 0, 0);
         paint.setStrokeWidth(3);
-        canvas.drawLine(0, 0, invalRect->width(), invalRect->height(), paint);
+        canvas.drawLine(0, 0, tileSize.width(), tileSize.height(), paint);
         paint.setARGB(128, 0, 255, 0);
-        canvas.drawLine(0, invalRect->height(), invalRect->width(), 0, paint);
+        canvas.drawLine(0, tileSize.height(), tileSize.width(), 0, paint);
         paint.setARGB(128, 0, 0, 255);
-        canvas.drawLine(0, 0, invalRect->width(), 0, paint);
-        canvas.drawLine(invalRect->width(), 0, invalRect->width(), invalRect->height(), paint);
+        canvas.drawLine(0, 0, tileSize.width(), 0, paint);
+        canvas.drawLine(tileSize.width(), 0, tileSize.width(), tileSize.height(), paint);
 
-        drawTileInfo(&canvas, renderInfo, pictureCount);
+        if (renderInfo.measurePerf)
+            drawTileInfo(&canvas, renderInfo, pictureCount);
     }
 
     renderingComplete(renderInfo, &canvas);
