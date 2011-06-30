@@ -23,12 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BaseRenderer_h
-#define BaseRenderer_h
+#ifndef GaneshRenderer_h
+#define GaneshRenderer_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "PerformanceMonitor.h"
+#include "BaseRenderer.h"
 #include "SkRect.h"
 
 class SkCanvas;
@@ -36,65 +36,24 @@ class SkDevice;
 
 namespace WebCore {
 
-class TextureInfo;
-class TiledPage;
-
-struct TileRenderInfo {
-    // coordinates of the tile
-    int x;
-    int y;
-
-    // current scale factor
-    float scale;
-
-    // inval rectangle with coordinates in the tile's coordinate space
-    SkIRect* invalRect;
-
-    // the expected size of the tile
-    SkSize tileSize;
-
-    // the tiled page that contains the content to be drawn
-    TiledPage* tiledPage;
-
-    // info about the texture that we are to render into
-    TextureInfo* textureInfo;
-
-    // specifies whether or not to measure the rendering performance
-    bool measurePerf;
-};
-
 /**
  *
  */
-class BaseRenderer {
+class GaneshRenderer : public BaseRenderer {
 public:
-    enum RendererType { Raster, Ganesh };
-    BaseRenderer(RendererType type) : m_type(type) {}
-    virtual ~BaseRenderer() {}
-
-    int renderTiledContent(const TileRenderInfo& renderInfo);
-
-    RendererType getType() { return m_type; }
+    GaneshRenderer();
+    ~GaneshRenderer();
 
 protected:
 
-    virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
-    virtual void setupPartialInval(const TileRenderInfo& renderInfo, SkCanvas* canvas) {}
-    virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
+    virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas);
+    virtual void setupPartialInval(const TileRenderInfo& renderInfo, SkCanvas* canvas);
+    virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas);
+    virtual const String* getPerformanceTags(int& tagCount);
 
-    void drawTileInfo(SkCanvas* canvas, const TileRenderInfo& renderInfo,
-            int pictureCount);
-
-    virtual const String* getPerformanceTags(int& tagCount) = 0;
-
-    // Performance tracking
-    PerformanceMonitor m_perfMon;
-
-private:
-    RendererType m_type;
 };
 
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
-#endif // BaseRenderer_h
+#endif // GaneshRenderer_h

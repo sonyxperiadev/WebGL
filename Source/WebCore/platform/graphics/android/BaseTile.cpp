@@ -28,7 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseRenderer.h"
+#include "RasterRenderer.h"
 #include "GLUtils.h"
 #include "TextureInfo.h"
 #include "TilesManager.h"
@@ -71,6 +71,7 @@ BaseTile::BaseTile()
     ClassTracker::instance()->increment("BaseTile");
 #endif
     m_currentDirtyArea = &m_dirtyAreaA;
+    m_renderer = new RasterRenderer();
 }
 
 BaseTile::~BaseTile()
@@ -78,6 +79,8 @@ BaseTile::~BaseTile()
     setUsedLevel(-1);
     if (m_texture)
         m_texture->release(this);
+
+    delete m_renderer;
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("BaseTile");
@@ -347,11 +350,9 @@ void BaseTile::paintBitmap()
             finalRealRect.fBottom = finalRealRect.fTop + iHeight;
 
             renderInfo.invalRect = &finalRealRect;
-            renderInfo.invalX = realTileRect.fLeft / scale;
-            renderInfo.invalY = realTileRect.fTop / scale;
             renderInfo.measurePerf = false;
 
-            pictureCount = m_renderer.renderTiledContent(renderInfo);
+            pictureCount = m_renderer->renderTiledContent(renderInfo);
 
             cliperator.next();
         }
@@ -362,11 +363,9 @@ void BaseTile::paintBitmap()
         rect.set(0, 0, tileWidth, tileHeight);
 
         renderInfo.invalRect = &rect;
-        renderInfo.invalX = x * tileWidth / scale;
-        renderInfo.invalY = y * tileHeight / scale;
         renderInfo.measurePerf = TilesManager::instance()->getShowVisualIndicator();
 
-        pictureCount = m_renderer.renderTiledContent(renderInfo);
+        pictureCount = m_renderer->renderTiledContent(renderInfo);
     }
 
     XLOG("%x update texture %x for tile %d, %d scale %.2f (m_scale: %.2f)", this, textureInfo, x, y, scale, m_scale);

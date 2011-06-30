@@ -644,6 +644,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/FontCustomPlatformData.cpp \
 	platform/graphics/android/FontDataAndroid.cpp \
 	platform/graphics/android/FontPlatformDataAndroid.cpp \
+	platform/graphics/android/GaneshContext.cpp \
+	platform/graphics/android/GaneshRenderer.cpp \
 	platform/graphics/android/GLUtils.cpp \
 	platform/graphics/android/GLWebViewState.cpp \
 	platform/graphics/android/GlyphMapAndroid.cpp \

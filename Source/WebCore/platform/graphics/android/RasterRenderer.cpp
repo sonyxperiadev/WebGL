@@ -34,7 +34,6 @@
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
 #include "SkDevice.h"
-#include "SkPicture.h"
 #include "TilesManager.h"
 
 #include <wtf/text/CString.h>
@@ -59,7 +58,7 @@ namespace WebCore {
 static const String TAG_CREATE_BITMAP = "create_bitmap";
 static const String TAG_DRAW_PICTURE = "draw_picture";
 static const String TAG_UPDATE_TEXTURE = "update_texture";
-#define TAG_COUNT 4
+#define TAG_COUNT 3
 static const String TAGS[] = {
     TAG_CREATE_BITMAP,
     TAG_DRAW_PICTURE,
@@ -80,7 +79,7 @@ RasterRenderer::~RasterRenderer()
 #endif
 }
 
-SkDevice* RasterRenderer::setupDevice(const TileRenderInfo& renderInfo)
+void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
     if (renderInfo.measurePerf)
         m_perfMon.start(TAG_CREATE_BITMAP);
@@ -98,7 +97,11 @@ SkDevice* RasterRenderer::setupDevice(const TileRenderInfo& renderInfo)
         m_perfMon.start(TAG_DRAW_PICTURE);
     }
 
-    return device;
+    canvas->setDevice(device);
+    device->unref();
+
+    // ensure the canvas origin is translated to the coordinates of our inval rect
+    canvas->translate(-renderInfo.invalRect->fLeft, -renderInfo.invalRect->fTop);
 }
 
 void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
@@ -117,27 +120,10 @@ void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
         m_perfMon.stop(TAG_UPDATE_TEXTURE);
 }
 
-void RasterRenderer::drawPerformanceInfo(SkCanvas* canvas)
+const String* RasterRenderer::getPerformanceTags(int& tagCount)
 {
-    SkPaint paint;
-    char str[256];
-    float total = 0;
-    for (int i = 0; i < TAG_COUNT; i++) {
-        float tagDuration = m_perfMon.getAverageDuration(TAGS[i]);
-        total += tagDuration;
-        snprintf(str, 256, "%s: %.2f", TAGS[i].utf8().data(), tagDuration);
-        paint.setARGB(255, 0, 0, 0);
-        int textY = (i * 12) + 25;
-        canvas->drawText(str, strlen(str), 0, textY, paint);
-        paint.setARGB(255, 255, 0, 0);
-        canvas->drawText(str, strlen(str), 0, textY + 1, paint);
-    }
-    snprintf(str, 256, "total: %.2f", total);
-    paint.setARGB(255, 0, 0, 0);
-    int textY = (TAG_COUNT * 12) + 30;
-    canvas->drawText(str, strlen(str), 0, textY, paint);
-    paint.setARGB(255, 255, 0, 0);
-    canvas->drawText(str, strlen(str), 0, textY + 1, paint);
+    tagCount = TAG_COUNT;
+    return TAGS;
 }
 
 } // namespace WebCore

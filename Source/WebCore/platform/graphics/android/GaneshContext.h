@@ -23,36 +23,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RasterRenderer_h
-#define RasterRenderer_h
+#ifndef GaneshContext_h
+#define GaneshContext_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseRenderer.h"
-#include "SkRect.h"
-
-class SkCanvas;
-class SkDevice;
+#include "GrContext.h"
+#include "SkGpuDevice.h"
+#include "TilesManager.h"
 
 namespace WebCore {
 
-/**
- *
- */
-class RasterRenderer : public BaseRenderer {
+class GaneshContext {
 public:
-    RasterRenderer();
-    ~RasterRenderer();
+    static GaneshContext* instance();
 
-protected:
+    GrContext* getGrContext();
 
-    virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas);
-    virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas);
-    virtual const String* getPerformanceTags(int& tagCount);
+    SkDevice* getDeviceForBaseTile(GLuint textureId);
 
+private:
+
+    GaneshContext();
+
+    GrContext* m_grContext;
+    SkGpuDevice* m_baseTileDevice;
+    GLuint m_baseTileFbo;
+    GLuint m_baseTileStencil;
+
+    static GaneshContext* gInstance;
 };
 
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
-#endif // RasterRenderer_h
+#endif // GaneshContext_h
