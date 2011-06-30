@@ -102,7 +102,7 @@ IntRect CachedLayer::adjustBounds(const LayerAndroid* root,
 FloatPoint CachedLayer::getGlobalPosition(const LayerAndroid* aLayer) const
 {
     SkPoint result = aLayer->getPosition();
-    const SkLayer* parent = aLayer->getParent();
+    const Layer* parent = aLayer->getParent();
     while (parent) {
         result += parent->getPosition();
         DBG_NAV_LOGV("result=(%g,%g) parent=%p [%d]", result.fX, result.fY,

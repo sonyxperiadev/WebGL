@@ -54,7 +54,7 @@ class OpacityDrawFilter : public SkDrawFilter {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-LayerAndroid::LayerAndroid(RenderLayer* owner) : SkLayer(),
+LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_haveClip(false),
     m_isFixed(false),
     m_isIframe(false),
@@ -84,7 +84,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : SkLayer(),
 #endif
 }
 
-LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
+LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_haveClip(layer.m_haveClip),
     m_isIframe(layer.m_isIframe),
     m_contentsImage(0),
@@ -139,7 +139,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
 #endif
 }
 
-LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
+LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_haveClip(false),
     m_isFixed(false),
     m_isIframe(false),

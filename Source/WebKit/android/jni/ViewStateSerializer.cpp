@@ -27,10 +27,10 @@
 
 #include "BaseLayerAndroid.h"
 #include "CreateJavaOutputStreamAdaptor.h"
+#include "Layer.h"
 #include "LayerAndroid.h"
 #include "PictureSet.h"
 #include "ScrollableLayerAndroid.h"
-#include "SkLayer.h"
 #include "SkPicture.h"
 
 #include <JNIUtility.h>
@@ -256,7 +256,7 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
             : LTLayerAndroid;
     stream->write8(type);
 
-    // Start with SkLayer fields
+    // Start with Layer fields
     stream->writeBool(layer->isInheritFromRootTransform());
     stream->writeScalar(layer->getOpacity());
     stream->writeScalar(layer->getSize().width());
@@ -337,7 +337,7 @@ LayerAndroid* deserializeLayer(SkStream* stream)
         return 0;
     }
 
-    // SkLayer fields
+    // Layer fields
     layer->setInheritFromRootTransform(stream->readBool());
     layer->setOpacity(stream->readScalar());
     layer->setSize(stream->readScalar(), stream->readScalar());

@@ -42,7 +42,7 @@ void PaintLayerOperation::run()
         m_layer->paintBitmapGL();
 }
 
-SkLayer* PaintLayerOperation::baseLayer()
+Layer* PaintLayerOperation::baseLayer()
 {
     if (!m_layer)
         return 0;

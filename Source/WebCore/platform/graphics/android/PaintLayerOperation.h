@@ -28,7 +28,7 @@
 
 #include "QueuedOperation.h"
 
-class SkLayer;
+class Layer;
 
 namespace WebCore {
 
@@ -43,7 +43,7 @@ class PaintLayerOperation : public QueuedOperation {
     virtual ~PaintLayerOperation() {}
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
-    SkLayer* baseLayer();
+    Layer* baseLayer();
     LayerAndroid* layer() { return m_layer; }
     LayerTexture* texture();
 
@@ -53,11 +53,11 @@ class PaintLayerOperation : public QueuedOperation {
 
 class PaintLayerBaseFilter : public OperationFilter {
  public:
-    PaintLayerBaseFilter(SkLayer* layer) : m_baseLayer(layer) {}
+    PaintLayerBaseFilter(Layer* layer) : m_baseLayer(layer) {}
     virtual bool check(QueuedOperation* operation);
 
  private:
-    SkLayer* m_baseLayer;
+    Layer* m_baseLayer;
 };
 
 class PaintLayerTextureFilter : public OperationFilter {
