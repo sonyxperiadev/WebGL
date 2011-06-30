@@ -86,6 +86,7 @@ AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
     , m_type(anim->m_type)
     , m_operations(anim->m_operations)
     , m_originalLayer(0)
+    , m_name(anim->name())
 {
     gDebugAndroidAnimationInstances++;
 }
