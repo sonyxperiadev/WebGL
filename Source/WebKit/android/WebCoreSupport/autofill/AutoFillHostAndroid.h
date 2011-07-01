@@ -35,19 +35,19 @@ class FormData;
 }
 
 namespace android {
-class WebAutoFill;
+class WebAutofill;
 
-// This class receives the callbacks from the AutoFillManager in the Chromium code.
+// This class receives the callbacks from the AutofillManager in the Chromium code.
 class AutoFillHostAndroid : public AutoFillHost {
 public:
-    AutoFillHostAndroid(WebAutoFill* autoFill);
+    AutoFillHostAndroid(WebAutofill* autofill);
     virtual ~AutoFillHostAndroid() { }
 
     virtual void AutoFillSuggestionsReturned(const std::vector<string16>& names, const std::vector<string16>& labels, const std::vector<string16>& icons, const std::vector<int>& uniqueIds);
     virtual void AutoFillFormDataFilled(int queryId, const webkit_glue::FormData&);
 
 private:
-    WebAutoFill* mAutoFill;
+    WebAutofill* mAutofill;
 };
 }
 

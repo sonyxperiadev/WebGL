@@ -76,7 +76,7 @@
 #include "WebFrameView.h"
 #include "WebViewClientError.h"
 #include "WebViewCore.h"
-#include "autofill/WebAutoFill.h"
+#include "autofill/WebAutofill.h"
 #include "android_graphics.h"
 
 #include <utils/AssetManager.h>
@@ -301,7 +301,7 @@ void FrameLoaderClientAndroid::dispatchDidCommitLoad() {
 #if ENABLE(WEB_AUTOFILL)
     if (m_frame == m_frame->page()->mainFrame()) {
         EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(m_frame->page()->editorClient());
-        WebAutoFill* autoFill = editorC->getAutoFill();
+        WebAutofill* autoFill = editorC->getAutofill();
         autoFill->reset();
     }
 #endif

@@ -91,7 +91,7 @@
 #include <base/utf_string_conversions.h>
 #include <chrome/browser/autofill/autofill_host.h>
 #include <chrome/browser/profiles/profile.h>
-#include <chrome/browser/tab_contents/tab_contents.h>
+#include <content/browser/tab_contents/tab_contents.h>
 #include <webkit/glue/form_data.h>
 #endif
 

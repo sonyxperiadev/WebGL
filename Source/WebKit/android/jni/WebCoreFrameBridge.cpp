@@ -124,7 +124,7 @@
 #endif
 
 #if ENABLE(WEB_AUTOFILL)
-#include "autofill/WebAutoFill.h"
+#include "autofill/WebAutofill.h"
 #endif
 
 using namespace JSC::Bindings;
@@ -1334,7 +1334,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     WebViewCore* webViewCore = new WebViewCore(env, javaview, frame);
 
 #if ENABLE(WEB_AUTOFILL)
-    editorC->getAutoFill()->setWebViewCore(webViewCore);
+    editorC->getAutofill()->setWebViewCore(webViewCore);
 #endif
 
     // Create a FrameView
