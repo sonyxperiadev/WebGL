@@ -793,6 +793,13 @@ public:
     void processHttpEquiv(const String& equiv, const String& content);
     void processViewport(const String& features);
 
+#ifdef ANDROID_META_SUPPORT
+     /**
+      * Handles format-detection like <meta name = "format-detection" content = "telephone=no">
+      */
+     void processMetadataSettings(const String& content);
+#endif
+
     // Returns the owning element in the parent document.
     // Returns 0 if this is the top level document.
     HTMLFrameOwnerElement* ownerElement() const;

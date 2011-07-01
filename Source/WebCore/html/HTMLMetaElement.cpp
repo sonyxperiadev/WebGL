@@ -80,7 +80,7 @@ void HTMLMetaElement::process()
 #ifdef ANDROID_META_SUPPORT
     // TODO: Evaluate whether to take upstreamed meta support
     else if (equalIgnoringCase(name(), "format-detection"))
-        document()->processViewport(m_content);
+        document()->processMetadataSettings(m_content);
     else if (((equalIgnoringCase(name(), "HandheldFriendly") && equalIgnoringCase(m_content, "true")) || equalIgnoringCase(name(), "MobileOptimized"))
         && document()->settings()
         && document()->settings()->viewportWidth() == -1) {

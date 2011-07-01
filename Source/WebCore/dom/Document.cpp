@@ -2611,6 +2611,14 @@ Node* Document::nodeWithAbsIndex(int absIndex)
     return n;
 }
 
+#ifdef ANDROID_META_SUPPORT
+void Document::processMetadataSettings(const String& content)
+{
+    ASSERT(!content.isNull());
+    processArguments(content, 0, 0);
+}
+#endif
+
 void Document::processHttpEquiv(const String& equiv, const String& content)
 {
     ASSERT(!equiv.isNull() && !content.isNull());
@@ -2719,7 +2727,8 @@ void Document::processArguments(const String& features, void* data, ArgumentsCal
         if (frame())
             frame()->settings()->setMetadataSettings(keyString, valueString);
 #endif
-        callback(keyString, valueString, this, data);
+        if (callback && data)
+            callback(keyString, valueString, this, data);
     }
 }
 
