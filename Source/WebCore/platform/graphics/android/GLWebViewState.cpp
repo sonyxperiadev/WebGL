@@ -116,6 +116,7 @@ GLWebViewState::~GLWebViewState()
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("GLWebViewState");
 #endif
+    TilesManager::instance()->unregisterGLWebViewState(this);
 }
 
 void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval,
@@ -497,6 +498,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& clip, float scale, SkColor color)
 {
     glFinish();
+    TilesManager::instance()->registerGLWebViewState(this);
 
     m_baseLayerLock.lock();
     BaseLayerAndroid* baseLayer = m_currentBaseLayer;

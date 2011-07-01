@@ -37,6 +37,7 @@
 #include "TiledPage.h"
 #include "VideoLayerManager.h"
 #include <utils/threads.h>
+#include <wtf/HashMap.h>
 
 namespace WebCore {
 
@@ -108,6 +109,8 @@ public:
     static float tileHeight();
     int expandedTileBoundsX();
     int expandedTileBoundsY();
+    void registerGLWebViewState(GLWebViewState* state);
+    void unregisterGLWebViewState(GLWebViewState* state);
 
     void allocateTiles();
 
@@ -156,6 +159,11 @@ private:
 
     ShaderProgram m_shader;
     VideoLayerManager m_videoLayerManager;
+
+    HashMap<GLWebViewState*, unsigned int> m_glWebViewStateMap;
+    unsigned int m_drawRegistrationCount;
+
+    unsigned int getGLWebViewStateDrawCount(GLWebViewState* state);
 };
 
 } // namespace WebCore

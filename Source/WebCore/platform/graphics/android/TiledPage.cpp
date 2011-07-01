@@ -171,6 +171,7 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
 
         if (currentTile) {
             currentTile->setScale(m_scale);
+            currentTile->setGLWebViewState(m_glWebViewState);
 
             // ensure there is a texture associated with the tile and then check to
             // see if the texture is dirty and in need of repainting

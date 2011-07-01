@@ -93,6 +93,7 @@ TilesManager::TilesManager()
     , m_expandedTileBounds(false)
     , m_generatorReady(false)
     , m_showVisualIndicator(false)
+    , m_drawRegistrationCount(0)
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
@@ -168,45 +169,39 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     }
 
     // The heuristic for selecting a texture is as follows:
-    //  1. return an unused texture if one exists
-    //  2. return the farthest texture from the viewport (from any tiled page)
-    //  3. return any texture not used by the tile's page or the page's sibiling
-    //
-    // The texture level indicates a tiles closeness to the current viewport
+    //  1. If usedLevel == -1, break with that one
+    //  2. Otherwise, select the highest usedLevel available
+    //  3. Break ties with the lowest LRU(RecentLevel) valued GLWebViewState
+
     BaseTileTexture* farthestTexture = 0;
     int farthestTextureLevel = 0;
+    unsigned int lowestDrawCount = ~0; //maximum uint
     const unsigned int max = m_textures.size();
     for (unsigned int i = 0; i < max; i++) {
         BaseTileTexture* texture = m_textures[i];
+
         if (texture->usedLevel() == -1) { // found an unused texture, grab it
             farthestTexture = texture;
             break;
         }
-        if (farthestTextureLevel < texture->usedLevel()) {
-            farthestTextureLevel = texture->usedLevel();
+
+        int textureLevel = texture->usedLevel();
+        unsigned int textureDrawCount = getGLWebViewStateDrawCount(texture->owner()->state());
+
+        // if (higher distance or equal distance but less recently rendered)
+        if (farthestTextureLevel < textureLevel
+            || ((farthestTextureLevel == textureLevel) && (lowestDrawCount > textureDrawCount))) {
             farthestTexture = texture;
+            farthestTextureLevel = textureLevel;
+            lowestDrawCount = textureDrawCount;
         }
-    }
-    if (farthestTexture && farthestTexture->acquire(owner)) {
-        XLOG("farthest texture, getAvailableTexture(%x) => texture %x (level %d)",
-             owner, farthestTexture, farthestTexture->usedLevel());
-        farthestTexture->setUsedLevel(0);
-        return farthestTexture;
     }
 
-    // At this point, all textures are used or we failed to aquire the farthest
-    // texture. Now let's just grab a texture not in use by either of the two
-    // tiled pages associated with this view.
-    TiledPage* currentPage = owner->page();
-    TiledPage* nextPage = currentPage->sibling();
-    for (unsigned int i = 0; i < max; i++) {
-        BaseTileTexture* texture = m_textures[i];
-        if (texture->tryAcquire(owner, currentPage, nextPage)) {
-            XLOG("grab a texture that wasn't ours, (%x != %x) at %d => texture %x",
-                 owner->page(), texture->owner()->page(), i, texture);
-            texture->setUsedLevel(0);
-            return texture;
-        }
+    if (farthestTexture && farthestTexture->acquire(owner)) {
+        XLOG("farthest texture, getAvailableTexture(%x) => texture %x (level %d, drawCount %d)",
+             owner, farthestTexture, farthestTextureLevel, lowestDrawCount);
+        farthestTexture->setUsedLevel(0);
+        return farthestTexture;
     }
 
     XLOG("Couldn't find an available texture for BaseTile %x (%d, %d) !!!",
@@ -422,6 +417,25 @@ int TilesManager::expandedTileBoundsX() {
 
 int TilesManager::expandedTileBoundsY() {
     return m_expandedTileBounds ? EXPANDED_TILE_BOUNDS_Y : 0;
+}
+
+void TilesManager::registerGLWebViewState(GLWebViewState* state)
+{
+    m_glWebViewStateMap.set(state, m_drawRegistrationCount);
+    m_drawRegistrationCount++;
+    XLOG("now state %p, total of %d states", state, m_glWebViewStateMap.size());
+}
+
+void TilesManager::unregisterGLWebViewState(GLWebViewState* state)
+{
+    m_glWebViewStateMap.remove(state);
+    XLOG("state %p now removed, total of %d states", state, m_glWebViewStateMap.size());
+}
+
+unsigned int TilesManager::getGLWebViewStateDrawCount(GLWebViewState* state)
+{
+    XLOG("looking up state %p, contains=%s", state, m_glWebViewStateMap.contains(state) ? "TRUE" : "FALSE");
+    return m_glWebViewStateMap.find(state)->second;
 }
 
 TilesManager* TilesManager::instance()

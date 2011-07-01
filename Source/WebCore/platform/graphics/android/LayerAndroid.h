@@ -102,6 +102,7 @@ public:
 
     LayerTexture* texture() { return m_reservedTexture; }
     virtual TiledPage* page() { return 0; }
+    virtual GLWebViewState* state() { return 0; }
 
     void setBackfaceVisibility(bool value) { m_backfaceVisibility = value; }
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }

@@ -147,13 +147,12 @@ bool BaseTileTexture::acquire(TextureOwner* owner, bool force)
     return setOwner(owner, force);
 }
 
-bool BaseTileTexture::tryAcquire(TextureOwner* owner, TiledPage* currentPage, TiledPage* nextPage)
+bool BaseTileTexture::tryAcquire(TextureOwner* owner)
 {
     m_busyLock.lock();
     if (!m_busy
         && m_owner
-        && m_owner->page() != currentPage
-        && m_owner->page() != nextPage) {
+        && m_owner->state() != owner->state()) {
         m_busyLock.unlock();
         return this->acquire(owner);
     }

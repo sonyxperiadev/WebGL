@@ -40,6 +40,7 @@ namespace WebCore {
 class TextureInfo;
 class TiledPage;
 class BaseTileTexture;
+class GLWebViewState;
 
 /**
  * An individual tile that is used to construct part of a webpage's BaseLayer of
@@ -94,11 +95,16 @@ public:
     unsigned int lastPaintedPicture() const { return m_lastPaintedPicture; }
     BaseTileTexture* texture() { return m_texture; }
 
+    void setGLWebViewState(GLWebViewState* state) { m_glWebViewState = state; }
+
     // TextureOwner implementation
     virtual bool removeTexture(BaseTileTexture* texture);
     virtual TiledPage* page() { return m_page; }
+    virtual GLWebViewState* state() { return m_glWebViewState; }
 
 private:
+    GLWebViewState* m_glWebViewState;
+
     // these variables are only set when the object is constructed
     TiledPage* m_page;
     int m_x;
