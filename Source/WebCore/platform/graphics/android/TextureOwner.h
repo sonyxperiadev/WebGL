@@ -30,12 +30,14 @@ namespace WebCore {
 
 class TiledPage;
 class BaseTileTexture;
+class GLWebViewState;
 
 class TextureOwner {
 public:
     virtual ~TextureOwner() { }
     virtual bool removeTexture(BaseTileTexture* texture) = 0;
     virtual TiledPage* page() = 0;
+    virtual GLWebViewState* state() = 0;
 };
 
 }
