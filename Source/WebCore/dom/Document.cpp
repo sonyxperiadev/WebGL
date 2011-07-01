@@ -695,10 +695,7 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
     if (m_docType && !ownerElement()
             && m_docType->publicId().startsWith("-//wapforum//dtd xhtml mobile 1.", false)) {
         // fit mobile sites directly in the screen
-        if (Frame *f = frame())
-            f->settings()->setMetadataSettings("width", "device-width");
-        if (FrameView* frameView = view())
-            PlatformBridge::updateViewport(frameView);
+        processViewport("width=device-width");
     }
 #endif
 }
@@ -2614,14 +2611,6 @@ Node* Document::nodeWithAbsIndex(int absIndex)
     return n;
 }
 
-#ifdef ANDROID_META_SUPPORT
-void Document::processMetadataSettings(const String& content)
-{
-    ASSERT(!content.isNull());
-    processArguments(content, 0, 0);
-}
-#endif
-
 void Document::processHttpEquiv(const String& equiv, const String& content)
 {
     ASSERT(!equiv.isNull() && !content.isNull());
@@ -2729,9 +2718,8 @@ void Document::processArguments(const String& features, void* data, ArgumentsCal
 #ifdef ANDROID_META_SUPPORT
         if (frame())
             frame()->settings()->setMetadataSettings(keyString, valueString);
-#else
-        callback(keyString, valueString, this, data);
 #endif
+        callback(keyString, valueString, this, data);
     }
 }
 

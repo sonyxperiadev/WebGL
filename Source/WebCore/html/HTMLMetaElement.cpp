@@ -75,30 +75,18 @@ void HTMLMetaElement::process()
 {
     if (!inDocument() || m_content.isNull())
         return;
+    if (equalIgnoringCase(name(), "viewport"))
+        document()->processViewport(m_content);
 #ifdef ANDROID_META_SUPPORT
     // TODO: Evaluate whether to take upstreamed meta support
-    bool updateViewport = false;
-    if (equalIgnoringCase(name(), "viewport")) {
-        document()->processMetadataSettings(m_content);
-        updateViewport = true;
-    } else if (equalIgnoringCase(name(), "format-detection"))
-        document()->processMetadataSettings(m_content);
+    else if (equalIgnoringCase(name(), "format-detection"))
+        document()->processViewport(m_content);
     else if (((equalIgnoringCase(name(), "HandheldFriendly") && equalIgnoringCase(m_content, "true")) || equalIgnoringCase(name(), "MobileOptimized"))
         && document()->settings()
         && document()->settings()->viewportWidth() == -1) {
         // fit mobile sites directly in the screen
-        document()->settings()->setMetadataSettings("width", "device-width");
-        updateViewport = true;
+        document()->processViewport("width=device-width");
     }
-    // update the meta data if it is the top document
-    if (updateViewport && !document()->ownerElement()) {
-        FrameView* view = document()->view();
-        if (view)
-            PlatformBridge::updateViewport(view);
-    }
-#else
-    if (equalIgnoringCase(name(), "viewport"))
-        document()->processViewport(m_content);
 #endif
 
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)

@@ -124,6 +124,8 @@ namespace android {
         virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const;
         // End methods used by HostWindow.
 
+        virtual void dispatchViewportDataDidChange(const ViewportArguments&) const;
+
         virtual void scrollbarsModeDidChange() const;
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned int);
 
