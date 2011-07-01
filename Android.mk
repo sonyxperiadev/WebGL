@@ -376,10 +376,13 @@ LOCAL_SHARED_LIBRARIES := \
 	libicuuc \
 	libicui18n \
 	libmedia \
-	libsurfaceflinger_client \
 	libEGL \
 	libGLESv2 \
 	libgui
+
+ifeq ($(PLATFORM_VERSION),3.1.4.1.5.9.2.6.5)
+LOCAL_SHARED_LIBRARIES += libsurfaceflinger_client
+endif
 
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy
