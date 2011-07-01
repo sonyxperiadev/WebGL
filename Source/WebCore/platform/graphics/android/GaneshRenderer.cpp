@@ -34,12 +34,12 @@
 #include "SkGpuDevice.h"
 #include "TilesManager.h"
 
-#include <wtf/text/CString.h>
 
 #ifdef DEBUG
 
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GaneshRenderer", __VA_ARGS__)
@@ -63,7 +63,7 @@ static const String TAGS[] = {
     TAG_UPDATE_TEXTURE,
 };
 
-GaneshRenderer::GaneshRenderer() : BaseRenderer(BaseRenderer::Raster)
+GaneshRenderer::GaneshRenderer() : BaseRenderer(BaseRenderer::Ganesh)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("GaneshRenderer");
@@ -82,37 +82,17 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     if (renderInfo.measurePerf)
         m_perfMon.start(TAG_CREATE_FBO);
 
-    const float tileWidth = renderInfo.tileSize.width();
-    const float tileHeight = renderInfo.tileSize.height();
-
-    glBindTexture(GL_TEXTURE_2D, renderInfo.textureInfo->m_textureId);
-
-    // setup the texture if needed
-    if (renderInfo.textureInfo->m_width != tileWidth
-            || renderInfo.textureInfo->m_height != tileHeight) {
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tileWidth, tileHeight,
-                 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        renderInfo.textureInfo->m_width = tileWidth;
-        renderInfo.textureInfo->m_height = tileHeight;
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-
     GaneshContext* ganesh = GaneshContext::instance();
 
-    // TODO only need to reset if others are sharing our context
-    ganesh->getGrContext()->resetContext();
-
     SkDevice* device = NULL;
-    if (tileWidth == TilesManager::tileWidth() && tileHeight == TilesManager::tileHeight()) {
-        device = ganesh->getDeviceForBaseTile(renderInfo.textureInfo->m_textureId);
+    if (renderInfo.tileSize.width() == TilesManager::tileWidth()
+            && renderInfo.tileSize.height() == TilesManager::tileHeight()) {
+        device = ganesh->getDeviceForBaseTile(renderInfo);
     } else {
         // TODO support arbitrary sizes for layers
         XLOG("ERROR: expected (%d,%d) actual (%d,%d)",
                 TilesManager::tileWidth(), TilesManager::tileHeight(),
-                tileWidth, tileHeight);
+                renderInfo.tileSize.width(), renderInfo.tileSize.height());
     }
 
     if (renderInfo.measurePerf) {
@@ -124,8 +104,10 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     canvas->setDevice(device);
 
     // invert canvas contents
-    canvas->scale(SK_Scalar1, -SK_Scalar1);
-    canvas->translate(0, -SkIntToScalar(renderInfo.tileSize.height()));
+    if (renderInfo.textureInfo->getSharedTextureMode() == EglImageMode) {
+        canvas->scale(SK_Scalar1, -SK_Scalar1);
+        canvas->translate(0, -renderInfo.tileSize.height());
+    }
 }
 
 void GaneshRenderer::setupPartialInval(const TileRenderInfo& renderInfo, SkCanvas* canvas)
@@ -145,9 +127,15 @@ void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
         m_perfMon.start(TAG_UPDATE_TEXTURE);
     }
 
-    GaneshContext::instance()->getGrContext()->flush();
+    XLOG("rendered to tile (%d,%d)", renderInfo.x, renderInfo.y);
 
-    //TODO if texture is surfaceTexture then...
+    GaneshContext::instance()->flush();
+
+    // In SurfaceTextureMode we must call swapBuffers to unlock and post the
+    // tile's ANativeWindow (i.e. SurfaceTexture) buffer
+    if (renderInfo.textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
+        eglSwapBuffers(eglGetCurrentDisplay(), renderInfo.textureInfo->m_eglSurface);
+    }
 
     if (renderInfo.measurePerf)
         m_perfMon.stop(TAG_UPDATE_TEXTURE);

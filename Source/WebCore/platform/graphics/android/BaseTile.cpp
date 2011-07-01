@@ -86,6 +86,8 @@ BaseTile::BaseTile(bool isLayerTile)
     m_fullRepaint = new bool[m_maxBufferNumber];
     for (int i = 0; i < m_maxBufferNumber; i++)
         m_fullRepaint[i] = true;
+
+    m_renderer = BaseRenderer::createRenderer();
 }
 
 BaseTile::~BaseTile()
@@ -305,6 +307,9 @@ void BaseTile::paintBitmap()
     }
 
     unsigned int pictureCount = 0;
+
+    // swap out the renderer if necessary
+    BaseRenderer::swapRendererIfNeeded(m_renderer);
 
     // setup the common renderInfo fields;
     TileRenderInfo renderInfo;
