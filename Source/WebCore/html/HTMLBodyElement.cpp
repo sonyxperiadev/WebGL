@@ -206,13 +206,7 @@ void HTMLBodyElement::insertedIntoDocument()
         if (settings->viewportWidth() == -1 && (host.startsWith("m.") || host.startsWith("mobile.")
                 || host.startsWith("wap.") || host.contains(".m.") || host.contains(".mobile." || host.contains(".wap.")))) {
             // fit mobile sites directly in the screen
-            settings->setMetadataSettings("width", "device-width");
-            // update the meta data if it is the top document
-            if (!ownerElement) {
-                FrameView* view = document()->view();
-                if (view)
-                    PlatformBridge::updateViewport(view);
-            }
+            document()->processViewport("width=device-width");
         }
     }
 #endif

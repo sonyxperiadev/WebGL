@@ -347,6 +347,22 @@ void ChromeClientAndroid::scrollbarsModeDidChange() const
     notImplemented();
 }
 
+void ChromeClientAndroid::dispatchViewportDataDidChange(const ViewportArguments& input) const {
+#ifdef ANDROID_META_SUPPORT
+    const ViewportArguments emptyArgument;
+    if (input == emptyArgument) {
+        // Empty Argument is for a page with no viewport meta tag; so reset everything.
+        m_webFrame->page()->settings()->resetMetadataSettings();
+    }
+    Document* doc = m_webFrame->page()->mainFrame()->document();
+    if (!doc->ownerElement()) {
+        FrameView* view = doc->view();
+        if (view)
+            PlatformBridge::updateViewport(view);
+    }
+#endif
+}
+
 void ChromeClientAndroid::mouseDidMoveOverElement(const HitTestResult&, unsigned int) {}
 void ChromeClientAndroid::setToolTip(const String&, TextDirection) {}
 void ChromeClientAndroid::print(Frame*) {}
