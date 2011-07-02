@@ -68,32 +68,36 @@ IntSize ScrollView::platformContentsSize() const
     return m_contentsSize;
 }
 
+static float getWebViewCoreScale(const ScrollView* view) {
+    return android::WebViewCore::getWebViewCore(view)->scale();
+}
+
 int ScrollView::platformActualWidth() const
 {
     if (parent())
         return width();
-    return platformWidget()->visibleWidth();
+    return platformWidget()->visibleWidth() * getWebViewCoreScale(this);
 }
 
 int ScrollView::platformActualHeight() const
 {
     if (parent())
         return height();
-    return platformWidget()->visibleHeight();
+    return platformWidget()->visibleHeight() * getWebViewCoreScale(this);
 }
 
 int ScrollView::platformActualScrollX() const
 {
     if (parent())
         return scrollX();
-    return platformWidget()->visibleX();
+    return platformWidget()->visibleX() * getWebViewCoreScale(this);
 }
 
 int ScrollView::platformActualScrollY() const
 {
     if (parent())
         return scrollY();
-    return platformWidget()->visibleY();
+    return platformWidget()->visibleY() * getWebViewCoreScale(this);
 }
 
 void ScrollView::platformSetScrollPosition(const WebCore::IntPoint& pt)
