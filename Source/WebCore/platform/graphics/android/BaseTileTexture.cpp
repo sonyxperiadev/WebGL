@@ -39,7 +39,8 @@
 namespace WebCore {
 
 BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
-    : DoubleBufferedTexture(eglGetCurrentContext(), SurfaceTextureMode)
+    : DoubleBufferedTexture(eglGetCurrentContext(),
+                            TilesManager::instance()->getSharedTextureMode())
     , m_usedLevel(-1)
     , m_owner(0)
     , m_delayedReleaseOwner(0)

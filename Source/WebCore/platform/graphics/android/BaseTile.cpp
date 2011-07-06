@@ -28,8 +28,8 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "RasterRenderer.h"
 #include "GLUtils.h"
+#include "RasterRenderer.h"
 #include "TextureInfo.h"
 #include "TilesManager.h"
 
@@ -64,15 +64,25 @@ BaseTile::BaseTile()
     , m_repaintPending(false)
     , m_usable(true)
     , m_lastDirtyPicture(0)
-    , m_fullRepaintA(true)
-    , m_fullRepaintB(true)
     , m_lastPaintedPicture(0)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("BaseTile");
 #endif
-    m_currentDirtyArea = &m_dirtyAreaA;
+    m_currentDirtyAreaIndex = 0;
     m_renderer = new RasterRenderer();
+
+    // For EglImage Mode, the internal buffer should be 2.
+    // And for Async Surface Texture mode, this is 3.
+    if (TilesManager::instance()->getSharedTextureMode() == EglImageMode)
+        m_maxBufferNumber = 2;
+    else
+        m_maxBufferNumber = 3;
+
+    m_dirtyArea = new SkRegion[m_maxBufferNumber];
+    m_fullRepaint = new bool[m_maxBufferNumber];
+    for (int i = 0; i < m_maxBufferNumber; i++)
+        m_fullRepaint[i] = true;
 }
 
 BaseTile::~BaseTile()
@@ -82,6 +92,8 @@ BaseTile::~BaseTile()
         m_texture->release(this);
 
     delete m_renderer;
+    delete[] m_dirtyArea;
+    delete[] m_fullRepaint;
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("BaseTile");
@@ -122,10 +134,10 @@ bool BaseTile::removeTexture(BaseTileTexture* texture)
 
 void BaseTile::fullInval()
 {
-    m_dirtyAreaA.setEmpty();
-    m_dirtyAreaB.setEmpty();
-    m_fullRepaintA = true;
-    m_fullRepaintB = true;
+    for (int i = 0; i < m_maxBufferNumber; i++) {
+        m_dirtyArea[i].setEmpty();
+        m_fullRepaint[i] = true;
+    }
     m_dirty = true;
 }
 
@@ -143,8 +155,8 @@ void BaseTile::markAsDirty(int unsigned pictureCount,
 {
     android::AutoMutex lock(m_atomicSync);
     m_lastDirtyPicture = pictureCount;
-    m_dirtyAreaA.op(dirtyArea, SkRegion::kUnion_Op);
-    m_dirtyAreaB.op(dirtyArea, SkRegion::kUnion_Op);
+    for (int i = 0; i < m_maxBufferNumber; i++)
+        m_dirtyArea[i].op(dirtyArea, SkRegion::kUnion_Op);
     m_dirty = true;
 }
 
@@ -260,15 +272,14 @@ void BaseTile::paintBitmap()
     m_atomicSync.lock();
     bool dirty = m_dirty;
     BaseTileTexture* texture = m_texture;
-    SkRegion dirtyArea = *m_currentDirtyArea;
+    SkRegion dirtyArea = m_dirtyArea[m_currentDirtyAreaIndex];
     float scale = m_scale;
     const int x = m_x;
     const int y = m_y;
     m_atomicSync.unlock();
 
-    if (!dirty || !texture) {
+    if (!dirty || !texture)
         return;
-    }
 
     TiledPage* tiledPage = m_page;
 
@@ -299,12 +310,12 @@ void BaseTile::paintBitmap()
     SkRegion::Iterator cliperator(dirtyArea);
 
     bool fullRepaint = false;
+
     // TODO: Implement the partial invalidate in Surface Texture Mode
-    if (((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA)
-            || ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB)
-            || textureInfo->m_width != tileWidth
-            || textureInfo->m_height != tileHeight
-            || textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
+    if (m_fullRepaint[m_currentDirtyAreaIndex]
+        || textureInfo->m_width != tileWidth
+        || textureInfo->m_height != tileHeight
+        || textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
         fullRepaint = true;
     }
 
@@ -379,12 +390,7 @@ void BaseTile::paintBitmap()
         m_lastPaintedPicture = pictureCount;
 
         // set the fullrepaint flags
-
-        if ((m_currentDirtyArea == &m_dirtyAreaA) && m_fullRepaintA)
-            m_fullRepaintA = false;
-
-        if ((m_currentDirtyArea == &m_dirtyAreaB) && m_fullRepaintB)
-            m_fullRepaintB = false;
+        m_fullRepaint[m_currentDirtyAreaIndex] = false;
 
         // The various checks to see if we are still dirty...
 
@@ -394,18 +400,19 @@ void BaseTile::paintBitmap()
             m_dirty = true;
 
         if (fullRepaint)
-            m_currentDirtyArea->setEmpty();
+            m_dirtyArea[m_currentDirtyAreaIndex].setEmpty();
         else
-            m_currentDirtyArea->op(dirtyArea, SkRegion::kDifference_Op);
+            m_dirtyArea[m_currentDirtyAreaIndex].op(dirtyArea, SkRegion::kDifference_Op);
 
-        if (!m_currentDirtyArea->isEmpty())
+        if (!m_dirtyArea[m_currentDirtyAreaIndex].isEmpty())
             m_dirty = true;
 
         // Now we can swap the dirty areas
+        // TODO: For surface texture in Async mode, the index will be updated
+        // according to the current buffer just dequeued.
+        m_currentDirtyAreaIndex = (m_currentDirtyAreaIndex+1) % m_maxBufferNumber;
 
-        m_currentDirtyArea = m_currentDirtyArea == &m_dirtyAreaA ? &m_dirtyAreaB : &m_dirtyAreaA;
-
-        if (!m_currentDirtyArea->isEmpty())
+        if (!m_dirtyArea[m_currentDirtyAreaIndex].isEmpty())
             m_dirty = true;
 
         if (!m_dirty)

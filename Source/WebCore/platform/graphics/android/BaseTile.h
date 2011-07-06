@@ -125,11 +125,10 @@ private:
     unsigned int m_lastDirtyPicture;
 
     // store the dirty region
-    SkRegion m_dirtyAreaA;
-    SkRegion m_dirtyAreaB;
-    bool m_fullRepaintA;
-    bool m_fullRepaintB;
-    SkRegion* m_currentDirtyArea;
+    SkRegion* m_dirtyArea;
+    bool* m_fullRepaint;
+    int m_maxBufferNumber;
+    int m_currentDirtyAreaIndex;
 
     // stores the id of the latest picture painted to the tile. If the id is 0
     // then we know that the picture has not yet been painted an there is nothing

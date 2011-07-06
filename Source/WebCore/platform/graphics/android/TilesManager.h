@@ -126,6 +126,10 @@ public:
         m_showVisualIndicator = showVisualIndicator;
     }
 
+    SharedTextureMode getSharedTextureMode() {
+        return SurfaceTextureMode;
+    }
+
 private:
 
     TilesManager();
