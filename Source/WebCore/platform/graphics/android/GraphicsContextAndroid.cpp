@@ -624,10 +624,10 @@ static void setrectForUnderline(SkRect* r, GraphicsContext* context, const Float
     if (lineThickness < 1) // Do we really need/want this?
         lineThickness = 1;
 #endif
-    r->fLeft    = SkIntToScalar(point.x());
-    r->fTop     = SkIntToScalar(point.y() + yOffset);
-    r->fRight   = r->fLeft + SkIntToScalar(width);
-    r->fBottom  = r->fTop + SkFloatToScalar(lineThickness);
+    r->fLeft    = point.x();
+    r->fTop     = point.y() + yOffset;
+    r->fRight   = r->fLeft + width;
+    r->fBottom  = r->fTop + lineThickness;
 }
 
 void GraphicsContext::drawLineForText(const FloatPoint& pt, float width, bool)
