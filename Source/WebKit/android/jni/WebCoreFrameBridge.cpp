@@ -525,7 +525,9 @@ WebFrame::shouldInterceptRequest(const WTF::String& url)
     env->DeleteLocalRef(urlStr);
     if (response == 0)
         return 0;
-    return new UrlInterceptResponse(env, response);
+    UrlInterceptResponse* result = new UrlInterceptResponse(env, response);
+    env->DeleteLocalRef(response);
+    return result;
 }
 
 void
