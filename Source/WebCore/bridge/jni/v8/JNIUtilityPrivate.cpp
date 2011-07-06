@@ -107,7 +107,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     }
                     env->SetByteArrayRegion(static_cast<jbyteArray>(javaArray), i, 1, &bVal);
                 }
-             } else if (!strcmp(javaClassName.data(), "[C")) {
+            } else if (!strcmp(javaClassName.data(), "[C")) {
                 // array of chars
                 javaArray = env->NewCharArray(length);
                 // Now iterate over each element and add to the array.
@@ -123,7 +123,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     }
                     env->SetCharArrayRegion(static_cast<jcharArray>(javaArray), i, 1, &cVal);
                 }
-             } else if (!strcmp(javaClassName.data(), "[D")) {
+            } else if (!strcmp(javaClassName.data(), "[D")) {
                 // array of doubles
                 javaArray = env->NewDoubleArray(length);
                 // Now iterate over each element and add to the array.
@@ -135,7 +135,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                         env->SetDoubleArrayRegion(static_cast<jdoubleArray>(javaArray), i, 1, &dVal);
                     }
                 }
-             } else if (!strcmp(javaClassName.data(), "[F")) {
+            } else if (!strcmp(javaClassName.data(), "[F")) {
                 // array of floats
                 javaArray = env->NewFloatArray(length);
                 // Now iterate over each element and add to the array.
@@ -147,7 +147,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                         env->SetFloatArrayRegion(static_cast<jfloatArray>(javaArray), i, 1, &fVal);
                     }
                 }
-             } else if (!strcmp(javaClassName.data(), "[I")) {
+            } else if (!strcmp(javaClassName.data(), "[I")) {
                 // array of ints
                 javaArray = env->NewIntArray(length);
                 // Now iterate over each element and add to the array.
@@ -162,7 +162,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     }
                     env->SetIntArrayRegion(static_cast<jintArray>(javaArray), i, 1, &iVal);
                 }
-             } else if (!strcmp(javaClassName.data(), "[J")) {
+            } else if (!strcmp(javaClassName.data(), "[J")) {
                 // array of longs
                 javaArray = env->NewLongArray(length);
                 // Now iterate over each element and add to the array.
@@ -177,7 +177,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     }
                     env->SetLongArrayRegion(static_cast<jlongArray>(javaArray), i, 1, &jVal);
                 }
-             } else if (!strcmp(javaClassName.data(), "[S")) {
+            } else if (!strcmp(javaClassName.data(), "[S")) {
                 // array of shorts
                 javaArray = env->NewShortArray(length);
                 // Now iterate over each element and add to the array.
@@ -192,7 +192,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     }
                     env->SetShortArrayRegion(static_cast<jshortArray>(javaArray), i, 1, &sVal);
                 }
-             } else if (!strcmp(javaClassName.data(), "[Z")) {
+            } else if (!strcmp(javaClassName.data(), "[Z")) {
                 // array of booleans
                 javaArray = env->NewBooleanArray(length);
                 // Now iterate over each element and add to the array.
@@ -210,6 +210,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
             }
 
             result.m_objectValue = adoptRef(new JavaInstanceJobject(javaArray));
+            env->DeleteLocalRef(javaArray);
         }
         break;
 #endif // PLATFORM(ANDROID)

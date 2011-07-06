@@ -45,7 +45,7 @@ JavaMethodJobject::JavaMethodJobject(JNIEnv* env, jobject aMethod)
     // Get return type name
     jstring returnTypeName = 0;
     if (jobject returnType = callJNIMethod<jobject>(aMethod, "getReturnType", "()Ljava/lang/Class;")) {
-            returnTypeName = static_cast<jstring>(callJNIMethod<jobject>(returnType, "getName", "()Ljava/lang/String;"));
+        returnTypeName = static_cast<jstring>(callJNIMethod<jobject>(returnType, "getName", "()Ljava/lang/String;"));
         if (!returnTypeName)
             returnTypeName = env->NewStringUTF("<Unknown>");
         env->DeleteLocalRef(returnType);
