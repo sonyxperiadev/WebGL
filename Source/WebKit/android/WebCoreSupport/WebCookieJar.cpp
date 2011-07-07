@@ -165,14 +165,14 @@ int WebCookieJar::getNumCookiesInDatabase()
 }
 
 // From CookiePolicy in chromium
-int WebCookieJar::CanGetCookies(const GURL&, const GURL&, net::CompletionCallback*)
+int WebCookieJar::CanGetCookies(const GURL&, const GURL&) const
 {
     MutexLocker lock(m_allowCookiesMutex);
     return m_allowCookies ? net::OK : net::ERR_ACCESS_DENIED;
 }
 
 // From CookiePolicy in chromium
-int WebCookieJar::CanSetCookie(const GURL&, const GURL&, const std::string&, net::CompletionCallback*)
+int WebCookieJar::CanSetCookie(const GURL&, const GURL&, const std::string&) const
 {
     MutexLocker lock(m_allowCookiesMutex);
     return m_allowCookies ? net::OK : net::ERR_ACCESS_DENIED;
