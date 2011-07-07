@@ -310,8 +310,8 @@ void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* elem
     // The label is not officially part of a HTMLFormControlElement; however, the
     // labels for all form control elements are scraped from the DOM and set in
     // WebFormElementToFormData.
-    field->set_name(nameForAutoFill(*element));
-    field->set_form_control_type(formControlType(*element));
+    field->name = nameForAutoFill(*element);
+    field->form_control_type = formControlType(*element);
 
     if (extract_mask & EXTRACT_OPTIONS) {
         std::vector<string16> option_strings;
@@ -321,8 +321,8 @@ void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* elem
 
     if (formControlType(*element) == kText) {
         HTMLInputElement* input_element = static_cast<HTMLInputElement*>(element);
-        field->set_max_length(input_element->maxLength());
-        field->set_autofilled(input_element->isAutofilled());
+        field->max_length = input_element->maxLength();
+        field->is_autofilled = input_element->isAutofilled();
     }
 
     if (!(extract_mask & EXTRACT_VALUE))
@@ -359,7 +359,7 @@ void FormManager::HTMLFormControlElementToFormField(HTMLFormControlElement* elem
     if (value.size() > kMaxDataLength)
         value = value.substr(0, kMaxDataLength);
 
-    field->set_value(value);
+    field->value = value;
 }
 
 // static
@@ -442,7 +442,7 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, Requiremen
         // TODO: A label element is mapped to a form control element's id.
         // field->name() will contain the id only if the name does not exist.  Add
         // an id() method to HTMLFormControlElement and use that here.
-        name_map[field->name()] = field;
+        name_map[field->name] = field;
         fields_extracted[i] = true;
     }
 
@@ -465,7 +465,7 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, Requiremen
         std::map<string16, FormField*>::iterator iter =
             name_map.find(nameForAutoFill(*field_element));
         if (iter != name_map.end())
-            iter->second->set_label(FindChildText(label));
+            iter->second->label = FindChildText(label);
     }
 
     // Loop through the form control elements, extracting the label text from the
@@ -482,8 +482,8 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement* element, Requiremen
             continue;
 
         const HTMLFormControlElement* control_element = static_cast<HTMLFormControlElement*>(control_elements[i]);
-        if (form_fields[field_idx]->label().empty())
-            form_fields[field_idx]->set_label(FormManager::InferLabelForElement(*control_element));
+        if (form_fields[field_idx]->label.empty())
+            form_fields[field_idx]->label = FormManager::InferLabelForElement(*control_element);
 
         ++field_idx;
 
@@ -786,13 +786,13 @@ void FormManager::ForEachMatchingFormField(FormElement* form, Node* node, Requir
 
         // Search forward in the |form| for a corresponding field.
         size_t k = j;
-        while (k < data.fields.size() && element_name != data.fields[k].name())
+        while (k < data.fields.size() && element_name != data.fields[k].name)
                k++;
 
         if (k >= data.fields.size())
             continue;
 
-        DCHECK_EQ(data.fields[k].name(), element_name);
+        DCHECK_EQ(data.fields[k].name, element_name);
 
         bool is_initiating_node = false;
 
@@ -829,7 +829,7 @@ void FormManager::ForEachMatchingFormField(FormElement* form, Node* node, Requir
 
 void FormManager::FillFormField(HTMLFormControlElement* field, const FormField* data, bool is_initiating_node) {
     // Nothing to fill.
-    if (data->value().empty())
+    if (data->value.empty())
         return;
 
     if (formControlType(*field) == kText) {
@@ -837,7 +837,7 @@ void FormManager::FillFormField(HTMLFormControlElement* field, const FormField* 
 
         // If the maxlength attribute contains a negative value, maxLength()
         // returns the default maxlength value.
-        input_element->setValue(data->value().substr(0, input_element->maxLength()).c_str());
+        input_element->setValue(data->value.substr(0, input_element->maxLength()).c_str());
         input_element->setAutofilled(true);
         if (is_initiating_node) {
             int length = input_element->value().length();
@@ -845,13 +845,13 @@ void FormManager::FillFormField(HTMLFormControlElement* field, const FormField* 
         }
     } else if (formControlType(*field) == kSelectOne) {
         HTMLSelectElement* select_element = static_cast<HTMLSelectElement*>(field);
-        select_element->setValue(data->value().c_str());
+        select_element->setValue(data->value.c_str());
     }
 }
 
 void FormManager::PreviewFormField(HTMLFormControlElement* field, const FormField* data, bool is_initiating_node) {
     // Nothing to preview.
-    if (data->value().empty())
+    if (data->value.empty())
         return;
 
     // Only preview input fields.
@@ -862,7 +862,7 @@ void FormManager::PreviewFormField(HTMLFormControlElement* field, const FormFiel
 
     // If the maxlength attribute contains a negative value, maxLength()
     // returns the default maxlength value.
-    input_element->setSuggestedValue(data->value().substr(0, input_element->maxLength()).c_str());
+    input_element->setSuggestedValue(data->value.substr(0, input_element->maxLength()).c_str());
     input_element->setAutofilled(true);
     if (is_initiating_node)
         input_element->setSelectionRange(0, input_element->suggestedValue().length());
