@@ -46,6 +46,7 @@ public:
         LOG_ALWAYS_FATAL_IF(!m_read);
         m_close = env->GetMethodID(inputStreamClass, "close", "()V");
         LOG_ALWAYS_FATAL_IF(!m_close);
+        env->DeleteLocalRef(inputStreamClass);
     }
 
     ~JavaInputStreamWrapper() {
@@ -112,6 +113,7 @@ UrlInterceptResponse::UrlInterceptResponse(JNIEnv* env, jobject response) {
     }
 
     env->DeleteLocalRef(javaResponse);
+    env->DeleteLocalRef(stream);
     env->DeleteLocalRef(mimeStr);
     env->DeleteLocalRef(encodingStr);
 }
