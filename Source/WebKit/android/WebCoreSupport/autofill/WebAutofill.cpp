@@ -235,22 +235,22 @@ void WebAutofill::setProfile(const string16& fullName, const string16& emailAddr
                              const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber)
 {
     if (!mAutofillProfile)
-        mAutofillProfile.set(new AutoFillProfile());
+        mAutofillProfile.set(new AutofillProfile());
 
     // Update the profile.
     // Constants for Autofill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
-    mAutofillProfile->SetInfo(AutofillType(NAME_FULL), fullName);
-    mAutofillProfile->SetInfo(AutofillType(EMAIL_ADDRESS), emailAddress);
-    mAutofillProfile->SetInfo(AutofillType(COMPANY_NAME), companyName);
-    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_LINE1), addressLine1);
-    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_LINE2), addressLine2);
-    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_CITY), city);
-    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_STATE), state);
-    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_ZIP), zipCode);
-    mAutofillProfile->SetInfo(AutofillType(ADDRESS_HOME_COUNTRY), country);
-    mAutofillProfile->SetInfo(AutofillType(PHONE_HOME_WHOLE_NUMBER), phoneNumber);
+    mAutofillProfile->SetInfo(AutofillFieldType(NAME_FULL), fullName);
+    mAutofillProfile->SetInfo(AutofillFieldType(EMAIL_ADDRESS), emailAddress);
+    mAutofillProfile->SetInfo(AutofillFieldType(COMPANY_NAME), companyName);
+    mAutofillProfile->SetInfo(AutofillFieldType(ADDRESS_HOME_LINE1), addressLine1);
+    mAutofillProfile->SetInfo(AutofillFieldType(ADDRESS_HOME_LINE2), addressLine2);
+    mAutofillProfile->SetInfo(AutofillFieldType(ADDRESS_HOME_CITY), city);
+    mAutofillProfile->SetInfo(AutofillFieldType(ADDRESS_HOME_STATE), state);
+    mAutofillProfile->SetInfo(AutofillFieldType(ADDRESS_HOME_ZIP), zipCode);
+    mAutofillProfile->SetInfo(AutofillFieldType(ADDRESS_HOME_COUNTRY), country);
+    mAutofillProfile->SetInfo(AutofillFieldType(PHONE_HOME_WHOLE_NUMBER), phoneNumber);
 
-    std::vector<AutoFillProfile> profiles;
+    std::vector<AutofillProfile> profiles;
     profiles.push_back(*mAutofillProfile);
     updateProfileLabel();
     mTabContents->profile()->GetPersonalDataManager()->SetProfiles(&profiles);
@@ -258,9 +258,9 @@ void WebAutofill::setProfile(const string16& fullName, const string16& emailAddr
 
 bool WebAutofill::updateProfileLabel()
 {
-    std::vector<AutoFillProfile*> profiles;
+    std::vector<AutofillProfile*> profiles;
     profiles.push_back(mAutofillProfile.get());
-    return AutoFillProfile::AdjustInferredLabels(&profiles);
+    return AutofillProfile::AdjustInferredLabels(&profiles);
 }
 
 void WebAutofill::clearProfiles()
