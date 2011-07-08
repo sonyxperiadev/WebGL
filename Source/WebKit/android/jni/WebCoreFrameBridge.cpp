@@ -1769,37 +1769,36 @@ private:
         JNIEnv* env = getJNIEnv();
         // JavaInstance creates a global ref to instance in its constructor.
         env->DeleteGlobalRef(m_instance->instance());
-        // Set the object to a weak reference.
-        m_instance->setInstance(env->NewWeakGlobalRef(instance));
+        // Create a weak ref, cache it, and set the underlying JavaInstance to use it.
+        m_weakRef = env->NewWeakGlobalRef(instance);
+        m_instance->setInstance(m_weakRef);
     }
     ~WeakJavaInstance()
     {
+        // TODO: Check whether it's OK for calls to begin() and end() to be unbalanced.
+        // See b/5006441
+        if (m_beginEndDepth)
+            LOGW("Unbalanced calls to WeakJavaInstance::begin() / end()");
         JNIEnv* env = getJNIEnv();
-        // Store the weak reference so we can delete it later.
-        jweak weak = m_instance->instance();
         // The JavaInstance destructor attempts to delete the global ref stored
         // in m_instance. Since we replaced it in our constructor with a weak
         // reference, restore the global ref here so the vm will not complain.
-        m_instance->setInstance(env->NewGlobalRef(
-                getRealObject(env, m_instance->instance()).get()));
+        m_instance->setInstance(env->NewGlobalRef(m_weakRef));
         // Delete the weak reference.
-        env->DeleteWeakGlobalRef(weak);
+        env->DeleteWeakGlobalRef(m_weakRef);
     }
 
     virtual void begin()
     {
         if (m_beginEndDepth++ > 0)
             return;
-        m_weakRef = m_instance->instance();
         JNIEnv* env = getJNIEnv();
         // This is odd. getRealObject returns an AutoJObject which is used to
         // cleanly create and delete a local reference. But, here we need to
         // maintain the local reference across calls to virtualBegin() and
         // virtualEnd(). So, release the local reference from the AutoJObject
         // and delete the local reference in virtualEnd().
-        m_realObject = getRealObject(env, m_weakRef).release();
-        // Point to the real object
-        m_instance->setInstance(m_realObject);
+        m_instance->setInstance(getRealObject(env, m_weakRef).release());
         // Call the base class method
         INHERITED::begin();
     }
@@ -1811,7 +1810,7 @@ private:
         // Call the base class method first to pop the local frame.
         INHERITED::end();
         // Get rid of the local reference to the real object.
-        getJNIEnv()->DeleteLocalRef(m_realObject);
+        getJNIEnv()->DeleteLocalRef(m_instance->instance());
         // Point back to the WeakReference.
         m_instance->setInstance(m_weakRef);
     }
@@ -1822,7 +1821,6 @@ private:
 #elif USE(V8)
     typedef JavaInstanceJobject INHERITED;
 #endif
-    jobject m_realObject;
     jweak m_weakRef;
     // The current depth of nested calls to virtualBegin and virtualEnd.
     int m_beginEndDepth;
