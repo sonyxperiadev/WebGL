@@ -1400,6 +1400,10 @@ static void DestroyFrame(JNIEnv* env, jobject obj)
     if (fl)
         fl->detachFromParent();
     delete page;
+
+    // Force remove all deleted pages in the page cache
+    WebCore::pageCache()->releaseAutoreleasedPagesNow();
+
     view->deref();
 
     SET_NATIVE_FRAME(env, obj, 0);
