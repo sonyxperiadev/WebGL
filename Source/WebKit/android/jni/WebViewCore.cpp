@@ -2971,16 +2971,11 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser)
     checkException(env);
     env->DeleteLocalRef(jAcceptType);
 
-    const UChar* string = static_cast<const UChar*>(env->GetStringChars(jName, 0));
+    WTF::String wtfString = jstringToWtfString(env, jName);
+    env->DeleteLocalRef(jName);
 
-    if (!string)
-        return;
-
-    WTF::String webcoreString = jstringToWtfString(env, jName);
-    env->ReleaseStringChars(jName, string);
-
-    if (webcoreString.length())
-        chooser->chooseFile(webcoreString);
+    if (!wtfString.isEmpty())
+        chooser->chooseFile(wtfString);
 }
 
 void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, size_t count, const int enabled[], size_t enabledCount,
