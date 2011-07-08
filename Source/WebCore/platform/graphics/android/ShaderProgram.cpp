@@ -267,7 +267,7 @@ void ShaderProgram::setViewport(SkRect& viewport)
     m_viewport = viewport;
 }
 
-void ShaderProgram::setProjectionMatrix(SkRect& geometry)
+void ShaderProgram::setProjectionMatrix(SkRect& geometry, GLint projectionMatrixHandle)
 {
     TransformationMatrix translate;
     translate.translate3d(geometry.fLeft, geometry.fTop, 0.0);
@@ -278,20 +278,21 @@ void ShaderProgram::setProjectionMatrix(SkRect& geometry)
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, total);
-    glUniformMatrix4fv(m_hProjectionMatrix, 1, GL_FALSE, projectionMatrix);
+    glUniformMatrix4fv(projectionMatrixHandle, 1, GL_FALSE, projectionMatrix);
 }
 
 void ShaderProgram::drawQuadInternal(SkRect& geometry,
                                      GLint textureId,
                                      float opacity,
                                      GLint program,
+                                     GLint projectionMatrixHandle,
                                      GLint texSampler,
                                      GLenum textureTarget,
                                      GLint position,
                                      GLint alpha)
 {
     glUseProgram(program);
-    setProjectionMatrix(geometry);
+    setProjectionMatrix(geometry, projectionMatrixHandle);
 
     glActiveTexture(GL_TEXTURE0);
     glUniform1i(texSampler, 0);
@@ -315,14 +316,17 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
 {
     if (textureTarget == GL_TEXTURE_2D) {
         drawQuadInternal(geometry, textureId, opacity, m_program,
+                         m_hProjectionMatrix,
                          m_hTexSampler, GL_TEXTURE_2D,
                          m_hPosition, alpha());
     } else if (textureTarget == GL_TEXTURE_EXTERNAL_OES) {
         drawQuadInternal(geometry, textureId, opacity, m_surfTexOESProgram,
+                         m_hSTOESProjectionMatrix,
                          m_hSTOESTexSampler, GL_TEXTURE_EXTERNAL_OES,
                          m_hSTOESPosition, m_hSTOESAlpha);
     } else if (!textureTarget) {
         drawQuadInternal(geometry, textureId, opacity, m_surfTex2DProgram,
+                         m_hST2DProjectionMatrix,
                          m_hST2DTexSampler, GL_TEXTURE_2D,
                          m_hST2DPosition, m_hST2DAlpha);
     }

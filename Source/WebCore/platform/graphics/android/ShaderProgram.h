@@ -81,12 +81,13 @@ class ShaderProgram {
  private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
     GLuint createProgram(const char* vertexSource, const char* fragmentSource);
-    void setProjectionMatrix(SkRect& geometry);
+    void setProjectionMatrix(SkRect& geometry, GLint projectionMatrixHandle);
 
     void setBlendingState(bool enableBlending);
 
     void drawQuadInternal(SkRect& geometry, GLint textureId, float opacity,
-                          GLint program, GLint texSampler, GLenum textureTarget,
+                          GLint program, GLint projectionMatrixHandle,
+                          GLint texSampler, GLenum textureTarget,
                           GLint position, GLint alpha);
 
     void drawLayerQuadInternal(const GLfloat* projectionMatrix, int textureId,
