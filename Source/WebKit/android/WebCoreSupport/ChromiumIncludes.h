@@ -47,12 +47,12 @@
 
 #include <android/net/android_network_library_impl.h>
 #include <base/callback.h>
-#include <base/synchronization/lock.h>
+#include <base/memory/ref_counted.h>
 #include <base/message_loop_proxy.h>
 #include <base/openssl_util.h>
-#include <base/ref_counted.h>
 #include <base/string_util.h>
 #include <base/synchronization/condition_variable.h>
+#include <base/synchronization/lock.h>
 #include <base/sys_string_conversions.h>
 #include <base/threading/thread.h>
 #include <base/time.h>
@@ -86,7 +86,7 @@
 #include <autofill/autofill_profile.h>
 #include <autofill/personal_data_manager.h>
 #include <base/logging.h>
-#include <base/scoped_vector.h>
+#include <base/memory/scoped_vector.h>
 #include <base/string16.h>
 #include <base/utf_string_conversions.h>
 #include <chrome/browser/autofill/autofill_host.h>

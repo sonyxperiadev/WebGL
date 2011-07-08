@@ -43,8 +43,8 @@ public:
     static void flush();
 
     // CookiePolicy implementation from external/chromium
-    virtual int CanGetCookies(const GURL& url, const GURL& first_party_for_cookies, net::CompletionCallback*);
-    virtual int CanSetCookie(const GURL& url, const GURL& first_party_for_cookies, const std::string& cookie_line, net::CompletionCallback*);
+    virtual int CanGetCookies(const GURL& url, const GURL& first_party_for_cookies) const;
+    virtual int CanSetCookie(const GURL& url, const GURL& first_party_for_cookies, const std::string& cookie_line) const;
 
     bool allowCookies();
     void setAllowCookies(bool allow);
@@ -70,7 +70,7 @@ private:
     scoped_refptr<SQLitePersistentCookieStore> m_cookieDb;
     scoped_refptr<net::CookieStore> m_cookieStore;
     bool m_allowCookies;
-    WTF::Mutex m_allowCookiesMutex;
+    mutable WTF::Mutex m_allowCookiesMutex;
 };
 
 }

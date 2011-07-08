@@ -37,7 +37,7 @@
 #include <wtf/ThreadingPrimitives.h>
 
 class AutofillManager;
-class AutoFillProfile;
+class AutofillProfile;
 class AutoFillHost;
 
 namespace WebCore {
@@ -99,7 +99,7 @@ private:
     OwnPtr<AutofillManager> mAutofillManager;
     OwnPtr<AutoFillHost> mAutofillHost;
     OwnPtr<TabContents> mTabContents;
-    OwnPtr<AutoFillProfile> mAutofillProfile;
+    OwnPtr<AutofillProfile> mAutofillProfile;
 
     typedef std::vector<webkit_glue::FormData, std::allocator<webkit_glue::FormData> > FormList;
     FormList mForms;
