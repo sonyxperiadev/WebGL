@@ -61,7 +61,7 @@ FormField::FormField()
 FormField::FormField(const HTMLFormControlElement& element)
     : max_length(0),
       is_autofilled(false) {
-    name = nameForAutoFill(element);
+    name = nameForAutofill(element);
 
     // TODO: Extract the field label.  For now we just use the field
     // name.
@@ -80,10 +80,10 @@ FormField::FormField(const HTMLFormControlElement& element)
 
         // For select-one elements copy option strings.
         WTF::Vector<Element*> list_items = select_element.listItems();
-        option_strings_.reserve(list_items.size());
+        option_strings.reserve(list_items.size());
         for (size_t i = 0; i < list_items.size(); ++i) {
             if (list_items[i]->hasTagName(optionTag))
-                option_strings_.push_back(WTFStringToString16(static_cast<HTMLOptionElement*>(list_items[i])->value()));
+                option_strings.push_back(WTFStringToString16(static_cast<HTMLOptionElement*>(list_items[i])->value()));
         }
     }
 

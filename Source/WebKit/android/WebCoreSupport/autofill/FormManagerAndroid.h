@@ -38,7 +38,7 @@
 
 namespace webkit_glue {
 struct FormData;
-class FormField;
+struct FormField;
 }  // namespace webkit_glue
 
 namespace WebCore {
@@ -105,16 +105,12 @@ public:
     // false if the form is not found.
     bool FindFormWithFormControlElement(HTMLFormControlElement* element, RequirementsMask requirements, webkit_glue::FormData* form);
 
-    // Fills the form represented by |form|.  |form| should have the name set to
-    // the name of the form to fill out, and the number of elements and values
-    // must match the number of stored elements in the form. |node| is the form
-    // control element that initiated the auto-fill process.
-    // TODO: Is matching on name alone good enough?  It's possible to
-    // store multiple forms with the same names from different frames.
+    // Fills the form represented by |form|. |node| is the input element that
+    // initiated the auto-fill process.
     bool FillForm(const webkit_glue::FormData& form, Node* node);
 
-    // Previews the form represented by |form|.  |node| is the form control element
-    // that initiated the preview process. Same conditions as FillForm.
+    // Previews the form represented by |form|.  |node| is the input element
+    // that initiated the preview process.
     bool PreviewForm(const webkit_glue::FormData& form, Node* node);
 
     // Clears the values of all input elements in the form that contains |node|.
@@ -134,24 +130,19 @@ public:
     void ResetFrame(const Frame* frame);
 
     // Returns true if |form| has any auto-filled fields.
-    bool FormWithNodeIsAutoFilled(Node* node);
+    bool FormWithNodeIsAutofilled(Node* node);
 
 private:
     // Stores the HTMLFormElement and the form control elements for a form.
     // Original form values are stored so when we clear a form we can reset
-    // "select-one" values to their original state.
+    // <select> values to their original value.
     struct FormElement;
 
     // Type for cache of FormElement objects.
-    typedef std::vector<FormElement*> FormElementList;
+    typedef ScopedVector<FormElement> FormElementList;
 
     // The callback type used by ForEachMatchingFormField().
     typedef Callback3<HTMLFormControlElement*, const webkit_glue::FormField*, bool>::Type Callback;
-
-    // Infers corresponding label for |element| from surrounding context in the
-    // DOM.  Contents of preceeding <p> tag or preceeding text element found in
-    // the form.
-    static string16 InferLabelForElement(const HTMLFormControlElement& element);
 
     // Finds the cached FormElement that contains |node|.
     bool FindCachedFormElementWithNode(Node* node, FormElement** form_element);
