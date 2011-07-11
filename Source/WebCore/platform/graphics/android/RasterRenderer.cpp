@@ -90,6 +90,10 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
             renderInfo.invalRect->width(), renderInfo.invalRect->height());
     bitmap.allocPixels();
 
+    // Clear the bitmap to whiteness first.
+    bitmap.setIsOpaque(true);
+    bitmap.eraseARGB(255, 255, 255, 255);
+
     SkDevice* device = new SkDevice(NULL, bitmap, false);
 
     if (renderInfo.measurePerf) {
