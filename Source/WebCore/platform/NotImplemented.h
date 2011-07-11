@@ -38,19 +38,20 @@
     #define supressNotImplementedWarning() false
 #endif
 
-#if defined ANDROID
+#if OS(ANDROID)
 
-    #if 1 && defined LOG_TAG
-        #ifndef _LIBS_UTILS_LOG_H
-            #undef LOG
-            #include <utils/Log.h>
-        #endif
-        #define notImplemented() LOGV("%s: notImplemented\n", __PRETTY_FUNCTION__)
-        #define lowPriority_notImplemented() //printf("%s\n", __PRETTY_FUNCTION__)
-        #define verifiedOk()    // not a problem that it's not implemented
-    #else
-        #define notImplemented() fprintf(stderr, "%s\n", __PRETTY_FUNCTION__)
-    #endif
+#include <cutils/log.h>
+#ifndef LOG_TAG
+#define LOG_TAG "WebCore"
+#endif
+#define notImplemented() do { \
+        static bool havePrinted = false; \
+        if (!havePrinted && !supressNotImplementedWarning()) { \
+            LOGV("%s: notImplemented", __PRETTY_FUNCTION__); \
+            havePrinted = true; \
+        } \
+    } while (0)
+
 #elif defined(NDEBUG)
     #define notImplemented() ((void)0)
 #else

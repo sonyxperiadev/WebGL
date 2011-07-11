@@ -82,6 +82,8 @@
 #include <utils/AssetManager.h>
 #include <wtf/text/CString.h>
 
+#define verifiedOk() // Verified that we don't need to implement this.
+
 extern android::AssetManager* globalAssetManager();
 
 namespace android {
@@ -154,12 +156,12 @@ void FrameLoaderClientAndroid::detachedFromParent3() {
 // called for each subresource, so they should not be dispatched to the m_frame.
 void FrameLoaderClientAndroid::assignIdentifierToInitialRequest(unsigned long id,
                             DocumentLoader*, const ResourceRequest&) {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 void FrameLoaderClientAndroid::dispatchWillSendRequest(DocumentLoader*, unsigned long id,
                             ResourceRequest&, const ResourceResponse&) {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 bool FrameLoaderClientAndroid::shouldUseCredentialStorage(DocumentLoader*, unsigned long  identifier)
@@ -170,32 +172,32 @@ bool FrameLoaderClientAndroid::shouldUseCredentialStorage(DocumentLoader*, unsig
 
 void FrameLoaderClientAndroid::dispatchDidReceiveAuthenticationChallenge(DocumentLoader*,
                             unsigned long id, const AuthenticationChallenge&) {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 void FrameLoaderClientAndroid::dispatchDidCancelAuthenticationChallenge(DocumentLoader*,
                             unsigned long id, const AuthenticationChallenge&) {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 void FrameLoaderClientAndroid::dispatchDidReceiveResponse(DocumentLoader*,
                             unsigned long id, const ResourceResponse&) {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 void FrameLoaderClientAndroid::dispatchDidReceiveContentLength(DocumentLoader*,
                             unsigned long id, int lengthReceived) {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 void FrameLoaderClientAndroid::dispatchDidFinishLoading(DocumentLoader*,
                             unsigned long id) {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 void FrameLoaderClientAndroid::dispatchDidFailLoading(DocumentLoader* docLoader,
                             unsigned long id, const ResourceError&) {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 bool FrameLoaderClientAndroid::dispatchDidLoadResourceFromMemoryCache(DocumentLoader*,
@@ -399,7 +401,7 @@ void FrameLoaderClientAndroid::dispatchDidFailLoad(const ResourceError&) {
 
 void FrameLoaderClientAndroid::dispatchDidFinishDocumentLoad() {
     // called when finishedParsing
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 void FrameLoaderClientAndroid::dispatchDidFinishLoad() {
@@ -542,7 +544,7 @@ void FrameLoaderClientAndroid::dispatchDecidePolicyForNewWindowAction(FramePolic
 }
 
 void FrameLoaderClientAndroid::cancelPolicyCheck() {
-    lowPriority_notImplemented();
+    notImplemented();
 }
 
 void FrameLoaderClientAndroid::dispatchUnableToImplementPolicy(const ResourceError&) {
@@ -1291,7 +1293,7 @@ ObjectContentType FrameLoaderClientAndroid::objectContentType(const KURL& url, c
 // may use it to set the media style to 'print' when the user wants to print
 // a particular web page.
 String FrameLoaderClientAndroid::overrideMediaType() const {
-    lowPriority_notImplemented();
+    notImplemented();
     return String();
 }
 
