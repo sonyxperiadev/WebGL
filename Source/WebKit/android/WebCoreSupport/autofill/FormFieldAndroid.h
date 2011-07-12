@@ -41,25 +41,11 @@ class HTMLFormControlElement;
 namespace webkit_glue {
 
 // Stores information about a field in a form.
-class FormField {
-public:
+struct FormField {
     FormField();
     explicit FormField(const WebCore::HTMLFormControlElement& element);
     FormField(const string16& label, const string16& name, const string16& value, const string16& form_control_type, int max_length, bool is_autofilled);
     virtual ~FormField();
-
-    string16 label;
-    string16 name;
-    string16 value;
-    string16 form_control_type;
-    int max_length;
-    bool is_autofilled;
-
-    // Returns option string for elements for which they make sense (select-one,
-    // for example) for the rest of elements return an empty array.
-    const std::vector<string16>& option_strings() const { return option_strings_; }
-
-    void set_option_strings(const std::vector<string16>& strings) { option_strings_ = strings; }
 
     // Equality tests for identity which does not include |value_| or |size_|.
     // Use |StrictlyEqualsHack| method to test all members.
@@ -72,8 +58,13 @@ public:
     // TODO: This will be removed when we implement field ids.
     bool StrictlyEqualsHack(const FormField& field) const;
 
-private:
-    std::vector<string16> option_strings_;
+    string16 label;
+    string16 name;
+    string16 value;
+    string16 form_control_type;
+    int max_length;
+    bool is_autofilled;
+    std::vector<string16> option_strings;
 };
 
 // So we can compare FormFields with EXPECT_EQ().

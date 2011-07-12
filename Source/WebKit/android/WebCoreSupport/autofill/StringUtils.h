@@ -47,7 +47,7 @@ inline string16 WTFStringToString16(const WTF::String& wtfString)
         return string16();
 }
 
-inline string16 nameForAutoFill(const HTMLFormControlElement& element)
+inline string16 nameForAutofill(const HTMLFormControlElement& element)
 {
     // Taken from WebKit/chromium/src/WebFormControlElement.cpp, ported
     // to use WebCore types for accessing element properties.
