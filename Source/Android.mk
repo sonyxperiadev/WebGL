@@ -250,10 +250,8 @@ ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy
 endif
 
-# We have to use the android version of libdl when we are not on the simulator
-ifneq ($(TARGET_SIMULATOR),true)
+# We have to use the android version of libdl.
 LOCAL_SHARED_LIBRARIES += libdl
-endif
 
 # Build the list of static libraries
 LOCAL_STATIC_LIBRARIES := libxml2
