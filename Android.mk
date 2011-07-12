@@ -66,10 +66,6 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
     endif
   endif
 endif
-# We can't use V8 on the simulator
-ifeq ($(TARGET_SIMULATOR),true)
-  JAVASCRIPT_ENGINE = jsc
-endif
 
 # V8 also requires an ARMv7 CPU, and since we must use jsc, we cannot
 # use the Chrome http stack either.
@@ -388,14 +384,12 @@ ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy
 endif
 
-# We have to use the android version of libdl when we are not on the simulator
-ifneq ($(TARGET_SIMULATOR),true)
+# We have to use the android version of libdl
 LOCAL_SHARED_LIBRARIES += libdl libstlport
 # We have to fake out some headers when using stlport.
 LOCAL_C_INCLUDES += \
 	external/chromium/android
 include external/stlport/libstlport.mk
-endif
 
 # We need Harfbuzz library to support complex scripts(Arabic, Thai, Hindi...).
 ifeq ($(SUPPORT_COMPLEX_SCRIPTS),true)
