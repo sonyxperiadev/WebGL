@@ -107,9 +107,15 @@ bool ScriptController::executeIfJavaScriptURL(const KURL& url, ShouldReplaceDocu
     // FIXME: We should always replace the document, but doing so
     //        synchronously can cause crashes:
     //        http://bugs.webkit.org/show_bug.cgi?id=16782
-    if (shouldReplaceDocumentIfJavaScriptURL == ReplaceDocumentIfJavaScriptURL)
-        m_frame->document()->loader()->writer()->replaceDocument(scriptResult);
-
+    if (shouldReplaceDocumentIfJavaScriptURL == ReplaceDocumentIfJavaScriptURL) {
+        // We're still in a frame, so there should be a DocumentLoader.
+        ASSERT(m_frame->document()->loader());
+        
+        // DocumentWriter::replaceDocument can cause the DocumentLoader to get deref'ed and possible destroyed,
+        // so protect it with a RefPtr.
+        if (RefPtr<DocumentLoader> loader = m_frame->document()->loader())
+            loader->writer()->replaceDocument(scriptResult);
+    }
     return true;
 }
 

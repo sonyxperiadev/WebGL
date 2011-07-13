@@ -6027,6 +6027,9 @@ int CSSParser::lex(void* yylvalWithoutType)
     case FUNCTION:
     case ANYFUNCTION:
     case NOTFUNCTION:
+    case CALCFUNCTION:
+    case MINFUNCTION:
+    case MAXFUNCTION:
         yylval->string.characters = t;
         yylval->string.length = length;
         break;
