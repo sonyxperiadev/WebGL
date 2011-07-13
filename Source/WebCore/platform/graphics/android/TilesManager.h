@@ -35,6 +35,7 @@
 #include "ShaderProgram.h"
 #include "TexturesGenerator.h"
 #include "TiledPage.h"
+#include "TilesProfiler.h"
 #include "VideoLayerManager.h"
 #include <utils/threads.h>
 #include <wtf/HashMap.h>
@@ -130,6 +131,10 @@ public:
         return SurfaceTextureMode;
     }
 
+    TilesProfiler* getProfiler() {
+        return &profiler;
+    }
+
 private:
 
     TilesManager();
@@ -168,6 +173,8 @@ private:
     unsigned int m_drawRegistrationCount;
 
     unsigned int getGLWebViewStateDrawCount(GLWebViewState* state);
+
+    TilesProfiler profiler;
 };
 
 } // namespace WebCore

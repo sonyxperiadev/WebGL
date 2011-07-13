@@ -324,7 +324,8 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
 
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
-        if (actualTileBounds.contains(tile.x(), tile.y())) {
+        bool tileInView = actualTileBounds.contains(tile.x(), tile.y());
+        if (tileInView) {
 
             SkRect rect;
             rect.fLeft = tile.x() * tileWidth;
@@ -334,6 +335,9 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
 
             tile.draw(transparency, rect, m_scale);
         }
+
+        TilesManager::instance()->getProfiler()->nextTile(tile.x(), tile.y(), tile.isTileReady(),
+                                                          tile.usedLevel(), tileInView);
     }
 }
 

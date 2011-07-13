@@ -499,6 +499,10 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 {
     glFinish();
     TilesManager::instance()->registerGLWebViewState(this);
+    TilesManager::instance()->getProfiler()->nextFrame(viewport.fLeft * scale,
+                                                       viewport.fTop * scale,
+                                                       viewport.fRight * scale,
+                                                       viewport.fBottom * scale);
 
     m_baseLayerLock.lock();
     BaseLayerAndroid* baseLayer = m_currentBaseLayer;

@@ -674,6 +674,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/TextureInfo.cpp \
 	platform/graphics/android/TexturesGenerator.cpp \
 	platform/graphics/android/TilesManager.cpp \
+	platform/graphics/android/TilesProfiler.cpp \
 	platform/graphics/android/TiledPage.cpp \
 	platform/graphics/android/VideoLayerAndroid.cpp \
 	platform/graphics/android/VideoLayerManager.cpp \

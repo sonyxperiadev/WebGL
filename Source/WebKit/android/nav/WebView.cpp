@@ -1495,6 +1495,42 @@ BaseLayerAndroid* getBaseLayer() {
     return m_baseLayer;
 }
 
+void tileProfilingStart() {
+    TilesManager::instance()->getProfiler()->start();
+}
+
+float tileProfilingStop() {
+    return TilesManager::instance()->getProfiler()->stop();
+}
+
+void tileProfilingClear() {
+    TilesManager::instance()->getProfiler()->clear();
+}
+
+int tileProfilingNumFrames() {
+    return TilesManager::instance()->getProfiler()->numFrames();
+}
+
+int tileProfilingNumTilesInFrame(int frame) {
+    return TilesManager::instance()->getProfiler()->numTilesInFrame(frame);
+}
+
+int tileProfilingGetX(int frame, int tile) {
+    return TilesManager::instance()->getProfiler()->getTile(frame, tile).x;
+}
+
+int tileProfilingGetY(int frame, int tile) {
+    return TilesManager::instance()->getProfiler()->getTile(frame, tile).y;
+}
+
+bool tileProfilingGetReady(int frame, int tile) {
+    return TilesManager::instance()->getProfiler()->getTile(frame, tile).isReady;
+}
+
+int tileProfilingGetLevel(int frame, int tile) {
+    return TilesManager::instance()->getProfiler()->getTile(frame, tile).level;
+}
+
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
     CachedRoot* m_frameCacheUI; // navigation data ready for use
@@ -2446,6 +2482,51 @@ static void nativeSetSelectionPointer(JNIEnv *env, jobject obj, jboolean set,
     GET_NATIVE_VIEW(env, obj)->setSelectionPointer(set, scale, x, y);
 }
 
+static void nativeTileProfilingStart(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->tileProfilingStart();
+}
+
+static float nativeTileProfilingStop(JNIEnv *env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->tileProfilingStop();
+}
+
+static void nativeTileProfilingClear(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->tileProfilingClear();
+}
+
+static int nativeTileProfilingNumFrames(JNIEnv *env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->tileProfilingNumFrames();
+}
+
+static int nativeTileProfilingNumTilesInFrame(JNIEnv *env, jobject obj, int frame)
+{
+    return GET_NATIVE_VIEW(env, obj)->tileProfilingNumTilesInFrame(frame);
+}
+
+static int nativeTileProfilingGetX(JNIEnv *env, jobject obj, int frame, int tile)
+{
+    return GET_NATIVE_VIEW(env, obj)->tileProfilingGetX(frame, tile);
+}
+
+static int nativeTileProfilingGetY(JNIEnv *env, jobject obj, int frame, int tile)
+{
+    return GET_NATIVE_VIEW(env, obj)->tileProfilingGetY(frame, tile);
+}
+
+static bool nativeTileProfilingGetReady(JNIEnv *env, jobject obj, int frame, int tile)
+{
+    return GET_NATIVE_VIEW(env, obj)->tileProfilingGetReady(frame, tile);
+}
+
+static int nativeTileProfilingGetLevel(JNIEnv *env, jobject obj, int frame, int tile)
+{
+    return GET_NATIVE_VIEW(env, obj)->tileProfilingGetLevel(frame, tile);
+}
+
 #ifdef ANDROID_DUMP_DISPLAY_TREE
 static void dumpToFile(const char text[], void* file) {
     fwrite(text, 1, strlen(text), reinterpret_cast<FILE*>(file));
@@ -2703,6 +2784,24 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetSelectionPointer },
     { "nativeShowCursorTimed", "()V",
         (void*) nativeShowCursorTimed },
+    { "nativeTileProfilingStart", "()V",
+        (void*) nativeTileProfilingStart },
+    { "nativeTileProfilingStop", "()F",
+        (void*) nativeTileProfilingStop },
+    { "nativeTileProfilingClear", "()V",
+        (void*) nativeTileProfilingClear },
+    { "nativeTileProfilingNumFrames", "()I",
+        (void*) nativeTileProfilingNumFrames },
+    { "nativeTileProfilingNumTilesInFrame", "(I)I",
+        (void*) nativeTileProfilingNumTilesInFrame },
+    { "nativeTileProfilingGetX", "(II)I",
+        (void*) nativeTileProfilingGetX },
+    { "nativeTileProfilingGetY", "(II)I",
+        (void*) nativeTileProfilingGetY },
+    { "nativeTileProfilingGetReady", "(II)Z",
+        (void*) nativeTileProfilingGetReady },
+    { "nativeTileProfilingGetLevel", "(II)I",
+        (void*) nativeTileProfilingGetLevel },
     { "nativeStartSelection", "(II)Z",
         (void*) nativeStartSelection },
     { "nativeStopGL", "()V",
