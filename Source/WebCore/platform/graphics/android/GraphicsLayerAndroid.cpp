@@ -107,9 +107,7 @@ SkLength convertLength(Length len)
 
 static RenderLayer* renderLayerFromClient(GraphicsLayerClient* client)
 {
-    if (client)
-        return static_cast<RenderLayerBacking*>(client)->owningLayer();
-    return 0;
+    return client ? client->owningLayer() : 0;
 }
 
 GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
@@ -220,10 +218,9 @@ void GraphicsLayerAndroid::removeFromParent()
 
 void GraphicsLayerAndroid::updateFixedPosition()
 {
-    if (!m_client)
-        return;
-
     RenderLayer* renderLayer = renderLayerFromClient(m_client);
+    if (!renderLayer)
+        return;
     RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
 
     if (!view)
@@ -316,8 +313,8 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
     // If it is a media layer the size may have changed as a result of the media
     // element (e.g. plugin) gaining focus. Therefore, we must sync the size of
     // the focus' outline so that our UI thread can draw accordingly.
-    if (m_contentLayer->isMedia() && m_client) {
-        RenderLayer* layer = renderLayerFromClient(m_client);
+    RenderLayer* layer = renderLayerFromClient(m_client);
+    if (layer && m_contentLayer->isMedia()) {
         RenderBox* box = layer->renderBox();
         int outline = box->view()->maximalOutlineSize();
         static_cast<MediaLayer*>(m_contentLayer)->setOutlineSize(outline);
@@ -554,6 +551,8 @@ bool GraphicsLayerAndroid::repaint()
         IntRect layerBounds(0, 0, m_size.width(), m_size.height());
 
         RenderLayer* layer = renderLayerFromClient(m_client);
+        if (!layer)
+            return false;
         if (m_foregroundLayer) {
             PaintingPhase phase(this);
             // Paint the background into a separate context.

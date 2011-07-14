@@ -1520,15 +1520,6 @@ bool RenderLayerCompositor::needsContentsCompositingLayer(const RenderLayer* lay
 
 bool RenderLayerCompositor::requiresScrollLayer(RootLayerAttachment attachment) const
 {
-#if PLATFORM(ANDROID)
-    // Recently, RenderLayerCompositor is changed to be a subclass of
-    // GraphicsLayerClient, and it is used for iframe.
-    // http://trac.webkit.org/changeset/75262
-    // We have our own support for iframe, before we embrace this new approach,
-    // we will disable it.
-    // TODO: Investigate how to utilize this way to support iframe.
-    return false;
-#endif
     // We need to handle our own scrolling if we're:
     return !m_renderView->frameView()->platformWidget() // viewless (i.e. non-Mac, or Mac in WebKit2)
         || attachment == RootLayerAttachedViaEnclosingFrame; // a composited frame on Mac

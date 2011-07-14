@@ -59,6 +59,9 @@ public:
     RenderLayerBacking(RenderLayer*);
     ~RenderLayerBacking();
 
+#if PLATFORM(ANDROID)
+    virtual
+#endif
     RenderLayer* owningLayer() const { return m_owningLayer; }
 
     enum UpdateDepth { CompositingChildren, AllDescendants };

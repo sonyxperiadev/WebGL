@@ -32,6 +32,9 @@ namespace WebCore {
 
 class GraphicsContext;
 class GraphicsLayer;
+#if PLATFORM(ANDROID)
+class RenderLayer;
+#endif
 class IntPoint;
 class IntRect;
 class FloatPoint;
@@ -53,6 +56,10 @@ enum AnimatedPropertyID {
 class GraphicsLayerClient {
 public:
     virtual ~GraphicsLayerClient() {}
+
+#if PLATFORM(ANDROID)
+    virtual RenderLayer* owningLayer() const { return 0; }
+#endif
 
     // Callback for when hardware-accelerated animation started.
     virtual void notifyAnimationStarted(const GraphicsLayer*, double time) = 0;
