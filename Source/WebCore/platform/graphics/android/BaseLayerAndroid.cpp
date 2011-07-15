@@ -271,9 +271,16 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
          left, top, width, height, scale);
 
     m_glWebViewState->setBackgroundColor(color);
-    glClearColor((float)m_color.red() / 255.0,
-                 (float)m_color.green() / 255.0,
-                 (float)m_color.blue() / 255.0, 1);
+    if (TilesManager::instance()->invertedScreen()) {
+        float color = 1.0 - ((((float) m_color.red() / 255.0) +
+                      ((float) m_color.green() / 255.0) +
+                      ((float) m_color.blue() / 255.0)) / 3.0);
+        glClearColor(color, color, color, 1);
+    } else {
+        glClearColor((float)m_color.red() / 255.0,
+                     (float)m_color.green() / 255.0,
+                     (float)m_color.blue() / 255.0, 1);
+    }
     glClear(GL_COLOR_BUFFER_BIT);
 
     glViewport(left, top, width, height);

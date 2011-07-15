@@ -2534,6 +2534,23 @@ static void dumpToFile(const char text[], void* file) {
 }
 #endif
 
+static void nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jvalue)
+{
+    WTF::String key = jstringToWtfString(env, jkey);
+    WTF::String value = jstringToWtfString(env, jvalue);
+    if (key == "gfxInvertedScreen") {
+        if (value == "true")
+            TilesManager::instance()->setInvertedScreen(true);
+        else
+            TilesManager::instance()->setInvertedScreen(false);
+    }
+}
+
+static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring key)
+{
+    return 0;
+}
+
 static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
 {
 #ifdef ANDROID_DUMP_DISPLAY_TREE
@@ -2824,6 +2841,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetExpandedTileBounds },
     { "nativeGetBackgroundColor", "()I",
         (void*) nativeGetBackgroundColor },
+    { "nativeSetProperty", "(Ljava/lang/String;Ljava/lang/String;)V",
+        (void*) nativeSetProperty },
+    { "nativeGetProperty", "(Ljava/lang/String;)Ljava/lang/String;",
+        (void*) nativeGetProperty },
 };
 
 int registerWebView(JNIEnv* env)

@@ -102,6 +102,7 @@ TilesManager::TilesManager()
     , m_generatorReady(false)
     , m_showVisualIndicator(false)
     , m_drawRegistrationCount(0)
+    , m_invertedScreen(false)
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);

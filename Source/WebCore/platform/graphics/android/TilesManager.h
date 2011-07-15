@@ -142,6 +142,14 @@ public:
         return &m_tilesTracker;
     }
 
+    bool invertedScreen() {
+        return m_invertedScreen;
+    }
+
+    void setInvertedScreen(bool invert) {
+        m_invertedScreen = invert;
+    }
+
 private:
 
     TilesManager();
@@ -165,6 +173,7 @@ private:
     bool m_generatorReady;
 
     bool m_showVisualIndicator;
+    bool m_invertedScreen;
 
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 
