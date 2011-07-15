@@ -110,8 +110,12 @@ public:
         this->draw(canvas, SK_Scalar1);
     }
 
+    void setHasOverflowChildren(bool value) { m_hasOverflowChildren = value; }
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
+
+    bool m_hasOverflowChildren;
 
 private:
     enum Flags {

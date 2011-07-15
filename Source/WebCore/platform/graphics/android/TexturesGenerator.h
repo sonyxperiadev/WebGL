@@ -28,9 +28,9 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "LayerTexture.h"
 #include "QueuedOperation.h"
 #include "TiledPage.h"
+#include "TilePainter.h"
 #include <utils/threads.h>
 
 namespace WebCore {
@@ -49,8 +49,7 @@ public:
     virtual status_t readyToRun();
 
     void removeOperationsForPage(TiledPage* page);
-    void removeOperationsForBaseLayer(BaseLayerAndroid* layer);
-    void removeOperationsForTexture(LayerTexture* texture);
+    void removeOperationsForPainter(TilePainter* painter, bool waitForRunning);
     void removePaintOperationsForPage(TiledPage* page, bool waitForRunning);
     void removeOperationsForFilter(OperationFilter* filter);
     void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning);

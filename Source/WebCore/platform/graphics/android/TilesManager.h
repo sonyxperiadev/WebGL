@@ -31,16 +31,18 @@
 #include "BaseTile.h"
 #include "BaseTileTexture.h"
 #include "LayerAndroid.h"
-#include "LayerTexture.h"
 #include "ShaderProgram.h"
 #include "TexturesGenerator.h"
 #include "TiledPage.h"
 #include "TilesProfiler.h"
+#include "TilesTracker.h"
 #include "VideoLayerManager.h"
 #include <utils/threads.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
+
+class PaintedSurface;
 
 class TilesManager {
 public:
@@ -53,9 +55,19 @@ public:
         return gInstance != 0;
     }
 
+    void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning = false)
+    {
+        m_pixmapsGenerationThread->removeOperationsForFilter(filter, waitForRunning);
+    }
+
     void removeOperationsForPage(TiledPage* page)
     {
         m_pixmapsGenerationThread->removeOperationsForPage(page);
+    }
+
+    void removeOperationsForPainter(TilePainter* painter, bool waitForCompletion)
+    {
+        m_pixmapsGenerationThread->removeOperationsForPainter(painter, waitForCompletion);
     }
 
     void removePaintOperationsForPage(TiledPage* page, bool waitForCompletion)
@@ -63,31 +75,20 @@ public:
         m_pixmapsGenerationThread->removePaintOperationsForPage(page, waitForCompletion);
     }
 
-    void removeOperationsForBaseLayer(BaseLayerAndroid* layer)
-    {
-        m_pixmapsGenerationThread->removeOperationsForBaseLayer(layer);
-    }
-
-    void removeOperationsForTexture(LayerTexture* texture)
-    {
-        m_pixmapsGenerationThread->removeOperationsForTexture(texture);
-    }
-
     void scheduleOperation(QueuedOperation* operation)
     {
         m_pixmapsGenerationThread->scheduleOperation(operation);
     }
+
+    void swapLayersTextures(LayerAndroid* newTree, LayerAndroid* oldTree);
+    void addPaintedSurface(PaintedSurface* surface);
 
     ShaderProgram* shader() { return &m_shader; }
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
     BaseTileTexture* getAvailableTexture(BaseTile* owner);
 
-    void printLayersTextures(const char* s);
-    void cleanupLayersTextures(LayerAndroid* layer, bool forceCleanup = false);
-    LayerTexture* getExistingTextureForLayer(LayerAndroid* layer, const IntRect& rect,
-                                             bool any = false, LayerTexture* texture = 0);
-    LayerTexture* createTextureForLayer(LayerAndroid* layer, const IntRect& rect);
+    void cleanupTilesTextures();
 
     void markGeneratorAsReady()
     {
@@ -108,6 +109,8 @@ public:
     void setMaxTextureCount(int max);
     static float tileWidth();
     static float tileHeight();
+    static float layerTileWidth();
+    static float layerTileHeight();
     int expandedTileBoundsX();
     int expandedTileBoundsY();
     void registerGLWebViewState(GLWebViewState* state);
@@ -132,7 +135,11 @@ public:
     }
 
     TilesProfiler* getProfiler() {
-        return &profiler;
+        return &m_profiler;
+    }
+
+    TilesTracker* getTilesTracker() {
+        return &m_tilesTracker;
     }
 
 private:
@@ -147,7 +154,8 @@ private:
     }
 
     Vector<BaseTileTexture*> m_textures;
-    Vector<LayerTexture*> m_layersTextures;
+    Vector<BaseTileTexture*> m_tilesTextures;
+    Vector<PaintedSurface*> m_paintedSurfaces;
 
     unsigned int m_layersMemoryUsage;
 
@@ -174,7 +182,8 @@ private:
 
     unsigned int getGLWebViewStateDrawCount(GLWebViewState* state);
 
-    TilesProfiler profiler;
+    TilesProfiler m_profiler;
+    TilesTracker m_tilesTracker;
 };
 
 } // namespace WebCore

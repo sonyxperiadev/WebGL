@@ -33,6 +33,7 @@
 #include "GLUtils.h"
 #include "LayerAndroid.h"
 #include "TilesManager.h"
+#include "TilesTracker.h"
 #include <wtf/CurrentTime.h>
 
 #include <cutils/log.h>
@@ -80,6 +81,8 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_backgroundColor(SK_ColorWHITE)
     , m_displayRings(false)
     , m_focusRingTexture(-1)
+    , m_goingDown(true)
+    , m_goingLeft(false)
 {
     m_viewport.setEmpty();
     m_previousViewport.setEmpty();
@@ -109,8 +112,10 @@ GLWebViewState::~GLWebViewState()
     // will remove any pending operations, and wait if one is underway).
     delete m_tiledPageA;
     delete m_tiledPageB;
+    SkSafeUnref(m_previouslyUsedRoot);
     SkSafeUnref(m_currentBaseLayer);
     SkSafeUnref(m_baseLayer);
+    m_previouslyUsedRoot = 0;
     m_baseLayer = 0;
     m_currentBaseLayer = 0;
 #ifdef DEBUG_COUNT
@@ -504,6 +509,10 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                                                        viewport.fRight * scale,
                                                        viewport.fBottom * scale);
 
+#ifdef DEBUG
+    TilesManager::instance()->getTilesTracker()->clear();
+#endif
+
     m_baseLayerLock.lock();
     BaseLayerAndroid* baseLayer = m_currentBaseLayer;
     SkSafeRef(baseLayer);
@@ -532,7 +541,14 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     if (baseForComposited && baseForComposited->countChildren() >= 1)
         compositedRoot = static_cast<LayerAndroid*>(baseForComposited->getChild(0));
 
+    if (compositedRoot != m_previouslyUsedRoot) {
+        TilesManager::instance()->swapLayersTextures(m_previouslyUsedRoot, compositedRoot);
+        TilesManager::instance()->cleanupTilesTextures();
+    }
+
     bool ret = baseLayer->drawGL(compositedRoot, rect, viewport, webViewRect, titleBarHeight, clip, scale, color);
+    SkSafeRef(compositedRoot);
+    SkSafeUnref(m_previouslyUsedRoot);
     m_previouslyUsedRoot = compositedRoot;
     if (ret) {
         FloatRect frameworkInval = TilesManager::instance()->shader()->rectInInvScreenCoord(m_frameworkInval);
@@ -563,6 +579,9 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     SkSafeUnref(baseForComposited);
     SkSafeUnref(baseLayer);
+#ifdef DEBUG
+    TilesManager::instance()->getTilesTracker()->showTrackTextures();
+#endif
     return ret;
 }
 

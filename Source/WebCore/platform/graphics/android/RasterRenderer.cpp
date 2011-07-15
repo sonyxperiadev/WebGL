@@ -89,10 +89,13 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     bitmap.setConfig(SkBitmap::kARGB_8888_Config,
             renderInfo.invalRect->width(), renderInfo.invalRect->height());
     bitmap.allocPixels();
-
-    // Clear the bitmap to whiteness first.
-    bitmap.setIsOpaque(true);
-    bitmap.eraseARGB(255, 255, 255, 255);
+    if (renderInfo.baseTile->isLayerTile()) {
+        bitmap.setIsOpaque(false);
+        bitmap.eraseARGB(0, 0, 0, 0);
+    } else {
+        bitmap.setIsOpaque(true);
+        bitmap.eraseARGB(255, 255, 255, 255);
+    }
 
     SkDevice* device = new SkDevice(NULL, bitmap, false);
 
@@ -102,6 +105,7 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     }
 
     canvas->setDevice(device);
+
     device->unref();
 
     // ensure the canvas origin is translated to the coordinates of our inval rect

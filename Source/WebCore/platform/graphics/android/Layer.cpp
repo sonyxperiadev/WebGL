@@ -22,6 +22,8 @@ Layer::Layer() {
     fChildrenMatrix.reset();
     fFlags = 0;
 
+    m_hasOverflowChildren = false;
+
 #ifdef DEBUG_TRACK_NEW_DELETE
     gLayerAllocCount += 1;
     SkDebugf("Layer new:    %d\n", gLayerAllocCount);
@@ -38,6 +40,8 @@ Layer::Layer(const Layer& src) : INHERITED() {
     fMatrix = src.fMatrix;
     fChildrenMatrix = src.fChildrenMatrix;
     fFlags = src.fFlags;
+
+    m_hasOverflowChildren = src.m_hasOverflowChildren;
 
 #ifdef DEBUG_TRACK_NEW_DELETE
     gLayerAllocCount += 1;

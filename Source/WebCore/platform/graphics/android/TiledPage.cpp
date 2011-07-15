@@ -166,12 +166,12 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
 
         if (!currentTile && availableTile) {
             currentTile = availableTile;
-            currentTile->setContents(this, x, y);
         }
 
         if (currentTile) {
-            currentTile->setScale(m_scale);
             currentTile->setGLWebViewState(m_glWebViewState);
+            currentTile->setContents(this, x, y, m_scale);
+            currentTile->setPage(this);
 
             // ensure there is a texture associated with the tile and then check to
             // see if the texture is dirty and in need of repainting
@@ -341,11 +341,17 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
     }
 }
 
-unsigned int TiledPage::paintBaseLayerContent(SkCanvas* canvas)
+bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
 {
-    if (m_glWebViewState)
-        return m_glWebViewState->paintBaseLayerContent(canvas);
-    return 0;
+    if (!m_glWebViewState)
+        return false;
+
+    *pictureUsed = m_glWebViewState->paintBaseLayerContent(canvas);
+    return true;
+}
+
+void TiledPage::paintExtra(SkCanvas* canvas)
+{
 }
 
 TiledPage* TiledPage::sibling()

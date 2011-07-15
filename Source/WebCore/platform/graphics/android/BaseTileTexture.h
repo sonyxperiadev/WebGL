@@ -29,6 +29,7 @@
 #include "DoubleBufferedTexture.h"
 #include "GLWebViewState.h"
 #include "TextureOwner.h"
+#include "TilePainter.h"
 #include <SkBitmap.h>
 
 class SkCanvas;
@@ -38,13 +39,14 @@ namespace WebCore {
 class BaseTile;
 
 class TextureTileInfo {
- public:
+public:
   TextureTileInfo()
       : m_x(-1)
       , m_y(-1)
       , m_layerId(-1)
       , m_scale(0)
       , m_texture(0)
+      , m_painter(0)
       , m_picture(0)
   {
   }
@@ -53,6 +55,7 @@ class TextureTileInfo {
   int m_layerId;
   float m_scale;
   TextureInfo* m_texture;
+  TilePainter* m_painter;
   unsigned int m_picture;
 };
 
@@ -100,8 +103,10 @@ public:
 
     const SkSize& getSize() const { return m_size; }
 
-    void setTile(TextureInfo* info, int x, int y, float scale, unsigned int pictureCount);
+    void setTile(TextureInfo* info, int x, int y, float scale,
+                 TilePainter* painter, unsigned int pictureCount);
     bool readyFor(BaseTile* baseTile);
+    float scale();
 
 protected:
     HashMap<SharedTexture*, TextureTileInfo*> m_texturesInfo;

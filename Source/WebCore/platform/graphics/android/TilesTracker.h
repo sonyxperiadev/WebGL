@@ -23,49 +23,63 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "LayerTexture.h"
+#ifndef TilesTracker_h
+#define TilesTracker_h
 
-#include "LayerAndroid.h"
+#if USE(ACCELERATED_COMPOSITING)
+
+#include <cutils/log.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
+
+#undef XLOG
+#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TilesTracker", __VA_ARGS__)
 
 namespace WebCore {
 
-unsigned int LayerTexture::pictureUsed()
-{
-      consumerLock();
-      TextureTileInfo* info = m_texturesInfo.get(getReadableTexture());
-      unsigned int pictureUsed = 0;
-      if (info)
-          pictureUsed = info->m_picture;
-      consumerRelease();
-      return pictureUsed;
-}
+class TilesTracker {
+public:
+    TilesTracker() {
+        clear();
+    }
 
-void LayerTexture::setTextureInfoFor(LayerAndroid* layer)
-{
-      TextureTileInfo* textureInfo = m_texturesInfo.get(getWriteableTexture());
-      if (!textureInfo) {
-          textureInfo = new TextureTileInfo();
-      }
-      textureInfo->m_layerId = layer->uniqueId();
-      textureInfo->m_picture = layer->pictureUsed();
-      textureInfo->m_scale = layer->getScale();
-      m_texturesInfo.set(getWriteableTexture(), textureInfo);
-      m_layerId = layer->uniqueId();
-      m_scale = layer->getScale();
-      if (!m_ready)
-          m_ready = true;
-}
+    void track(bool ready, bool haveTexture) {
+        m_nbTextures++;
+        if (ready)
+            m_nbTexturesReady++;
+        else
+            m_nbTexturesNotReady++;
+        if (haveTexture)
+            m_nbTexturesUsed++;
+    }
 
-bool LayerTexture::readyFor(LayerAndroid* layer)
-{
-      TextureTileInfo* info = m_texturesInfo.get(getReadableTexture());
-      if (info &&
-          info->m_layerId == layer->uniqueId() &&
-          info->m_scale == layer->getScale() &&
-          info->m_picture == layer->pictureUsed())
-          return true;
-      return false;
-}
+    void clear() {
+        m_nbLayers = 0;
+        m_nbVisibleLayers = 0;
+        m_nbTextures = 0;
+        m_nbTexturesReady = 0;
+        m_nbTexturesNotReady = 0;
+        m_nbTexturesUsed = 0;
+    }
+
+    void trackLayer() { m_nbLayers++; }
+    void trackVisibleLayer() { m_nbVisibleLayers++; }
+
+    void showTrackTextures() {
+        XLOG("We had %d/%d layers needing %d textures, we had %d, %d were ready, %d were not",
+              m_nbLayers, m_nbVisibleLayers, m_nbTextures, m_nbTexturesUsed, m_nbTexturesReady, m_nbTexturesNotReady);
+    }
+
+private:
+    int m_nbLayers;
+    int m_nbVisibleLayers;
+    int m_nbTextures;
+    int m_nbTexturesReady;
+    int m_nbTexturesNotReady;
+    int m_nbTexturesUsed;
+};
 
 } // namespace WebCore
+
+#endif // USE(ACCELERATED_COMPOSITING)
+#endif // TilesTracker_h

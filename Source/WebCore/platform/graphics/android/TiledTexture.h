@@ -1,5 +1,5 @@
 /*
- * Copyright 2010, The Android Open Source Project
+ * Copyright 2011, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,27 +23,69 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TextureOwner_h
-#define TextureOwner_h
+#ifndef TiledTexture_h
+#define TiledTexture_h
+
+#include "BaseTileTexture.h"
+#include "ClassTracker.h"
+#include "IntRect.h"
+#include "LayerAndroid.h"
+#include "TextureOwner.h"
+#include "BaseTile.h"
+#include "TilePainter.h"
 
 class SkCanvas;
-class Layer;
 
 namespace WebCore {
 
-class TiledPage;
-class BaseTileTexture;
-class GLWebViewState;
+class PaintedSurface;
 
-class TextureOwner {
+class TiledTexture : public TilePainter {
 public:
-    virtual ~TextureOwner() { }
-    virtual bool removeTexture(BaseTileTexture* texture) = 0;
-    virtual TiledPage* page() = 0;
-    virtual GLWebViewState* state() = 0;
-    virtual bool samePageAs(Layer* root) { return false; }
+    TiledTexture(PaintedSurface* surface)
+        : m_surface(surface)
+        , m_prevTileX(0)
+        , m_prevTileY(0)
+        , m_prevScale(1)
+    {
+#ifdef DEBUG_COUNT
+        ClassTracker::instance()->increment("TiledTexture");
+#endif
+    }
+    virtual ~TiledTexture()
+    {
+#ifdef DEBUG_COUNT
+        ClassTracker::instance()->decrement("TiledTexture");
+#endif
+        removeTiles();
+    };
+
+    void prepare(GLWebViewState* state, bool repaint);
+    bool draw();
+
+    void prepareTile(bool repaint, int x, int y);
+
+    BaseTile* getTile(int x, int y);
+
+    void removeTiles();
+    bool owns(BaseTileTexture* texture);
+
+    // TilePainter methods
+    bool paint(BaseTile* tile, SkCanvas*, unsigned int*);
+    virtual void paintExtra(SkCanvas*);
+    virtual const TransformationMatrix* transform();
+
+private:
+    PaintedSurface* m_surface;
+    Vector<BaseTile*> m_tiles;
+
+    IntRect m_area;
+
+    int m_prevTileX;
+    int m_prevTileY;
+    float m_prevScale;
 };
 
-}
+} // namespace WebCore
 
-#endif // TextureOwner_h
+#endif // TiledTexture_h

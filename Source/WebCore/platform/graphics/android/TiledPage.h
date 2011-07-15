@@ -32,6 +32,8 @@
 #include "SkCanvas.h"
 #include "SkRegion.h"
 
+#include "TilePainter.h"
+
 namespace WebCore {
 
 class GLWebViewState;
@@ -47,7 +49,7 @@ class IntRect;
  * background TilePage at the new scale factor.  When the background TilePage is
  * ready, we swap it with the currently displaying TiledPage.
  */
-class TiledPage {
+class TiledPage : public TilePainter {
 public:
     TiledPage(int id, GLWebViewState* state);
     ~TiledPage();
@@ -62,8 +64,11 @@ public:
     // draw the page on the screen
     void draw(float transparency, const SkIRect& tileBounds);
 
+    // TilePainter implementation
     // used by individual tiles to generate the bitmap for their tile
-    unsigned int paintBaseLayerContent(SkCanvas*);
+    bool paint(BaseTile*, SkCanvas*, unsigned int*);
+    void paintExtra(SkCanvas*);
+
     // used by individual tiles to get the information about the current picture
     GLWebViewState* glWebViewState() { return m_glWebViewState; }
 

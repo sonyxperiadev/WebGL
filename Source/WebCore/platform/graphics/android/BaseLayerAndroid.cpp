@@ -68,10 +68,6 @@ BaseLayerAndroid::BaseLayerAndroid()
 
 BaseLayerAndroid::~BaseLayerAndroid()
 {
-#if USE(ACCELERATED_COMPOSITING)
-    if (TilesManager::hardwareAccelerationEnabled())
-        TilesManager::instance()->removeOperationsForBaseLayer(this);
-#endif
     m_content.clear();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("BaseLayerAndroid");
@@ -297,6 +293,9 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
 
     double currentTime = WTF::currentTime();
     needsRedraw = drawBasePictureInGL(visibleRect, scale, currentTime);
+    bool goingDown = m_previousVisible.fTop - visibleRect.fTop <= 0;
+    bool goingLeft = m_previousVisible.fLeft - visibleRect.fLeft >= 0;
+    m_glWebViewState->setDirection(goingDown, goingLeft);
     if (!needsRedraw)
         m_glWebViewState->resetFrameworkInval();
 
@@ -313,13 +312,6 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
         SkMatrix matrix;
         matrix.setTranslate(left, top);
 
-        // At this point, the previous LayerAndroid* root has been destroyed,
-        // which will have removed the layers as owners of the textures.
-        // Let's now do a pass to reserve the textures for the current tree;
-        // it will only reserve existing textures, not create them on demand.
-#ifdef DEBUG
-        TilesManager::instance()->printLayersTextures("reserve");
-#endif
         // Get the current scale; if we are zooming, we don't change the scale
         // factor immediately (see BaseLayerAndroid::drawBasePictureInGL()), but
         // we change the scaleRequestState. When the state is kReceivedNewScale
@@ -330,42 +322,22 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
         if (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
             scale = m_glWebViewState->futureScale();
         }
-        bool fullSetup = true;
-        if ((m_glWebViewState->previouslyUsedRoot() == compositedRoot) &&
-            (compositedRoot->getScale() == scale) &&
-            (!m_glWebViewState->moving()))
-            fullSetup = false;
-
         compositedRoot->setScale(scale);
 
-        if (fullSetup) {
-            compositedRoot->computeTextureSize(currentTime);
-            compositedRoot->reserveGLTextures();
-
 #ifdef DEBUG
-            int size = compositedRoot->countTextureSize();
-            int nbLayers = compositedRoot->nbLayers();
-            XLOG("We are using %d Mb for %d layers", size / 1024 / 1024, nbLayers);
-            compositedRoot->showLayers();
+        int size = compositedRoot->countTextureSize();
+        int nbLayers = compositedRoot->nbLayers();
+        XLOG("We are using %d Mb for %d layers", size / 1024 / 1024, nbLayers);
+        compositedRoot->showLayers();
 #endif
-            // Now that we marked the textures being used, we delete
-            // the unnecessary ones to make space...
-            TilesManager::instance()->cleanupLayersTextures(compositedRoot);
-        }
         // Clean up GL textures for video layer.
         TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
-
-        // Finally do another pass to create new textures and schedule
-        // repaints if needed
-        compositedRoot->createGLTextures();
 
         if (compositedRoot->drawGL(m_glWebViewState, matrix))
             needsRedraw = true;
         else if (!animsRunning)
             m_glWebViewState->resetLayersDirtyArea();
 
-    } else {
-        TilesManager::instance()->cleanupLayersTextures(0);
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);

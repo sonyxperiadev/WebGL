@@ -34,7 +34,7 @@ namespace WebCore {
 class TimingFunction;
 
 class AndroidAnimation : public RefCounted<AndroidAnimation> {
-  public:
+public:
     AndroidAnimation(AnimatedPropertyID type,
                      const Animation* animation,
                      KeyframeValueList* operations,
@@ -55,7 +55,7 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     AnimatedPropertyID type() { return m_type; }
     bool finished() { return m_finished; }
 
-  protected:
+protected:
     double m_beginTime;
     double m_elapsedTime;
     double m_duration;
@@ -70,7 +70,7 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
 };
 
 class AndroidOpacityAnimation : public AndroidAnimation {
-  public:
+public:
     static PassRefPtr<AndroidOpacityAnimation> create(const Animation* animation,
                                                       KeyframeValueList* operations,
                                                       double beginTime);
@@ -84,7 +84,7 @@ class AndroidOpacityAnimation : public AndroidAnimation {
 };
 
 class AndroidTransformAnimation : public AndroidAnimation {
-  public:
+public:
     static PassRefPtr<AndroidTransformAnimation> create(
                                                      const Animation* animation,
                                                      KeyframeValueList* operations,

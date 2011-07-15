@@ -166,12 +166,12 @@ bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     // on the player's state.
     if (m_playerState == PREPARING) {
         // Show the progressing animation, with two rotating circles
-        TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
+        TilesManager::instance()->shader()->drawLayerQuad(m_drawTransform, rect,
                                                           m_backgroundTextureId,
                                                           1, true);
 
         TransformationMatrix addReverseRotation;
-        TransformationMatrix addRotation = drawTransform();
+        TransformationMatrix addRotation = m_drawTransform;
         addRotation.translate(innerRect.fLeft, innerRect.fTop);
         addRotation.translate(IMAGESIZE / 2, IMAGESIZE / 2);
         addReverseRotation = addRotation;
@@ -198,7 +198,7 @@ bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         m_surfaceTexture->getTransformMatrix(surfaceMatrix);
         GLuint textureId =
             TilesManager::instance()->videoLayerManager()->getTextureId(uniqueId());
-        TilesManager::instance()->shader()->drawVideoLayerQuad(drawTransform(),
+        TilesManager::instance()->shader()->drawVideoLayerQuad(m_drawTransform,
                                                                surfaceMatrix,
                                                                rect, textureId);
         TilesManager::instance()->videoLayerManager()->updateMatrix(uniqueId(),
@@ -210,15 +210,15 @@ bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
             TilesManager::instance()->videoLayerManager()->getMatrix(uniqueId());
         if (textureId && matrix) {
             // Show the screen shot for each video.
-            TilesManager::instance()->shader()->drawVideoLayerQuad(drawTransform(),
+            TilesManager::instance()->shader()->drawVideoLayerQuad(m_drawTransform,
                                                                matrix,
                                                                rect, textureId);
         } else {
             // Show the static poster b/c there is no screen shot available.
-            TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), rect,
+            TilesManager::instance()->shader()->drawLayerQuad(m_drawTransform, rect,
                                                               m_backgroundTextureId,
                                                               1, true);
-            TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), innerRect,
+            TilesManager::instance()->shader()->drawLayerQuad(m_drawTransform, innerRect,
                                                               m_posterTextureId,
                                                               1, true);
         }

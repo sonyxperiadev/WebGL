@@ -8,7 +8,7 @@
 #include "DrawExtra.h"
 #include "GLUtils.h"
 #include "MediaLayer.h"
-#include "PaintLayerOperation.h"
+#include "PaintedSurface.h"
 #include "ParseCanvas.h"
 #include "SkBitmapRef.h"
 #include "SkBounder.h"
@@ -42,13 +42,13 @@ namespace WebCore {
 static int gUniqueId;
 
 class OpacityDrawFilter : public SkDrawFilter {
- public:
+public:
     OpacityDrawFilter(int opacity) : m_opacity(opacity) { }
     virtual void filter(SkPaint* paint, Type)
     {
         paint->setAlpha(m_opacity);
     }
- private:
+private:
     int m_opacity;
 };
 
@@ -66,8 +66,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_contentsImage(0),
     m_extra(0),
     m_uniqueId(++gUniqueId),
-    m_drawingTexture(0),
-    m_reservedTexture(0),
+    m_texture(0),
     m_pictureUsed(0),
     m_requestSent(false),
     m_scale(1),
@@ -90,8 +89,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_contentsImage(0),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId),
-    m_drawingTexture(0),
-    m_reservedTexture(0),
+    m_texture(0),
     m_requestSent(false),
     m_owningLayer(layer.m_owningLayer)
 {
@@ -147,8 +145,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_contentsImage(0),
     m_extra(0),
     m_uniqueId(-1),
-    m_drawingTexture(0),
-    m_reservedTexture(0),
+    m_texture(0),
     m_requestSent(false),
     m_scale(1),
     m_lastComputeTextureSize(0),
@@ -163,40 +160,10 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
 #endif
 }
 
-bool LayerAndroid::removeTexture(BaseTileTexture* aTexture)
-{
-    LayerTexture* texture = static_cast<LayerTexture*>(aTexture);
-    android::AutoMutex lock(m_atomicSync);
-
-    bool textureReleased = true;
-    if (!texture) { // remove ourself from both textures
-        if (m_drawingTexture)
-            textureReleased &= m_drawingTexture->release(this);
-        if (m_reservedTexture &&
-            m_reservedTexture != m_drawingTexture)
-            textureReleased &= m_reservedTexture->release(this);
-    } else {
-        if (m_drawingTexture && m_drawingTexture == texture)
-            textureReleased &= m_drawingTexture->release(this);
-        if (m_reservedTexture &&
-            m_reservedTexture == texture &&
-            m_reservedTexture != m_drawingTexture)
-            textureReleased &= m_reservedTexture->release(this);
-    }
-    if (m_drawingTexture &&
-        ((m_drawingTexture->owner() != this) ||
-         (m_drawingTexture->delayedReleaseOwner() == this)))
-        m_drawingTexture = 0;
-    if (m_reservedTexture &&
-        ((m_reservedTexture->owner() != this) ||
-         (m_reservedTexture->delayedReleaseOwner() == this)))
-        m_reservedTexture = 0;
-    return textureReleased;
-}
-
 LayerAndroid::~LayerAndroid()
 {
-    removeTexture(0);
+    if (m_texture)
+        m_texture->removeLayer(this);
     removeChildren();
     delete m_extra;
     delete m_contentsImage;
@@ -252,7 +219,7 @@ void LayerAndroid::addDirtyArea(GLWebViewState* glWebViewState)
 {
     IntSize layerSize(getSize().width(), getSize().height());
 
-    FloatRect area = TilesManager::instance()->shader()->rectInInvScreenCoord(drawTransform(), layerSize);
+    FloatRect area = TilesManager::instance()->shader()->rectInInvScreenCoord(m_drawTransform, layerSize);
     FloatRect clip = TilesManager::instance()->shader()->convertScreenCoordToInvScreenCoord(m_clippingRect);
 
     area.intersect(clip);
@@ -609,7 +576,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
                             -anchorPointZ());
 
     setDrawTransform(localMatrix);
-    m_zValue = TilesManager::instance()->shader()->zValue(drawTransform(), getSize().width(), getSize().height());
+    m_zValue = TilesManager::instance()->shader()->zValue(m_drawTransform, getSize().width(), getSize().height());
 
     opacity *= getOpacity();
     setDrawOpacity(opacity);
@@ -617,7 +584,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
     if (m_haveClip) {
         // The clipping rect calculation and intersetion will be done in Screen Coord now.
         FloatRect clip =
-            TilesManager::instance()->shader()->rectInScreenCoord(drawTransform(), layerSize);
+            TilesManager::instance()->shader()->rectInScreenCoord(m_drawTransform, layerSize);
         clip.intersect(clipping);
         setDrawClip(clip);
     } else {
@@ -625,7 +592,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
     }
 
     if (!m_backfaceVisibility
-         && drawTransform().inverse().m33() < 0) {
+         && m_drawTransform.inverse().m33() < 0) {
          setVisible(false);
          return;
     } else {
@@ -680,262 +647,37 @@ void LayerAndroid::setContentsImage(SkBitmapRef* img)
 bool LayerAndroid::needsTexture()
 {
     return m_contentsImage || (prepareContext()
-        && m_recordingPicture->width() && m_recordingPicture->height());
+        && m_recordingPicture->width() && m_recordingPicture->height() && !m_hasOverflowChildren);
 }
 
 IntRect LayerAndroid::clippedRect() const
 {
     IntRect r(0, 0, getWidth(), getHeight());
-    IntRect tr = drawTransform().mapRect(r);
+    IntRect tr = m_drawTransform.mapRect(r);
     IntRect cr = TilesManager::instance()->shader()->clippedRectWithViewport(tr);
-    IntRect rect = drawTransform().inverse().mapRect(cr);
+    IntRect rect = m_drawTransform.inverse().mapRect(cr);
     return rect;
 }
 
-bool LayerAndroid::outsideViewport()
-{
-    return m_layerTextureRect.width() == 0 &&
-           m_layerTextureRect.height() == 0;
-}
-
-int LayerAndroid::fullTextureSize() const
-{
-    return getWidth() * m_scale * getHeight() * m_scale * 4;
-}
-
-int LayerAndroid::clippedTextureSize() const
-{
-    IntRect cr = clippedRect();
-    return cr.width() * cr.height() * 4;
-}
-
-int LayerAndroid::countTextureSize()
-{
-    int size = clippedTextureSize();
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        size += getChild(i)->countTextureSize();
-    return size;
-}
-
-int LayerAndroid::nbLayers()
-{
-    int nb = 1;
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        nb += getChild(i)->nbLayers();
-    return nb;
-}
-
-void LayerAndroid::collect(Vector<LayerAndroid*>& layers, int& size)
-{
-    m_layerTextureRect = clippedRect();
-    if (!outsideViewport()) {
-        layers.append(this);
-        size += fullTextureSize();
-    }
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        getChild(i)->collect(layers, size);
-}
-
-static inline bool compareLayerFullSize(const LayerAndroid* a, const LayerAndroid* b)
-{
-    const int sizeA = a->fullTextureSize();
-    const int sizeB = b->fullTextureSize();
-    return sizeA > sizeB;
-}
-
-void LayerAndroid::computeTextureSize(double time)
-{
-   if (m_lastComputeTextureSize + s_computeTextureDelay > time)
-       return;
-   m_lastComputeTextureSize = time;
-
-   // First, we collect the layers, computing m_layerTextureRect
-   // as being clipped against the viewport
-   Vector <LayerAndroid*> layers;
-   int total = 0;
-   collect(layers, total);
-
-   // Then we sort them by the size the full texture would need
-   std::stable_sort(layers.begin(), layers.end(), compareLayerFullSize);
-
-   // Now, let's determinate which layer can use a full texture
-   int max = TilesManager::instance()->maxLayersAllocation();
-   int maxLayerSize = TilesManager::instance()->maxLayerAllocation();
-   XLOG("*** layers sorted by size ***");
-   XLOG("total memory needed: %d bytes (%d Mb), max %d Mb",
-         total, total / 1024 / 1024, max / 1024 / 1024);
-   for (unsigned int i = 0; i < layers.size(); i++) {
-       LayerAndroid* layer = layers[i];
-       bool clipped = true;
-       // If we are under the maximum, and the layer inspected
-       // needs a texture less than the maxLayerSize, use the full texture.
-       if ((total < max) &&
-           (layer->fullTextureSize() < maxLayerSize) &&
-           (layer->getWidth() * m_scale < TilesManager::instance()->getMaxTextureSize()) &&
-           (layer->getHeight() * m_scale < TilesManager::instance()->getMaxTextureSize())) {
-           IntRect full(0, 0, layer->getWidth(), layer->getHeight());
-           layer->m_layerTextureRect = full;
-           clipped = false;
-       } else {
-           // Otherwise, the layer is clipped; update the total
-           total -= layer->fullTextureSize();
-           total += layer->clippedTextureSize();
-       }
-       XLOG("Layer %d (%.2f, %.2f) %d bytes (clipped: %s)",
-             layer->uniqueId(), layer->getWidth(), layer->getHeight(),
-             layer->fullTextureSize(),
-             clipped ? "YES" : "NO");
-   }
-   XLOG("total memory used after clipping: %d bytes (%d Mb), max %d Mb",
-         total, total / 1024 / 1024, max / 1024 / 1024);
-   XLOG("*** end of sorted layers ***");
-}
-
-void LayerAndroid::showLayers(int indent)
-{
-    IntRect cr = clippedRect();
-    int size = cr.width() * cr.height() * 4;
-
-    char space[256];
-    int p = 0;
-    for (; p < indent; p++)
-        space[p] = ' ';
-    space[p] = '\0';
-
-    bool outside = outsideViewport();
-    if (needsTexture() && !outside) {
-        XLOGC("%s Layer %d (%.2f, %.2f), cropped to (%d, %d, %d, %d), using %d Mb",
-            space, uniqueId(), getWidth(), getHeight(),
-            cr.x(), cr.y(), cr.width(), cr.height(), size / 1024 / 1024);
-    } else if (needsTexture() && outside) {
-        XLOGC("%s Layer %d is outside the viewport", space, uniqueId());
-    } else {
-        XLOGC("%s Layer %d has no texture", space, uniqueId());
-    }
-
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        getChild(i)->showLayers(indent + 1);
-}
-
-void LayerAndroid::reserveGLTextures()
+void LayerAndroid::assignTexture(LayerAndroid* oldTree)
 {
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
-        this->getChild(i)->reserveGLTextures();
+        this->getChild(i)->assignTexture(oldTree);
 
-    if (!needsTexture())
-        return;
+    if (oldTree) {
+        LayerAndroid* oldLayer = oldTree->findById(uniqueId());
+        if (oldLayer == this)
+            return;
 
-    if (outsideViewport())
-        return;
-
-    LayerTexture* reservedTexture = 0;
-    reservedTexture = TilesManager::instance()->getExistingTextureForLayer(
-        this, m_layerTextureRect);
-
-    // If we do not have a drawing texture (i.e. new LayerAndroid tree),
-    // we get any one available.
-    if (!m_drawingTexture) {
-        LayerTexture* texture = reservedTexture;
-        m_drawingTexture =
-            TilesManager::instance()->getExistingTextureForLayer(
-                this, m_layerTextureRect, true, texture);
-
-        if (!m_drawingTexture)
-            m_drawingTexture = reservedTexture;
-    }
-
-    // SMP flush
-    android::AutoMutex lock(m_atomicSync);
-    // we set the reservedTexture if it's different from the drawing texture
-    if (m_reservedTexture != reservedTexture &&
-        ((reservedTexture != m_drawingTexture) ||
-         (m_reservedTexture == 0 && m_drawingTexture == 0))) {
-        // Call release on the reserved texture if it is not the same as the
-        // drawing texture.
-        if (m_reservedTexture && (m_reservedTexture != m_drawingTexture))
-            m_reservedTexture->release(this);
-        m_reservedTexture = reservedTexture;
-    }
-}
-
-void LayerAndroid::createGLTextures()
-{
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->createGLTextures();
-
-    if (!needsTexture())
-        return;
-
-    if (outsideViewport())
-        return;
-
-    if (m_drawingTexture && !needsScheduleRepaint(m_drawingTexture))
-        return;
-
-    LayerTexture* reservedTexture = m_reservedTexture;
-    if (!reservedTexture)
-        reservedTexture = TilesManager::instance()->createTextureForLayer(this, m_layerTextureRect);
-
-    if (!reservedTexture)
-        return;
-
-    // SMP flush
-    m_atomicSync.lock();
-    m_reservedTexture = reservedTexture;
-    m_atomicSync.unlock();
-
-    if (reservedTexture &&
-        reservedTexture->ready() &&
-        (reservedTexture != m_drawingTexture)) {
-        if (m_drawingTexture) {
-            TilesManager::instance()->removeOperationsForTexture(m_drawingTexture);
-            m_drawingTexture->release(this);
+        if (oldLayer && oldLayer->texture()) {
+            oldLayer->texture()->replaceLayer(this);
+            m_texture = oldLayer->texture();
         }
-        m_drawingTexture = reservedTexture;
     }
 
-    if (!needsScheduleRepaint(reservedTexture))
-        return;
-
-    m_atomicSync.lock();
-    if (!m_requestSent) {
-        m_requestSent = true;
-        m_atomicSync.unlock();
-        XLOG("We schedule a paint for layer %d (%x), because m_dirty %d, using texture %x (%d, %d)",
-             uniqueId(), this, m_dirty, m_reservedTexture,
-             m_reservedTexture->rect().width(), m_reservedTexture->rect().height());
-        PaintLayerOperation* operation = new PaintLayerOperation(this);
-        TilesManager::instance()->scheduleOperation(operation);
-    } else {
-        XLOG("We don't schedule a paint for layer %d (%x), because we already sent a request",
-             uniqueId(), this);
-        m_atomicSync.unlock();
-    }
-}
-
-bool LayerAndroid::needsScheduleRepaint(LayerTexture* texture)
-{
-    if (!texture)
-        return false;
-
-    if (!texture->ready()) {
-        m_dirty = true;
-        return true;
-    }
-
-    TextureInfo* textureInfo = texture->consumerLock();
-    if (!texture->readyFor(this) ||
-        (texture->rect() != m_layerTextureRect))
-        m_dirty = true;
-    texture->consumerRelease();
-
-    return m_dirty;
+    if (needsTexture() && !m_texture)
+        m_texture = new PaintedSurface(this);
 }
 
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
@@ -949,34 +691,18 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     if (!m_visible)
         return false;
 
-    if (m_drawingTexture) {
-        TextureInfo* textureInfo = m_drawingTexture->consumerLock();
-        bool ready = m_drawingTexture->readyFor(this);
-        if (textureInfo && (!m_contentsImage || (ready && m_contentsImage))) {
-            SkRect bounds;
-            bounds.set(m_drawingTexture->rect());
-            XLOG("LayerAndroid %d %x (%.2f, %.2f) drawGL (texture %x, %f, %f, %f, %f)",
-                 uniqueId(), this, getWidth(), getHeight(),
-                 m_drawingTexture, bounds.fLeft, bounds.fTop,
-                 bounds.width(), bounds.height());
-            //TODO determine when drawing if the alpha value is used.
-            TilesManager::instance()->shader()->drawLayerQuad(drawTransform(), bounds,
-                                                              textureInfo->m_textureId,
-                                                              m_drawOpacity, true,
-                                                              textureInfo->getTextureTarget());
-        }
-        if (!ready)
-            m_dirty = true;
-        m_drawingTexture->consumerRelease();
-    } else if (needsTexture()) {
-        m_dirty = true;
+    bool askPaint = false;
+
+    if (m_texture) {
+        m_texture->prepare(glWebViewState);
+        askPaint |= m_texture->draw();
     }
 
     // When the layer is dirty, the UI thread should be notified to redraw.
-    bool askPaint = drawChildrenGL(glWebViewState, matrix);
+    askPaint = drawChildrenGL(glWebViewState, matrix);
     m_atomicSync.lock();
     askPaint |= m_dirty;
-    if ((m_dirty && needsTexture()) || m_hasRunningAnimations || drawTransform().hasPerspective())
+    if ((m_dirty && needsTexture()) || m_hasRunningAnimations || m_drawTransform.hasPerspective())
         addDirtyArea(glWebViewState);
 
     m_atomicSync.unlock();
@@ -1012,84 +738,6 @@ void LayerAndroid::setScale(float scale)
 
     android::AutoMutex lock(m_atomicSync);
     m_scale = scale;
-}
-
-// This is called from the texture generation thread
-void LayerAndroid::paintBitmapGL()
-{
-    // We acquire the values below atomically. This ensures that we are reading
-    // values correctly across cores. Further, once we have these values they
-    // can be updated by other threads without consequence.
-    m_atomicSync.lock();
-    LayerTexture* texture = m_reservedTexture;
-
-    if (!texture) {
-        m_atomicSync.unlock();
-        XLOG("Layer %d doesn't have a texture!", uniqueId());
-        return;
-    }
-
-    XLOG("LayerAndroid %d paintBitmapGL, texture used %x (%d, %d)", uniqueId(), texture,
-         texture->rect().width(), texture->rect().height());
-
-    // We need to mark the texture as busy before relinquishing the lock
-    // -- so that TilesManager::cleanupLayersTextures() can check if the texture
-    // is used before trying to destroy it
-    // If LayerAndroid::removeTexture() is called before us, we'd have bailed
-    // out early as texture would have been null; if it is called after us, we'd
-    // have marked the texture has being busy, and the texture will not be
-    // destroyed immediately.
-    texture->producerAcquireContext();
-    TextureInfo* textureInfo = texture->producerLock();
-    m_atomicSync.unlock();
-
-    // at this point we can safely check the ownership (if the texture got
-    // transferred to another BaseTile under us)
-    if (texture->owner() != this) {
-        texture->producerRelease();
-        return;
-    }
-
-    XLOG("LayerAndroid %d %x (%.2f, %.2f) paintBitmapGL WE ARE PAINTING", uniqueId(), this, getWidth(), getHeight());
-
-    SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, texture->getSize().width(), texture->getSize().height());
-    bitmap.allocPixels();
-
-    SkCanvas canvas(bitmap);
-    canvas.drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
-
-    float scale = texture->scale();
-
-    IntRect textureRect = texture->rect();
-
-
-    if (m_contentsImage) {
-        contentDraw(&canvas);
-    } else {
-        SkPicture picture;
-        SkCanvas* nCanvas = picture.beginRecording(textureRect.width(),
-                                                   textureRect.height());
-        nCanvas->scale(scale, scale);
-        nCanvas->translate(-textureRect.x(), -textureRect.y());
-        contentDraw(nCanvas);
-        picture.endRecording();
-        picture.draw(&canvas);
-    }
-    extraDraw(&canvas);
-
-    m_atomicSync.lock();
-    texture->setTextureInfoFor(this);
-
-    m_dirty = false;
-    m_requestSent = false;
-
-    XLOG("LayerAndroid %d paintBitmapGL PAINTING DONE, updating the texture", uniqueId());
-    texture->producerUpdate(textureInfo, bitmap);
-
-    m_atomicSync.unlock();
-
-    XLOG("LayerAndroid %d paintBitmapGL UPDATING DONE", uniqueId());
 }
 
 void LayerAndroid::extraDraw(SkCanvas* canvas)
@@ -1324,7 +972,7 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writePoint(file, indentLevel + 1, "position", getPosition());
     writePoint(file, indentLevel + 1, "anchor", getAnchorPoint());
 
-    writeMatrix(file, indentLevel + 1, "drawMatrix", drawTransform());
+    writeMatrix(file, indentLevel + 1, "drawMatrix", m_drawTransform);
     writeMatrix(file, indentLevel + 1, "transformMatrix", m_transform);
     writeRect(file, indentLevel + 1, "clippingRect", SkRect(m_clippingRect));
 
@@ -1404,6 +1052,7 @@ void LayerAndroid::setExtra(DrawExtra* extra)
                                                    m_recordingPicture->height());
         extra->draw(canvas, this, &dummy);
         m_extra->endRecording();
+        needsRepaint();
     }
 }
 

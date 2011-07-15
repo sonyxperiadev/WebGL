@@ -234,6 +234,13 @@ public:
     void resetLayersDirtyArea();
     LayerAndroid* previouslyUsedRoot() { return m_previouslyUsedRoot; }
 
+    bool goingDown() { return m_goingDown; }
+    bool goingLeft() { return m_goingLeft; }
+    void setDirection(bool goingDown, bool goingLeft) {
+        m_goingDown = goingDown;
+        m_goingLeft = goingLeft;
+    }
+
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
     void invalRegion(const SkRegion& region);
@@ -291,6 +298,9 @@ private:
     Vector<IntRect> m_rings;
     bool m_ringsIsPressed;
     int m_focusRingTexture;
+
+    bool m_goingDown;
+    bool m_goingLeft;
 };
 
 } // namespace WebCore
