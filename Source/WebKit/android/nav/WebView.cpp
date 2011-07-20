@@ -1495,42 +1495,6 @@ BaseLayerAndroid* getBaseLayer() {
     return m_baseLayer;
 }
 
-void tileProfilingStart() {
-    TilesManager::instance()->getProfiler()->start();
-}
-
-float tileProfilingStop() {
-    return TilesManager::instance()->getProfiler()->stop();
-}
-
-void tileProfilingClear() {
-    TilesManager::instance()->getProfiler()->clear();
-}
-
-int tileProfilingNumFrames() {
-    return TilesManager::instance()->getProfiler()->numFrames();
-}
-
-int tileProfilingNumTilesInFrame(int frame) {
-    return TilesManager::instance()->getProfiler()->numTilesInFrame(frame);
-}
-
-int tileProfilingGetX(int frame, int tile) {
-    return TilesManager::instance()->getProfiler()->getTile(frame, tile).x;
-}
-
-int tileProfilingGetY(int frame, int tile) {
-    return TilesManager::instance()->getProfiler()->getTile(frame, tile).y;
-}
-
-bool tileProfilingGetReady(int frame, int tile) {
-    return TilesManager::instance()->getProfiler()->getTile(frame, tile).isReady;
-}
-
-int tileProfilingGetLevel(int frame, int tile) {
-    return TilesManager::instance()->getProfiler()->getTile(frame, tile).level;
-}
-
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
     CachedRoot* m_frameCacheUI; // navigation data ready for use
@@ -2484,47 +2448,53 @@ static void nativeSetSelectionPointer(JNIEnv *env, jobject obj, jboolean set,
 
 static void nativeTileProfilingStart(JNIEnv *env, jobject obj)
 {
-    GET_NATIVE_VIEW(env, obj)->tileProfilingStart();
+    TilesManager::instance()->getProfiler()->start();
 }
 
 static float nativeTileProfilingStop(JNIEnv *env, jobject obj)
 {
-    return GET_NATIVE_VIEW(env, obj)->tileProfilingStop();
+    return TilesManager::instance()->getProfiler()->stop();
 }
 
 static void nativeTileProfilingClear(JNIEnv *env, jobject obj)
 {
-    GET_NATIVE_VIEW(env, obj)->tileProfilingClear();
+    TilesManager::instance()->getProfiler()->clear();
 }
 
 static int nativeTileProfilingNumFrames(JNIEnv *env, jobject obj)
 {
-    return GET_NATIVE_VIEW(env, obj)->tileProfilingNumFrames();
+    return TilesManager::instance()->getProfiler()->numFrames();
 }
 
 static int nativeTileProfilingNumTilesInFrame(JNIEnv *env, jobject obj, int frame)
 {
-    return GET_NATIVE_VIEW(env, obj)->tileProfilingNumTilesInFrame(frame);
+    return TilesManager::instance()->getProfiler()->numTilesInFrame(frame);
 }
 
-static int nativeTileProfilingGetX(JNIEnv *env, jobject obj, int frame, int tile)
+static int nativeTileProfilingGetInt(JNIEnv *env, jobject obj, int frame, int tile, jstring jkey)
 {
-    return GET_NATIVE_VIEW(env, obj)->tileProfilingGetX(frame, tile);
+    WTF::String key = jstringToWtfString(env, jkey);
+    TileProfileRecord* record = TilesManager::instance()->getProfiler()->getTile(frame, tile);
+
+    if (key == "left")
+        return record->left;
+    if (key == "top")
+        return record->top;
+    if (key == "right")
+        return record->right;
+    if (key == "bottom")
+        return record->bottom;
+    if (key == "level")
+        return record->level;
+    if (key == "isReady")
+        return record->isReady ? 1 : 0;
+    return -1;
 }
 
-static int nativeTileProfilingGetY(JNIEnv *env, jobject obj, int frame, int tile)
+static float nativeTileProfilingGetFloat(JNIEnv *env, jobject obj, int frame, int tile, jstring jkey)
 {
-    return GET_NATIVE_VIEW(env, obj)->tileProfilingGetY(frame, tile);
-}
-
-static bool nativeTileProfilingGetReady(JNIEnv *env, jobject obj, int frame, int tile)
-{
-    return GET_NATIVE_VIEW(env, obj)->tileProfilingGetReady(frame, tile);
-}
-
-static int nativeTileProfilingGetLevel(JNIEnv *env, jobject obj, int frame, int tile)
-{
-    return GET_NATIVE_VIEW(env, obj)->tileProfilingGetLevel(frame, tile);
+    TileProfileRecord* record = TilesManager::instance()->getProfiler()->getTile(frame, tile);
+    return record->scale;
 }
 
 #ifdef ANDROID_DUMP_DISPLAY_TREE
@@ -2811,14 +2781,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeTileProfilingNumFrames },
     { "nativeTileProfilingNumTilesInFrame", "(I)I",
         (void*) nativeTileProfilingNumTilesInFrame },
-    { "nativeTileProfilingGetX", "(II)I",
-        (void*) nativeTileProfilingGetX },
-    { "nativeTileProfilingGetY", "(II)I",
-        (void*) nativeTileProfilingGetY },
-    { "nativeTileProfilingGetReady", "(II)Z",
-        (void*) nativeTileProfilingGetReady },
-    { "nativeTileProfilingGetLevel", "(II)I",
-        (void*) nativeTileProfilingGetLevel },
+    { "nativeTileProfilingGetInt", "(IILjava/lang/String;)I",
+        (void*) nativeTileProfilingGetInt },
+    { "nativeTileProfilingGetFloat", "(IILjava/lang/String;)F",
+        (void*) nativeTileProfilingGetFloat },
     { "nativeStartSelection", "(II)Z",
         (void*) nativeStartSelection },
     { "nativeStopGL", "()V",

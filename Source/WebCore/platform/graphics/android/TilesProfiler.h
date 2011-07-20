@@ -28,20 +28,26 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "BaseTile.h"
+#include "IntRect.h"
 #include "Vector.h"
 
 namespace WebCore {
 
 struct TileProfileRecord {
-    TileProfileRecord(int x, int y, int isReady, int level) {
-        this->x = x;
-        this->y = y;
+    TileProfileRecord(int left, int top, int right, int bottom, float scale, int isReady, int level) {
+        this->left = left;
+        this->top = top;
+        this->right = right;
+        this->bottom = bottom;
+        this->scale = scale;
         this->isReady = isReady;
         this->level = level;
     }
-    int x, y;
+    int left, top, right, bottom;
     bool isReady;
     int level;
+    float scale;
 };
 
 class TilesProfiler {
@@ -51,9 +57,9 @@ public:
     void start();
     float stop();
     void clear();
-    void nextFrame(int l, int t, int r, int b);
-    void nextTile(int x, int y, bool isReady, int level, bool inView);
-
+    void nextFrame(int left, int top, int right, int bottom, float scale);
+    void nextTile(BaseTile& tile, float scale, bool inView);
+    void nextInval(const IntRect& rect, float scale);
     int numFrames() {
         return m_records.size();
     };
@@ -62,8 +68,8 @@ public:
         return m_records[frame].size();
     }
 
-    TileProfileRecord getTile(int frame, int tile) {
-        return m_records[frame][tile];
+    TileProfileRecord* getTile(int frame, int tile) {
+        return &m_records[frame][tile];
     }
 
 private:

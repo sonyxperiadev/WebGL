@@ -336,8 +336,7 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
             tile.draw(transparency, rect, m_scale);
         }
 
-        TilesManager::instance()->getProfiler()->nextTile(tile.x(), tile.y(), tile.isTileReady(),
-                                                          tile.usedLevel(), tileInView);
+        TilesManager::instance()->getProfiler()->nextTile(tile, m_invScale, tileInView);
     }
 }
 
