@@ -550,6 +550,26 @@ WebFrame::reportError(int errorCode, const WTF::String& description,
     env->DeleteLocalRef(failUrl);
 }
 
+WTF::String
+WebFrame::convertIDNToUnicode(const WebCore::KURL& url) {
+    WTF::String converted = url.string();
+#if USE(CHROME_NETWORK_STACK)
+    const WTF::String host = url.host();
+    if (host.find("xn--") == notFound)  // no punycode IDN found.
+        return converted;
+    std::wstring languages;
+    const WTF::CString cHost = host.utf8();
+    std::wstring result = net::IDNToUnicode(cHost.data(), cHost.length(), languages, 0);
+    const WTF::String convertedHost = String::fromUTF8(WideToUTF8(result).c_str());
+    if (convertedHost.length() && convertedHost.length() != host.length()) {
+        WebCore::KURL newUrl = url;
+        newUrl.setHost(convertedHost);
+        converted = newUrl.string();
+    }
+#endif
+    return converted;
+}
+
 void
 WebFrame::loadStarted(WebCore::Frame* frame)
 {
@@ -579,7 +599,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
              !isMainFrame))
         return;
 
-    const WTF::String& urlString = url.string();
+    const WTF::String urlString = convertIDNToUnicode(url);
     // If this is the main frame and we already have a favicon in the database,
     // send it along with the page started notification.
     jobject favicon = NULL;
@@ -651,7 +671,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
 
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
     WebCore::FrameLoadType loadType = loader->loadType();
-    const WTF::String& urlString = url.string();
+    const WTF::String urlString = convertIDNToUnicode(url);
     jstring urlStr = wtfStringToJstring(env, urlString);
     env->CallVoidMethod(javaFrame.get(), mJavaFrame->mLoadFinished, urlStr, static_cast<int>(loadType), isMainFrame);
     checkException(env);
@@ -800,7 +820,7 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
     if (!javaFrame.get())
         return;
 
-    const WTF::String& urlStr = url.string();
+    const WTF::String urlStr = convertIDNToUnicode(url);
     jstring jUrlStr = wtfStringToJstring(env, urlStr);
 
     env->CallVoidMethod(javaFrame.get(), mJavaFrame->mUpdateVisitedHistory, jUrlStr, reload);
