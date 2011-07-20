@@ -659,6 +659,52 @@ IntRect LayerAndroid::clippedRect() const
     return rect;
 }
 
+int LayerAndroid::nbLayers()
+{
+    int nb = 0;
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        nb += this->getChild(i)->nbLayers();
+    return nb+1;
+}
+
+int LayerAndroid::nbTexturedLayers()
+{
+    int nb = 0;
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        nb += this->getChild(i)->nbTexturedLayers();
+    if (needsTexture())
+        nb++;
+    return nb;
+}
+
+void LayerAndroid::showLayer(int indent)
+{
+    char spaces[256];
+    memset(spaces, 0, 256);
+    for (unsigned int i = 0; i < indent; i++)
+        spaces[i] = ' ';
+
+    if (!indent)
+        XLOGC("\n\n--- LAYERS TREE ---");
+
+    IntRect r(0, 0, getWidth(), getHeight());
+    IntRect tr = m_drawTransform.mapRect(r);
+    XLOGC("%s [%d:0x%x] - %s - (%d, %d, %d, %d) %s prepareContext(%d), pic w: %d h: %d",
+          spaces, uniqueId(), m_owningLayer,
+          needsTexture() ? "needs a texture" : "no texture",
+          tr.x(), tr.y(), tr.width(), tr.height(),
+          contentIsScrollable() ? "SCROLLABLE" : "",
+          prepareContext(),
+          m_recordingPicture ? m_recordingPicture->width() : -1,
+          m_recordingPicture ? m_recordingPicture->height() : -1);
+
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->showLayer(indent + 1);
+}
+
 void LayerAndroid::assignTexture(LayerAndroid* oldTree)
 {
     int count = this->countChildren();

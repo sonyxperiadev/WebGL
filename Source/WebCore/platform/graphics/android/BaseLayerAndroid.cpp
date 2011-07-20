@@ -332,11 +332,12 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
         compositedRoot->setScale(scale);
 
 #ifdef DEBUG
-        int size = compositedRoot->countTextureSize();
-        int nbLayers = compositedRoot->nbLayers();
-        XLOG("We are using %d Mb for %d layers", size / 1024 / 1024, nbLayers);
-        compositedRoot->showLayers();
+        compositedRoot->showLayer(0);
+        XLOG("We have %d layers, %d textured",
+              compositedRoot->nbLayers(),
+              compositedRoot->nbTexturedLayers());
 #endif
+
         // Clean up GL textures for video layer.
         TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
 

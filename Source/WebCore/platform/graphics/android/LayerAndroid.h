@@ -114,6 +114,11 @@ public:
 
     virtual bool needsTexture();
 
+    // Debug helper methods
+    int nbLayers();
+    int nbTexturedLayers();
+    void showLayer(int indent);
+
     void setScale(float scale);
     float getScale() { return m_scale; }
     virtual bool drawGL(GLWebViewState*, SkMatrix&);
