@@ -218,6 +218,10 @@ private:
 
     void updateCompositingLayersTimerFired(Timer<RenderLayerCompositor>*);
 
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    bool checkForFixedLayers(Vector<RenderLayer*>* list, bool stopAtFixedLayer);
+#endif
+
     // Returns true if any layer's compositing changed
     void computeCompositingRequirements(RenderLayer*, OverlapMap*, struct CompositingState&, bool& layersChanged);
     

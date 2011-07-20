@@ -354,7 +354,7 @@ public:
       if (hasOverflowScroll())
           return true;
 #endif
-      return !hasAutoZIndex() || renderer()->isRenderView() || (isComposited() && isFixed());
+      return !hasAutoZIndex() || renderer()->isRenderView() || (isComposited() && isFixed()) || m_shouldComposite;
     }
 #else
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -641,6 +641,10 @@ private:
     
     bool mustOverlapCompositedLayers() const { return m_mustOverlapCompositedLayers; }
     void setMustOverlapCompositedLayers(bool b) { m_mustOverlapCompositedLayers = b; }
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    bool shouldComposite() { return m_shouldComposite; }
+    void setShouldComposite(bool b) { m_shouldComposite = b; }
+#endif
 #endif
 
     void updateContentsScale(float);
@@ -743,6 +747,9 @@ protected:
 #if USE(ACCELERATED_COMPOSITING)
     bool m_hasCompositingDescendant : 1; // In the z-order tree.
     bool m_mustOverlapCompositedLayers : 1;
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    bool m_shouldComposite : 1;
+#endif
 #endif
 
     bool m_containsDirtyOverlayScrollbars : 1;
