@@ -57,6 +57,7 @@
 #include <base/threading/thread.h>
 #include <base/time.h>
 #include <base/tuple.h>
+#include <base/utf_string_conversions.h>
 #include <chrome/browser/net/sqlite_persistent_cookie_store.h>
 #include <net/base/auth.h>
 #include <net/base/cert_verifier.h>
@@ -68,6 +69,7 @@
 #include <net/base/load_flags.h>
 #include <net/base/net_errors.h>
 #include <net/base/mime_util.h>
+#include <net/base/net_util.h>
 #include <net/base/openssl_private_key_store.h>
 #include <net/base/ssl_cert_request_info.h>
 #include <net/base/ssl_config_service.h>

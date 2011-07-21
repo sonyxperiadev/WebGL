@@ -160,7 +160,11 @@ class WebFrame : public WebCoreRefObject {
     void saveFormData(WebCore::HTMLFormElement*);
     const WebCore::RenderSkinAndroid* renderSkins() const { return m_renderSkins; }
     void setRenderSkins(const WebCore::RenderSkinAndroid* skins) { m_renderSkins = skins; }
-private:
+
+    // Convert a URL from potential punycode I18nDomainName to safe to-be-displayed Unicode.
+    static WTF::String convertIDNToUnicode(const WebCore::KURL& kurl);
+
+  private:
     struct JavaBrowserFrame;
     JavaBrowserFrame* mJavaFrame;
     WebCore::Page* mPage;

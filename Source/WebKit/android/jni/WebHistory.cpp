@@ -269,11 +269,11 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     if (!realItem.get())
         return;
 
-    const WTF::String& urlString = item->urlString();
+    const WTF::String urlString = WebFrame::convertIDNToUnicode(item->url());
     jstring urlStr = NULL;
     if (!urlString.isNull())
         urlStr = wtfStringToJstring(env, urlString);
-    const WTF::String& originalUrlString = item->originalURLString();
+    const WTF::String originalUrlString = WebFrame::convertIDNToUnicode(item->originalURL());
     jstring originalUrlStr = NULL;
     if (!originalUrlString.isNull())
         originalUrlStr = wtfStringToJstring(env, originalUrlString);
