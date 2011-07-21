@@ -236,6 +236,7 @@ void GLWebViewState::inval(const IntRect& rect)
     } else {
         m_invalidateRegion.op(rect.x(), rect.y(), rect.maxX(), rect.maxY(), SkRegion::kUnion_Op);
     }
+    TilesManager::instance()->getProfiler()->nextInval(rect, m_currentScale);
 }
 
 void GLWebViewState::resetRings()
@@ -504,10 +505,11 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 {
     glFinish();
     TilesManager::instance()->registerGLWebViewState(this);
-    TilesManager::instance()->getProfiler()->nextFrame(viewport.fLeft * scale,
-                                                       viewport.fTop * scale,
-                                                       viewport.fRight * scale,
-                                                       viewport.fBottom * scale);
+    TilesManager::instance()->getProfiler()->nextFrame(viewport.fLeft,
+                                                       viewport.fTop,
+                                                       viewport.fRight,
+                                                       viewport.fBottom,
+                                                       scale);
 
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->clear();

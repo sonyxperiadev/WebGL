@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "TilesManager.h"
 #include <wtf/CurrentTime.h>
 
 #ifdef DEBUG
@@ -47,6 +48,7 @@
 
 // Hard limit on amount of frames (and thus memory) profiling can take
 #define MAX_PROF_FRAMES 400
+#define INVAL_CODE -2
 
 namespace WebCore {
 TilesProfiler::TilesProfiler()
@@ -77,7 +79,7 @@ void TilesProfiler::clear()
     m_records.clear();
 }
 
-void TilesProfiler::nextFrame(int l, int t, int r, int b)
+void TilesProfiler::nextFrame(int left, int top, int right, int bottom, float scale)
 {
     if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES))
         return;
@@ -96,22 +98,44 @@ void TilesProfiler::nextFrame(int l, int t, int r, int b)
     m_records.append(WTF::Vector<TileProfileRecord>());
 
     //first two records designate viewport
-    m_records.last().append(TileProfileRecord(l, t, true, (int)(timeDelta * 1000)));
-    m_records.last().append(TileProfileRecord(r, b, true, -1));
-
+    m_records.last().append(TileProfileRecord(
+                                left, top, right, bottom,
+                                scale, true, (int)(timeDelta * 1000)));
 }
 
-void TilesProfiler::nextTile(int x, int y, bool isReady, int level, bool inView)
+void TilesProfiler::nextTile(BaseTile& tile, float scale, bool inView)
 {
     if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES))
         return;
+
+    bool isReady = tile.isTileReady();
+    int left = tile.x() * TilesManager::tileWidth();
+    int top = tile.y() * TilesManager::tileWidth();
+    int right = left + TilesManager::tileWidth();
+    int bottom = top + TilesManager::tileWidth();
+
     if (inView) {
         if (isReady)
             m_goodTiles++;
         else
             m_badTiles++;
     }
-    m_records.last().append(TileProfileRecord(x, y, isReady, level));
+    m_records.last().append(TileProfileRecord(
+                                left, top, right, bottom,
+                                scale, isReady, tile.usedLevel()));
+    XLOG("adding tile %d %d %d %d, scale %f", left, top, right, bottom, scale);
+}
+
+void TilesProfiler::nextInval(const IntRect& rect, float scale)
+{
+    if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES))
+        return;
+
+    m_records.last().append(TileProfileRecord(
+                                rect.x(), rect.y(),
+                                rect.maxX(), rect.maxY(), scale, false, INVAL_CODE));
+    XLOG("adding inval region %d %d %d %d, scale %f", rect.x(), rect.y(),
+         rect.maxX(), rect.maxY(), scale);
 }
 
 } // namespace WebCore
