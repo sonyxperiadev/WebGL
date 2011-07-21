@@ -780,7 +780,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
             doTextWrap = autowrap && !positioned &&
                     (fontSize <= lineHeight) && !style()->hasBackground() &&
                     (((dir == LTR && cssfloat != FRIGHT) ||
-                    (dir == RTL && cssfloat != FLEFT)) &&
+                    (dir == RTL && cssfloat != FNONE)) &&
                     ((ta == TAAUTO) || (ta == JUSTIFY) ||
                     ((ta == LEFT || ta == WEBKIT_LEFT) && (dir == LTR)) ||
                     ((ta == RIGHT || ta == WEBKIT_RIGHT) && (dir == RTL))));
