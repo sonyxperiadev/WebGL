@@ -2274,10 +2274,13 @@ void RenderLayer::updateScrollInfoAfterLayout()
         updateOverflowStatus(horizontalOverflow, verticalOverflow);
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    bool hasOverflowScroll = ((horizontalOverflow && m_hBar) || (verticalOverflow && m_vBar))
-            // Disable UI side scrolling for textareas, unless they are readonly.
-            && (!renderer()->isTextArea() || (renderer()->node()
-            && static_cast<HTMLTextAreaElement*>(renderer()->node())->readOnly()));
+    bool hasOverflowScroll = ((horizontalOverflow && m_hBar) || (verticalOverflow && m_vBar)) &&
+            ((!renderer()->isTextArea() && !renderer()->isRenderBlock()) ||
+             // Disable customized overflow scroll for positioned RenderBlock.
+             (renderer()->isRenderBlock() && !renderer()->isPositioned()) ||
+             // Disable UI side scrolling for textareas, unless they are readonly.
+             (renderer()->isTextArea() && renderer()->node() &&
+              static_cast<HTMLTextAreaElement*>(renderer()->node())->readOnly()));
     if (hasOverflowScroll != m_hasOverflowScroll) {
         m_hasOverflowScroll = hasOverflowScroll;
         dirtyZOrderLists();
