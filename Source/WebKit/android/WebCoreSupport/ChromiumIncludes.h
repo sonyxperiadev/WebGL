@@ -46,6 +46,7 @@
 #endif
 
 #include <android/net/android_network_library_impl.h>
+#include <android/jni/jni_utils.h>
 #include <base/callback.h>
 #include <base/memory/ref_counted.h>
 #include <base/message_loop_proxy.h>
