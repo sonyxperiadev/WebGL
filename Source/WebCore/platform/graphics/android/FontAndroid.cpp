@@ -717,8 +717,7 @@ void TextRunWalker::setGlyphXPositions(bool isRTL)
         int i = isRTL ? m_item.num_glyphs - iter - 1 : iter;
 
         m_glyphs16[i] = m_item.glyphs[i];
-        int offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
-        m_xPositions[i] = SkIntToScalar(m_offsetX + position + offsetX);
+        m_xPositions[i] = SkIntToScalar(m_offsetX + position);
 
         int advance = truncateFixedPointToInteger(m_item.advances[i]);
         // The first half of the conjunction works around the case where
