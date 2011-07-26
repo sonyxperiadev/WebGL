@@ -204,7 +204,7 @@ void HTMLBodyElement::insertedIntoDocument()
     if (settings) {
         String host = document()->baseURI().host().lower();
         if (settings->viewportWidth() == -1 && (host.startsWith("m.") || host.startsWith("mobile.")
-                || host.startsWith("wap.") || host.contains(".m.") || host.contains(".mobile." || host.contains(".wap.")))) {
+                || host.startsWith("wap.") || host.contains(".m.") || host.contains(".mobile.") || host.contains(".wap."))) {
             // fit mobile sites directly in the screen
             document()->processViewport("width=device-width");
         }
