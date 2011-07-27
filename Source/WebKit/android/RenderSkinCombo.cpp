@@ -33,7 +33,10 @@
 #include "RenderStyle.h"
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
+#include <utils/AssetManager.h>
 #include <wtf/text/CString.h>
+
+extern android::AssetManager* globalAssetManager();
 
 namespace WebCore {
 
@@ -75,24 +78,27 @@ static const int        stretchTop[2] = {15, 23};     // border width for the to
 // of the arrow.
 static const int arrowWidth[2] = {22, 31};
 
-RenderSkinCombo::Resolution RenderSkinCombo::resolution = MedRes;
-
 const SkIRect RenderSkinCombo::margin[2][2] = {{{ stretchMargin[MedRes], stretchTop[MedRes],
                                           RenderSkinCombo::arrowMargin[MedRes] + stretchMargin[MedRes], stretchMargin[MedRes] },
                                         {0, stretchTop[MedRes], 0, stretchMargin[MedRes]}},
                                        {{ stretchMargin[HighRes], stretchTop[HighRes],
                                           RenderSkinCombo::arrowMargin[HighRes] + stretchMargin[HighRes], stretchMargin[HighRes] },
                                         {0, stretchTop[HighRes], 0, stretchMargin[HighRes]}}};
-static SkBitmap         bitmaps[2][2]; // Collection of assets for a combo box
-static bool             isDecoded;      // True if all assets were decoded
+static SkBitmap         bitmaps[2][2];               // Collection of assets for a combo box
+static bool             isDecodingAttempted = false; // True if we've tried to decode the assets
+static bool             isDecoded = false;           // True if all assets were decoded
 
-void RenderSkinCombo::Init(android::AssetManager* am, String drawableDirectory)
+void RenderSkinCombo::Decode()
 {
-    if (isDecoded)
+    if (isDecodingAttempted)
         return;
 
-    if (drawableDirectory[drawableDirectory.length() - 5] == 'h')
-        resolution = HighRes;
+    isDecodingAttempted = true;
+    isDecoded = false;
+
+    android::AssetManager* am = globalAssetManager();
+
+    String drawableDirectory = RenderSkinAndroid::DrawableDirectory();
 
     isDecoded = RenderSkinAndroid::DecodeBitmap(am, (drawableDirectory + "combobox_nohighlight.png").utf8().data(), &bitmaps[kNormal][FullAsset]);
     isDecoded &= RenderSkinAndroid::DecodeBitmap(am, (drawableDirectory + "combobox_disabled.png").utf8().data(), &bitmaps[kDisabled][FullAsset]);
@@ -100,19 +106,21 @@ void RenderSkinCombo::Init(android::AssetManager* am, String drawableDirectory)
     int width = bitmaps[kNormal][FullAsset].width();
     int height = bitmaps[kNormal][FullAsset].height();
     SkIRect  subset;
-    subset.set(width - arrowWidth[resolution], 0, width, height);
+    subset.set(width - arrowWidth[RenderSkinAndroid::DrawableResolution()], 0, width, height);
     bitmaps[kNormal][FullAsset].extractSubset(&bitmaps[kNormal][NoBorder], subset);
     bitmaps[kDisabled][FullAsset].extractSubset(&bitmaps[kDisabled][NoBorder], subset);
 }
 
-
 bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int width, int height)
 {
+    if (!isDecodingAttempted)
+        Decode();
+
     if (!isDecoded)
         return true;
 
     State state = (element->isElementNode() && static_cast<Element*>(element)->isEnabledFormControl()) ? kNormal : kDisabled;
-    height = std::max(height, (stretchMargin[resolution]<<1) + 1);
+    height = std::max(height, (stretchMargin[RenderSkinAndroid::DrawableResolution()]<<1) + 1);
 
     SkRect bounds;
     BorderStyle drawBorder = FullAsset;
@@ -139,7 +147,7 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
         bounds.fBottom -= SkIntToScalar(style->borderBottomWidth());
         drawBorder = NoBorder;
     }
-    SkNinePatch::DrawNine(canvas, bounds, bitmaps[state][drawBorder], margin[resolution][drawBorder]);
+    SkNinePatch::DrawNine(canvas, bounds, bitmaps[state][drawBorder], margin[RenderSkinAndroid::DrawableResolution()][drawBorder]);
     return false;
 }
 

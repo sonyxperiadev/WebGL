@@ -37,11 +37,8 @@ namespace WebCore {
 class RenderSkinCombo : public RenderSkinAndroid
 {
 public:
-    /**
-     * Initialize the class before use. Uses the AssetManager to initialize any bitmaps the class may use.
-     */
-    static void Init(android::AssetManager*, String drawableDirectory);
 
+    static void Decode();
     /**
      * Draw the provided Node on the SkCanvas, using the dimensions provided by
      * x,y,w,h.  Return true if we did not draw, and WebKit needs to draw it,
@@ -50,15 +47,11 @@ public:
     static bool Draw(SkCanvas* , Node* , int x, int y, int w, int h);
 
     // The image is wider than the RenderObject, so this accounts for that.
-    static int extraWidth() { return arrowMargin[resolution]; }
-    static int padding() { return padMargin[resolution]; }
+    static int extraWidth() { return arrowMargin[RenderSkinAndroid::DrawableResolution()]; }
+    static int padding() { return padMargin[RenderSkinAndroid::DrawableResolution()]; }
 
-    enum Resolution {
-        MedRes,
-        HighRes
-    };
+
 private:
-    static Resolution resolution;
     const static int arrowMargin[2];
     const static int padMargin[2];
     const static SkIRect margin[2][2];

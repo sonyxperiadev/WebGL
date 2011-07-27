@@ -1390,11 +1390,10 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     if (directory.isEmpty())
         LOGE("Can't find the drawable directory");
     else {
-        // Setup the asset manager.
-        AssetManager* am = assetManagerForJavaObject(env, jAssetManager);
         // Initialize our skinning classes
-        webFrame->setRenderSkins(new WebCore::RenderSkinAndroid(am, directory));
+        webFrame->setRenderSkins(new WebCore::RenderSkinAndroid(directory));
     }
+
     for (int i = WebCore::PlatformBridge::FileUploadLabel;
             i <= WebCore::PlatformBridge::FileUploadNoFileChosenLabel; i++)
         initGlobalLocalizedName(

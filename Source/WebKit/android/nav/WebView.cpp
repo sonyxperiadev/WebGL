@@ -71,9 +71,7 @@
 #include <JNIUtility.h>
 #include <JNIHelp.h>
 #include <jni.h>
-#include <android_runtime/android_util_AssetManager.h>
 #include <ui/KeycodeLabels.h>
-#include <utils/AssetManager.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
@@ -141,7 +139,7 @@ struct JavaGlue {
     }
 } m_javaGlue;
 
-WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir, AssetManager* am) :
+WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir) :
     m_ring((WebViewCore*) viewImpl)
 {
     jclass clazz = env->FindClass("android/webkit/WebView");
@@ -194,10 +192,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_ringAnimationEnd = 0;
     m_baseLayer = 0;
     m_glDrawFunctor = 0;
-    if (drawableDir.isEmpty())
-        m_buttonSkin = 0;
-    else
-        m_buttonSkin = new RenderSkinButton(am, drawableDir);
+    m_buttonSkin = drawableDir.isEmpty() ? 0 : new RenderSkinButton(drawableDir);
 #if USE(ACCELERATED_COMPOSITING)
     m_glWebViewState = 0;
     m_pageSwapCallbackRegistered = false;
@@ -1536,7 +1531,7 @@ private: // local state for WebView
     GLWebViewState* m_glWebViewState;
     bool m_pageSwapCallbackRegistered;
 #endif
-    const RenderSkinButton* m_buttonSkin;
+    RenderSkinButton* m_buttonSkin;
 }; // end of WebView class
 
 
@@ -1653,12 +1648,10 @@ static void nativeClearCursor(JNIEnv *env, jobject obj)
     view->clearCursor();
 }
 
-static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl, jstring drawableDir,
-                         jobject jAssetManager)
+static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl, jstring drawableDir)
 {
-    AssetManager* am = assetManagerForJavaObject(env, jAssetManager);
     WTF::String dir = jstringToWtfString(env, drawableDir);
-    WebView* webview = new WebView(env, obj, viewImpl, dir, am);
+    WebView* webview = new WebView(env, obj, viewImpl, dir);
     // NEED THIS OR SOMETHING LIKE IT!
     //Release(obj);
 }
@@ -2652,7 +2645,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCacheHitNodePointer },
     { "nativeClearCursor", "()V",
         (void*) nativeClearCursor },
-    { "nativeCreate", "(ILjava/lang/String;Landroid/content/res/AssetManager;)V",
+    { "nativeCreate", "(ILjava/lang/String;)V",
         (void*) nativeCreate },
     { "nativeCursorFramePointer", "()I",
         (void*) nativeCursorFramePointer },

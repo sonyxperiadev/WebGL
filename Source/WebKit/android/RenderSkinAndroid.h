@@ -50,11 +50,12 @@ public:
         kNumStates
     };
 
-    /**
-     * Initialize the Android skinning system. The AssetManager may be used to find resources used
-     * in rendering.
-     */
-    RenderSkinAndroid(android::AssetManager*, String drawableDirectory);
+    enum Resolution {
+        MedRes,
+        HighRes
+    };
+
+    RenderSkinAndroid(String drawableDirectory);
     ~RenderSkinAndroid();
     
     /* DecodeBitmap determines which file to use, with the given fileName of the form 
@@ -63,9 +64,14 @@ public:
      */
     static bool DecodeBitmap(android::AssetManager* am, const char* fileName, SkBitmap* bitmap);
 
-    const RenderSkinButton* renderSkinButton() const { return m_button; }
+    static String DrawableDirectory() { return s_drawableDirectory; }
+    static Resolution DrawableResolution() { return s_drawableResolution; }
+
+    RenderSkinButton* renderSkinButton() const { return m_button; }
 
 private:
+    static String s_drawableDirectory;
+    static Resolution s_drawableResolution;
     RenderSkinButton* m_button;
 };
 
