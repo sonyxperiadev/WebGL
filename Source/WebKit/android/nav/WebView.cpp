@@ -1587,6 +1587,15 @@ class GLDrawFunctor : Functor {
     jint extras;
 };
 
+static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
+{
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    jobject rect = env->NewObject(rectClass, init, x, y, right, bottom);
+    env->DeleteLocalRef(rectClass);
+    return rect;
+}
+
 /*
  * Native JNI methods
  */
@@ -1600,12 +1609,8 @@ static jobject nativeCacheHitNodeBounds(JNIEnv *env, jobject obj)
 {
     WebCore::IntRect bounds = GET_NATIVE_VIEW(env, obj)
         ->m_cacheHitNode->originalAbsoluteBounds();
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    jobject rect = env->NewObject(rectClass, init, bounds.x(),
-        bounds.y(), bounds.maxX(), bounds.maxY());
-    env->DeleteLocalRef(rectClass);
-    return rect;
+    return createJavaRect(env, bounds.x(), bounds.y(),
+                          bounds.maxX(), bounds.maxY());
 }
 
 static int nativeCacheHitNodePointer(JNIEnv *env, jobject obj)
@@ -1735,12 +1740,8 @@ static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)
     const CachedNode* node = getCursorNode(env, obj, &frame);
     WebCore::IntRect bounds = node ? node->bounds(frame)
         : WebCore::IntRect(0, 0, 0, 0);
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    jobject rect = env->NewObject(rectClass, init, bounds.x(),
-        bounds.y(), bounds.maxX(), bounds.maxY());
-    env->DeleteLocalRef(rectClass);
-    return rect;
+    return createJavaRect(env, bounds.x(), bounds.y(),
+                          bounds.maxX(), bounds.maxY());
 }
 
 static jint nativeCursorNodePointer(JNIEnv *env, jobject obj)
@@ -1966,22 +1967,16 @@ static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
     return wtfStringToJstring(env, name);
 }
 
-static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
-{
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    jobject rect = env->NewObject(rectClass, init, x, y, right, bottom);
-    env->DeleteLocalRef(rectClass);
-    return rect;
-}
-
 static jobject nativeFocusCandidateNodeBounds(JNIEnv *env, jobject obj)
 {
     const CachedFrame* frame;
     const CachedNode* node = getFocusCandidate(env, obj, &frame);
     WebCore::IntRect bounds = node ? node->bounds(frame)
         : WebCore::IntRect(0, 0, 0, 0);
-    return createJavaRect(env, bounds.x(), bounds.y(), bounds.maxX(), bounds.maxY());
+    // Inset the rect by 1 unit, so that the focus candidate's border can still
+    // be seen behind it.
+    return createJavaRect(env, bounds.x() + 1, bounds.y() + 1,
+                          bounds.maxX() - 1, bounds.maxY() - 1);
 }
 
 static jobject nativeFocusCandidatePaddingRect(JNIEnv *env, jobject obj)
@@ -2046,12 +2041,8 @@ static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
     const CachedNode* node = getFocusNode(env, obj, &frame);
     WebCore::IntRect bounds = node ? node->bounds(frame)
         : WebCore::IntRect(0, 0, 0, 0);
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    jobject rect = env->NewObject(rectClass, init, bounds.x(),
-        bounds.y(), bounds.maxX(), bounds.maxY());
-    env->DeleteLocalRef(rectClass);
-    return rect;
+    return createJavaRect(env, bounds.x(), bounds.y(),
+                          bounds.maxX(), bounds.maxY());
 }
 
 static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
