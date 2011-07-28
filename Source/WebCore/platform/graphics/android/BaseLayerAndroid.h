@@ -57,11 +57,12 @@ public:
 
     bool drawGL(LayerAndroid* compositedRoot, IntRect& rect, SkRect& viewport,
                 IntRect& webViewRect, int titleBarHeight, IntRect& screenClip,
-                float scale, SkColor color = SK_ColorWHITE);
+                float scale, bool* pagesSwapped, SkColor color = SK_ColorWHITE);
     void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:
 #if USE(ACCELERATED_COMPOSITING)
-    bool drawBasePictureInGL(SkRect& viewport, float scale, double currentTime);
+    bool drawBasePictureInGL(SkRect& viewport, float scale, double currentTime,
+                             bool* pagesSwapped);
 
     GLWebViewState* m_glWebViewState;
     android::Mutex m_drawLock;

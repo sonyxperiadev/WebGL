@@ -501,7 +501,8 @@ void GLWebViewState::resetLayersDirtyArea()
 
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& webViewRect, int titleBarHeight,
-                            IntRect& clip, float scale, SkColor color)
+                            IntRect& clip, float scale, bool* pagesSwapped,
+                            SkColor color)
 {
     glFinish();
     TilesManager::instance()->registerGLWebViewState(this);
@@ -548,7 +549,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         TilesManager::instance()->cleanupTilesTextures();
     }
 
-    bool ret = baseLayer->drawGL(compositedRoot, rect, viewport, webViewRect, titleBarHeight, clip, scale, color);
+    bool ret = baseLayer->drawGL(compositedRoot, rect, viewport, webViewRect,
+                                 titleBarHeight, clip, scale, pagesSwapped, color);
     SkSafeRef(compositedRoot);
     SkSafeUnref(m_previouslyUsedRoot);
     m_previouslyUsedRoot = compositedRoot;

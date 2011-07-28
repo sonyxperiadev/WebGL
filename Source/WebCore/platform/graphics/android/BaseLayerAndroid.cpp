@@ -112,7 +112,8 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double currentTime)
+bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
+                                           double currentTime, bool* pagesSwapped)
 {
     if (!m_glWebViewState)
         return false;
@@ -249,6 +250,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
         m_glWebViewState->setCurrentScale(scale);
         m_glWebViewState->swapPages();
         m_glWebViewState->unlockBaseLayerUpdate();
+        if (pagesSwapped)
+            *pagesSwapped = true;
     }
 
     m_glWebViewState->paintExtras();
@@ -259,7 +262,8 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale, double
 bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
                               IntRect& viewRect, SkRect& visibleRect,
                               IntRect& webViewRect, int titleBarHeight,
-                              IntRect& screenClip, float scale, SkColor color)
+                              IntRect& screenClip, float scale,
+                              bool* pagesSwapped, SkColor color)
 {
     bool needsRedraw = false;
 #if USE(ACCELERATED_COMPOSITING)
@@ -299,7 +303,8 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
     shader->resetBlending();
 
     double currentTime = WTF::currentTime();
-    needsRedraw = drawBasePictureInGL(visibleRect, scale, currentTime);
+    needsRedraw = drawBasePictureInGL(visibleRect, scale, currentTime,
+                                      pagesSwapped);
     bool goingDown = m_previousVisible.fTop - visibleRect.fTop <= 0;
     bool goingLeft = m_previousVisible.fLeft - visibleRect.fLeft >= 0;
     m_glWebViewState->setDirection(goingDown, goingLeft);
