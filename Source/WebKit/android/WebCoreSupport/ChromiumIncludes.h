@@ -96,6 +96,7 @@
 #include <chrome/browser/profiles/profile.h>
 #include <content/browser/tab_contents/tab_contents.h>
 #include <webkit/glue/form_data.h>
+#include <webkit/glue/form_field.h>
 #endif
 
 #undef LOG

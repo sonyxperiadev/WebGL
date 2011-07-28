@@ -131,7 +131,6 @@ LOCAL_CFLAGS += -DENABLE_WEB_AUTOFILL
 
 LOCAL_SRC_FILES += \
 	android/WebCoreSupport/autofill/AutoFillHostAndroid.cpp \
-	android/WebCoreSupport/autofill/FormFieldAndroid.cpp \
 	android/WebCoreSupport/autofill/FormManagerAndroid.cpp \
 	android/WebCoreSupport/autofill/WebAutofill.cpp
 endif # ENABLE_AUTOFILL == true
