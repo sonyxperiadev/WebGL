@@ -177,6 +177,9 @@ RenderLayer::RenderLayer(RenderBoxModelObject* renderer)
 #if USE(ACCELERATED_COMPOSITING)
     , m_hasCompositingDescendant(false)
     , m_mustOverlapCompositedLayers(false)
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    , m_shouldComposite(false)
+#endif
 #endif
     , m_containsDirtyOverlayScrollbars(false)
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
