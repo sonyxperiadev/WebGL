@@ -126,6 +126,7 @@ struct JavaGlue {
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
     jmethodID   m_postInvalidateDelayed;
+    jmethodID   m_pageSwapCallback;
     jmethodID   m_inFullScreenMode;
     jfieldID    m_rectLeft;
     jfieldID    m_rectTop;
@@ -162,6 +163,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
         "viewInvalidateDelayed", "(JIIII)V");
+    m_javaGlue.m_pageSwapCallback = GetJMethod(env, clazz, "pageSwapCallback", "()V");
     m_javaGlue.m_inFullScreenMode = GetJMethod(env, clazz, "inFullScreenMode", "()Z");
     env->DeleteLocalRef(clazz);
 
@@ -198,6 +200,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
         m_buttonSkin = new RenderSkinButton(am, drawableDir);
 #if USE(ACCELERATED_COMPOSITING)
     m_glWebViewState = 0;
+    m_pageSwapCallbackRegistered = false;
 #endif
 }
 
@@ -513,8 +516,20 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
     // once the correct scale is set
     if (!visibleRect.hasValidCoordinates())
         return false;
+    bool pagesSwapped = false;
     bool ret = m_glWebViewState->drawGL(viewRect, visibleRect, invalRect,
-                                        webViewRect, titleBarHeight, clip, scale);
+                                        webViewRect, titleBarHeight, clip, scale,
+                                        &pagesSwapped);
+    if (m_pageSwapCallbackRegistered && pagesSwapped) {
+        m_pageSwapCallbackRegistered = false;
+        LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        AutoJObject javaObject = m_javaGlue.object(env);
+        if (javaObject.get()) {
+            env->CallVoidMethod(javaObject.get(), m_javaGlue.m_pageSwapCallback);
+            checkException(env);
+        }
+    }
     if (ret || m_glWebViewState->currentPictureCounter() != pic)
         return true;
 #endif
@@ -1435,12 +1450,13 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 #endif
 
 void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndicator,
-                  bool isPictureAfterFirstLayout)
+                  bool isPictureAfterFirstLayout, bool registerPageSwapCallback)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (m_glWebViewState)
         m_glWebViewState->setBaseLayer(layer, inval, showVisualIndicator,
                                        isPictureAfterFirstLayout);
+    m_pageSwapCallbackRegistered |= registerPageSwapCallback;
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -1513,6 +1529,7 @@ private: // local state for WebView
     Functor* m_glDrawFunctor;
 #if USE(ACCELERATED_COMPOSITING)
     GLWebViewState* m_glWebViewState;
+    bool m_pageSwapCallbackRegistered;
 #endif
     const RenderSkinButton* m_buttonSkin;
 }; // end of WebView class
@@ -1875,14 +1892,16 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
 
 static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject inval,
                                 jboolean showVisualIndicator,
-                                jboolean isPictureAfterFirstLayout)
+                                jboolean isPictureAfterFirstLayout,
+                                jboolean registerPageSwapCallback)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
     SkRegion invalRegion;
     if (inval)
         invalRegion = *GraphicsJNI::getNativeRegion(env, inval);
     GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
-                                            isPictureAfterFirstLayout);
+                                            isPictureAfterFirstLayout,
+                                            registerPageSwapCallback);
 }
 
 static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj)
@@ -2748,7 +2767,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(ILandroid/graphics/Region;ZZ)V",
+    { "nativeSetBaseLayer", "(ILandroid/graphics/Region;ZZZ)V",
         (void*) nativeSetBaseLayer },
     { "nativeGetBaseLayer", "()I",
         (void*) nativeGetBaseLayer },
