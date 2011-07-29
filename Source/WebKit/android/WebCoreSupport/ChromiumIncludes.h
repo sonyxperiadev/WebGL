@@ -46,6 +46,7 @@
 #endif
 
 #include <android/net/android_network_library_impl.h>
+#include <android/jni/jni_utils.h>
 #include <base/callback.h>
 #include <base/memory/ref_counted.h>
 #include <base/message_loop_proxy.h>
@@ -95,6 +96,7 @@
 #include <chrome/browser/profiles/profile.h>
 #include <content/browser/tab_contents/tab_contents.h>
 #include <webkit/glue/form_data.h>
+#include <webkit/glue/form_field.h>
 #endif
 
 #undef LOG

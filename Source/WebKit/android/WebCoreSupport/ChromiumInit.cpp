@@ -27,6 +27,8 @@
 #include "ChromiumInit.h"
 
 #include "ChromiumIncludes.h"
+#include "JNIUtility.h"
+#include "jni.h"
 
 #include <cutils/log.h>
 #include <string>
@@ -68,6 +70,7 @@ void initChromium()
         networkChangeNotifier.reset(net::NetworkChangeNotifier::Create());
         net::HttpNetworkLayer::EnableSpdy("npn");
         initCalled = true;
+        jni::SetJavaVM(JSC::Bindings::getJavaVM());
     }
 }
 

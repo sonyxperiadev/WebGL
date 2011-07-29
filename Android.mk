@@ -407,8 +407,7 @@ LOCAL_STATIC_LIBRARIES += libv8
 endif
 
 ifeq ($(HTTP_STACK),chrome)
-LOCAL_STATIC_LIBRARIES += libchromium_net
-LOCAL_SHARED_LIBRARIES += libcrypto libssl libz
+LOCAL_SHARED_LIBRARIES += libcrypto libssl libz libchromium_net
 endif # HTTP_STACK == chrome
 
 ifeq ($(ENABLE_AUTOFILL),true)
