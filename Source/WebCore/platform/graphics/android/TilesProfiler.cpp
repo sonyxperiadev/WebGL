@@ -97,7 +97,7 @@ void TilesProfiler::nextFrame(int left, int top, int right, int bottom, float sc
 
     m_records.append(WTF::Vector<TileProfileRecord>());
 
-    //first two records designate viewport
+    //first record designates viewport
     m_records.last().append(TileProfileRecord(
                                 left, top, right, bottom,
                                 scale, true, (int)(timeDelta * 1000)));
@@ -105,7 +105,7 @@ void TilesProfiler::nextFrame(int left, int top, int right, int bottom, float sc
 
 void TilesProfiler::nextTile(BaseTile& tile, float scale, bool inView)
 {
-    if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES))
+    if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES) || (m_records.size() == 0))
         return;
 
     bool isReady = tile.isTileReady();
@@ -128,7 +128,7 @@ void TilesProfiler::nextTile(BaseTile& tile, float scale, bool inView)
 
 void TilesProfiler::nextInval(const IntRect& rect, float scale)
 {
-    if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES))
+    if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES) || (m_records.size() == 0))
         return;
 
     m_records.last().append(TileProfileRecord(
