@@ -26,6 +26,7 @@
 #ifndef TextureInfo_h
 #define TextureInfo_h
 
+#include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <jni.h>
 #include <ui/GraphicBuffer.h>
@@ -69,6 +70,9 @@ public:
     // Surface Texture specific data
     sp<android::SurfaceTexture> m_surfaceTexture;
     sp<ANativeWindow> m_ANW;
+
+    // The EGLSurface wraps the m_ANW to enable direct OpenGL rendering (e.g. Ganesh)
+    EGLSurface m_eglSurface;
 
 private:
     SharedTextureMode m_sharedTextureMode;

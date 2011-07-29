@@ -80,6 +80,11 @@ public:
 
     RendererType getType() { return m_type; }
 
+    static BaseRenderer* createRenderer();
+    static void swapRendererIfNeeded(BaseRenderer*& renderer);
+    static RendererType getCurrentRendererType() { return g_currentType; }
+    static void setCurrentRendererType(RendererType type) { g_currentType = type; }
+
 protected:
 
     virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
@@ -96,6 +101,7 @@ protected:
 
 private:
     RendererType m_type;
+    static RendererType g_currentType;
 };
 
 } // namespace WebCore

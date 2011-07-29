@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "BaseRenderer.h"
 #include "GrContext.h"
 #include "SkGpuDevice.h"
 #include "TilesManager.h"
@@ -38,18 +39,32 @@ class GaneshContext {
 public:
     static GaneshContext* instance();
 
-    GrContext* getGrContext();
+    SkDevice* getDeviceForBaseTile(const TileRenderInfo& renderInfo);
 
-    SkDevice* getDeviceForBaseTile(GLuint textureId);
+    void flush();
 
 private:
 
     GaneshContext();
 
+    GrContext* getGrContext();
+
+    // Creates a device for rendering into a SurfaceTexture via an EGLSurface
+    SkDevice* getDeviceForBaseTileSurface(const TileRenderInfo& renderInfo);
+    // Creates a device for rendering into a EGLImage via an FBO
+    SkDevice* getDeviceForBaseTileFBO(const TileRenderInfo& renderInfo);
+
     GrContext* m_grContext;
-    SkGpuDevice* m_baseTileDevice;
-    GLuint m_baseTileFbo;
+
+    // FBO specific variables
+    SkGpuDevice* m_baseTileDeviceFBO;
+    GLuint m_baseTileFBO;
     GLuint m_baseTileStencil;
+
+    // Surface specific variables
+    SkGpuDevice* m_baseTileDeviceSurface;
+    EGLConfig  m_surfaceConfig;
+    EGLContext m_surfaceContext;
 
     static GaneshContext* gInstance;
 };

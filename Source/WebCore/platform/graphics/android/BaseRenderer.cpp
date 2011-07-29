@@ -29,7 +29,9 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "GaneshRenderer.h"
 #include "GLUtils.h"
+#include "RasterRenderer.h"
 #include "SkBitmap.h"
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
@@ -55,6 +57,26 @@
 #endif // DEBUG
 
 namespace WebCore {
+
+BaseRenderer::RendererType BaseRenderer::g_currentType = BaseRenderer::Raster;
+
+BaseRenderer* BaseRenderer::createRenderer()
+{
+    if (g_currentType == Raster)
+        return new RasterRenderer();
+    else if (g_currentType == Ganesh)
+        return new GaneshRenderer();
+    return NULL;
+}
+
+void BaseRenderer::swapRendererIfNeeded(BaseRenderer*& renderer)
+{
+    if (renderer->getType() == g_currentType)
+        return;
+
+    delete renderer;
+    renderer = createRenderer();
+}
 
 void BaseRenderer::drawTileInfo(SkCanvas* canvas,
         const TileRenderInfo& renderInfo, int pictureCount)

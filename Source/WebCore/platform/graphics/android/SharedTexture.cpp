@@ -60,11 +60,9 @@ SharedTexture::SharedTexture(SharedTextureMode mode)
         glGenTextures(1, &m_sourceTexture->m_textureId);
 
         m_sourceTexture->m_surfaceTexture =
-            new android::SurfaceTexture(m_sourceTexture->m_textureId);
+            new android::SurfaceTexture(m_sourceTexture->m_textureId, false);
         m_sourceTexture->m_ANW =
             new android::SurfaceTextureClient(m_sourceTexture->m_surfaceTexture);
-
-        m_sourceTexture->m_surfaceTexture->setSynchronousMode(false);
     }
 }
 
