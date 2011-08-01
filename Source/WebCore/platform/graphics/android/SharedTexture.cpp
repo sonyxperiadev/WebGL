@@ -57,12 +57,14 @@ SharedTexture::SharedTexture(SharedTextureMode mode)
         m_supportsEGLImage = false;
         m_supportsEGLFenceSyncKHR = false;
     } else if (m_sharedTextureMode == SurfaceTextureMode) {
+#if DEPRECATED_SURFACE_TEXTURE_MODE
         glGenTextures(1, &m_sourceTexture->m_textureId);
 
         m_sourceTexture->m_surfaceTexture =
             new android::SurfaceTexture(m_sourceTexture->m_textureId, false);
         m_sourceTexture->m_ANW =
             new android::SurfaceTextureClient(m_sourceTexture->m_surfaceTexture);
+#endif
     }
 }
 
@@ -74,9 +76,11 @@ SharedTexture::~SharedTexture()
     if (m_sharedTextureMode == EglImageMode)
         deleteTargetTexture();
     else if (m_sharedTextureMode == SurfaceTextureMode) {
+#if DEPRECATED_SURFACE_TEXTURE_MODE
         m_sourceTexture->m_surfaceTexture.clear();
         m_sourceTexture->m_ANW.clear();
         GLUtils::deleteTexture(&m_sourceTexture->m_textureId);
+#endif
     }
     delete m_sourceTexture;
     delete m_targetTexture;
@@ -196,7 +200,9 @@ TextureInfo* SharedTexture::lockTarget()
 {
     // Note that the source and targe are the same when using Surface Texture.
     if (m_sharedTextureMode == SurfaceTextureMode) {
+#if DEPRECATED_SURFACE_TEXTURE_MODE
         m_sourceTexture->m_surfaceTexture->updateTexImage();
+#endif
         return m_sourceTexture;
     }
 

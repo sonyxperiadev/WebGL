@@ -64,15 +64,19 @@ public:
     static void deleteTexture(GLuint* texture);
     static GLuint createSampleColorTexture(int r, int g, int b);
     static GLuint createSampleTexture();
+    static GLuint createBaseTileGLTexture(int width, int height);
+
     static void createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GLint filter = GL_LINEAR);
     static void updateTextureWithBitmap(GLuint texture, int x, int y, const SkBitmap& bitmap, GLint filter = GL_LINEAR);
     static void createEGLImageFromTexture(GLuint texture, EGLImageKHR* image);
     static void createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter = GL_LINEAR);
 
-    static void paintTextureWithBitmap(TextureInfo* textureInfo, const SkSize& requiredSize, const SkBitmap& bitmap, int x, int y);
-
-    static void createSurfaceTextureWithBitmap(TextureInfo* texture, const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
-    static void updateSurfaceTextureWithBitmap(TextureInfo* texture, int x, int y, const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
+    static void paintTextureWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap);
+#if DEPRECATED_SURFACE_TEXTURE_MODE
+    static void createSurfaceTextureWithBitmap(const TileRenderInfo* , const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
+    static void updateSurfaceTextureWithBitmap(const TileRenderInfo* , int x, int y, const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
+#endif
+    static void updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* , int x, int y, const SkBitmap& bitmap);
 };
 
 } // namespace WebCore

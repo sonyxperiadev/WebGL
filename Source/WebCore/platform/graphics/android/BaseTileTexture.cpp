@@ -32,9 +32,20 @@
 #include "GLUtils.h"
 #include "TilesManager.h"
 
-#define LOG_NDEBUG 1
-#define LOG_TAG "BaseTileTexture.cpp"
-#include <utils/Log.h>
+#ifdef DEBUG
+
+#include <cutils/log.h>
+#include <wtf/text/CString.h>
+
+#undef XLOG
+#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTileTexture", __VA_ARGS__)
+
+#else
+
+#undef XLOG
+#define XLOG(...)
+
+#endif // DEBUG
 
 namespace WebCore {
 
@@ -48,6 +59,10 @@ BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
     , m_busy(false)
 {
     m_size.set(w, h);
+    m_ownTextureId = GLUtils::createBaseTileGLTexture(w, h);
+
+    // Make sure they are created on the UI thread.
+    TilesManager::instance()->transferQueue()->initSharedSurfaceTextures(w, h);
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("BaseTileTexture");
@@ -130,7 +145,9 @@ void BaseTileTexture::producerUpdate(TextureInfo* textureInfo, const SkBitmap& b
         return;
     }
 
-    GLUtils::paintTextureWithBitmap(textureInfo, m_size, bitmap, 0, 0);
+    // After the tiled layer checked in, this is not called anyway.
+    // TODO: cleanup the old code path for layer painting
+    // GLUtils::paintTextureWithBitmap(info, m_size, bitmap, 0, 0);
 
     producerReleaseAndSwap();
 }
@@ -225,23 +242,36 @@ void BaseTileTexture::setTile(TextureInfo* info, int x, int y,
 
 float BaseTileTexture::scale()
 {
-    TextureTileInfo* textureInfo = m_texturesInfo.get(getWriteableTexture());
-    if (!textureInfo)
-       return 1.0;
+    TextureTileInfo* textureInfo = &m_ownTextureTileInfo;
     return textureInfo->m_scale;
+}
+
+// This function + TilesManager::addItemInTransferQueue() is replacing the
+// setTile().
+void BaseTileTexture::setOwnTextureTileInfoFromQueue(const TextureTileInfo* info)
+{
+    m_ownTextureTileInfo.m_x = info->m_x;
+    m_ownTextureTileInfo.m_y = info->m_y;
+    m_ownTextureTileInfo.m_scale = info->m_scale;
+    m_ownTextureTileInfo.m_painter = info->m_painter;
+    m_ownTextureTileInfo.m_picture = info->m_picture;
 }
 
 bool BaseTileTexture::readyFor(BaseTile* baseTile)
 {
-    TextureTileInfo* info = m_texturesInfo.get(getReadableTexture());
+    const TextureTileInfo* info = &m_ownTextureTileInfo;
     if (info &&
         (info->m_x == baseTile->x()) &&
         (info->m_y == baseTile->y()) &&
         (info->m_scale == baseTile->scale()) &&
         (info->m_painter == baseTile->painter()) &&
-        (info->m_picture == baseTile->lastPaintedPicture())) {
+        (info->m_picture == baseTile->lastPaintedPicture()))
         return true;
-    }
+
+    XLOG("readyFor return false for tile x, y (%d %d) texId %d ,"
+         " BaseTileTexture %p, BaseTile is %p",
+         baseTile->x(), baseTile->y(), m_ownTextureId, this, baseTile);
+
     return false;
 }
 

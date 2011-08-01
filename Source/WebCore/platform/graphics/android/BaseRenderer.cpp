@@ -154,7 +154,7 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
         if (renderInfo.measurePerf)
             drawTileInfo(&canvas, renderInfo, pictureCount);
     }
-
+    renderInfo.textureInfo->m_pictureCount = pictureCount;
     renderingComplete(renderInfo, &canvas);
     return pictureCount;
 }

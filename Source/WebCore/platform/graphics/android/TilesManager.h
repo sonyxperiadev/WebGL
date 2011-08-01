@@ -36,6 +36,7 @@
 #include "TiledPage.h"
 #include "TilesProfiler.h"
 #include "TilesTracker.h"
+#include "TransferQueue.h"
 #include "VideoLayerManager.h"
 #include <utils/threads.h>
 #include <wtf/HashMap.h>
@@ -84,6 +85,7 @@ public:
     void addPaintedSurface(PaintedSurface* surface);
 
     ShaderProgram* shader() { return &m_shader; }
+    TransferQueue* transferQueue() { return &m_queue; }
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
     BaseTileTexture* getAvailableTexture(BaseTile* owner);
@@ -155,7 +157,6 @@ public:
     }
 
 private:
-
     TilesManager();
 
     void waitForGenerator()
@@ -188,6 +189,8 @@ private:
     static TilesManager* gInstance;
 
     ShaderProgram m_shader;
+    TransferQueue m_queue;
+
     VideoLayerManager m_videoLayerManager;
 
     HashMap<GLWebViewState*, unsigned int> m_glWebViewStateMap;

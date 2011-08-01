@@ -683,7 +683,7 @@ void LayerAndroid::showLayer(int indent)
 {
     char spaces[256];
     memset(spaces, 0, 256);
-    for (unsigned int i = 0; i < indent; i++)
+    for (int i = 0; i < indent; i++)
         spaces[i] = ' ';
 
     if (!indent)
@@ -745,10 +745,10 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     }
 
     // When the layer is dirty, the UI thread should be notified to redraw.
-    askPaint = drawChildrenGL(glWebViewState, matrix);
+    askPaint |= drawChildrenGL(glWebViewState, matrix);
     m_atomicSync.lock();
     askPaint |= m_dirty;
-    if ((m_dirty && needsTexture()) || m_hasRunningAnimations || m_drawTransform.hasPerspective())
+    if (askPaint || m_hasRunningAnimations || m_drawTransform.hasPerspective())
         addDirtyArea(glWebViewState);
 
     m_atomicSync.unlock();

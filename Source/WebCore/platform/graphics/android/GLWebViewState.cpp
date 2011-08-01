@@ -104,6 +104,9 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
 
 GLWebViewState::~GLWebViewState()
 {
+    // Take care of the transfer queue such that Tex Gen thread will not stuck
+    TilesManager::instance()->unregisterGLWebViewState(this);
+
     // We have to destroy the two tiled pages first as their destructor
     // may depend on the existence of this GLWebViewState and some of its
     // instance variables in order to complete.
@@ -121,7 +124,7 @@ GLWebViewState::~GLWebViewState()
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("GLWebViewState");
 #endif
-    TilesManager::instance()->unregisterGLWebViewState(this);
+
 }
 
 void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval,
@@ -543,6 +546,11 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     LayerAndroid* compositedRoot = 0;
     if (baseForComposited && baseForComposited->countChildren() >= 1)
         compositedRoot = static_cast<LayerAndroid*>(baseForComposited->getChild(0));
+
+    // Here before we draw, update the BaseTile which has updated content.
+    // Inside this function, just do GPU blits from the transfer queue into
+    // the BaseTiles' texture.
+    TilesManager::instance()->transferQueue()->updateDirtyBaseTiles();
 
     if (compositedRoot != m_previouslyUsedRoot) {
         TilesManager::instance()->swapLayersTextures(m_previouslyUsedRoot, compositedRoot);
