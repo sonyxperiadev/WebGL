@@ -92,6 +92,17 @@ BaseTile::BaseTile(bool isLayerTile)
 
 BaseTile::~BaseTile()
 {
+    TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
+    if (tileQueue->getHasGLContext()) {
+        tileQueue->m_transferQueueLock.lock();
+        for (int i = 0 ; i < tileQueue->size(); i ++) {
+            TileTransferData* data = &(tileQueue->m_transferQueue[i]);
+            if (data->savedBaseTilePtr == this)
+                data->status = pendingDiscard;
+        }
+        tileQueue->m_transferQueueLock.unlock();
+    }
+
     setUsedLevel(-1);
     if (m_texture)
         m_texture->release(this);
@@ -239,16 +250,14 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
     }
 
     if (m_texture->readyFor(this)) {
-        XLOG("draw tile %x : %d, %d, %.2f with texture %x", this, x(), y(), scale(), m_texture);
+        XLOG("draw tile %x : %d, %d, %.2f with texture %x", this, x(), y(), m_scale, m_texture);
         if (isLayerTile())
             TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
-                                                              rect, textureInfo->m_textureId,
-                                                              transparency, true,
-                                                              textureInfo->getTextureTarget());
+                                                              rect, m_texture->m_ownTextureId,
+                                                              transparency, true);
         else
-            TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
-                                                         transparency,
-                                                         textureInfo->getTextureTarget());
+            TilesManager::instance()->shader()->drawQuad(rect, m_texture->m_ownTextureId,
+                                                         transparency);
     }
     m_texture->consumerRelease();
 }
@@ -400,7 +409,10 @@ void BaseTile::paintBitmap()
     XLOG("%x update texture %x for tile %d, %d scale %.2f (m_scale: %.2f)", this, textureInfo, x, y, scale, m_scale);
 
     m_atomicSync.lock();
+
+#if DEPRECATED_SURFACE_TEXTURE_MODE
     texture->setTile(textureInfo, x, y, scale, painter, pictureCount);
+#endif
     texture->producerReleaseAndSwap();
 
     if (texture == m_texture) {

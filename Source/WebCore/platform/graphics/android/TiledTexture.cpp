@@ -82,14 +82,14 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
     m_area.setWidth(area.width() / tileWidth);
     m_area.setHeight(area.height() / tileHeight);
 
-    XLOG("for TiledTexture %x, we have a visible area of %d x %d, corresponding to %d x %d tiles",
-         this, visibleArea.width(), visibleArea.height(),
-         m_area.width(), m_area.height());
-
     if (m_area.width() * tileWidth < area.width())
         m_area.setWidth(m_area.width() + 1);
     if (m_area.height() * tileHeight < area.height())
         m_area.setHeight(m_area.height() + 1);
+
+    XLOG("for TiledTexture %x, we have a visible area of %d x %d, corresponding to %d x %d tiles",
+         this, visibleArea.width(), visibleArea.height(),
+         m_area.width(), m_area.height());
 
     bool goingDown = m_prevTileY < m_area.y();
     m_prevTileY = m_area.y();

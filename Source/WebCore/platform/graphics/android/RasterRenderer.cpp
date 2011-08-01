@@ -121,8 +121,7 @@ void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
 
     const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
 
-    GLUtils::paintTextureWithBitmap(renderInfo.textureInfo, renderInfo.tileSize,
-            bitmap, renderInfo.invalRect->fLeft, renderInfo.invalRect->fTop);
+    GLUtils::paintTextureWithBitmap(&renderInfo, bitmap);
 
     if (renderInfo.measurePerf)
         m_perfMon.stop(TAG_UPDATE_TEXTURE);

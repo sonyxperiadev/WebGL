@@ -33,7 +33,10 @@
 #include "SkCanvas.h"
 #include "SkDevice.h"
 #include "SkPaint.h"
+#include <android/native_window.h>
 #include <cutils/atomic.h>
+#include <gui/SurfaceTexture.h>
+#include <gui/SurfaceTextureClient.h>
 
 
 #include <cutils/log.h>
@@ -101,8 +104,8 @@ TilesManager::TilesManager()
     , m_expandedTileBounds(false)
     , m_generatorReady(false)
     , m_showVisualIndicator(false)
-    , m_drawRegistrationCount(0)
     , m_invertedScreen(false)
+    , m_drawRegistrationCount(0)
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
@@ -190,7 +193,7 @@ void TilesManager::addPaintedSurface(PaintedSurface* surface)
 void TilesManager::cleanupTilesTextures()
 {
     // release existing surfaces without layers
-    Vector<PaintedSurface*> collect;
+    WTF::Vector<PaintedSurface*> collect;
     for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
         PaintedSurface* surface = m_paintedSurfaces[i];
         if (!surface->layer())
@@ -200,7 +203,10 @@ void TilesManager::cleanupTilesTextures()
     for (unsigned int i = 0; i < collect.size(); i++) {
         m_paintedSurfaces.remove(m_paintedSurfaces.find(collect[i]));
         TilePainter* painter = collect[i]->texture();
+        // Mark the current painter to destroy!!
+        transferQueue()->m_currentRemovingPaint = painter;
         m_pixmapsGenerationThread->removeOperationsForPainter(painter, true);
+        transferQueue()->m_currentRemovingPaint = 0;
         XLOG("destroy %x (%x)", collect[i], painter);
         delete collect[i];
     }
@@ -365,6 +371,10 @@ void TilesManager::registerGLWebViewState(GLWebViewState* state)
 
 void TilesManager::unregisterGLWebViewState(GLWebViewState* state)
 {
+    // Discard the whole queue b/c we lost GL context already.
+    // Note the real updateTexImage will still wait for the next draw.
+    transferQueue()->discardQueue();
+
     m_glWebViewStateMap.remove(state);
     XLOG("state %p now removed, total of %d states", state, m_glWebViewStateMap.size());
 }
