@@ -128,14 +128,16 @@ static const char gSurfaceTextureOESFragmentShaderInverted[] =
     "precision mediump float;\n"
     "varying vec2 v_texCoord; \n"
     "uniform float alpha; \n"
+    "uniform float contrast; \n"
     "uniform samplerExternalOES s_texture; \n"
     "void main() {\n"
-    "  gl_FragColor = texture2D(s_texture, v_texCoord); \n"
-    "  float color = 1.0 - (gl_FragColor.r + gl_FragColor.g + gl_FragColor.b) / 3.0; \n"
-    "  gl_FragColor.r = color; \n"
-    "  gl_FragColor.g = color; \n"
-    "  gl_FragColor.b = color; \n"
-    "  gl_FragColor *= alpha; "
+    "  vec4 pixel = texture2D(s_texture, v_texCoord); \n"
+    "  float a = pixel.a; \n"
+    "  float color = a - (0.2989 * pixel.r + 0.5866 * pixel.g + 0.1145 * pixel.b);\n"
+    "  color = ((color - a/2.0) * contrast) + a/2.0; \n"
+    "  pixel.rgb = vec3(color, color, color); \n "
+    "  gl_FragColor = pixel; \n"
+    "  gl_FragColor *= alpha; \n"
     "}\n";
 
 GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource)
@@ -207,6 +209,7 @@ GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFrag
 
 ShaderProgram::ShaderProgram()
     : m_blendingEnabled(false)
+    , m_contrast(1)
 {
     init();
 }
@@ -264,6 +267,7 @@ void ShaderProgram::init()
     m_hSTOESProjectionMatrixInverted =
         glGetUniformLocation(m_surfTexOESProgramInverted, "projectionMatrix");
     m_hSTOESAlphaInverted = glGetUniformLocation(m_surfTexOESProgramInverted, "alpha");
+    m_hSTOESContrastInverted = glGetUniformLocation(m_surfTexOESProgramInverted, "contrast");
     m_hSTOESTexSamplerInverted = glGetUniformLocation(m_surfTexOESProgramInverted, "s_texture");
     m_hSTOESPositionInverted = glGetAttribLocation(m_surfTexOESProgramInverted, "vPosition");
 
@@ -338,7 +342,8 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
                                      GLint texSampler,
                                      GLenum textureTarget,
                                      GLint position,
-                                     GLint alpha)
+                                     GLint alpha,
+                                     GLint contrast)
 {
     glUseProgram(program);
     setProjectionMatrix(geometry, projectionMatrixHandle);
@@ -355,6 +360,8 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
     glEnableVertexAttribArray(position);
     glVertexAttribPointer(position, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glUniform1f(alpha, opacity);
+    if (contrast != -1)
+        glUniform1f(contrast, m_contrast);
 
     setBlendingState(opacity < 1.0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -379,7 +386,8 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
         drawQuadInternal(geometry, textureId, opacity, m_surfTexOESProgramInverted,
                          m_hSTOESProjectionMatrixInverted,
                          m_hSTOESTexSamplerInverted, GL_TEXTURE_EXTERNAL_OES,
-                         m_hSTOESPositionInverted, m_hSTOESAlphaInverted);
+                         m_hSTOESPositionInverted, m_hSTOESAlphaInverted,
+                         m_hSTOESContrastInverted);
     } else if (!textureTarget
                && !TilesManager::instance()->invertedScreen()) {
         drawQuadInternal(geometry, textureId, opacity, m_surfTex2DProgram,
@@ -523,7 +531,8 @@ void ShaderProgram::drawLayerQuadInternal(const GLfloat* projectionMatrix,
                                           int textureId, float opacity,
                                           GLenum textureTarget, GLint program,
                                           GLint matrix, GLint texSample,
-                                          GLint position, GLint alpha)
+                                          GLint position, GLint alpha,
+                                          GLint contrast)
 {
     glUseProgram(program);
     glUniformMatrix4fv(matrix, 1, GL_FALSE, projectionMatrix);
@@ -541,6 +550,8 @@ void ShaderProgram::drawLayerQuadInternal(const GLfloat* projectionMatrix,
     glEnableVertexAttribArray(position);
     glVertexAttribPointer(position, 2, GL_FLOAT, GL_FALSE, 0, 0);
     glUniform1f(alpha, opacity);
+    if (contrast != -1)
+        glUniform1f(contrast, m_contrast);
 }
 
 
@@ -573,7 +584,8 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
         drawLayerQuadInternal(projectionMatrix, textureId, opacity,
                               GL_TEXTURE_EXTERNAL_OES, m_surfTexOESProgramInverted,
                               m_hSTOESProjectionMatrixInverted, m_hSTOESTexSamplerInverted,
-                              m_hSTOESPositionInverted, m_hSTOESAlphaInverted);
+                              m_hSTOESPositionInverted, m_hSTOESAlphaInverted,
+                              m_hSTOESContrastInverted);
     } else if (!textureTarget
                && !TilesManager::instance()->invertedScreen()) {
         drawLayerQuadInternal(projectionMatrix, textureId, opacity,
