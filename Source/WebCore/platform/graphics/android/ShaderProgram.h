@@ -25,6 +25,8 @@
 #include "TransformationMatrix.h"
 #include <GLES2/gl2.h>
 
+#define MAX_CONTRAST 5
+
 namespace WebCore {
 
 class ShaderProgram {
@@ -77,6 +79,15 @@ public:
     IntRect clippedRectWithViewport(const IntRect& rect, int margin = 0);
 
     void resetBlending();
+    float contrast() { return m_contrast; }
+    void setContrast(float c) {
+        float contrast = c;
+        if (contrast < 0)
+            contrast = 0;
+        if (contrast > MAX_CONTRAST)
+            contrast = MAX_CONTRAST;
+        m_contrast = contrast;
+    }
 
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
@@ -88,12 +99,12 @@ private:
     void drawQuadInternal(SkRect& geometry, GLint textureId, float opacity,
                           GLint program, GLint projectionMatrixHandle,
                           GLint texSampler, GLenum textureTarget,
-                          GLint position, GLint alpha);
+                          GLint position, GLint alpha, GLint contrast = -1);
 
     void drawLayerQuadInternal(const GLfloat* projectionMatrix, int textureId,
                                float opacity, GLenum textureTarget, GLint program,
                                GLint matrix, GLint texSample,
-                               GLint position, GLint alpha);
+                               GLint position, GLint alpha, GLint contrast = -1);
 
     bool m_blendingEnabled;
 
@@ -141,8 +152,11 @@ private:
 
     GLint m_hSTOESProjectionMatrixInverted;
     GLint m_hSTOESAlphaInverted;
+    GLint m_hSTOESContrastInverted;
     GLint m_hSTOESTexSamplerInverted;
     GLint m_hSTOESPositionInverted;
+
+    float m_contrast;
 
     // attribs
     GLint m_hPosition;
