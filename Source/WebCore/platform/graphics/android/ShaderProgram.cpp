@@ -346,7 +346,18 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
                                      GLint contrast)
 {
     glUseProgram(program);
-    setProjectionMatrix(geometry, projectionMatrixHandle);
+
+    if (!geometry.isEmpty())
+         setProjectionMatrix(geometry, projectionMatrixHandle);
+    else {
+        TransformationMatrix matrix;
+        // Map x,y from (0,1) to (-1, 1)
+        matrix.scale3d(2, 2, 1);
+        matrix.translate3d(-0.5, -0.5, 0);
+        GLfloat projectionMatrix[16];
+        GLUtils::toGLMatrix(projectionMatrix, matrix);
+        glUniformMatrix4fv(projectionMatrixHandle, 1, GL_FALSE, projectionMatrix);
+    }
 
     glActiveTexture(GL_TEXTURE0);
     glUniform1i(texSampler, 0);

@@ -43,6 +43,7 @@ TextureInfo::TextureInfo(SharedTextureMode mode)
     m_internalFormat = 0;
     m_sharedTextureMode = mode;
     m_eglSurface = EGL_NO_SURFACE;
+    m_pictureCount = 0;
 }
 
 bool TextureInfo::equalsAttributes(const TextureInfo* otherTexture)
@@ -66,6 +67,7 @@ bool TextureInfo::operator==(const TextureInfo& otherTexture)
 
 GLenum TextureInfo::getTextureTarget()
 {
+#if DEPRECATED_SURFACE_TEXTURE_MODE
     if (m_surfaceTexture.get()) {
         GLenum target = m_surfaceTexture->getCurrentTextureTarget();
         // TODO: remove this translation when TEXTURE_2D+RGBA surface texture
@@ -74,6 +76,7 @@ GLenum TextureInfo::getTextureTarget()
             return 0;
         return target;
     }
+#endif
     return GL_TEXTURE_2D;
 }
 

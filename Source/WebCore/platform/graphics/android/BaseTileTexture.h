@@ -40,23 +40,50 @@ class BaseTile;
 
 class TextureTileInfo {
 public:
-  TextureTileInfo()
-      : m_x(-1)
-      , m_y(-1)
-      , m_layerId(-1)
-      , m_scale(0)
-      , m_texture(0)
-      , m_painter(0)
-      , m_picture(0)
-  {
-  }
-  int m_x;
-  int m_y;
-  int m_layerId;
-  float m_scale;
-  TextureInfo* m_texture;
-  TilePainter* m_painter;
-  unsigned int m_picture;
+    TextureTileInfo()
+    : m_x(-1)
+    , m_y(-1)
+    , m_layerId(-1)
+    , m_scale(0)
+    , m_texture(0)
+    , m_painter(0)
+    , m_picture(0)
+    {
+    }
+    int m_x;
+    int m_y;
+    int m_layerId;
+    float m_scale;
+    TextureInfo* m_texture;
+    TilePainter* m_painter;
+    unsigned int m_picture;
+};
+
+// While in the queue, the BaseTile can be re-used, the updated bitmap
+// can be discarded. In order to track this obsolete base tiles, we save
+// the Tile's Info to make the comparison.
+// At the time of base tile's dtor or webview destroy, we want to discard
+// all the data in the queue. However, we have to do the Surface Texture
+// update in the same GL context as the UI thread. So we mark the status
+// as pendingDiscard, and delay the Surface Texture operation to the next
+// draw call.
+
+enum TransferItemStatus {
+    emptyItem = 0, // S.T. buffer ready for new content
+    pendingBlit = 1, // Ready for bliting into tile's GL Tex.
+    pendingDiscard = 2 // Waiting for the next draw call to discard
+};
+
+class TileTransferData {
+public:
+    TileTransferData()
+    : status(emptyItem)
+    , savedBaseTilePtr(0)
+    {
+    }
+    TransferItemStatus status;
+    BaseTile* savedBaseTilePtr;
+    TextureTileInfo tileInfo;
 };
 
 // DoubleBufferedTexture using a SkBitmap as backing mechanism
@@ -108,11 +135,16 @@ public:
     bool readyFor(BaseTile* baseTile);
     float scale();
 
+    GLuint m_ownTextureId;
+
+    void setOwnTextureTileInfoFromQueue(const TextureTileInfo* info);
+
 protected:
     HashMap<SharedTexture*, TextureTileInfo*> m_texturesInfo;
 
 private:
     void destroyTextures(SharedTexture** textures);
+    TextureTileInfo m_ownTextureTileInfo;
 
     SkSize m_size;
     int m_usedLevel;
