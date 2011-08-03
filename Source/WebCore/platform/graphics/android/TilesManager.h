@@ -150,6 +150,10 @@ public:
         m_invertedScreen = invert;
     }
 
+    void setInvertedScreenContrast(float contrast) {
+        m_shader.setContrast(contrast);
+    }
+
 private:
 
     TilesManager();

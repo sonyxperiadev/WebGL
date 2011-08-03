@@ -2524,6 +2524,10 @@ static void nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
         else
             TilesManager::instance()->setInvertedScreen(false);
     }
+    if (key == "gfxInvertedScreenContrast") {
+        float contrast = value.toFloat();
+        TilesManager::instance()->setInvertedScreenContrast(contrast);
+    }
 }
 
 static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring key)
