@@ -17,7 +17,7 @@
 #include "MediaTexture.h"
 #include "TilesManager.h"
 #include "GLUtils.h"
-#include "VideoListener.h"
+#include "MediaListener.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -48,98 +48,17 @@
 
 namespace WebCore {
 
-MediaTexture::MediaTexture(EGLContext sharedContext) : DoubleBufferedTexture(sharedContext, EglImageMode)
-{
-    m_producerRefCount = 0;
-    m_consumerRefCount = 0;
-}
-
-/* Increment the number of objects in the producer's thread that hold a reference
- * to this object. In practice, there is often only one producer reference for
- * the lifetime of the object.
- */
-void MediaTexture::producerInc()
-{
-    android::Mutex::Autolock lock(m_mediaLock);
-    m_producerRefCount++;
-}
-
-/* Decrement the number of objects in the producer's thread that are holding a
- * reference to this object. When removing the last reference we must cleanup
- * all GL objects that are associated with the producer's thread. There may not
- * be a consumer reference as the object may not have synced to the UI thread,
- * in which case the producer needs to handle the deletion of the object.
- */
-void MediaTexture::producerDec()
-{
-    bool needsDeleted = false;
-
-    m_mediaLock.lock();
-    m_producerRefCount--;
-    if (m_producerRefCount == 0) {
-        producerDeleteTextures();
-        if (m_consumerRefCount < 1) {
-            XLOG("INFO: This texture has not been synced to the UI thread");
-            needsDeleted = true;
-        }
-    }
-    m_mediaLock.unlock();
-
-    if (needsDeleted) {
-        XLOG("Deleting MediaTexture Object");
-        delete this;
-    }
-}
-
-/* Increment the number of objects in the consumer's thread that hold a reference
- * to this object. In practice, there can be multiple producer references as the
- * consumer (i.e. UI) thread may have multiple copies of the layer tree.
- */
-void MediaTexture::consumerInc()
-{
-    android::Mutex::Autolock lock(m_mediaLock);
-    m_consumerRefCount++;
-}
-
-/* Decrement the number of objects in the consumer's thread that are holding a
- * reference to this object. When removing the last reference we must delete
- * this object and by extension cleanup all GL objects that are associated with
- * the consumer's thread. At the time of deletion if there is a remaining
- * producer reference we must cleanup the consumer GL objects in the event that
- * this texture will not be re-synced with the UI thread.
- */
-void MediaTexture::consumerDec()
-{
-    bool needsDeleted = false;
-
-    m_mediaLock.lock();
-    m_consumerRefCount--;
-    if (m_consumerRefCount == 0) {
-        consumerDeleteTextures();
-        if (m_producerRefCount < 1) {
-            XLOG("WARNING: This texture still exists within webkit.");
-            needsDeleted = true;
-        }
-    }
-    m_mediaLock.unlock();
-
-    if (needsDeleted) {
-        XLOG("Deleting MediaTexture Object");
-        delete this;
-    }
-}
-
-VideoTexture::VideoTexture(jobject weakWebViewRef) : android::LightRefBase<VideoTexture>()
+MediaTexture::MediaTexture(jobject weakWebViewRef) : android::LightRefBase<MediaTexture>()
 {
     m_weakWebViewRef = weakWebViewRef;
     m_textureId = 0;
     m_dimensions.setEmpty();
     m_newWindowRequest = false;
     m_newWindowReady = false;
-    m_videoListener = new VideoListener(m_weakWebViewRef);
+    m_mediaListener = new MediaListener(m_weakWebViewRef);
 }
 
-VideoTexture::~VideoTexture()
+MediaTexture::~MediaTexture()
 {
     releaseNativeWindow();
     if (m_textureId)
@@ -150,10 +69,10 @@ VideoTexture::~VideoTexture()
     }
 }
 
-void VideoTexture::initNativeWindowIfNeeded()
+void MediaTexture::initNativeWindowIfNeeded()
 {
     {
-        android::Mutex::Autolock lock(m_videoLock);
+        android::Mutex::Autolock lock(m_mediaLock);
 
         if(!m_newWindowRequest)
             return;
@@ -166,21 +85,38 @@ void VideoTexture::initNativeWindowIfNeeded()
         m_surfaceTextureClient = new android::SurfaceTextureClient(m_surfaceTexture);
 
         //setup callback
-        m_videoListener->resetFrameAvailable();
-        m_surfaceTexture->setFrameAvailableListener(m_videoListener);
+        m_mediaListener->resetFrameAvailable();
+        m_surfaceTexture->setFrameAvailableListener(m_mediaListener);
 
         m_newWindowRequest = false;
         m_newWindowReady = true;
     }
-    m_newVideoRequestCond.signal();
+    m_newMediaRequestCond.signal();
 }
 
-void VideoTexture::drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds)
+void MediaTexture::drawContent(const TransformationMatrix& matrix)
 {
-    android::Mutex::Autolock lock(m_videoLock);
+    android::Mutex::Autolock lock(m_mediaLock);
 
     if(!m_surfaceTexture.get() || m_dimensions.isEmpty()
-            || !m_videoListener->isFrameAvailable())
+            || !m_mediaListener->isFrameAvailable())
+        return;
+
+    m_surfaceTexture->updateTexImage();
+
+    bool forceBlending = ANativeWindow_getFormat(m_surfaceTextureClient.get()) == WINDOW_FORMAT_RGB_565;
+    GLenum target = GLUtils::getTextureTarget(m_surfaceTexture.get());
+    TilesManager::instance()->shader()->drawLayerQuad(matrix, m_dimensions,
+                                                      m_textureId, 1.0f,
+                                                      forceBlending, target);
+}
+
+void MediaTexture::drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds)
+{
+    android::Mutex::Autolock lock(m_mediaLock);
+
+    if(!m_surfaceTexture.get() || m_dimensions.isEmpty()
+            || !m_mediaListener->isFrameAvailable())
         return;
 
     m_surfaceTexture->updateTexImage();
@@ -201,9 +137,9 @@ void VideoTexture::drawVideo(const TransformationMatrix& matrix, const SkRect& p
             dimensions, m_textureId);
 }
 
-ANativeWindow* VideoTexture::requestNewWindow()
+ANativeWindow* MediaTexture::requestNewWindow()
 {
-    android::Mutex::Autolock lock(m_videoLock);
+    android::Mutex::Autolock lock(m_mediaLock);
 
     // the window was not ready before the timeout so return it this time
     if (m_newWindowReady) {
@@ -234,7 +170,7 @@ ANativeWindow* VideoTexture::requestNewWindow()
     //block until the request can be fulfilled or we time out
     bool timedOut = false;
     while (m_newWindowRequest && !timedOut) {
-        int ret = m_newVideoRequestCond.waitRelative(m_videoLock, 500000000); // .5 sec
+        int ret = m_newMediaRequestCond.waitRelative(m_mediaLock, 500000000); // .5 sec
         timedOut = ret == TIMED_OUT;
     }
 
@@ -244,15 +180,15 @@ ANativeWindow* VideoTexture::requestNewWindow()
     return m_surfaceTextureClient.get();
 }
 
-ANativeWindow* VideoTexture::getNativeWindow()
+ANativeWindow* MediaTexture::getNativeWindow()
 {
-    android::Mutex::Autolock lock(m_videoLock);
+    android::Mutex::Autolock lock(m_mediaLock);
     return m_surfaceTextureClient.get();
 }
 
-void VideoTexture::releaseNativeWindow()
+void MediaTexture::releaseNativeWindow()
 {
-    android::Mutex::Autolock lock(m_videoLock);
+    android::Mutex::Autolock lock(m_mediaLock);
     m_dimensions.setEmpty();
 
     if (m_surfaceTexture.get())
@@ -263,9 +199,9 @@ void VideoTexture::releaseNativeWindow()
     m_surfaceTexture.clear();
 }
 
-void VideoTexture::setDimensions(const SkRect& dimensions)
+void MediaTexture::setDimensions(const SkRect& dimensions)
 {
-    android::Mutex::Autolock lock(m_videoLock);
+    android::Mutex::Autolock lock(m_mediaLock);
     m_dimensions = dimensions;
 }
 

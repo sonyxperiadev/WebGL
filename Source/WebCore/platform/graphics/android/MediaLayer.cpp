@@ -42,46 +42,34 @@ namespace WebCore {
 
 MediaLayer::MediaLayer(jobject weakWebViewRef) : LayerAndroid((RenderLayer*) NULL)
 {
-    m_bufferedTexture = new MediaTexture(EGL_NO_CONTEXT);
-    m_bufferedTexture->producerInc();
-    m_videoTexture = new VideoTexture(weakWebViewRef);
+    m_contentTexture = new MediaTexture(weakWebViewRef);
+    m_contentTexture->incStrong(this);
+    m_videoTexture = new MediaTexture(weakWebViewRef);
     m_videoTexture->incStrong(this);
 
     m_isCopy = false;
-    m_currentTextureInfo = 0;
     m_isContentInverted = false;
     m_outlineSize = 0;
     XLOG("Creating Media Layer %p", this);
-    XLOG("producer: %d consumer: %d", m_bufferedTexture->getProducerCount(),
-            m_bufferedTexture->getConsumerCount());
 }
 
 MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
 {
-    m_bufferedTexture = layer.getTexture();
-    m_bufferedTexture->consumerInc();
+    m_contentTexture = layer.m_contentTexture;
+    m_contentTexture->incStrong(this);
     m_videoTexture = layer.m_videoTexture;
     m_videoTexture->incStrong(this);
 
     m_isCopy = true;
-    m_currentTextureInfo = 0;
     m_isContentInverted = layer.m_isContentInverted;
     m_outlineSize = layer.m_outlineSize;
     XLOG("Creating Media Layer Copy %p -> %p", &layer, this);
-    XLOG("producer: %d consumer: %d COPY", m_bufferedTexture->getProducerCount(),
-            m_bufferedTexture->getConsumerCount());
 }
 
 MediaLayer::~MediaLayer()
 {
     XLOG("Deleting Media Layer");
-    XLOG("producer: %d consumer: %d %s", m_bufferedTexture->getProducerCount(),
-            m_bufferedTexture->getConsumerCount(), (m_isCopy) ? "COPY" : "");
-
-    if (m_isCopy)
-        m_bufferedTexture->consumerDec();
-    else
-        m_bufferedTexture->producerDec();
+    m_contentTexture->decStrong(this);
     m_videoTexture->decStrong(this);
 }
 
@@ -102,31 +90,28 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     // draw any video content if present
     m_videoTexture->drawVideo(m_drawTransform, mediaBounds);
 
-    // draw the primary content
-    if (m_bufferedTexture) {
-        TextureInfo* textureInfo = m_bufferedTexture->consumerLock();
-        if (textureInfo && textureInfo->m_width != 0 && textureInfo->m_height != 0) {
-            // the layer's shader draws the content inverted so we must undo
-            // that change in the transformation matrix
-            TransformationMatrix m = m_drawTransform;
-            if (!m_isContentInverted) {
-                m.flipY();
-                m.translate(0, -getSize().height());
-            }
-
-            bool forceBlending = textureInfo->m_internalFormat == GL_RGBA ||
-                                 textureInfo->m_internalFormat == GL_BGRA_EXT ||
-                                 textureInfo->m_internalFormat == GL_ALPHA;
-            TilesManager::instance()->shader()->drawLayerQuad(m, mediaBounds,
-                                                              textureInfo->m_textureId,
-                                                              1.0f, forceBlending,
-                                                              textureInfo->getTextureTarget());
-        }
-        m_bufferedTexture->consumerRelease();
+    // the layer's shader draws the content inverted so we must undo
+    // that change in the transformation matrix
+    TransformationMatrix m = m_drawTransform;
+    if (!m_isContentInverted) {
+        m.flipY();
+        m.translate(0, -getSize().height());
     }
+
+    // check to see if we need to create a content texture
+    m_contentTexture->initNativeWindowIfNeeded();
+    // draw any content if present
+    m_contentTexture->setDimensions(mediaBounds);
+    m_contentTexture->drawContent(m);
 
     return drawChildrenGL(glWebViewState, matrix);
 }
+
+ANativeWindow* MediaLayer::acquireNativeWindowForContent()
+{
+    return m_contentTexture->requestNewWindow();
+}
+
 
 ANativeWindow* MediaLayer::acquireNativeWindowForVideo()
 {

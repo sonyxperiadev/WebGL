@@ -43,13 +43,11 @@ public:
     virtual bool isMedia() const { return true; }
     virtual LayerAndroid* copy() const { return new MediaLayer(*this); }
 
-    MediaTexture* getTexture() const { return m_bufferedTexture; }
-
-    void setCurrentTextureInfo(TextureInfo* info) { m_currentTextureInfo = info; }
-    TextureInfo* getCurrentTextureInfo() const { return m_currentTextureInfo; }
-
     void invertContents(bool invertContent) { m_isContentInverted = invertContent; }
     void setOutlineSize(int size) { m_outlineSize = size; }
+
+    // function to setup the primary SurfaceTexture in the renderer's context
+    ANativeWindow* acquireNativeWindowForContent();
 
     // functions to manipulate secondary layers for video playback
     ANativeWindow* acquireNativeWindowForVideo();
@@ -58,16 +56,12 @@ public:
 
 private:
     bool m_isCopy;
-
-    // Primary GL texture variables
-    MediaTexture* m_bufferedTexture;
-    TextureInfo* m_currentTextureInfo;
-
     bool m_isContentInverted;
     int m_outlineSize;
 
-    // Video texture variables
-    VideoTexture* m_videoTexture;
+    // SurfaceTexture member variables
+    MediaTexture* m_contentTexture;
+    MediaTexture* m_videoTexture;
 };
 
 } // namespace WebCore

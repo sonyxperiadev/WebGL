@@ -38,6 +38,12 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
+namespace android {
+
+class SurfaceTexture;
+
+} // namespace android
+
 namespace WebCore {
 
 class GLUtils {
@@ -77,6 +83,8 @@ public:
     static void updateSurfaceTextureWithBitmap(const TileRenderInfo* , int x, int y, const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
 #endif
     static void updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* , int x, int y, const SkBitmap& bitmap);
+
+    static GLenum getTextureTarget(android::SurfaceTexture*);
 };
 
 } // namespace WebCore

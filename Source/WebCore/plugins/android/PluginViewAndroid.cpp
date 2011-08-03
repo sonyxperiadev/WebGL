@@ -83,7 +83,7 @@
 #include "PluginWidgetAndroid.h"
 
 #include "android_npapi.h"
-#include "ANPOpenGL_npapi.h"
+#include "ANPNativeWindow_npapi.h"
 #include "ANPSurface_npapi.h"
 #include "ANPSystem_npapi.h"
 #include "ANPVideo_npapi.h"
@@ -110,7 +110,7 @@ extern void ANPWindowInterfaceV2_Init(ANPInterface* value);
 extern void ANPSystemInterfaceV0_Init(ANPInterface* value);
 extern void ANPSystemInterfaceV1_Init(ANPInterface* value);
 extern void ANPSystemInterfaceV2_Init(ANPInterface* value);
-extern void ANPOpenGLInterfaceV0_Init(ANPInterface* value);
+extern void ANPNativeWindowInterfaceV0_Init(ANPInterface* value);
 extern void ANPVideoInterfaceV0_Init(ANPInterface* value);
 
 struct VarProcPair {
@@ -140,7 +140,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(SystemInterfaceV0)        },
     { VARPROCLINE(SystemInterfaceV1)        },
     { VARPROCLINE(SystemInterfaceV2)        },
-    { VARPROCLINE(OpenGLInterfaceV0)        },
+    { VARPROCLINE(NativeWindowInterfaceV0)  },
     { VARPROCLINE(VideoInterfaceV0)         },
 };
 

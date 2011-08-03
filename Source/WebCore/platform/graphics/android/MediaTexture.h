@@ -31,34 +31,16 @@ namespace android {
 
 namespace WebCore {
 
-class VideoListener;
+class MediaListener;
 
-class MediaTexture : public DoubleBufferedTexture {
-
-public:
-    MediaTexture(EGLContext sharedContext);
-
-    void producerInc();
-    void producerDec();
-    void consumerInc();
-    void consumerDec();
-
-    int getProducerCount() { android::Mutex::Autolock lock(m_mediaLock); return m_producerRefCount; }
-    int getConsumerCount() { android::Mutex::Autolock lock(m_mediaLock); return m_consumerRefCount; }
-
-private:
-    android::Mutex m_mediaLock;
-    int m_producerRefCount;
-    int m_consumerRefCount;
-};
-
-class VideoTexture : public android::LightRefBase<VideoTexture> {
+class MediaTexture : public android::LightRefBase<MediaTexture> {
 
 public:
-    VideoTexture(jobject weakWebViewRef);
-    ~VideoTexture();
+    MediaTexture(jobject weakWebViewRef);
+    ~MediaTexture();
 
     void initNativeWindowIfNeeded();
+    void drawContent(const TransformationMatrix& matrix);
     void drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds);
 
     ANativeWindow* requestNewWindow();
@@ -71,15 +53,15 @@ private:
     GLuint m_textureId;
     sp<android::SurfaceTexture> m_surfaceTexture;
     sp<ANativeWindow> m_surfaceTextureClient;
-    sp<VideoListener> m_videoListener;
+    sp<MediaListener> m_mediaListener;
     SkRect m_dimensions;
     bool m_newWindowRequest;
     bool m_newWindowReady;
 
     jobject m_weakWebViewRef;
 
-    android::Mutex m_videoLock;
-    android::Condition m_newVideoRequestCond;
+    android::Mutex m_mediaLock;
+    android::Condition m_newMediaRequestCond;
 };
 
 

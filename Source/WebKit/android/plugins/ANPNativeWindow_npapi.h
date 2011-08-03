@@ -23,46 +23,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "TextureInfo.h"
+#ifndef ANPNativeWindow_npapi_h
+#define ANPNativeWindow_npapi_h
 
-#include "WebCoreJni.h"
+#include "android_npapi.h"
 
-#include <JNIUtility.h>
-#include <android/native_window.h>
-#include <gui/SurfaceTexture.h>
-#include <gui/SurfaceTextureClient.h>
+struct ANativeWindow;
 
-namespace WebCore {
+struct ANPNativeWindowInterfaceV0 : ANPInterface {
+    /**
+     * Constructs a new native window to be used for rendering plugin content.
+     *
+     * Subsequent calls will return the original constructed window. Further, if
+     * the browser is unable to acquire the window quickly it may return NULL in
+     * order to not block the plugin indefinitely. A subsequent call will then
+     * return the window if it is available.
+     */
+    ANativeWindow* (*acquireNativeWindow)(NPP instance);
 
-TextureInfo::TextureInfo(SharedTextureMode mode)
-{
-    m_textureId = GL_NO_TEXTURE;
-    m_width = 0;
-    m_height = 0;
-    m_internalFormat = 0;
-    m_sharedTextureMode = mode;
-    m_eglSurface = EGL_NO_SURFACE;
-    m_pictureCount = 0;
-}
+    /**
+     * Invert the contents of the plugin on the y-axis.
+     * default is to not be inverted (e.g. use OpenGL coordinates)
+     */
+    void (*invertPluginContent)(NPP instance, bool isContentInverted);
+};
 
-bool TextureInfo::equalsAttributes(const TextureInfo* otherTexture)
-{
-    return otherTexture->m_width == m_width
-        && otherTexture->m_height == m_height
-        && otherTexture->m_internalFormat == m_internalFormat;
-}
-
-void TextureInfo::copyAttributes(const TextureInfo* sourceTexture)
-{
-    m_width = sourceTexture->m_width;
-    m_height = sourceTexture->m_height;
-    m_internalFormat = sourceTexture->m_internalFormat;
-}
-
-bool TextureInfo::operator==(const TextureInfo& otherTexture)
-{
-    return otherTexture.m_textureId == m_textureId && equalsAttributes(&otherTexture);
-}
-
-} // namespace WebCore
+#endif // ANPNativeWindow_npapi_h

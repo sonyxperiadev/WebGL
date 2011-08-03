@@ -623,6 +623,21 @@ void GLUtils::createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 }
 
+GLenum GLUtils::getTextureTarget(android::SurfaceTexture* surfaceTexture)
+{
+#if DEPRECATED_SURFACE_TEXTURE_MODE
+    if (surfaceTexture) {
+        GLenum target = surfaceTexture->getCurrentTextureTarget();
+        // TODO: remove this translation when TEXTURE_2D+RGBA surface texture
+        // support is deprecated.
+        if (target == GL_TEXTURE_2D)
+            return 0;
+        return target;
+    }
+#endif
+    return GL_TEXTURE_2D;
+}
+
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)

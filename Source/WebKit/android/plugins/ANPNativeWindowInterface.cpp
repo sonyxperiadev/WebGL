@@ -1,5 +1,5 @@
 /*
- * Copyright 2010, The Android Open Source Project
+ * Copyright 2011, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,9 @@
 // must include config.h first for webkit to fiddle with new/delete
 #include "config.h"
 
-#include "ANPOpenGL_npapi.h"
+#include "ANPNativeWindow_npapi.h"
+
+#include <android/native_window.h>
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
 #include "MediaLayer.h"
@@ -36,6 +38,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 
+
 using namespace android;
 
 static WebCore::PluginView* pluginViewForInstance(NPP instance) {
@@ -44,59 +47,26 @@ static WebCore::PluginView* pluginViewForInstance(NPP instance) {
     return WebCore::PluginView::currentPluginView();
 }
 
-static EGLContext anp_acquireContext(NPP instance) {
+static WebCore::MediaLayer* mediaLayerForInstance(NPP instance) {
     WebCore::PluginView* pluginView = pluginViewForInstance(instance);
     PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
-    WebCore::MediaLayer* mediaLayer = pluginWidget->getLayer();
+    return pluginWidget->getLayer();
+}
 
+static ANativeWindow* anp_acquireNativeWindow(NPP instance) {
+    WebCore::MediaLayer* mediaLayer = mediaLayerForInstance(instance);
     if (!mediaLayer)
-        return EGL_NO_CONTEXT;
+        return 0;
 
-    return mediaLayer->getTexture()->producerAcquireContext();
-}
-
-static ANPTextureInfo anp_lockTexture(NPP instance) {
-    WebCore::PluginView* pluginView = pluginViewForInstance(instance);
-    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
-    WebCore::MediaLayer* mediaLayer = pluginWidget->getLayer();
-    WebCore::DoubleBufferedTexture* texture = mediaLayer->getTexture();
-
-    // lock the texture and cache the internal info
-    WebCore::TextureInfo* info = texture->producerLock();
-    mediaLayer->setCurrentTextureInfo(info);
-
-    ANPTextureInfo anpInfo;
-    anpInfo.textureId = info->m_textureId;
-    anpInfo.width = (int32_t) info->m_width;
-    anpInfo.height = (int32_t) info->m_height;
-    anpInfo.internalFormat = info->m_internalFormat;
-    return anpInfo;
-}
-
-static void anp_releaseTexture(NPP instance, const ANPTextureInfo* textureInfo) {
-    WebCore::PluginView* pluginView = pluginViewForInstance(instance);
-    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
-    WebCore::MediaLayer* mediaLayer = pluginWidget->getLayer();
-    WebCore::DoubleBufferedTexture* texture = mediaLayer->getTexture();
-
-    //copy the info into our internal structure
-    WebCore::TextureInfo* info =  mediaLayer->getCurrentTextureInfo();
-    info->m_textureId = textureInfo->textureId;
-    info->m_width = textureInfo->width;
-    info->m_height = textureInfo->height;
-    info->m_internalFormat = textureInfo->internalFormat;
-
-    texture->producerReleaseAndSwap();
-
-    // invalidate the java view so that this content is drawn
-    pluginWidget->viewInvalidate();
+    return mediaLayer->acquireNativeWindowForContent();
 }
 
 static void anp_invertPluginContent(NPP instance, bool isContentInverted) {
-    WebCore::PluginView* pluginView = pluginViewForInstance(instance);
+    PluginView* pluginView = pluginViewForInstance(instance);
     PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
     WebCore::MediaLayer* mediaLayer = pluginWidget->getLayer();
 
+    // update the layer
     mediaLayer->invertContents(isContentInverted);
 
     //force the layer to sync to the UI thread
@@ -106,16 +76,13 @@ static void anp_invertPluginContent(NPP instance, bool isContentInverted) {
 }
 
 
-
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
 
-void ANPOpenGLInterfaceV0_Init(ANPInterface* v) {
-    ANPOpenGLInterfaceV0* i = reinterpret_cast<ANPOpenGLInterfaceV0*>(v);
+void ANPNativeWindowInterfaceV0_Init(ANPInterface* v) {
+    ANPNativeWindowInterfaceV0* i = reinterpret_cast<ANPNativeWindowInterfaceV0*>(v);
 
-    ASSIGN(i, acquireContext);
-    ASSIGN(i, lockTexture);
-    ASSIGN(i, releaseTexture);
+    ASSIGN(i, acquireNativeWindow);
     ASSIGN(i, invertPluginContent);
 }

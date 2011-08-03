@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef VideoListener_h
-#define VideoListener_h
+#ifndef MediaListener_h
+#define MediaListener_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -30,7 +30,7 @@
 #include <wtf/text/CString.h>
 
 #undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "VideoListener", __VA_ARGS__)
+#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "MediaListener", __VA_ARGS__)
 
 #else
 
@@ -41,10 +41,10 @@
 
 namespace WebCore {
 
-class VideoListener : public android::SurfaceTexture::FrameAvailableListener {
+class MediaListener : public android::SurfaceTexture::FrameAvailableListener {
 
 public:
-    VideoListener(jobject weakWebViewRef)
+    MediaListener(jobject weakWebViewRef)
         : m_weakWebViewRef(weakWebViewRef)
         , m_postInvalMethod(0)
         , m_frameAvailable(false)
@@ -89,4 +89,4 @@ private:
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
-#endif  // VideoListener_h
+#endif  // MediaListener_h

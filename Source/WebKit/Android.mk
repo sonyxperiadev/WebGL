@@ -102,7 +102,7 @@ LOCAL_SRC_FILES += \
 	android/plugins/ANPEventInterface.cpp \
 	android/plugins/ANPLogInterface.cpp \
 	android/plugins/ANPMatrixInterface.cpp \
-	android/plugins/ANPOpenGLInterface.cpp \
+	android/plugins/ANPNativeWindowInterface.cpp \
 	android/plugins/ANPPaintInterface.cpp \
 	android/plugins/ANPPathInterface.cpp \
 	android/plugins/ANPSoundInterface.cpp \
