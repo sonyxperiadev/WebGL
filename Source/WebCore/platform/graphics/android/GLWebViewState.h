@@ -129,6 +129,12 @@ class LayerAndroid;
 // paint the tile and the second id (B) represents the pictureSet in which the
 // tile was invalidated by webkit. Thus, if A < B then tile is dirty.
 //
+// Since invalidates can occur faster than a full tiled page update, the tiled
+// page is protected by a 'lock' (m_baseLayerUpdate) that is set to true to
+// defer updates to the background layer, giving the foreground time to render
+// content instead of constantly flushing with invalidates. See
+// lockBaseLayerUpdate() & unlockBaseLayerUpdate().
+//
 // Painting scheduling
 // -------------------
 //

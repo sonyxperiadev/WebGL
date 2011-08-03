@@ -223,6 +223,7 @@ void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
 void GLWebViewState::inval(const IntRect& rect)
 {
     if (m_baseLayerUpdate) {
+        // base layer isn't locked, so go ahead and issue the inval to both tiled pages
         m_currentPictureCounter++;
         if (!rect.isEmpty()) {
             // find which tiles fall within the invalRect and mark them as dirty
@@ -237,6 +238,7 @@ void GLWebViewState::inval(const IntRect& rect)
                  rect.x(), rect.y(), rect.width(), rect.height());
         }
     } else {
+        // base layer is locked, so defer invalidation until unlockBaseLayerUpdate()
         m_invalidateRegion.op(rect.x(), rect.y(), rect.maxX(), rect.maxY(), SkRegion::kUnion_Op);
     }
     TilesManager::instance()->getProfiler()->nextInval(rect, m_currentScale);

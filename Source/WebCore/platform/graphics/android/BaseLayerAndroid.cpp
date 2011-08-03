@@ -254,6 +254,11 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
             *pagesSwapped = true;
     }
 
+    // if no longer trailing behind invalidates, unlock (so invalidates can
+    // go directly to the the TiledPages without deferral)
+    if (!needsRedraw)
+        m_glWebViewState->unlockBaseLayerUpdate();
+
     m_glWebViewState->paintExtras();
     return needsRedraw;
 }

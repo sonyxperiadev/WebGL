@@ -1449,6 +1449,11 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 }
 #endif
 
+void registerPageSwapCallback()
+{
+    m_pageSwapCallbackRegistered = true;
+}
+
 void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndicator,
                   bool isPictureAfterFirstLayout, bool registerPageSwapCallback)
 {
@@ -2456,6 +2461,11 @@ static void nativeSetSelectionPointer(JNIEnv *env, jobject obj, jboolean set,
     GET_NATIVE_VIEW(env, obj)->setSelectionPointer(set, scale, x, y);
 }
 
+static void nativeRegisterPageSwapCallback(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->registerPageSwapCallback();
+}
+
 static void nativeTileProfilingStart(JNIEnv *env, jobject obj)
 {
     TilesManager::instance()->getProfiler()->start();
@@ -2790,6 +2800,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetSelectionPointer },
     { "nativeShowCursorTimed", "()V",
         (void*) nativeShowCursorTimed },
+    { "nativeRegisterPageSwapCallback", "()V",
+        (void*) nativeRegisterPageSwapCallback },
     { "nativeTileProfilingStart", "()V",
         (void*) nativeTileProfilingStart },
     { "nativeTileProfilingStop", "()F",
