@@ -2528,13 +2528,13 @@ static void nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
 {
     WTF::String key = jstringToWtfString(env, jkey);
     WTF::String value = jstringToWtfString(env, jvalue);
-    if (key == "gfxInvertedScreen") {
+    if (key == "inverted") {
         if (value == "true")
             TilesManager::instance()->setInvertedScreen(true);
         else
             TilesManager::instance()->setInvertedScreen(false);
     }
-    if (key == "gfxInvertedScreenContrast") {
+    if (key == "inverted_contrast") {
         float contrast = value.toFloat();
         TilesManager::instance()->setInvertedScreenContrast(contrast);
     }
