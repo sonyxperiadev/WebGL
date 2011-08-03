@@ -92,17 +92,6 @@ BaseTile::BaseTile(bool isLayerTile)
 
 BaseTile::~BaseTile()
 {
-    TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
-    if (tileQueue->getHasGLContext()) {
-        tileQueue->m_transferQueueLock.lock();
-        for (int i = 0 ; i < tileQueue->size(); i ++) {
-            TileTransferData* data = &(tileQueue->m_transferQueue[i]);
-            if (data->savedBaseTilePtr == this)
-                data->status = pendingDiscard;
-        }
-        tileQueue->m_transferQueueLock.unlock();
-    }
-
     setUsedLevel(-1);
     if (m_texture)
         m_texture->release(this);
