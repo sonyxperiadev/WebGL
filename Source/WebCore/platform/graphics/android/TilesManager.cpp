@@ -130,7 +130,10 @@ void TilesManager::allocateTiles()
         nbTexturesAllocated++;
     }
 
-    for (int i = 0; i < LAYER_TILES; i++) {
+    int nbLayersTexturesToAllocate = LAYER_TILES - m_tilesTextures.size();
+    XLOG("%d layers tiles to allocate (%d textures planned)", nbLayersTexturesToAllocate, LAYER_TILES);
+    int nbLayersTexturesAllocated = 0;
+    for (int i = 0; i < nbLayersTexturesToAllocate; i++) {
         BaseTileTexture* texture = new BaseTileTexture(
             layerTileWidth(), layerTileHeight());
         // the atomic load ensures that the texture has been fully initialized
@@ -139,8 +142,13 @@ void TilesManager::allocateTiles()
             reinterpret_cast<BaseTileTexture*>(
             android_atomic_acquire_load(reinterpret_cast<int32_t*>(&texture)));
         m_tilesTextures.append(loadedTexture);
+        nbLayersTexturesAllocated++;
     }
-    XLOG("allocated %d textures", nbTexturesAllocated);
+    XLOG("allocated %d textures for base (total: %d, %d Mb), %d textures for layers (total: %d, %d Mb)",
+         nbTexturesAllocated, m_textures.size(),
+         m_textures.size() * TILE_WIDTH * TILE_HEIGHT * 4 / 1024 / 1024,
+         nbLayersTexturesAllocated, m_tilesTextures.size(),
+         m_tilesTextures.size() * LAYER_TILE_WIDTH * LAYER_TILE_HEIGHT * 4 / 1024 / 1024);
 }
 
 void TilesManager::printTextures()
