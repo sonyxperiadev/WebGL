@@ -53,15 +53,14 @@
 namespace WebCore {
 
 TransferQueue::TransferQueue()
-    : m_currentRemovingPaint(0)
-    , m_transferQueueIndex(0)
+    : m_transferQueueIndex(0)
     , m_fboID(0)
     , m_sharedSurfaceTextureId(0)
     , m_hasGLContext(true)
 {
     memset(&m_GLStateBeforeBlit, 0, sizeof(m_GLStateBeforeBlit));
 
-    m_transferQueueItemLocks = new android::Mutex[ST_BUFFER_NUMBER];
+    m_emptyItemCount = ST_BUFFER_NUMBER;
 
     m_transferQueue = new TileTransferData[ST_BUFFER_NUMBER];
     for (int i = 0; i < ST_BUFFER_NUMBER; i++) {
@@ -77,13 +76,7 @@ TransferQueue::~TransferQueue()
     glDeleteTextures(1, &m_sharedSurfaceTextureId);
     m_sharedSurfaceTextureId = 0;
 
-    delete[] m_transferQueueItemLocks;
     delete[] m_transferQueue;
-}
-
-int TransferQueue::size()
-{
-    return ST_BUFFER_NUMBER;
 }
 
 void TransferQueue::initSharedSurfaceTextures(int width, int height)
@@ -170,77 +163,55 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex, GL
     GLUtils::checkGlError("copy the surface texture into the normal one");
 }
 
-bool TransferQueue::currentOpWaitingRemoval(const TileRenderInfo* renderInfo)
+bool TransferQueue::readyForUpdate()
 {
-    if (m_currentRemovingPaint
-        && m_currentRemovingPaint == renderInfo->tilePainter)
-        return true;
-    return false;
-}
-
-bool TransferQueue::lockForUpdate(int index, const TileRenderInfo* renderInfo)
-{
-    // Before dequeuing the buffer from Surface Texture, make sure this item
-    // has been consumed. We can't simply rely on dequeueBuffer, due to the
-    // UI thread may want to remove the current operation, so we have to add
-    // our own locking mechanism.
-    // For blocking case, the item's status should not be emptyItem.
-    while (m_transferQueueItemLocks[index].tryLock()) {
-        // If the current operation is on an resource which is going to be
-        // removed from UI thread, then early return.
-        if (currentOpWaitingRemoval(renderInfo)) {
-            XLOG("Quit bitmap update: operation is removed from UI thread!"
-                 " x y %d %d",
-                 renderInfo->x, renderInfo->y);
-            return false;
-        }
-    }
-
-    // And if we have lost GL Context, then we can just early return here.
-    if (!getHasGLContext()) {
-        m_transferQueue[index].status = pendingDiscard;
-        m_transferQueueItemLocks[index].unlock();
-        XLOG("Quit bitmap update: No GL Context! x y %d %d",
-             renderInfo->x, renderInfo->y);
+    if (!getHasGLContext())
         return false;
-    }
+    // Don't use a while loop since when the WebView tear down, the emptyCount
+    // will still be 0, and we bailed out b/c of GL context lost.
+    if (!m_emptyItemCount)
+        m_transferQueueItemCond.wait(m_transferQueueItemLocks);
+
+    if (!getHasGLContext())
+        return false;
 
     return true;
 }
 
+// Both getHasGLContext and setHasGLContext should be called within the lock.
 bool TransferQueue::getHasGLContext()
 {
-    android::Mutex::Autolock lock(m_hasGLContextLock);
-    bool hasContext = m_hasGLContext;
-    return hasContext;
+    return m_hasGLContext;
 }
 
 void TransferQueue::setHasGLContext(bool hasContext)
 {
-    android::Mutex::Autolock lock(m_hasGLContextLock);
     m_hasGLContext = hasContext;
 }
 
+// Only called when WebView is destroyed.
 void TransferQueue::discardQueue()
 {
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
+
+    for (int i = 0 ; i < ST_BUFFER_NUMBER; i++)
+        m_transferQueue[i].status = pendingDiscard;
+
+    bool GLContextExisted = getHasGLContext();
     // Unblock the Tex Gen thread first before Tile Page deletion.
     // Otherwise, there will be a deadlock while removing operations.
     setHasGLContext(false);
 
-    for (int i = 0 ; i < ST_BUFFER_NUMBER; i++) {
-        m_transferQueue[i].status = pendingDiscard;
-        m_transferQueueItemLocks[i].unlock();
-    }
+    // Only signal once when GL context lost.
+    if (GLContextExisted)
+        m_transferQueueItemCond.signal();
 }
 
 // Call on UI thread to copy from the shared Surface Texture to the BaseTile's texture.
 void TransferQueue::updateDirtyBaseTiles()
 {
-    bool unlockFlag[ST_BUFFER_NUMBER];
-    memset(unlockFlag, 0, sizeof(unlockFlag));
-
     saveGLState();
-    m_transferQueueLock.lock();
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
 
     cleanupTransportQueue();
     if (!getHasGLContext())
@@ -261,11 +232,11 @@ void TransferQueue::updateDirtyBaseTiles()
 
             m_sharedSurfaceTexture->updateTexImage();
 
-            unlockFlag[index] = true;
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
             if (obsoleteBaseTile) {
                 XLOG("Warning: the texture is obsolete for this baseTile");
+                index = (index + 1) % ST_BUFFER_NUMBER;
                 continue;
             }
 
@@ -290,24 +261,80 @@ void TransferQueue::updateDirtyBaseTiles()
 
     restoreGLState();
 
-    int unlockIndex = nextItemIndex;
-    for (int k = 0; k < ST_BUFFER_NUMBER; k++) {
-        // Check the same order as the updateTexImage.
-        if (unlockFlag[unlockIndex])
-            m_transferQueueItemLocks[unlockIndex].unlock();
-        unlockIndex = (unlockIndex + 1) % ST_BUFFER_NUMBER;
-    }
+    m_emptyItemCount = ST_BUFFER_NUMBER;
+    m_transferQueueItemCond.signal();
+}
 
-    m_transferQueueLock.unlock();
+void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
+                                          int x, int y, const SkBitmap& bitmap)
+{
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
+
+    bool ready = readyForUpdate();
+
+    if (!ready) {
+        XLOG("Quit bitmap update: not ready! for tile x y %d %d",
+             renderInfo->x, renderInfo->y);
+        return;
+    }
+    // Dequeue the Surface Texture.
+    sp<ANativeWindow> ANW = m_ANW;
+    if (!ANW.get()) {
+        XLOG("ERROR: ANW is null");
+        return;
+    }
+    ANativeWindowBuffer* anb;
+
+    int status = ANW->dequeueBuffer(ANW.get(), &anb);
+    GLUtils::checkSurfaceTextureError("dequeueBuffer", status);
+    // a) Update surface texture
+    sp<android::GraphicBuffer> buf(new android::GraphicBuffer(anb, false));
+    status |= ANW->lockBuffer(ANW.get(), buf->getNativeBuffer()); // Mutex Lock
+    GLUtils::checkSurfaceTextureError("lockBuffer", status);
+
+    // Fill the buffer with the content of the bitmap
+    uint8_t* img = 0;
+    status |= buf->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, (void**)(&img));
+    GLUtils::checkSurfaceTextureError("lock", status);
+
+    if (status == NO_ERROR) {
+        int row, col;
+        int bpp = 4; // Now we only deal with RGBA8888 format.
+        int width = TilesManager::instance()->tileWidth();
+        int height = TilesManager::instance()->tileHeight();
+        if (!x && !y && bitmap.width() == width && bitmap.height() == height) {
+            bitmap.lockPixels();
+            uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
+            // Copied line by line since we need to handle the offsets and stride.
+            for (row = 0 ; row < bitmap.height(); row ++) {
+                uint8_t* dst = &(img[(buf->getStride() * (row + x) + y) * bpp]);
+                uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
+                memcpy(dst, src, bpp * bitmap.width());
+            }
+            bitmap.unlockPixels();
+        } else {
+            // TODO: implement the partial invalidate here!
+            XLOG("ERROR: don't expect to get here yet before we support partial inval");
+        }
+    }
+    buf->unlock();
+
+    status = ANW->queueBuffer(ANW.get(), buf->getNativeBuffer());
+    GLUtils::checkSurfaceTextureError("queueBuffer", status);
+
+    // b) After update the Surface Texture, now udpate the transfer queue info.
+    addItemInTransferQueue(renderInfo);
+    XLOG("Bitmap updated x, y %d %d, baseTile %p",
+         renderInfo->x, renderInfo->y, renderInfo->baseTile);
 }
 
 // Note that there should be lock/unlock around this function call.
 // Currently only called by GLUtils::updateSharedSurfaceTextureWithBitmap.
-void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
-                                          int index)
+void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo)
 {
-    m_transferQueueIndex = index;
+    m_transferQueueIndex = (m_transferQueueIndex + 1) % ST_BUFFER_NUMBER;
 
+    int index = m_transferQueueIndex;
     if (m_transferQueue[index].savedBaseTilePtr
         || m_transferQueue[index].status != emptyItem) {
         XLOG("ERROR update a tile which is dirty already @ index %d", index);
@@ -325,32 +352,23 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
     textureInfo->m_painter = renderInfo->tilePainter;
 
     textureInfo->m_picture = renderInfo->textureInfo->m_pictureCount;
+
+    m_emptyItemCount--;
 }
 
-// Note: this need to be called within th m_transferQueueLock.
+// Note: this need to be called within th lock.
+// Only called by updateDirtyBaseTiles() for now
 void TransferQueue::cleanupTransportQueue()
 {
-    // We should call updateTexImage to the items first,
-    // then unlock. And we should start from the next item.
-    const int nextItemIndex = getNextTransferQueueIndex();
-    bool needUnlock[ST_BUFFER_NUMBER];
-    int index = nextItemIndex;
+    int index = getNextTransferQueueIndex();
 
     for (int i = 0 ; i < ST_BUFFER_NUMBER; i++) {
-        needUnlock[index] = false;
         if (m_transferQueue[index].status == pendingDiscard) {
             m_sharedSurfaceTexture->updateTexImage();
 
             m_transferQueue[index].savedBaseTilePtr = 0;
-            m_transferQueue[index].status == emptyItem;
-            needUnlock[index] = true;
+            m_transferQueue[index].status = emptyItem;
         }
-        index = (index + 1) % ST_BUFFER_NUMBER;
-    }
-    index = nextItemIndex;
-    for (int i = 0 ; i < ST_BUFFER_NUMBER; i++) {
-        if (needUnlock[index])
-            m_transferQueueItemLocks[index].unlock();
         index = (index + 1) % ST_BUFFER_NUMBER;
     }
 }

@@ -204,9 +204,7 @@ void TilesManager::cleanupTilesTextures()
         m_paintedSurfaces.remove(m_paintedSurfaces.find(collect[i]));
         TilePainter* painter = collect[i]->texture();
         // Mark the current painter to destroy!!
-        transferQueue()->m_currentRemovingPaint = painter;
         m_pixmapsGenerationThread->removeOperationsForPainter(painter, true);
-        transferQueue()->m_currentRemovingPaint = 0;
         XLOG("destroy %x (%x)", collect[i], painter);
         delete collect[i];
     }

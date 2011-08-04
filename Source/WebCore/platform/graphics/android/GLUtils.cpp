@@ -488,69 +488,8 @@ void GLUtils::updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* renderI
         || !renderInfo->textureInfo
         || !renderInfo->baseTile)
         return;
-    TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
-    // Only changed in the Tex Gen thread.
-    const int index = tileQueue->getNextTransferQueueIndex();
 
-    bool ready = tileQueue->lockForUpdate(index, renderInfo);
-    if (!ready)
-        return;
-
-    // Dequeue the Surface Texture.
-    sp<ANativeWindow> ANW = tileQueue->m_ANW;
-    if (!ANW.get()) {
-        XLOG("ERROR: ANW is null");
-        return;
-    }
-    ANativeWindowBuffer* anb;
-
-    // We bound the Surface Texture update and transfer queue update together.
-    tileQueue->m_transferQueueLock.lock();
-
-    int status = ANW->dequeueBuffer(ANW.get(), &anb);
-    checkSurfaceTextureError("dequeueBuffer", status);
-    // a) Update surface texture
-    sp<android::GraphicBuffer> buf(new android::GraphicBuffer(anb, false));
-    status |= ANW->lockBuffer(ANW.get(), buf->getNativeBuffer()); // Mutex Lock
-    checkSurfaceTextureError("lockBuffer", status);
-
-    // Fill the buffer with the content of the bitmap
-    uint8_t* img = 0;
-    status |= buf->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, (void**)(&img));
-    checkSurfaceTextureError("lock", status);
-
-    if (status == NO_ERROR) {
-        int row, col;
-        int bpp = 4; // Now we only deal with RGBA8888 format.
-        int width = TilesManager::instance()->tileWidth();
-        int height = TilesManager::instance()->tileHeight();
-        if (x == 0 && y == 0 && bitmap.width() == width && bitmap.height() == height) {
-            bitmap.lockPixels();
-            uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
-            // Copied line by line since we need to handle the offsets and stride.
-            for (row = 0 ; row < bitmap.height(); row ++) {
-                uint8_t* dst = &(img[(buf->getStride() * (row + x) + y) * bpp]);
-                uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
-                memcpy(dst, src, bpp * bitmap.width());
-            }
-            bitmap.unlockPixels();
-        }
-        else{
-            // TODO: implement the partial invalidate here!
-            XLOG("ERROR: don't expect to get here yet before we support partial inval");
-        }
-    }
-    buf->unlock();
-
-    status = ANW->queueBuffer(ANW.get(), buf->getNativeBuffer());
-    checkSurfaceTextureError("queueBuffer", status);
-
-    // b) After update the Surface Texture, now udpate the transfer queue info.
-    tileQueue->addItemInTransferQueue(renderInfo, index);
-    XLOG("Bitmap updated x, y %d %d, baseTile %p",
-         renderInfo->x, renderInfo->y, renderInfo->baseTile);
-
-    tileQueue->m_transferQueueLock.unlock();
+    TilesManager::instance()->transferQueue()->updateQueueWithBitmap(renderInfo, x, y, bitmap);
 }
 
 void GLUtils::createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GLint filter)

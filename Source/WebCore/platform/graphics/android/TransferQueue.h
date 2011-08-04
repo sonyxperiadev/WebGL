@@ -49,35 +49,57 @@ public:
 
     void updateDirtyBaseTiles();
 
+    void initSharedSurfaceTextures(int width, int height);
+
+    void updateQueueWithBitmap(const TileRenderInfo* renderInfo, int x, int y,
+                               const SkBitmap& bitmap);
+
+    void discardQueue();
+
+    void addItemInTransferQueue(const TileRenderInfo* info);
+
+    // Check if the item @ index is ready for update.
+    // The lock will be done when returning true.
+    bool readyForUpdate();
+
     // This queue can be accessed from UI and TexGen thread, therefore, we need
     // a lock to protect its access
     TileTransferData* m_transferQueue;
-    android::Mutex m_transferQueueLock;
 
-    void initSharedSurfaceTextures(int width, int height);
+    // We are using wait/signal to handle our own queue sync.
+    // First of all, if we don't have our own lock, then while WebView is
+    // destroyed, the UI thread will wait for the Tex Gen to get out from
+    // dequeue operation, which will not succeed. B/c at this moment, we
+    // already lost the GL Context.
+    // Now we maintain a counter, which is m_emptyItemCount. When this reach
+    // 0, then we need the Tex Gen thread to wait. UI thread can signal this
+    // wait after calling updateTexImage at the draw call , or after WebView
+    // is destroyed.
+    android::Mutex m_transferQueueItemLocks;
+
     sp<ANativeWindow> m_ANW;
 
+private:
     bool getHasGLContext();
     void setHasGLContext(bool hasContext);
 
     int getNextTransferQueueIndex();
 
-    void addItemInTransferQueue(const TileRenderInfo* info, int index);
+    // Save and restore the GL State while switching from/to FBO.
+    void saveGLState();
+    void setGLStateForCopy(int width, int height);
+    void restoreGLState();
 
-    // Check if the item @ index is ready for update.
-    // The lock will be done when returning true.
-    bool lockForUpdate(int index, const TileRenderInfo* renderInfo);
+    // Check the current transfer queue item is obsolete or not.
+    bool checkObsolete(int index);
 
-    void discardQueue();
+    // Before each draw call and the blit operation, clean up all the
+    // pendingDiscard items.
+    void cleanupTransportQueue();
 
-    // Store info for currentOpWaitingRemoval() to tell which operation
-    // will be removed.
-    TilePainter* m_currentRemovingPaint;
+    void blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
+                           GLuint srcTexId, GLenum srcTexTarget);
 
-    // Return the buffer number.
-    int size();
-
-private:
     // Note that the m_transferQueueIndex only changed in the TexGen thread
     // where we are going to move on to update the next item in the queue.
     int m_transferQueueIndex;
@@ -88,36 +110,12 @@ private:
 
     // GLContext can be lost when WebView destroyed.
     bool m_hasGLContext;
-    android::Mutex m_hasGLContextLock;
 
-    // Save and restore the GL State while switching from/to FBO.
-    void saveGLState();
-    void setGLStateForCopy(int width, int height);
-    void restoreGLState();
     GLState m_GLStateBeforeBlit;
-
-    // Check the current transfer queue item is obsolete or not.
-    bool checkObsolete(int index);
-
-    // Before each draw call and the blit operation, clean up all the
-    // pendingDiscard items.
-    void cleanupTransportQueue();
-
-    // This function can tell Tex Gen thread whether or not the current
-    // operation need to be removed now.
-    bool currentOpWaitingRemoval(const TileRenderInfo* renderInfo);
-
-    void blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex, GLuint srcTexId, GLenum srcTexTarget);
-
-    // Each element in the queue has its own lock, basically lock before update
-    // and unlock at drawGL time.
-    // This is similar to the internal lock from SurfaceTexture, but we can't
-    // naively rely on them since when tearing down, UI thread need to clean up
-    // the pending jobs in that Tex Gen thread, if the Tex Gen is waiting for
-    // Surface Texture, then we are stuck.
-    android::Mutex* m_transferQueueItemLocks;
-
     sp<android::SurfaceTexture> m_sharedSurfaceTexture;
+
+    android::Condition m_transferQueueItemCond;
+    int m_emptyItemCount;
 };
 
 } // namespace WebCore
