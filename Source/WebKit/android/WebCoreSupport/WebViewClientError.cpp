@@ -26,6 +26,8 @@
 #include "config.h"
 #include "WebViewClientError.h"
 
+#include <cutils/log.h>
+
 using namespace net;
 
 namespace android {
@@ -121,9 +123,11 @@ WebViewClientError ToWebViewClientError(net::Error error) {
         case ERR_CERT_INVALID:
         case ERR_CERT_WEAK_SIGNATURE_ALGORITHM:
         case ERR_CERT_NOT_IN_DNS:
+        case ERR_CERT_NON_UNIQUE_NAME:
             return ERROR_OK;
 
         default:
+            android_printLog(ANDROID_LOG_DEBUG, "chromium", "Unknown chromium error: %d", error);
             return ERROR_UNKNOWN;
     }
 }
