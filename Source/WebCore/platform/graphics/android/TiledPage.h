@@ -68,6 +68,8 @@ public:
     // used by individual tiles to generate the bitmap for their tile
     bool paint(BaseTile*, SkCanvas*, unsigned int*);
     void paintExtra(SkCanvas*);
+    void beginPaint() {}
+    void endPaint() {}
 
     // used by individual tiles to get the information about the current picture
     GLWebViewState* glWebViewState() { return m_glWebViewState; }

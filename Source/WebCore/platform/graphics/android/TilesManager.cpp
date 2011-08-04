@@ -204,7 +204,7 @@ void TilesManager::cleanupTilesTextures()
     WTF::Vector<PaintedSurface*> collect;
     for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
         PaintedSurface* surface = m_paintedSurfaces[i];
-        if (!surface->layer())
+        if (!surface->layer() && !surface->busy())
             collect.append(surface);
     }
     XLOG("remove %d / %d PaintedSurfaces", collect.size(), m_paintedSurfaces.size());

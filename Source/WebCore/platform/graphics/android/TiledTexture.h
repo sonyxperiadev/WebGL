@@ -74,6 +74,8 @@ public:
     bool paint(BaseTile* tile, SkCanvas*, unsigned int*);
     virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
+    virtual void beginPaint();
+    virtual void endPaint();
 
 private:
     PaintedSurface* m_surface;
