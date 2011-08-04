@@ -154,12 +154,14 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex, GL
     TilesManager::instance()->shader()->drawQuad(rect, srcTexId, 1.0,
                        srcTexTarget);
 
-    // Need to WAR a driver bug to add a sync point here
-    GLubyte readBackPixels[4];
-    glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, readBackPixels);
-
     // Clean up FBO setup.
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
+
+    // Add a sync point here to WAR a driver bug.
+    glViewport(0,0,0,0);
+    TilesManager::instance()->shader()->drawQuad(rect, destTex->m_ownTextureId,
+                                                 1.0, GL_TEXTURE_2D);
+
     GLUtils::checkGlError("copy the surface texture into the normal one");
 }
 
