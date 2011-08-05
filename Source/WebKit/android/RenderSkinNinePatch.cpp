@@ -48,8 +48,8 @@ bool RenderSkinNinePatch::decodeAsset(AssetManager* am, const char* filename, Ni
 
     SkImageDecoder::Mode mode = SkImageDecoder::kDecodePixels_Mode;
     SkBitmap::Config prefConfig = SkBitmap::kNo_Config;
-    SkStream* stream = new SkMemoryStream(asset->getBuffer(false), asset->getLength());
-    SkImageDecoder* decoder = SkImageDecoder::Factory(stream);
+    SkMemoryStream stream(asset->getBuffer(false), asset->getLength());
+    SkImageDecoder* decoder = SkImageDecoder::Factory(&stream);
     if (!decoder) {
         asset->close();
         LOGE("RenderSkinNinePatch::Failed to create an image decoder");
@@ -65,7 +65,7 @@ bool RenderSkinNinePatch::decodeAsset(AssetManager* am, const char* filename, Ni
     SkAutoTDelete<SkImageDecoder> add(decoder);
 
     decoder->setPeeker(&peeker);
-    if (!decoder->decode(stream, &ninepatch->m_bitmap, prefConfig, mode, true)) {
+    if (!decoder->decode(&stream, &ninepatch->m_bitmap, prefConfig, mode, true)) {
         asset->close();
         LOGE("RenderSkinNinePatch::Failed to decode nine patch asset");
         return false;
