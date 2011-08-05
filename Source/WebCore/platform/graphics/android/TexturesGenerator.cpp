@@ -98,8 +98,19 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter, bool 
 
     if (waitForRunning && m_currentOperation) {
         QueuedOperation* operation = m_currentOperation;
-        if (operation && filter->check(operation))
+
+        if (operation && filter->check(operation)) {
             m_waitForCompletion = true;
+            // The reason we are signaling the transferQueue is :
+            // TransferQueue may be waiting a slot to work on, but now UI
+            // thread is waiting for Tex Gen thread to finish first before the
+            // UI thread can free a slot for the transferQueue.
+            // Therefore, it could be a deadlock.
+            // The solution is use this as a flag to tell Tex Gen thread that
+            // UI thread is waiting now, Tex Gen thread should not wait for the
+            // queue any more.
+            TilesManager::instance()->transferQueue()->interruptTransferQueue(true);
+        }
 
         delete filter;
 
@@ -185,6 +196,7 @@ bool TexturesGenerator::threadLoop()
             stop = true;
         if (m_waitForCompletion) {
             m_waitForCompletion = false;
+            TilesManager::instance()->transferQueue()->interruptTransferQueue(false);
             mRequestedOperationsCond.signal();
         }
         mRequestedOperationsLock.unlock();

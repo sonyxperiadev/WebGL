@@ -62,20 +62,10 @@ public:
     // The lock will be done when returning true.
     bool readyForUpdate();
 
+    void interruptTransferQueue(bool);
     // This queue can be accessed from UI and TexGen thread, therefore, we need
     // a lock to protect its access
     TileTransferData* m_transferQueue;
-
-    // We are using wait/signal to handle our own queue sync.
-    // First of all, if we don't have our own lock, then while WebView is
-    // destroyed, the UI thread will wait for the Tex Gen to get out from
-    // dequeue operation, which will not succeed. B/c at this moment, we
-    // already lost the GL Context.
-    // Now we maintain a counter, which is m_emptyItemCount. When this reach
-    // 0, then we need the Tex Gen thread to wait. UI thread can signal this
-    // wait after calling updateTexImage at the draw call , or after WebView
-    // is destroyed.
-    android::Mutex m_transferQueueItemLocks;
 
     sp<ANativeWindow> m_ANW;
 
@@ -114,8 +104,21 @@ private:
     GLState m_GLStateBeforeBlit;
     sp<android::SurfaceTexture> m_sharedSurfaceTexture;
 
-    android::Condition m_transferQueueItemCond;
     int m_emptyItemCount;
+
+    bool m_interruptedByRemovingOp;
+
+    // We are using wait/signal to handle our own queue sync.
+    // First of all, if we don't have our own lock, then while WebView is
+    // destroyed, the UI thread will wait for the Tex Gen to get out from
+    // dequeue operation, which will not succeed. B/c at this moment, we
+    // already lost the GL Context.
+    // Now we maintain a counter, which is m_emptyItemCount. When this reach
+    // 0, then we need the Tex Gen thread to wait. UI thread can signal this
+    // wait after calling updateTexImage at the draw call , or after WebView
+    // is destroyed.
+    android::Mutex m_transferQueueItemLocks;
+    android::Condition m_transferQueueItemCond;
 };
 
 } // namespace WebCore

@@ -120,39 +120,48 @@ public:
 
     void allocateTiles();
 
-    void setExpandedTileBounds(bool enabled) {
+    void setExpandedTileBounds(bool enabled)
+    {
         m_expandedTileBounds = enabled;
     }
 
-    bool getShowVisualIndicator() {
+    bool getShowVisualIndicator()
+    {
         return m_showVisualIndicator;
     }
 
-    void setShowVisualIndicator(bool showVisualIndicator) {
+    void setShowVisualIndicator(bool showVisualIndicator)
+    {
         m_showVisualIndicator = showVisualIndicator;
     }
 
-    SharedTextureMode getSharedTextureMode() {
+    SharedTextureMode getSharedTextureMode()
+    {
         return SurfaceTextureMode;
     }
 
-    TilesProfiler* getProfiler() {
+    TilesProfiler* getProfiler()
+    {
         return &m_profiler;
     }
 
-    TilesTracker* getTilesTracker() {
+    TilesTracker* getTilesTracker()
+    {
         return &m_tilesTracker;
     }
 
-    bool invertedScreen() {
+    bool invertedScreen()
+    {
         return m_invertedScreen;
     }
 
-    void setInvertedScreen(bool invert) {
+    void setInvertedScreen(bool invert)
+    {
         m_invertedScreen = invert;
     }
 
-    void setInvertedScreenContrast(float contrast) {
+    void setInvertedScreenContrast(float contrast)
+    {
         m_shader.setContrast(contrast);
     }
 

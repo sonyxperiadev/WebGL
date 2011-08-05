@@ -158,21 +158,38 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex, GL
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
 
     // Add a sync point here to WAR a driver bug.
-    glViewport(0,0,0,0);
+    glViewport(0, 0, 0, 0);
     TilesManager::instance()->shader()->drawQuad(rect, destTex->m_ownTextureId,
                                                  1.0, GL_TEXTURE_2D);
 
     GLUtils::checkGlError("copy the surface texture into the normal one");
 }
 
+void TransferQueue::interruptTransferQueue(bool interrupt)
+{
+    m_transferQueueItemLocks.lock();
+    m_interruptedByRemovingOp = interrupt;
+    if (m_interruptedByRemovingOp)
+        m_transferQueueItemCond.signal();
+    m_transferQueueItemLocks.unlock();
+}
+
+// This function must be called inside the m_transferQueueItemLocks, for the
+// wait, m_interruptedByRemovingOp and getHasGLContext().
+// Only called by updateQueueWithBitmap() for now.
 bool TransferQueue::readyForUpdate()
 {
     if (!getHasGLContext())
         return false;
     // Don't use a while loop since when the WebView tear down, the emptyCount
     // will still be 0, and we bailed out b/c of GL context lost.
-    if (!m_emptyItemCount)
+    if (!m_emptyItemCount) {
+        if (m_interruptedByRemovingOp)
+            return false;
         m_transferQueueItemCond.wait(m_transferQueueItemLocks);
+        if (m_interruptedByRemovingOp)
+            return false;
+    }
 
     if (!getHasGLContext())
         return false;
