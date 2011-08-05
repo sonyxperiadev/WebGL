@@ -287,7 +287,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mGetFileSize = env->GetMethodID(clazz, "getFileSize", "(Ljava/lang/String;)I");
     mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BII)I");
     mJavaFrame->mDidReceiveAuthenticationChallenge = env->GetMethodID(clazz, "didReceiveAuthenticationChallenge",
-            "(ILjava/lang/String;Ljava/lang/String;Z)V");
+            "(ILjava/lang/String;Ljava/lang/String;ZZ)V");
     mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[BLjava/lang/String;)V");
     mJavaFrame->mRequestClientCert = env->GetMethodID(clazz, "requestClientCert", "(I[B)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
@@ -967,7 +967,7 @@ WebFrame::density() const
 
 #if USE(CHROME_NETWORK_STACK)
 void
-WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const std::string& host, const std::string& realm, bool useCachedCredentials)
+WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const std::string& host, const std::string& realm, bool useCachedCredentials, bool suppressDialog)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -980,7 +980,7 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
     jstring jHost = stdStringToJstring(env, host, true);
     jstring jRealm = stdStringToJstring(env, realm, true);
 
-    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidReceiveAuthenticationChallenge, jHandle, jHost, jRealm, useCachedCredentials);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidReceiveAuthenticationChallenge, jHandle, jHost, jRealm, useCachedCredentials, suppressDialog);
     env->DeleteLocalRef(jHost);
     env->DeleteLocalRef(jRealm);
     checkException(env);

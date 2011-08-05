@@ -62,6 +62,17 @@ WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceR
     }
 
 
+    switch (resourceRequest.targetType()) {
+    case ResourceRequest::TargetIsPrefetch:
+        m_loadFlags |= (net::LOAD_PREFETCH | net::LOAD_DO_NOT_PROMPT_FOR_LOGIN);
+        break;
+    case ResourceRequest::TargetIsFavicon:
+        m_loadFlags |= net::LOAD_DO_NOT_PROMPT_FOR_LOGIN;
+        break;
+    default: break;
+    }
+
+
     // Set the request headers
     const HTTPHeaderMap& map = resourceRequest.httpHeaderFields();
     for (HTTPHeaderMap::const_iterator it = map.begin(); it != map.end(); ++it) {

@@ -395,8 +395,10 @@ void WebRequest::OnAuthRequired(net::URLRequest* request, net::AuthChallengeInfo
     bool firstTime = (m_authRequestCount == 0);
     ++m_authRequestCount;
 
+    bool suppressDialog = (request->load_flags() & net::LOAD_DO_NOT_PROMPT_FOR_LOGIN);
+
     m_urlLoader->maybeCallOnMainThread(NewRunnableMethod(
-            m_urlLoader.get(), &WebUrlLoaderClient::authRequired, authInfoPtr, firstTime));
+            m_urlLoader.get(), &WebUrlLoaderClient::authRequired, authInfoPtr, firstTime, suppressDialog));
 }
 
 // Called when we received an SSL certificate error. The delegate will provide
