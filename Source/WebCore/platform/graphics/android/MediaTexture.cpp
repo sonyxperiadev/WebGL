@@ -105,10 +105,9 @@ void MediaTexture::drawContent(const TransformationMatrix& matrix)
     m_surfaceTexture->updateTexImage();
 
     bool forceBlending = ANativeWindow_getFormat(m_surfaceTextureClient.get()) == WINDOW_FORMAT_RGB_565;
-    GLenum target = GLUtils::getTextureTarget(m_surfaceTexture.get());
     TilesManager::instance()->shader()->drawLayerQuad(matrix, m_dimensions,
                                                       m_textureId, 1.0f,
-                                                      forceBlending, target);
+                                                      forceBlending, GL_TEXTURE_EXTERNAL_OES);
 }
 
 void MediaTexture::drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds)
