@@ -49,8 +49,15 @@
 
 namespace WebCore {
 
+bool PaintedSurface::busy()
+{
+    android::Mutex::Autolock lock(m_layerLock);
+    return m_busy;
+}
+
 void PaintedSurface::removeLayer(LayerAndroid* layer)
 {
+    android::Mutex::Autolock lock(m_layerLock);
     if (m_layer != layer)
         return;
     m_layer = 0;
@@ -58,6 +65,7 @@ void PaintedSurface::removeLayer(LayerAndroid* layer)
 
 void PaintedSurface::replaceLayer(LayerAndroid* layer)
 {
+    android::Mutex::Autolock lock(m_layerLock);
     if (!layer)
         return;
 
@@ -114,21 +122,44 @@ bool PaintedSurface::draw()
     return askRedraw;
 }
 
+void PaintedSurface::beginPaint()
+{
+    m_layerLock.lock();
+    m_busy = true;
+    m_layerLock.unlock();
+}
+
+void PaintedSurface::endPaint()
+{
+    m_layerLock.lock();
+    m_busy = false;
+    m_layerLock.unlock();
+}
+
 bool PaintedSurface::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
 {
-    if (!m_layer)
+    m_layerLock.lock();
+    LayerAndroid* layer = m_layer;
+    m_layerLock.unlock();
+
+    if (!layer)
         return false;
 
-    m_layer->contentDraw(canvas);
-    m_pictureUsed = m_layer->pictureUsed();
+    layer->contentDraw(canvas);
+    m_pictureUsed = layer->pictureUsed();
     *pictureUsed = m_pictureUsed;
+
     return true;
 }
 
 void PaintedSurface::paintExtra(SkCanvas* canvas)
 {
-    if (m_layer)
-        m_layer->extraDraw(canvas);
+    m_layerLock.lock();
+    LayerAndroid* layer = m_layer;
+    m_layerLock.unlock();
+
+    if (layer)
+        layer->extraDraw(canvas);
 }
 
 float PaintedSurface::opacity() {

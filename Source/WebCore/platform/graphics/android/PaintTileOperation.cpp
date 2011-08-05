@@ -25,15 +25,18 @@
 
 #include "config.h"
 #include "PaintTileOperation.h"
+#include "LayerAndroid.h"
 
 namespace WebCore {
 
-PaintTileOperation::PaintTileOperation(BaseTile* tile)
+PaintTileOperation::PaintTileOperation(BaseTile* tile, LayerAndroid* layer)
     : QueuedOperation(QueuedOperation::PaintTile, tile->page())
     , m_tile(tile)
+    , m_layer(layer)
 {
     if (m_tile)
         m_tile->setRepaintPending(true);
+    SkSafeRef(m_layer);
 }
 
 PaintTileOperation::~PaintTileOperation()
@@ -42,6 +45,7 @@ PaintTileOperation::~PaintTileOperation()
         m_tile->setRepaintPending(false);
         m_tile = 0;
     }
+    SkSafeUnref(m_layer);
 }
 
 bool PaintTileOperation::operator==(const QueuedOperation* operation)

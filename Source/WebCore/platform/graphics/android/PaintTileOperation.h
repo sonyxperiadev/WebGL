@@ -30,9 +30,11 @@
 
 namespace WebCore {
 
+class LayerAndroid;
+
 class PaintTileOperation : public QueuedOperation {
 public:
-    PaintTileOperation(BaseTile* tile);
+    PaintTileOperation(BaseTile* tile, LayerAndroid* layer = 0);
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
@@ -42,6 +44,7 @@ public:
 
 private:
     BaseTile* m_tile;
+    LayerAndroid* m_layer;
 };
 
 class ScaleFilter : public OperationFilter {

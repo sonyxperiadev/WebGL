@@ -47,6 +47,7 @@ public:
         , m_tiledTexture(0)
         , m_scale(0)
         , m_pictureUsed(0)
+        , m_busy(false)
     {
         TilesManager::instance()->addPaintedSurface(this);
 #ifdef DEBUG_COUNT
@@ -69,6 +70,7 @@ public:
     bool paint(SkCanvas*);
     void removeLayer(LayerAndroid* layer);
     void replaceLayer(LayerAndroid* layer);
+    bool busy();
 
     bool owns(BaseTileTexture* texture);
 
@@ -78,6 +80,8 @@ public:
     virtual bool paint(BaseTile*, SkCanvas*, unsigned int*);
     virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
+    virtual void beginPaint();
+    virtual void endPaint();
 
     // used by TiledTexture
     const IntRect& area() { return m_area; }
@@ -96,6 +100,10 @@ private:
     float m_scale;
 
     unsigned int m_pictureUsed;
+
+    bool m_busy;
+
+    android::Mutex m_layerLock;
 };
 
 } // namespace WebCore

@@ -56,6 +56,9 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
     if (!m_surface)
         return;
 
+    if (!m_surface->layer())
+        return;
+
     // first, how many tiles do we need
     IntRect visibleArea = m_surface->visibleArea();
     IntRect area(visibleArea.x() * m_surface->scale(),
@@ -134,8 +137,9 @@ void TiledTexture::prepareTile(bool repaint, int x, int y)
     if (repaint || tile->isDirty())
         schedule = true;
 
-    if (schedule && !tile->isRepaintPending()) {
-        PaintTileOperation *operation = new PaintTileOperation(tile);
+    LayerAndroid* layer = m_surface->layer();
+    if (schedule && layer && !tile->isRepaintPending()) {
+        PaintTileOperation *operation = new PaintTileOperation(tile, layer);
         TilesManager::instance()->scheduleOperation(operation);
     }
 }
@@ -208,6 +212,18 @@ void TiledTexture::paintExtra(SkCanvas* canvas)
 const TransformationMatrix* TiledTexture::transform()
 {
     return m_surface->transform();
+}
+
+void TiledTexture::beginPaint()
+{
+    if (m_surface)
+        m_surface->beginPaint();
+}
+
+void TiledTexture::endPaint()
+{
+    if (m_surface)
+        m_surface->endPaint();
 }
 
 void TiledTexture::removeTiles()
