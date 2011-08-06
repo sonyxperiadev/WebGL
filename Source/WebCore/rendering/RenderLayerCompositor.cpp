@@ -79,6 +79,7 @@ struct CompositingState {
         , m_subtreeIsCompositing(false)
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
         , m_fixedSibling(false)
+        , m_hasFixedElement(false)
 #endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
         , m_hasScrollableElement(false)
@@ -93,6 +94,7 @@ struct CompositingState {
     bool m_subtreeIsCompositing;
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     bool m_fixedSibling;
+    bool m_hasFixedElement;
 #endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     bool m_hasScrollableElement;
@@ -625,9 +627,15 @@ bool RenderLayerCompositor::checkForFixedLayers(Vector<RenderLayer*>* list, bool
             haveFixedLayer = j;
             fixedSibling = true;
         }
+        IntRect currentLayerBounds = currentLayer->renderer()->localToAbsoluteQuad(
+            FloatRect(currentLayer->localBoundingBox())).enclosingBoundingBox();
+        if ((currentLayerBounds.width() <= 1
+            || currentLayerBounds.height() <= 1)
+            && haveFixedLayer == j) {
+            haveFixedLayer = -1;
+            fixedSibling = false;
+        }
         if (haveFixedLayer != -1 && haveFixedLayer != j) {
-            IntRect currentLayerBounds = currentLayer->renderer()->localToAbsoluteQuad(
-                FloatRect(currentLayer->localBoundingBox())).enclosingBoundingBox();
             bool needComposite = true;
             int stop = 0;
             if (stopAtFixedLayer)
@@ -709,12 +717,16 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     if (layer->hasOverflowScroll())
         compositingState.m_hasScrollableElement = true;
 #endif
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    if (layer->isFixed())
+        compositingState.m_hasFixedElement = true;
+#endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     // we don't want to signal that the subtree is compositing if the reason
     // is because the layer is an overflow layer -- doing so would trigger
     // all the above layers to be composited unnecessarily
-    if (willBeComposited && !layer->hasOverflowScroll()) {
+    if (willBeComposited && !layer->hasOverflowScroll() && !layer->isFixed()) {
 #else
     if (willBeComposited) {
 #endif
@@ -816,6 +828,10 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     if (childState.m_subtreeIsCompositing)
         compositingState.m_subtreeIsCompositing = true;
 
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    if (childState.m_hasFixedElement)
+        compositingState.m_hasFixedElement = true;
+#endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (childState.m_hasScrollableElement)
         compositingState.m_hasScrollableElement = true;
@@ -837,7 +853,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     // We also need to check that we don't have a scrollable layer, as this
     // would not have set the m_subtreeIsCompositing flag
-    if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !childState.m_hasScrollableElement && !requiresCompositingLayer(layer) && !m_forceCompositingMode) {
+    if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !childState.m_hasScrollableElement && !childState.m_hasFixedElement && !requiresCompositingLayer(layer) && !m_forceCompositingMode) {
 #else
     if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !requiresCompositingLayer(layer) && !m_forceCompositingMode) {
 #endif
