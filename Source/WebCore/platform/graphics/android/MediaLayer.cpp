@@ -109,7 +109,11 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 
 ANativeWindow* MediaLayer::acquireNativeWindowForContent()
 {
-    return m_contentTexture->requestNewWindow();
+    ANativeWindow* anw = m_contentTexture->getNativeWindow();
+    if (!anw) {
+        anw = m_contentTexture->requestNewWindow();
+    }
+    return anw;
 }
 
 
