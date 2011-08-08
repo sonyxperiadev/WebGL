@@ -31,10 +31,11 @@
 namespace WebCore {
 
 class LayerAndroid;
+class PaintedSurface;
 
 class PaintTileOperation : public QueuedOperation {
 public:
-    PaintTileOperation(BaseTile* tile, LayerAndroid* layer = 0);
+    PaintTileOperation(BaseTile* tile, PaintedSurface* surface = 0);
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
@@ -44,6 +45,7 @@ public:
 
 private:
     BaseTile* m_tile;
+    PaintedSurface* m_surface;
     LayerAndroid* m_layer;
 };
 

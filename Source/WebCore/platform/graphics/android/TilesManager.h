@@ -66,11 +66,6 @@ public:
         m_pixmapsGenerationThread->removeOperationsForPage(page);
     }
 
-    void removeOperationsForPainter(TilePainter* painter, bool waitForCompletion)
-    {
-        m_pixmapsGenerationThread->removeOperationsForPainter(painter, waitForCompletion);
-    }
-
     void removePaintOperationsForPage(TiledPage* page, bool waitForCompletion)
     {
         m_pixmapsGenerationThread->removePaintOperationsForPage(page, waitForCompletion);
@@ -89,8 +84,6 @@ public:
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
     BaseTileTexture* getAvailableTexture(BaseTile* owner);
-
-    void cleanupTilesTextures();
 
     void markGeneratorAsReady()
     {

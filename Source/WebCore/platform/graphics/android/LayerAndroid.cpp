@@ -164,6 +164,7 @@ LayerAndroid::~LayerAndroid()
 {
     if (m_texture)
         m_texture->removeLayer(this);
+    SkSafeUnref(m_texture);
     removeChildren();
     delete m_extra;
     delete m_contentsImage;
@@ -719,6 +720,7 @@ void LayerAndroid::assignTexture(LayerAndroid* oldTree)
         if (oldLayer && oldLayer->texture()) {
             oldLayer->texture()->replaceLayer(this);
             m_texture = oldLayer->texture();
+            SkSafeRef(m_texture);
         }
     }
 

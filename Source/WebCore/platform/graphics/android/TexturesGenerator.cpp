@@ -70,11 +70,6 @@ void TexturesGenerator::removePaintOperationsForPage(TiledPage* page, bool waitF
     removeOperationsForFilter(new PagePaintFilter(page), waitForRunning);
 }
 
-void TexturesGenerator::removeOperationsForPainter(TilePainter* painter, bool waitForRunning)
-{
-    removeOperationsForFilter(new TilePainterFilter(painter), waitForRunning);
-}
-
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
 {
     removeOperationsForFilter(filter, true);

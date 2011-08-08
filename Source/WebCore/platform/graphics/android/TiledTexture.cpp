@@ -139,7 +139,7 @@ void TiledTexture::prepareTile(bool repaint, int x, int y)
 
     LayerAndroid* layer = m_surface->layer();
     if (schedule && layer && !tile->isRepaintPending()) {
-        PaintTileOperation *operation = new PaintTileOperation(tile, layer);
+        PaintTileOperation *operation = new PaintTileOperation(tile, m_surface);
         TilesManager::instance()->scheduleOperation(operation);
     }
 }
@@ -228,7 +228,6 @@ void TiledTexture::endPaint()
 
 void TiledTexture::removeTiles()
 {
-    TilesManager::instance()->removeOperationsForPainter(this, true);
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         delete m_tiles[i];
     }

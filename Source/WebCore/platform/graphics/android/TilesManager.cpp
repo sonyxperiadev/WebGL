@@ -198,40 +198,6 @@ void TilesManager::addPaintedSurface(PaintedSurface* surface)
     m_paintedSurfaces.append(surface);
 }
 
-void TilesManager::cleanupTilesTextures()
-{
-    // release existing surfaces without layers
-    WTF::Vector<PaintedSurface*> collect;
-    for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
-        PaintedSurface* surface = m_paintedSurfaces[i];
-        if (!surface->layer() && !surface->busy())
-            collect.append(surface);
-    }
-    XLOG("remove %d / %d PaintedSurfaces", collect.size(), m_paintedSurfaces.size());
-    for (unsigned int i = 0; i < collect.size(); i++) {
-        m_paintedSurfaces.remove(m_paintedSurfaces.find(collect[i]));
-        TilePainter* painter = collect[i]->texture();
-        // Mark the current painter to destroy!!
-        m_pixmapsGenerationThread->removeOperationsForPainter(painter, true);
-        XLOG("destroy %x (%x)", collect[i], painter);
-        delete collect[i];
-    }
-    for (unsigned int i = 0; i < m_tilesTextures.size(); i++) {
-        BaseTileTexture* texture = m_tilesTextures[i];
-        texture->setUsedLevel(-1);
-        if (texture->owner()) {
-            bool keep = false;
-            for (unsigned int j = 0; j < m_paintedSurfaces.size(); j++) {
-                if (m_paintedSurfaces[j]->owns(texture))
-                    keep = true;
-            }
-            if (!keep) {
-                texture->release(texture->owner());
-            }
-        }
-    }
-}
-
 BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 {
     android::Mutex::Autolock lock(m_texturesLock);

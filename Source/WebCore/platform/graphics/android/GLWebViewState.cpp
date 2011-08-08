@@ -554,10 +554,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // the BaseTiles' texture.
     TilesManager::instance()->transferQueue()->updateDirtyBaseTiles();
 
-    if (compositedRoot != m_previouslyUsedRoot) {
+    if (compositedRoot != m_previouslyUsedRoot)
         TilesManager::instance()->swapLayersTextures(m_previouslyUsedRoot, compositedRoot);
-        TilesManager::instance()->cleanupTilesTextures();
-    }
 
     bool ret = baseLayer->drawGL(compositedRoot, rect, viewport, webViewRect,
                                  titleBarHeight, clip, scale, pagesSwapped, color);

@@ -49,7 +49,6 @@ public:
     virtual status_t readyToRun();
 
     void removeOperationsForPage(TiledPage* page);
-    void removeOperationsForPainter(TilePainter* painter, bool waitForRunning);
     void removePaintOperationsForPage(TiledPage* page, bool waitForRunning);
     void removeOperationsForFilter(OperationFilter* filter);
     void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning);

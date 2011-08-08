@@ -30,6 +30,7 @@
 #include "ClassTracker.h"
 #include "IntRect.h"
 #include "LayerAndroid.h"
+#include "SkRefCnt.h"
 #include "TextureOwner.h"
 #include "TiledTexture.h"
 #include "TilesManager.h"
@@ -40,7 +41,7 @@ class SkCanvas;
 
 namespace WebCore {
 
-class PaintedSurface : public TilePainter {
+class PaintedSurface : public SkRefCnt, TilePainter {
 public:
     PaintedSurface(LayerAndroid* layer)
         : m_layer(layer)
