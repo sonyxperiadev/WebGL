@@ -297,6 +297,9 @@ void RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType update
         CompositingState compState(updateRoot);
         bool layersChanged = false;
 
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+        compState.m_hasFixedElement = false;
+#endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
         compState.m_hasScrollableElement = false;
 #endif
