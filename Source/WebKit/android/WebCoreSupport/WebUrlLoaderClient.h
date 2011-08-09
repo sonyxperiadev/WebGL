@@ -90,7 +90,7 @@ public:
     void didFinishLoading();
     void didFail(PassOwnPtr<WebResponse>);
     void willSendRequest(PassOwnPtr<WebResponse>);
-    void authRequired(scoped_refptr<net::AuthChallengeInfo>, bool firstTime);
+    void authRequired(scoped_refptr<net::AuthChallengeInfo>, bool firstTime, bool suppressDialog);
     void reportSslCertError(int cert_error, net::X509Certificate* cert);
     void requestClientCert(net::SSLCertRequestInfo* cert);
 

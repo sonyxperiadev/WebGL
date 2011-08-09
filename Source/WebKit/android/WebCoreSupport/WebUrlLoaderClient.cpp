@@ -469,7 +469,7 @@ void WebUrlLoaderClient::didFinishLoading()
     finish();
 }
 
-void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> authChallengeInfo, bool firstTime)
+void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> authChallengeInfo, bool firstTime, bool suppressDialog)
 {
     if (!isActive())
         return;
@@ -477,7 +477,7 @@ void WebUrlLoaderClient::authRequired(scoped_refptr<net::AuthChallengeInfo> auth
     std::string host = base::SysWideToUTF8(authChallengeInfo->host_and_port);
     std::string realm = base::SysWideToUTF8(authChallengeInfo->realm);
 
-    m_webFrame->didReceiveAuthenticationChallenge(this, host, realm, firstTime);
+    m_webFrame->didReceiveAuthenticationChallenge(this, host, realm, firstTime, suppressDialog);
 }
 
 void WebUrlLoaderClient::reportSslCertError(int cert_error, net::X509Certificate* cert)
