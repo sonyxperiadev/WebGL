@@ -437,7 +437,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     // Static initialisation of certain important V8 static data gets performed at system startup when
     // libwebcore gets loaded. We now need to associate the WebCore thread with V8 to complete
     // initialisation.
-    WebCore::ScriptController::setFlags("--nocrankshaft", strlen("--nocrankshaft"));
     v8::V8::Initialize();
 #endif
 }
