@@ -31,6 +31,7 @@
 #include "ColorSpace.h"
 #include "GraphicsContext.h"
 #include "NotImplemented.h"
+#include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
@@ -53,8 +54,13 @@ ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace, RenderingMode, bool& s
     : m_data(size)
     , m_size(size)
 {
-    m_context.set(GraphicsContext::createOffscreenContext(size.width(), size.height()));
-    success = true;
+    // GraphicsContext creates a 32bpp SkBitmap, so 4 bytes per pixel.
+    if (!PlatformBridge::canSatisfyMemoryAllocation(size.width() * size.height() * 4))
+        success = false;
+    else {
+        m_context.set(GraphicsContext::createOffscreenContext(size.width(), size.height()));
+        success = true;
+    }
 }
 
 ImageBuffer::~ImageBuffer()
@@ -74,9 +80,13 @@ bool ImageBuffer::drawsUsingCopy() const
 PassRefPtr<Image> ImageBuffer::copyImage() const
 {
     ASSERT(context());
+
     SkCanvas* canvas = context()->platformContext()->mCanvas;
     SkDevice* device = canvas->getDevice();
     const SkBitmap& orig = device->accessBitmap(false);
+
+    if (!PlatformBridge::canSatisfyMemoryAllocation(orig.getSize()))
+        return 0;
 
     SkBitmap copy;
     orig.copyTo(&copy, orig.config());

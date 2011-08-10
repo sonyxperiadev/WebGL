@@ -148,6 +148,7 @@ public:
     static int highUsageDeltaMB();
     static int memoryUsageMB();
     static int actualMemoryUsageMB();
+    static bool canSatisfyMemoryAllocation(long bytes);
 
     static int screenWidthInDocCoord(const FrameView*);
     static int screenHeightInDocCoord(const FrameView*);

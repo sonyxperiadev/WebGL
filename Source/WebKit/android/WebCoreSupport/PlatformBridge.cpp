@@ -30,6 +30,7 @@
 #include "Document.h"
 #include "FileSystemClient.h"
 #include "FrameView.h"
+#include "JNIUtility.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
 #include "MemoryUsage.h"
@@ -227,6 +228,17 @@ int PlatformBridge::memoryUsageMB()
 int PlatformBridge::actualMemoryUsageMB()
 {
     return MemoryUsage::memoryUsageMb(true);
+}
+
+bool PlatformBridge::canSatisfyMemoryAllocation(long bytes)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jclass bridgeClass = env->FindClass("android/webkit/JniUtil");
+    jmethodID method = env->GetStaticMethodID(bridgeClass, "canSatisfyMemoryAllocation", "(J)Z");
+    jboolean canAllocate = env->CallStaticBooleanMethod(bridgeClass, method, static_cast<jlong>(bytes));
+    env->DeleteLocalRef(bridgeClass);
+
+    return canAllocate == JNI_TRUE;
 }
 
 }  // namespace WebCore
