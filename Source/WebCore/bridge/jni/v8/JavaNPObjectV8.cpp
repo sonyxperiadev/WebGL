@@ -137,8 +137,10 @@ bool JavaNPObjectInvoke(NPObject* obj, NPIdentifier identifier, const NPVariant*
             break;
         }
     }
-    if (!jMethod)
+    if (!jMethod) {
+        instance->end();
         return false;
+    }
 
     JavaValue* jArgs = new JavaValue[argCount];
     for (unsigned int i = 0; i < argCount; i++)
@@ -181,8 +183,10 @@ bool JavaNPObjectGetProperty(NPObject* obj, NPIdentifier identifier, NPVariant* 
     instance->begin();
     JavaField* field = instance->getClass()->fieldNamed(name);
     free(name); // TODO: use NPN_MemFree
-    if (!field)
+    if (!field) {
+        instance->end();
         return false;
+    }
 
 #if PLATFORM(ANDROID)
     // JSC does not seem to support returning object properties so we emulate that

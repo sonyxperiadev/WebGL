@@ -1799,10 +1799,7 @@ private:
     }
     ~WeakJavaInstance()
     {
-        // TODO: Check whether it's OK for calls to begin() and end() to be unbalanced.
-        // See b/5006441
-        if (m_beginEndDepth)
-            LOGW("Unbalanced calls to WeakJavaInstance::begin() / end()");
+        LOG_ASSERT(!m_beginEndDepth, "Unbalanced calls to WeakJavaInstance::begin() / end()");
         JNIEnv* env = getJNIEnv();
         // The JavaInstance destructor attempts to delete the global ref stored
         // in m_instance. Since we replaced it in our constructor with a weak
