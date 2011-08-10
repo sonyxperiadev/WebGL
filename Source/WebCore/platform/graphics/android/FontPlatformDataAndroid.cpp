@@ -127,6 +127,17 @@ FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
     trace(5);
 }
 
+FontPlatformData::FontPlatformData(const FontPlatformData& src, SkTypeface* tf)
+    : mTypeface(tf), mTextSize(src.mTextSize), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic)
+{
+    if (hashTableDeletedFontValue() != mTypeface) {
+        SkSafeRef(mTypeface);
+    }
+
+    inc_count();
+    trace(6);
+}
+
 FontPlatformData::~FontPlatformData()
 {
     dec_count();
