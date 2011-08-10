@@ -104,19 +104,10 @@ void MediaTexture::drawContent(const TransformationMatrix& matrix)
 
     m_surfaceTexture->updateTexImage();
 
-    sp<GraphicBuffer> buf = m_surfaceTexture->getCurrentBuffer();
-    PixelFormat f = buf->getPixelFormat();
-
-    // only attempt to use alpha blending if alpha channel exists
-    bool forceAlphaBlending = !(
-        PIXEL_FORMAT_RGBX_8888 == f ||
-        PIXEL_FORMAT_RGB_888 == f ||
-        PIXEL_FORMAT_RGB_565 == f ||
-        PIXEL_FORMAT_RGB_332 == f);
-
+    bool forceBlending = ANativeWindow_getFormat(m_surfaceTextureClient.get()) == WINDOW_FORMAT_RGB_565;
     TilesManager::instance()->shader()->drawLayerQuad(matrix, m_dimensions,
                                                       m_textureId, 1.0f,
-                                                      forceAlphaBlending, GL_TEXTURE_EXTERNAL_OES);
+                                                      forceBlending, GL_TEXTURE_EXTERNAL_OES);
 }
 
 void MediaTexture::drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds)
