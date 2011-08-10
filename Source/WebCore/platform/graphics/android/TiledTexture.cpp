@@ -63,8 +63,8 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
     IntRect visibleArea = m_surface->visibleArea();
     IntRect area(visibleArea.x() * m_surface->scale(),
                  visibleArea.y() * m_surface->scale(),
-                 visibleArea.width() * m_surface->scale(),
-                 visibleArea.height() * m_surface->scale());
+                 ceilf(visibleArea.width() * m_surface->scale()),
+                 ceilf(visibleArea.height() * m_surface->scale()));
 
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
@@ -82,16 +82,16 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
 
     m_area.setX(area.x() / tileWidth);
     m_area.setY(area.y() / tileHeight);
-    m_area.setWidth(area.width() / tileWidth);
-    m_area.setHeight(area.height() / tileHeight);
+    float right = (area.x() + area.width()) / (float) tileWidth;
+    float bottom = (area.y() + area.height()) / (float) tileHeight;
+    m_area.setWidth(ceilf(right) - m_area.x());
+    m_area.setHeight(ceilf(bottom) - m_area.y());
 
-    if (m_area.width() * tileWidth < area.width())
-        m_area.setWidth(m_area.width() + 1);
-    if (m_area.height() * tileHeight < area.height())
-        m_area.setHeight(m_area.height() + 1);
-
-    XLOG("for TiledTexture %x, we have a visible area of %d x %d, corresponding to %d x %d tiles",
-         this, visibleArea.width(), visibleArea.height(),
+    XLOG("for TiledTexture %x, we have a visible area of %d, %d - %d x %d, corresponding to %d, %d x - %d x %d tiles",
+         this,
+         visibleArea.x(), visibleArea.y(),
+         visibleArea.width(), visibleArea.height(),
+         m_area.x(), m_area.y(),
          m_area.width(), m_area.height());
 
     bool goingDown = m_prevTileY < m_area.y();
