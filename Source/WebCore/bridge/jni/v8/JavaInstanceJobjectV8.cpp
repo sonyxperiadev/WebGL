@@ -37,6 +37,7 @@
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 using namespace JSC::Bindings;
 
@@ -75,10 +76,30 @@ JavaValue JavaInstanceJobject::invokeMethod(const JavaMethod* method, JavaValue*
     return jvalueToJavaValue(result, method->returnType());
 }
 
+static void appendClassName(StringBuilder& builder, const char* className)
+{
+    char* c = fastStrDup(className);
+    char* result = c;
+    while (*c) {
+        if (*c == '.')
+            *c = '/';
+        c++;
+    }
+    builder.append(result);
+    fastFree(result);
+}
+
 JavaValue JavaInstanceJobject::getField(const JavaField* field)
 {
     ASSERT(getClass()->fieldNamed(field->name().utf8().data()) == field);
-    return jvalueToJavaValue(getJNIField(javaInstance(), field->type(), field->name().utf8().data(), field->typeClassName()), field->type());
+
+    StringBuilder signature;
+    signature.append(signatureFromJavaType(field->type()));
+    if (field->type() == JavaTypeObject || field->type() == JavaTypeString) {
+        appendClassName(signature, field->typeClassName());
+        signature.append(';');
+    }
+    return jvalueToJavaValue(getJNIField(javaInstance(), field->type(), field->name().utf8().data(), signature.toString().utf8().data()), field->type());
 }
 
 #endif // ENABLE(JAVA_BRIDGE)
