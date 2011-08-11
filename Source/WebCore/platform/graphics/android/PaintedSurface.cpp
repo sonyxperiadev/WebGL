@@ -60,6 +60,7 @@ void PaintedSurface::removeLayer(LayerAndroid* layer)
     android::Mutex::Autolock lock(m_layerLock);
     if (m_layer != layer)
         return;
+    SkSafeUnref(m_layer);
     m_layer = 0;
 }
 
@@ -72,6 +73,8 @@ void PaintedSurface::replaceLayer(LayerAndroid* layer)
     if (m_layer && layer->uniqueId() != m_layer->uniqueId())
         return;
 
+    SkSafeRef(layer);
+    SkSafeUnref(m_layer);
     m_layer = layer;
 }
 
@@ -140,6 +143,7 @@ bool PaintedSurface::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictu
 {
     m_layerLock.lock();
     LayerAndroid* layer = m_layer;
+    SkSafeRef(layer);
     m_layerLock.unlock();
 
     if (!layer)
@@ -148,6 +152,7 @@ bool PaintedSurface::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictu
     layer->contentDraw(canvas);
     m_pictureUsed = layer->pictureUsed();
     *pictureUsed = m_pictureUsed;
+    SkSafeUnref(layer);
 
     return true;
 }
@@ -156,10 +161,13 @@ void PaintedSurface::paintExtra(SkCanvas* canvas)
 {
     m_layerLock.lock();
     LayerAndroid* layer = m_layer;
+    SkSafeRef(layer);
     m_layerLock.unlock();
 
     if (layer)
         layer->extraDraw(canvas);
+
+    SkSafeUnref(layer);
 }
 
 float PaintedSurface::opacity() {

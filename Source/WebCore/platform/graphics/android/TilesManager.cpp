@@ -189,8 +189,22 @@ void TilesManager::resetTextureUsage(TiledPage* page)
 
 void TilesManager::swapLayersTextures(LayerAndroid* oldTree, LayerAndroid* newTree)
 {
+    if (oldTree)
+        oldTree->assignTextureTo(newTree);
+
     if (newTree)
-        newTree->assignTexture(oldTree);
+        newTree->createTexture();
+
+    WTF::Vector<PaintedSurface*> collect;
+    for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
+        PaintedSurface* surface = m_paintedSurfaces[i];
+        if (!surface->layer())
+            collect.append(surface);
+    }
+    for (unsigned int i = 0; i < collect.size(); i++) {
+        m_paintedSurfaces.remove(m_paintedSurfaces.find(collect[i]));
+        SkSafeUnref(collect[i]);
+    }
 }
 
 void TilesManager::addPaintedSurface(PaintedSurface* surface)
