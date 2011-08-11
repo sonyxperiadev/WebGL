@@ -79,7 +79,19 @@ HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc
     , m_size(DefaultWidth, DefaultHeight)
     , m_rendererIsCanvas(false)
     , m_ignoreReset(false)
+#ifdef ANDROID
+    /* In Android we capture the drawing into a displayList, and then
+       replay that list at various scale factors (sometimes zoomed out, other
+       times zoomed in for "normal" reading, yet other times at arbitrary
+       zoom values based on the user's choice). In all of these cases, we do
+       not re-record the displayList, hence it is usually harmful to perform
+       any pre-rounding, since we just don't know the actual drawing resolution
+       at record time.
+    */
+    , m_pageScaleFactor(1)
+#else
     , m_pageScaleFactor(document->frame() ? document->frame()->page()->chrome()->scaleFactor() : 1)
+#endif
     , m_originClean(true)
     , m_hasCreatedImageBuffer(false)
 {
