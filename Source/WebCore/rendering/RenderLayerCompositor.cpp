@@ -621,10 +621,10 @@ bool RenderLayerCompositor::overlapsCompositedLayers(OverlapMap& overlapMap, con
 //
 bool RenderLayerCompositor::checkForFixedLayers(Vector<RenderLayer*>* list, bool stopAtFixedLayer)
 {
-    size_t listSize = list->size();
+    int listSize = list->size();
     int haveFixedLayer = -1;
     bool fixedSibling = false;
-    for (size_t j = 0; j < listSize; ++j) {
+    for (int j = 0; j < listSize; ++j) {
         RenderLayer* currentLayer = list->at(j);
         if (currentLayer->isFixed() && needsToBeComposited(currentLayer)) {
             haveFixedLayer = j;
@@ -644,7 +644,7 @@ bool RenderLayerCompositor::checkForFixedLayers(Vector<RenderLayer*>* list, bool
             if (stopAtFixedLayer)
                 stop = haveFixedLayer + 1;
 
-            for (size_t k = j - 1; k >= stop; --k) {
+            for (int k = j - 1; k >= stop; --k) {
                 RenderLayer* aLayer = list->at(k);
                 if (aLayer && aLayer->renderer()) {
                     IntRect bounds = aLayer->renderer()->localToAbsoluteQuad(
