@@ -706,23 +706,38 @@ void LayerAndroid::showLayer(int indent)
         this->getChild(i)->showLayer(indent + 1);
 }
 
-void LayerAndroid::assignTexture(LayerAndroid* oldTree)
+// We go through our tree, and if we have layer in the new
+// tree that is similar, we tranfer our texture to it.
+// Otherwise, we remove ourselves from the texture so
+// that TilesManager::swapLayersTextures() have a chance
+// at deallocating the textures (PaintedSurfaces)
+void LayerAndroid::assignTextureTo(LayerAndroid* newTree)
 {
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
-        this->getChild(i)->assignTexture(oldTree);
+        this->getChild(i)->assignTextureTo(newTree);
 
-    if (oldTree) {
-        LayerAndroid* oldLayer = oldTree->findById(uniqueId());
-        if (oldLayer == this)
+    if (newTree) {
+        LayerAndroid* newLayer = newTree->findById(uniqueId());
+        if (newLayer == this)
             return;
-
-        if (oldLayer && oldLayer->texture()) {
-            oldLayer->texture()->replaceLayer(this);
-            m_texture = oldLayer->texture();
-            SkSafeRef(m_texture);
+        if (newLayer && m_texture) {
+            m_texture->replaceLayer(newLayer);
+            newLayer->m_texture = m_texture;
+            SkSafeRef(newLayer->m_texture);
+        }
+        if (!newLayer && m_texture) {
+            m_texture->removeLayer(this);
+            m_texture = 0;
         }
     }
+}
+
+void LayerAndroid::createTexture()
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->createTexture();
 
     if (needsTexture() && !m_texture)
         m_texture = new PaintedSurface(this);

@@ -252,7 +252,8 @@ public:
     friend LayerAndroid* android::deserializeLayer(SkStream* stream);
 
     PaintedSurface* texture() { return m_texture; }
-    void assignTexture(LayerAndroid* oldTree);
+    void assignTextureTo(LayerAndroid* newTree);
+    void createTexture();
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
