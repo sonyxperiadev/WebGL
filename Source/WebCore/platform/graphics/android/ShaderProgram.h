@@ -110,8 +110,6 @@ private:
 
     int m_program;
     int m_videoProgram;
-    int m_surfTex2DProgram;
-    int m_surfTex2DProgramInverted;
     int m_surfTexOESProgram;
     int m_surfTexOESProgramInverted;
 
@@ -134,16 +132,6 @@ private:
     int m_hVideoProjectionMatrix;
     int m_hVideoTextureMatrix;
     int m_hVideoTexSampler;
-
-    GLint m_hST2DProjectionMatrix;
-    GLint m_hST2DAlpha;
-    GLint m_hST2DTexSampler;
-    GLint m_hST2DPosition;
-
-    GLint m_hST2DProjectionMatrixInverted;
-    GLint m_hST2DAlphaInverted;
-    GLint m_hST2DTexSamplerInverted;
-    GLint m_hST2DPositionInverted;
 
     GLint m_hSTOESProjectionMatrix;
     GLint m_hSTOESAlpha;

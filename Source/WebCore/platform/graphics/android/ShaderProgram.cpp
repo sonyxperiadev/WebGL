@@ -81,37 +81,6 @@ static const char gVideoFragmentShader[] =
     "  gl_FragColor = texture2D(s_yuvTexture, v_texCoord);\n"
     "}\n";
 
-// In the long run, the gSurfaceTextureOESFragmentShader is the official way of
-// doing Surface Texture for RGBA format.
-// Now since the driver is not ready for it yet, we had to support both to be
-// ready for the switch.
-// TODO: remove SurfaceTexture2D support after switching to OES method.
-static const char gSurfaceTexture2DFragmentShader[] =
-    "#extension GL_OES_EGL_image_external : require\n"
-    "precision mediump float;\n"
-    "varying vec2 v_texCoord; \n"
-    "uniform float alpha; \n"
-    "uniform sampler2D s_texture; \n"
-    "void main() {\n"
-    "  gl_FragColor = texture2D(s_texture, v_texCoord); \n"
-    "  gl_FragColor *= alpha; "
-    "}\n";
-
-static const char gSurfaceTexture2DFragmentShaderInverted[] =
-    "#extension GL_OES_EGL_image_external : require\n"
-    "precision mediump float;\n"
-    "varying vec2 v_texCoord; \n"
-    "uniform float alpha; \n"
-    "uniform sampler2D s_texture; \n"
-    "void main() {\n"
-    "  gl_FragColor = texture2D(s_texture, v_texCoord); \n"
-    "  float color = 1.0 - (gl_FragColor.r + gl_FragColor.g + gl_FragColor.b) / 3.0; \n"
-    "  gl_FragColor.r = color; \n"
-    "  gl_FragColor.g = color; \n"
-    "  gl_FragColor.b = color; \n"
-    "  gl_FragColor *= alpha; "
-    "}\n";
-
 static const char gSurfaceTextureOESFragmentShader[] =
     "#extension GL_OES_EGL_image_external : require\n"
     "precision mediump float;\n"
@@ -218,10 +187,6 @@ void ShaderProgram::init()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
     m_videoProgram = createProgram(gVideoVertexShader, gVideoFragmentShader);
-    m_surfTex2DProgram =
-        createProgram(gVertexShader, gSurfaceTexture2DFragmentShader);
-    m_surfTex2DProgramInverted =
-        createProgram(gVertexShader, gSurfaceTexture2DFragmentShaderInverted);
     m_surfTexOESProgram =
         createProgram(gVertexShader, gSurfaceTextureOESFragmentShader);
     m_surfTexOESProgramInverted =
@@ -229,8 +194,6 @@ void ShaderProgram::init()
 
     if (m_program == -1
         || m_videoProgram == -1
-        || m_surfTex2DProgram == -1
-        || m_surfTex2DProgramInverted == -1
         || m_surfTexOESProgram == -1
         || m_surfTexOESProgramInverted == -1)
         return;
@@ -245,18 +208,6 @@ void ShaderProgram::init()
     m_hVideoTextureMatrix = glGetUniformLocation(m_videoProgram, "textureMatrix");
     m_hVideoTexSampler = glGetUniformLocation(m_videoProgram, "s_yuvTexture");
     m_hVideoPosition = glGetAttribLocation(m_program, "vPosition");
-
-    m_hST2DProjectionMatrix =
-        glGetUniformLocation(m_surfTex2DProgram, "projectionMatrix");
-    m_hST2DAlpha = glGetUniformLocation(m_surfTex2DProgram, "alpha");
-    m_hST2DTexSampler = glGetUniformLocation(m_surfTex2DProgram, "s_texture");
-    m_hST2DPosition = glGetAttribLocation(m_surfTex2DProgram, "vPosition");
-
-    m_hST2DProjectionMatrixInverted =
-        glGetUniformLocation(m_surfTex2DProgramInverted, "projectionMatrix");
-    m_hST2DAlphaInverted = glGetUniformLocation(m_surfTex2DProgramInverted, "alpha");
-    m_hST2DTexSamplerInverted = glGetUniformLocation(m_surfTex2DProgramInverted, "s_texture");
-    m_hST2DPositionInverted = glGetAttribLocation(m_surfTex2DProgramInverted, "vPosition");
 
     m_hSTOESProjectionMatrix =
         glGetUniformLocation(m_surfTexOESProgram, "projectionMatrix");
@@ -399,18 +350,6 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
                          m_hSTOESTexSamplerInverted, GL_TEXTURE_EXTERNAL_OES,
                          m_hSTOESPositionInverted, m_hSTOESAlphaInverted,
                          m_hSTOESContrastInverted);
-    } else if (!textureTarget
-               && !TilesManager::instance()->invertedScreen()) {
-        drawQuadInternal(geometry, textureId, opacity, m_surfTex2DProgram,
-                         m_hST2DProjectionMatrix,
-                         m_hST2DTexSampler, GL_TEXTURE_2D,
-                         m_hST2DPosition, m_hST2DAlpha);
-    } else if (!textureTarget
-               && TilesManager::instance()->invertedScreen()) {
-        drawQuadInternal(geometry, textureId, opacity, m_surfTex2DProgramInverted,
-                         m_hST2DProjectionMatrixInverted,
-                         m_hST2DTexSamplerInverted, GL_TEXTURE_2D,
-                         m_hST2DPositionInverted, m_hST2DAlphaInverted);
     }
     GLUtils::checkGlError("drawQuad");
 }
@@ -597,18 +536,6 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
                               m_hSTOESProjectionMatrixInverted, m_hSTOESTexSamplerInverted,
                               m_hSTOESPositionInverted, m_hSTOESAlphaInverted,
                               m_hSTOESContrastInverted);
-    } else if (!textureTarget
-               && !TilesManager::instance()->invertedScreen()) {
-        drawLayerQuadInternal(projectionMatrix, textureId, opacity,
-                              GL_TEXTURE_2D, m_surfTex2DProgram,
-                              m_hST2DProjectionMatrix, m_hST2DTexSampler,
-                              m_hST2DPosition, m_hST2DAlpha);
-    } else if (!textureTarget
-               && TilesManager::instance()->invertedScreen()) {
-        drawLayerQuadInternal(projectionMatrix, textureId, opacity,
-                              GL_TEXTURE_2D, m_surfTex2DProgramInverted,
-                              m_hST2DProjectionMatrixInverted, m_hST2DTexSamplerInverted,
-                              m_hST2DPositionInverted, m_hST2DAlphaInverted);
     }
 
     setBlendingState(forceBlending || opacity < 1.0);
