@@ -120,6 +120,11 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
     SkCanvas canvas;
     setupCanvas(renderInfo, &canvas);
 
+    if (!canvas.getDevice()) {
+        XLOG("Error: No Device");
+        return 0;
+    }
+
     if (visualIndicator)
         canvas.save();
 

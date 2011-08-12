@@ -85,14 +85,25 @@ void GaneshContext::flush()
 
 SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
 {
+    // Ganesh should be the only code in the rendering thread that is using GL
+    // and setting the EGLContext.  If this is not the case then we need to
+    // reset the Ganesh context to prevent rendering issues.
+    bool contextNeedsReset = false;
+    if (eglGetCurrentContext() != m_surfaceContext) {
+        XLOG("Warning: EGLContext has Changed! %p, %p", m_surfaceContext,
+                                                        eglGetCurrentContext());
+        contextNeedsReset = true;
+    }
+
     SkDevice* device = 0;
     if (renderInfo.textureInfo->getSharedTextureMode() == SurfaceTextureMode)
         device = getDeviceForBaseTileSurface(renderInfo);
     else if (renderInfo.textureInfo->getSharedTextureMode() == EglImageMode)
         device = getDeviceForBaseTileFBO(renderInfo);
 
-    // TODO only need to reset if others are sharing our context
-    if (device)
+    // We must reset the Ganesh context only after we are sure we have
+    // re-established our EGLContext as the current context.
+    if (device && contextNeedsReset)
         getGrContext()->resetContext();
 
     return device;
@@ -100,10 +111,21 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
 
 SkDevice* GaneshContext::getDeviceForBaseTileSurface(const TileRenderInfo& renderInfo)
 {
-    EGLDisplay display = eglGetCurrentDisplay();
-    GLUtils::checkEglError("eglGetCurrentDisplay");
+    EGLDisplay display;
 
     if (!m_surfaceContext) {
+
+        if(eglGetCurrentContext() != EGL_NO_CONTEXT) {
+            XLOG("ERROR: should not have a context yet");
+        }
+
+        display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        GLUtils::checkEglError("eglGetDisplay");
+
+        EGLint majorVersion;
+        EGLint minorVersion;
+        EGLBoolean returnValue = eglInitialize(display, &majorVersion, &minorVersion);
+        GLUtils::checkEglError("eglInitialize", returnValue);
 
         EGLint numConfigs;
         static const EGLint configAttribs[] = {
@@ -126,26 +148,32 @@ SkDevice* GaneshContext::getDeviceForBaseTileSurface(const TileRenderInfo& rende
 
         m_surfaceContext = eglCreateContext(display, m_surfaceConfig, NULL, contextAttribs);
         GLUtils::checkEglError("eglCreateContext");
+    } else {
+        display = eglGetCurrentDisplay();
+        GLUtils::checkEglError("eglGetCurrentDisplay");
     }
 
-    if (renderInfo.textureInfo->m_eglSurface == EGL_NO_SURFACE) {
+    TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
+
+    if (tileQueue->m_eglSurface == EGL_NO_SURFACE) {
 
         const float tileWidth = renderInfo.tileSize.width();
         const float tileHeight = renderInfo.tileSize.height();
-        ANativeWindow* anw = renderInfo.textureInfo->m_ANW.get();
+
+        ANativeWindow* anw = tileQueue->m_ANW.get();
 
         int result = ANativeWindow_setBuffersGeometry(anw, (int)tileWidth,
                 (int)tileHeight, WINDOW_FORMAT_RGBA_8888);
 
         renderInfo.textureInfo->m_width = tileWidth;
         renderInfo.textureInfo->m_height = tileHeight;
-        renderInfo.textureInfo->m_eglSurface = eglCreateWindowSurface(display, m_surfaceConfig, anw, NULL);
+        tileQueue->m_eglSurface = eglCreateWindowSurface(display, m_surfaceConfig, anw, NULL);
 
         GLUtils::checkEglError("eglCreateWindowSurface");
         XLOG("eglCreateWindowSurface");
     }
 
-    EGLBoolean returnValue = eglMakeCurrent(display, renderInfo.textureInfo->m_eglSurface, renderInfo.textureInfo->m_eglSurface, m_surfaceContext);
+    EGLBoolean returnValue = eglMakeCurrent(display, tileQueue->m_eglSurface, tileQueue->m_eglSurface, m_surfaceContext);
     GLUtils::checkEglError("eglMakeCurrent", returnValue);
     XLOG("eglMakeCurrent");
 

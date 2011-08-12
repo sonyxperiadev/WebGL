@@ -84,6 +84,21 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 
     GaneshContext* ganesh = GaneshContext::instance();
 
+#if !DEPRECATED_SURFACE_TEXTURE_MODE
+    if (renderInfo.textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
+        TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
+
+        tileQueue->lockQueue();
+
+        bool ready = tileQueue->readyForUpdate();
+        if (!ready) {
+            XLOG("!ready");
+            tileQueue->unlockQueue();
+            return;
+        }
+    }
+#endif
+
     SkDevice* device = NULL;
     if (renderInfo.tileSize.width() == TilesManager::tileWidth()
             && renderInfo.tileSize.height() == TilesManager::tileHeight()) {
@@ -102,6 +117,7 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 
     // set the GPU device to the canvas
     canvas->setDevice(device);
+    canvas->setDeviceFactory(device->getDeviceFactory());
 
     // invert canvas contents
     if (renderInfo.textureInfo->getSharedTextureMode() == EglImageMode) {
@@ -134,7 +150,12 @@ void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
     // In SurfaceTextureMode we must call swapBuffers to unlock and post the
     // tile's ANativeWindow (i.e. SurfaceTexture) buffer
     if (renderInfo.textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
-        eglSwapBuffers(eglGetCurrentDisplay(), renderInfo.textureInfo->m_eglSurface);
+#if !DEPRECATED_SURFACE_TEXTURE_MODE
+        TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
+        eglSwapBuffers(eglGetCurrentDisplay(), tileQueue->m_eglSurface);
+        tileQueue->addItemInTransferQueue(&renderInfo);
+        tileQueue->unlockQueue();
+#endif
     }
 
     if (renderInfo.measurePerf)

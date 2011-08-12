@@ -63,11 +63,18 @@ public:
     bool readyForUpdate();
 
     void interruptTransferQueue(bool);
+
+    void lockQueue() { m_transferQueueItemLocks.lock(); }
+    void unlockQueue() { m_transferQueueItemLocks.unlock(); }
+
     // This queue can be accessed from UI and TexGen thread, therefore, we need
     // a lock to protect its access
     TileTransferData* m_transferQueue;
 
     sp<ANativeWindow> m_ANW;
+
+    // EGL wrapper around m_ANW for use by the GaneshRenderer
+    EGLSurface m_eglSurface;
 
 private:
     bool getHasGLContext();

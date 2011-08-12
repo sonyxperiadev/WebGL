@@ -82,6 +82,8 @@ SharedTexture* DoubleBufferedTexture::getReadableTexture()
 
 EGLContext DoubleBufferedTexture::producerAcquireContext()
 {
+    if (m_sharedTextureMode == SurfaceTextureMode)
+        return EGL_NO_CONTEXT;
 
     if (m_pContext != EGL_NO_CONTEXT) {
         LOGV("AquireContext has previously generated a context.\n");
