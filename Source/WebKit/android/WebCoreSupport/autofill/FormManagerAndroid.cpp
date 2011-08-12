@@ -116,7 +116,7 @@ bool IsOptionElement(Element& element) {
 
 bool IsAutofillableElement(const HTMLFormControlElement& element) {
     HTMLInputElement* html_input_element = HTMLFormControlElementToHTMLInputElement(element);
-    return html_input_element && IsTextInput(html_input_element) || IsSelectElement(element);
+    return (html_input_element && IsTextInput(html_input_element)) || IsSelectElement(element);
 }
 
 // This is a helper function for the FindChildText() function (see below).
