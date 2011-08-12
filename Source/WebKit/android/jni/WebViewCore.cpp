@@ -912,6 +912,7 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
         LayerAndroid* copyLayer = new LayerAndroid(*root->contentLayer());
         base->addChild(copyLayer);
         copyLayer->unref();
+        root->contentLayer()->clearDirtyRegion();
     }
 #endif
 

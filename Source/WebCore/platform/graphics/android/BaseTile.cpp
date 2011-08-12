@@ -66,7 +66,7 @@ BaseTile::BaseTile(bool isLayerTile)
     , m_repaintPending(false)
     , m_usable(true)
     , m_lastDirtyPicture(0)
-    , m_lastPaintedPicture(0)
+    , m_isTexturePainted(false)
     , m_isLayerTile(isLayerTile)
 {
 #ifdef DEBUG_COUNT
@@ -128,7 +128,7 @@ void BaseTile::reserveTexture()
 
     android::AutoMutex lock(m_atomicSync);
     if (texture && m_texture != texture) {
-        m_lastPaintedPicture = 0;
+        m_isTexturePainted = false;
         fullInval();
     }
     m_texture = texture;
@@ -158,6 +158,8 @@ void BaseTile::fullInval()
 void BaseTile::markAsDirty(int unsigned pictureCount,
                            const SkRegion& dirtyArea)
 {
+    if (dirtyArea.isEmpty())
+        return;
     android::AutoMutex lock(m_atomicSync);
     m_lastDirtyPicture = pictureCount;
     for (int i = 0; i < m_maxBufferNumber; i++)
@@ -220,7 +222,7 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
     // Early return if set to un-usable in purpose!
     m_atomicSync.lock();
     bool usable = m_usable;
-    bool isTexturePainted = m_lastPaintedPicture;
+    bool isTexturePainted = m_isTexturePainted;
     m_atomicSync.unlock();
     if (!usable) {
         XLOG("early return at BaseTile::draw b/c tile set to unusable !");
@@ -271,6 +273,26 @@ bool BaseTile::isTileReady()
 
     m_dirty = true;
     return false;
+}
+
+bool BaseTile::intersectWithRect(int x, int y, int tileWidth, int tileHeight,
+                                 float scale, const SkRect& dirtyRect,
+                                 SkRect& realTileRect)
+{
+    // compute the rect to corresponds to pixels
+    realTileRect.fLeft = x * tileWidth;
+    realTileRect.fTop = y * tileHeight;
+    realTileRect.fRight = realTileRect.fLeft + tileWidth;
+    realTileRect.fBottom = realTileRect.fTop + tileHeight;
+
+    // scale the dirtyRect for intersect computation.
+    SkRect realDirtyRect = SkRect::MakeWH(dirtyRect.width() * scale,
+                                          dirtyRect.height() * scale);
+    realDirtyRect.offset(dirtyRect.fLeft * scale, dirtyRect.fTop * scale);
+
+    if (!realTileRect.intersect(realDirtyRect))
+        return false;
+    return true;
 }
 
 // This is called from the texture generation thread
@@ -326,37 +348,29 @@ void BaseTile::paintBitmap()
 
     bool fullRepaint = false;
 
-    // TODO: Implement the partial invalidate in Surface Texture Mode
     if (m_fullRepaint[m_currentDirtyAreaIndex]
         || textureInfo->m_width != tileWidth
-        || textureInfo->m_height != tileHeight
-        || textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
+        || textureInfo->m_height != tileHeight) {
         fullRepaint = true;
     }
 
-    if (!fullRepaint) {
-        while (!cliperator.done()) {
-            SkRect dirtyRect;
-            dirtyRect.set(cliperator.rect());
+    bool surfaceTextureMode = textureInfo->getSharedTextureMode() == SurfaceTextureMode;
 
-            // compute the rect to corresponds to pixels
-            SkRect realTileRect;
-            realTileRect.fLeft = x * tileWidth;
-            realTileRect.fTop = y * tileHeight;
-            realTileRect.fRight = realTileRect.fLeft + tileWidth;
-            realTileRect.fBottom = realTileRect.fTop + tileHeight;
+    while (!fullRepaint && !cliperator.done()) {
+        SkRect realTileRect;
+        SkRect dirtyRect;
+        dirtyRect.set(cliperator.rect());
+        bool intersect = intersectWithRect(x, y, tileWidth, tileHeight,
+                                           scale, dirtyRect, realTileRect);
 
-            // scale the dirtyRect for intersect computation.
-            SkRect realDirtyRect = SkRect::MakeWH(dirtyRect.width() * scale,
-                                                  dirtyRect.height() * scale);
-            realDirtyRect.offset(dirtyRect.fLeft * scale, dirtyRect.fTop * scale);
+        // With SurfaceTexture, just repaint the entire tile if we intersect
+        // TODO: Implement the partial invalidate in Surface Texture Mode
+        if (intersect && surfaceTextureMode) {
+            fullRepaint = true;
+            break;
+        }
 
-            // set realTileRect to the intersection of itself and the dirty rect
-            if (!realTileRect.intersect(realDirtyRect)) {
-                cliperator.next();
-                continue;
-            }
-
+        if (intersect && !surfaceTextureMode) {
             // initialize finalRealRect to the rounded values of realTileRect
             SkIRect finalRealRect;
             realTileRect.roundOut(&finalRealRect);
@@ -380,11 +394,12 @@ void BaseTile::paintBitmap()
             renderInfo.measurePerf = false;
 
             pictureCount = m_renderer->renderTiledContent(renderInfo);
-
-            cliperator.next();
         }
+
+        cliperator.next();
     }
 
+    // Do a full repaint if needed
     if (fullRepaint) {
         SkIRect rect;
         rect.set(0, 0, tileWidth, tileHeight);
@@ -405,7 +420,7 @@ void BaseTile::paintBitmap()
     texture->producerReleaseAndSwap();
 
     if (texture == m_texture) {
-        m_lastPaintedPicture = pictureCount;
+        m_isTexturePainted = true;
 
         // set the fullrepaint flags
         m_fullRepaint[m_currentDirtyAreaIndex] = false;

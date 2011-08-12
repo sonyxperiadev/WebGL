@@ -264,8 +264,7 @@ bool BaseTileTexture::readyFor(BaseTile* baseTile)
         (info->m_x == baseTile->x()) &&
         (info->m_y == baseTile->y()) &&
         (info->m_scale == baseTile->scale()) &&
-        (info->m_painter == baseTile->painter()) &&
-        (info->m_picture == baseTile->lastPaintedPicture()))
+        (info->m_painter == baseTile->painter()))
         return true;
 
     XLOG("readyFor return false for tile x, y (%d %d) texId %d ,"

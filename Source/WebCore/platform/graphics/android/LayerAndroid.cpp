@@ -78,6 +78,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_preserves3D = false;
     m_dirty = false;
     m_iframeOffset.set(0,0);
+    m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid");
 #endif
@@ -120,6 +121,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_childrenTransform = layer.m_childrenTransform;
     m_dirty = layer.m_dirty;
     m_pictureUsed = layer.m_pictureUsed;
+    m_dirtyRegion = layer.m_dirtyRegion;
     m_scale = layer.m_scale;
     m_lastComputeTextureSize = 0;
 
@@ -155,6 +157,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_dirty = false;
     SkSafeRef(m_recordingPicture);
     m_iframeOffset.set(0,0);
+    m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid");
 #endif
@@ -739,13 +742,38 @@ void LayerAndroid::createTexture()
     for (int i = 0; i < count; i++)
         this->getChild(i)->createTexture();
 
-    if (needsTexture() && !m_texture)
+    if (!needsTexture())
+        return;
+
+    if (!m_texture)
         m_texture = new PaintedSurface(this);
+
+    // pass the invalidated regions to the PaintedSurface
+    m_texture->markAsDirty(m_dirtyRegion);
+    m_dirtyRegion.setEmpty();
 }
 
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 {
     return a->zValue() > b->zValue();
+}
+
+void LayerAndroid::markAsDirty(const SkRegion& dirtyArea)
+{
+    m_dirtyRegion.op(dirtyArea, SkRegion::kUnion_Op);
+}
+
+// We call this in WebViewCore, when copying the tree of layers.
+// As we construct a new tree that will be passed on the UI,
+// we mark the webkit-side tree as having no more dirty region
+// (otherwise we would continuously have those dirty region UI-side)
+void LayerAndroid::clearDirtyRegion()
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->clearDirtyRegion();
+
+    m_dirtyRegion.setEmpty();
 }
 
 bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)

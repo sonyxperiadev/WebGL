@@ -26,12 +26,13 @@
 #ifndef TiledTexture_h
 #define TiledTexture_h
 
+#include "BaseTile.h"
 #include "BaseTileTexture.h"
 #include "ClassTracker.h"
 #include "IntRect.h"
 #include "LayerAndroid.h"
+#include "SkRegion.h"
 #include "TextureOwner.h"
-#include "BaseTile.h"
 #include "TilePainter.h"
 
 class SkCanvas;
@@ -48,6 +49,7 @@ public:
         , m_prevTileY(0)
         , m_prevScale(1)
     {
+        m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
         ClassTracker::instance()->increment("TiledTexture");
 #endif
@@ -64,6 +66,7 @@ public:
     bool draw();
 
     void prepareTile(bool repaint, int x, int y);
+    void markAsDirty(const SkRegion& dirtyArea);
 
     BaseTile* getTile(int x, int y);
 
@@ -82,6 +85,7 @@ private:
     Vector<BaseTile*> m_tiles;
 
     IntRect m_area;
+    SkRegion m_dirtyRegion;
 
     int m_prevTileX;
     int m_prevTileY;

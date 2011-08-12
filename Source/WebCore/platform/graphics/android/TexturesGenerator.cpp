@@ -148,7 +148,9 @@ QueuedOperation* TexturesGenerator::popNext()
             mRequestedOperations.remove(i);
             return next;
         }
-        if (nextPriority < currentPriority) {
+        // pick items preferrably by priority, or if equal, by order of
+        // insertion (as we add items at the back of the queue)
+        if (nextPriority <= currentPriority) {
             current = next;
             currentPriority = nextPriority;
             currentIndex = i;

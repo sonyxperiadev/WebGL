@@ -228,6 +228,8 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         unsigned int max = m_tilesTextures.size();
         for (unsigned int i = 0; i < max; i++) {
             BaseTileTexture* texture = m_tilesTextures[i];
+            if (texture->owner() && texture->owner()->isRepaintPending())
+                continue;
             if (!texture->owner() && texture->acquire(owner)) {
                 return texture;
             }

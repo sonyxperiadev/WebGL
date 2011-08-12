@@ -31,6 +31,7 @@
 class FloatPoint3D;
 class Image;
 class SkBitmapRef;
+class SkRegion;
 
 namespace WebCore {
 
@@ -148,7 +149,7 @@ private:
     bool m_newImage;
     SkBitmapRef* m_imageRef; // only used to remember previously passed images
 
-    Vector<FloatRect> m_invalidatedRects;
+    SkRegion m_dirtyRegion;
 
     LayerAndroid* m_contentLayer;
     ScrollableLayerAndroid* m_foregroundLayer;
