@@ -563,20 +563,32 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     SkSafeUnref(m_previouslyUsedRoot);
     m_previouslyUsedRoot = compositedRoot;
     if (ret) {
-        FloatRect frameworkInval = TilesManager::instance()->shader()->rectInInvScreenCoord(m_frameworkInval);
-        // Inflate the invalidate rect to avoid precision lost.
-        frameworkInval.inflate(1);
-        IntRect inval(frameworkInval.x(), frameworkInval.y(), frameworkInval.width(), frameworkInval.height());
+        if (m_frameworkInval.isEmpty()) {
+            // ret==true && empty inval region means we've inval'd everything,
+            // but don't have new content. Keep redrawing full view (0,0,0,0)
+            // until tile generation catches up and we swap pages.
+            invalRect->setX(0);
+            invalRect->setY(0);
+            invalRect->setWidth(0);
+            invalRect->setHeight(0);
+        } else {
+            FloatRect frameworkInval = TilesManager::instance()->shader()->rectInInvScreenCoord(
+                    m_frameworkInval);
+            // Inflate the invalidate rect to avoid precision lost.
+            frameworkInval.inflate(1);
+            IntRect inval(frameworkInval.x(), frameworkInval.y(),
+                    frameworkInval.width(), frameworkInval.height());
 
-        inval.unite(m_frameworkLayersInval);
+            inval.unite(m_frameworkLayersInval);
 
-        invalRect->setX(inval.x());
-        invalRect->setY(inval.y());
-        invalRect->setWidth(inval.width());
-        invalRect->setHeight(inval.height());
+            invalRect->setX(inval.x());
+            invalRect->setY(inval.y());
+            invalRect->setWidth(inval.width());
+            invalRect->setHeight(inval.height());
 
-        XLOG("invalRect(%d, %d, %d, %d)", inval.x(),
-             inval.y(), inval.width(), inval.height());
+            XLOG("invalRect(%d, %d, %d, %d)", inval.x(),
+                    inval.y(), inval.width(), inval.height());
+        }
     } else {
         resetFrameworkInval();
     }
