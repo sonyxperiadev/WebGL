@@ -53,7 +53,8 @@
 namespace WebCore {
 
 TransferQueue::TransferQueue()
-    : m_transferQueueIndex(0)
+    : m_eglSurface(EGL_NO_SURFACE)
+    , m_transferQueueIndex(0)
     , m_fboID(0)
     , m_sharedSurfaceTextureId(0)
     , m_hasGLContext(true)

@@ -73,7 +73,6 @@ BaseTile::BaseTile(bool isLayerTile)
     ClassTracker::instance()->increment("BaseTile");
 #endif
     m_currentDirtyAreaIndex = 0;
-    m_renderer = new RasterRenderer();
 
     // For EglImage Mode, the internal buffer should be 2.
     // And for Async Surface Texture mode, this is 3.
