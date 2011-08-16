@@ -20,6 +20,7 @@
 #include "NinePatchPeeker.h"
 #include "SkCanvas.h"
 #include "SkImageDecoder.h"
+#include "SkNinePatch.h"
 #include "SkRect.h"
 #include "SkStream.h"
 #include "SkTemplates.h"
@@ -85,5 +86,20 @@ bool RenderSkinNinePatch::decodeAsset(AssetManager* am, const char* filename, Ni
 void RenderSkinNinePatch::DrawNinePatch(SkCanvas* canvas, const SkRect& bounds,
                                         const NinePatch& patch) {
     Res_png_9patch* data = Res_png_9patch::deserialize(patch.m_serializedPatchData);
-    NinePatch_Draw(canvas, bounds, patch.m_bitmap, *data, 0, 0);
+
+    // if the NinePatch is bigger than the destination on a given axis the default
+    // decoder will not stretch properly, therefore we fall back to skia's decoder
+    // which if needed will down-sample and draw the bitmap as best as possible.
+    if (patch.m_bitmap.width() >= bounds.width() || patch.m_bitmap.height() >= bounds.height()) {
+
+        SkPaint defaultPaint;
+        // matches default dither in NinePatchDrawable.java.
+        defaultPaint.setDither(true);
+        SkNinePatch::DrawMesh(canvas, bounds, patch.m_bitmap,
+                              data->xDivs, data->numXDivs,
+                              data->yDivs, data->numYDivs,
+                              &defaultPaint);
+    } else {
+        NinePatch_Draw(canvas, bounds, patch.m_bitmap, *data, 0, 0);
+    }
 }
