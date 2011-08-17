@@ -106,17 +106,10 @@ public:
     static float tileHeight();
     static float layerTileWidth();
     static float layerTileHeight();
-    int expandedTileBoundsX();
-    int expandedTileBoundsY();
     void registerGLWebViewState(GLWebViewState* state);
     void unregisterGLWebViewState(GLWebViewState* state);
 
     void allocateTiles();
-
-    void setExpandedTileBounds(bool enabled)
-    {
-        m_expandedTileBounds = enabled;
-    }
 
     bool getShowVisualIndicator()
     {
@@ -175,7 +168,6 @@ private:
     unsigned int m_layersMemoryUsage;
 
     int m_maxTextureCount;
-    bool m_expandedTileBounds;
 
     bool m_generatorReady;
 

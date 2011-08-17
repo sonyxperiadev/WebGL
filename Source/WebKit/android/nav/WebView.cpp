@@ -2608,11 +2608,6 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
     return false;
 }
 
-static void nativeSetExpandedTileBounds(JNIEnv*, jobject, jboolean enabled)
-{
-    TilesManager::instance()->setExpandedTileBounds(enabled);
-}
-
 static void nativeUseHardwareAccelSkia(JNIEnv*, jobject, jboolean enabled)
 {
     BaseRenderer::setCurrentRendererType(enabled ? BaseRenderer::Ganesh : BaseRenderer::Raster);
@@ -2827,8 +2822,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeScrollableLayer },
     { "nativeScrollLayer", "(III)Z",
         (void*) nativeScrollLayer },
-    { "nativeSetExpandedTileBounds", "(Z)V",
-        (void*) nativeSetExpandedTileBounds },
     { "nativeUseHardwareAccelSkia", "(Z)V",
         (void*) nativeUseHardwareAccelSkia },
     { "nativeGetBackgroundColor", "()I",

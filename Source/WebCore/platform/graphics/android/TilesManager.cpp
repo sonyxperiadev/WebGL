@@ -58,19 +58,8 @@
 
 #endif // DEBUG
 
-// Important: We need at least twice as much textures as is needed to cover
-// one viewport, otherwise the allocation may stall.
-// We need n textures for one TiledPage, and another n textures for the
-// second page used when scaling.
-// In our case, we use 300x300 textures. On the tablet, this equates to
-// at least 24 textures. That is consuming almost 50MB GPU memory.
-// 24*300*300*4(bpp)*2(pages)*3(triple buffering in Surface Texture) = 49.4MB
-// In order to avoid OOM issue, we limit the bounds number to 0 for now.
-// TODO: We should either dynamically change the outer bound by detecting the
-// HW limit or save further in the GPU memory consumption.
-#define EXPANDED_TILE_BOUNDS_X 0
-#define EXPANDED_TILE_BOUNDS_Y 0
-#define MAX_TEXTURE_ALLOCATION 3+(6+EXPANDED_TILE_BOUNDS_X*2)*(4+EXPANDED_TILE_BOUNDS_Y*2)*2
+// Number of tiles for base layer
+#define MAX_TEXTURE_ALLOCATION 51
 #define TILE_WIDTH 256
 #define TILE_HEIGHT 256
 #define LAYER_TILE_WIDTH 256
@@ -101,7 +90,6 @@ int TilesManager::getMaxTextureAllocation()
 TilesManager::TilesManager()
     : m_layersMemoryUsage(0)
     , m_maxTextureCount(0)
-    , m_expandedTileBounds(false)
     , m_generatorReady(false)
     , m_showVisualIndicator(false)
     , m_invertedScreen(false)
@@ -340,14 +328,6 @@ float TilesManager::layerTileWidth()
 float TilesManager::layerTileHeight()
 {
     return LAYER_TILE_HEIGHT;
-}
-
-int TilesManager::expandedTileBoundsX() {
-    return m_expandedTileBounds ? EXPANDED_TILE_BOUNDS_X : 0;
-}
-
-int TilesManager::expandedTileBoundsY() {
-    return m_expandedTileBounds ? EXPANDED_TILE_BOUNDS_Y : 0;
 }
 
 void TilesManager::registerGLWebViewState(GLWebViewState* state)
