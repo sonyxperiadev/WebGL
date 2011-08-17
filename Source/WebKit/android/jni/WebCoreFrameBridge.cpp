@@ -843,12 +843,6 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     if (equalIgnoringCase(request.httpMethod(), "POST"))
         return true;
     const WebCore::KURL& requestUrl = request.url();
-    bool isUserGesture = UserGestureIndicator::processingUserGesture();
-    if (!mUserInitiatedAction && !isUserGesture &&
-            (requestUrl.protocolIs("http") || requestUrl.protocolIs("https") ||
-            requestUrl.protocolIs("file") || requestUrl.protocolIs("about") ||
-            WebCore::protocolIsJavaScript(requestUrl.string())))
-        return true;
     const WTF::String& url = requestUrl.string();
     // Empty urls should not be sent to java
     if (url.isEmpty())
