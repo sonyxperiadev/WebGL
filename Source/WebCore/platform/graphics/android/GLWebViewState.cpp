@@ -65,8 +65,8 @@ using namespace android;
 
 GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     : m_scaleRequestState(kNoScaleRequest)
-    , m_currentScale(1)
-    , m_futureScale(1)
+    , m_currentScale(-1)
+    , m_futureScale(-1)
     , m_updateTime(-1)
     , m_transitionTime(-1)
     , m_baseLayer(0)
