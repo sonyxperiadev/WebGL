@@ -52,7 +52,9 @@ public:
 
     enum Resolution {
         MedRes,
-        HighRes
+        HighRes,
+        ExtraHighRes,
+        ResolutionCount // Keep at the end
     };
 
     RenderSkinAndroid(String drawableDirectory);

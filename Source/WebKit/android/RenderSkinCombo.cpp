@@ -44,12 +44,12 @@ namespace WebCore {
 // excluded and just the arrow drawn.
 enum BorderStyle {
     FullAsset,
-    NoBorder
+    NoBorder,
+    BorderStyleCount // Keep at the end.
 };
 
 // There are 2.5 different concepts of a 'border' here, which results
-// in rather a lot of magic constants. In each case, there are 2
-// numbers, one for medium res and one for high-res. All sizes are in pixels.
+// in rather a lot of magic constants.
 
 // Firstly, we have the extra padding that webkit needs to know about,
 // which defines how much bigger this element is made by the
@@ -57,17 +57,35 @@ enum BorderStyle {
 // asset, to make things look less cramped. The border is the same
 // width on all sides, except on the right when it's significantly
 // wider to allow for the arrow.
-const int RenderSkinCombo::arrowMargin[2] = {22, 34};
-const int RenderSkinCombo::padMargin[2] = {2, 5};
+const int RenderSkinCombo::arrowMargin[ResolutionCount] = {
+    22, // Medium resolution
+    34, // High resolution
+    46 // Extra high resolution
+};
+const int RenderSkinCombo::padMargin[ResolutionCount] = {
+    2, // Medium resolution
+    5, // High resolution
+    6 // Extra high resolution
+};
 
+namespace {
 // Then we have the borders used for the 9-patch stretch. The
 // rectangle at the centre of these borders is entirely below and to
 // the left of the arrow in the asset. Hence the border widths are the
 // same for the bottom and left, but are different for the top. The
 // right hand border width happens to be the same as arrowMargin
 // defined above.
-static const int        stretchMargin[2] = {3, 5};   // border width for the bottom and left of the 9-patch
-static const int        stretchTop[2] = {15, 23};     // border width for the top of the 9-patch
+const int stretchMargin[RenderSkinAndroid::ResolutionCount] = { // border width for the bottom and left of the 9-patch
+    3, // Medium resolution
+    5, // High resolution
+    6 // Extra high resolution
+
+};
+const int stretchTop[RenderSkinAndroid::ResolutionCount] = { // border width for the top of the 9-patch
+    15, // Medium resolution
+    23, // High resolution
+    34 // Extra high resolution
+};
 
 // Finally, if the border is defined by the CSS, we only draw the
 // arrow and not the border. We do this by drawing the relevant subset
@@ -76,17 +94,20 @@ static const int        stretchTop[2] = {15, 23};     // border width for the to
 // spaced. The border to remove at the top, right and bottom of the
 // image is the same as stretchMargin above, but we need to know the width
 // of the arrow.
-static const int arrowWidth[2] = {22, 31};
+const int arrowWidth[RenderSkinAndroid::ResolutionCount] = {
+    22, // Medium resolution
+    31, // High resolution
+    42 // Extra high resolution
+};
 
-const SkIRect RenderSkinCombo::margin[2][2] = {{{ stretchMargin[MedRes], stretchTop[MedRes],
-                                          RenderSkinCombo::arrowMargin[MedRes] + stretchMargin[MedRes], stretchMargin[MedRes] },
-                                        {0, stretchTop[MedRes], 0, stretchMargin[MedRes]}},
-                                       {{ stretchMargin[HighRes], stretchTop[HighRes],
-                                          RenderSkinCombo::arrowMargin[HighRes] + stretchMargin[HighRes], stretchMargin[HighRes] },
-                                        {0, stretchTop[HighRes], 0, stretchMargin[HighRes]}}};
-static SkBitmap         bitmaps[2][2];               // Collection of assets for a combo box
-static bool             isDecodingAttempted = false; // True if we've tried to decode the assets
-static bool             isDecoded = false;           // True if all assets were decoded
+// Store the calculated 9 patch margins for each border style.
+SkIRect margin[BorderStyleCount];
+
+SkBitmap bitmaps[2][BorderStyleCount]; // Collection of assets for a combo box - 2 states (enabled/disabled)
+bool isDecodingAttempted = false; // True if we've tried to decode the assets
+bool isDecoded = false;           // True if all assets were decoded
+
+} // namespace
 
 void RenderSkinCombo::Decode()
 {
@@ -99,16 +120,33 @@ void RenderSkinCombo::Decode()
     android::AssetManager* am = globalAssetManager();
 
     String drawableDirectory = RenderSkinAndroid::DrawableDirectory();
+    Resolution res = RenderSkinAndroid::DrawableResolution();
 
     isDecoded = RenderSkinAndroid::DecodeBitmap(am, (drawableDirectory + "combobox_nohighlight.png").utf8().data(), &bitmaps[kNormal][FullAsset]);
     isDecoded &= RenderSkinAndroid::DecodeBitmap(am, (drawableDirectory + "combobox_disabled.png").utf8().data(), &bitmaps[kDisabled][FullAsset]);
 
     int width = bitmaps[kNormal][FullAsset].width();
     int height = bitmaps[kNormal][FullAsset].height();
-    SkIRect  subset;
-    subset.set(width - arrowWidth[RenderSkinAndroid::DrawableResolution()], 0, width, height);
+    SkIRect subset;
+    subset.set(width - arrowWidth[res], 0, width, height);
     bitmaps[kNormal][FullAsset].extractSubset(&bitmaps[kNormal][NoBorder], subset);
     bitmaps[kDisabled][FullAsset].extractSubset(&bitmaps[kDisabled][NoBorder], subset);
+
+    // Calculate 9 patch margins.
+    SkIRect fullAssetMargin;
+    fullAssetMargin.fLeft = stretchMargin[res];
+    fullAssetMargin.fTop = stretchTop[res];
+    fullAssetMargin.fRight = arrowMargin[res] + stretchMargin[res];
+    fullAssetMargin.fBottom = stretchMargin[res];
+
+    SkIRect noBorderMargin;
+    noBorderMargin.fLeft = 0;
+    noBorderMargin.fTop = stretchTop[res];
+    noBorderMargin.fRight = 0;
+    noBorderMargin.fBottom = stretchMargin[res];
+
+    margin[FullAsset] = fullAssetMargin;
+    margin[NoBorder] = noBorderMargin;
 }
 
 bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int width, int height)
@@ -147,8 +185,8 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
         bounds.fBottom -= SkIntToScalar(style->borderBottomWidth());
         drawBorder = NoBorder;
     }
-    SkNinePatch::DrawNine(canvas, bounds, bitmaps[state][drawBorder], margin[RenderSkinAndroid::DrawableResolution()][drawBorder]);
+    SkNinePatch::DrawNine(canvas, bounds, bitmaps[state][drawBorder], margin[drawBorder]);
     return false;
 }
 
-}   //WebCore
+}   // namspace WebCore
