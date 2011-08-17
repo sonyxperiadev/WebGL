@@ -83,6 +83,8 @@ public:
     TransferQueue* transferQueue() { return &m_queue; }
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
+    void gatherLayerTextures();
+    void gatherTextures();
     BaseTileTexture* getAvailableTexture(BaseTile* owner);
 
     void markGeneratorAsReady()
@@ -169,7 +171,11 @@ private:
     }
 
     Vector<BaseTileTexture*> m_textures;
+    Vector<BaseTileTexture*> m_availableTextures;
+
     Vector<BaseTileTexture*> m_tilesTextures;
+    Vector<BaseTileTexture*> m_availableTilesTextures;
+
     Vector<PaintedSurface*> m_paintedSurfaces;
 
     unsigned int m_layersMemoryUsage;
