@@ -51,6 +51,8 @@ RenderSkinAndroid::RenderSkinAndroid(String drawableDirectory)
         s_drawableResolution = MedRes;
         if (drawableDirectory.endsWith("-hdpi/"))
             s_drawableResolution = HighRes;
+        else if (drawableDirectory.endsWith("-xhdpi/"))
+            s_drawableResolution = ExtraHighRes;
 
         s_drawableDirectory = drawableDirectory;
     }

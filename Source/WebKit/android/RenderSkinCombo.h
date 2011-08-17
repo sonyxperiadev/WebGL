@@ -52,9 +52,8 @@ public:
 
 
 private:
-    const static int arrowMargin[2];
-    const static int padMargin[2];
-    const static SkIRect margin[2][2];
+    const static int arrowMargin[ResolutionCount];
+    const static int padMargin[ResolutionCount];
 }; 
 
 } // WebCore
