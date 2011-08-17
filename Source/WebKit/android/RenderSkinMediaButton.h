@@ -36,11 +36,7 @@ class RenderObject;
 
 class RenderSkinMediaButton {
 public:
-    /**
-     * Initialize the class before use. Uses the AssetManager to initialize any
-     * bitmaps the class may use.
-     */
-    static void Init(android::AssetManager*, String drawableDirectory);
+    static void Decode();
     /**
      * Draw the skin to the canvas, using the rectangle for its bounds and the
      * State to determine which skin to use, i.e. focused or not focused.

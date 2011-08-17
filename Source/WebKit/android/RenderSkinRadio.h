@@ -44,10 +44,10 @@ class IntRect;
 class RenderSkinRadio
 {
 public:
-    /**
-     * Initialize the class before use. Uses the AssetManager to initialize any bitmaps the class may use.
-     */
-    static void Init(android::AssetManager*, String drawableDirectory);
+    static void SetDrawableDirectory(String drawableDirectory);
+
+    // Perform lazy decoding the first time this a radio/checkbox is needed.
+    static void Decode();
 
     /**
      * Draw the element to the canvas at the specified size and location.

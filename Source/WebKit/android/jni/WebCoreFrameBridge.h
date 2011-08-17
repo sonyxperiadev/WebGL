@@ -158,8 +158,8 @@ class WebFrame : public WebCoreRefObject {
 
     bool shouldSaveFormData();
     void saveFormData(WebCore::HTMLFormElement*);
-    const WebCore::RenderSkinAndroid* renderSkins() const { return m_renderSkins; }
-    void setRenderSkins(const WebCore::RenderSkinAndroid* skins) { m_renderSkins = skins; }
+    WebCore::RenderSkinAndroid* renderSkins() const { return m_renderSkins; }
+    void setRenderSkins(WebCore::RenderSkinAndroid* skins) { m_renderSkins = skins; }
 
     // Convert a URL from potential punycode I18nDomainName to safe to-be-displayed Unicode.
     static WTF::String convertIDNToUnicode(const WebCore::KURL& kurl);
@@ -171,7 +171,7 @@ class WebFrame : public WebCoreRefObject {
     WTF::String mUserAgent;
     bool mBlockNetworkLoads;
     bool mUserInitiatedAction;
-    const WebCore::RenderSkinAndroid* m_renderSkins;
+    WebCore::RenderSkinAndroid* m_renderSkins;
 };
 
 }   // namespace android

@@ -33,21 +33,28 @@
 #include "RenderSkinRadio.h"
 #include "SkImageDecoder.h"
 
-#include "utils/AssetManager.h"
-#include "utils/Asset.h"
+#include <utils/AssetManager.h>
+#include <utils/Asset.h>
 
 namespace WebCore {
+
+String RenderSkinAndroid::s_drawableDirectory = "";
+RenderSkinAndroid::Resolution RenderSkinAndroid::s_drawableResolution = RenderSkinAndroid::MedRes;
 
 RenderSkinAndroid::~RenderSkinAndroid()
 {
     delete m_button;
 }
-RenderSkinAndroid::RenderSkinAndroid(android::AssetManager* am, String drawableDirectory)
+RenderSkinAndroid::RenderSkinAndroid(String drawableDirectory)
 {
-    m_button = new RenderSkinButton(am, drawableDirectory);
-    RenderSkinCombo::Init(am, drawableDirectory);
-    RenderSkinMediaButton::Init(am, drawableDirectory);
-    RenderSkinRadio::Init(am, drawableDirectory);
+    if (s_drawableDirectory.isEmpty() && !drawableDirectory.isEmpty()) {
+        s_drawableResolution = MedRes;
+        if (drawableDirectory.endsWith("-hdpi/"))
+            s_drawableResolution = HighRes;
+
+        s_drawableDirectory = drawableDirectory;
+    }
+    m_button = new RenderSkinButton(drawableDirectory);
 }
 
 bool RenderSkinAndroid::DecodeBitmap(android::AssetManager* am, const char* fileName, SkBitmap* bitmap)

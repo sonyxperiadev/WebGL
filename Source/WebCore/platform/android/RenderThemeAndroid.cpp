@@ -234,7 +234,7 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const PaintInfo& info, c
     if (formControlElement && !formControlElement->isEnabledFormControl()) {
         android::WebFrame* webFrame = getWebFrame(node);
         if (webFrame) {
-            const RenderSkinAndroid* skins = webFrame->renderSkins();
+            RenderSkinAndroid* skins = webFrame->renderSkins();
             if (skins)
                 skins->renderSkinButton()->draw(getCanvasFromInfo(info), rect,
                                                 RenderSkinAndroid::kDisabled);

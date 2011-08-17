@@ -36,9 +36,12 @@
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
 #include "SkRect.h"
+#include <utils/AssetManager.h>
 #include <utils/Debug.h>
 #include <utils/Log.h>
 #include <wtf/text/CString.h>
+
+extern android::AssetManager* globalAssetManager();
 
 struct PatchData {
     const char* name;
@@ -64,23 +67,21 @@ static const PatchData gFiles[] =
 
 static SkBitmap gButton[sizeof(gFiles)/sizeof(gFiles[0])];
 static bool gDecoded;
-static bool gHighRes;
+static bool gDecodingFailed;
 
 namespace WebCore {
 
-void RenderSkinMediaButton::Init(android::AssetManager* am, String drawableDirectory)
+void RenderSkinMediaButton::Decode()
 {
-    static bool gInited;
-    if (gInited)
-        return;
+    String drawableDirectory = RenderSkinAndroid::DrawableDirectory();
 
-    gInited = true;
     gDecoded = true;
-    gHighRes = drawableDirectory[drawableDirectory.length() - 5] == 'h';
+    gDecodingFailed = false;
+    android::AssetManager* am = globalAssetManager();
     for (size_t i = 0; i < sizeof(gFiles)/sizeof(gFiles[0]); i++) {
         String path = drawableDirectory + gFiles[i].name;
         if (!RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &gButton[i])) {
-            gDecoded = false;
+            gDecodingFailed = true;
             LOGD("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
             break;
         }
@@ -90,11 +91,14 @@ void RenderSkinMediaButton::Init(android::AssetManager* am, String drawableDirec
 void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonType,
                                  bool translucent, RenderObject* o)
 {
+    if (!gDecoded) {
+        Decode();
+    }
+
     // If we failed to decode, do nothing.  This way the browser still works,
     // and webkit will still draw the label and layout space for us.
-    if (!gDecoded) {
+    if (gDecodingFailed)
         return;
-    }
 
     bool drawsNinePatch = false;
     bool drawsImage = true;

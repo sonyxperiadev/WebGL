@@ -107,7 +107,7 @@ public:
     // re-record to the subpicture, so the master picture will reflect the
     // change.
     void updateFocusState(WebCore::RenderSkinAndroid::State state,
-                          const WebCore::RenderSkinButton* buttonSkin)
+                          WebCore::RenderSkinButton* buttonSkin)
     {
         if (state == m_state)
             return;

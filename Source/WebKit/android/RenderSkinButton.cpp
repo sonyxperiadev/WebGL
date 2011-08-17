@@ -42,6 +42,8 @@
 #include <utils/ResourceTypes.h>
 #include <wtf/text/CString.h>
 
+extern android::AssetManager* globalAssetManager();
+
 static const char* gFiles[] = {
     "btn_default_disabled_holo.9.png",
     "btn_default_normal_holo.9.png",
@@ -51,29 +53,42 @@ static const char* gFiles[] = {
 
 namespace WebCore {
 
-RenderSkinButton::RenderSkinButton(android::AssetManager* am, String drawableDirectory)
+RenderSkinButton::RenderSkinButton(String drawableDirectory)
+    : m_decoded(false)
+    , m_decodingAttempted(false)
+    , m_drawableDirectory(drawableDirectory)
 {
-    m_decoded = true;
+    // Ensure our enums properly line up with our arrays.
+    android::CompileTimeAssert<(RenderSkinAndroid::kDisabled == 0)> a1;
+    android::CompileTimeAssert<(RenderSkinAndroid::kNormal == 1)> a2;
+    android::CompileTimeAssert<(RenderSkinAndroid::kFocused == 2)> a3;
+    android::CompileTimeAssert<(RenderSkinAndroid::kPressed == 3)> a4;
+}
+
+void RenderSkinButton::decode()
+{
+    m_decodingAttempted = true;
+
+    android::AssetManager* am = globalAssetManager();
+
     for (size_t i = 0; i < 4; i++) {
-        String path = String(drawableDirectory.impl());
+        String path = m_drawableDirectory;
         path.append(String(gFiles[i]));
         if (!RenderSkinNinePatch::decodeAsset(am, path.utf8().data(), &m_buttons[i])) {
             m_decoded = false;
-            LOGE("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
+            LOGE("RenderSkinButton::decode: button assets failed to decode\n\tWebView buttons will not draw");
             return;
         }
     }
-
-    // Ensure our enums properly line up with our arrays.
-    android::CompileTimeAssert<(RenderSkinAndroid::kDisabled == 0)>     a1;
-    android::CompileTimeAssert<(RenderSkinAndroid::kNormal == 1)>       a2;
-    android::CompileTimeAssert<(RenderSkinAndroid::kFocused == 2)>      a3;
-    android::CompileTimeAssert<(RenderSkinAndroid::kPressed == 3)>      a4;
+    m_decoded = true;
 }
 
 void RenderSkinButton::draw(SkCanvas* canvas, const IntRect& r,
-                            RenderSkinAndroid::State newState) const
+                            RenderSkinAndroid::State newState)
 {
+    if (!m_decodingAttempted)
+        decode();
+
     // If we failed to decode, do nothing.  This way the browser still works,
     // and webkit will still draw the label and layout space for us.
     if (!m_decoded) {

@@ -36,41 +36,54 @@
 #include "SkBitmap.h"
 #include "SkCanvas.h"
 #include "SkRect.h"
+#include <utils/AssetManager.h>
 #include <wtf/text/CString.h>
+
+extern android::AssetManager* globalAssetManager();
 
 static const char* checks[] = { "btn_check_off_holo.png",
                                 "btn_check_on_holo.png",
                                 "btn_radio_off_holo.png",
                                 "btn_radio_on_holo.png"};
 // Matches the width of the bitmap
-static SkScalar SIZE;
+static SkScalar s_bitmapWidth;
 
 namespace WebCore {
 
 static SkBitmap s_bitmap[4];
-static bool     s_decoded;
+static bool s_decodingAttempted = false;
+static bool s_decoded = false;
 
-void RenderSkinRadio::Init(android::AssetManager* am, String drawableDirectory)
-{
-    if (s_decoded)
+void RenderSkinRadio::Decode() {
+    if (s_decodingAttempted)
         return;
-    String path = drawableDirectory + checks[0];
-    s_decoded = RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[0]);
-    path = drawableDirectory + checks[1];
-    s_decoded = RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[1]) && s_decoded;
-    path = drawableDirectory + checks[2];
-    s_decoded = RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[2]) && s_decoded;
-    path = drawableDirectory + checks[3];
-    s_decoded = RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[3]) && s_decoded;
-    SIZE = SkIntToScalar(s_bitmap[0].width());
+
+    s_decodingAttempted = true;
+    s_decoded = false;
+
+    android::AssetManager* am = globalAssetManager();
+    String drawableDir = RenderSkinAndroid::DrawableDirectory();
+    for (int i = 0; i < 4; i++) {
+        String path = drawableDir + checks[i];
+        if (!RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &s_bitmap[i]))
+            return;
+    }
+    s_decoded = true;
+    s_bitmapWidth = SkIntToScalar(s_bitmap[0].width());
 }
 
 void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
         bool isCheckBox)
 {
-    if (!s_decoded || !element) {
+    if (!element)
         return;
-    }
+
+    if (!s_decodingAttempted)
+        Decode();
+
+    if (!s_decoded)
+        return;
+
     SkRect r(ir);
     // Set up a paint to with filtering to look better.
     SkPaint paint;
@@ -82,7 +95,7 @@ void RenderSkinRadio::Draw(SkCanvas* canvas, Node* element, const IntRect& ir,
         paint.setAlpha(0x80);
     }
     SkScalar width = r.width();
-    SkScalar scale = SkScalarDiv(width, SIZE);
+    SkScalar scale = SkScalarDiv(width, s_bitmapWidth);
     saveScaleCount = canvas->save();
     canvas->translate(r.fLeft, r.fTop);
     canvas->scale(scale, scale);
