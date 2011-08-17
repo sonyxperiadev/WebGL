@@ -79,6 +79,10 @@ public:
     // the only thread-safe function called by the background thread
     void paintBitmap();
 
+    bool intersectWithRect(int x, int y, int tileWidth, int tileHeight,
+                           float scale, const SkRect& dirtyRect,
+                           SkRect& realTileRect);
+
     void markAsDirty(const unsigned int pictureCount,
                      const SkRegion& dirtyArea);
     bool isDirty();
@@ -90,7 +94,6 @@ public:
 
     int x() const { return m_x; }
     int y() const { return m_y; }
-    unsigned int lastPaintedPicture() const { return m_lastPaintedPicture; }
     BaseTileTexture* texture() { return m_texture; }
 
     void setGLWebViewState(GLWebViewState* state) { m_glWebViewState = state; }
@@ -131,10 +134,8 @@ private:
     int m_maxBufferNumber;
     int m_currentDirtyAreaIndex;
 
-    // stores the id of the latest picture painted to the tile. If the id is 0
-    // then we know that the picture has not yet been painted an there is nothing
-    // to display (dirty or otherwise).
-    unsigned int m_lastPaintedPicture;
+    // flag used to know if we have a texture that was painted at least once
+    bool m_isTexturePainted;
 
     // This mutex serves two purposes. (1) It ensures that certain operations
     // happen atomically and (2) it makes sure those operations are synchronized

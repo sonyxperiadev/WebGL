@@ -35,6 +35,7 @@
 #include "ScaleTransformOperation.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkCanvas.h"
+#include "SkRegion.h"
 #include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
 
@@ -125,6 +126,7 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
 {
     RenderLayer* renderLayer = renderLayerFromClient(m_client);
     m_contentLayer = new LayerAndroid(renderLayer);
+    m_dirtyRegion.setEmpty();
     gDebugGraphicsLayerAndroidInstances++;
 }
 
@@ -618,9 +620,10 @@ bool GraphicsLayerAndroid::repaint()
             m_contentLayer->getSize().width(),
             m_contentLayer->getSize().height());
 
+        m_contentLayer->markAsDirty(m_dirtyRegion);
+        m_dirtyRegion.setEmpty();
         m_contentLayer->needsRepaint();
         m_needsRepaint = false;
-        m_invalidatedRects.clear();
 
         return true;
     }
@@ -667,26 +670,11 @@ void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
         return;
     }
 
-    bool addInval = true;
-    const size_t maxDirtyRects = 8;
-    for (size_t i = 0; i < m_invalidatedRects.size(); ++i) {
-        if (m_invalidatedRects[i].contains(rect)) {
-            addInval = false;
-            break;
-        }
-    }
-
-#ifdef LAYER_DEBUG
-    LOG("(%x) layer %d setNeedsDisplayInRect(%d) - (%.2f, %.2f, %.2f, %.2f)", this,
-        m_contentLayer->uniqueId(), m_needsRepaint, rect.x(), rect.y(), rect.width(), rect.height());
-#endif
-
-    if (addInval) {
-        if (m_invalidatedRects.size() < maxDirtyRects)
-            m_invalidatedRects.append(rect);
-        else
-            m_invalidatedRects[0].unite(rect);
-    }
+    SkRegion region;
+    region.setRect(rect.x(), rect.y(),
+                   rect.x() + rect.width(),
+                   rect.y() + rect.height());
+    m_dirtyRegion.op(region, SkRegion::kUnion_Op);
 
     m_needsRepaint = true;
     askForSync();

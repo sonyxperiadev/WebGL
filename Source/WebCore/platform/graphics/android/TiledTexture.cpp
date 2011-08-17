@@ -69,7 +69,10 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
         tile->setUsedLevel(-1);
+        if (!m_dirtyRegion.isEmpty())
+            tile->markAsDirty(1, m_dirtyRegion);
     }
+    m_dirtyRegion.setEmpty();
 
     if (area.width() == 0 && area.height() == 0) {
         m_area.setWidth(0);
@@ -115,6 +118,11 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
     }
 }
 
+void TiledTexture::markAsDirty(const SkRegion& dirtyArea)
+{
+    m_dirtyRegion.op(dirtyArea, SkRegion::kUnion_Op);
+}
+
 void TiledTexture::prepareTile(bool repaint, int x, int y)
 {
     BaseTile* tile = getTile(x, y);
@@ -130,11 +138,7 @@ void TiledTexture::prepareTile(bool repaint, int x, int y)
     tile->setUsedLevel(0);
 
     bool schedule = false;
-    if (repaint)
-        tile->fullInval();
-    if (!tile->isTileReady())
-        schedule = true;
-    if (repaint || tile->isDirty())
+    if (tile->isDirty())
         schedule = true;
 
     LayerAndroid* layer = m_surface->layer();
@@ -183,7 +187,7 @@ bool TiledTexture::draw()
             rect.fTop = tile->y() * tileHeight;
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
-            XLOG(" - [%d], { painter %x vs %x }, tile %x %d,%d at scale %.2f [ready: %d]", i, this, tile->painter(), tile, tile->x(), tile->y(), tile->scale(), tile->isTileReady());
+            XLOG(" - [%d], { painter %x vs %x }, tile %x %d,%d at scale %.2f [ready: %d] dirty: %d", i, this, tile->painter(), tile, tile->x(), tile->y(), tile->scale(), tile->isTileReady(), tile->isDirty());
             askRedraw |= !tile->isTileReady();
             tile->draw(m_surface->opacity(), rect, m_surface->scale());
 #ifdef DEBUG

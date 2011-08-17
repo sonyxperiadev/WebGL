@@ -42,6 +42,7 @@ public:
     virtual TiledPage* page() = 0;
     virtual GLWebViewState* state() = 0;
     virtual bool samePageAs(Layer* root) { return false; }
+    virtual bool isRepaintPending() = 0;
 };
 
 }

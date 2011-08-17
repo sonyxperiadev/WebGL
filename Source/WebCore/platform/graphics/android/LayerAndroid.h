@@ -27,6 +27,7 @@
 #include "RefPtr.h"
 #include "SkBitmap.h"
 #include "SkColor.h"
+#include "SkRegion.h"
 #include "SkStream.h"
 #include "TextureOwner.h"
 #include "TransformationMatrix.h"
@@ -237,6 +238,11 @@ public:
 
     void needsRepaint() { m_pictureUsed++; }
     unsigned int pictureUsed() { return m_pictureUsed; }
+
+    void markAsDirty(const SkRegion& dirtyArea);
+    void clearDirtyRegion();
+    const SkRegion& dirtyRegion() { return m_dirtyRegion; }
+
     void contentDraw(SkCanvas*);
     void extraDraw(SkCanvas*);
 
@@ -336,6 +342,9 @@ private:
     // used to signal that the tile is out-of-date and needs to be redrawn
     bool m_dirty;
     unsigned int m_pictureUsed;
+
+    // dirty regions
+    SkRegion m_dirtyRegion;
 
     // used to signal the framework we need a repaint
     bool m_hasRunningAnimations;

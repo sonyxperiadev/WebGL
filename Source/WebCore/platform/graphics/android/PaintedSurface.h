@@ -38,6 +38,7 @@
 #include "TransformationMatrix.h"
 
 class SkCanvas;
+class SkRegion;
 
 namespace WebCore {
 
@@ -55,6 +56,7 @@ public:
 #ifdef DEBUG_COUNT
         ClassTracker::instance()->increment("PaintedSurface");
 #endif
+        m_tiledTexture = new TiledTexture(this);
     }
     virtual ~PaintedSurface()
     {
@@ -70,6 +72,7 @@ public:
     LayerAndroid* layer() { return m_layer; }
     void prepare(GLWebViewState*);
     bool draw();
+    void markAsDirty(const SkRegion& dirtyArea);
     bool paint(SkCanvas*);
     void removeLayer(LayerAndroid* layer);
     void replaceLayer(LayerAndroid* layer);

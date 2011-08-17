@@ -108,9 +108,6 @@ void PaintedSurface::prepare(GLWebViewState* state)
     XLOG("layer %d %x prepared at size (%d, %d) @ scale %.2f", m_layer->uniqueId(),
          m_layer, w, h, scale);
 
-    if (!m_tiledTexture)
-        m_tiledTexture = new TiledTexture(this);
-
     m_tiledTexture->prepare(state, m_pictureUsed != m_layer->pictureUsed());
 }
 
@@ -137,6 +134,11 @@ void PaintedSurface::endPaint()
     m_layerLock.lock();
     m_busy = false;
     m_layerLock.unlock();
+}
+
+void PaintedSurface::markAsDirty(const SkRegion& dirtyArea)
+{
+    m_tiledTexture->markAsDirty(dirtyArea);
 }
 
 bool PaintedSurface::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
