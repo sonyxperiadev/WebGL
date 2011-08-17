@@ -441,7 +441,7 @@ public:
             return;
 
         m_glue = new JavaGlue;
-        m_glue->m_newInstance = env->GetMethodID(clazz, "<init>", "(I)V");
+        m_glue->m_newInstance = env->GetMethodID(clazz, "<init>", "(Landroid/webkit/WebViewCore;I)V");
         m_glue->m_setDataSource = env->GetMethodID(clazz, "setDataSource", "(Ljava/lang/String;)V");
         m_glue->m_play = env->GetMethodID(clazz, "play", "()V");
         m_glue->m_getMaxTimeSeekable = env->GetMethodID(clazz, "getMaxTimeSeekable", "()F");
@@ -469,10 +469,17 @@ public:
         if (!clazz)
             return;
 
+        FrameView* frameView = m_player->mediaPlayerClient()->mediaPlayerOwningDocument()->view();
+        if (!frameView)
+            return;
+        AutoJObject javaObject = WebViewCore::getWebViewCore(frameView)->getJavaObject();
+        if (!javaObject.get())
+            return;
+
         jobject obj = 0;
 
         // Get the HTML5Audio instance
-        obj = env->NewObject(clazz, m_glue->m_newInstance, this);
+        obj = env->NewObject(clazz, m_glue->m_newInstance, javaObject.get(), this);
         m_glue->m_javaProxy = env->NewGlobalRef(obj);
 
         // Clean up.
