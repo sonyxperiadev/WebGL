@@ -255,6 +255,7 @@ void BaseTileTexture::setOwnTextureTileInfoFromQueue(const TextureTileInfo* info
     m_ownTextureTileInfo.m_scale = info->m_scale;
     m_ownTextureTileInfo.m_painter = info->m_painter;
     m_ownTextureTileInfo.m_picture = info->m_picture;
+    m_ownTextureTileInfo.m_inverted = TilesManager::instance()->invertedScreen();
 }
 
 bool BaseTileTexture::readyFor(BaseTile* baseTile)
@@ -264,7 +265,8 @@ bool BaseTileTexture::readyFor(BaseTile* baseTile)
         (info->m_x == baseTile->x()) &&
         (info->m_y == baseTile->y()) &&
         (info->m_scale == baseTile->scale()) &&
-        (info->m_painter == baseTile->painter()))
+        (info->m_painter == baseTile->painter()) &&
+        (info->m_inverted == TilesManager::instance()->invertedScreen()))
         return true;
 
     XLOG("readyFor return false for tile x, y (%d %d) texId %d ,"

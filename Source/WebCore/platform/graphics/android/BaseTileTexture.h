@@ -48,6 +48,7 @@ public:
     , m_texture(0)
     , m_painter(0)
     , m_picture(0)
+    , m_inverted(false)
     {
     }
     int m_x;
@@ -57,6 +58,7 @@ public:
     TextureInfo* m_texture;
     TilePainter* m_painter;
     unsigned int m_picture;
+    bool m_inverted;
 };
 
 // While in the queue, the BaseTile can be re-used, the updated bitmap

@@ -105,6 +105,7 @@ TilesManager::TilesManager()
     , m_generatorReady(false)
     , m_showVisualIndicator(false)
     , m_invertedScreen(false)
+    , m_invertedScreenSwitch(false)
     , m_drawRegistrationCount(0)
 {
     XLOG("TilesManager ctor");
