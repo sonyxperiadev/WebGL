@@ -427,7 +427,6 @@ public:
 
 private:
     void setupFontForScriptRun();
-    void setupComplexFont(const char* fontName, const FontPlatformData& platformData);
     HB_FontRec* allocHarfbuzzFont();
     void deleteGlyphArrays();
     void createGlyphArrays(int);
@@ -466,7 +465,6 @@ private:
                       // each word break we accumulate error. This is the
                       // number of pixels that we are behind so far.
     unsigned m_letterSpacing; // pixels to be added after each glyph.
-    FontPlatformData* m_complexPlatformData;
 };
 
 
@@ -481,7 +479,6 @@ TextRunWalker::TextRunWalker(const TextRun& run, unsigned startingX, const Font*
     , m_padPerWordBreak(0)
     , m_padError(0)
     , m_letterSpacing(0)
-    , m_complexPlatformData(0)
 {
     // Do not use |run| inside this constructor. Use |m_run| instead.
 
@@ -510,7 +507,6 @@ TextRunWalker::~TextRunWalker()
     fastFree(m_item.font);
     deleteGlyphArrays();
     delete[] m_item.log_clusters;
-    delete m_complexPlatformData;
 }
 
 bool TextRunWalker::isWordBreak(unsigned index, bool isRTL)
@@ -624,48 +620,15 @@ void TextRunWalker::setWordAndLetterSpacing(int wordSpacingAdjustment,
     setLetterSpacingAdjustment(letterSpacingAdjustment);
 }
 
-void TextRunWalker::setupComplexFont(const char* filename,
-                                     const FontPlatformData& platformData)
-{
-    delete m_complexPlatformData;
-
-    SkTypeface* typeface = SkTypeface::CreateFromFile(filename);
-    m_complexPlatformData = new FontPlatformData(platformData, typeface);
-    SkSafeUnref(typeface);
-    m_item.face = m_complexPlatformData->harfbuzzFace();
-    m_item.font->userData = m_complexPlatformData;
-}
-
 void TextRunWalker::setupFontForScriptRun()
 {
-    const FontData* fontData = m_font->glyphDataForCharacter(m_run[0], false).fontData;
+    const FontData* fontData = m_font->glyphDataForCharacter(
+        m_item.string[m_item.item.pos], false).fontData;
     const FontPlatformData& platformData =
         fontData->fontDataForCharacter(' ')->platformData();
-
-    if (m_item.item.script == HB_Script_Devanagari) {
-        setupComplexFont("/system/fonts/Lohit_Hindi.ttf", platformData);
-    } else if (m_item.item.script == HB_Script_Thai) {
-        setupComplexFont("/system/fonts/DroidSansThai.ttf", platformData);
-    } else if (m_item.item.script == HB_Script_Arabic) {
-        setupComplexFont("/system/fonts/DroidNaskh-Regular.ttf", platformData);
-    } else if (m_item.item.script == HB_Script_Hebrew) {
-        switch (platformData.typeface()->style()) {
-            case SkTypeface::kBold:
-            case SkTypeface::kBoldItalic:
-                setupComplexFont("/system/fonts/DroidSansHebrew-Bold.ttf", platformData);
-                break;
-            case SkTypeface::kNormal:
-            case SkTypeface::kItalic:
-            default:
-                setupComplexFont("/system/fonts/DroidSansHebrew-Regular.ttf", platformData);
-                break;
-        }
-    } else {
-        // HB_Script_Common; includes Ethiopic
-        m_item.face = platformData.harfbuzzFace();
-        void* opaquePlatformData = const_cast<FontPlatformData*>(&platformData);
-        m_item.font->userData = opaquePlatformData;
-    }
+    m_item.face = platformData.harfbuzzFace();
+    void* opaquePlatformData = const_cast<FontPlatformData*>(&platformData);
+    m_item.font->userData = opaquePlatformData;
 }
 
 HB_FontRec* TextRunWalker::allocHarfbuzzFont()
