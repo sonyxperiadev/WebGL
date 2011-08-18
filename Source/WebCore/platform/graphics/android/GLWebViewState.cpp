@@ -83,6 +83,8 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_focusRingTexture(-1)
     , m_goingDown(true)
     , m_goingLeft(false)
+    , m_expandedTileBoundsX(0)
+    , m_expandedTileBoundsY(0)
 {
     m_viewport.setEmpty();
     m_previousViewport.setEmpty();
@@ -426,12 +428,11 @@ void GLWebViewState::swapPages()
 
 int GLWebViewState::baseContentWidth()
 {
-    return m_currentBaseLayer ? m_currentBaseLayer->getWidth() : 0;
-
+    return m_currentBaseLayer ? m_currentBaseLayer->content()->width() : 0;
 }
 int GLWebViewState::baseContentHeight()
 {
-    return m_currentBaseLayer ? m_currentBaseLayer->getHeight() : 0;
+    return m_currentBaseLayer ? m_currentBaseLayer->content()->height() : 0;
 }
 
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
@@ -455,8 +456,8 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
             static_cast<int>(ceilf(viewport.fRight * invTileContentWidth)),
             static_cast<int>(ceilf(viewport.fBottom * invTileContentHeight)));
 
-    int maxTextureCount = (m_viewportTileBounds.width() + TilesManager::instance()->expandedTileBoundsX() * 2 + 1) *
-            (m_viewportTileBounds.height() + TilesManager::instance()->expandedTileBoundsY() * 2 + 1) * 2;
+    int maxTextureCount = (m_viewportTileBounds.width() + TILE_PREFETCH_DISTANCE * 2 + 1) *
+            (m_viewportTileBounds.height() + TILE_PREFETCH_DISTANCE * 2 + 1) * 2;
     TilesManager::instance()->setMaxTextureCount(maxTextureCount);
     m_tiledPageA->updateBaseTileSize();
     m_tiledPageB->updateBaseTileSize();
@@ -531,6 +532,13 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         SkSafeUnref(baseForComposited);
         return false;
     }
+
+    float viewWidth = (viewport.fRight - viewport.fLeft) * TILE_PREFETCH_RATIO;
+    float viewHeight = (viewport.fBottom - viewport.fTop) * TILE_PREFETCH_RATIO;
+    bool useHorzPrefetch = viewWidth < baseContentWidth();
+    bool useVertPrefetch = viewHeight < baseContentHeight();
+    m_expandedTileBoundsX = (useHorzPrefetch) ? TILE_PREFETCH_DISTANCE : 0;
+    m_expandedTileBoundsY = (useVertPrefetch) ? TILE_PREFETCH_DISTANCE : 0;
 
     XLOG("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
          rect.x(), rect.y(), rect.width(), rect.height(),

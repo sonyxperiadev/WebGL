@@ -259,25 +259,21 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     int lastTileX = tileBounds.fRight - 1;
     int lastTileY = tileBounds.fBottom - 1;
 
-    const int baseContentHeight = m_glWebViewState->baseContentHeight();
-    const int baseContentWidth = m_glWebViewState->baseContentWidth();
-
     // Expand number of tiles to allow tiles outside of viewport to be prepared for
     // smoother scrolling.
     int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
     int nMaxTilesPerPage = m_baseTileSize / 2;
-    int expandX = TilesManager::instance()->expandedTileBoundsX();
-    int expandY = TilesManager::instance()->expandedTileBoundsY();
-    if (nTilesToPrepare + (nbTilesHeight * expandX * 2) <= nMaxTilesPerPage) {
-        firstTileX -= expandX;
-        lastTileX += expandX;
-        nbTilesWidth += expandX * 2;
-    }
-    if (nTilesToPrepare + (nbTilesWidth * expandY * 2) <= nMaxTilesPerPage) {
-        firstTileY -= expandY;
-        lastTileY += expandY;
-        nbTilesHeight += expandY * 2;
-    }
+    int expandX = m_glWebViewState->expandedTileBoundsX();
+    int expandY = m_glWebViewState->expandedTileBoundsY();
+
+    firstTileX -= expandX;
+    lastTileX += expandX;
+    nbTilesWidth += expandX * 2;
+
+    firstTileY -= expandY;
+    lastTileY += expandY;
+    nbTilesHeight += expandY * 2;
+
     m_expandedTileBounds.fLeft = firstTileX;
     m_expandedTileBounds.fTop = firstTileY;
     m_expandedTileBounds.fRight = lastTileX;
@@ -318,10 +314,10 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
     const float tileHeight = TilesManager::tileHeight() * m_invScale;
 
     SkIRect actualTileBounds = tileBounds;
-    actualTileBounds.fTop -= TilesManager::instance()->expandedTileBoundsY();
-    actualTileBounds.fBottom += TilesManager::instance()->expandedTileBoundsY();
-    actualTileBounds.fLeft -= TilesManager::instance()->expandedTileBoundsX();
-    actualTileBounds.fRight += TilesManager::instance()->expandedTileBoundsX();
+    actualTileBounds.fTop -= m_glWebViewState->expandedTileBoundsY();
+    actualTileBounds.fBottom += m_glWebViewState->expandedTileBoundsY();
+    actualTileBounds.fLeft -= m_glWebViewState->expandedTileBoundsX();
+    actualTileBounds.fRight += m_glWebViewState->expandedTileBoundsX();
 
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];

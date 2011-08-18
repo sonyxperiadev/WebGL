@@ -42,6 +42,12 @@
 // #define MEASURES_PERF
 #define MAX_MEASURES_PERF 2000
 
+// Prefetch and render 2 tiles ahead of the scroll
+#define TILE_PREFETCH_DISTANCE 2
+
+// ratio of content to view required for prefetching to enable
+#define TILE_PREFETCH_RATIO 1.2
+
 namespace WebCore {
 
 class BaseLayerAndroid;
@@ -248,6 +254,9 @@ public:
         m_goingLeft = goingLeft;
     }
 
+    int expandedTileBoundsX() { return m_expandedTileBoundsX; }
+    int expandedTileBoundsY() { return m_expandedTileBoundsY; }
+
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
     void invalRegion(const SkRegion& region);
@@ -308,6 +317,9 @@ private:
 
     bool m_goingDown;
     bool m_goingLeft;
+
+    int m_expandedTileBoundsX;
+    int m_expandedTileBoundsY;
 };
 
 } // namespace WebCore
