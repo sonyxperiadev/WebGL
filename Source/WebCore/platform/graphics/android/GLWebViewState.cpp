@@ -573,11 +573,21 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     SkSafeRef(compositedRoot);
     SkSafeUnref(m_previouslyUsedRoot);
     m_previouslyUsedRoot = compositedRoot;
+
+    ret |= TilesManager::instance()->invertedScreenSwitch();
+
     if (ret) {
-        if (m_frameworkInval.isEmpty()) {
-            // ret==true && empty inval region means we've inval'd everything,
-            // but don't have new content. Keep redrawing full view (0,0,0,0)
-            // until tile generation catches up and we swap pages.
+        // ret==true && empty inval region means we've inval'd everything,
+        // but don't have new content. Keep redrawing full view (0,0,0,0)
+        // until tile generation catches up and we swap pages.
+        bool fullScreenInval = m_frameworkInval.isEmpty();
+
+        if (TilesManager::instance()->invertedScreenSwitch()) {
+            fullScreenInval = true;
+            TilesManager::instance()->setInvertedScreenSwitch(false);
+        }
+
+        if (fullScreenInval) {
             invalRect->setX(0);
             invalRect->setY(0);
             invalRect->setWidth(0);

@@ -2517,7 +2517,7 @@ static void dumpToFile(const char text[], void* file) {
 }
 #endif
 
-static void nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jvalue)
+static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jvalue)
 {
     WTF::String key = jstringToWtfString(env, jkey);
     WTF::String value = jstringToWtfString(env, jvalue);
@@ -2526,11 +2526,14 @@ static void nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
             TilesManager::instance()->setInvertedScreen(true);
         else
             TilesManager::instance()->setInvertedScreen(false);
+        return true;
     }
     if (key == "inverted_contrast") {
         float contrast = value.toFloat();
         TilesManager::instance()->setInvertedScreenContrast(contrast);
+        return true;
     }
+    return false;
 }
 
 static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring key)
@@ -2826,7 +2829,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeUseHardwareAccelSkia },
     { "nativeGetBackgroundColor", "()I",
         (void*) nativeGetBackgroundColor },
-    { "nativeSetProperty", "(Ljava/lang/String;Ljava/lang/String;)V",
+    { "nativeSetProperty", "(Ljava/lang/String;Ljava/lang/String;)Z",
         (void*) nativeSetProperty },
     { "nativeGetProperty", "(Ljava/lang/String;)Ljava/lang/String;",
         (void*) nativeGetProperty },

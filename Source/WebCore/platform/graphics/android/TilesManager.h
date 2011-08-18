@@ -143,9 +143,21 @@ public:
         return m_invertedScreen;
     }
 
+    bool invertedScreenSwitch()
+    {
+        return m_invertedScreenSwitch;
+    }
+
     void setInvertedScreen(bool invert)
     {
+        if (m_invertedScreen != invert)
+            m_invertedScreenSwitch = true;
         m_invertedScreen = invert;
+    }
+
+    void setInvertedScreenSwitch(bool invertedSwitch)
+    {
+        m_invertedScreenSwitch = invertedSwitch;
     }
 
     void setInvertedScreenContrast(float contrast)
@@ -179,6 +191,7 @@ private:
 
     bool m_showVisualIndicator;
     bool m_invertedScreen;
+    bool m_invertedScreenSwitch;
 
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 
