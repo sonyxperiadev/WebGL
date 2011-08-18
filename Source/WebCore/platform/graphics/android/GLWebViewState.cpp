@@ -554,6 +554,9 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // the BaseTiles' texture.
     TilesManager::instance()->transferQueue()->updateDirtyBaseTiles();
 
+    // gather the textures we can use
+    TilesManager::instance()->gatherLayerTextures();
+
     if (compositedRoot != m_previouslyUsedRoot)
         TilesManager::instance()->swapLayersTextures(m_previouslyUsedRoot, compositedRoot);
 

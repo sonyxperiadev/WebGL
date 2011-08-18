@@ -76,8 +76,12 @@ int PaintTileOperation::priority()
     if (!m_tile || m_tile->usedLevel() < 0)
         return -1;
 
+    // for now, use a constant value for layers,
+    // lower than the base layer tiles (as layers
+    // will always be on top of the base surface)
     if (m_tile->isLayerTile())
-        return 25; // for now, use a constant value.
+        return -2;
+
 
     bool goingDown = m_tile->page()->scrollingDown();
     SkIRect *rect = m_tile->page()->expandedTileBounds();

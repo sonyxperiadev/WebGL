@@ -245,6 +245,7 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     if (!m_glWebViewState)
         return;
 
+    TilesManager::instance()->gatherTextures();
     // update the tiles distance from the viewport
     updateTileState(tileBounds);
     m_prepare = true;

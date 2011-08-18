@@ -109,6 +109,9 @@ TilesManager::TilesManager()
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
+    m_availableTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
+    m_tilesTextures.reserveCapacity(LAYER_TILES);
+    m_availableTilesTextures.reserveCapacity(LAYER_TILES);
     m_pixmapsGenerationThread = new TexturesGenerator();
     m_pixmapsGenerationThread->run("TexturesGenerator");
 }
@@ -212,6 +215,18 @@ void TilesManager::addPaintedSurface(PaintedSurface* surface)
     m_paintedSurfaces.append(surface);
 }
 
+void TilesManager::gatherTextures()
+{
+    android::Mutex::Autolock lock(m_texturesLock);
+    m_availableTextures = m_textures;
+}
+
+void TilesManager::gatherLayerTextures()
+{
+    android::Mutex::Autolock lock(m_texturesLock);
+    m_availableTilesTextures = m_tilesTextures;
+}
+
 BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 {
     android::Mutex::Autolock lock(m_texturesLock);
@@ -221,26 +236,36 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         owner->texture()->setUsedLevel(0);
         XLOG("same owner (%d, %d), getAvailableTexture(%x) => texture %x",
              owner->x(), owner->y(), owner, owner->texture());
+        if (owner->isLayerTile())
+            m_availableTilesTextures.remove(m_availableTilesTextures.find(owner->texture()));
+        else
+            m_availableTextures.remove(m_availableTextures.find(owner->texture()));
         return owner->texture();
     }
 
     if (owner->isLayerTile()) {
-        unsigned int max = m_tilesTextures.size();
+        BaseTileTexture* layerTexture = 0;
+        unsigned int max = m_availableTilesTextures.size();
         for (unsigned int i = 0; i < max; i++) {
-            BaseTileTexture* texture = m_tilesTextures[i];
+            BaseTileTexture* texture = m_availableTilesTextures[i];
             if (texture->owner() && texture->owner()->isRepaintPending())
                 continue;
             if (!texture->owner() && texture->acquire(owner)) {
-                return texture;
+                layerTexture = texture;
+                break;
             }
             if (texture->usedLevel() != 0 && texture->acquire(owner)) {
-                return texture;
+                layerTexture = texture;
+                break;
             }
             if (texture->scale() != owner->scale() && texture->acquire(owner)) {
-                return texture;
+                layerTexture = texture;
+                break;
             }
         }
-        return 0;
+        if (layerTexture)
+            m_availableTilesTextures.remove(m_availableTilesTextures.find(layerTexture));
+        return layerTexture;
     }
 
     // The heuristic for selecting a texture is as follows:
@@ -251,9 +276,9 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     BaseTileTexture* farthestTexture = 0;
     int farthestTextureLevel = 0;
     unsigned int lowestDrawCount = ~0; //maximum uint
-    const unsigned int max = m_textures.size();
+    const unsigned int max = m_availableTextures.size();
     for (unsigned int i = 0; i < max; i++) {
-        BaseTileTexture* texture = m_textures[i];
+        BaseTileTexture* texture = m_availableTextures[i];
 
         if (texture->usedLevel() == -1) { // found an unused texture, grab it
             farthestTexture = texture;
@@ -276,6 +301,7 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         XLOG("farthest texture, getAvailableTexture(%x) => texture %x (level %d, drawCount %d)",
              owner, farthestTexture, farthestTextureLevel, lowestDrawCount);
         farthestTexture->setUsedLevel(0);
+        m_availableTextures.remove(m_availableTextures.find(farthestTexture));
         return farthestTexture;
     }
 
