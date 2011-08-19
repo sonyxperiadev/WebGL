@@ -43,7 +43,7 @@
 #define MAX_MEASURES_PERF 2000
 
 // Prefetch and render 2 tiles ahead of the scroll
-#define TILE_PREFETCH_DISTANCE 2
+#define TILE_PREFETCH_DISTANCE 0
 
 // ratio of content to view required for prefetching to enable
 #define TILE_PREFETCH_RATIO 1.2
