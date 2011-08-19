@@ -64,12 +64,7 @@ namespace WebCore {
 using namespace android;
 
 GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
-    : m_scaleRequestState(kNoScaleRequest)
-    , m_currentScale(-1)
-    , m_futureScale(-1)
-    , m_updateTime(-1)
-    , m_transitionTime(-1)
-    , m_baseLayer(0)
+    : m_baseLayer(0)
     , m_currentBaseLayer(0)
     , m_previouslyUsedRoot(0)
     , m_currentPictureCounter(0)
@@ -85,6 +80,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_goingLeft(false)
     , m_expandedTileBoundsX(0)
     , m_expandedTileBoundsY(0)
+    , m_zoomManager(this)
 {
     m_viewport.setEmpty();
     m_previousViewport.setEmpty();
@@ -94,6 +90,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
 
     m_tiledPageA = new TiledPage(FIRST_TILED_PAGE_ID, this);
     m_tiledPageB = new TiledPage(SECOND_TILED_PAGE_ID, this);
+
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("GLWebViewState");
 #endif
@@ -243,7 +240,7 @@ void GLWebViewState::inval(const IntRect& rect)
         // base layer is locked, so defer invalidation until unlockBaseLayerUpdate()
         m_invalidateRegion.op(rect.x(), rect.y(), rect.maxX(), rect.maxY(), SkRegion::kUnion_Op);
     }
-    TilesManager::instance()->getProfiler()->nextInval(rect, m_currentScale);
+    TilesManager::instance()->getProfiler()->nextInval(rect, zoomManager()->currentScale());
 }
 
 void GLWebViewState::resetRings()
@@ -338,66 +335,6 @@ unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
     return m_currentPictureCounter;
 }
 
-void GLWebViewState::scheduleUpdate(const double& currentTime,
-                                    const SkIRect& viewport, float scale)
-{
-    // if no update time, set it
-    if (updateTime() == -1) {
-        m_scaleRequestState = kWillScheduleRequest;
-        setUpdateTime(currentTime + s_updateInitialDelay);
-        setFutureScale(scale);
-        setFutureViewport(viewport);
-        return;
-    }
-
-    if (currentTime < updateTime())
-        return;
-
-    // we reached the scheduled update time, check if we can update
-    if (futureScale() == scale) {
-        // we are still with the previous scale, let's go
-        // with the update
-        m_scaleRequestState = kRequestNewScale;
-        setUpdateTime(-1);
-    } else {
-        // we reached the update time, but the planned update was for
-        // a different scale factor -- meaning the user is still probably
-        // in the process of zooming. Let's push the update time a bit.
-        setUpdateTime(currentTime + s_updateDelay);
-        setFutureScale(scale);
-        setFutureViewport(viewport);
-    }
-}
-
-double GLWebViewState::zoomInTransitionTime(double currentTime)
-{
-    if (m_transitionTime == -1)
-        m_transitionTime = currentTime + s_zoomInTransitionDelay;
-    return m_transitionTime;
-}
-
-double GLWebViewState::zoomOutTransitionTime(double currentTime)
-{
-    if (m_transitionTime == -1)
-        m_transitionTime = currentTime + s_zoomOutTransitionDelay;
-    return m_transitionTime;
-}
-
-
-float GLWebViewState::zoomInTransparency(double currentTime)
-{
-    float t = zoomInTransitionTime(currentTime) - currentTime;
-    t *= s_invZoomInTransitionDelay;
-    return fmin(1, fmax(0, t));
-}
-
-float GLWebViewState::zoomOutTransparency(double currentTime)
-{
-    float t = zoomOutTransitionTime(currentTime) - currentTime;
-    t *= s_invZoomOutTransitionDelay;
-    return fmin(1, fmax(0, t));
-}
-
 TiledPage* GLWebViewState::sibling(TiledPage* page)
 {
     return (page == m_tiledPageA) ? m_tiledPageB : m_tiledPageA;
@@ -420,10 +357,8 @@ void GLWebViewState::swapPages()
     android::Mutex::Autolock lock(m_tiledPageLock);
     m_usePageA ^= true;
     TiledPage* working = m_usePageA ? m_tiledPageB : m_tiledPageA;
-    if (m_scaleRequestState != kNoScaleRequest)
+    if (zoomManager()->swapPages())
         TilesManager::instance()->resetTextureUsage(working);
-
-    m_scaleRequestState = kNoScaleRequest;
 }
 
 int GLWebViewState::baseContentWidth()
@@ -439,13 +374,17 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
 {
     m_previousViewport = m_viewport;
     if ((m_viewport == viewport) &&
-        (m_futureScale == scale))
+        (zoomManager()->futureScale() == scale))
         return;
 
+    m_goingDown = m_previousViewport.fTop - viewport.fTop <= 0;
+    m_goingLeft = m_previousViewport.fLeft - viewport.fLeft >= 0;
     m_viewport = viewport;
+
     XLOG("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f currentScale: %.2f futureScale: %.2f)",
          m_viewport.fLeft, m_viewport.fTop, m_viewport.fRight, m_viewport.fBottom,
-         m_viewport.width(), m_viewport.height(), scale, m_currentScale, m_futureScale);
+         m_viewport.width(), m_viewport.height(), scale,
+         zoomManager()->currentScale(), zoomManager()->futureScale());
 
     const float invTileContentWidth = scale / TilesManager::tileWidth();
     const float invTileContentHeight = scale / TilesManager::tileHeight();
@@ -505,10 +444,54 @@ void GLWebViewState::resetLayersDirtyArea()
     m_frameworkLayersInval.setHeight(0);
 }
 
+double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
+                                  IntRect& webViewRect, int titleBarHeight,
+                                  IntRect& screenClip, float scale)
+{
+    int left = viewRect.x();
+    int top = viewRect.y();
+    int width = viewRect.width();
+    int height = viewRect.height();
+
+    if (TilesManager::instance()->invertedScreen()) {
+        float color = 1.0 - ((((float) m_backgroundColor.red() / 255.0) +
+                      ((float) m_backgroundColor.green() / 255.0) +
+                      ((float) m_backgroundColor.blue() / 255.0)) / 3.0);
+        glClearColor(color, color, color, 1);
+    } else {
+        glClearColor((float)m_backgroundColor.red() / 255.0,
+                     (float)m_backgroundColor.green() / 255.0,
+                     (float)m_backgroundColor.blue() / 255.0, 1);
+    }
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glViewport(left, top, width, height);
+
+    ShaderProgram* shader = TilesManager::instance()->shader();
+    if (shader->program() == -1) {
+        XLOG("Reinit shader");
+        shader->init();
+    }
+    glUseProgram(shader->program());
+    glUniform1i(shader->textureSampler(), 0);
+    shader->setViewRect(viewRect);
+    shader->setViewport(visibleRect);
+    shader->setWebViewRect(webViewRect);
+    shader->setTitleBarHeight(titleBarHeight);
+    shader->setScreenClip(screenClip);
+    shader->resetBlending();
+
+    double currentTime = WTF::currentTime();
+
+    setViewport(visibleRect, scale);
+    m_zoomManager.processNewScale(currentTime, scale);
+
+    return currentTime;
+}
+
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& webViewRect, int titleBarHeight,
-                            IntRect& clip, float scale, bool* pagesSwapped,
-                            SkColor color)
+                            IntRect& clip, float scale, bool* pagesSwapped)
 {
     glFinish();
     TilesManager::instance()->registerGLWebViewState(this);
@@ -568,8 +551,13 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     if (compositedRoot != m_previouslyUsedRoot)
         TilesManager::instance()->swapLayersTextures(m_previouslyUsedRoot, compositedRoot);
 
-    bool ret = baseLayer->drawGL(compositedRoot, rect, viewport, webViewRect,
-                                 titleBarHeight, clip, scale, pagesSwapped, color);
+    // set up zoom manager, shaders, etc.
+    m_backgroundColor = baseLayer->getBackgroundColor();
+    double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
+    bool ret = baseLayer->drawGL(currentTime, compositedRoot, rect, viewport, scale, pagesSwapped);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
     SkSafeRef(compositedRoot);
     SkSafeUnref(m_previouslyUsedRoot);
     m_previouslyUsedRoot = compositedRoot;

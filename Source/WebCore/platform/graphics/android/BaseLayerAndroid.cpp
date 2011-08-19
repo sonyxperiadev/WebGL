@@ -115,51 +115,23 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
                                            double currentTime, bool* pagesSwapped)
 {
-    if (!m_glWebViewState)
-        return false;
+    ZoomManager* zoomManager = m_glWebViewState->zoomManager();
 
-    bool goingDown = m_previousVisible.fTop - viewport.fTop <= 0;
-    bool goingLeft = m_previousVisible.fLeft - viewport.fLeft >= 0;
-
-    m_glWebViewState->setViewport(viewport, scale);
+    bool goingDown = m_glWebViewState->goingDown();
+    bool goingLeft = m_glWebViewState->goingLeft();
 
     const SkIRect& viewportTileBounds = m_glWebViewState->viewportTileBounds();
     XLOG("drawBasePicture, TX: %d, TY: %d scale %.2f", viewportTileBounds.fLeft,
             viewportTileBounds.fTop, scale);
 
-    if (scale == m_glWebViewState->currentScale()
-        || m_glWebViewState->preZoomBounds().isEmpty())
-        m_glWebViewState->setPreZoomBounds(viewportTileBounds);
-
-    bool prepareNextTiledPage = false;
-    // If we have a different scale than the current one, we have to
-    // decide what to do. The current behaviour is to delay an update,
-    // so that we do not slow down zooming unnecessarily.
-    if ((m_glWebViewState->currentScale() != scale && (m_glWebViewState->scaleRequestState() == GLWebViewState::kNoScaleRequest || m_glWebViewState->futureScale() != scale))
-        || m_glWebViewState->scaleRequestState() == GLWebViewState::kWillScheduleRequest) {
-
-        // schedule the new request
-        m_glWebViewState->scheduleUpdate(currentTime, viewportTileBounds, scale);
-
-        // If it's a new request, we will have to prepare the page.
-        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale)
-            prepareNextTiledPage = true;
-    }
-
-    // If the viewport has changed since we scheduled the request, we also need to prepare.
-    if ((m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale || m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale)
-        && m_glWebViewState->futureViewport() != viewportTileBounds)
-        prepareNextTiledPage = true;
-
-    bool zooming = false;
-    if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest) {
-        prepareNextTiledPage = true;
-        zooming = true;
-    }
+    // Query the resulting state from the zoom manager
+    bool prepareNextTiledPage = zoomManager->needPrepareNextTiledPage();
+    bool zooming = zoomManager->zooming();
 
     // Display the current page
     TiledPage* tiledPage = m_glWebViewState->frontPage();
-    tiledPage->setScale(m_glWebViewState->currentScale());
+    TiledPage* nextTiledPage = m_glWebViewState->backPage();
+    tiledPage->setScale(zoomManager->currentScale());
 
     // Let's prepare the page if needed
     if (prepareNextTiledPage) {
@@ -172,42 +144,27 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
         TilesManager::instance()->removePaintOperationsForPage(tiledPage, false);
     }
 
+    // If we fired a request, let's check if it's ready to use
+    if (zoomManager->didFireRequest()) {
+        if (nextTiledPage->ready(viewportTileBounds, zoomManager->futureScale()))
+            zoomManager->setReceivedRequest(); // transition to received request state
+    }
+
     float transparency = 1;
     bool doSwap = false;
 
-    // If we fired a request, let's check if it's ready to use
-    if (m_glWebViewState->scaleRequestState() == GLWebViewState::kRequestNewScale) {
-        TiledPage* nextTiledPage = m_glWebViewState->backPage();
-        if (nextTiledPage->ready(viewportTileBounds, m_glWebViewState->futureScale()))
-            m_glWebViewState->setScaleRequestState(GLWebViewState::kReceivedNewScale);
-    }
-
     // If the page is ready, display it. We do a short transition between
     // the two pages (current one and future one with the new scale factor)
-    if (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
-        TiledPage* nextTiledPage = m_glWebViewState->backPage();
-        double transitionTime = (scale < m_glWebViewState->currentScale()) ?
-            m_glWebViewState->zoomOutTransitionTime(currentTime) :
-            m_glWebViewState->zoomInTransitionTime(currentTime);
+    if (zoomManager->didReceivedRequest()) {
+        float nextTiledPageTransparency = 1;
+        zoomManager->processTransition(currentTime, scale, &doSwap,
+                                       &nextTiledPageTransparency, &transparency);
 
-        float newTilesTransparency = 1;
-        if (scale < m_glWebViewState->currentScale())
-            newTilesTransparency = 1 - m_glWebViewState->zoomOutTransparency(currentTime);
-        else
-            transparency = m_glWebViewState->zoomInTransparency(currentTime);
-
-        nextTiledPage->draw(newTilesTransparency, viewportTileBounds);
-
-        // The transition between the two pages is finished, swap them
-        if (currentTime > transitionTime) {
-            m_glWebViewState->resetTransitionTime();
-            doSwap = true;
-        }
+        nextTiledPage->draw(nextTiledPageTransparency, viewportTileBounds);
     }
 
     const SkIRect& preZoomBounds = m_glWebViewState->preZoomBounds();
 
-    TiledPage* nextTiledPage = m_glWebViewState->backPage();
     bool needsRedraw = false;
 
     // We are now using an hybrid model -- during scrolling,
@@ -216,12 +173,12 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
     // the back page is ready before swapping the pages, ensuring that the
     // displayed content is in sync.
     if (!doSwap && !zooming && !m_glWebViewState->moving()) {
-        if (!tiledPage->ready(preZoomBounds, m_glWebViewState->currentScale())) {
+        if (!tiledPage->ready(preZoomBounds, zoomManager->currentScale())) {
             m_glWebViewState->lockBaseLayerUpdate();
-            nextTiledPage->setScale(m_glWebViewState->currentScale());
+            nextTiledPage->setScale(zoomManager->currentScale());
             nextTiledPage->prepare(goingDown, goingLeft, preZoomBounds);
         }
-        if (nextTiledPage->ready(preZoomBounds, m_glWebViewState->currentScale())) {
+        if (nextTiledPage->ready(preZoomBounds, zoomManager->currentScale())) {
             nextTiledPage->draw(transparency, preZoomBounds);
             m_glWebViewState->resetFrameworkInval();
             m_glWebViewState->unlockBaseLayerUpdate();
@@ -230,7 +187,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
             tiledPage->draw(transparency, preZoomBounds);
         }
     } else {
-        if (tiledPage->ready(preZoomBounds, m_glWebViewState->currentScale()))
+        if (tiledPage->ready(preZoomBounds, zoomManager->currentScale()))
            m_glWebViewState->resetFrameworkInval();
 
         // Ask for the tiles and draw -- tiles may be out of date.
@@ -242,12 +199,12 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
         tiledPage->draw(transparency, preZoomBounds);
     }
 
-    if (m_glWebViewState->scaleRequestState() != GLWebViewState::kNoScaleRequest
-        || !tiledPage->ready(preZoomBounds, m_glWebViewState->currentScale()))
+    if (zoomManager->scaleRequestState() != ZoomManager::kNoScaleRequest
+        || !tiledPage->ready(preZoomBounds, zoomManager->currentScale()))
         needsRedraw = true;
 
     if (doSwap) {
-        m_glWebViewState->setCurrentScale(scale);
+        zoomManager->setCurrentScale(scale);
         m_glWebViewState->swapPages();
         m_glWebViewState->unlockBaseLayerUpdate();
         if (pagesSwapped)
@@ -264,55 +221,16 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
 }
 #endif // USE(ACCELERATED_COMPOSITING)
 
-bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
-                              IntRect& viewRect, SkRect& visibleRect,
-                              IntRect& webViewRect, int titleBarHeight,
-                              IntRect& screenClip, float scale,
-                              bool* pagesSwapped, SkColor color)
+bool BaseLayerAndroid::drawGL(double currentTime, LayerAndroid* compositedRoot,
+                              IntRect& viewRect, SkRect& visibleRect, float scale,
+                              bool* pagesSwapped)
 {
     bool needsRedraw = false;
 #if USE(ACCELERATED_COMPOSITING)
-    int left = viewRect.x();
-    int top = viewRect.y();
-    int width = viewRect.width();
-    int height = viewRect.height();
-    XLOG("drawBasePicture drawGL() viewRect: %d, %d, %d, %d - %.2f",
-         left, top, width, height, scale);
 
-    m_glWebViewState->setBackgroundColor(color);
-    if (TilesManager::instance()->invertedScreen()) {
-        float color = 1.0 - ((((float) m_color.red() / 255.0) +
-                      ((float) m_color.green() / 255.0) +
-                      ((float) m_color.blue() / 255.0)) / 3.0);
-        glClearColor(color, color, color, 1);
-    } else {
-        glClearColor((float)m_color.red() / 255.0,
-                     (float)m_color.green() / 255.0,
-                     (float)m_color.blue() / 255.0, 1);
-    }
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    glViewport(left, top, width, height);
-    ShaderProgram* shader = TilesManager::instance()->shader();
-    if (shader->program() == -1) {
-        XLOG("Reinit shader");
-        shader->init();
-    }
-    glUseProgram(shader->program());
-    glUniform1i(shader->textureSampler(), 0);
-    shader->setViewRect(viewRect);
-    shader->setViewport(visibleRect);
-    shader->setWebViewRect(webViewRect);
-    shader->setTitleBarHeight(titleBarHeight);
-    shader->setScreenClip(screenClip);
-    shader->resetBlending();
-
-    double currentTime = WTF::currentTime();
     needsRedraw = drawBasePictureInGL(visibleRect, scale, currentTime,
                                       pagesSwapped);
-    bool goingDown = m_previousVisible.fTop - visibleRect.fTop <= 0;
-    bool goingLeft = m_previousVisible.fLeft - visibleRect.fLeft >= 0;
-    m_glWebViewState->setDirection(goingDown, goingLeft);
+
     if (!needsRedraw)
         m_glWebViewState->resetFrameworkInval();
 
@@ -327,19 +245,10 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
         FloatRect clip(0, 0, viewRect.width(), viewRect.height());
         compositedRoot->updateGLPositions(ident, clip, 1);
         SkMatrix matrix;
-        matrix.setTranslate(left, top);
+        matrix.setTranslate(viewRect.x(), viewRect.y());
 
-        // Get the current scale; if we are zooming, we don't change the scale
-        // factor immediately (see BaseLayerAndroid::drawBasePictureInGL()), but
-        // we change the scaleRequestState. When the state is kReceivedNewScale
-        // we can use the future scale instead of the current scale to request
-        // new textures. After a transition time, the scaleRequestState will be
-        // reset and the current scale will be set to the future scale.
-        float scale = m_glWebViewState->currentScale();
-        if (m_glWebViewState->scaleRequestState() == GLWebViewState::kReceivedNewScale) {
-            scale = m_glWebViewState->futureScale();
-        }
-        compositedRoot->setScale(scale);
+        // get the scale factor from the zoom manager
+        compositedRoot->setScale(m_glWebViewState->zoomManager()->layersScale());
 
 #ifdef DEBUG
         compositedRoot->showLayer(0);
@@ -358,7 +267,6 @@ bool BaseLayerAndroid::drawGL(LayerAndroid* compositedRoot,
 
     }
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_previousVisible = visibleRect;
 
 #endif // USE(ACCELERATED_COMPOSITING)

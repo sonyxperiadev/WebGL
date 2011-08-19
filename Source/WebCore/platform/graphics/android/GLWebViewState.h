@@ -28,12 +28,14 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "Color.h"
 #include "DrawExtra.h"
 #include "IntRect.h"
 #include "SkCanvas.h"
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "TiledPage.h"
+#include "ZoomManager.h"
 #include <utils/threads.h>
 
 // Performance measurements probe
@@ -160,37 +162,17 @@ class LayerAndroid;
 
 class GLWebViewState {
 public:
-    enum GLScaleStates {
-        kNoScaleRequest = 0,
-        kWillScheduleRequest = 1,
-        kRequestNewScale = 2,
-        kReceivedNewScale = 3
-    };
-    typedef int32_t GLScaleState;
-
     GLWebViewState(android::Mutex* globalButtonMutex);
     ~GLWebViewState();
-    GLScaleState scaleRequestState() const { return m_scaleRequestState; }
-    void setScaleRequestState(GLScaleState state) { m_scaleRequestState = state; }
-    float currentScale() const { return m_currentScale; }
-    void setCurrentScale(float scale) { m_currentScale = scale; }
-    float futureScale() const { return m_futureScale; }
-    void setFutureScale(float scale) { m_futureScale = scale; }
+
+    ZoomManager* zoomManager() { return &m_zoomManager; }
     const SkIRect& futureViewport() const { return m_futureViewportTileBounds; }
     void setFutureViewport(const SkIRect& viewport) { m_futureViewportTileBounds = viewport; }
-    double updateTime() const { return m_updateTime; }
-    void setUpdateTime(double value) { m_updateTime = value; }
-    double zoomInTransitionTime(double currentTime);
-    double zoomOutTransitionTime(double currentTime);
-    float zoomInTransparency(double currentTime);
-    float zoomOutTransparency(double currentTime);
-    void resetTransitionTime() { m_transitionTime = -1; }
 
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
     void setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval, bool showVisualIndicator,
                       bool isPictureAfterFirstLayout);
     void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&, bool allowSame);
-    void scheduleUpdate(const double& currentTime, const SkIRect& viewport, float scale);
     void paintExtras();
 
     void setRings(Vector<IntRect>& rings, bool isPressed);
@@ -230,13 +212,13 @@ public:
         return false;
     }
 
+    double setupDrawing(IntRect& rect, SkRect& viewport, IntRect& webViewRect,
+                int titleBarHeight, IntRect& screenClip,
+                float scale);
+
     bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                 IntRect& webViewRect, int titleBarHeight,
-                IntRect& clip, float scale, bool* pagesSwapped,
-                SkColor color = SK_ColorWHITE);
-
-    void setBackgroundColor(SkColor color) { m_backgroundColor = color; }
-    SkColor getBackgroundColor() { return m_backgroundColor; }
+                IntRect& clip, float scale, bool* pagesSwapped);
 
 #ifdef MEASURES_PERF
     void dumpMeasures();
@@ -261,24 +243,7 @@ private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
     void invalRegion(const SkRegion& region);
 
-    // Delay between scheduling a new page when the scale
-    // factor changes (i.e. zooming in or out)
-    static const double s_updateInitialDelay = 0.3; // 300 ms
-    // If the scale factor continued to change and we completed
-    // the original delay, we push back the update by this value
-    static const double s_updateDelay = 0.1; // 100 ms
-
-    // Delay for the transition between the two pages
-    static const double s_zoomInTransitionDelay = 0.1; // 100 ms
-    static const double s_invZoomInTransitionDelay = 10;
-    static const double s_zoomOutTransitionDelay = 0.2; // 200 ms
-    static const double s_invZoomOutTransitionDelay = 5;
-
-    GLScaleState m_scaleRequestState;
-    float m_currentScale;
-    float m_futureScale;
-    double m_updateTime;
-    double m_transitionTime;
+    ZoomManager m_zoomManager;
     android::Mutex m_tiledPageLock;
     SkRect m_viewport;
     SkRect m_previousViewport;
@@ -302,7 +267,7 @@ private:
     bool m_baseLayerUpdate;
     SkRegion m_invalidateRegion;
 
-    SkColor m_backgroundColor;
+    Color m_backgroundColor;
 
 #ifdef MEASURES_PERF
     unsigned int m_totalTimeCounter;

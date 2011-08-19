@@ -55,9 +55,8 @@ public:
     // we are running in different threads.
     void drawCanvas(SkCanvas* canvas);
 
-    bool drawGL(LayerAndroid* compositedRoot, IntRect& rect, SkRect& viewport,
-                IntRect& webViewRect, int titleBarHeight, IntRect& screenClip,
-                float scale, bool* pagesSwapped, SkColor color = SK_ColorWHITE);
+    bool drawGL(double currentTime, LayerAndroid* compositedRoot, IntRect& rect,
+                SkRect& viewport, float scale, bool* pagesSwapped);
     void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:
 #if USE(ACCELERATED_COMPOSITING)
