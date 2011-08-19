@@ -417,6 +417,10 @@ private:
     bool m_dispatchingCanPlayEvent : 1;
     bool m_loadInitiatedByUserGesture : 1;
     bool m_completelyLoaded : 1;
+
+#if PLATFORM(ANDROID)
+    double m_lastTouch;
+#endif
 };
 
 } //namespace
