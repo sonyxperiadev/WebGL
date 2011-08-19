@@ -79,6 +79,11 @@
 #include "Widget.h"
 #endif
 
+#if PLATFORM(ANDROID)
+// For every touch, show the media control for 4 seconds.
+#define TOUCH_DELAY 4
+#endif
+
 using namespace std;
 
 namespace WebCore {
@@ -171,6 +176,9 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
     , m_dispatchingCanPlayEvent(false)
     , m_loadInitiatedByUserGesture(false)
     , m_completelyLoaded(false)
+#if PLATFORM(ANDROID)
+    , m_lastTouch(0)
+#endif
 {
     LOG(Media, "HTMLMediaElement::HTMLMediaElement");
     document->registerForDocumentActivationCallbacks(this);
@@ -1626,8 +1634,13 @@ void HTMLMediaElement::playbackProgressTimerFired(Timer<HTMLMediaElement>*)
 
     scheduleTimeupdateEvent(true);
     if (hasMediaControls()) {
-        if (!m_mouseOver && controls() && hasVideo())
+
+        if (!m_mouseOver && controls() && hasVideo()) {
+#if PLATFORM(ANDROID)
+            if (WTF::currentTime() - m_lastTouch > TOUCH_DELAY)
+#endif
             mediaControls()->makeTransparent();
+        }
         mediaControls()->playbackProgressed();
     }
     // FIXME: deal with cue ranges here
@@ -2373,8 +2386,13 @@ void HTMLMediaElement::defaultEventHandler(Event* event)
     }
 
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-    if (event->isTouchEvent())
+    if (event->isTouchEvent()) {
         m_mouseOver = !(event->type() == eventNames().touchendEvent || event->type() == eventNames().touchcancelEvent);
+        if (m_mouseOver && hasMediaControls() && controls() && !canPlay()) {
+            m_lastTouch = WTF::currentTime();
+            mediaControls()->makeOpaque();
+        }
+    }
 #endif
 
     HTMLElement::defaultEventHandler(event);
