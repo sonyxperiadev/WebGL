@@ -316,12 +316,16 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
     if (!x && !y && bitmap.width() == width && bitmap.height() == height) {
         bitmap.lockPixels();
         uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
-        // Copied line by line since we need to handle the offsets and stride.
-        for (row = 0 ; row < bitmap.height(); row ++) {
-            uint8_t* dst = &(img[(buffer.stride * (row + x) + y) * bpp]);
-            uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
-            memcpy(dst, src, bpp * bitmap.width());
-        }
+        if (buffer.stride != bitmap.width())
+            // Copied line by line since we need to handle the offsets and stride.
+            for (row = 0 ; row < bitmap.height(); row ++) {
+                uint8_t* dst = &(img[buffer.stride * row * bpp]);
+                uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
+                memcpy(dst, src, bpp * bitmap.width());
+            }
+        else
+            memcpy(img, bitmapOrigin, bpp * bitmap.width() * bitmap.height());
+
         bitmap.unlockPixels();
     } else {
         // TODO: implement the partial invalidate here!
