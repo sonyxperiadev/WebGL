@@ -253,11 +253,11 @@ void GLWebViewState::drawFocusRing(IntRect& srcRect)
     // TODO: use a 9-patch texture to draw the focus ring
     // instead of plain colors
     const float alpha = 0.3;
-    float borderAlpha = 0.40;
+    float borderAlpha = 0.4;
 
-    const int r = 104;
-    const int g = 153;
-    const int b = 255;
+    const int r = 51;
+    const int g = 181;
+    const int b = 229;
 
     int padding = 4;
     int border = 1;
