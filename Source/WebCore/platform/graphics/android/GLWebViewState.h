@@ -44,8 +44,10 @@
 // #define MEASURES_PERF
 #define MAX_MEASURES_PERF 2000
 
-// Prefetch and render 2 tiles ahead of the scroll
-#define TILE_PREFETCH_DISTANCE 0
+// Prefetch and render 1 tiles ahead of the scroll
+// TODO: We should either dynamically change the outer bound by detecting the
+// HW limit or save further in the GPU memory consumption.
+#define TILE_PREFETCH_DISTANCE 1
 
 // ratio of content to view required for prefetching to enable
 #define TILE_PREFETCH_RATIO 1.2
