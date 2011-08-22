@@ -1634,13 +1634,12 @@ void HTMLMediaElement::playbackProgressTimerFired(Timer<HTMLMediaElement>*)
 
     scheduleTimeupdateEvent(true);
     if (hasMediaControls()) {
-
-        if (!m_mouseOver && controls() && hasVideo()) {
 #if PLATFORM(ANDROID)
-            if (WTF::currentTime() - m_lastTouch > TOUCH_DELAY)
+        m_mouseOver = WTF::currentTime() - m_lastTouch <= TOUCH_DELAY;
 #endif
+        if (!m_mouseOver && controls() && hasVideo())
             mediaControls()->makeTransparent();
-        }
+
         mediaControls()->playbackProgressed();
     }
     // FIXME: deal with cue ranges here
@@ -2374,6 +2373,9 @@ void HTMLMediaElement::defaultEventHandler(Event* event)
         widget->handleEvent(event);
 #else
     if (event->isMouseEvent()) {
+#if PLATFORM(ANDROID)
+        m_lastTouch = WTF::currentTime();
+#endif
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
         if (mouseEvent->relatedTarget() != this) {
             if (event->type() == eventNames().mouseoverEvent) {
