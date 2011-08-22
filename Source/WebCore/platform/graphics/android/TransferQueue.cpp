@@ -288,10 +288,9 @@ void TransferQueue::updateDirtyBaseTiles()
 void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
                                           int x, int y, const SkBitmap& bitmap)
 {
-    android::Mutex::Autolock lock(m_transferQueueItemLocks);
-
+    m_transferQueueItemLocks.lock();
     bool ready = readyForUpdate();
-
+    m_transferQueueItemLocks.unlock();
     if (!ready) {
         XLOG("Quit bitmap update: not ready! for tile x y %d %d",
              renderInfo->x, renderInfo->y);
@@ -333,9 +332,10 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
     }
 
     ANativeWindow_unlockAndPost(m_ANW.get());
-
+    m_transferQueueItemLocks.lock();
     // b) After update the Surface Texture, now udpate the transfer queue info.
     addItemInTransferQueue(renderInfo);
+    m_transferQueueItemLocks.unlock();
     XLOG("Bitmap updated x, y %d %d, baseTile %p",
          renderInfo->x, renderInfo->y, renderInfo->baseTile);
 }
