@@ -444,6 +444,9 @@ namespace android {
         // send the current screen size/zoom to all of the plugins in our list
         void sendPluginVisibleScreen();
 
+        // notify plugin that a new drawing surface was created in the UI thread
+        void sendPluginSurfaceReady();
+
         // send onLoad event to plugins who are descendents of the given frame
         void notifyPluginsOnFrameLoad(const Frame*);
 

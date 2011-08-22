@@ -83,6 +83,8 @@ struct PluginWidgetAndroid {
 
     bool isOpenGLDrawingModel() const { return kOpenGL_ANPDrawingModel == m_drawingModel; }
 
+    void checkSurfaceReady();
+
     /*  Returns true (and optionally updates rect with the dirty bounds in the
         page coordinate) if the plugin has invalidate us.
      */
@@ -207,6 +209,7 @@ private:
     bool                    m_isSurfaceClippedOut;
     ANPPowerState           m_powerState;
     int                     m_fullScreenOrientation;
+    bool                    m_drawEventDelayed;
 
     /* We limit the number of rectangles to minimize storage and ensure adequate
        speed.
