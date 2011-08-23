@@ -135,11 +135,10 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
 
     // Let's prepare the page if needed
     if (prepareNextTiledPage) {
-        TiledPage* nextTiledPage = m_glWebViewState->backPage();
         nextTiledPage->setScale(scale);
         m_glWebViewState->setFutureViewport(viewportTileBounds);
         m_glWebViewState->lockBaseLayerUpdate();
-        nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds);
+        nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds, TiledPage::kVisibleBounds);
         // Cancel pending paints for the foreground page
         TilesManager::instance()->removePaintOperationsForPage(tiledPage, false);
     }
@@ -159,7 +158,6 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
         float nextTiledPageTransparency = 1;
         zoomManager->processTransition(currentTime, scale, &doSwap,
                                        &nextTiledPageTransparency, &transparency);
-
         nextTiledPage->draw(nextTiledPageTransparency, viewportTileBounds);
     }
 
@@ -167,37 +165,38 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
 
     bool needsRedraw = false;
 
-    // We are now using an hybrid model -- during scrolling,
-    // we will display the current tiledPage even if some tiles are
-    // out of date. When standing still on the other hand, we wait until
-    // the back page is ready before swapping the pages, ensuring that the
-    // displayed content is in sync.
-    if (!doSwap && !zooming && !m_glWebViewState->moving()) {
-        if (!tiledPage->ready(preZoomBounds, zoomManager->currentScale())) {
+    static bool waitOnScrollFinish = false;
+
+    if (m_glWebViewState->isScrolling()) {
+        if (!waitOnScrollFinish) {
+            waitOnScrollFinish = true;
+
+            //started scrolling, lock updates
             m_glWebViewState->lockBaseLayerUpdate();
-            nextTiledPage->setScale(zoomManager->currentScale());
-            nextTiledPage->prepare(goingDown, goingLeft, preZoomBounds);
-        }
-        if (nextTiledPage->ready(preZoomBounds, zoomManager->currentScale())) {
-            nextTiledPage->draw(transparency, preZoomBounds);
-            m_glWebViewState->resetFrameworkInval();
-            m_glWebViewState->unlockBaseLayerUpdate();
-            doSwap = true;
-        } else {
-            tiledPage->draw(transparency, preZoomBounds);
         }
     } else {
-        if (tiledPage->ready(preZoomBounds, zoomManager->currentScale()))
-           m_glWebViewState->resetFrameworkInval();
+        // wait until all tiles are rendered before anything else
+        if (waitOnScrollFinish) {
+            //wait for the page to finish rendering, then go into swap mode
+            if (tiledPage->ready(preZoomBounds, zoomManager->currentScale())) {
+                m_glWebViewState->resetFrameworkInval();
+                m_glWebViewState->unlockBaseLayerUpdate();
+                waitOnScrollFinish = false;
+            }
+            //should be prepared, simply draw
+        }
 
-        // Ask for the tiles and draw -- tiles may be out of date.
-        if (!zooming)
-           m_glWebViewState->unlockBaseLayerUpdate();
-
-        if (!prepareNextTiledPage)
-            tiledPage->prepare(goingDown, goingLeft, preZoomBounds);
-        tiledPage->draw(transparency, preZoomBounds);
+        if (!waitOnScrollFinish) {
+            //completed page post-scroll
+            if (!tiledPage->ready(preZoomBounds, zoomManager->currentScale())) {
+                m_glWebViewState->lockBaseLayerUpdate();
+            }
+        }
     }
+
+    if (!prepareNextTiledPage || tiledPage->ready(preZoomBounds, zoomManager->currentScale()))
+        tiledPage->prepare(goingDown, goingLeft, preZoomBounds, TiledPage::kExpandedBounds);
+    tiledPage->draw(transparency, preZoomBounds);
 
     if (zoomManager->scaleRequestState() != ZoomManager::kNoScaleRequest
         || !tiledPage->ready(preZoomBounds, zoomManager->currentScale()))
@@ -206,14 +205,13 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
     if (doSwap) {
         zoomManager->setCurrentScale(scale);
         m_glWebViewState->swapPages();
-        m_glWebViewState->unlockBaseLayerUpdate();
         if (pagesSwapped)
             *pagesSwapped = true;
     }
 
     // if no longer trailing behind invalidates, unlock (so invalidates can
     // go directly to the the TiledPages without deferral)
-    if (!needsRedraw)
+    if (!needsRedraw && !waitOnScrollFinish)
         m_glWebViewState->unlockBaseLayerUpdate();
 
     m_glWebViewState->paintExtras();
