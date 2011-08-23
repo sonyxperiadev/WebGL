@@ -58,8 +58,14 @@
 
 #endif // DEBUG
 
-// Number of tiles for base layer
-#define MAX_TEXTURE_ALLOCATION 51
+// Important: We need at least twice as many textures as is needed to cover
+// one viewport, otherwise the allocation may stall.
+// We need n textures for one TiledPage, and another n textures for the
+// second page used when scaling.
+// In our case, we use 256*256 textures. On the tablet, this equates to
+// at least 60 textures, or 112 with expanded tile boundaries.
+// 112(tiles)*256*256*4(bpp)*2(pages) = 56MB
+#define MAX_TEXTURE_ALLOCATION ((6+TILE_PREFETCH_DISTANCE*2)*(5+TILE_PREFETCH_DISTANCE*2)*2)
 #define TILE_WIDTH 256
 #define TILE_HEIGHT 256
 #define LAYER_TILE_WIDTH 256
@@ -322,9 +328,8 @@ void TilesManager::setMaxTextureCount(int max)
 {
     XLOG("setMaxTextureCount: %d (current: %d, total:%d)",
          max, m_maxTextureCount, MAX_TEXTURE_ALLOCATION);
-    if (m_maxTextureCount &&
-        (max > MAX_TEXTURE_ALLOCATION ||
-         max <= m_maxTextureCount))
+    if (m_maxTextureCount == MAX_TEXTURE_ALLOCATION ||
+         max <= m_maxTextureCount)
         return;
 
     android::Mutex::Autolock lock(m_texturesLock);
