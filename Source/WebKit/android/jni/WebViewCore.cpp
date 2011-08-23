@@ -164,6 +164,11 @@ FILE* gRenderTreeFile = 0;
 #include <v8.h>
 #endif
 
+// In some cases, too many invalidations passed to the UI will slow us down.
+// Limit ourselves to 32 rectangles, past this just send the area bounds to the UI.
+// see WebViewCore::recordPictureSet().
+#define MAX_INVALIDATIONS 32
+
 /*  We pass this flag when recording the actual content, so that we don't spend
     time actually regionizing complex path clips, when all we really want to do
     is record them.
@@ -684,6 +689,21 @@ void WebViewCore::recordPictureSet(PictureSet* content)
 
     // Add the current inval rects to the PictureSet, and rebuild it.
     content->add(m_addInval, 0, 0, false);
+
+    // If we have too many invalidations, just get the area bounds
+    SkRegion::Iterator iterator(m_addInval);
+    int nbInvals = 0;
+    while (!iterator.done()) {
+        iterator.next();
+        nbInvals++;
+        if (nbInvals > MAX_INVALIDATIONS)
+            break;
+    }
+    if (nbInvals > MAX_INVALIDATIONS) {
+        SkIRect r = m_addInval.getBounds();
+        m_addInval.setRect(r);
+    }
+
     rebuildPictureSet(content);
 
     } // WebViewCoreRecordTimeCounter
