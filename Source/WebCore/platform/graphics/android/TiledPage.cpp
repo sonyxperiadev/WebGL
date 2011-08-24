@@ -33,11 +33,14 @@
 #include "PaintTileOperation.h"
 #include "TilesManager.h"
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "TiledPage", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TiledPage", __VA_ARGS__)
@@ -248,7 +251,6 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     TilesManager::instance()->gatherTextures();
     // update the tiles distance from the viewport
     updateTileState(tileBounds);
-    m_prepare = true;
     m_scrollingDown = goingDown;
 
     int firstTileX = tileBounds.fLeft;
@@ -279,8 +281,15 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     m_expandedTileBounds.fRight = lastTileX;
     m_expandedTileBounds.fBottom = lastTileY;
 
+    if (nbTilesHeight * nbTilesWidth > TilesManager::getMaxTextureAllocation() + 1) {
+        XLOGC("ERROR: We don't have enough tiles for this page!"
+              " nbTilesHeight %d nbTilesWidth %d", nbTilesHeight, nbTilesWidth);
+        return;
+    }
     for (int i = 0; i < nbTilesHeight; i++)
         prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, tileBounds);
+
+    m_prepare = true;
 }
 
 bool TiledPage::ready(const SkIRect& tileBounds, float scale)
