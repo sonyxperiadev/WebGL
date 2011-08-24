@@ -131,6 +131,7 @@ PassRefPtr<MediaControlRootElement> MediaControlRootElement::create(HTMLMediaEle
     if (ec)
         return 0;
 
+#if !PLATFORM(ANDROID)
     // FIXME: Only create when needed <http://webkit.org/b/57163>
     RefPtr<MediaControlSeekBackButtonElement> seekBackButton = MediaControlSeekBackButtonElement::create(mediaElement);
     controls->m_seekBackButton = seekBackButton.get();
@@ -144,6 +145,7 @@ PassRefPtr<MediaControlRootElement> MediaControlRootElement::create(HTMLMediaEle
     panel->appendChild(seekForwardButton.release(), ec, true);
     if (ec)
         return 0;
+#endif
 
     if (mediaElement->document()->page()->theme()->supportsClosedCaptioning()) {
         RefPtr<MediaControlToggleClosedCaptionsButtonElement> toggleClosedCaptionsButton = MediaControlToggleClosedCaptionsButtonElement::create(mediaElement);

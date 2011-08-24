@@ -264,7 +264,7 @@ bool RenderThemeAndroid::shouldRenderMediaControlPart(ControlPart part, Element*
       case MediaSeekForwardButtonPart:
           return false;
       case MediaRewindButtonPart:
-          return false;
+          return mediaElement->movieLoadType() != MediaPlayer::LiveStream;
       case MediaReturnToRealtimeButtonPart:
           return mediaElement->movieLoadType() == MediaPlayer::LiveStream;
       case MediaFullscreenButtonPart:
