@@ -3842,11 +3842,10 @@ void WebViewCore::setWebTextViewAutoFillable(int queryId, const string16& previe
 
 bool WebViewCore::drawIsPaused() const
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue->object(env);
-    if (!javaObject.get())
-        return false;
-    return env->GetBooleanField(javaObject.get(), gWebViewCoreFields.m_drawIsPaused);
+    // returning true says scrollview should be offscreen, which pauses
+    // gifs. because this is not again queried when we stop scrolling, we don't
+    // use the stopping currently.
+    return false;
 }
 
 #if USE(CHROME_NETWORK_STACK)
@@ -4438,6 +4437,14 @@ static bool FocusBoundsChanged(JNIEnv* env, jobject obj)
     return GET_NATIVE_VIEW(env, obj)->focusBoundsChanged();
 }
 
+static void SetIsPaused(JNIEnv* env, jobject obj, jboolean isPaused)
+{
+    // tell the webcore thread to stop thinking while we do other work
+    // (selection and scrolling). This has nothing to do with the lifecycle
+    // pause and resume.
+    GET_NATIVE_VIEW(env, obj)->setIsPaused(isPaused);
+}
+
 static void Pause(JNIEnv* env, jobject obj)
 {
     // This is called for the foreground tab when the browser is put to the
@@ -4685,6 +4692,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetNewStorageLimit },
     { "nativeGeolocationPermissionsProvide", "(Ljava/lang/String;ZZ)V",
         (void*) GeolocationPermissionsProvide },
+    { "nativeSetIsPaused", "(Z)V", (void*) SetIsPaused },
     { "nativePause", "()V", (void*) Pause },
     { "nativeResume", "()V", (void*) Resume },
     { "nativeFreeMemory", "()V", (void*) FreeMemory },

@@ -1330,6 +1330,11 @@ bool scrollBy(int dx, int dy)
     return result;
 }
 
+void setIsScrolling(bool isScrolling)
+{
+    m_glWebViewState->setIsScrolling(isScrolling);
+}
+
 bool hasCursorNode()
 {
     CachedRoot* root = getFrameCache(DontAllowNewer);
@@ -2611,6 +2616,13 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
     return false;
 }
 
+static void nativeSetIsScrolling(JNIEnv* env, jobject jwebview, jboolean isScrolling)
+{
+    WebView* view = GET_NATIVE_VIEW(env, jwebview);
+    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
+    view->setIsScrolling(isScrolling);
+}
+
 static void nativeUseHardwareAccelSkia(JNIEnv*, jobject, jboolean enabled)
 {
     BaseRenderer::setCurrentRendererType(enabled ? BaseRenderer::Ganesh : BaseRenderer::Raster);
@@ -2825,6 +2837,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeScrollableLayer },
     { "nativeScrollLayer", "(III)Z",
         (void*) nativeScrollLayer },
+    { "nativeSetIsScrolling", "(Z)V",
+        (void*) nativeSetIsScrolling },
     { "nativeUseHardwareAccelSkia", "(Z)V",
         (void*) nativeUseHardwareAccelSkia },
     { "nativeGetBackgroundColor", "()I",

@@ -243,7 +243,7 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
     m_invalTilesRegion.setEmpty();
 }
 
-void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds)
+void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds, PrepareBounds bounds)
 {
     if (!m_glWebViewState)
         return;
@@ -265,16 +265,20 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     // smoother scrolling.
     int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
     int nMaxTilesPerPage = m_baseTileSize / 2;
-    int expandX = m_glWebViewState->expandedTileBoundsX();
-    int expandY = m_glWebViewState->expandedTileBoundsY();
 
-    firstTileX -= expandX;
-    lastTileX += expandX;
-    nbTilesWidth += expandX * 2;
+    if (bounds == kExpandedBounds) {
+        // prepare tiles outside of the visible bounds
+        int expandX = m_glWebViewState->expandedTileBoundsX();
+        int expandY = m_glWebViewState->expandedTileBoundsY();
 
-    firstTileY -= expandY;
-    lastTileY += expandY;
-    nbTilesHeight += expandY * 2;
+        firstTileX -= expandX;
+        lastTileX += expandX;
+        nbTilesWidth += expandX * 2;
+
+        firstTileY -= expandY;
+        lastTileY += expandY;
+        nbTilesHeight += expandY * 2;
+    }
 
     m_expandedTileBounds.fLeft = firstTileX;
     m_expandedTileBounds.fTop = firstTileY;

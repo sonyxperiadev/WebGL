@@ -203,16 +203,8 @@ public:
     void lockBaseLayerUpdate() { m_baseLayerUpdate = false; }
     void unlockBaseLayerUpdate();
 
-    bool moving() {
-        // This will only works if we are not zooming -- we check
-        // for this in BaseLayerAndroid::drawBasePictureInGL()
-        if ((m_viewport.fLeft != m_previousViewport.fLeft ||
-            m_viewport.fTop != m_previousViewport.fTop) &&
-            m_viewport.width() == m_previousViewport.width() &&
-            m_viewport.height() == m_previousViewport.height())
-            return true;
-        return false;
-    }
+    void setIsScrolling(bool isScrolling) { m_isScrolling = isScrolling; }
+    bool isScrolling() { return m_isScrolling; }
 
     double setupDrawing(IntRect& rect, SkRect& viewport, IntRect& webViewRect,
                 int titleBarHeight, IntRect& screenClip,
@@ -248,7 +240,6 @@ private:
     ZoomManager m_zoomManager;
     android::Mutex m_tiledPageLock;
     SkRect m_viewport;
-    SkRect m_previousViewport;
     SkIRect m_viewportTileBounds;
     SkIRect m_futureViewportTileBounds;
     SkIRect m_preZoomBounds;
@@ -282,6 +273,7 @@ private:
     bool m_ringsIsPressed;
     int m_focusRingTexture;
 
+    bool m_isScrolling;
     bool m_goingDown;
     bool m_goingLeft;
 

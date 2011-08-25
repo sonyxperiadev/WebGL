@@ -64,7 +64,8 @@ namespace WebCore {
 using namespace android;
 
 GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
-    : m_baseLayer(0)
+    : m_zoomManager(this)
+    , m_baseLayer(0)
     , m_currentBaseLayer(0)
     , m_previouslyUsedRoot(0)
     , m_currentPictureCounter(0)
@@ -76,14 +77,13 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_backgroundColor(SK_ColorWHITE)
     , m_displayRings(false)
     , m_focusRingTexture(-1)
+    , m_isScrolling(false)
     , m_goingDown(true)
     , m_goingLeft(false)
     , m_expandedTileBoundsX(0)
     , m_expandedTileBoundsY(0)
-    , m_zoomManager(this)
 {
     m_viewport.setEmpty();
-    m_previousViewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
     m_viewportTileBounds.setEmpty();
     m_preZoomBounds.setEmpty();
@@ -226,8 +226,7 @@ void GLWebViewState::inval(const IntRect& rect)
         m_currentPictureCounter++;
         if (!rect.isEmpty()) {
             // find which tiles fall within the invalRect and mark them as dirty
-            m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
-            m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
+            frontPage()->invalidateRect(rect, m_currentPictureCounter);
             if (m_frameworkInval.isEmpty())
                 m_frameworkInval = rect;
             else
@@ -372,13 +371,12 @@ int GLWebViewState::baseContentHeight()
 
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
 {
-    m_previousViewport = m_viewport;
     if ((m_viewport == viewport) &&
         (zoomManager()->futureScale() == scale))
         return;
 
-    m_goingDown = m_previousViewport.fTop - viewport.fTop <= 0;
-    m_goingLeft = m_previousViewport.fLeft - viewport.fLeft >= 0;
+    m_goingDown = m_viewport.fTop - viewport.fTop <= 0;
+    m_goingLeft = m_viewport.fLeft - viewport.fLeft >= 0;
     m_viewport = viewport;
 
     XLOG("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f currentScale: %.2f futureScale: %.2f)",
