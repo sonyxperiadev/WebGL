@@ -1945,6 +1945,11 @@ void HTMLMediaElement::mediaPlayerDurationChanged(MediaPlayer*)
     if (renderer())
         renderer()->updateFromElement();
     endProcessingMediaPlayerCallback();
+
+#if PLATFORM(ANDROID)
+    if (hasMediaControls())
+        mediaControls()->reset();
+#endif
 }
 
 void HTMLMediaElement::mediaPlayerRateChanged(MediaPlayer*)
