@@ -229,12 +229,13 @@ namespace android {
         virtual void didSaveToPageCache() { }
         virtual void didRestoreFromPageCache() { }
     private:
-        CacheBuilder        m_cacheBuilder;
-        Frame*              m_frame;
-        WebFrame*           m_webFrame;
+        CacheBuilder m_cacheBuilder;
+        Frame* m_frame;
+        WebFrame* m_webFrame;
         PluginManualLoader* m_manualLoader;
-        bool                m_hasSentResponseToPlugin;
-        bool                m_onDemandPluginsEnabled;
+        bool m_hasSentResponseToPlugin;
+        bool m_onDemandPluginsEnabled;
+        mutable bool m_didReceiveServerRedirect;
 
         enum ResourceErrors {
             InternalErrorCancelled = -99,

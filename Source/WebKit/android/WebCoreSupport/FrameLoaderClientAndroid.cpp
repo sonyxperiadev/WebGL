@@ -95,7 +95,8 @@ FrameLoaderClientAndroid::FrameLoaderClientAndroid(WebFrame* webframe)
     , m_webFrame(webframe)
     , m_manualLoader(NULL)
     , m_hasSentResponseToPlugin(false)
-    , m_onDemandPluginsEnabled(false) {
+    , m_onDemandPluginsEnabled(false)
+    , m_didReceiveServerRedirect(false) {
     Retain(m_webFrame);
 }
 
@@ -210,9 +211,8 @@ void FrameLoaderClientAndroid::dispatchDidHandleOnloadEvents() {
 }
 
 void FrameLoaderClientAndroid::dispatchDidReceiveServerRedirectForProvisionalLoad() {
-    ASSERT(m_frame);
-    // Tell the load it was a redirect.
-    m_webFrame->loadStarted(m_frame);
+    ASSERT(!m_didReceiveServerRedirect);
+    m_didReceiveServerRedirect = true;
 }
 
 void FrameLoaderClientAndroid::dispatchDidCancelClientRedirect() {
@@ -768,17 +768,24 @@ bool FrameLoaderClientAndroid::shouldFallBack(const ResourceError&) {
 }
 
 bool FrameLoaderClientAndroid::canHandleRequest(const ResourceRequest& request) const {
-    ASSERT(m_frame);
-    // Don't allow hijacking of intrapage navigation
-    if (WebCore::equalIgnoringFragmentIdentifier(request.url(), m_frame->document()->url()))
-        return true;
+    // This is called by WebCore to determine if this load can be handled by the
+    // WebView. In general, we delegate to the WebFrame, which may ask the
+    // embedding application whether it wishes to hijack the load. However, we
+    // don't allow this if the load is ...
+    // - An intrapage navigation
+    // - An iframe with a HTTP or HTTPS scheme URL
+    bool canHandle = WebCore::equalIgnoringFragmentIdentifier(request.url(), m_frame->document()->url()) ||
+            (request.url().protocol().startsWith("http", false) && m_frame->tree() && m_frame->tree()->parent()) ||
+            m_webFrame->canHandleRequest(request);
 
-    // Don't allow hijacking of iframe urls that are http or https
-    if (request.url().protocol().startsWith("http", false) &&
-            m_frame->tree() && m_frame->tree()->parent())
-        return true;
+    // If this is a server-side redirect and the WebView will handle loading it,
+    // notify the WebFrame, which may notify the embedding application that
+    // we're loading a new URL.
+    if (m_didReceiveServerRedirect && canHandle)
+        m_webFrame->loadStarted(m_frame);
+    m_didReceiveServerRedirect = false;
 
-    return m_webFrame->canHandleRequest(request);
+    return canHandle;
 }
 
 bool FrameLoaderClientAndroid::canShowMIMEType(const String& mimeType) const {

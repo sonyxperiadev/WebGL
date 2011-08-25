@@ -99,6 +99,8 @@ class WebFrame : public WebCoreRefObject {
     
     void updateVisitedHistory(const WebCore::KURL& url, bool reload);
 
+    // Used to determine whether the WebView should handle the given request.
+    // Returns true if it should handle it, otherwise false.
     virtual bool canHandleRequest(const WebCore::ResourceRequest& request);
 
     WebCore::Frame* createWindow(bool dialog, bool userGesture);
