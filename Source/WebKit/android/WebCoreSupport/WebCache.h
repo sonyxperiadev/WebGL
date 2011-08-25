@@ -47,6 +47,8 @@ public:
     net::HostResolver* hostResolver() { return m_hostResolver.get(); }
     net::HttpCache* cache() { return m_cache.get(); }
     net::ProxyConfigServiceAndroid* proxy() { return m_proxyConfigService; }
+    void closeIdleConnections();
+
 
 private:
     WebCache(bool isPrivateBrowsing);
@@ -55,6 +57,9 @@ private:
     void clearImpl();
     void doomAllEntries(int);
     void onClearDone(int);
+
+    // For closeIdleConnections
+    void closeIdleImpl();
 
     // For getEntry()
     void getEntryImpl();

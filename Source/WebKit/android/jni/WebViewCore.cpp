@@ -113,6 +113,7 @@
 #include "SkUtils.h"
 #include "Text.h"
 #include "TypingCommand.h"
+#include "WebCache.h"
 #include "WebCoreFrameBridge.h"
 #include "WebFrameView.h"
 #include "WindowsKeyboardCodes.h"
@@ -4616,6 +4617,14 @@ static void AutoFillForm(JNIEnv* env, jobject obj, jint queryId)
 #endif
 }
 
+static void CloseIdleConnections(JNIEnv* env, jobject obj)
+{
+#if USE(CHROME_NETWORK_STACK)
+    WebCache::get(true)->closeIdleConnections();
+    WebCache::get(false)->closeIdleConnections();
+#endif
+}
+
 static void ScrollRenderLayer(JNIEnv* env, jobject obj, jint layer, jobject jRect)
 {
     SkRect rect;
@@ -4735,6 +4744,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) AutoFillForm },
     { "nativeScrollLayer", "(ILandroid/graphics/Rect;)V",
         (void*) ScrollRenderLayer },
+    { "nativeCloseIdleConnections", "()V",
+        (void*) CloseIdleConnections },
 };
 
 int registerWebViewCore(JNIEnv* env)

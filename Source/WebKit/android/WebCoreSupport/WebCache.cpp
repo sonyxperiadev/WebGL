@@ -134,6 +134,18 @@ void WebCache::clear()
         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::clearImpl));
 }
 
+void WebCache::closeIdleConnections()
+{
+    base::Thread* thread = WebUrlLoaderClient::ioThread();
+    if (thread)
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::closeIdleImpl));
+}
+
+void WebCache::closeIdleImpl()
+{
+    m_cache->CloseIdleConnections();
+}
+
 void WebCache::clearImpl()
 {
     if (m_isClearInProgress)
