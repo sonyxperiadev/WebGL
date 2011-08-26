@@ -1477,6 +1477,11 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url, jobject headers)
     }
     LOGV("LoadUrl %s", kurl.string().latin1().data());
     pFrame->loader()->load(request, false);
+
+    // Loading a new URL, clear the picture set.
+    WebCore::FrameView* view = pFrame->view();
+    if (view)
+        WebViewCore::getWebViewCore(view)->clearContent();
 }
 
 static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)

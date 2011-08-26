@@ -298,11 +298,11 @@ void PictureSet::checkDimensions(int width, int height, SkRegion* inval)
 {
     if (mWidth == width && mHeight == height)
         return;
-    DBG_SET_LOGD("%p old:(w=%d,h=%d) new:(w=%d,h=%d)", this, 
+    DBG_SET_LOGD("%p old:(w=%d,h=%d) new:(w=%d,h=%d)", this,
         mWidth, mHeight, width, height);
     if (mWidth == width && height > mHeight) { // only grew vertically
         SkIRect rect;
-        rect.set(0, mHeight, width, height - mHeight);
+        rect.set(0, mHeight, width, height);
         inval->op(rect, SkRegion::kUnion_Op);
     } else {
         clear(); // if both width/height changed, clear the old cache
