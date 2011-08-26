@@ -1332,7 +1332,10 @@ bool scrollBy(int dx, int dy)
 
 void setIsScrolling(bool isScrolling)
 {
-    m_glWebViewState->setIsScrolling(isScrolling);
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_glWebViewState)
+        m_glWebViewState->setIsScrolling(isScrolling);
+#endif
 }
 
 bool hasCursorNode()
