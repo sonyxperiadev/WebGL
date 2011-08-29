@@ -45,7 +45,7 @@
 #include "android_graphics.h"
 #include <JNIUtility.h>
 
-#define PLUGIN_DEBUG_LOCAL // controls the printing of log messages
+//#define PLUGIN_DEBUG_LOCAL // controls the printing of log messages
 #define DEBUG_EVENTS 0 // logs event contents, return value, and processing time
 #define DEBUG_VISIBLE_RECTS 0 // temporary debug printfs and fixes
 
@@ -97,9 +97,7 @@ PluginWidgetAndroid::~PluginWidgetAndroid() {
     }
 
     SkSafeUnref(m_flipPixelRef);
-
-    if (m_layer)
-        m_layer->unref();
+    SkSafeUnref(m_layer);
 }
 
 void PluginWidgetAndroid::init(android::WebViewCore* core) {
@@ -158,12 +156,8 @@ void PluginWidgetAndroid::setWindow(NPWindow* window, bool isTransparent) {
 bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
 
     if (model == kOpenGL_ANPDrawingModel && m_layer == 0) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
         jobject webview = m_core->getWebViewJavaObject();
-        jobject weakWebViewRef = 0;
-        if (webview)
-            weakWebViewRef = env->NewWeakGlobalRef(webview);
-        m_layer = new WebCore::MediaLayer(weakWebViewRef);
+        m_layer = new WebCore::MediaLayer(webview);
     }
     else if (model != kOpenGL_ANPDrawingModel && m_layer != 0) {
         m_layer->unref();

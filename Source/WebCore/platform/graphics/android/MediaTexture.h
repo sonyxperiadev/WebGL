@@ -36,7 +36,7 @@ class MediaListener;
 class MediaTexture : public android::LightRefBase<MediaTexture> {
 
 public:
-    MediaTexture(jobject weakWebViewRef);
+    MediaTexture(jobject webViewRef);
     ~MediaTexture();
 
     void initNativeWindowIfNeeded();

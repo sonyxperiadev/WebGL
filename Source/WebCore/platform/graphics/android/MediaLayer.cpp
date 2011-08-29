@@ -40,11 +40,11 @@
 
 namespace WebCore {
 
-MediaLayer::MediaLayer(jobject weakWebViewRef) : LayerAndroid((RenderLayer*) NULL)
+MediaLayer::MediaLayer(jobject webViewRef) : LayerAndroid((RenderLayer*) NULL)
 {
-    m_contentTexture = new MediaTexture(weakWebViewRef);
+    m_contentTexture = new MediaTexture(webViewRef);
     m_contentTexture->incStrong(this);
-    m_videoTexture = new MediaTexture(weakWebViewRef);
+    m_videoTexture = new MediaTexture(webViewRef);
     m_videoTexture->incStrong(this);
 
     m_isCopy = false;
