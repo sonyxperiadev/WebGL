@@ -426,7 +426,21 @@ public:
     }
 
 private:
+    enum CustomScript {
+        Hindi,
+        Thai,
+        Naskh,
+        Hebrew,
+        HebrewBold,
+        NUM_SCRIPTS
+    };
+
+    static const char* paths[NUM_SCRIPTS];
+    static const FontPlatformData* s_fallbackPlatformData[NUM_SCRIPTS];
+
     void setupFontForScriptRun();
+    const FontPlatformData* setupComplexFont(CustomScript script,
+                const FontPlatformData& platformData);
     HB_FontRec* allocHarfbuzzFont();
     void deleteGlyphArrays();
     void createGlyphArrays(int);
@@ -467,6 +481,18 @@ private:
     unsigned m_letterSpacing; // pixels to be added after each glyph.
 };
 
+
+// Indexed using enum CustomScript
+const char* TextRunWalker::paths[] = {
+    "/system/fonts/Lohit_Hindi.ttf",
+    "/system/fonts/DroidSansThai.ttf",
+    "/system/fonts/DroidNaskh-Regular.ttf",
+    "/system/fonts/DroidSansHebrew-Regular.ttf",
+    "/system/fonts/DroidSansHebrew-Bold.ttf"
+};
+
+// Indexed using enum CustomScript
+const FontPlatformData* TextRunWalker::s_fallbackPlatformData[] = {};
 
 TextRunWalker::TextRunWalker(const TextRun& run, unsigned startingX, const Font* font)
     : m_font(font)
@@ -620,15 +646,60 @@ void TextRunWalker::setWordAndLetterSpacing(int wordSpacingAdjustment,
     setLetterSpacingAdjustment(letterSpacingAdjustment);
 }
 
+const FontPlatformData* TextRunWalker::setupComplexFont(
+        CustomScript script,
+        const FontPlatformData& platformData)
+{
+    if (!s_fallbackPlatformData[script]) {
+        SkTypeface* typeface = SkTypeface::CreateFromFile(paths[script]);
+        s_fallbackPlatformData[script] = new FontPlatformData(platformData, typeface);
+        SkSafeUnref(typeface);
+    }
+
+    // If we couldn't allocate a new FontPlatformData, revert to the one passed
+    if (!s_fallbackPlatformData[script])
+        return &platformData;
+
+    return s_fallbackPlatformData[script];
+}
+
 void TextRunWalker::setupFontForScriptRun()
 {
-    const FontData* fontData = m_font->glyphDataForCharacter(
-        m_item.string[m_item.item.pos], false).fontData;
+    const FontData* fontData = m_font->glyphDataForCharacter(m_run[0], false).fontData;
     const FontPlatformData& platformData =
         fontData->fontDataForCharacter(' ')->platformData();
-    m_item.face = platformData.harfbuzzFace();
-    void* opaquePlatformData = const_cast<FontPlatformData*>(&platformData);
-    m_item.font->userData = opaquePlatformData;
+    const FontPlatformData* complexPlatformData = &platformData;
+
+    switch (m_item.item.script) {
+        case HB_Script_Devanagari:
+            complexPlatformData = setupComplexFont(Hindi, platformData);
+            break;
+        case HB_Script_Thai:
+            complexPlatformData = setupComplexFont(Thai, platformData);
+            break;
+        case HB_Script_Arabic:
+            complexPlatformData = setupComplexFont(Naskh, platformData);
+            break;
+        case HB_Script_Hebrew:
+            switch (platformData.typeface()->style()) {
+                case SkTypeface::kBold:
+                case SkTypeface::kBoldItalic:
+                    complexPlatformData = setupComplexFont(HebrewBold, platformData);
+                    break;
+                case SkTypeface::kNormal:
+                case SkTypeface::kItalic:
+                default:
+                    complexPlatformData = setupComplexFont(Hebrew, platformData);
+                    break;
+            }
+            break;
+        default:
+            // HB_Script_Common; includes Ethiopic
+            complexPlatformData = &platformData;
+            break;
+    }
+    m_item.face = complexPlatformData->harfbuzzFace();
+    m_item.font->userData = const_cast<FontPlatformData*>(complexPlatformData);
 }
 
 HB_FontRec* TextRunWalker::allocHarfbuzzFont()

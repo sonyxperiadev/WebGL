@@ -55,6 +55,7 @@ public:
     FontPlatformData(SkTypeface*, float textSize, bool fakeBold, bool fakeItalic);
     FontPlatformData(const FontPlatformData& src, float textSize);
     FontPlatformData(float size, bool syntheticBold, bool syntheticOblique);
+    FontPlatformData(const FontPlatformData& src, SkTypeface* typeface);
 
     ~FontPlatformData();
 
@@ -87,6 +88,7 @@ public:
 #endif
 
     HB_FaceRec_* harfbuzzFace() const;
+    SkTypeface* typeface() const { return mTypeface; }
 
 private:
     class RefCountedHarfbuzzFace : public RefCounted<RefCountedHarfbuzzFace> {
