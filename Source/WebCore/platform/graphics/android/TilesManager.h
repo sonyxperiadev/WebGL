@@ -108,7 +108,6 @@ public:
     static float tileHeight();
     static float layerTileWidth();
     static float layerTileHeight();
-    void registerGLWebViewState(GLWebViewState* state);
     void unregisterGLWebViewState(GLWebViewState* state);
 
     void allocateTiles();
@@ -165,6 +164,16 @@ public:
         m_shader.setContrast(contrast);
     }
 
+    void incDrawGLCount()
+    {
+        m_drawGLCount++;
+    }
+
+    unsigned long long getDrawGLCount()
+    {
+        return m_drawGLCount;
+    }
+
 private:
     TilesManager();
 
@@ -206,13 +215,9 @@ private:
 
     VideoLayerManager m_videoLayerManager;
 
-    HashMap<GLWebViewState*, unsigned int> m_glWebViewStateMap;
-    unsigned int m_drawRegistrationCount;
-
-    unsigned int getGLWebViewStateDrawCount(GLWebViewState* state);
-
     TilesProfiler m_profiler;
     TilesTracker m_tilesTracker;
+    unsigned long long m_drawGLCount;
 };
 
 } // namespace WebCore

@@ -68,12 +68,11 @@ public:
 
     void setContents(TilePainter* painter, int x, int y, float scale);
     void setPage(TiledPage* page) { m_page = page; }
-    bool isAvailable() const { return !m_texture; }
 
     void reserveTexture();
-    void setUsedLevel(int);
-    int usedLevel();
+
     bool isTileReady();
+
     void draw(float transparency, SkRect& rect, float scale);
 
     // the only thread-safe function called by the background thread
@@ -88,13 +87,16 @@ public:
     bool isDirty();
     bool isRepaintPending();
     void setRepaintPending(bool pending);
-    void setUsable(bool usable);
     float scale() const { return m_scale; }
     void fullInval();
 
     int x() const { return m_x; }
     int y() const { return m_y; }
-    BaseTileTexture* texture() { return m_texture; }
+    BaseTileTexture* frontTexture() { return m_frontTexture; }
+    BaseTileTexture* backTexture() { return m_backTexture; }
+    void discardTextures();
+    bool swapTexturesIfNeeded();
+    unsigned long long drawCount() { return m_drawCount; }
 
     void setGLWebViewState(GLWebViewState* state) { m_glWebViewState = state; }
 
@@ -114,15 +116,16 @@ private:
     TiledPage* m_page;
 
     // The remaining variables can be updated throughout the lifetime of the object
-    int m_usedLevel;
-    BaseTileTexture* m_texture;
+
+    BaseTileTexture* m_frontTexture;
+    BaseTileTexture* m_backTexture;
     float m_scale;
-    // used to signal that the that the tile is out-of-date and needs to be redrawn
+
+    // used to signal that the that the tile is out-of-date and needs to be
+    // redrawn in the backTexture
     bool m_dirty;
     // used to signal that a repaint is pending
     bool m_repaintPending;
-    // used to signal whether or not the draw can use this tile.
-    bool m_usable;
     // stores the id of the latest picture from webkit that caused this tile to
     // become dirty. A tile is no longer dirty when it has been painted with a
     // picture that is newer than this value.
@@ -145,6 +148,12 @@ private:
     BaseRenderer* m_renderer;
 
     bool m_isLayerTile;
+    bool m_isSwapNeeded;
+
+    // the most recent GL draw before this tile was prepared. used for
+    // prioritization and caching. tiles with old drawcounts and textures they
+    // own are used for new tiles and rendering
+    unsigned long long m_drawCount;
 };
 
 } // namespace WebCore

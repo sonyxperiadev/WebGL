@@ -122,7 +122,7 @@ void TilesProfiler::nextTile(BaseTile& tile, float scale, bool inView)
     }
     m_records.last().append(TileProfileRecord(
                                 left, top, right, bottom,
-                                scale, isReady, tile.usedLevel()));
+                                scale, isReady, (int)tile.drawCount()));
     XLOG("adding tile %d %d %d %d, scale %f", left, top, right, bottom, scale);
 }
 

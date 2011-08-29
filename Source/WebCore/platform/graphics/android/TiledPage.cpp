@@ -100,19 +100,20 @@ TiledPage::~TiledPage()
 
 BaseTile* TiledPage::getBaseTile(int x, int y) const
 {
+    // TODO: replace loop over array with HashMap indexing
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
-        if (tile.x() == x && tile.y() == y && !tile.isAvailable())
+        if (tile.x() == x && tile.y() == y)
             return &tile;
     }
     return 0;
 }
 
-void TiledPage::setUsable(bool usable)
+void TiledPage::discardTextures()
 {
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
-        tile.setUsable(usable);
+        tile.discardTextures();
     }
     return;
 }
@@ -163,55 +164,42 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
                 currentTile = &tile;
                 break;
             }
-            if (!availableTile && tile.isAvailable())
+
+            if (!availableTile || (tile.drawCount() < availableTile->drawCount()))
                 availableTile = &tile;
         }
 
         if (!currentTile && availableTile) {
+            XLOG("STEALING tile %d, %d (draw count %llu) for tile %d, %d",
+                  availableTile->x(), availableTile->y(), availableTile->drawCount(), x, y);
             currentTile = availableTile;
+        }
+
+        if (!currentTile) {
+            XLOG("ERROR: No tile available for tile %d %d", x, y);
         }
 
         if (currentTile) {
             currentTile->setGLWebViewState(m_glWebViewState);
-            currentTile->setContents(this, x, y, m_scale);
             currentTile->setPage(this);
+
+            currentTile->setContents(this, x, y, m_scale);
+
+            // TODO: move below (which is largely the same for layers / tiled
+            // page) into prepare() function
 
             // ensure there is a texture associated with the tile and then check to
             // see if the texture is dirty and in need of repainting
-            currentTile->reserveTexture();
-            updateTileUsedLevel(tileBounds, *currentTile);
-            if (currentTile->isDirty() && !currentTile->isRepaintPending()) {
+            if (currentTile->isDirty() || !currentTile->frontTexture())
+                currentTile->reserveTexture();
+            if (currentTile->backTexture()
+                    && currentTile->isDirty()
+                    && !currentTile->isRepaintPending()) {
                 PaintTileOperation *operation = new PaintTileOperation(currentTile);
                 TilesManager::instance()->scheduleOperation(operation);
-            } else if (currentTile->isDirty()) {
-                XLOG("Tile %dx%d is dirty, but awaiting repaint", currentTile->x(), currentTile->y());
             }
         }
     }
-}
-
-void TiledPage::updateTileUsedLevel(const SkIRect& tileBounds, BaseTile& tile)
-{
-    const int lastTileX = tileBounds.fRight - 1;
-    const int lastTileY = tileBounds.fBottom - 1;
-
-    // set the used level of the tile (e.g. distance from the viewport)
-    int dx = 0;
-    int dy = 0;
-
-    if (tileBounds.fLeft > tile.x())
-        dx = tileBounds.fLeft - tile.x();
-    else if (lastTileX < tile.x())
-        dx = tile.x() - lastTileX;
-
-    if (tileBounds.fTop > tile.y())
-        dy = tileBounds.fTop - tile.y();
-    else if (lastTileY < tile.y())
-        dy = tile.y() - lastTileY;
-
-    int d = std::max(dx, dy);
-
-    tile.setUsedLevel(d);
 }
 
 void TiledPage::updateTileState(const SkIRect& tileBounds)
@@ -226,15 +214,9 @@ void TiledPage::updateTileState(const SkIRect& tileBounds)
 
         BaseTile& tile = m_baseTiles[x];
 
-        // if the tile no longer has a texture then proceed to the next tile
-        if (tile.isAvailable())
-            continue;
-
         // if the tile is in the dirty region then we must invalidate it
         if (m_invalRegion.contains(tile.x(), tile.y()))
             tile.markAsDirty(m_latestPictureInval, m_invalTilesRegion);
-
-        updateTileUsedLevel(tileBounds, tile);
     }
 
     // clear the invalidated region as all tiles within that region have now
@@ -266,7 +248,7 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
     int nMaxTilesPerPage = m_baseTileSize / 2;
 
-    if (bounds == kExpandedBounds) {
+    if (bounds == ExpandedBounds) {
         // prepare tiles outside of the visible bounds
         int expandX = m_glWebViewState->expandedTileBoundsX();
         int expandY = m_glWebViewState->expandedTileBoundsY();
@@ -296,7 +278,7 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     m_prepare = true;
 }
 
-bool TiledPage::ready(const SkIRect& tileBounds, float scale)
+bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapMethod swap)
 {
     if (!m_glWebViewState)
         return false;
@@ -307,16 +289,42 @@ bool TiledPage::ready(const SkIRect& tileBounds, float scale)
     if (m_scale != scale)
         return false;
 
-    for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
-        for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
-            BaseTile* t = getBaseTile(x, y);
-            if (!t || !t->isTileReady())
-                return false;
+    int swaps = 0;
+    if (swap == SwapWholePage) {
+        for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
+            for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
+                BaseTile* t = getBaseTile(x, y);
+                if (!t || !t->isTileReady())
+                    return false;
+            }
         }
+        for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
+            for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
+                BaseTile* t = getBaseTile(x, y);
+                if (t->swapTexturesIfNeeded())
+                    swaps++;
+            }
+        }
+        XLOG("%p whole page swapped %d textures, returning true", this, swaps);
+        return true;
+    } else { // SwapWhateveryIsReady
+        bool fullSwap = true;
+        for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
+            for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
+                BaseTile* t = getBaseTile(x, y);
+                if (!t || !t->isTileReady())
+                    fullSwap = false;
+                else {
+                    if (t->swapTexturesIfNeeded())
+                        swaps++;
+                }
+            }
+        }
+        XLOG("%p greedy swap swapped %d tiles, returning %d", this, swaps, fullSwap);
+        return fullSwap;
     }
-    m_prepare = false;
-    return true;
 }
+
 
 void TiledPage::draw(float transparency, const SkIRect& tileBounds)
 {
@@ -332,11 +340,13 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
     actualTileBounds.fLeft -= m_glWebViewState->expandedTileBoundsX();
     actualTileBounds.fRight += m_glWebViewState->expandedTileBoundsX();
 
+    actualTileBounds.fTop = std::max(0, actualTileBounds.fTop);
+    actualTileBounds.fLeft = std::max(0, actualTileBounds.fLeft);
+
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
         bool tileInView = actualTileBounds.contains(tile.x(), tile.y());
         if (tileInView) {
-
             SkRect rect;
             rect.fLeft = tile.x() * tileWidth;
             rect.fTop = tile.y() * tileHeight;

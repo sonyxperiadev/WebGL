@@ -105,15 +105,6 @@ public:
     // swaps) the texture.
     virtual void producerUpdate(TextureInfo* textureInfo, const SkBitmap& bitmap);
 
-    // The level can be one of the following values:
-    //  * -1 for an unused texture.
-    //  *  0 for the tiles intersecting with the viewport.
-    //  *  n where n > 0 for the distance between the viewport and the tile.
-    // We use this to prioritize the order in which we reclaim textures, see
-    // TilesManager::getAvailableTexture() for more information.
-    int usedLevel() { return m_usedLevel; }
-    void setUsedLevel(int used) { m_usedLevel = used; }
-
     // allows consumer thread to assign ownership of the texture to the tile. It
     // returns false if ownership cannot be transferred because the tile is busy
     bool acquire(TextureOwner* owner, bool force = false);
@@ -149,7 +140,6 @@ private:
     TextureTileInfo m_ownTextureTileInfo;
 
     SkSize m_size;
-    int m_usedLevel;
     SkBitmap::Config m_config;
     TextureOwner* m_owner;
 

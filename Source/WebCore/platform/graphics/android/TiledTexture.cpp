@@ -68,7 +68,6 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
 
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
-        tile->setUsedLevel(-1);
         if (!m_dirtyRegion.isEmpty())
             tile->markAsDirty(1, m_dirtyRegion);
     }
@@ -130,19 +129,16 @@ void TiledTexture::prepareTile(bool repaint, int x, int y)
         tile = new BaseTile(true);
         m_tiles.append(tile);
     }
-    tile->reserveTexture();
-    if (!tile->texture())
-        return;
 
     tile->setContents(this, x, y, m_surface->scale());
-    tile->setUsedLevel(0);
 
-    bool schedule = false;
-    if (tile->isDirty())
-        schedule = true;
+    // TODO: move below (which is largely the same for layers / tiled page) into
+    // prepare() function
 
+    if (tile->isDirty() || !tile->frontTexture())
+        tile->reserveTexture();
     LayerAndroid* layer = m_surface->layer();
-    if (schedule && layer && !tile->isRepaintPending()) {
+    if (tile->backTexture() && tile->isDirty() && !tile->isRepaintPending() && layer) {
         PaintTileOperation *operation = new PaintTileOperation(tile, m_surface);
         TilesManager::instance()->scheduleOperation(operation);
     }
@@ -187,11 +183,13 @@ bool TiledTexture::draw()
             rect.fTop = tile->y() * tileHeight;
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
-            XLOG(" - [%d], { painter %x vs %x }, tile %x %d,%d at scale %.2f [ready: %d] dirty: %d", i, this, tile->painter(), tile, tile->x(), tile->y(), tile->scale(), tile->isTileReady(), tile->isDirty());
+            XLOG(" - [%d], { painter %x vs %x }, tile %x %d,%d at scale %.2f [ready: %d] dirty: %d",
+                 i, this, tile->painter(), tile, tile->x(), tile->y(), tile->scale(), tile->isTileReady(), tile->isDirty());
             askRedraw |= !tile->isTileReady();
+            tile->swapTexturesIfNeeded();
             tile->draw(m_surface->opacity(), rect, m_surface->scale());
 #ifdef DEBUG
-            TilesManager::instance()->getTilesTracker()->track(tile->isTileReady(), tile->texture());
+            TilesManager::instance()->getTilesTracker()->track(tile->isTileReady(), tile->backTexture());
 #endif
         }
     }
@@ -241,7 +239,9 @@ bool TiledTexture::owns(BaseTileTexture* texture)
 {
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
-        if (tile->texture() == texture)
+        if (tile->frontTexture() == texture)
+            return true;
+        if (tile->backTexture() == texture)
             return true;
     }
     return false;

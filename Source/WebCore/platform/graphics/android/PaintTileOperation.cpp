@@ -73,26 +73,32 @@ void PaintTileOperation::run()
 
 int PaintTileOperation::priority()
 {
-    if (!m_tile || m_tile->usedLevel() < 0)
+    if (!m_tile)
         return -1;
 
-    // for now, use a constant value for layers,
-    // lower than the base layer tiles (as layers
-    // will always be on top of the base surface)
+    int priority;
     if (m_tile->isLayerTile())
-        return -2;
+        priority = -2;
+    else {
+        bool goingDown = m_tile->page()->scrollingDown();
+        SkIRect *rect = m_tile->page()->expandedTileBounds();
+        int firstTileX = rect->fLeft;
+        int nbTilesWidth = rect->width();
+        priority = m_tile->x() - firstTileX;
+        if (goingDown)
+            priority += (rect->fBottom - m_tile->y()) * nbTilesWidth;
+        else
+            priority += (m_tile->y() - rect->fTop) * nbTilesWidth;
+    }
 
+    if (m_tile->frontTexture()) {
+        // de-prioritize old tiles that have something visible
+        unsigned long long currentDraw = TilesManager::instance()->getDrawGLCount();
+        unsigned long long drawDelta = currentDraw - m_tile->drawCount();
+        int cappedDrawDelta = (int)std::max(drawDelta, (unsigned long long)1000);
+        priority += cappedDrawDelta * 100000;
+    }
 
-    bool goingDown = m_tile->page()->scrollingDown();
-    SkIRect *rect = m_tile->page()->expandedTileBounds();
-    int firstTileX = rect->fLeft;
-    int nbTilesWidth = rect->width();
-    int priority = m_tile->x() - firstTileX;
-    if (goingDown)
-        priority += (rect->fBottom - m_tile->y()) * nbTilesWidth;
-    else
-        priority += (m_tile->y() - rect->fTop) * nbTilesWidth;
-    priority += m_tile->usedLevel() * 100000;
     return priority;
 }
 

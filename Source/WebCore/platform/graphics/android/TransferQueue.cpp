@@ -113,7 +113,7 @@ bool TransferQueue::checkObsolete(int index)
         return true;
     }
 
-    BaseTileTexture* baseTileTexture = baseTilePtr->texture();
+    BaseTileTexture* baseTileTexture = baseTilePtr->backTexture();
     if (!baseTileTexture) {
         XLOG("Invalid baseTileTexture , such that the tile is obsolete");
         return true;
@@ -248,7 +248,7 @@ void TransferQueue::updateDirtyBaseTiles()
             // the queue. Then either move on to next item or copy the content.
             BaseTileTexture* destTexture = 0;
             if (!obsoleteBaseTile)
-                destTexture = m_transferQueue[index].savedBaseTilePtr->texture();
+                destTexture = m_transferQueue[index].savedBaseTilePtr->backTexture();
 
             m_sharedSurfaceTexture->updateTexImage();
 
@@ -271,9 +271,10 @@ void TransferQueue::updateDirtyBaseTiles()
             // texturesTileInfo.
             destTexture->setOwnTextureTileInfoFromQueue(&m_transferQueue[index].tileInfo);
 
-            XLOG("Blit tile x, y %d %d to destTexture->m_ownTextureId %d",
+            XLOG("Blit tile x, y %d %d with dest texture %p to destTexture->m_ownTextureId %d",
                  m_transferQueue[index].tileInfo.m_x,
                  m_transferQueue[index].tileInfo.m_y,
+                 destTexture,
                  destTexture->m_ownTextureId);
         }
         index = (index + 1) % ST_BUFFER_NUMBER;

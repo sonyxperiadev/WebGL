@@ -100,7 +100,7 @@ TilesManager::TilesManager()
     , m_showVisualIndicator(false)
     , m_invertedScreen(false)
     , m_invertedScreenSwitch(false)
-    , m_drawRegistrationCount(0)
+    , m_drawGLCount(0)
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
@@ -164,25 +164,12 @@ void TilesManager::printTextures()
             x = o->x();
             y = o->y();
         }
-        XLOG("[%d] texture %x usedLevel: %d busy: %d owner: %x (%d, %d) page: %x scale: %.2f",
-               i, texture, texture->usedLevel(),
+        XLOG("[%d] texture %x  busy: %d owner: %x (%d, %d) page: %x scale: %.2f",
+               i, texture,
                texture->busy(), o, x, y, o ? o->page() : 0, o ? o->scale() : 0);
     }
     XLOG("------");
 #endif // DEBUG
-}
-
-void TilesManager::resetTextureUsage(TiledPage* page)
-{
-    android::Mutex::Autolock lock(m_texturesLock);
-    for (unsigned int i = 0; i < m_textures.size(); i++) {
-        BaseTileTexture* texture = m_textures[i];
-        TextureOwner* owner = texture->owner();
-        if (owner) {
-            if (owner->page() == page)
-                texture->setUsedLevel(-1);
-        }
-    }
 }
 
 void TilesManager::swapLayersTextures(LayerAndroid* oldTree, LayerAndroid* newTree)
@@ -227,81 +214,69 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     android::Mutex::Autolock lock(m_texturesLock);
 
     // Sanity check that the tile does not already own a texture
-    if (owner->texture() && owner->texture()->owner() == owner) {
-        owner->texture()->setUsedLevel(0);
-        XLOG("same owner (%d, %d), getAvailableTexture(%x) => texture %x",
-             owner->x(), owner->y(), owner, owner->texture());
+    if (owner->backTexture() && owner->backTexture()->owner() == owner) {
+        XLOG("same owner (%d, %d), getAvailableBackTexture(%x) => texture %x",
+             owner->x(), owner->y(), owner, owner->backTexture());
         if (owner->isLayerTile())
-            m_availableTilesTextures.remove(m_availableTilesTextures.find(owner->texture()));
+            m_availableTilesTextures.remove(m_availableTilesTextures.find(owner->backTexture()));
         else
-            m_availableTextures.remove(m_availableTextures.find(owner->texture()));
-        return owner->texture();
+            m_availableTextures.remove(m_availableTextures.find(owner->backTexture()));
+        return owner->backTexture();
     }
 
+    WTF::Vector<BaseTileTexture*>* availableTexturePool;
     if (owner->isLayerTile()) {
-        BaseTileTexture* layerTexture = 0;
-        unsigned int max = m_availableTilesTextures.size();
-        for (unsigned int i = 0; i < max; i++) {
-            BaseTileTexture* texture = m_availableTilesTextures[i];
-            if (texture->owner() && texture->owner()->isRepaintPending())
-                continue;
-            if (!texture->owner() && texture->acquire(owner)) {
-                layerTexture = texture;
-                break;
-            }
-            if (texture->usedLevel() != 0 && texture->acquire(owner)) {
-                layerTexture = texture;
-                break;
-            }
-            if (texture->scale() != owner->scale() && texture->acquire(owner)) {
-                layerTexture = texture;
-                break;
-            }
-        }
-        if (layerTexture)
-            m_availableTilesTextures.remove(m_availableTilesTextures.find(layerTexture));
-        return layerTexture;
+        availableTexturePool = &m_availableTilesTextures;
+    } else {
+        availableTexturePool = &m_availableTextures;
     }
 
     // The heuristic for selecting a texture is as follows:
-    //  1. If usedLevel == -1, break with that one
-    //  2. Otherwise, select the highest usedLevel available
-    //  3. Break ties with the lowest LRU(RecentLevel) valued GLWebViewState
+    //  1. If a tile isn't owned, break with that one
+    //  2. If we find a tile in the same page with a different scale,
+    //         it's old and not visible. Break with that one
+    //  3. Otherwise, use the least recently prepared tile
 
     BaseTileTexture* farthestTexture = 0;
-    int farthestTextureLevel = 0;
-    unsigned int lowestDrawCount = ~0; //maximum uint
-    const unsigned int max = m_availableTextures.size();
+    unsigned long long oldestDrawCount = ~0; //maximum u64
+    const unsigned int max = availableTexturePool->size();
     for (unsigned int i = 0; i < max; i++) {
-        BaseTileTexture* texture = m_availableTextures[i];
-
-        if (texture->usedLevel() == -1) { // found an unused texture, grab it
+        BaseTileTexture* texture = (*availableTexturePool)[i];
+        TextureOwner* currentOwner = texture->owner();
+        if (!currentOwner) {
             farthestTexture = texture;
             break;
         }
 
-        int textureLevel = texture->usedLevel();
-        unsigned int textureDrawCount = getGLWebViewStateDrawCount(texture->owner()->state());
-
-        // if (higher distance or equal distance but less recently rendered)
-        if (farthestTextureLevel < textureLevel
-            || ((farthestTextureLevel == textureLevel) && (lowestDrawCount > textureDrawCount))) {
+        if (currentOwner->page() == owner->page() && texture->scale() != owner->scale()) {
+            // if we render the back page with one scale, then another while
+            // still zooming, we recycle the tiles with the old scale instead of
+            // taking ones from the front page
             farthestTexture = texture;
-            farthestTextureLevel = textureLevel;
-            lowestDrawCount = textureDrawCount;
+            break;
+        }
+
+        unsigned long long textureDrawCount = currentOwner->drawCount();
+        if (oldestDrawCount > textureDrawCount) {
+            farthestTexture = texture;
+            oldestDrawCount = textureDrawCount;
         }
     }
 
+    TextureOwner* previousOwner = farthestTexture->owner();
     if (farthestTexture && farthestTexture->acquire(owner)) {
-        XLOG("farthest texture, getAvailableTexture(%x) => texture %x (level %d, drawCount %d)",
-             owner, farthestTexture, farthestTextureLevel, lowestDrawCount);
-        farthestTexture->setUsedLevel(0);
-        m_availableTextures.remove(m_availableTextures.find(farthestTexture));
+        if (previousOwner) {
+            XLOG("%s texture %p stolen from tile %d, %d, drawCount was %llu",
+                 owner->isLayerTile() ? "LAYER" : "BASE",
+                 farthestTexture, owner->x(), owner->y(), oldestDrawCount);
+        }
+
+        availableTexturePool->remove(availableTexturePool->find(farthestTexture));
         return farthestTexture;
     }
 
-    XLOG("Couldn't find an available texture for BaseTile %x (%d, %d) !!!",
-         owner, owner->x(), owner->y());
+    XLOG("Couldn't find an available texture for tile %x (%d, %d) out of %d available!!!",
+          owner, owner->x(), owner->y(), max);
 #ifdef DEBUG
     printTextures();
 #endif // DEBUG
@@ -362,27 +337,11 @@ float TilesManager::layerTileHeight()
     return LAYER_TILE_HEIGHT;
 }
 
-void TilesManager::registerGLWebViewState(GLWebViewState* state)
-{
-    m_glWebViewStateMap.set(state, m_drawRegistrationCount);
-    m_drawRegistrationCount++;
-    XLOG("now state %p, total of %d states", state, m_glWebViewStateMap.size());
-}
-
 void TilesManager::unregisterGLWebViewState(GLWebViewState* state)
 {
     // Discard the whole queue b/c we lost GL context already.
     // Note the real updateTexImage will still wait for the next draw.
     transferQueue()->discardQueue();
-
-    m_glWebViewStateMap.remove(state);
-    XLOG("state %p now removed, total of %d states", state, m_glWebViewStateMap.size());
-}
-
-unsigned int TilesManager::getGLWebViewStateDrawCount(GLWebViewState* state)
-{
-    XLOG("looking up state %p, contains=%s", state, m_glWebViewStateMap.contains(state) ? "TRUE" : "FALSE");
-    return m_glWebViewStateMap.find(state)->second;
 }
 
 TilesManager* TilesManager::instance()

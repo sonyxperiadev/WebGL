@@ -59,15 +59,16 @@ BaseTile::BaseTile(bool isLayerTile)
     , m_x(-1)
     , m_y(-1)
     , m_page(0)
-    , m_usedLevel(-1)
-    , m_texture(0)
+    , m_frontTexture(0)
+    , m_backTexture(0)
     , m_scale(1)
     , m_dirty(true)
     , m_repaintPending(false)
-    , m_usable(true)
     , m_lastDirtyPicture(0)
     , m_isTexturePainted(false)
     , m_isLayerTile(isLayerTile)
+    , m_isSwapNeeded(false)
+    , m_drawCount(0)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("BaseTile");
@@ -91,9 +92,10 @@ BaseTile::BaseTile(bool isLayerTile)
 
 BaseTile::~BaseTile()
 {
-    setUsedLevel(-1);
-    if (m_texture)
-        m_texture->release(this);
+    if (m_backTexture)
+        m_backTexture->release(this);
+    if (m_frontTexture)
+        m_frontTexture->release(this);
 
     delete m_renderer;
     delete[] m_dirtyArea;
@@ -119,6 +121,7 @@ void BaseTile::setContents(TilePainter* painter, int x, int y, float scale)
     m_x = x;
     m_y = y;
     m_scale = scale;
+    m_drawCount = TilesManager::instance()->getDrawGLCount();
 }
 
 void BaseTile::reserveTexture()
@@ -126,22 +129,30 @@ void BaseTile::reserveTexture()
     BaseTileTexture* texture = TilesManager::instance()->getAvailableTexture(this);
 
     android::AutoMutex lock(m_atomicSync);
-    if (texture && m_texture != texture) {
-        m_isTexturePainted = false;
-        fullInval();
+    if (texture && m_backTexture != texture) {
+        m_isSwapNeeded = false; // no longer ready to swap
+        m_backTexture = texture;
+
+        // this is to catch when the front texture is stolen from beneath us. We
+        // should refine the stealing method to be simpler, and not require last
+        // moment checks like this
+        if (!m_frontTexture)
+            m_dirty = true;
     }
-    m_texture = texture;
-    if (m_texture)
-        m_texture->setUsedLevel(m_usedLevel);
 }
 
 bool BaseTile::removeTexture(BaseTileTexture* texture)
 {
-    XLOG("%x removeTexture res: %x... page %x", this, m_texture, m_page);
+    XLOG("%x removeTexture back %x front %x... page %x",
+         this, m_backTexture, m_frontTexture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
-    if (m_texture == texture)
-        m_texture = 0;
+    if (m_frontTexture == texture) {
+        m_frontTexture = 0;
+        m_dirty = true;
+    }
+    if (m_backTexture == texture)
+        m_backTexture = 0;
     return true;
 }
 
@@ -166,13 +177,6 @@ void BaseTile::markAsDirty(int unsigned pictureCount,
     m_dirty = true;
 }
 
-void BaseTile::setUsable(bool usable)
-{
-    android::AutoMutex lock(m_atomicSync);
-    m_usable = usable;
-}
-
-
 bool BaseTile::isDirty()
 {
     android::AutoMutex lock(m_atomicSync);
@@ -191,81 +195,62 @@ void BaseTile::setRepaintPending(bool pending)
     m_repaintPending = pending;
 }
 
-void BaseTile::setUsedLevel(int usedLevel)
-{
-    if (m_texture)
-        m_texture->setUsedLevel(usedLevel);
-    m_usedLevel = usedLevel;
-}
-
-int BaseTile::usedLevel()
-{
-    if (m_texture)
-        return m_texture->usedLevel();
-    return m_usedLevel;
-}
-
-
 void BaseTile::draw(float transparency, SkRect& rect, float scale)
 {
     if (m_x < 0 || m_y < 0 || m_scale != scale)
         return;
 
-    // No need to mutex protect reads of m_texture as it is only written to by
+    // No need to mutex protect reads of m_backTexture as it is only written to by
     // the consumer thread.
-    if (!m_texture) {
-        XLOG("%x on page %x (%d, %d) trying to draw, but no m_texture!", this, m_page, x(), y());
+    if (!m_frontTexture)
         return;
-    }
 
     // Early return if set to un-usable in purpose!
     m_atomicSync.lock();
-    bool usable = m_usable;
     bool isTexturePainted = m_isTexturePainted;
     m_atomicSync.unlock();
-    if (!usable) {
-        XLOG("early return at BaseTile::draw b/c tile set to unusable !");
-        return;
-    }
-    if (!isTexturePainted) {
-        XLOG("early return at BaseTile::draw b/c tile is not painted !");
-        return;
-    }
 
-    TextureInfo* textureInfo = m_texture->consumerLock();
+    if (!isTexturePainted)
+        return;
+
+    TextureInfo* textureInfo = m_frontTexture->consumerLock();
     if (!textureInfo) {
-        XLOG("%x (%d, %d) trying to draw, but no textureInfo!", this, x(), y());
-        m_texture->consumerRelease();
+        m_frontTexture->consumerRelease();
         return;
     }
 
-    if (m_texture->readyFor(this)) {
-        XLOG("draw tile %x : %d, %d, %.2f with texture %x", this, x(), y(), m_scale, m_texture);
+    if (m_frontTexture->readyFor(this)) {
         if (isLayerTile())
             TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
-                                                              rect, m_texture->m_ownTextureId,
+                                                              rect, m_frontTexture->m_ownTextureId,
                                                               transparency, true);
         else
-            TilesManager::instance()->shader()->drawQuad(rect, m_texture->m_ownTextureId,
+            TilesManager::instance()->shader()->drawQuad(rect, m_frontTexture->m_ownTextureId,
                                                          transparency);
-    }
-    m_texture->consumerRelease();
+    } else
+        m_dirty = true;
+
+    m_frontTexture->consumerRelease();
 }
 
 bool BaseTile::isTileReady()
 {
-    if (!m_texture)
-        return false;
-    if (m_texture->owner() != this)
+    // Return true if the tile's most recently drawn texture is up to date
+    android::AutoMutex lock(m_atomicSync);
+    BaseTileTexture * texture = m_isSwapNeeded ? m_backTexture : m_frontTexture;
+
+    if (!texture)
         return false;
 
-    android::AutoMutex lock(m_atomicSync);
+    if (texture->owner() != this)
+        return false;
+
     if (m_dirty)
         return false;
 
-    m_texture->consumerLock();
-    bool ready = m_texture->readyFor(this);
-    m_texture->consumerRelease();
+    texture->consumerLock();
+    bool ready = texture->readyFor(this);
+    texture->consumerRelease();
 
     if (ready)
         return true;
@@ -302,7 +287,7 @@ void BaseTile::paintBitmap()
     // can be updated by other threads without consequence.
     m_atomicSync.lock();
     bool dirty = m_dirty;
-    BaseTileTexture* texture = m_texture;
+    BaseTileTexture* texture = m_backTexture;
     SkRegion dirtyArea = m_dirtyArea[m_currentDirtyAreaIndex];
     float scale = m_scale;
     const int x = m_x;
@@ -320,7 +305,7 @@ void BaseTile::paintBitmap()
 
     // at this point we can safely check the ownership (if the texture got
     // transferred to another BaseTile under us)
-    if (texture->owner() != this || texture->usedLevel() > 1) {
+    if (texture->owner() != this) {
         texture->producerRelease();
         return;
     }
@@ -412,16 +397,13 @@ void BaseTile::paintBitmap()
         pictureCount = m_renderer->renderTiledContent(renderInfo);
     }
 
-    XLOG("%x update texture %x for tile %d, %d scale %.2f (m_scale: %.2f)", this, textureInfo, x, y, scale, m_scale);
-
     m_atomicSync.lock();
 
 #if DEPRECATED_SURFACE_TEXTURE_MODE
     texture->setTile(textureInfo, x, y, scale, painter, pictureCount);
 #endif
     texture->producerReleaseAndSwap();
-
-    if (texture == m_texture) {
+    if (texture == m_backTexture) {
         m_isTexturePainted = true;
 
         // set the fullrepaint flags
@@ -451,10 +433,41 @@ void BaseTile::paintBitmap()
             m_dirty = true;
 
         if (!m_dirty)
-            m_usable = true;
+            m_isSwapNeeded = true;
     }
 
     m_atomicSync.unlock();
+}
+
+void BaseTile::discardTextures() {
+    android::AutoMutex lock(m_atomicSync);
+    if (m_frontTexture) {
+        m_frontTexture->release(this);
+        m_frontTexture = 0;
+    }
+    if (m_backTexture) {
+        m_backTexture->release(this);
+        m_backTexture = 0;
+    }
+    m_dirty = true;
+}
+
+bool BaseTile::swapTexturesIfNeeded() {
+    android::AutoMutex lock(m_atomicSync);
+    if (m_isSwapNeeded) {
+        // discard old texture and swap the new one in its place
+        if (m_frontTexture)
+            m_frontTexture->release(this);
+
+        XLOG("%p's frontTexture was %p, now becoming %p", this, m_frontTexture, m_backTexture);
+        m_frontTexture = m_backTexture;
+        m_backTexture = 0;
+        m_isSwapNeeded = false;
+        XLOG("display texture for %d, %d front is now %p, texture is %p",
+             m_x, m_y, m_frontTexture, m_backTexture);
+        return true;
+    }
+    return false;
 }
 
 } // namespace WebCore

@@ -52,7 +52,6 @@ namespace WebCore {
 BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
     : DoubleBufferedTexture(eglGetCurrentContext(),
                             TilesManager::instance()->getSharedTextureMode())
-    , m_usedLevel(-1)
     , m_owner(0)
     , m_delayedReleaseOwner(0)
     , m_delayedRelease(false)
@@ -269,10 +268,10 @@ bool BaseTileTexture::readyFor(BaseTile* baseTile)
         (info->m_inverted == TilesManager::instance()->invertedScreen()))
         return true;
 
-    XLOG("readyFor return false for tile x, y (%d %d) texId %d ,"
-         " BaseTileTexture %p, BaseTile is %p",
-         baseTile->x(), baseTile->y(), m_ownTextureId, this, baseTile);
-
+    XLOG("texture %p readyFor return false for tile x, y (%d %d) texId %d ,"
+         " BaseTileTexture %p, BaseTile is %p, SCALE %f, painter %p, inv %d",
+         this, baseTile->x(), baseTile->y(), m_ownTextureId, this, baseTile,
+         baseTile->scale(), baseTile->painter(), TilesManager::instance()->invertedScreen());
     return false;
 }
 

@@ -52,8 +52,12 @@ class IntRect;
 class TiledPage : public TilePainter {
 public:
     enum PrepareBounds {
-        kExpandedBounds = 0,
-        kVisibleBounds = 1
+        ExpandedBounds = 0,
+        VisibleBounds = 1
+    };
+    enum SwapMethod {
+        SwapWhateverIsReady = 0,
+        SwapWholePage = 1
     };
 
     TiledPage(int id, GLWebViewState* state);
@@ -64,8 +68,12 @@ public:
 
     // prepare the page for display on the screen
     void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds, PrepareBounds bounds);
+    void updateTileState(const SkIRect& tileBounds);
+
     // check to see if the page is ready for display
-    bool ready(const SkIRect& tileBounds, float scale);
+
+    // swap 'buffers' by swapping each modified texture
+    bool swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapMethod swap);
     // draw the page on the screen
     void draw(float transparency, const SkIRect& tileBounds);
 
@@ -83,15 +91,13 @@ public:
     void setScale(float scale) { m_scale = scale; m_invScale = 1 / scale; }
 
     void invalidateRect(const IntRect& invalRect, const unsigned int pictureCount);
-    void setUsable(bool usable);
+    void discardTextures();
     void updateBaseTileSize();
     bool scrollingDown() { return m_scrollingDown; }
     SkIRect* expandedTileBounds() { return &m_expandedTileBounds; }
 
 private:
-    void updateTileState(const SkIRect& tileBounds);
     void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, const SkIRect& tileBounds);
-    void updateTileUsedLevel(const SkIRect& tileBounds, BaseTile& tile);
 
     BaseTile* getBaseTile(int x, int y) const;
 

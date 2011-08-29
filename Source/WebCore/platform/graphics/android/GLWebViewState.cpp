@@ -131,8 +131,8 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     if (!layer || isPictureAfterFirstLayout) {
-        m_tiledPageA->setUsable(false);
-        m_tiledPageB->setUsable(false);
+        m_tiledPageA->discardTextures();
+        m_tiledPageB->discardTextures();
     }
     if (isPictureAfterFirstLayout) {
         m_baseLayerUpdate = true;
@@ -355,9 +355,9 @@ void GLWebViewState::swapPages()
 {
     android::Mutex::Autolock lock(m_tiledPageLock);
     m_usePageA ^= true;
-    TiledPage* working = m_usePageA ? m_tiledPageB : m_tiledPageA;
-    if (zoomManager()->swapPages())
-        TilesManager::instance()->resetTextureUsage(working);
+    TiledPage* oldPage = m_usePageA ? m_tiledPageB : m_tiledPageA;
+    zoomManager()->swapPages();
+    oldPage->discardTextures();
 }
 
 int GLWebViewState::baseContentWidth()
@@ -489,15 +489,16 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
 
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& webViewRect, int titleBarHeight,
-                            IntRect& clip, float scale, bool* pagesSwapped)
+                            IntRect& clip, float scale, bool* buffersSwappedPtr)
 {
     glFinish();
-    TilesManager::instance()->registerGLWebViewState(this);
+
     TilesManager::instance()->getProfiler()->nextFrame(viewport.fLeft,
                                                        viewport.fTop,
                                                        viewport.fRight,
                                                        viewport.fBottom,
                                                        scale);
+    TilesManager::instance()->incDrawGLCount();
 
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->clear();
@@ -552,7 +553,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // set up zoom manager, shaders, etc.
     m_backgroundColor = baseLayer->getBackgroundColor();
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
-    bool ret = baseLayer->drawGL(currentTime, compositedRoot, rect, viewport, scale, pagesSwapped);
+    bool ret = baseLayer->drawGL(currentTime, compositedRoot, rect,
+                                 viewport, scale, buffersSwappedPtr);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 

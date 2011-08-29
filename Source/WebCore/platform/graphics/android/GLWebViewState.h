@@ -212,7 +212,7 @@ public:
 
     bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                 IntRect& webViewRect, int titleBarHeight,
-                IntRect& clip, float scale, bool* pagesSwapped);
+                IntRect& clip, float scale, bool* buffersSwappedPtr);
 
 #ifdef MEASURES_PERF
     void dumpMeasures();

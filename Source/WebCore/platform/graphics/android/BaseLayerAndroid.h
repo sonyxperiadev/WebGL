@@ -38,6 +38,12 @@ namespace WebCore {
 class BaseLayerAndroid : public Layer {
 
 public:
+    enum ScrollState {
+        NotScrolling = 0,
+        Scrolling = 1,
+        ScrollingFinishPaint = 2
+    };
+
     BaseLayerAndroid();
     virtual ~BaseLayerAndroid();
 
@@ -56,12 +62,12 @@ public:
     void drawCanvas(SkCanvas* canvas);
 
     bool drawGL(double currentTime, LayerAndroid* compositedRoot, IntRect& rect,
-                SkRect& viewport, float scale, bool* pagesSwapped);
+                SkRect& viewport, float scale, bool* buffersSwappedPtr);
     void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:
 #if USE(ACCELERATED_COMPOSITING)
     bool drawBasePictureInGL(SkRect& viewport, float scale, double currentTime,
-                             bool* pagesSwapped);
+                             bool* buffersSwappedPtr);
 
     GLWebViewState* m_glWebViewState;
     android::Mutex m_drawLock;
@@ -70,6 +76,8 @@ private:
     android::PictureSet m_content;
     SkPicture m_extra;
     SkRect m_previousVisible;
+
+    ScrollState m_scrollState;
 };
 
 } // namespace WebCore

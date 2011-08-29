@@ -155,6 +155,11 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
 
 Bucket* PictureSet::getBucket(int x, int y)
 {
+    // only create buckets for valid, positive coordinates, ignore and return
+    // NULL otherwise
+    if (x < 0 || y < 0)
+        return 0;
+
     BucketPosition position(x+1, y+1);
     if (!mBuckets.contains(position)) {
         Bucket* bucket = new Bucket();
@@ -277,6 +282,10 @@ void PictureSet::gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect&
 {
     int maxSize = BUCKET_SIZE;
 
+    XLOG("\n--- gatherBucketsForArea for rect %d, %d, %d, %d (%d x %d)",
+          rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
+          rect.width(), rect.height());
+
     int x = rect.fLeft;
     int y = rect.fTop;
     int firstTileX = rect.fLeft / maxSize;
@@ -288,7 +297,8 @@ void PictureSet::gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect&
         for (int j = firstTileY; j <= lastTileY; j++) {
             Bucket* bucket = getBucket(i, j);
             XLOG("gather bucket %x for %d, %d", bucket, i+1, j+1);
-            list.append(bucket);
+            if (bucket)
+                list.append(bucket);
         }
     }
 }
@@ -319,6 +329,9 @@ void PictureSet::splitAdd(const SkIRect& rect)
     for (int i = firstTileX; i <= lastTileX; i++) {
         for (int j = firstTileY; j <= lastTileY; j++) {
             Bucket* bucket = getBucket(i, j);
+            if (!bucket)
+                continue;
+
             SkIRect newRect;
             int deltaX = i * maxSize;
             int deltaY = j * maxSize;
@@ -442,8 +455,10 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
     Pictures pictureAndBounds = {collect, 0, collect.getBounds(),
         elapsed, split, false, false, empty};
 
+#ifdef FAST_PICTURESET
     if (mPictures.size() == 0)
         checkForNewBases = true;
+#endif
 
     mPictures.append(pictureAndBounds);
     mAdditionalArea += totalArea.width() * totalArea.height();
