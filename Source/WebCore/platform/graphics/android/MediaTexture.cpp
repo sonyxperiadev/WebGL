@@ -48,9 +48,15 @@
 
 namespace WebCore {
 
-MediaTexture::MediaTexture(jobject weakWebViewRef) : android::LightRefBase<MediaTexture>()
+MediaTexture::MediaTexture(jobject webViewRef) : android::LightRefBase<MediaTexture>()
 {
-    m_weakWebViewRef = weakWebViewRef;
+    if (webViewRef) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        m_weakWebViewRef = env->NewWeakGlobalRef(webViewRef);
+    } else {
+        m_weakWebViewRef = 0;
+    }
+
     m_textureId = 0;
     m_dimensions.setEmpty();
     m_newWindowRequest = false;
