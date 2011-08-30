@@ -412,8 +412,10 @@ void MediaControlRootElement::changedVolume()
 void MediaControlRootElement::enteredFullscreen()
 {
     if (m_mediaElement->movieLoadType() == MediaPlayer::LiveStream || m_mediaElement->movieLoadType() == MediaPlayer::StoredStream) {
+#if !PLATFORM(ANDROID)
         m_seekBackButton->hide();
         m_seekForwardButton->hide();
+#endif
     } else
         m_rewindButton->hide();
 }
@@ -424,8 +426,10 @@ void MediaControlRootElement::exitedFullscreen()
     // when exiting fullscreen.
     // FIXME: Clarify naming of show/hide <http://webkit.org/b/58157>
     m_rewindButton->show();
+#if !PLATFORM(ANDROID)
     m_seekBackButton->show();
     m_seekForwardButton->show();
+#endif
 }
 
 void MediaControlRootElement::showVolumeSlider()

@@ -652,6 +652,12 @@ bool FrameView::syncCompositingStateForThisFrame()
     // the fullScreenRenderer's graphicsLayer here:
     Document* document = m_frame->document();
     if (isDocumentRunningFullScreenAnimation(document)) {
+#if PLATFORM(ANDROID)
+        // We don't create an extra layer for the full screen video.
+        if (!document->fullScreenRenderer()->layer()
+            || !document->fullScreenRenderer()->layer()->backing())
+            return true;
+#endif
         RenderLayerBacking* backing = document->fullScreenRenderer()->layer()->backing();
         if (GraphicsLayer* fullScreenLayer = backing->graphicsLayer())
             fullScreenLayer->syncCompositingState();
