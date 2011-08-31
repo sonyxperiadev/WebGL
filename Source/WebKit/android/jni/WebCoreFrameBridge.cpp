@@ -839,22 +839,24 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     if (!javaFrame.get())
         return true;
 
-    // always handle "POST" in place
+    // Always handle "POST" in place
     if (equalIgnoringCase(request.httpMethod(), "POST"))
         return true;
     const WebCore::KURL& requestUrl = request.url();
     const WTF::String& url = requestUrl.string();
-    // Empty urls should not be sent to java
+    // Empty URLs should not be sent to Java
     if (url.isEmpty())
         return true;
     jstring jUrlStr = wtfStringToJstring(env, url);
 
-    // check to see whether browser app wants to hijack url loading.
-    // if browser app handles the url, we will return false to bail out WebCore loading
+    // Delegate to the Java side to make the decision. Note that the sense of
+    // the return value of the Java method is reversed. It will return true if
+    // the embedding application wishes to hijack the load and hence the WebView
+    // should _not_ proceed with the load.
     jboolean ret = env->CallBooleanMethod(javaFrame.get(), mJavaFrame->mHandleUrl, jUrlStr);
     checkException(env);
     env->DeleteLocalRef(jUrlStr);
-    return (ret == 0);
+    return ret == JNI_FALSE;
 }
 
 bool
