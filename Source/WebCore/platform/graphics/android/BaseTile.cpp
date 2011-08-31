@@ -75,11 +75,11 @@ BaseTile::BaseTile(bool isLayerTile)
     m_currentDirtyAreaIndex = 0;
 
     // For EglImage Mode, the internal buffer should be 2.
-    // And for Async Surface Texture mode, this is 3.
+    // For Surface Texture mode, we only need one.
     if (TilesManager::instance()->getSharedTextureMode() == EglImageMode)
         m_maxBufferNumber = 2;
     else
-        m_maxBufferNumber = 3;
+        m_maxBufferNumber = 1;
 
     m_dirtyArea = new SkRegion[m_maxBufferNumber];
     m_fullRepaint = new bool[m_maxBufferNumber];
