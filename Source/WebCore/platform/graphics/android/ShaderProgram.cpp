@@ -235,6 +235,8 @@ void ShaderProgram::init()
     glBufferData(GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), coord, GL_STATIC_DRAW);
 
     GLUtils::checkGlError("init");
+
+    memset(m_webViewMatrix, 0, sizeof(m_webViewMatrix));
 }
 
 void ShaderProgram::resetBlending()
@@ -262,13 +264,14 @@ void ShaderProgram::setBlendingState(bool enableBlending)
 // Drawing
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void ShaderProgram::setViewport(SkRect& viewport)
+void ShaderProgram::setViewport(SkRect& viewport, float scale)
 {
     TransformationMatrix ortho;
     GLUtils::setOrthographicMatrix(ortho, viewport.fLeft, viewport.fTop,
                                    viewport.fRight, viewport.fBottom, -1000, 1000);
     m_projectionMatrix = ortho;
     m_viewport = viewport;
+    m_currentScale = scale;
 }
 
 void ShaderProgram::setProjectionMatrix(SkRect& geometry, GLint projectionMatrixHandle)
@@ -277,8 +280,29 @@ void ShaderProgram::setProjectionMatrix(SkRect& geometry, GLint projectionMatrix
     translate.translate3d(geometry.fLeft, geometry.fTop, 0.0);
     TransformationMatrix scale;
     scale.scale3d(geometry.width(), geometry.height(), 1.0);
+    // Translate float* to TransformationMatrix
+    TransformationMatrix webViewTransformMatrix(
+        m_webViewMatrix[0], m_webViewMatrix[1], m_webViewMatrix[2], m_webViewMatrix[3],
+        m_webViewMatrix[4], m_webViewMatrix[5], m_webViewMatrix[6], m_webViewMatrix[7],
+        m_webViewMatrix[8], m_webViewMatrix[9], m_webViewMatrix[10], m_webViewMatrix[11],
+        m_webViewMatrix[12], m_webViewMatrix[13], m_webViewMatrix[14], m_webViewMatrix[15] );
 
-    TransformationMatrix total = m_projectionMatrix * translate * scale;
+
+    TransformationMatrix reposition;
+    // After the webViewTranform, we need to reposition the rect to match our viewport.
+    reposition.translate3d(-m_webViewRect.x(), -m_webViewRect.y() - m_titleBarHeight, 0);
+    reposition.translate3d(m_viewport.fLeft * m_currentScale, m_viewport.fTop * m_currentScale, 0);
+
+    // Basically, the webViewTransformMatrix should apply on the screen resolution.
+    // So we start by doing the scale and translate to get each tile into screen coordinates.
+    // After applying the webViewTransformMatrix, b/c the way it currently set up
+    // for scroll and titlebar, we need to offset both of them.
+    // Finally, map everything back to (-1, 1) by using the m_projectionMatrix.
+    // TODO: Given that webViewTransformMatrix contains most of the tranformation
+    // information, we should be able to get rid of some parameter we got from
+    // Java side and simplify our code.
+    TransformationMatrix total =
+        m_projectionMatrix * reposition * webViewTransformMatrix * translate * scale;
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, total);
@@ -571,6 +595,12 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
 
     setBlendingState(false);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+void ShaderProgram::setWebViewMatrix(float* matrix)
+{
+    if (matrix)
+        memcpy(m_webViewMatrix, matrix, sizeof(m_webViewMatrix));
 }
 
 } // namespace WebCore
