@@ -888,6 +888,22 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
 void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 {
     WebCore::FrameView* view = m_mainFrame->view();
+
+#ifdef FAST_PICTURESET
+    WTF::Vector<Bucket*>* buckets = pictureSet->bucketsToUpdate();
+
+    for (unsigned int i = 0; i < buckets->size(); i++) {
+        Bucket* bucket = (*buckets)[i];
+        for (unsigned int j = 0; j < bucket->size(); j++) {
+            BucketPicture& bucketPicture = (*bucket)[j];
+            const SkIRect& inval = bucketPicture.mRealArea;
+            SkPicture* picture = rebuildPicture(inval);
+            SkSafeUnref(bucketPicture.mPicture);
+            bucketPicture.mPicture = picture;
+        }
+    }
+    buckets->clear();
+#else
     size_t size = pictureSet->size();
     for (size_t index = 0; index < size; index++) {
         if (pictureSet->upToDate(index))
@@ -897,7 +913,9 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
             inval.fLeft, inval.fTop, inval.width(), inval.height());
         pictureSet->setPicture(index, rebuildPicture(inval));
     }
+
     pictureSet->validate(__FUNCTION__);
+#endif
 }
 
 BaseLayerAndroid* WebViewCore::createBaseLayer()
@@ -973,11 +991,14 @@ BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 
 void WebViewCore::splitContent(PictureSet* content)
 {
+#ifdef FAST_PICTURESET
+#else
     bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
     LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
     content->split(&m_content);
     rebuildPictureSet(&m_content);
     content->set(m_content);
+#endif // FAST_PICTURESET
 }
 
 void WebViewCore::scrollTo(int x, int y, bool animate)

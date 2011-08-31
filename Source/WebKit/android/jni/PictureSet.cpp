@@ -43,13 +43,17 @@
 #define MAX_ADDITIONAL_AREA 0.65
 #define MAX_ADDITIONAL_PICTURES 32
 
-#include <wtf/CurrentTime.h>
+#define BUCKET_SIZE 512
 
-//#define DEBUG
-#ifdef DEBUG
+#include <wtf/CurrentTime.h>
 
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "PictureSet", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "PictureSet", __VA_ARGS__)
@@ -91,6 +95,8 @@ PictureSet::PictureSet(SkPicture* picture)
     mWidth = picture->width();
     mHeight = picture->height();
     mBaseArea = mWidth * mHeight;
+#ifdef FAST_PICTURESET
+#else
     Pictures pictureAndBounds;
     pictureAndBounds.mPicture = picture;
     SkSafeRef(pictureAndBounds.mPicture);
@@ -101,6 +107,7 @@ PictureSet::PictureSet(SkPicture* picture)
     pictureAndBounds.mElapsed = 0;
     pictureAndBounds.mWroteElapsed = false;
     mPictures.append(pictureAndBounds);
+#endif // FAST_PICTURESET
 }
 
 PictureSet::~PictureSet()
@@ -108,6 +115,8 @@ PictureSet::~PictureSet()
     clear();
 }
 
+#ifdef FAST_PICTURESET
+#else
 void PictureSet::add(const Pictures* temp)
 {
     Pictures pictureAndBounds = *temp;
@@ -115,6 +124,232 @@ void PictureSet::add(const Pictures* temp)
     pictureAndBounds.mWroteElapsed = false;
     mPictures.append(pictureAndBounds);
 }
+#endif // FAST_PICTURESET
+
+void PictureSet::add(const SkRegion& area, SkPicture* picture,
+                     uint32_t elapsed, bool split)
+{
+    if (area.isRect()) {
+#ifdef FAST_PICTURESET
+        splitAdd(area.getBounds());
+#else
+        add(area, picture, elapsed, split, false);
+#endif // FAST_PICTURESET
+    } else {
+        SkRegion::Iterator cliperator(area);
+        while (!cliperator.done()) {
+            SkIRect ir = cliperator.rect();
+#ifdef FAST_PICTURESET
+            splitAdd(ir);
+#else
+            SkRegion newArea;
+            newArea.setRect(ir);
+            add(newArea, picture, elapsed, split, false);
+#endif // FAST_PICTURESET
+            cliperator.next();
+        }
+    }
+}
+
+#ifdef FAST_PICTURESET
+
+Bucket* PictureSet::getBucket(int x, int y)
+{
+    BucketPosition position(x+1, y+1);
+    if (!mBuckets.contains(position)) {
+        Bucket* bucket = new Bucket();
+        mBuckets.add(position, bucket);
+    }
+    return mBuckets.get(position);
+}
+
+void PictureSet::displayBucket(Bucket* bucket)
+{
+    BucketPicture* first = bucket->begin();
+    BucketPicture* last = bucket->end();
+    for (BucketPicture* current = first; current != last; current++) {
+        XLOGC("- in %x, bucketPicture %d,%d,%d,%d - %dx%d, picture: %x, base: %x",
+              bucket,
+              current->mArea.fLeft,
+              current->mArea.fTop,
+              current->mArea.fRight,
+              current->mArea.fBottom,
+              current->mArea.width(),
+              current->mArea.height(),
+              current->mPicture,
+              current->mBase);
+    }
+}
+
+void PictureSet::displayBuckets()
+{
+    XLOGC("\n\n****** DISPLAY BUCKETS ON PictureSet %x ******", this);
+    for (BucketMap::iterator iter = mBuckets.begin(); iter != mBuckets.end(); ++iter) {
+        XLOGC("\n*** Bucket %x for %d, %d", iter->second, iter->first.first, iter->first.second);
+        displayBucket(iter->second);
+    }
+    XLOGC("\n****** END OF DISPLAY BUCKETS ******\n\n");
+}
+
+// When we receive an inval in a Bucket, we try to see if we intersect with
+// existing invals/pictures in the Bucket.
+void PictureSet::addToBucket(Bucket* bucket, int dx, int dy, SkIRect& rect)
+{
+    bool resetBase = false;
+
+    SkIRect totalArea = rect;
+    BucketPicture* first = bucket->begin();
+    BucketPicture* last = bucket->end();
+
+    // If the inval covers a large area of the base inval, let's repaint the
+    // entire bucket.
+    if (rect.width() * rect.height() > MAX_ADDITIONAL_AREA * BUCKET_SIZE * BUCKET_SIZE)
+        resetBase = true;
+
+    // let's gather all the BucketPicture intersecting with the new invalidated
+    // area, collect their area and remove their picture
+    for (BucketPicture* current = first; current != last; current++) {
+        bool remove = resetBase;
+        bool intersect = false;
+
+        if (!remove)
+            intersect = SkIRect::Intersects(current->mArea, rect);
+        // If the current picture is not a base, and we intersect, remove it
+        if (!remove && !current->mBase && intersect)
+            remove = true;
+        // If the current picture is a base, check if the new inval completely
+        // contains the base, and if so remove it.
+        if (!remove && current->mBase && rect.contains(current->mArea))
+            remove = true;
+        // If the current picture is a base and it intersects,
+        // also check that it fully covers the bucket -- otherwise,
+        // let's aggregate it with the new inval.
+        if (!remove && current->mBase && intersect
+            && (current->mArea.width() < BUCKET_SIZE || current->mArea.height() < BUCKET_SIZE)) {
+            remove = true;
+        }
+
+        if (remove) {
+            totalArea.join(current->mArea);
+            current->mBase = false;
+            current->mArea.setEmpty();
+            SkSafeUnref(current->mPicture);
+            current->mPicture = 0;
+        }
+    }
+
+    // Now, let's add the new BucketPicture to the list, with the correct
+    // area that needs to be repainted
+    SkRegion region;
+    SkIRect area = totalArea;
+    area.offset(dx, dy);
+    BucketPicture picture = { 0, totalArea, area, false };
+
+    bucket->append(picture);
+
+    first = bucket->begin();
+    last = bucket->end();
+
+    // let's do a pass to collapse out empty areas
+    BucketPicture* writer = first;
+    for (BucketPicture* current = first; current != last; current++) {
+        if (current && current->mArea.isEmpty())
+            continue;
+        *writer++ = *current;
+    }
+
+    bucket->shrink(writer - first);
+
+    // let's recompute the bases
+    first = bucket->begin();
+    last = bucket->end();
+    SkRegion drawn;
+    drawn.setEmpty();
+    for (BucketPicture* current = first; current != last; current++) {
+        if (drawn.contains(current->mArea) == false) {
+            current->mBase = true;
+        }
+        drawn.op(current->mArea, SkRegion::kUnion_Op);
+    }
+}
+
+void PictureSet::gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect& rect)
+{
+    int maxSize = BUCKET_SIZE;
+
+    int x = rect.fLeft;
+    int y = rect.fTop;
+    int firstTileX = rect.fLeft / maxSize;
+    int firstTileY = rect.fTop / maxSize;
+    int lastTileX = rect.fRight / maxSize;
+    int lastTileY = rect.fBottom / maxSize;
+
+    for (int i = firstTileX; i <= lastTileX; i++) {
+        for (int j = firstTileY; j <= lastTileY; j++) {
+            Bucket* bucket = getBucket(i, j);
+            XLOG("gather bucket %x for %d, %d", bucket, i+1, j+1);
+            list.append(bucket);
+        }
+    }
+}
+
+// When we receive a new inval rect, we first find the Buckets that intersect
+// with it; then we split the original inval into a serie of invals (one for
+// each Bucket we intersect with). We then send that inval to the Bucket.
+void PictureSet::splitAdd(const SkIRect& rect)
+{
+    XLOG("\n--- splitAdd for rect %d, %d, %d, %d (%d x %d)",
+          rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
+          rect.width(), rect.height());
+
+    int maxSize = BUCKET_SIZE;
+
+    // TODO: reuse gatherBucketsForArea() (change Bucket to be a class)
+    int x = rect.fLeft;
+    int y = rect.fTop;
+    int firstTileX = rect.fLeft / maxSize;
+    int firstTileY = rect.fTop / maxSize;
+    int lastTileX = rect.fRight / maxSize;
+    int lastTileY = rect.fBottom / maxSize;
+
+    XLOG("--- firstTile(%d, %d) lastTile(%d, %d)",
+          firstTileX, firstTileY,
+          lastTileX, lastTileY);
+
+    for (int i = firstTileX; i <= lastTileX; i++) {
+        for (int j = firstTileY; j <= lastTileY; j++) {
+            Bucket* bucket = getBucket(i, j);
+            SkIRect newRect;
+            int deltaX = i * maxSize;
+            int deltaY = j * maxSize;
+            int left, top, right, bottom;
+            if (i == firstTileX)
+                left = rect.fLeft;
+            else
+                left = 0;
+            if (j == firstTileY)
+                top = rect.fTop;
+            else
+                top = 0;
+            if (i == lastTileX)
+                right = rect.fRight % maxSize;
+            else
+                right = maxSize;
+            if (j == lastTileY)
+                bottom = rect.fBottom % maxSize;
+            else
+                bottom = maxSize;
+
+            newRect.set(left, top, right, bottom);
+            addToBucket(bucket, deltaX, deltaY, newRect);
+            mUpdatedBuckets.append(bucket);
+        }
+    }
+
+    XLOG("--- splitAdd DONE\n");
+}
+
+#endif // FAST_PICTURESET
 
 // This function is used to maintain the list of Pictures.
 // Pictures contain an SkPicture covering a specific area; some
@@ -139,6 +374,8 @@ void PictureSet::add(const Pictures* temp)
 //   needing a full repaint
 // - we limit the number of pictures to 32 -- above that, we do the same
 //   things (deleting additional pictures + full repaint of base pictures)
+#ifdef FAST_PICTURESET
+#else
 void PictureSet::add(const SkRegion& area, SkPicture* picture,
     uint32_t elapsed, bool split, bool empty)
 {
@@ -195,7 +432,6 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
             working->mArea.setEmpty();
             SkSafeUnref(working->mPicture);
             working->mPicture = 0;
-
         }
     }
 
@@ -205,6 +441,10 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
     collect.setRect(totalArea);
     Pictures pictureAndBounds = {collect, 0, collect.getBounds(),
         elapsed, split, false, false, empty};
+
+    if (mPictures.size() == 0)
+        checkForNewBases = true;
+
     mPictures.append(pictureAndBounds);
     mAdditionalArea += totalArea.width() * totalArea.height();
     last = mPictures.end();
@@ -293,6 +533,7 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
         }
     }
 }
+#endif // FAST_PICTURESET
 
 void PictureSet::checkDimensions(int width, int height, SkRegion* inval)
 {
@@ -315,17 +556,72 @@ void PictureSet::checkDimensions(int width, int height, SkRegion* inval)
 void PictureSet::clear()
 {
     DBG_SET_LOG("");
+#ifdef FAST_PICTURESET
+    for (BucketMap::iterator iter = mBuckets.begin(); iter != mBuckets.end(); ++iter) {
+         Bucket* bucket = iter->second;
+         BucketPicture* first = bucket->begin();
+         BucketPicture* last = bucket->end();
+         for (BucketPicture* current = first; current != last; current++) {
+             SkSafeUnref(current->mPicture);
+             current->mPicture = 0;
+         }
+         bucket->clear();
+    }
+    mBuckets.clear();
+#else
     Pictures* last = mPictures.end();
     for (Pictures* working = mPictures.begin(); working != last; working++) {
         working->mArea.setEmpty();
         SkSafeUnref(working->mPicture);
     }
     mPictures.clear();
+#endif // FAST_PICTURESET
     mWidth = mHeight = 0;
 }
 
 bool PictureSet::draw(SkCanvas* canvas)
 {
+#ifdef FAST_PICTURESET
+    XLOG("PictureSet %x draw on canvas %x", this, canvas);
+    SkRect bounds;
+    if (canvas->getClipBounds(&bounds) == false)
+        return false;
+    SkIRect irect;
+    bounds.roundOut(&irect);
+
+    WTF::Vector<Bucket*> list;
+    gatherBucketsForArea(list, irect);
+
+    XLOG("PictureSet draw on canvas %x, we have %d buckets", canvas, list.size());
+    for (unsigned int i = 0; i < list.size(); i++) {
+        Bucket* bucket = list[i];
+        XLOG("We paint using bucket %x with %d pictures", bucket, bucket->size());
+        for (unsigned int j = 0; j < bucket->size(); j++)  {
+            BucketPicture& picture = bucket->at(j);
+            if (!picture.mPicture)
+                continue;
+            int saved = canvas->save();
+            SkRect pathBounds;
+            pathBounds.set(picture.mRealArea);
+            XLOG("[%d/%d] draw on canvas with clip %d, %d, %d, %d - %d x %d",
+                  j, bucket->size(),
+                  picture.mRealArea.fLeft,
+                  picture.mRealArea.fTop,
+                  picture.mRealArea.fRight,
+                  picture.mRealArea.fBottom,
+                  picture.mRealArea.width(),
+                  picture.mRealArea.height());
+            canvas->clipRect(pathBounds);
+            canvas->translate(pathBounds.fLeft, pathBounds.fTop);
+            canvas->save();
+            canvas->drawPicture(*picture.mPicture);
+            canvas->restoreToCount(saved);
+        }
+    }
+    return false;
+
+#else
+
     validate(__FUNCTION__);
     Pictures* first = mPictures.begin();
     Pictures* last = mPictures.end();
@@ -410,6 +706,7 @@ bool PictureSet::draw(SkCanvas* canvas)
     }
  //   dump(__FUNCTION__);
     return maxElapsed >= MAX_DRAW_TIME;
+#endif // FAST_PICTURESET
 }
 
 void PictureSet::dump(const char* label) const
@@ -548,17 +845,68 @@ bool PictureSet::emptyPicture(SkPicture* picture) const
 
 bool PictureSet::isEmpty() const
 {
+#ifdef FAST_PICTURESET
+    // For now, just assume the pictureset is *not* empty
+    // if the hashmap contains something
+    for (BucketMap::const_iterator iter = mBuckets.begin(); iter != mBuckets.end(); ++iter) {
+        if (iter->second->size() > 0)
+            return false;
+    }
+    return true;
+#else
     const Pictures* last = mPictures.end();
     for (const Pictures* working = mPictures.begin(); working != last; working++) {
         if (!working->mEmpty)
             return false;
     }
     return true;
+#endif // FAST_PICTURESET
 }
+
+void PictureSet::set(const PictureSet& src)
+{
+    DBG_SET_LOGD("start %p src=%p", this, &src);
+    clear();
+    mWidth = src.mWidth;
+    mHeight = src.mHeight;
+#ifdef FAST_PICTURESET
+    XLOG("\n--- set picture ---");
+    for (BucketMap::const_iterator iter = src.mBuckets.begin();
+         iter != src.mBuckets.end(); ++iter) {
+         Bucket* sourceBucket = iter->second;
+         Bucket* targetBucket = getBucket(iter->first.first-1, iter->first.second-1);
+         BucketPicture* first = sourceBucket->begin();
+         BucketPicture* last = sourceBucket->end();
+         XLOG("set from bucket %x (%d, %d), %d pictures", sourceBucket,
+              iter->first.first, iter->first.second, sourceBucket->size());
+         for (BucketPicture* current = first; current != last; current++) {
+             XLOG("set picture %x from bucket %x in bucket %x (%d, %d)",
+                  current->mPicture, sourceBucket, targetBucket,
+                  iter->first.first, iter->first.second);
+             SkSafeRef(current->mPicture);
+             BucketPicture picture = { current->mPicture, current->mArea,
+                                       current->mRealArea, current->mBase };
+             targetBucket->append(picture);
+         }
+    }
+    XLOG("--- DONE set picture ---\n");
+#else
+    const Pictures* last = src.mPictures.end();
+    for (const Pictures* working = src.mPictures.begin(); working != last; working++)
+        add(working);
+ //   dump(__FUNCTION__);
+    validate(__FUNCTION__);
+    DBG_SET_LOG("end");
+#endif // FAST_PICTURESET
+}
+
+#ifdef FAST_PICTURESET
+#else
 
 bool PictureSet::reuseSubdivided(const SkRegion& inval)
 {
     validate(__FUNCTION__);
+
     if (inval.isComplex())
         return false;
     Pictures* working, * last = mPictures.end();
@@ -587,20 +935,6 @@ bool PictureSet::reuseSubdivided(const SkRegion& inval)
         working->mPicture = NULL;
     }
     return true;
-}
-
-void PictureSet::set(const PictureSet& src)
-{
-    DBG_SET_LOGD("start %p src=%p", this, &src);
-    clear();
-    mWidth = src.mWidth;
-    mHeight = src.mHeight;
-    const Pictures* last = src.mPictures.end();
-    for (const Pictures* working = src.mPictures.begin(); working != last; working++)
-        add(working);
- //   dump(__FUNCTION__);
-    validate(__FUNCTION__);
-    DBG_SET_LOG("end");
 }
 
 void PictureSet::setDrawTimes(const PictureSet& src)
@@ -719,8 +1053,13 @@ void PictureSet::split(PictureSet* out) const
     out->dump("split-out");
 }
 
+#endif // FAST_PICTURESET
+
 bool PictureSet::validate(const char* funct) const
 {
+#ifdef FAST_PICTURESET
+    return true;
+#else
     bool valid = true;
 #if PICTURE_SET_VALIDATE
     SkRegion all;
@@ -778,6 +1117,7 @@ bool PictureSet::validate(const char* funct) const
         ;
 #endif
     return valid;
+#endif // FAST_PICTURESET
 }
 
 } /* namespace android */
