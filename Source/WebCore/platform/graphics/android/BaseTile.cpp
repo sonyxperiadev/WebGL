@@ -355,6 +355,9 @@ void BaseTile::paintBitmap()
 
     bool surfaceTextureMode = textureInfo->getSharedTextureMode() == SurfaceTextureMode;
 
+    if (surfaceTextureMode)
+        fullRepaint = true;
+
     while (!fullRepaint && !cliperator.done()) {
         SkRect realTileRect;
         SkRect dirtyRect;
