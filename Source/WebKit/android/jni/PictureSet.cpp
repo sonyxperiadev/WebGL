@@ -43,7 +43,7 @@
 #define MAX_ADDITIONAL_AREA 0.65
 #define MAX_ADDITIONAL_PICTURES 32
 
-#define BUCKET_SIZE 512
+#define BUCKET_SIZE 256
 
 #include <wtf/CurrentTime.h>
 

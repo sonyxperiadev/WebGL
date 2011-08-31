@@ -45,7 +45,7 @@
 #include <wtf/Vector.h>
 #include <wtf/HashMap.h>
 
-// #define FAST_PICTURESET // use a hierarchy of pictures
+#define FAST_PICTURESET // use a hierarchy of pictures
 
 class SkCanvas;
 class SkPicture;
