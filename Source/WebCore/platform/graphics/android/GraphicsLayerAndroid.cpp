@@ -630,6 +630,8 @@ bool GraphicsLayerAndroid::repaint()
     if (m_needsRepaint && m_haveImage && m_newImage) {
         // We need to tell the GL thread that we will need to repaint the
         // texture. Only do so if we effectively have a new image!
+        m_contentLayer->markAsDirty(m_dirtyRegion);
+        m_dirtyRegion.setEmpty();
         m_contentLayer->needsRepaint();
         m_newImage = false;
         m_needsRepaint = false;
@@ -656,13 +658,7 @@ bool GraphicsLayerAndroid::paintContext(SkPicture* context,
 
 void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
 {
-    for (unsigned int i = 0; i < m_children.size(); i++) {
-        GraphicsLayer* layer = m_children[i];
-        if (layer) {
-           FloatRect childrenRect = m_transform.mapRect(rect);
-           layer->setNeedsDisplayInRect(childrenRect);
-        }
-    }
+    // rect is in the render object coordinates
 
     if (!m_haveImage && !drawsContent()) {
         LOG("(%x) setNeedsDisplay(%.2f,%.2f,%.2f,%.2f) doesn't have content, bypass...",
@@ -847,6 +843,12 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
             setNeedsDisplay();
             askForSync();
         }
+    }
+    if (m_haveImage && !image) {
+        m_contentLayer->setContentsImage(0);
+        m_imageRef = 0;
+        setNeedsDisplay();
+        askForSync();
     }
 }
 

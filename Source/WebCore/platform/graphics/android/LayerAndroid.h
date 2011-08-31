@@ -23,6 +23,7 @@
 #include "FloatPoint3D.h"
 #include "FloatRect.h"
 #include "GraphicsLayerClient.h"
+#include "ImageTexture.h"
 #include "Layer.h"
 #include "RefPtr.h"
 #include "SkBitmap.h"
@@ -49,6 +50,7 @@ class SkPicture;
 
 namespace WebCore {
 class LayerAndroid;
+class ImageTexture;
 }
 
 namespace android {
@@ -234,12 +236,11 @@ public:
 
     /** This sets a content image -- calling it means we will use
         the image directly when drawing the layer instead of using
-        the content painted by WebKit. See comments below for
-        m_recordingPicture and m_contentsImage.
+        the content painted by WebKit.
+        Images are handled in TilesManager, as they can be shared
+        between layers.
     */
     void setContentsImage(SkBitmapRef* img);
-    bool hasContentsImage() { return m_contentsImage; }
-    void copyBitmap(SkBitmap*);
 
     void bounds(SkRect*) const;
 
@@ -348,6 +349,8 @@ private:
     int m_uniqueId;
 
     PaintedSurface* m_texture;
+    SkBitmapRef* m_imageRef;
+    ImageTexture* m_imageTexture;
 
     // used to signal that the tile is out-of-date and needs to be redrawn
     bool m_dirty;

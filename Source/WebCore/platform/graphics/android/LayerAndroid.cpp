@@ -64,10 +64,11 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_preserves3D(false),
     m_anchorPointZ(0),
     m_recordingPicture(0),
-    m_contentsImage(0),
     m_extra(0),
     m_uniqueId(++gUniqueId),
     m_texture(0),
+    m_imageRef(0),
+    m_imageTexture(0),
     m_pictureUsed(0),
     m_requestSent(false),
     m_scale(1),
@@ -88,15 +89,17 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_haveClip(layer.m_haveClip),
     m_isIframe(layer.m_isIframe),
-    m_contentsImage(0),
     m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId),
     m_texture(0),
+    m_imageTexture(0),
     m_requestSent(false),
     m_owningLayer(layer.m_owningLayer)
 {
     m_isFixed = layer.m_isFixed;
-    copyBitmap(layer.m_contentsImage);
+    m_imageRef = layer.m_imageRef;
+    if (m_imageRef)
+        TilesManager::instance()->addImage(m_imageRef);
     m_renderLayerPos = layer.m_renderLayerPos;
     m_transform = layer.m_transform;
     m_backfaceVisibility = layer.m_backfaceVisibility;
@@ -145,10 +148,11 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_isFixed(false),
     m_isIframe(false),
     m_recordingPicture(picture),
-    m_contentsImage(0),
     m_extra(0),
     m_uniqueId(-1),
     m_texture(0),
+    m_imageRef(0),
+    m_imageTexture(0),
     m_requestSent(false),
     m_scale(1),
     m_lastComputeTextureSize(0),
@@ -169,9 +173,10 @@ LayerAndroid::~LayerAndroid()
     if (m_texture)
         m_texture->removeLayer(this);
     SkSafeUnref(m_texture);
+    if (m_imageTexture)
+        TilesManager::instance()->removeImage(m_imageTexture->imageRef());
     removeChildren();
     delete m_extra;
-    delete m_contentsImage;
     SkSafeUnref(m_recordingPicture);
     m_animations.clear();
 #ifdef DEBUG_COUNT
@@ -646,28 +651,18 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
         this->getChild(i)->updateGLPositionsAndScale(localMatrix, drawClip(), opacity, scale);
 }
 
-void LayerAndroid::copyBitmap(SkBitmap* bitmap)
-{
-    if (!bitmap)
-        return;
-
-    delete m_contentsImage;
-    m_contentsImage = new SkBitmap();
-    SkBitmap::Config config = bitmap->config();
-    int w = bitmap->width();
-    int h = bitmap->height();
-    m_contentsImage->setConfig(config, w, h);
-    bitmap->copyTo(m_contentsImage, config);
-}
-
 void LayerAndroid::setContentsImage(SkBitmapRef* img)
 {
-    copyBitmap(&img->bitmap());
+    m_imageRef = img;
+    if (!img)
+        return;
+
+    TilesManager::instance()->addImage(img);
 }
 
 bool LayerAndroid::needsTexture()
 {
-    return m_contentsImage || (prepareContext()
+    return m_imageRef || (prepareContext()
         && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
@@ -727,7 +722,7 @@ void LayerAndroid::showLayer(int indent)
 }
 
 // We go through our tree, and if we have layer in the new
-// tree that is similar, we tranfer our texture to it.
+// tree that is similar, we transfer our texture to it.
 // Otherwise, we remove ourselves from the texture so
 // that TilesManager::swapLayersTextures() have a chance
 // at deallocating the textures (PaintedSurfaces)
@@ -762,12 +757,23 @@ void LayerAndroid::createTexture()
     if (!needsTexture())
         return;
 
-    if (!m_texture)
-        m_texture = new PaintedSurface(this);
+    if (m_imageRef) {
+        if (!m_imageTexture) {
+            m_imageTexture = TilesManager::instance()->getTextureForImage(m_imageRef);
+            m_dirtyRegion.setEmpty();
+        }
+        if (m_texture) {
+            m_texture->removeLayer(this);
+            m_texture = 0;
+        }
+    } else {
+        if (!m_texture)
+            m_texture = new PaintedSurface(this);
 
-    // pass the invalidated regions to the PaintedSurface
-    m_texture->markAsDirty(m_dirtyRegion);
-    m_dirtyRegion.setEmpty();
+        // pass the invalidated regions to the PaintedSurface
+        m_texture->markAsDirty(m_dirtyRegion);
+        m_dirtyRegion.setEmpty();
+    }
 }
 
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
@@ -811,6 +817,9 @@ void LayerAndroid::prepare(GLWebViewState* glWebViewState)
 
     if (m_texture)
         m_texture->prepare(glWebViewState);
+
+    if (m_imageTexture)
+        m_imageTexture->prepare();
 }
 
 bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
@@ -823,6 +832,9 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 
     if (m_texture)
         askPaint |= m_texture->draw();
+
+    if (m_imageTexture)
+        m_imageTexture->draw(this);
 
     // When the layer is dirty, the UI thread should be notified to redraw.
     askPaint |= drawChildrenGL(glWebViewState, matrix);
@@ -865,13 +877,8 @@ void LayerAndroid::extraDraw(SkCanvas* canvas)
 
 void LayerAndroid::contentDraw(SkCanvas* canvas)
 {
-    if (m_contentsImage) {
-      SkRect dest;
-      dest.set(0, 0, getSize().width(), getSize().height());
-      canvas->drawBitmapRect(*m_contentsImage, 0, dest);
-    } else {
+    if (m_recordingPicture)
       canvas->drawPicture(*m_recordingPicture);
-    }
 
     if (TilesManager::instance()->getShowVisualIndicator()) {
         float w = getSize().width();
