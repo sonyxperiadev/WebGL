@@ -43,6 +43,9 @@
 #include "jni.h"
 #include "SkRegion.h"
 #include <wtf/Vector.h>
+#include <wtf/HashMap.h>
+
+// #define FAST_PICTURESET // use a hierarchy of pictures
 
 class SkCanvas;
 class SkPicture;
@@ -50,32 +53,39 @@ class SkIRect;
 
 namespace android {
 
+#ifdef FAST_PICTURESET
+    struct BucketPicture {
+        SkPicture* mPicture;
+        SkIRect mArea;
+        SkIRect mRealArea;
+        bool mBase;
+    };
+
+    typedef std::pair<int, int> BucketPosition;
+    typedef WTF::Vector<BucketPicture> Bucket;
+    typedef WTF::HashMap<BucketPosition , Bucket* > BucketMap;
+#endif
+
     class PictureSet {
     public:
         PictureSet();
         PictureSet(const PictureSet& src) { set(src); }
         PictureSet(SkPicture* picture);
         virtual ~PictureSet();
+
+#ifdef FAST_PICTURESET
+        void displayBucket(Bucket* bucket);
+        void displayBuckets();
+        WTF::Vector<Bucket*>* bucketsToUpdate() { return &mUpdatedBuckets; }
+        Bucket* getBucket(int x, int y);
+        void addToBucket(Bucket* bucket, int dx, int dy, SkIRect& rect);
+        void gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect& rect);
+        void splitAdd(const SkIRect& rect);
+#endif
+
         void add(const SkRegion& area, SkPicture* picture,
-            uint32_t elapsed, bool split)
-        {
-            if (area.isRect()) {
-                add(area, picture, elapsed, split, false);
-            } else {
-                SkRegion::Iterator cliperator(area);
-                while (!cliperator.done()) {
-                    SkIRect ir = cliperator.rect();
-                    SkRegion newArea;
-                    newArea.setRect(ir);
-                    add(newArea, picture, elapsed, split, false);
-                    cliperator.next();
-                }
-            }
-        }
-        void add(const SkRegion& area, SkPicture* picture,
-            uint32_t elapsed, bool split, bool empty);
-        const SkIRect& bounds(size_t i) const {
-            return mPictures[i].mArea.getBounds(); }
+            uint32_t elapsed, bool split);
+
         // Update mWidth/mHeight, and adds any additional inval region
         void checkDimensions(int width, int height, SkRegion* inval);
         void clear();
@@ -83,18 +93,30 @@ namespace android {
         static PictureSet* GetNativePictureSet(JNIEnv* env, jobject jpic);
         int height() const { return mHeight; }
         bool isEmpty() const; // returns true if empty or only trivial content
-        bool reuseSubdivided(const SkRegion& );
         void set(const PictureSet& );
-        void setDrawTimes(const PictureSet& );
+
+#ifdef FAST_PICTURESET
+#else
+        void add(const SkRegion& area, SkPicture* picture,
+            uint32_t elapsed, bool split, bool empty);
+        const SkIRect& bounds(size_t i) const {
+            return mPictures[i].mArea.getBounds(); }
+        bool reuseSubdivided(const SkRegion& );
         void setPicture(size_t i, SkPicture* p);
+        void setDrawTimes(const PictureSet& );
         size_t size() const { return mPictures.size(); }
         void split(PictureSet* result) const;
         bool upToDate(size_t i) const { return mPictures[i].mPicture != NULL; }
+#endif
         int width() const { return mWidth; }
         void dump(const char* label) const;
         bool validate(const char* label) const;
     private:
         bool emptyPicture(SkPicture* ) const; // true if no text, images, paths
+#ifdef FAST_PICTURESET
+        BucketMap mBuckets;
+        WTF::Vector<Bucket*> mUpdatedBuckets;
+#else
         struct Pictures {
             SkRegion mArea;
             SkPicture* mPicture;
@@ -105,10 +127,11 @@ namespace android {
             bool mBase : 8; // true if nothing is drawn underneath this
             bool mEmpty : 8; // true if the picture only draws white
         };
-        float mBaseArea;
-        float mAdditionalArea;
         void add(const Pictures* temp);
         WTF::Vector<Pictures> mPictures;
+#endif
+        float mBaseArea;
+        float mAdditionalArea;
         int mHeight;
         int mWidth;
     };
