@@ -1475,6 +1475,16 @@ static void addEnd(SkRegion* diff, const SkIRect& rect)
     diff->op(bounds, SkRegion::kUnion_Op);
 }
 
+void SelectText::getSelectionRegion(const IntRect& vis, SkRegion *region)
+{
+    SkIRect ivisBounds = vis;
+    ivisBounds.join(m_selStart);
+    ivisBounds.join(m_selEnd);
+    region->setEmpty();
+    buildSelection(*m_picture, ivisBounds, m_selStart, m_startBase,
+        m_selEnd, m_endBase, region);
+}
+
 void SelectText::drawSelectionRegion(SkCanvas* canvas, IntRect* inval)
 {
     if (!m_picture)
