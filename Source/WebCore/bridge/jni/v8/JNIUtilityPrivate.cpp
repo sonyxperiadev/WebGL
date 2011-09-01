@@ -352,6 +352,13 @@ void convertJavaValueToNPVariant(JavaValue value, NPVariant* result)
 
     case JavaTypeString:
         {
+#if PLATFORM(ANDROID)
+            // This entire file will likely be removed usptream soon.
+            if (value.m_stringValue.isNull()) {
+                VOID_TO_NPVARIANT(*result);
+                break;
+            }
+#endif
             const char* utf8String = strdup(value.m_stringValue.utf8().data());
             // The copied string is freed in NPN_ReleaseVariantValue (see npruntime.cpp)
             STRINGZ_TO_NPVARIANT(utf8String, *result);
@@ -429,6 +436,10 @@ JavaValue jvalueToJavaValue(const jvalue& value, const JavaType& type)
     case JavaTypeString:
         {
             jstring javaString = static_cast<jstring>(value.l);
+            if (!javaString) {
+                // result.m_stringValue is null by default
+                break;
+            }
             const UChar* characters = getUCharactersFromJStringInEnv(getJNIEnv(), javaString);
             // We take a copy to allow the Java String to be released.
             result.m_stringValue = String(characters, getJNIEnv()->GetStringLength(javaString));
@@ -487,6 +498,10 @@ jvalue javaValueToJvalue(const JavaValue& value)
         // be released when the call stack returns to Java. Note that this
         // may cause leaks if invoked from a native message loop, as is the
         // case in workers.
+        if (value.m_stringValue.isNull()) {
+            // result.l is null by default.
+            break;
+        }
         result.l = getJNIEnv()->NewString(value.m_stringValue.characters(), value.m_stringValue.length());
         break;
     case JavaTypeBoolean:
