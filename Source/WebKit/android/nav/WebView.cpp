@@ -1581,6 +1581,7 @@ class GLDrawFunctor : Functor {
         WebCore::IntRect clip(info->clipLeft, info->clipTop,
                               info->clipRight - info->clipLeft,
                               info->clipBottom - info->clipTop);
+        TilesManager::instance()->shader()->setWebViewMatrix(info->transform);
 
         bool retVal = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect, titlebarHeight, clip, scale, extras);
         if (retVal) {
