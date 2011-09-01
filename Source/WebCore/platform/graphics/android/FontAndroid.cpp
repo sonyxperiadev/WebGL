@@ -99,6 +99,7 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
         SkLayerDrawLooper::LayerInfo info;
         info.fPaintBits = SkLayerDrawLooper::kEntirePaint_Bits;
         info.fColorMode = SkXfermode::kSrc_Mode;
+        info.fFlagsMask = SkPaint::kAllFlags;
 
         // The paint is only valid until the looper receives another call to
         // addLayer(). Therefore, we must cache certain state for later use.
