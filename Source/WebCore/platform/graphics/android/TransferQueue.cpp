@@ -260,9 +260,15 @@ void TransferQueue::updateDirtyBaseTiles()
                 continue;
             }
 
+#if DEBUG_TRANSFER_USING_CPU_UPLOAD
+            // Here we just need to upload the bitmap content to the GL Texture
+            GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId, 0, 0,
+                                             m_transferQueue[index].bitmap);
+#else
             blitTileFromQueue(m_fboID, destTexture,
                               m_sharedSurfaceTextureId,
                               m_sharedSurfaceTexture->getCurrentTextureTarget());
+#endif
 
             // After the base tile copied into the GL texture, we need to
             // update the texture's info such that at draw time, readyFor
@@ -335,6 +341,9 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
     m_transferQueueItemLocks.lock();
     // b) After update the Surface Texture, now udpate the transfer queue info.
     addItemInTransferQueue(renderInfo);
+#if DEBUG_TRANSFER_USING_CPU_UPLOAD
+    bitmap.copyTo(&(m_transferQueue[m_transferQueueIndex].bitmap), bitmap.config());
+#endif
     m_transferQueueItemLocks.unlock();
     XLOG("Bitmap updated x, y %d %d, baseTile %p",
          renderInfo->x, renderInfo->y, renderInfo->baseTile);
