@@ -49,6 +49,8 @@
 #define DEBUG_EVENTS 0 // logs event contents, return value, and processing time
 #define DEBUG_VISIBLE_RECTS 0 // temporary debug printfs and fixes
 
+#define MAX( a, b ) ( ((a) > (b)) ? (a) : (b) )
+
 // this include statement must follow the declaration of PLUGIN_DEBUG_LOCAL
 #include "PluginDebugAndroid.h"
 
@@ -571,20 +573,17 @@ void PluginWidgetAndroid::scrollToVisiblePluginRect() {
     int rectCenterX = m_requestedVisibleRect.fLeft + m_requestedVisibleRect.width()/2;
     int rectCenterY = m_requestedVisibleRect.fTop + m_requestedVisibleRect.height()/2;
 
-    // find document coordinates for center of the visible screen
-    int visibleDocCenterX = m_visibleDocRect.fLeft + m_visibleDocRect.width()/2;
-    int visibleDocCenterY = m_visibleDocRect.fTop + m_visibleDocRect.height()/2;
-
-    //compute the delta of the two points and scale to screen coordinates
-    int deltaX = rectCenterX - visibleDocCenterX;
-    int deltaY = rectCenterY - visibleDocCenterY;
+    // position the corner of the visible doc to center the requested rect
+    int scrollDocX = MAX(0, rectCenterX - (m_visibleDocRect.width()/2));
+    int scrollDocY = MAX(0, rectCenterY - (m_visibleDocRect.height()/2));
 
     ScrollView* scrollView = m_pluginView->parent();
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
 #if DEBUG_VISIBLE_RECTS
-    PLUGIN_LOG("%s call scrollBy (%d,%d)", __FUNCTION__, deltaX, deltaY);
+    PLUGIN_LOG("%s call scrollTo (%d,%d) to center (%d,%d)", __FUNCTION__,
+            scrollDocX, scrollDocX, rectCenterX, rectCenterY);
 #endif
-    core->scrollTo(rectCenterX, rectCenterY, true);
+    core->scrollTo(scrollDocX, scrollDocX, true);
 }
 
 void PluginWidgetAndroid::requestFullScreen() {
