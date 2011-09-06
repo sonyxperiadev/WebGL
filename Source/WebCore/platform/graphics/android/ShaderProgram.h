@@ -39,7 +39,7 @@ public:
     int program() { return m_program; }
 
     // Drawing
-    void setViewport(SkRect& viewport, float scale);
+    void setViewport(SkRect& viewport);
     float zValue(const TransformationMatrix& drawMatrix, float w, float h);
 
     // For drawQuad and drawLayerQuad, they can handle 3 cases for now:
@@ -88,7 +88,6 @@ public:
             contrast = MAX_CONTRAST;
         m_contrast = contrast;
     }
-    void setWebViewMatrix(float* matrix);
 
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
@@ -150,9 +149,6 @@ private:
     // attribs
     GLint m_hPosition;
     GLint m_hVideoPosition;
-
-    float m_webViewMatrix[16];
-    float m_currentScale;
 };
 
 } // namespace WebCore
