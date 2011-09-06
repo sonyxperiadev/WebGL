@@ -1072,11 +1072,15 @@ bool Element::pseudoStyleCacheIsInvalid(const RenderStyle* currentStyle, RenderS
 #ifdef ANDROID_STYLE_VERSION
 static bool displayDiff(const RenderStyle* s1, const RenderStyle* s2)
 {
-    if (!s1 || !s2)
+    if (!s1 && !s2)
         return false;
+    else if ((!s1 && s2) || (s1 && !s2))
+        return true;
+
     return s1->display() != s2->display()
         || s1->left() != s2->left() || s1->top() != s2->top()
-        || s1->right() != s2->right() || s1->bottom() != s2->bottom();
+        || s1->right() != s2->right() || s1->bottom() != s2->bottom()
+        || s1->width() != s2->width() || s1->height() != s2->height();
 }
 #endif
 
