@@ -75,6 +75,15 @@
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
+// Free as much as we possible can
+#define TRIM_MEMORY_COMPLETE 80
+// Free a lot (all textures gone)
+#define TRIM_MEMORY_MODERATE 60
+// More moderate free (keep bare minimum to restore quickly-ish - possibly clear all textures)
+#define TRIM_MEMORY_BACKGROUND 40
+// Moderate free (clear cached tiles, keep visible ones)
+#define TRIM_MEMORY_UI_HIDDEN 20
+
 namespace android {
 
 static jfieldID gWebViewField;
@@ -2562,6 +2571,10 @@ static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring key)
     return 0;
 }
 
+static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
+{
+}
+
 static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
 {
 #ifdef ANDROID_DUMP_DISPLAY_TREE
@@ -2865,6 +2878,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetProperty },
     { "nativeGetProperty", "(Ljava/lang/String;)Ljava/lang/String;",
         (void*) nativeGetProperty },
+    { "nativeOnTrimMemory", "(I)V",
+        (void*) nativeOnTrimMemory },
 };
 
 int registerWebView(JNIEnv* env)
