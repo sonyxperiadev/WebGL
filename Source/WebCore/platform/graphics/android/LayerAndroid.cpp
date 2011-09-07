@@ -651,7 +651,7 @@ void LayerAndroid::setContentsImage(SkBitmapRef* img)
 bool LayerAndroid::needsTexture()
 {
     return m_contentsImage || (prepareContext()
-        && m_recordingPicture->width() && m_recordingPicture->height() && !m_hasOverflowChildren);
+        && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
 IntRect LayerAndroid::clippedRect() const
