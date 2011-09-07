@@ -96,6 +96,27 @@ PictureSet::PictureSet(SkPicture* picture)
     mHeight = picture->height();
     mBaseArea = mWidth * mHeight;
 #ifdef FAST_PICTURESET
+    SkIRect area;
+    area.set(0, 0, mWidth, mHeight);
+    splitAdd(area);
+    WTF::Vector<Bucket*>* buckets = bucketsToUpdate();
+    for (unsigned int i = 0; i < buckets->size(); i++) {
+        Bucket* bucket = (*buckets)[i];
+        for (unsigned int j = 0; j < bucket->size(); j++) {
+            BucketPicture& bucketPicture = (*bucket)[j];
+            const SkIRect& inval = bucketPicture.mRealArea;
+            SkPicture *splitPicture = new SkPicture();
+            SkCanvas *canvas = splitPicture->beginRecording(
+                    inval.width(), inval.height(),
+                    SkPicture::kUsePathBoundsForClip_RecordingFlag);
+            canvas->translate(-inval.fLeft, -inval.fTop);
+            picture->draw(canvas);
+            splitPicture->endRecording();
+            SkSafeUnref(bucketPicture.mPicture);
+            bucketPicture.mPicture = splitPicture;
+        }
+    }
+    buckets->clear();
 #else
     Pictures pictureAndBounds;
     pictureAndBounds.mPicture = picture;
