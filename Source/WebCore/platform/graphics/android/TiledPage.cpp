@@ -202,27 +202,32 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
     }
 }
 
-void TiledPage::updateTileState(const SkIRect& tileBounds)
+bool TiledPage::updateTileDirtiness(const SkIRect& tileBounds)
 {
     if (!m_glWebViewState || tileBounds.isEmpty()) {
         m_invalRegion.setEmpty();
         m_invalTilesRegion.setEmpty();
-        return;
+        return false;
     }
 
+    bool visibleTileIsDirty = false;
     for (int x = 0; x < m_baseTileSize; x++) {
 
         BaseTile& tile = m_baseTiles[x];
 
         // if the tile is in the dirty region then we must invalidate it
-        if (m_invalRegion.contains(tile.x(), tile.y()))
+        if (m_invalRegion.contains(tile.x(), tile.y())) {
             tile.markAsDirty(m_latestPictureInval, m_invalTilesRegion);
+            if (tileBounds.contains(tile.x(), tile.y()))
+                visibleTileIsDirty = true;
+        }
     }
 
     // clear the invalidated region as all tiles within that region have now
     // been marked as dirty.
     m_invalRegion.setEmpty();
     m_invalTilesRegion.setEmpty();
+    return visibleTileIsDirty;
 }
 
 void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds, PrepareBounds bounds)
@@ -231,8 +236,6 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
         return;
 
     TilesManager::instance()->gatherTextures();
-    // update the tiles distance from the viewport
-    updateTileState(tileBounds);
     m_scrollingDown = goingDown;
 
     int firstTileX = tileBounds.fLeft;
