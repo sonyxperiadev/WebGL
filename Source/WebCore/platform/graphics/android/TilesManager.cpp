@@ -270,10 +270,11 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     //  1. If a tile isn't owned, break with that one
     //  2. If we find a tile in the same page with a different scale,
     //         it's old and not visible. Break with that one
-    //  3. Otherwise, use the least recently prepared tile
+    //  3. Otherwise, use the least recently prepared tile, but ignoring tiles
+    //         drawn in the last frame to avoid flickering
 
     BaseTileTexture* farthestTexture = 0;
-    unsigned long long oldestDrawCount = ~0; //maximum u64
+    unsigned long long oldestDrawCount = getDrawGLCount() - 1;
     const unsigned int max = availableTexturePool->size();
     for (unsigned int i = 0; i < max; i++) {
         BaseTileTexture* texture = (*availableTexturePool)[i];
@@ -298,16 +299,18 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         }
     }
 
-    TextureOwner* previousOwner = farthestTexture->owner();
-    if (farthestTexture && farthestTexture->acquire(owner)) {
-        if (previousOwner) {
-            XLOG("%s texture %p stolen from tile %d, %d, drawCount was %llu",
-                 owner->isLayerTile() ? "LAYER" : "BASE",
-                 farthestTexture, owner->x(), owner->y(), oldestDrawCount);
-        }
+    if (farthestTexture) {
+        TextureOwner* previousOwner = farthestTexture->owner();
+        if (farthestTexture->acquire(owner)) {
+            if (previousOwner) {
+                XLOG("%s texture %p stolen from tile %d, %d, drawCount was %llu",
+                     owner->isLayerTile() ? "LAYER" : "BASE",
+                     farthestTexture, owner->x(), owner->y(), oldestDrawCount);
+            }
 
-        availableTexturePool->remove(availableTexturePool->find(farthestTexture));
-        return farthestTexture;
+            availableTexturePool->remove(availableTexturePool->find(farthestTexture));
+            return farthestTexture;
+        }
     }
 
     XLOG("Couldn't find an available texture for tile %x (%d, %d) out of %d available!!!",
