@@ -53,6 +53,7 @@ public:
     ANativeWindow* acquireNativeWindowForVideo();
     void setWindowDimensionsForVideo(const ANativeWindow* window, const SkRect& dimensions);
     void releaseNativeWindowForVideo(ANativeWindow* window);
+    void setFramerateCallback(const ANativeWindow* window, FramerateCallbackProc callback);
 
 private:
     bool m_isCopy;

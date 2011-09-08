@@ -58,4 +58,19 @@ struct ANPVideoInterfaceV0 : ANPInterface {
     void (*releaseNativeWindow)(NPP instance, ANativeWindow* window);
 };
 
+/** Called to notify the plugin that a video frame has been composited by the
+ *  browser for display.  This will be called in a separate thread and as such
+ *  you cannot call releaseNativeWindow from the callback.
+ *
+ *  The timestamp is in nanoseconds, and is monotonically increasing.
+ */
+typedef void (*ANPVideoFrameCallbackProc)(ANativeWindow* window, int64_t timestamp);
+
+struct ANPVideoInterfaceV1 : ANPVideoInterfaceV0 {
+    /** Set a callback to be notified when an ANativeWindow is composited by
+     *  the browser.
+     */
+    void (*setFramerateCallback)(NPP instance, const ANativeWindow* window, ANPVideoFrameCallbackProc);
+};
+
 #endif // ANPVideo_npapi_h

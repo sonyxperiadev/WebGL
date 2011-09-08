@@ -20,8 +20,10 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include <gui/SurfaceTexture.h>
+#include <gui/SurfaceTextureClient.h>
 #include <jni.h>
 #include <JNIUtility.h>
+#include "MediaTexture.h"
 #include "WebCoreJni.h"
 
 #ifdef DEBUG
@@ -44,10 +46,15 @@ namespace WebCore {
 class MediaListener : public android::SurfaceTexture::FrameAvailableListener {
 
 public:
-    MediaListener(jobject weakWebViewRef)
+    MediaListener(jobject weakWebViewRef,
+                  const sp<android::SurfaceTexture>& surfaceTexture,
+                  const sp<ANativeWindow>& nativeWindow)
         : m_weakWebViewRef(weakWebViewRef)
         , m_postInvalMethod(0)
         , m_frameAvailable(false)
+        , m_surfaceTexture(surfaceTexture)
+        , m_nativeWindow(nativeWindow)
+        , m_framerateCallback(0)
     {
         if (!m_weakWebViewRef)
             return;
@@ -75,15 +82,20 @@ public:
         if (!m_frameAvailable) {
             m_frameAvailable = true;
         }
+        if (m_framerateCallback)
+            m_framerateCallback(m_nativeWindow.get(), m_surfaceTexture->getTimestamp());
     }
 
-    void resetFrameAvailable() { m_frameAvailable = false; }
     bool isFrameAvailable() { return m_frameAvailable; }
+    void setFramerateCallback(FramerateCallbackProc callback) { m_framerateCallback = callback; }
 
 private:
     jobject m_weakWebViewRef;
     jmethodID m_postInvalMethod;
     bool m_frameAvailable;
+    sp<android::SurfaceTexture> m_surfaceTexture;
+    sp<ANativeWindow> m_nativeWindow;
+    FramerateCallbackProc m_framerateCallback;
 };
 
 } // namespace WebCore

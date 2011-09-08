@@ -31,6 +31,8 @@ namespace android {
 
 namespace WebCore {
 
+typedef void (*FramerateCallbackProc)(ANativeWindow* window, int64_t timestamp);
+
 class MediaListener;
 
 class MediaTexture : public android::LightRefBase<MediaTexture> {
@@ -47,6 +49,7 @@ public:
     ANativeWindow* getNativeWindow();
     void releaseNativeWindow();
     void setDimensions(const SkRect& dimensions);
+    void setFramerateCallback(FramerateCallbackProc callback);
 
 
 private:
