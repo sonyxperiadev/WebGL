@@ -70,6 +70,14 @@ static void anp_releaseNativeWindow(NPP instance, ANativeWindow* window) {
     mediaLayer->releaseNativeWindowForVideo(window);
 }
 
+static void anp_setFramerateCallback(NPP instance, const ANativeWindow* window, ANPVideoFrameCallbackProc callback) {
+    WebCore::MediaLayer* mediaLayer = mediaLayerForInstance(instance);
+    if (!mediaLayer)
+        return;
+
+    mediaLayer->setFramerateCallback(window, callback);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #define ASSIGN(obj, name)   (obj)->name = anp_##name
@@ -80,4 +88,12 @@ void ANPVideoInterfaceV0_Init(ANPInterface* value) {
     ASSIGN(i, acquireNativeWindow);
     ASSIGN(i, setWindowDimensions);
     ASSIGN(i, releaseNativeWindow);
+}
+
+void ANPVideoInterfaceV1_Init(ANPInterface* value) {
+    // initialize the functions from the previous interface
+    ANPVideoInterfaceV0_Init(value);
+    // add any new functions or override existing functions
+    ANPVideoInterfaceV1* i = reinterpret_cast<ANPVideoInterfaceV1*>(value);
+    ASSIGN(i, setFramerateCallback);
 }

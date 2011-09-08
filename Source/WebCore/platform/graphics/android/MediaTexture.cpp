@@ -61,7 +61,6 @@ MediaTexture::MediaTexture(jobject webViewRef) : android::LightRefBase<MediaText
     m_dimensions.setEmpty();
     m_newWindowRequest = false;
     m_newWindowReady = false;
-    m_mediaListener = new MediaListener(m_weakWebViewRef);
 }
 
 MediaTexture::~MediaTexture()
@@ -91,7 +90,9 @@ void MediaTexture::initNativeWindowIfNeeded()
         m_surfaceTextureClient = new android::SurfaceTextureClient(m_surfaceTexture);
 
         //setup callback
-        m_mediaListener->resetFrameAvailable();
+        m_mediaListener = new MediaListener(m_weakWebViewRef,
+                                            m_surfaceTexture,
+                                            m_surfaceTextureClient);
         m_surfaceTexture->setFrameAvailableListener(m_mediaListener);
 
         m_newWindowRequest = false;
@@ -210,6 +211,7 @@ void MediaTexture::releaseNativeWindow()
         m_surfaceTexture->setFrameAvailableListener(0);
 
     // clear the strong pointer references
+    m_mediaListener.clear();
     m_surfaceTextureClient.clear();
     m_surfaceTexture.clear();
 }
@@ -218,6 +220,12 @@ void MediaTexture::setDimensions(const SkRect& dimensions)
 {
     android::Mutex::Autolock lock(m_mediaLock);
     m_dimensions = dimensions;
+}
+
+void MediaTexture::setFramerateCallback(FramerateCallbackProc callback)
+{
+    android::Mutex::Autolock lock(m_mediaLock);
+    m_mediaListener->setFramerateCallback(callback);
 }
 
 } // namespace WebCore

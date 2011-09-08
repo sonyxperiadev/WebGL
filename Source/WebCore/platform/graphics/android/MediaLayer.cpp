@@ -137,6 +137,13 @@ void MediaLayer::releaseNativeWindowForVideo(ANativeWindow* window)
         m_videoTexture->releaseNativeWindow();
 }
 
+void MediaLayer::setFramerateCallback(const ANativeWindow* window, FramerateCallbackProc callback)
+{
+    if (window != m_videoTexture->getNativeWindow())
+        return;
+     m_videoTexture->setFramerateCallback(callback);
+}
+
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
