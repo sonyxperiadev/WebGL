@@ -34,6 +34,8 @@
 
 class SkCanvas;
 
+#define DEBUG_TRANSFER_USING_CPU_UPLOAD 0
+
 namespace WebCore {
 
 class BaseTile;
@@ -86,6 +88,9 @@ public:
     TransferItemStatus status;
     BaseTile* savedBaseTilePtr;
     TextureTileInfo tileInfo;
+#if DEBUG_TRANSFER_USING_CPU_UPLOAD
+    SkBitmap bitmap;
+#endif
 };
 
 // DoubleBufferedTexture using a SkBitmap as backing mechanism
