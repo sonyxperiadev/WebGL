@@ -58,7 +58,7 @@ BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
     , m_busy(false)
 {
     m_size.set(w, h);
-    m_ownTextureId = GLUtils::createBaseTileGLTexture(w, h);
+    m_ownTextureId = 0;
 
     // Make sure they are created on the UI thread.
     TilesManager::instance()->transferQueue()->initSharedSurfaceTextures(w, h);
@@ -77,6 +77,18 @@ BaseTileTexture::~BaseTileTexture()
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("BaseTileTexture");
 #endif
+}
+
+void BaseTileTexture::requireTexture()
+{
+    if (!m_ownTextureId)
+        m_ownTextureId = GLUtils::createBaseTileGLTexture(m_size.width(), m_size.height());
+}
+
+void BaseTileTexture::discardTexture()
+{
+    if (m_ownTextureId)
+        GLUtils::deleteTexture(&m_ownTextureId);
 }
 
 void BaseTileTexture::destroyTextures(SharedTexture** textures)
@@ -263,6 +275,13 @@ void BaseTileTexture::setOwnTextureTileInfoFromQueue(const TextureTileInfo* info
 
 bool BaseTileTexture::readyFor(BaseTile* baseTile)
 {
+    if (!m_ownTextureId) {
+        // If our backing opengl texture doesn't exist, allocate it and return
+        // false since it won't have useful data
+        requireTexture();
+        return false;
+    }
+
     const TextureTileInfo* info = &m_ownTextureTileInfo;
     if (info &&
         (info->m_x == baseTile->x()) &&

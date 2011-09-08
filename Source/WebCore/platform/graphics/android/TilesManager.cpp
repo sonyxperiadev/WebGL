@@ -149,6 +149,41 @@ void TilesManager::allocateTiles()
          m_tilesTextures.size() * LAYER_TILE_WIDTH * LAYER_TILE_HEIGHT * 4 / 1024 / 1024);
 }
 
+void TilesManager::deallocateTextures(bool allTextures)
+{
+    const unsigned int max = m_textures.size();
+    const unsigned int maxLayer = m_tilesTextures.size();
+
+    unsigned long long sparedDrawCount = ~0; // by default, spare no textures
+    if (!allTextures) {
+        // if we're not deallocating all textures, spare those with max drawcount
+        sparedDrawCount = 0;
+        for (unsigned int i = 0; i < max; i++) {
+            TextureOwner* owner = m_textures[i]->owner();
+            if (owner)
+                sparedDrawCount = std::max(sparedDrawCount, owner->drawCount());
+        }
+    }
+
+    int dealloc = 0;
+    for (unsigned int i = 0; i < max; i++) {
+        TextureOwner* owner = m_textures[i]->owner();
+        if (!owner || owner->drawCount() < sparedDrawCount) {
+            m_textures[i]->discardTexture();
+            dealloc++;
+        }
+    }
+    for (unsigned int i = 0; i < maxLayer; i++) {
+        TextureOwner* owner = m_tilesTextures[i]->owner();
+        if (!owner || owner->drawCount() < sparedDrawCount) {
+            m_tilesTextures[i]->discardTexture();
+            dealloc++;
+        }
+    }
+    XLOG("Deallocated %d gl textures (out of %d base tiles and %d layer tiles)",
+         dealloc, max, maxLayer);
+}
+
 void TilesManager::printTextures()
 {
 #ifdef DEBUG
