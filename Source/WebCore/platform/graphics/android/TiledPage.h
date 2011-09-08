@@ -68,7 +68,10 @@ public:
 
     // prepare the page for display on the screen
     void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds, PrepareBounds bounds);
-    void updateTileState(const SkIRect& tileBounds);
+
+    // update tiles with inval information, return true if visible ones are
+    // dirty (and thus repaint needed)
+    bool updateTileDirtiness(const SkIRect& tileBounds);
 
     // check to see if the page is ready for display
 
