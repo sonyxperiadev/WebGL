@@ -2573,6 +2573,10 @@ static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring key)
 
 static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
 {
+    if (TilesManager::hardwareAccelerationEnabled()) {
+        bool freeAllTextures = (level > TRIM_MEMORY_UI_HIDDEN);
+        TilesManager::instance()->deallocateTextures(freeAllTextures);
+    }
 }
 
 static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)

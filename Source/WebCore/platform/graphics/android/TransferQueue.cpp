@@ -134,6 +134,9 @@ bool TransferQueue::checkObsolete(int index)
 
 void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex, GLuint srcTexId, GLenum srcTexTarget)
 {
+    // guarantee that we have a texture to blit into
+    destTex->requireTexture();
+
     // Then set up the FBO and copy the SurfTex content in.
     glBindFramebuffer(GL_FRAMEBUFFER, fboID);
     glFramebufferTexture2D(GL_FRAMEBUFFER,

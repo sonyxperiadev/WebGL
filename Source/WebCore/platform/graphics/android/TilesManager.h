@@ -112,6 +112,9 @@ public:
 
     void allocateTiles();
 
+    // Called when webview is hidden to discard graphics memory
+    void deallocateTextures(bool allTextures);
+
     bool getShowVisualIndicator()
     {
         return m_showVisualIndicator;
