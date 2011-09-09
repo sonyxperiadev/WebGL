@@ -130,6 +130,7 @@ typedef uint32_t ANPMatrixFlag;
 #define kWindowInterfaceV2_ANPGetValue      ((NPNVariable)1018)
 
 #define kNativeWindowInterfaceV0_ANPGetValue ((NPNVariable)1019)
+#define kVideoInterfaceV1_ANPGetValue       ((NPNVariable)1020)
 
 /** queries for the drawing models supported on this device.
 
