@@ -18,10 +18,7 @@ bool ScrollableLayerAndroid::scrollTo(int x, int y)
     if (newX == scrollBounds.fLeft && newY == scrollBounds.fTop)
         return false;
 
-    SkScalar diffX = newX - scrollBounds.fLeft;
-    SkScalar diffY = newY - scrollBounds.fTop;
-    const SkPoint& pos = getPosition();
-    setPosition(pos.fX - diffX, pos.fY - diffY);
+    setPosition(m_scrollLimits.fLeft - newX, m_scrollLimits.fTop - newY);
     return true;
 }
 
