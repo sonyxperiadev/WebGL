@@ -141,7 +141,10 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
         nextTiledPage->setScale(scale);
         m_glWebViewState->setFutureViewport(viewportTileBounds);
         m_glWebViewState->lockBaseLayerUpdate();
-        nextTiledPage->updateTileState(viewportTileBounds);
+
+        // ignore dirtiness return value since while zooming we repaint regardless
+        nextTiledPage->updateTileDirtiness(viewportTileBounds);
+
         nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds,
                                TiledPage::VisibleBounds);
         // Cancel pending paints for the foreground page
@@ -212,24 +215,27 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
             *buffersSwappedPtr = true;
     }
 
-    // If stuff is happening such that we need a redraw, lock updates to the
-    // base layer, and only then start painting.
+
     bool needsRedraw = scrolling || zooming || !buffersSwapped;
-    if (needsRedraw)
-        m_glWebViewState->lockBaseLayerUpdate();
-    else
+
+    // if we don't expect to redraw, unlock the invals
+    if (!needsRedraw)
         m_glWebViewState->unlockBaseLayerUpdate();
+
+    // if applied invals mark tiles dirty, need to redraw
+    needsRedraw |= tiledPage->updateTileDirtiness(preZoomBounds);
+
+    if (needsRedraw) {
+        // lock and paint what's needed unless we're zooming, since the new
+        // tiles won't be relevant soon anyway
+        m_glWebViewState->lockBaseLayerUpdate();
+        if (!zooming)
+            tiledPage->prepare(goingDown, goingLeft, preZoomBounds,
+                               TiledPage::ExpandedBounds);
+    }
 
     XLOG("scrolling %d, zooming %d, buffersSwapped %d, needsRedraw %d",
          scrolling, zooming, buffersSwapped, needsRedraw);
-
-    tiledPage->updateTileState(preZoomBounds);
-
-    // Only paint new textures if the base layer has been locked, but not if
-    // we're zooming since the new tiles won't be relevant soon anyway
-    if (needsRedraw && !zooming)
-        tiledPage->prepare(goingDown, goingLeft, preZoomBounds,
-                           TiledPage::ExpandedBounds);
 
     tiledPage->draw(transparency, preZoomBounds);
 

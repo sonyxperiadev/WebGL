@@ -35,11 +35,14 @@
 
 #include <cutils/atomic.h>
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTile", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTile", __VA_ARGS__)
@@ -431,6 +434,8 @@ void BaseTile::paintBitmap()
 
         if (!m_dirtyArea[m_currentDirtyAreaIndex].isEmpty())
             m_dirty = true;
+
+        XLOG("painted tile %p (%d, %d), dirty=%d", this, x, y, m_dirty);
 
         if (!m_dirty)
             m_isSwapNeeded = true;
