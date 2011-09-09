@@ -112,6 +112,7 @@ extern void ANPSystemInterfaceV1_Init(ANPInterface* value);
 extern void ANPSystemInterfaceV2_Init(ANPInterface* value);
 extern void ANPNativeWindowInterfaceV0_Init(ANPInterface* value);
 extern void ANPVideoInterfaceV0_Init(ANPInterface* value);
+extern void ANPVideoInterfaceV1_Init(ANPInterface* value);
 
 struct VarProcPair {
     int         enumValue;
@@ -142,6 +143,7 @@ static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(SystemInterfaceV2)        },
     { VARPROCLINE(NativeWindowInterfaceV0)  },
     { VARPROCLINE(VideoInterfaceV0)         },
+    { VARPROCLINE(VideoInterfaceV1)         },
 };
 
 /*  return true if var was an interface request (error will be set accordingly)
