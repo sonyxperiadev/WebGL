@@ -266,12 +266,10 @@ bool BaseLayerAndroid::drawGL(double currentTime, LayerAndroid* compositedRoot,
 
         compositedRoot->updateFixedLayersPositions(visibleRect);
         FloatRect clip(0, 0, viewRect.width(), viewRect.height());
-        compositedRoot->updateGLPositions(ident, clip, 1);
+        compositedRoot->updateGLPositionsAndScale(
+            ident, clip, 1, m_glWebViewState->zoomManager()->layersScale());
         SkMatrix matrix;
         matrix.setTranslate(viewRect.x(), viewRect.y());
-
-        // get the scale factor from the zoom manager
-        compositedRoot->setScale(m_glWebViewState->zoomManager()->layersScale());
 
 #ifdef DEBUG
         compositedRoot->showLayer(0);

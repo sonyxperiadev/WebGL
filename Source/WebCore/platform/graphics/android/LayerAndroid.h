@@ -120,12 +120,11 @@ public:
     int nbTexturedLayers();
     void showLayer(int indent);
 
-    void setScale(float scale);
     float getScale() { return m_scale; }
     virtual bool drawGL(GLWebViewState*, SkMatrix&);
     bool drawChildrenGL(GLWebViewState*, SkMatrix&);
-    void updateGLPositions(const TransformationMatrix& parentMatrix,
-                           const FloatRect& clip, float opacity);
+    void updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
+                                   const FloatRect& clip, float opacity, float scale);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
     float drawOpacity() { return m_drawOpacity; }
     void setVisible(bool value) { m_visible = value; }

@@ -17,6 +17,7 @@
 #include "SkPicture.h"
 #include "TilesManager.h"
 #include <wtf/CurrentTime.h>
+#include <math.h>
 
 #define LAYER_DEBUG // Add diagonals for debugging
 #undef LAYER_DEBUG
@@ -558,8 +559,8 @@ void LayerAndroid::updatePositions()
         this->getChild(i)->updatePositions();
 }
 
-void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
-                                     const FloatRect& clipping, float opacity)
+void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
+                                             const FloatRect& clipping, float opacity, float scale)
 {
     IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
@@ -580,7 +581,23 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
                             -anchorPointZ());
 
     setDrawTransform(localMatrix);
+    if (m_drawTransform.isIdentityOrTranslation()) {
+        // adjust the translation coordinates of the draw transform matrix so
+        // that layers (defined in content coordinates) will align to display/view pixels
+        float desiredContentX = round(m_drawTransform.m41() * scale) / scale;
+        float desiredContentY = round(m_drawTransform.m42() * scale) / scale;
+        XLOG("fudging translation from %f, %f to %f, %f",
+             m_drawTransform.m41(), m_drawTransform.m42(),
+             desiredContentX, desiredContentY);
+        m_drawTransform.setM41(desiredContentX);
+        m_drawTransform.setM42(desiredContentY);
+    }
+
     m_zValue = TilesManager::instance()->shader()->zValue(m_drawTransform, getSize().width(), getSize().height());
+
+    m_atomicSync.lock();
+    m_scale = scale;
+    m_atomicSync.unlock();
 
     opacity *= getOpacity();
     setDrawOpacity(opacity);
@@ -626,7 +643,7 @@ void LayerAndroid::updateGLPositions(const TransformationMatrix& parentMatrix,
         localMatrix.translate(-getSize().width() * 0.5f, -getSize().height() * 0.5f);
     }
     for (int i = 0; i < count; i++)
-        this->getChild(i)->updateGLPositions(localMatrix, drawClip(), opacity);
+        this->getChild(i)->updateGLPositionsAndScale(localMatrix, drawClip(), opacity, scale);
 }
 
 void LayerAndroid::copyBitmap(SkBitmap* bitmap)
@@ -819,16 +836,6 @@ bool LayerAndroid::drawChildrenGL(GLWebViewState* glWebViewState, SkMatrix& matr
     }
 
     return askPaint;
-}
-
-void LayerAndroid::setScale(float scale)
-{
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->setScale(scale);
-
-    android::AutoMutex lock(m_atomicSync);
-    m_scale = scale;
 }
 
 void LayerAndroid::extraDraw(SkCanvas* canvas)
