@@ -148,7 +148,14 @@ private:
     BaseRenderer* m_renderer;
 
     bool m_isLayerTile;
-    bool m_isSwapNeeded;
+
+    // this is set when the back texture is finished painting and should be
+    // swapped to the front. it is set with the NEXT drawGL call (see
+    // TilesManager::m_drawGLCount) so that the textures may be blitted at the
+    // beginning of GLWebViewState::drawGL before they are swapped
+
+    // 4 steps for texture: paint -> blit -> swap -> draw
+    unsigned long long m_swapDrawCount;
 
     // the most recent GL draw before this tile was prepared. used for
     // prioritization and caching. tiles with old drawcounts and textures they

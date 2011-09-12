@@ -100,7 +100,7 @@ TilesManager::TilesManager()
     , m_showVisualIndicator(false)
     , m_invertedScreen(false)
     , m_invertedScreenSwitch(false)
-    , m_drawGLCount(0)
+    , m_drawGLCount(1)
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
@@ -268,9 +268,10 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 
     // The heuristic for selecting a texture is as follows:
     //  1. If a tile isn't owned, break with that one
-    //  2. If we find a tile in the same page with a different scale,
+    //  2. Don't let tiles acquire their front textures
+    //  3. If we find a tile in the same page with a different scale,
     //         it's old and not visible. Break with that one
-    //  3. Otherwise, use the least recently prepared tile, but ignoring tiles
+    //  4. Otherwise, use the least recently prepared tile, but ignoring tiles
     //         drawn in the last frame to avoid flickering
 
     BaseTileTexture* farthestTexture = 0;
@@ -283,6 +284,11 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
             farthestTexture = texture;
             break;
         }
+
+        // Don't let a tile acquire its own front texture, as the acquisition
+        // logic doesn't handle that
+        if (currentOwner == owner)
+            continue;
 
         if (currentOwner->page() == owner->page() && texture->scale() != owner->scale()) {
             // if we render the back page with one scale, then another while
@@ -300,12 +306,13 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     }
 
     if (farthestTexture) {
-        TextureOwner* previousOwner = farthestTexture->owner();
+        BaseTile* previousOwner = static_cast<BaseTile*>(farthestTexture->owner());
         if (farthestTexture->acquire(owner)) {
             if (previousOwner) {
-                XLOG("%s texture %p stolen from tile %d, %d, drawCount was %llu",
+                XLOG("%s texture %p stolen from tile %d, %d, drawCount was %llu (current is %llu)",
                      owner->isLayerTile() ? "LAYER" : "BASE",
-                     farthestTexture, owner->x(), owner->y(), oldestDrawCount);
+                     farthestTexture, previousOwner->x(), previousOwner->y(),
+                     oldestDrawCount, getDrawGLCount());
             }
 
             availableTexturePool->remove(availableTexturePool->find(farthestTexture));
@@ -313,7 +320,8 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         }
     }
 
-    XLOG("Couldn't find an available texture for tile %x (%d, %d) out of %d available!!!",
+    XLOG("Couldn't find an available texture for %s tile %x (%d, %d) out of %d available",
+          owner->isLayerTile() ? "LAYER" : "BASE",
           owner, owner->x(), owner->y(), max);
 #ifdef DEBUG
     printTextures();

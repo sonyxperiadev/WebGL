@@ -70,7 +70,7 @@ BaseTile::BaseTile(bool isLayerTile)
     , m_lastDirtyPicture(0)
     , m_isTexturePainted(false)
     , m_isLayerTile(isLayerTile)
-    , m_isSwapNeeded(false)
+    , m_swapDrawCount(0)
     , m_drawCount(0)
 {
 #ifdef DEBUG_COUNT
@@ -133,7 +133,7 @@ void BaseTile::reserveTexture()
 
     android::AutoMutex lock(m_atomicSync);
     if (texture && m_backTexture != texture) {
-        m_isSwapNeeded = false; // no longer ready to swap
+        m_swapDrawCount = 0; // no longer ready to swap
         m_backTexture = texture;
 
         // this is to catch when the front texture is stolen from beneath us. We
@@ -240,7 +240,7 @@ bool BaseTile::isTileReady()
 {
     // Return true if the tile's most recently drawn texture is up to date
     android::AutoMutex lock(m_atomicSync);
-    BaseTileTexture * texture = m_isSwapNeeded ? m_backTexture : m_frontTexture;
+    BaseTileTexture * texture = m_swapDrawCount ? m_backTexture : m_frontTexture;
 
     if (!texture)
         return false;
@@ -435,10 +435,13 @@ void BaseTile::paintBitmap()
         if (!m_dirtyArea[m_currentDirtyAreaIndex].isEmpty())
             m_dirty = true;
 
-        XLOG("painted tile %p (%d, %d), dirty=%d", this, x, y, m_dirty);
+        XLOG("painted tile %p (%d, %d), texture %p, dirty=%d", this, x, y, texture, m_dirty);
 
-        if (!m_dirty)
-            m_isSwapNeeded = true;
+        if (!m_dirty) {
+            // swap textures, but WAIT until the next draw call (since we need
+            // to let GLWebViewState blit them at the beginning of drawGL)
+            m_swapDrawCount = TilesManager::instance()->getDrawGLCount() + 1;
+        }
     }
 
     m_atomicSync.unlock();
@@ -459,7 +462,7 @@ void BaseTile::discardTextures() {
 
 bool BaseTile::swapTexturesIfNeeded() {
     android::AutoMutex lock(m_atomicSync);
-    if (m_isSwapNeeded) {
+    if (m_swapDrawCount && TilesManager::instance()->getDrawGLCount() >= m_swapDrawCount) {
         // discard old texture and swap the new one in its place
         if (m_frontTexture)
             m_frontTexture->release(this);
@@ -467,7 +470,7 @@ bool BaseTile::swapTexturesIfNeeded() {
         XLOG("%p's frontTexture was %p, now becoming %p", this, m_frontTexture, m_backTexture);
         m_frontTexture = m_backTexture;
         m_backTexture = 0;
-        m_isSwapNeeded = false;
+        m_swapDrawCount = 0;
         XLOG("display texture for %d, %d front is now %p, texture is %p",
              m_x, m_y, m_frontTexture, m_backTexture);
         return true;
