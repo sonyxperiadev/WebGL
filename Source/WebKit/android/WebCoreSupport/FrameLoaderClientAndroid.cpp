@@ -373,10 +373,16 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
             url.append(buf, res);
         }
     }
+    // Vector sets up its data buffer lazilly, so if failingUrl is the empty
+    // string, the data buffer will be null. This will result in sanitizedUrl
+    // being null, and the string substitution below will be a no-op.
+    // FIXME: Ideally we'd always have a non-empty URL, or at least improve the
+    // wording of the error page in this case. See http://b/5293782.
+    String sanitizedUrl = url.data() ? String(url.data(), url.size()) : "";
 
     // Replace all occurances of %s with the failing url.
     String s = UTF8Encoding().decode((const char*)a->getBuffer(false), a->getLength());
-    s = s.replace("%s", String(url.data(), url.size()));
+    s = s.replace("%s", sanitizedUrl);
 
     // Replace all occurances of %e with the error text
     s = s.replace("%e", error.localizedDescription());
