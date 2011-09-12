@@ -227,6 +227,9 @@ public:
     IntRect currentMatchBounds() const;
     int currentMatchIndex() const { return m_findIndex; }
     bool currentMatchIsInLayer() const;
+    // This requires the current match to be in a layer. See
+    // currentMatchIsInLayer().
+    int currentMatchLayerId() const;
     virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
     void findNext(bool forward);
     bool isCurrentLocationValid() { return m_hasCurrentLocation; }

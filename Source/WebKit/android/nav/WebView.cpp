@@ -332,8 +332,32 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
     }
 }
 
-// The caller has already determined that the desired document rect corresponds
-// to the main picture, and not a layer
+void scrollToCurrentMatch()
+{
+    if (!m_findOnPage.currentMatchIsInLayer()) {
+        scrollRectOnScreen(m_findOnPage.currentMatchBounds());
+        return;
+    }
+
+    SkRect matchBounds = m_findOnPage.currentMatchBounds();
+    const LayerAndroid* rootLayer = getFrameCache(DontAllowNewer)->rootLayer();
+    const Layer* layerContainingMatch = rootLayer->findById(m_findOnPage.currentMatchLayerId());
+    ASSERT(layerContainingMatch);
+
+    // FIXME: If the match is in a scrollable layer or a child of such a layer,
+    // we may need to scroll these layers to make sure the match is visible.
+    // See http://b/5262656.
+
+    // Convert matchBounds to the global space so we can scroll the main page.
+    SkMatrix transform;
+    layerContainingMatch->localToGlobal(&transform);
+    SkRect transformedMatchBounds;
+    transform.mapRect(&transformedMatchBounds, matchBounds);
+    SkIRect roundedTransformedMatchBounds;
+    transformedMatchBounds.roundOut(&roundedTransformedMatchBounds);
+    scrollRectOnScreen(roundedTransformedMatchBounds);
+}
+
 void scrollRectOnScreen(const IntRect& rect)
 {
     if (rect.isEmpty())
@@ -1290,8 +1314,7 @@ void sendMotionUp(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y
 void findNext(bool forward)
 {
     m_findOnPage.findNext(forward);
-    if (!m_findOnPage.currentMatchIsInLayer())
-        scrollRectOnScreen(m_findOnPage.currentMatchBounds());
+    scrollToCurrentMatch();
     viewInvalidate();
 }
 
@@ -1303,21 +1326,16 @@ void setMatches(WTF::Vector<MatchInfo>* matches, jboolean sameAsLastSearch)
     // location to determine whether to scroll.  If the same word is found
     // in the same place, then do not scroll.
     IntRect oldLocation;
-    bool checkAgainstOldLocation;
+    bool checkAgainstOldLocation = false;
     if (sameAsLastSearch && m_findOnPage.isCurrentLocationValid()) {
         oldLocation = m_findOnPage.currentMatchBounds();
         checkAgainstOldLocation = true;
-    } else
-        checkAgainstOldLocation = false;
+    }
 
     m_findOnPage.setMatches(matches);
 
-    if (!checkAgainstOldLocation
-            || oldLocation != m_findOnPage.currentMatchBounds()) {
-        // FIXME: Need to scroll if the match is in a layer.
-        if (!m_findOnPage.currentMatchIsInLayer())
-            scrollRectOnScreen(m_findOnPage.currentMatchBounds());
-    }
+    if (!checkAgainstOldLocation || oldLocation != m_findOnPage.currentMatchBounds())
+        scrollToCurrentMatch();
     viewInvalidate();
 }
 
