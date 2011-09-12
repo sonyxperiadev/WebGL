@@ -4870,6 +4870,11 @@ void Document::webkitCancelFullScreen()
         return;
     
     page()->chrome()->client()->exitFullScreenForElement(m_fullScreenElement.get());
+#if PLATFORM(ANDROID)
+    // The next time we try to enter full screen, we need this change to know
+    // we are not in full screen any more.
+    m_fullScreenElement = 0;
+#endif
 }
     
 void Document::webkitWillEnterFullScreenForElement(Element* element)
@@ -4878,12 +4883,21 @@ void Document::webkitWillEnterFullScreenForElement(Element* element)
     ASSERT(page() && page()->settings()->fullScreenEnabled());
 
     m_fullScreenElement = element;
-    
+
+#if PLATFORM(ANDROID)
+    // Our approach on Poster handling is android specific: we are passing the
+    // poster from java side to native and we can't keep the content if the
+    // video element is detached and its RenderLayer object is deleted.
+    if(!(m_fullScreenElement->hasTagName(HTMLNames::videoTag))) {
+#endif
     if (m_fullScreenElement != documentElement())
         m_fullScreenElement->detach();
 
     recalcStyle(Force);
-    
+#if PLATFORM(ANDROID)
+    }
+#endif
+
     if (m_fullScreenRenderer) {
         m_fullScreenRenderer->setAnimating(true);
 #if USE(ACCELERATED_COMPOSITING)
