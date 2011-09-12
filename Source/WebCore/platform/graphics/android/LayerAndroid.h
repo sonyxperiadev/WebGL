@@ -109,6 +109,10 @@ public:
     void setBackfaceVisibility(bool value) { m_backfaceVisibility = value; }
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
     FloatPoint translation() const;
+    // Returns a rect describing the bounds of the layer with the local
+    // transformation applied, expressed relative to the parent layer.
+    // FIXME: Currently we use only the translation component of the local
+    // transformation.
     SkRect bounds() const;
     IntRect clippedRect() const;
     bool outsideViewport();
@@ -183,9 +187,10 @@ public:
 
     SkPicture* picture() const { return m_recordingPicture; }
 
-    // remove layers bounds from visible rectangle to show what can be
-    // scrolled into view; returns original minus layer bounds in global space.
-    SkRect subtractLayers(const SkRect& visibleRect) const;
+    // Given a rect in global space, subtracts from it the bounds of this layer
+    // and of all of its children. Returns the bounding rectangle of the result,
+    // in global space.
+    SkRect subtractLayers(const SkRect&) const;
 
     void dumpLayers(FILE*, int indentLevel) const;
     void dumpToLog() const;
