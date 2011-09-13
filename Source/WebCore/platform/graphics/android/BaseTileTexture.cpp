@@ -229,7 +229,6 @@ bool BaseTileTexture::release(TextureOwner* owner)
     // force readyFor to return false next call (even if texture reaquired by same tile)
     m_ownTextureTileInfo.m_x = -1;
     m_ownTextureTileInfo.m_y = -1;
-    m_ownTextureTileInfo.m_scale = 0;
     if (!m_busy) {
         m_owner = 0;
     } else {
