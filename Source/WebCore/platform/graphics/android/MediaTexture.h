@@ -20,8 +20,10 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "RefPtr.h"
-#include "DoubleBufferedTexture.h"
 #include "LayerAndroid.h"
+#include "Vector.h"
+#include <GLES2/gl2.h>
+#include <ui/GraphicBuffer.h>
 #include <utils/RefBase.h>
 #include <jni.h>
 
@@ -42,24 +44,37 @@ public:
     ~MediaTexture();
 
     void initNativeWindowIfNeeded();
-    void drawContent(const TransformationMatrix& matrix);
-    void drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds);
+    void draw(const TransformationMatrix& contentMatrix,
+              const TransformationMatrix& videoMatrix,
+              const SkRect& mediaBounds);
 
-    ANativeWindow* requestNewWindow();
-    ANativeWindow* getNativeWindow();
-    void releaseNativeWindow();
-    void setDimensions(const SkRect& dimensions);
-    void setFramerateCallback(FramerateCallbackProc callback);
+    ANativeWindow* getNativeWindowForContent();
+    ANativeWindow* requestNativeWindowForVideo();
 
+    void releaseNativeWindow(const ANativeWindow* window);
+    void setDimensions(const ANativeWindow* window, const SkRect& dimensions);
+    void setFramerateCallback(const ANativeWindow* window,
+                              FramerateCallbackProc callback);
 
 private:
-    GLuint m_textureId;
-    sp<android::SurfaceTexture> m_surfaceTexture;
-    sp<ANativeWindow> m_surfaceTextureClient;
-    sp<MediaListener> m_mediaListener;
-    SkRect m_dimensions;
+    struct TextureWrapper {
+        GLuint textureId;
+        sp<android::SurfaceTexture> surfaceTexture;
+        sp<ANativeWindow> nativeWindow;
+        sp<MediaListener> mediaListener;
+        SkRect dimensions; // only used by the video layer
+    };
+
+    TextureWrapper* createTexture();
+    void deleteTexture(TextureWrapper* item, bool force = false);
+
+    TextureWrapper* m_contentTexture;
+    Vector<TextureWrapper*> m_videoTextures;
+    Vector<GLuint> m_unusedTextures;
+
+    // used to generate new video textures
     bool m_newWindowRequest;
-    bool m_newWindowReady;
+    sp<ANativeWindow> m_newWindow;
 
     jobject m_weakWebViewRef;
 

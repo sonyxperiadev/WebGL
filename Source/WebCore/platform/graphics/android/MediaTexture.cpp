@@ -46,6 +46,12 @@
 
 #endif // DEBUG
 
+// Limits the number of ANativeWindows that can be allocated for video playback.
+// The limit is currently set to 2 as that is the current max number of
+// simultaneous HW decodes that our OMX implementation allows.  This forces the
+// media producer to use their own SW decoders for subsequent video streams.
+#define MAX_WINDOW_COUNT 2
+
 namespace WebCore {
 
 MediaTexture::MediaTexture(jobject webViewRef) : android::LightRefBase<MediaTexture>()
@@ -57,17 +63,17 @@ MediaTexture::MediaTexture(jobject webViewRef) : android::LightRefBase<MediaText
         m_weakWebViewRef = 0;
     }
 
-    m_textureId = 0;
-    m_dimensions.setEmpty();
+    m_contentTexture = 0;
     m_newWindowRequest = false;
-    m_newWindowReady = false;
 }
 
 MediaTexture::~MediaTexture()
 {
-    releaseNativeWindow();
-    if (m_textureId)
-        glDeleteTextures(1, &m_textureId);
+    deleteTexture(m_contentTexture);
+    for (unsigned int i = 0; i < m_videoTextures.size(); i++) {
+        deleteTexture(m_videoTextures[i], true);
+    }
+
     if (m_weakWebViewRef) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         env->DeleteWeakGlobalRef(m_weakWebViewRef);
@@ -79,39 +85,76 @@ void MediaTexture::initNativeWindowIfNeeded()
     {
         android::Mutex::Autolock lock(m_mediaLock);
 
-        if(!m_newWindowRequest)
+        // check to see if there are any unused textures to delete
+        if (m_unusedTextures.size() != 0) {
+            for (unsigned int i = 0; i < m_unusedTextures.size(); i++) {
+                glDeleteTextures(1, &m_unusedTextures[i]);
+            }
+            m_unusedTextures.clear();
+        }
+
+        // create a content texture if none exists
+        if (!m_contentTexture) {
+            m_contentTexture = createTexture();
+        }
+
+        // finally create a video texture if needed
+        if (!m_newWindowRequest)
             return;
 
-        // reuse an existing texture if possible
-        if (!m_textureId)
-            glGenTextures(1, &m_textureId);
+        // add the texture and add it to the list
+        TextureWrapper* videoTexture = createTexture();
+        m_videoTextures.append(videoTexture);
 
-        m_surfaceTexture = new android::SurfaceTexture(m_textureId);
-        m_surfaceTextureClient = new android::SurfaceTextureClient(m_surfaceTexture);
-
-        //setup callback
-        m_mediaListener = new MediaListener(m_weakWebViewRef,
-                                            m_surfaceTexture,
-                                            m_surfaceTextureClient);
-        m_surfaceTexture->setFrameAvailableListener(m_mediaListener);
-
+        // setup the state variables to signal the other thread
         m_newWindowRequest = false;
-        m_newWindowReady = true;
+        m_newWindow = videoTexture->nativeWindow;
     }
     m_newMediaRequestCond.signal();
 }
 
-void MediaTexture::drawContent(const TransformationMatrix& matrix)
+void MediaTexture::draw(const TransformationMatrix& contentMatrix,
+          const TransformationMatrix& videoMatrix,
+          const SkRect& mediaBounds)
 {
     android::Mutex::Autolock lock(m_mediaLock);
 
-    if(!m_surfaceTexture.get() || m_dimensions.isEmpty()
-            || !m_mediaListener->isFrameAvailable())
+    if (mediaBounds.isEmpty())
         return;
 
-    m_surfaceTexture->updateTexImage();
+    // draw all the video textures first
+    for (unsigned int i = 0; i < m_videoTextures.size(); i++) {
 
-    sp<GraphicBuffer> buf = m_surfaceTexture->getCurrentBuffer();
+        TextureWrapper* video = m_videoTextures[i];
+
+        if (!video->surfaceTexture.get() || video->dimensions.isEmpty()
+                || !video->mediaListener->isFrameAvailable())
+            return;
+
+        video->surfaceTexture->updateTexImage();
+
+        float surfaceMatrix[16];
+        video->surfaceTexture->getTransformMatrix(surfaceMatrix);
+
+        SkRect dimensions = video->dimensions;
+        dimensions.offset(mediaBounds.fLeft, mediaBounds.fTop);
+
+#ifdef DEBUG
+        if (!mediaBounds.contains(dimensions)) {
+            XLOG("The video exceeds is parent's bounds.");
+        }
+#endif // DEBUG
+
+        TilesManager::instance()->shader()->drawVideoLayerQuad(videoMatrix,
+                surfaceMatrix, dimensions, video->textureId);
+    }
+
+    if (!m_contentTexture->mediaListener->isFrameAvailable())
+        return;
+
+    m_contentTexture->surfaceTexture->updateTexImage();
+
+    sp<GraphicBuffer> buf = m_contentTexture->surfaceTexture->getCurrentBuffer();
 
     PixelFormat f = buf->getPixelFormat();
     // only attempt to use alpha blending if alpha channel exists
@@ -121,49 +164,25 @@ void MediaTexture::drawContent(const TransformationMatrix& matrix)
         PIXEL_FORMAT_RGB_565 == f ||
         PIXEL_FORMAT_RGB_332 == f);
 
-    TilesManager::instance()->shader()->drawLayerQuad(matrix, m_dimensions,
-                                                      m_textureId, 1.0f,
-                                                      forceAlphaBlending,
+    TilesManager::instance()->shader()->drawLayerQuad(contentMatrix,
+                                                      mediaBounds,
+                                                      m_contentTexture->textureId,
+                                                      1.0f, forceAlphaBlending,
                                                       GL_TEXTURE_EXTERNAL_OES);
 }
 
-void MediaTexture::drawVideo(const TransformationMatrix& matrix, const SkRect& parentBounds)
-{
-    android::Mutex::Autolock lock(m_mediaLock);
-
-    if(!m_surfaceTexture.get() || m_dimensions.isEmpty()
-            || !m_mediaListener->isFrameAvailable())
-        return;
-
-    m_surfaceTexture->updateTexImage();
-
-    float surfaceMatrix[16];
-    m_surfaceTexture->getTransformMatrix(surfaceMatrix);
-
-    SkRect dimensions = m_dimensions;
-    dimensions.offset(parentBounds.fLeft, parentBounds.fTop);
-
-#ifdef DEBUG
-    if (!parentBounds.contains(dimensions)) {
-        XLOG("The video exceeds is parent's bounds.");
-    }
-#endif // DEBUG
-
-    TilesManager::instance()->shader()->drawVideoLayerQuad(matrix, surfaceMatrix,
-            dimensions, m_textureId);
-}
-
-ANativeWindow* MediaTexture::requestNewWindow()
+ANativeWindow* MediaTexture::requestNativeWindowForVideo()
 {
     android::Mutex::Autolock lock(m_mediaLock);
 
     // the window was not ready before the timeout so return it this time
-    if (m_newWindowReady) {
-        m_newWindowReady = false;
-        return m_surfaceTextureClient.get();
+    if (ANativeWindow* window = m_newWindow.get()) {
+        m_newWindow.clear();
+        return window;
     }
-    // we only allow for one texture, so if one already exists return null
-    else if (m_surfaceTextureClient.get()) {
+
+    // we only allow for so many textures, so return NULL if we exceed that limit
+    else if (m_videoTextures.size() >= MAX_WINDOW_COUNT) {
         return 0;
     }
 
@@ -190,42 +209,94 @@ ANativeWindow* MediaTexture::requestNewWindow()
         timedOut = ret == TIMED_OUT;
     }
 
-    if (m_surfaceTextureClient.get())
-        m_newWindowReady = false;
-
-    return m_surfaceTextureClient.get();
+    // if the window is ready then return it otherwise return NULL
+    if (ANativeWindow* window = m_newWindow.get()) {
+        m_newWindow.clear();
+        return window;
+    }
+    return 0;
 }
 
-ANativeWindow* MediaTexture::getNativeWindow()
+ANativeWindow* MediaTexture::getNativeWindowForContent()
 {
     android::Mutex::Autolock lock(m_mediaLock);
-    return m_surfaceTextureClient.get();
+    if (m_contentTexture)
+        return m_contentTexture->nativeWindow.get();
+    else
+        return 0;
 }
 
-void MediaTexture::releaseNativeWindow()
+void MediaTexture::releaseNativeWindow(const ANativeWindow* window)
 {
     android::Mutex::Autolock lock(m_mediaLock);
-    m_dimensions.setEmpty();
+    for (unsigned int i = 0; i < m_videoTextures.size(); i++) {
+        if (m_videoTextures[i]->nativeWindow.get() == window) {
+            deleteTexture(m_videoTextures[i]);
+            m_videoTextures.remove(i);
+            break;
+        }
+    }
+}
 
-    if (m_surfaceTexture.get())
-        m_surfaceTexture->setFrameAvailableListener(0);
+void MediaTexture::setDimensions(const ANativeWindow* window,
+                                 const SkRect& dimensions)
+{
+    android::Mutex::Autolock lock(m_mediaLock);
+    for (unsigned int i = 0; i < m_videoTextures.size(); i++) {
+        if (m_videoTextures[i]->nativeWindow.get() == window) {
+            m_videoTextures[i]->dimensions = dimensions;
+            break;
+        }
+    }
+}
+
+void MediaTexture::setFramerateCallback(const ANativeWindow* window,
+                                        FramerateCallbackProc callback)
+{
+    android::Mutex::Autolock lock(m_mediaLock);
+    for (unsigned int i = 0; i < m_videoTextures.size(); i++) {
+        if (m_videoTextures[i]->nativeWindow.get() == window) {
+            m_videoTextures[i]->mediaListener->setFramerateCallback(callback);
+            break;
+        }
+    }
+}
+
+MediaTexture::TextureWrapper* MediaTexture::createTexture()
+{
+    TextureWrapper* wrapper = new TextureWrapper();
+
+    // populate the wrapper
+    glGenTextures(1, &wrapper->textureId);
+    wrapper->surfaceTexture = new android::SurfaceTexture(wrapper->textureId);
+    wrapper->nativeWindow = new android::SurfaceTextureClient(wrapper->surfaceTexture);
+    wrapper->dimensions.setEmpty();
+
+    // setup callback
+    wrapper->mediaListener = new MediaListener(m_weakWebViewRef,
+                                               wrapper->surfaceTexture,
+                                               wrapper->nativeWindow);
+    wrapper->surfaceTexture->setFrameAvailableListener(wrapper->mediaListener);
+
+    return wrapper;
+}
+
+void MediaTexture::deleteTexture(TextureWrapper* texture, bool force)
+{
+    if (texture->surfaceTexture.get())
+        texture->surfaceTexture->setFrameAvailableListener(0);
+
+    if (force)
+        glDeleteTextures(1, &texture->textureId);
+    else
+        m_unusedTextures.append(texture->textureId);
 
     // clear the strong pointer references
-    m_mediaListener.clear();
-    m_surfaceTextureClient.clear();
-    m_surfaceTexture.clear();
-}
+    texture->mediaListener.clear();
+    texture->nativeWindow.clear();
+    texture->surfaceTexture.clear();
 
-void MediaTexture::setDimensions(const SkRect& dimensions)
-{
-    android::Mutex::Autolock lock(m_mediaLock);
-    m_dimensions = dimensions;
-}
-
-void MediaTexture::setFramerateCallback(FramerateCallbackProc callback)
-{
-    android::Mutex::Autolock lock(m_mediaLock);
-    m_mediaListener->setFramerateCallback(callback);
+    delete texture;
 }
 
 } // namespace WebCore

@@ -54,7 +54,7 @@ public:
                   GLenum textureTarget = GL_TEXTURE_2D,
                   GLint texFilter = GL_LINEAR);
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
-                       SkRect& geometry, int textureId, float opacity,
+                       const SkRect& geometry, int textureId, float opacity,
                        bool forceBlending = false,
                        GLenum textureTarget = GL_TEXTURE_2D);
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,

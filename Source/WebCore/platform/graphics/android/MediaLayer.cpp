@@ -42,10 +42,8 @@ namespace WebCore {
 
 MediaLayer::MediaLayer(jobject webViewRef) : LayerAndroid((RenderLayer*) NULL)
 {
-    m_contentTexture = new MediaTexture(webViewRef);
-    m_contentTexture->incStrong(this);
-    m_videoTexture = new MediaTexture(webViewRef);
-    m_videoTexture->incStrong(this);
+    m_mediaTexture = new MediaTexture(webViewRef);
+    m_mediaTexture->incStrong(this);
 
     m_isCopy = false;
     m_isContentInverted = false;
@@ -55,10 +53,8 @@ MediaLayer::MediaLayer(jobject webViewRef) : LayerAndroid((RenderLayer*) NULL)
 
 MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
 {
-    m_contentTexture = layer.m_contentTexture;
-    m_contentTexture->incStrong(this);
-    m_videoTexture = layer.m_videoTexture;
-    m_videoTexture->incStrong(this);
+    m_mediaTexture = layer.m_mediaTexture;
+    m_mediaTexture->incStrong(this);
 
     m_isCopy = true;
     m_isContentInverted = layer.m_isContentInverted;
@@ -69,8 +65,7 @@ MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
 MediaLayer::~MediaLayer()
 {
     XLOG("Deleting Media Layer");
-    m_contentTexture->decStrong(this);
-    m_videoTexture->decStrong(this);
+    m_mediaTexture->decStrong(this);
 }
 
 bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
@@ -85,10 +80,8 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     mediaBounds.set(0, 0, getSize().width(), getSize().height());
     mediaBounds.inset(m_outlineSize, m_outlineSize);
 
-    // check to see if we need to create a video texture
-    m_videoTexture->initNativeWindowIfNeeded();
-    // draw any video content if present
-    m_videoTexture->drawVideo(m_drawTransform, mediaBounds);
+    // check to see if we need to create a content or video texture
+    m_mediaTexture->initNativeWindowIfNeeded();
 
     // the layer's shader draws the content inverted so we must undo
     // that change in the transformation matrix
@@ -98,50 +91,37 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         m.translate(0, -getSize().height());
     }
 
-    // check to see if we need to create a content texture
-    m_contentTexture->initNativeWindowIfNeeded();
-    // draw any content if present
-    m_contentTexture->setDimensions(mediaBounds);
-    m_contentTexture->drawContent(m);
+    // draw any content or video if present
+    m_mediaTexture->draw(m, m_drawTransform, mediaBounds);
 
     return drawChildrenGL(glWebViewState, matrix);
 }
 
 ANativeWindow* MediaLayer::acquireNativeWindowForContent()
 {
-    ANativeWindow* anw = m_contentTexture->getNativeWindow();
-    if (!anw) {
-        anw = m_contentTexture->requestNewWindow();
-    }
-    return anw;
+    return m_mediaTexture->getNativeWindowForContent();
 }
 
 
 ANativeWindow* MediaLayer::acquireNativeWindowForVideo()
 {
-    return m_videoTexture->requestNewWindow();
+    return m_mediaTexture->requestNativeWindowForVideo();
 }
 
 void MediaLayer::setWindowDimensionsForVideo(const ANativeWindow* window, const SkRect& dimensions)
 {
-    if (window != m_videoTexture->getNativeWindow())
-        return;
-
     //TODO validate that the dimensions do not exceed the plugin's bounds
-    m_videoTexture->setDimensions(dimensions);
+    m_mediaTexture->setDimensions(window, dimensions);
 }
 
 void MediaLayer::releaseNativeWindowForVideo(ANativeWindow* window)
 {
-    if (window == m_videoTexture->getNativeWindow())
-        m_videoTexture->releaseNativeWindow();
+    m_mediaTexture->releaseNativeWindow(window);
 }
 
 void MediaLayer::setFramerateCallback(const ANativeWindow* window, FramerateCallbackProc callback)
 {
-    if (window != m_videoTexture->getNativeWindow())
-        return;
-     m_videoTexture->setFramerateCallback(callback);
+    m_mediaTexture->setFramerateCallback(window, callback);
 }
 
 } // namespace WebCore

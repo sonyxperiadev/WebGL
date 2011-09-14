@@ -543,8 +543,9 @@ void ShaderProgram::drawLayerQuadInternal(const GLfloat* projectionMatrix,
 
 
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
-                                  SkRect& geometry, int textureId, float opacity,
-                                  bool forceBlending, GLenum textureTarget)
+                                  const SkRect& geometry, int textureId,
+                                  float opacity, bool forceBlending,
+                                  GLenum textureTarget)
 {
 
     TransformationMatrix modifiedDrawMatrix = drawMatrix;

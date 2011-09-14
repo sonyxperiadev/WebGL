@@ -61,8 +61,7 @@ private:
     int m_outlineSize;
 
     // SurfaceTexture member variables
-    MediaTexture* m_contentTexture;
-    MediaTexture* m_videoTexture;
+    MediaTexture* m_mediaTexture;
 };
 
 } // namespace WebCore
