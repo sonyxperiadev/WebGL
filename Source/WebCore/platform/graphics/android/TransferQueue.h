@@ -95,7 +95,8 @@ private:
     void cleanupTransportQueue();
 
     void blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
-                           GLuint srcTexId, GLenum srcTexTarget);
+                           GLuint srcTexId, GLenum srcTexTarget,
+                           int index);
 
     // Note that the m_transferQueueIndex only changed in the TexGen thread
     // where we are going to move on to update the next item in the queue.

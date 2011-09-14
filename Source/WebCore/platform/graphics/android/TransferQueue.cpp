@@ -34,9 +34,11 @@
 #include <gui/SurfaceTexture.h>
 #include <gui/SurfaceTextureClient.h>
 
-#ifdef DEBUG
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "TransferQueue", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TransferQueue", __VA_ARGS__)
@@ -64,10 +66,6 @@ TransferQueue::TransferQueue()
     m_emptyItemCount = ST_BUFFER_NUMBER;
 
     m_transferQueue = new TileTransferData[ST_BUFFER_NUMBER];
-    for (int i = 0; i < ST_BUFFER_NUMBER; i++) {
-        m_transferQueue[i].savedBaseTilePtr = 0;
-        m_transferQueue[i].status = emptyItem;
-    }
 }
 
 TransferQueue::~TransferQueue()
@@ -132,7 +130,9 @@ bool TransferQueue::checkObsolete(int index)
     return false;
 }
 
-void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex, GLuint srcTexId, GLenum srcTexTarget)
+void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
+                                      GLuint srcTexId, GLenum srcTexTarget,
+                                      int index)
 {
     // guarantee that we have a texture to blit into
     destTex->requireTexture();
@@ -158,13 +158,22 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex, GL
     TilesManager::instance()->shader()->drawQuad(rect, srcTexId, 1.0,
                        srcTexTarget);
 
+    // To workaround a sync issue on some platforms, we should insert the sync
+    // here while in the current FBO.
+    // This will essentially kick off the GPU command buffer, and the Tex Gen
+    // thread will then have to wait for this buffer to finish before writing
+    // into the same memory.
+    EGLDisplay dpy = eglGetCurrentDisplay();
+    if (m_transferQueue[index].m_syncKHR != EGL_NO_SYNC_KHR)
+        eglDestroySyncKHR(dpy, m_transferQueue[index].m_syncKHR);
+    m_transferQueue[index].m_syncKHR = eglCreateSyncKHR(eglGetCurrentDisplay(),
+                                                        EGL_SYNC_FENCE_KHR,
+                                                        0);
+    if (m_transferQueue[index].m_syncKHR == EGL_NO_SYNC_KHR)
+        XLOGC("ERROR: eglClientWaitSyncKHR return error");
+
     // Clean up FBO setup.
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
-
-    // Add a sync point here to WAR a driver bug.
-    glViewport(0, 0, 0, 0);
-    TilesManager::instance()->shader()->drawQuad(rect, destTex->m_ownTextureId,
-                                                 1.0, GL_TEXTURE_2D);
 
     GLUtils::checkGlError("copy the surface texture into the normal one");
 }
@@ -197,6 +206,12 @@ bool TransferQueue::readyForUpdate()
 
     if (!getHasGLContext())
         return false;
+
+    // Check the GPU fence
+    eglClientWaitSyncKHR(eglGetCurrentDisplay(),
+                         m_transferQueue[getNextTransferQueueIndex()].m_syncKHR,
+                         EGL_SYNC_FLUSH_COMMANDS_BIT_KHR,
+                         EGL_FOREVER_KHR);
 
     return true;
 }
@@ -270,7 +285,8 @@ void TransferQueue::updateDirtyBaseTiles()
 #else
             blitTileFromQueue(m_fboID, destTexture,
                               m_sharedSurfaceTextureId,
-                              m_sharedSurfaceTexture->getCurrentTextureTarget());
+                              m_sharedSurfaceTexture->getCurrentTextureTarget(),
+                              index);
 #endif
 
             // After the base tile copied into the GL texture, we need to
