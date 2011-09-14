@@ -172,6 +172,7 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
         if (!currentTile && availableTile) {
             XLOG("STEALING tile %d, %d (draw count %llu) for tile %d, %d",
                   availableTile->x(), availableTile->y(), availableTile->drawCount(), x, y);
+            availableTile->discardTextures(); // don't wait for textures to be stolen
             currentTile = availableTile;
         }
 

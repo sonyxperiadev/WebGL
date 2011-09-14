@@ -76,27 +76,25 @@ int PaintTileOperation::priority()
     if (!m_tile)
         return -1;
 
-    int priority;
-    if (m_tile->isLayerTile())
-        priority = -2;
-    else {
+    // first, prioritize higher draw count
+    unsigned long long currentDraw = TilesManager::instance()->getDrawGLCount();
+    unsigned long long drawDelta = currentDraw - m_tile->drawCount();
+    int priority = 100000 * (int)std::min(drawDelta, (unsigned long long)1000);
+
+    // prioritize unpainted tiles, within the same drawCount
+    if (m_tile->frontTexture())
+        priority += 50000;
+
+    // for base tiles, prioritize based on position
+    if (!m_tile->isLayerTile()) {
         bool goingDown = m_tile->page()->scrollingDown();
         SkIRect *rect = m_tile->page()->expandedTileBounds();
-        int firstTileX = rect->fLeft;
-        int nbTilesWidth = rect->width();
-        priority = m_tile->x() - firstTileX;
-        if (goingDown)
-            priority += (rect->fBottom - m_tile->y()) * nbTilesWidth;
-        else
-            priority += (m_tile->y() - rect->fTop) * nbTilesWidth;
-    }
+        priority += m_tile->x();
 
-    if (m_tile->frontTexture()) {
-        // de-prioritize old tiles that have something visible
-        unsigned long long currentDraw = TilesManager::instance()->getDrawGLCount();
-        unsigned long long drawDelta = currentDraw - m_tile->drawCount();
-        int cappedDrawDelta = (int)std::max(drawDelta, (unsigned long long)1000);
-        priority += cappedDrawDelta * 100000;
+        if (goingDown)
+            priority += 100000 - (1 + m_tile->y()) * 1000;
+        else
+            priority += m_tile->y() * 1000;
     }
 
     return priority;
