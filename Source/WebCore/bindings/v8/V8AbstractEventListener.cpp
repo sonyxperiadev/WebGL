@@ -72,6 +72,14 @@ V8AbstractEventListener::~V8AbstractEventListener()
 
 void V8AbstractEventListener::handleEvent(ScriptExecutionContext* context, Event* event)
 {
+#ifdef ANDROID
+    // Monkey data shows that we can crash here, due to script executing while the
+    // page's frame has been detached (in the middle of a navigation).
+    // See b/5201341
+    if (!context)
+        return;
+#endif
+
     // Don't reenter V8 if execution was terminated in this instance of V8.
     if (context->isJSExecutionForbidden())
         return;
