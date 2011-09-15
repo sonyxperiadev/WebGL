@@ -127,6 +127,8 @@ private:
     // is destroyed.
     android::Mutex m_transferQueueItemLocks;
     android::Condition m_transferQueueItemCond;
+
+    EGLDisplay m_currentDisplay;
 };
 
 } // namespace WebCore
