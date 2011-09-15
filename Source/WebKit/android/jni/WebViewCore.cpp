@@ -1729,7 +1729,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
         Node* eventNode = it->get();
         while (eventNode) {
             RenderObject* render = eventNode->renderer();
-            if (render->isBody() || render->isRenderView())
+            if (render && (render->isBody() || render->isRenderView()))
                 break;
             if (eventNode->supportsFocus()
                     || eventNode->hasEventListeners(eventNames().clickEvent)
@@ -1755,7 +1755,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
             // If the fat point touches everyone, the order in the list should be "b", "d", "c"
             // and "a". When we search for the event node for "b", we really don't want "a" as
             // in the z-order it is behind everything else.
-            if (!render->style()->hasAutoZIndex())
+            if (render && !render->style()->hasAutoZIndex())
                 break;
             eventNode = eventNode->parentNode();
         }
