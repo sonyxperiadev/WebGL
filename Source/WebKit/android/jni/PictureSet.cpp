@@ -356,23 +356,10 @@ void PictureSet::splitAdd(const SkIRect& rect)
             SkIRect newRect;
             int deltaX = i * maxSize;
             int deltaY = j * maxSize;
-            int left, top, right, bottom;
-            if (i == firstTileX)
-                left = rect.fLeft;
-            else
-                left = 0;
-            if (j == firstTileY)
-                top = rect.fTop;
-            else
-                top = 0;
-            if (i == lastTileX)
-                right = rect.fRight % maxSize;
-            else
-                right = maxSize;
-            if (j == lastTileY)
-                bottom = rect.fBottom % maxSize;
-            else
-                bottom = maxSize;
+            int left = (i == firstTileX) ? rect.fLeft - deltaX : 0;
+            int top = (j == firstTileY) ? rect.fTop - deltaY : 0;
+            int right = (i == lastTileX) ? rect.fRight % maxSize : maxSize;
+            int bottom = (j == lastTileY) ? rect.fBottom % maxSize : maxSize;
 
             newRect.set(left, top, right, bottom);
             addToBucket(bucket, deltaX, deltaY, newRect);
