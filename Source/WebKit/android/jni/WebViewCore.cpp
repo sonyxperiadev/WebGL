@@ -2219,11 +2219,15 @@ void WebViewCore::scrollNodeIntoView(Frame* frame, Node* node)
     if (!node->isElementNode()) {
         HTMLElement* body = frame->document()->body();
         do {
-            if (!node || node == body)
+            if (node == body)
                 return;
             node = node->parentNode();
-        } while (!node->isElementNode() && !isVisible(node));
+        } while (node && !node->isElementNode() && !isVisible(node));
     }
+
+    // Couldn't find a visible predecessor.
+    if (!node)
+        return;
 
     elementNode = static_cast<Element*>(node);
     elementNode->scrollIntoViewIfNeeded(true);
