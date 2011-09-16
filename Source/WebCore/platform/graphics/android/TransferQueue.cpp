@@ -60,6 +60,7 @@ TransferQueue::TransferQueue()
     , m_fboID(0)
     , m_sharedSurfaceTextureId(0)
     , m_hasGLContext(true)
+    , m_currentDisplay(EGL_NO_DISPLAY)
 {
     memset(&m_GLStateBeforeBlit, 0, sizeof(m_GLStateBeforeBlit));
 
@@ -164,14 +165,16 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
     // thread will then have to wait for this buffer to finish before writing
     // into the same memory.
     EGLDisplay dpy = eglGetCurrentDisplay();
-    if (m_transferQueue[index].m_syncKHR != EGL_NO_SYNC_KHR)
-        eglDestroySyncKHR(dpy, m_transferQueue[index].m_syncKHR);
-    m_transferQueue[index].m_syncKHR = eglCreateSyncKHR(eglGetCurrentDisplay(),
-                                                        EGL_SYNC_FENCE_KHR,
-                                                        0);
-    if (m_transferQueue[index].m_syncKHR == EGL_NO_SYNC_KHR)
-        XLOGC("ERROR: eglClientWaitSyncKHR return error");
-
+    if (m_currentDisplay != dpy)
+        m_currentDisplay = dpy;
+    if (m_currentDisplay != EGL_NO_DISPLAY) {
+        if (m_transferQueue[index].m_syncKHR != EGL_NO_SYNC_KHR)
+            eglDestroySyncKHR(m_currentDisplay, m_transferQueue[index].m_syncKHR);
+        m_transferQueue[index].m_syncKHR = eglCreateSyncKHR(m_currentDisplay,
+                                                            EGL_SYNC_FENCE_KHR,
+                                                            0);
+    }
+    GLUtils::checkEglError("CreateSyncKHR");
     // Clean up FBO setup.
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
 
@@ -207,11 +210,20 @@ bool TransferQueue::readyForUpdate()
     if (!getHasGLContext())
         return false;
 
-    // Check the GPU fence
-    eglClientWaitSyncKHR(eglGetCurrentDisplay(),
-                         m_transferQueue[getNextTransferQueueIndex()].m_syncKHR,
-                         EGL_SYNC_FLUSH_COMMANDS_BIT_KHR,
-                         EGL_FOREVER_KHR);
+    // Disable this wait until we figure out why this didn't work on some
+    // drivers b/5332112.
+#if 0
+    if (m_currentDisplay != EGL_NO_DISPLAY) {
+        // Check the GPU fence
+        EGLSyncKHR syncKHR = m_transferQueue[getNextTransferQueueIndex()].m_syncKHR;
+        if (syncKHR != EGL_NO_SYNC_KHR)
+            eglClientWaitSyncKHR(m_currentDisplay,
+                                 syncKHR,
+                                 EGL_SYNC_FLUSH_COMMANDS_BIT_KHR,
+                                 EGL_FOREVER_KHR);
+    }
+    GLUtils::checkEglError("WaitSyncKHR");
+#endif
 
     return true;
 }
