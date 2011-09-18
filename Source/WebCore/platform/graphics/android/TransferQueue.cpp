@@ -455,7 +455,7 @@ void TransferQueue::restoreGLState()
     if (m_GLStateBeforeBlit.scissor[0])
         glEnable(GL_SCISSOR_TEST);
 
-    if (m_GLStateBeforeBlit.depth)
+    if (m_GLStateBeforeBlit.depth[0])
         glEnable(GL_DEPTH_TEST);
 
     glClearColor(m_GLStateBeforeBlit.clearColor[0],
