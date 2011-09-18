@@ -32,6 +32,7 @@
 #include "ClassTracker.h"
 #include "GLUtils.h"
 #include "LayerAndroid.h"
+#include "SkPath.h"
 #include "TilesManager.h"
 #include "TilesTracker.h"
 #include <wtf/CurrentTime.h>
@@ -58,6 +59,14 @@
 #define SECOND_TILED_PAGE_ID 2
 
 #define FRAMERATE_CAP 0.01666 // We cap at 60 fps
+
+// Touch ring border width. This is doubled if the ring is not pressed
+#define RING_BORDER_WIDTH 1
+// Color of the ring is 0x6633b5e5 (copied from framework)
+#define RING_COLOR_ALPHA 0.4
+#define RING_COLOR_R 0x33
+#define RING_COLOR_G 0xb5
+#define RING_COLOR_B 0xe5
 
 namespace WebCore {
 
@@ -170,7 +179,9 @@ void GLWebViewState::setRings(Vector<IntRect>& rings, bool isPressed)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     m_displayRings = true;
-    m_rings = rings;
+    m_rings.setEmpty();
+    for (size_t i = 0; i < rings.size(); i++)
+        m_rings.op(rings.at(i), SkRegion::kUnion_Op);
     m_ringsIsPressed = isPressed;
 }
 
@@ -247,78 +258,80 @@ void GLWebViewState::resetRings()
     m_displayRings = false;
 }
 
-void GLWebViewState::drawFocusRing(IntRect& srcRect)
+void GLWebViewState::drawFocusRing(SkRect& srcRect)
 {
-    // TODO: use a 9-patch texture to draw the focus ring
-    // instead of plain colors
-    const float alpha = 0.3;
-    float borderAlpha = 0.4;
-
-    const int r = 51;
-    const int g = 181;
-    const int b = 229;
-
-    int padding = 4;
-    int border = 1;
-    int fuzzyBorder = border * 2;
-    if (!m_ringsIsPressed) {
-        padding = 0;
-        border = 2;
-        fuzzyBorder = 3;
-        borderAlpha = 0.2;
-    }
     if (m_focusRingTexture == -1)
-        m_focusRingTexture = GLUtils::createSampleColorTexture(r, g, b);
+        m_focusRingTexture = GLUtils::createSampleColorTexture(RING_COLOR_R,
+                                                               RING_COLOR_G,
+                                                               RING_COLOR_B);
 
-    SkRect rLeft, rTop, rRight, rBottom, rOverlay;
-
-    IntRect rect(srcRect.x() - padding, srcRect.y() - padding,
-                 srcRect.width() + (padding * 2), srcRect.height() + (padding * 2));
-    rLeft.set(rect.x() - border, rect.y(),
-              rect.x(), rect.y() + rect.height());
-    rTop.set(rect.x() - border, rect.y() - border,
-             rect.x() + rect.width() + border, rect.y());
-    rRight.set(rect.x() + rect.width(), rect.y(),
-               rect.x() + rect.width() + border,
-               rect.y() + rect.height());
-    rBottom.set(rect.x() - border, rect.y() + rect.height(),
-                rect.x() + rect.width() + border,
-                rect.y() + rect.height() + border);
-    rOverlay.set(rect.x() - fuzzyBorder, rect.y() - fuzzyBorder,
-              rect.x() + rect.width() + fuzzyBorder,
-              rect.y() + rect.height() + fuzzyBorder);
-
-    TilesManager::instance()->shader()->drawQuad(rLeft, m_focusRingTexture, borderAlpha);
-    TilesManager::instance()->shader()->drawQuad(rTop, m_focusRingTexture, borderAlpha);
-    TilesManager::instance()->shader()->drawQuad(rRight, m_focusRingTexture, borderAlpha);
-    TilesManager::instance()->shader()->drawQuad(rBottom, m_focusRingTexture, borderAlpha);
-    if (m_ringsIsPressed) {
-        TilesManager::instance()->shader()->drawQuad(rOverlay, m_focusRingTexture, alpha);
-    } else {
-        rLeft.set(rect.x() - fuzzyBorder, rect.y(),
-                  rect.x(), rect.y() + rect.height());
-        rTop.set(rect.x() - fuzzyBorder, rect.y() - fuzzyBorder,
-                 rect.x() + rect.width() + fuzzyBorder, rect.y());
-        rRight.set(rect.x() + rect.width(), rect.y(),
-                   rect.x() + rect.width() + fuzzyBorder,
-                   rect.y() + rect.height());
-        rBottom.set(rect.x() - fuzzyBorder, rect.y() + rect.height(),
-                    rect.x() + rect.width() + fuzzyBorder,
-                    rect.y() + rect.height() + fuzzyBorder);
-        TilesManager::instance()->shader()->drawQuad(rLeft, m_focusRingTexture, alpha);
-        TilesManager::instance()->shader()->drawQuad(rTop, m_focusRingTexture, alpha);
-        TilesManager::instance()->shader()->drawQuad(rRight, m_focusRingTexture, alpha);
-        TilesManager::instance()->shader()->drawQuad(rBottom, m_focusRingTexture, alpha);
-    }
+    TilesManager::instance()->shader()->drawQuad(srcRect, m_focusRingTexture,
+                                                 RING_COLOR_ALPHA);
 }
 
 void GLWebViewState::paintExtras()
 {
-    if (m_displayRings) {
-        // TODO: handles correctly the multi-rings case
-        for (size_t i = 0; i < m_rings.size(); i++) {
-            IntRect rect = m_rings.at(i);
-            drawFocusRing(rect);
+    if (m_displayRings && !m_rings.isEmpty()) {
+        if (m_ringsIsPressed) {
+            SkRegion::Iterator rgnIter(m_rings);
+            while (!rgnIter.done()) {
+                SkIRect ir = rgnIter.rect();
+                SkRect r;
+                r.set(ir.fLeft, ir.fTop, ir.fRight, ir.fBottom);
+                drawFocusRing(r);
+                rgnIter.next();
+            }
+        }
+        SkPath path;
+        if (!m_rings.getBoundaryPath(&path))
+            return;
+        SkPath::Iter iter(path, true);
+        SkPath::Verb verb;
+        SkPoint pts[4];
+        SkRegion clip;
+        SkIRect startRect;
+        while ((verb = iter.next(pts)) != SkPath::kDone_Verb) {
+            if (verb == SkPath::kLine_Verb) {
+                SkRect r;
+                r.set(pts, 2);
+                SkIRect line;
+                int borderWidth = RING_BORDER_WIDTH;
+                if (!m_ringsIsPressed)
+                    borderWidth *= 2;
+                line.fLeft = r.fLeft - borderWidth;
+                line.fRight = r.fRight + borderWidth;
+                line.fTop = r.fTop - borderWidth;
+                line.fBottom = r.fBottom + borderWidth;
+                if (clip.intersects(line)) {
+                    clip.op(line, SkRegion::kReverseDifference_Op);
+                    if (clip.isEmpty())
+                        continue; // Nothing to draw, continue
+                    line = clip.getBounds();
+                    if (SkIRect::Intersects(startRect, line)) {
+                        clip.op(startRect, SkRegion::kDifference_Op);
+                        if (clip.isEmpty())
+                            continue; // Nothing to draw, continue
+                        line = clip.getBounds();
+                    }
+                } else {
+                    clip.setRect(line);
+                }
+                r.set(line.fLeft, line.fTop, line.fRight, line.fBottom);
+                drawFocusRing(r);
+                if (!m_ringsIsPressed) {
+                    r.fLeft += RING_BORDER_WIDTH;
+                    r.fRight -= RING_BORDER_WIDTH;
+                    r.fTop += RING_BORDER_WIDTH;
+                    r.fBottom -= RING_BORDER_WIDTH;
+                    drawFocusRing(r);
+                }
+                if (startRect.isEmpty()) {
+                    startRect.set(line.fLeft, line.fTop, line.fRight, line.fBottom);
+                }
+            }
+            if (verb == SkPath::kMove_Verb) {
+                startRect.setEmpty();
+            }
         }
     }
 }

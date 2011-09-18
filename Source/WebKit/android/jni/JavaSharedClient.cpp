@@ -117,7 +117,7 @@ namespace android {
             void (*proc)(void*) = 0;
             void* payload = 0;
             const FuncPtrRec* rec;
-            
+
             // we have to copy the proc/payload (if present). we do this so we
             // don't call the proc inside the mutex (possible deadlock!)
             gFuncPtrQMutex.acquire();
@@ -128,7 +128,7 @@ namespace android {
                 gFuncPtrQ.pop_front();
             }
             gFuncPtrQMutex.release();
-            
+
             if (!rec)
                 break;
             proc(payload);

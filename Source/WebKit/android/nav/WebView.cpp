@@ -489,8 +489,23 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
     m_glWebViewState->resetRings();
     if (extra) {
         if (extra == &m_ring) {
+            WTF::Vector<IntRect> rings;
             if (root == m_ring.m_frame)
-                m_glWebViewState->setRings(m_ring.rings(), m_ring.m_isPressed);
+                rings = m_ring.rings();
+            else {
+                // TODO: Fix the navcache to work with layers correctly
+                // In the meantime, this works around the bug. However, the rings
+                // it produces are not as nice for some reason, thus we use
+                // m_ring.rings() above for the base layer instead of the below
+                for (size_t i = 0; i < m_ring.m_node->rings().size(); i++) {
+                    IntRect rect = m_ring.m_node->rings().at(i);
+                    rect = m_ring.m_frame->adjustBounds(m_ring.m_node, rect);
+                    rect.inflate(4);
+                    rings.append(rect);
+                }
+            }
+            m_glWebViewState->setRings(rings, m_ring.m_isPressed);
+            extra = 0;
         } else {
             LayerAndroid mainPicture(m_navPictureUI);
             PictureSet* content = m_baseLayer->content();

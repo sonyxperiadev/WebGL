@@ -239,7 +239,6 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
 
     tiledPage->draw(transparency, preZoomBounds);
 
-    m_glWebViewState->paintExtras();
     return needsRedraw;
 }
 #endif // USE(ACCELERATED_COMPOSITING)
@@ -287,6 +286,7 @@ bool BaseLayerAndroid::drawGL(double currentTime, LayerAndroid* compositedRoot,
             m_glWebViewState->resetLayersDirtyArea();
 
     }
+    m_glWebViewState->paintExtras();
 
     m_previousVisible = visibleRect;
 
