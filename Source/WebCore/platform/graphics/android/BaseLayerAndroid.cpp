@@ -281,6 +281,7 @@ bool BaseLayerAndroid::drawGL(double currentTime, LayerAndroid* compositedRoot,
         // Clean up GL textures for video layer.
         TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
 
+        compositedRoot->prepare(m_glWebViewState);
         if (compositedRoot->drawGL(m_glWebViewState, matrix))
             needsRedraw = true;
         else if (!animsRunning)
