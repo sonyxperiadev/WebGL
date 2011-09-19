@@ -179,7 +179,7 @@ public:
 
     void setRings(Vector<IntRect>& rings, bool isPressed);
     void resetRings();
-    void drawFocusRing(IntRect& rect);
+    void drawFocusRing(SkRect& rect);
 
     TiledPage* sibling(TiledPage* page);
     TiledPage* frontPage();
@@ -269,7 +269,7 @@ private:
     bool m_measurePerfs;
 #endif
     bool m_displayRings;
-    Vector<IntRect> m_rings;
+    SkRegion m_rings;
     bool m_ringsIsPressed;
     int m_focusRingTexture;
 
