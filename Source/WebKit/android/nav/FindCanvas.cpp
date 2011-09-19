@@ -532,9 +532,6 @@ IntRect FindOnPage::currentMatchBounds() const {
     if (!m_matches || !m_matches->size())
         return noBounds;
     MatchInfo& info = (*m_matches)[m_findIndex];
-    // FIXME: this should test if the match in the layer is visible
-    if (info.isInLayer())
-        return noBounds;
     return info.getLocation().getBounds();
 }
 
@@ -543,6 +540,10 @@ bool FindOnPage::currentMatchIsInLayer() const {
         return false;
     MatchInfo& info = (*m_matches)[m_findIndex];
     return info.isInLayer();
+}
+
+int FindOnPage::currentMatchLayerId() const {
+    return (*m_matches)[m_findIndex].layerId();
 }
 
 // This function is only used by findNext and setMatches.  In it, we store
