@@ -2189,6 +2189,11 @@ void WebViewCore::setSelection(int start, int end)
 String WebViewCore::modifySelection(const int direction, const int axis)
 {
     DOMSelection* selection = m_mainFrame->domWindow()->getSelection();
+    ASSERT(selection);
+    // We've seen crashes where selection is null, but we don't know why
+    // See http://b/5244036
+    if (!selection)
+        return String();
     if (selection->rangeCount() > 1)
         selection->removeAllRanges();
     switch (axis) {
