@@ -122,14 +122,17 @@ private:
         kInheritFromRootTransform_Flag = 0x01
     };
 
-    Layer*    fParent;
-    SkScalar    m_opacity;
-    SkSize      m_size;
-    SkPoint     m_position;
-    SkPoint     m_anchorPoint;
-    SkMatrix    fMatrix;
-    SkMatrix    fChildrenMatrix;
-    uint32_t    fFlags;
+    Layer* fParent;
+    SkScalar m_opacity;
+    SkSize m_size;
+    // The position of the origin of the layer, relative to the parent layer.
+    SkPoint m_position;
+    // The point in the layer used as the origin for local transformations,
+    // expressed as a fraction of the layer size.
+    SkPoint m_anchorPoint;
+    SkMatrix fMatrix;
+    SkMatrix fChildrenMatrix;
+    uint32_t fFlags;
 
     SkTDArray<Layer*> m_children;
 

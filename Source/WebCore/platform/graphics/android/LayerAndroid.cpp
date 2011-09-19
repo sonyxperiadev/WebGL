@@ -267,7 +267,7 @@ void LayerAndroid::removeAnimationsForKeyframes(const String& name)
 }
 
 // We only use the bounding rect of the layer as mask...
-// TODO: use a real mask?
+// FIXME: use a real mask?
 void LayerAndroid::setMaskLayer(LayerAndroid* layer)
 {
     if (layer)
@@ -546,7 +546,7 @@ void LayerAndroid::updatePositions()
     if (!m_isFixed) {
         // turn our fields into a matrix.
         //
-        // TODO: this should happen in the caller, and we should remove these
+        // FIXME: this should happen in the caller, and we should remove these
         // fields from our subclass
         SkMatrix matrix;
         GLUtils::toSkMatrix(matrix, m_transform);
@@ -943,6 +943,11 @@ SkRect LayerAndroid::subtractLayers(const SkRect& visibleRect) const
 {
     SkRect result;
     if (m_recordingPicture) {
+        // FIXME: This seems wrong. localToGlobal() applies the full local transform,
+        // se surely we should operate globalMatrix on size(), not bounds() with
+        // the position removed? Perhaps we never noticed the bug because most
+        // layers don't use a local transform?
+        // See http://b/5338388
         SkRect globalRect = bounds();
         globalRect.offset(-getPosition()); // localToGlobal adds in position
         SkMatrix globalMatrix;

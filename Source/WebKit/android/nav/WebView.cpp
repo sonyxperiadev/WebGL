@@ -105,8 +105,7 @@ class WebView
 public:
 enum FrameCachePermission {
     DontAllowNewer,
-    AllowNewer,
-    AllowNewest
+    AllowNewer
 };
 
 enum DrawExtras { // keep this in sync with WebView.java

@@ -598,7 +598,7 @@ void FindOnPage::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval) {
     unsigned numberOfMatches = m_matches->size();
     if (numberOfMatches > 1
             && numberOfMatches < MAX_NUMBER_OF_MATCHES_TO_DRAW) {
-        for(unsigned i = 0; i < numberOfMatches; i++) {
+        for (unsigned i = 0; i < numberOfMatches; i++) {
             // The current match has already been drawn
             if (i == m_findIndex)
                 continue;

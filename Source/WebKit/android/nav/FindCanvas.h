@@ -54,9 +54,9 @@ public:
     SkPicture* getPicture() const { return m_picture; }
     // This will make a copy of the region, and increase the ref count on the
     // SkPicture.  If this MatchInfo already had one, unref it.
+    void set(const SkRegion& region, SkPicture* pic, int layerId);
     bool isInLayer() const { return m_layerId >= 0; }
     int layerId() const { return m_layerId; }
-    void set(const SkRegion& region, SkPicture* pic, int layerId);
 private:
     MatchInfo& operator=(MatchInfo& src);
     SkRegion    m_location;
@@ -141,7 +141,7 @@ public:
                                 const SkPaint& paint) {
     }
 
-    void drawLayers(LayerAndroid* );
+    void drawLayers(LayerAndroid*);
     int found() const { return mNumFound; }
     void setLayerId(int layerId) { mLayerId = layerId; }
 

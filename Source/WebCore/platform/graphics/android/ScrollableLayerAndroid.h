@@ -42,15 +42,16 @@ public:
 
     virtual LayerAndroid* copy() const { return new ScrollableLayerAndroid(*this); }
 
-    // Returns true if the content position has changed.
-    bool scrollTo(int dx, int dy);
+    // Scrolls to the given position in the layer.
+    // Returns whether or not any scrolling was required.
+    bool scrollTo(int x, int y);
 
-    // Fills the rect with the current scroll offset and the maximum scroll.
+    // Fills the rect with the current scroll offset and the maximum scroll offset.
     // fLeft   = scrollX
     // fTop    = scrollY
-    // fRight  = maxX
-    // fBottom = maxY
-    void getScrollRect(SkIRect* out) const;
+    // fRight  = maxScrollX
+    // fBottom = maxScrollY
+    void getScrollRect(SkIRect*) const;
 
     void setScrollLimits(float x, float y, float width, float height)
     {
@@ -61,6 +62,9 @@ public:
     friend LayerAndroid* android::deserializeLayer(SkStream* stream);
 
 private:
+    // The position of the visible area of the layer, relative to the parent
+    // layer. This is fixed during scrolling. We acheive scrolling by modifying
+    // the position of the layer.
     SkRect m_scrollLimits;
 };
 
