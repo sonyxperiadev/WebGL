@@ -121,8 +121,14 @@ public:
     void showLayer(int indent);
 
     float getScale() { return m_scale; }
+
+    // draw layer and its children via Z, pre-order traversal
     virtual bool drawGL(GLWebViewState*, SkMatrix&);
     bool drawChildrenGL(GLWebViewState*, SkMatrix&);
+
+    // prepare layer and its children via reverse-Z, post-order traversal
+    void prepare(GLWebViewState*);
+
     void updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                    const FloatRect& clip, float opacity, float scale);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }

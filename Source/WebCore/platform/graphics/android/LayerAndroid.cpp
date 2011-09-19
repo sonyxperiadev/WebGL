@@ -793,6 +793,26 @@ void LayerAndroid::clearDirtyRegion()
     m_dirtyRegion.setEmpty();
 }
 
+void LayerAndroid::prepare(GLWebViewState* glWebViewState)
+{
+    int count = this->countChildren();
+    if (count > 0) {
+        Vector <LayerAndroid*> sublayers;
+        for (int i = 0; i < count; i++)
+            sublayers.append(this->getChild(i));
+
+        // now we sort for the transparency
+        std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
+
+        // iterate in reverse so top layers get textures first
+        for (int i = count-1; i >= 0; i--)
+            sublayers[i]->prepare(glWebViewState);
+    }
+
+    if (m_texture)
+        m_texture->prepare(glWebViewState);
+}
+
 bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
     TilesManager::instance()->shader()->clip(m_clippingRect);
@@ -801,10 +821,8 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 
     bool askPaint = false;
 
-    if (m_texture) {
-        m_texture->prepare(glWebViewState);
+    if (m_texture)
         askPaint |= m_texture->draw();
-    }
 
     // When the layer is dirty, the UI thread should be notified to redraw.
     askPaint |= drawChildrenGL(glWebViewState, matrix);
@@ -816,7 +834,6 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     m_atomicSync.unlock();
     return askPaint;
 }
-
 
 bool LayerAndroid::drawChildrenGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
