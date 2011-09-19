@@ -267,11 +267,13 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     }
 
     // The heuristic for selecting a texture is as follows:
-    //  1. If a tile isn't owned, break with that one
-    //  2. Don't let tiles acquire their front textures
-    //  3. If we find a tile in the same page with a different scale,
+    //  1. Skip textures currently being painted, they can't be painted while
+    //         busy anyway
+    //  2. If a tile isn't owned, break with that one
+    //  3. Don't let tiles acquire their front textures
+    //  4. If we find a tile in the same page with a different scale,
     //         it's old and not visible. Break with that one
-    //  4. Otherwise, use the least recently prepared tile, but ignoring tiles
+    //  5. Otherwise, use the least recently prepared tile, but ignoring tiles
     //         drawn in the last frame to avoid flickering
 
     BaseTileTexture* farthestTexture = 0;
@@ -280,15 +282,23 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     for (unsigned int i = 0; i < max; i++) {
         BaseTileTexture* texture = (*availableTexturePool)[i];
         TextureOwner* currentOwner = texture->owner();
+
+        if (texture->busy()) {
+            // don't bother, since the acquire() will likely fail
+            continue;
+        }
+
         if (!currentOwner) {
+            // unused texture! take it!
             farthestTexture = texture;
             break;
         }
 
-        // Don't let a tile acquire its own front texture, as the acquisition
-        // logic doesn't handle that
-        if (currentOwner == owner)
+        if (currentOwner == owner) {
+            // Don't let a tile acquire its own front texture, as the
+            // acquisition logic doesn't handle that
             continue;
+        }
 
         if (currentOwner->page() == owner->page() && texture->scale() != owner->scale()) {
             // if we render the back page with one scale, then another while

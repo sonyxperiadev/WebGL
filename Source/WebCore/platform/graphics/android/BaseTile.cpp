@@ -135,13 +135,12 @@ void BaseTile::reserveTexture()
     if (texture && m_backTexture != texture) {
         m_swapDrawCount = 0; // no longer ready to swap
         m_backTexture = texture;
-
-        // this is to catch when the front texture is stolen from beneath us. We
-        // should refine the stealing method to be simpler, and not require last
-        // moment checks like this
-        if (!m_frontTexture)
-            m_dirty = true;
     }
+
+    // a texture reservation will only happen if we're dirty, or ready to
+    // swap. if it's the former, ensure it's marked dirty.
+    if (!m_swapDrawCount)
+        m_dirty = true;
 }
 
 bool BaseTile::removeTexture(BaseTileTexture* texture)
@@ -150,12 +149,15 @@ bool BaseTile::removeTexture(BaseTileTexture* texture)
          this, m_backTexture, m_frontTexture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
-    if (m_frontTexture == texture) {
+    if (m_frontTexture == texture)
         m_frontTexture = 0;
-        m_dirty = true;
-    }
     if (m_backTexture == texture)
         m_backTexture = 0;
+
+    // mark dirty regardless of which texture was taken - the back texture may
+    // have been ready to swap
+    m_dirty = true;
+
     return true;
 }
 
