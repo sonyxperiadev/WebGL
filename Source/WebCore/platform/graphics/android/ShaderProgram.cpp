@@ -314,8 +314,8 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
     glActiveTexture(GL_TEXTURE0);
     glUniform1i(texSampler, 0);
     glBindTexture(textureTarget, textureId);
-    glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, texFilter);
+    glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, texFilter);
     glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
