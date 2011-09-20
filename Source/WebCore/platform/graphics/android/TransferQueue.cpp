@@ -154,7 +154,7 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
     // Use empty rect to set up the special matrix to draw.
     SkRect rect  = SkRect::MakeEmpty();
     TilesManager::instance()->shader()->drawQuad(rect, srcTexId, 1.0,
-                       srcTexTarget);
+                       srcTexTarget, GL_NEAREST);
 
     // To workaround a sync issue on some platforms, we should insert the sync
     // here while in the current FBO.

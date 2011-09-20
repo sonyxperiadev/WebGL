@@ -294,6 +294,7 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
                                      GLenum textureTarget,
                                      GLint position,
                                      GLint alpha,
+                                     GLint texFilter,
                                      GLint contrast)
 {
     glUseProgram(program);
@@ -330,26 +331,26 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
 }
 
 void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
-                             GLenum textureTarget)
+                             GLenum textureTarget, GLint texFilter)
 {
     if (textureTarget == GL_TEXTURE_2D) {
         drawQuadInternal(geometry, textureId, opacity, m_program,
                          m_hProjectionMatrix,
                          m_hTexSampler, GL_TEXTURE_2D,
-                         m_hPosition, alpha());
+                         m_hPosition, alpha(), texFilter);
     } else if (textureTarget == GL_TEXTURE_EXTERNAL_OES
                && !TilesManager::instance()->invertedScreen()) {
         drawQuadInternal(geometry, textureId, opacity, m_surfTexOESProgram,
                          m_hSTOESProjectionMatrix,
                          m_hSTOESTexSampler, GL_TEXTURE_EXTERNAL_OES,
-                         m_hSTOESPosition, m_hSTOESAlpha);
+                         m_hSTOESPosition, m_hSTOESAlpha, texFilter);
     } else if (textureTarget == GL_TEXTURE_EXTERNAL_OES
                && TilesManager::instance()->invertedScreen()) {
         drawQuadInternal(geometry, textureId, opacity, m_surfTexOESProgramInverted,
                          m_hSTOESProjectionMatrixInverted,
                          m_hSTOESTexSamplerInverted, GL_TEXTURE_EXTERNAL_OES,
                          m_hSTOESPositionInverted, m_hSTOESAlphaInverted,
-                         m_hSTOESContrastInverted);
+                         texFilter, m_hSTOESContrastInverted);
     }
     GLUtils::checkGlError("drawQuad");
 }
