@@ -135,9 +135,6 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
                                       GLuint srcTexId, GLenum srcTexTarget,
                                       int index)
 {
-    // guarantee that we have a texture to blit into
-    destTex->requireTexture();
-
     // Then set up the FBO and copy the SurfTex content in.
     glBindFramebuffer(GL_FRAMEBUFFER, fboID);
     glFramebufferTexture2D(GL_FRAMEBUFFER,
@@ -260,7 +257,9 @@ void TransferQueue::discardQueue()
 // Call on UI thread to copy from the shared Surface Texture to the BaseTile's texture.
 void TransferQueue::updateDirtyBaseTiles()
 {
+#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
     saveGLState();
+#endif
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
 
     cleanupTransportQueue();
@@ -279,9 +278,9 @@ void TransferQueue::updateDirtyBaseTiles()
             BaseTileTexture* destTexture = 0;
             if (!obsoleteBaseTile)
                 destTexture = m_transferQueue[index].savedBaseTilePtr->backTexture();
-
+#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
             m_sharedSurfaceTexture->updateTexImage();
-
+#endif
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
             if (obsoleteBaseTile) {
@@ -289,6 +288,9 @@ void TransferQueue::updateDirtyBaseTiles()
                 index = (index + 1) % ST_BUFFER_NUMBER;
                 continue;
             }
+
+            // guarantee that we have a texture to blit into
+            destTexture->requireTexture();
 
 #if DEBUG_TRANSFER_USING_CPU_UPLOAD
             // Here we just need to upload the bitmap content to the GL Texture
@@ -317,7 +319,9 @@ void TransferQueue::updateDirtyBaseTiles()
         index = (index + 1) % ST_BUFFER_NUMBER;
     }
 
+#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
     restoreGLState();
+#endif
 
     m_emptyItemCount = ST_BUFFER_NUMBER;
     m_transferQueueItemCond.signal();
@@ -334,7 +338,7 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
              renderInfo->x, renderInfo->y);
         return;
     }
-
+#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
     // a) Dequeue the Surface Texture and write into the buffer
     if (!m_ANW.get()) {
         XLOG("ERROR: ANW is null");
@@ -370,6 +374,7 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
     }
 
     ANativeWindow_unlockAndPost(m_ANW.get());
+#endif
     m_transferQueueItemLocks.lock();
     // b) After update the Surface Texture, now udpate the transfer queue info.
     addItemInTransferQueue(renderInfo);
@@ -417,8 +422,9 @@ void TransferQueue::cleanupTransportQueue()
 
     for (int i = 0 ; i < ST_BUFFER_NUMBER; i++) {
         if (m_transferQueue[index].status == pendingDiscard) {
+#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
             m_sharedSurfaceTexture->updateTexImage();
-
+#endif
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
         }
