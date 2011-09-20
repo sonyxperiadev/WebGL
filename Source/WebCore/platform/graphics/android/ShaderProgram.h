@@ -54,7 +54,8 @@ public:
     // support Surface texture in GL_TEXTURE_EXTERNAL_OES target on all
     // platforms.
     void drawQuad(SkRect& geometry, int textureId, float opacity,
-                  GLenum textureTarget = GL_TEXTURE_2D);
+                  GLenum textureTarget = GL_TEXTURE_2D,
+                  GLint texFilter = GL_LINEAR);
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
                        SkRect& geometry, int textureId, float opacity,
                        bool forceBlending = false,
@@ -99,7 +100,8 @@ private:
     void drawQuadInternal(SkRect& geometry, GLint textureId, float opacity,
                           GLint program, GLint projectionMatrixHandle,
                           GLint texSampler, GLenum textureTarget,
-                          GLint position, GLint alpha, GLint contrast = -1);
+                          GLint position, GLint alpha,
+                          GLint texFilter, GLint contrast = -1);
 
     void drawLayerQuadInternal(const GLfloat* projectionMatrix, int textureId,
                                float opacity, GLenum textureTarget, GLint program,
