@@ -919,6 +919,10 @@ void FrameLoaderClientAndroid::transitionToCommittedFromCachedFrame(WebCore::Cac
 #ifdef ANDROID_META_SUPPORT
    platformData->restoreMetadata(m_frame->settings());
 #endif
+   WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_frame->view());
+
+   webViewCore->clearContent();
+
    m_webFrame->transitionToCommitted(m_frame);
 }
 
@@ -952,6 +956,7 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
 
     // Create a new WebFrameView for the new FrameView
     WebFrameView* newFrameView = new WebFrameView(m_frame->view(), webViewCore);
+    webViewCore->clearContent();
     newFrameView->setLocation(bounds.x(), bounds.y());
     newFrameView->setSize(bounds.width(), bounds.height());
     newFrameView->setVisibleSize(visBounds.width(), visBounds.height());
