@@ -257,7 +257,7 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
     stream->write8(type);
 
     // Start with Layer fields
-    stream->writeBool(layer->isInheritFromRootTransform());
+    stream->writeBool(layer->shouldInheritFromRootTransform());
     stream->writeScalar(layer->getOpacity());
     stream->writeScalar(layer->getSize().width());
     stream->writeScalar(layer->getSize().height());
@@ -338,7 +338,7 @@ LayerAndroid* deserializeLayer(SkStream* stream)
     }
 
     // Layer fields
-    layer->setInheritFromRootTransform(stream->readBool());
+    layer->setShouldInheritFromRootTransform(stream->readBool());
     layer->setOpacity(stream->readScalar());
     layer->setSize(stream->readScalar(), stream->readScalar());
     layer->setPosition(stream->readScalar(), stream->readScalar());
