@@ -124,23 +124,34 @@ void Layer::getLocalTransform(SkMatrix* matrix) const {
     matrix->preTranslate(-tx, -ty);
 }
 
-void Layer::localToGlobal(SkMatrix* matrix) const {
+void Layer::localToAncestor(const Layer* ancestor, SkMatrix* matrix) const {
+    if (this == ancestor) {
+        matrix->setIdentity();
+        return;
+    }
+
     getLocalTransform(matrix);
 
+    // Fixed position layers simply use the root layer's transform.
     if (shouldInheritFromRootTransform()) {
+        ASSERT(!ancestor);
         matrix->postConcat(getRootLayer()->getMatrix());
         return;
     }
 
-    const Layer* layer = this;
-    while (layer->fParent != NULL) {
-        layer = layer->fParent;
-
+    // Apply the local and child transforms for every layer between this layer
+    // and ancestor.
+    ASSERT(isAncestor(ancestor));
+    for (const Layer* layer = this->fParent; layer != ancestor; layer = layer->fParent) {
         SkMatrix tmp;
         layer->getLocalTransform(&tmp);
         tmp.preConcat(layer->getChildrenMatrix());
         matrix->postConcat(tmp);
     }
+
+    // If ancestor is not the root layer, apply its child transformation too.
+    if (ancestor)
+        matrix->postConcat(ancestor->getChildrenMatrix());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -203,4 +214,14 @@ void Layer::draw(SkCanvas* canvas, SkScalar opacity) {
             getChild(i)->draw(canvas, opacity);
         }
     }
+}
+
+bool Layer::isAncestor(const Layer* possibleAncestor) const {
+    if (!possibleAncestor)
+        return true;
+    for (const Layer* layer = getParent(); layer; layer = layer->getParent()) {
+        if (layer == possibleAncestor)
+            return true;
+    }
+    return false;
 }
