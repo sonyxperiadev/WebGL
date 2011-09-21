@@ -287,7 +287,6 @@ bool BaseLayerAndroid::drawGL(double currentTime, LayerAndroid* compositedRoot,
             m_glWebViewState->resetLayersDirtyArea();
 
     }
-    m_glWebViewState->paintExtras();
 
     m_previousVisible = visibleRect;
 

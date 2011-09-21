@@ -180,8 +180,12 @@ void GLWebViewState::setRings(Vector<IntRect>& rings, bool isPressed)
     android::Mutex::Autolock lock(m_baseLayerLock);
     m_displayRings = true;
     m_rings.setEmpty();
-    for (size_t i = 0; i < rings.size(); i++)
-        m_rings.op(rings.at(i), SkRegion::kUnion_Op);
+    for (size_t i = 0; i < rings.size(); i++) {
+        if (i == 0)
+            m_rings.setRect(rings.at(i));
+        else
+            m_rings.op(rings.at(i), SkRegion::kUnion_Op);
+    }
     m_ringsIsPressed = isPressed;
 }
 
@@ -571,6 +575,10 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
     bool ret = baseLayer->drawGL(currentTime, compositedRoot, rect,
                                  viewport, scale, buffersSwappedPtr);
+    // Reset the clip to make sure we can draw the rings. If this isn't done, the
+    // current clip will be the clip of whatever layer was last drawn
+    TilesManager::instance()->shader()->clip(clip);
+    paintExtras();
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
