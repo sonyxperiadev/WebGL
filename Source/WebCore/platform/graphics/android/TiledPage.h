@@ -98,6 +98,8 @@ public:
     void updateBaseTileSize();
     bool scrollingDown() { return m_scrollingDown; }
     SkIRect* expandedTileBounds() { return &m_expandedTileBounds; }
+    bool isPrefetchPage() { return m_isPrefetchPage; }
+    void setIsPrefetchPage(bool isPrefetch) { m_isPrefetchPage = isPrefetch; }
 
 private:
     void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, const SkIRect& tileBounds);
@@ -127,6 +129,7 @@ private:
     bool m_prepare;
     bool m_scrollingDown;
     SkIRect m_expandedTileBounds;
+    bool m_isPrefetchPage;
 };
 
 } // namespace WebCore

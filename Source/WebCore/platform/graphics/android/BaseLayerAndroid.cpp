@@ -54,6 +54,12 @@
 
 #endif // DEBUG
 
+// TODO: dynamically determine based on DPI
+#define PREFETCH_SCALE_MODIFIER 0.3
+#define PREFETCH_OPACITY 1
+#define PREFETCH_X_DIST 1
+#define PREFETCH_Y_DIST 2
+
 namespace WebCore {
 
 using namespace android;
@@ -116,6 +122,49 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 }
 
 #if USE(ACCELERATED_COMPOSITING)
+
+void BaseLayerAndroid::prefetchBasePicture(SkRect& viewport, float currentScale,
+                                           TiledPage* prefetchTiledPage)
+{
+    SkIRect bounds;
+    float prefetchScale = currentScale * PREFETCH_SCALE_MODIFIER;
+
+    float invTileWidth = (prefetchScale)
+        / TilesManager::instance()->tileWidth();
+    float invTileHeight = (prefetchScale)
+        / TilesManager::instance()->tileHeight();
+    bool goingDown = m_glWebViewState->goingDown();
+    bool goingLeft = m_glWebViewState->goingLeft();
+
+
+    XLOG("fetch rect %f %f %f %f, scale %f",
+         viewport.fLeft,
+         viewport.fTop,
+         viewport.fRight,
+         viewport.fBottom,
+         scale);
+
+    bounds.fLeft = static_cast<int>(floorf(viewport.fLeft * invTileWidth)) - PREFETCH_X_DIST;
+    bounds.fTop = static_cast<int>(floorf(viewport.fTop * invTileHeight)) - PREFETCH_Y_DIST;
+    bounds.fRight = static_cast<int>(ceilf(viewport.fRight * invTileWidth)) + PREFETCH_X_DIST;
+    bounds.fBottom = static_cast<int>(ceilf(viewport.fBottom * invTileHeight)) + PREFETCH_Y_DIST;
+
+    XLOG("prefetch rect %d %d %d %d, scale %f, preparing page %p",
+         bounds.fLeft, bounds.fTop,
+         bounds.fRight, bounds.fBottom,
+         scale * PREFETCH_SCALE,
+         prefetchTiledPage);
+
+    prefetchTiledPage->setScale(prefetchScale);
+    prefetchTiledPage->updateTileDirtiness(bounds);
+    prefetchTiledPage->prepare(goingDown, goingLeft, bounds,
+                               TiledPage::ExpandedBounds);
+    prefetchTiledPage->swapBuffersIfReady(bounds,
+                                          prefetchScale,
+                                          TiledPage::SwapWhateverIsReady);
+    prefetchTiledPage->draw(PREFETCH_OPACITY, bounds);
+}
+
 bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
                                            double currentTime, bool* buffersSwappedPtr)
 {
@@ -182,6 +231,13 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
 
     bool scrolling = m_scrollState != NotScrolling;
     bool zooming = ZoomManager::kNoScaleRequest != zoomManager->scaleRequestState();
+
+    // prefetch in the nextTiledPage if unused by zooming (even if not scrolling
+    // since we want the tiles to be ready before they're needed)
+    bool usePrefetchPage = !zooming;
+    nextTiledPage->setIsPrefetchPage(usePrefetchPage);
+    if (usePrefetchPage)
+        prefetchBasePicture(viewport, scale, nextTiledPage);
 
     // When we aren't zooming, we should TRY and swap tile buffers if they're
     // ready. When scrolling, we swap whatever's ready. Otherwise, buffer until

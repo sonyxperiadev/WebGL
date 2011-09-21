@@ -81,6 +81,10 @@ int PaintTileOperation::priority()
     unsigned long long drawDelta = currentDraw - m_tile->drawCount();
     int priority = 100000 * (int)std::min(drawDelta, (unsigned long long)1000);
 
+    // prioritize the prefetch page, if it exists
+    if (!m_tile->page() || !m_tile->page()->isPrefetchPage())
+        priority += 200000;
+
     // prioritize unpainted tiles, within the same drawCount
     if (m_tile->frontTexture())
         priority += 50000;
