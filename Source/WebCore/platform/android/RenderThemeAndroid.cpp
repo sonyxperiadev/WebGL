@@ -212,9 +212,12 @@ void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector*, RenderStyle* style
 {
     // Code is taken from RenderThemeSafari.cpp
     // It makes sure we have enough space for the button text.
-    const int padding = 8;
-    style->setPaddingLeft(Length(padding, Fixed));
-    style->setPaddingRight(Length(padding, Fixed));
+    const int paddingHoriz = 12;
+    const int paddingVert = 8;
+    style->setPaddingLeft(Length(paddingHoriz, Fixed));
+    style->setPaddingRight(Length(paddingHoriz, Fixed));
+    style->setPaddingTop(Length(paddingVert, Fixed));
+    style->setPaddingBottom(Length(paddingVert, Fixed));
 
     // Set a min-height so that we can't get smaller than the mini button.
     style->setMinHeight(Length(15, Fixed));
