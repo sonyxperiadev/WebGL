@@ -31,6 +31,8 @@
 #include "GLUtils.h"
 #include "IntRect.h"
 #include "PaintTileOperation.h"
+#include "SkPaint.h"
+#include "SkPaintFlagsDrawFilter.h"
 #include "TilesManager.h"
 
 #include <cutils/log.h>
@@ -65,6 +67,7 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     , m_glWebViewState(state)
     , m_latestPictureInval(0)
     , m_prepare(false)
+    , m_isPrefetchPage(false)
 {
     m_baseTiles = new BaseTile[TilesManager::getMaxTextureAllocation() + 1];
 #ifdef DEBUG_COUNT
@@ -366,8 +369,14 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
 
 bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
 {
+    // TODO: consider other flags so the pre-rendered tiles aren't so ugly
+    static SkPaintFlagsDrawFilter prefetchFilter(SkPaint::kAllFlags, 0);
+
     if (!m_glWebViewState)
         return false;
+
+    if (isPrefetchPage())
+        canvas->setDrawFilter(&prefetchFilter);
 
     *pictureUsed = m_glWebViewState->paintBaseLayerContent(canvas);
     return true;

@@ -66,6 +66,8 @@ public:
     void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:
 #if USE(ACCELERATED_COMPOSITING)
+    void prefetchBasePicture(SkRect& viewport, float currentScale,
+                             TiledPage* prefetchTiledPage);
     bool drawBasePictureInGL(SkRect& viewport, float scale, double currentTime,
                              bool* buffersSwappedPtr);
 
