@@ -89,6 +89,7 @@ void BaseTileTexture::discardTexture()
 {
     if (m_ownTextureId)
         GLUtils::deleteTexture(&m_ownTextureId);
+    release(m_owner);
 }
 
 void BaseTileTexture::destroyTextures(SharedTexture** textures)
@@ -274,13 +275,6 @@ void BaseTileTexture::setOwnTextureTileInfoFromQueue(const TextureTileInfo* info
 
 bool BaseTileTexture::readyFor(BaseTile* baseTile)
 {
-    if (!m_ownTextureId) {
-        // If our backing opengl texture doesn't exist, allocate it and return
-        // false since it won't have useful data
-        requireTexture();
-        return false;
-    }
-
     const TextureTileInfo* info = &m_ownTextureTileInfo;
     if (info &&
         (info->m_x == baseTile->x()) &&
