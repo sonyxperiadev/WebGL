@@ -380,12 +380,13 @@ public:
         m_state->antiAliasClipPaths.append(clipPath);
         if (!haveLayerOutstanding) {
             SkRect bounds = clipPath.getBounds();
-            if (m_platformGfxCtx && m_platformGfxCtx->mCanvas)
+            if (m_platformGfxCtx && m_platformGfxCtx->mCanvas) {
                 m_platformGfxCtx->mCanvas->saveLayerAlpha(&bounds, 255,
                     static_cast<SkCanvas::SaveFlags>(SkCanvas::kHasAlphaLayer_SaveFlag
                         | SkCanvas::kFullColorLayer_SaveFlag
                         | SkCanvas::kClipToLayer_SaveFlag));
-            else
+                m_platformGfxCtx->mCanvas->save();
+            } else
                 ASSERT(0);
         }
     }
@@ -395,6 +396,10 @@ public:
         // Anti-aliased clipping:
         //
         // Refer to PlatformContextSkia.cpp's applyAntiAliasedClipPaths() for more details
+
+        if (m_platformGfxCtx && m_platformGfxCtx->mCanvas)
+            m_platformGfxCtx->mCanvas->restore();
+
         SkPaint paint;
         paint.setXfermodeMode(SkXfermode::kClear_Mode);
         paint.setAntiAlias(true);
