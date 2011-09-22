@@ -507,8 +507,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& webViewRect, int titleBarHeight,
                             IntRect& clip, float scale, bool* buffersSwappedPtr)
 {
-    glFinish();
-
     TilesManager::instance()->getProfiler()->nextFrame(viewport.fLeft,
                                                        viewport.fTop,
                                                        viewport.fRight,
