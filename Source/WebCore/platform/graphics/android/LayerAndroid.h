@@ -170,7 +170,7 @@ public:
         m_fixedRect = viewRect;
         m_isFixed = true;
         m_renderLayerPos = renderLayerPos;
-        setInheritFromRootTransform(true);
+        setShouldInheritFromRootTransform(true);
     }
 
     void setBackgroundColor(SkColor color);

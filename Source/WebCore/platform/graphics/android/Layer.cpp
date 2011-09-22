@@ -18,9 +18,9 @@ Layer::Layer() {
     m_position.set(0, 0);
     m_anchorPoint.set(SK_ScalarHalf, SK_ScalarHalf);
 
-    fMatrix.reset();
-    fChildrenMatrix.reset();
-    fFlags = 0;
+    m_matrix.reset();
+    m_childrenMatrix.reset();
+    m_shouldInheritFromRootTransform = false;
 
     m_hasOverflowChildren = false;
 
@@ -37,9 +37,9 @@ Layer::Layer(const Layer& src) : INHERITED() {
     m_position = src.m_position;
     m_anchorPoint = src.m_anchorPoint;
 
-    fMatrix = src.fMatrix;
-    fChildrenMatrix = src.fChildrenMatrix;
-    fFlags = src.fFlags;
+    m_matrix = src.m_matrix;
+    m_childrenMatrix = src.m_childrenMatrix;
+    m_shouldInheritFromRootTransform = src.m_shouldInheritFromRootTransform;
 
     m_hasOverflowChildren = src.m_hasOverflowChildren;
 
@@ -50,34 +50,12 @@ Layer::Layer(const Layer& src) : INHERITED() {
 }
 
 Layer::~Layer() {
-    this->removeChildren();
+    removeChildren();
 
 #ifdef DEBUG_TRACK_NEW_DELETE
     gLayerAllocCount -= 1;
     SkDebugf("Layer delete: %d\n", gLayerAllocCount);
 #endif
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-bool Layer::isInheritFromRootTransform() const {
-    return (fFlags & kInheritFromRootTransform_Flag) != 0;
-}
-
-void Layer::setInheritFromRootTransform(bool doInherit) {
-    if (doInherit) {
-        fFlags |= kInheritFromRootTransform_Flag;
-    } else {
-        fFlags &= ~kInheritFromRootTransform_Flag;
-    }
-}
-
-void Layer::setMatrix(const SkMatrix& matrix) {
-    fMatrix = matrix;
-}
-
-void Layer::setChildrenMatrix(const SkMatrix& matrix) {
-    fChildrenMatrix = matrix;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -111,7 +89,7 @@ void Layer::detachFromParent() {
         SkASSERT(index >= 0);
         fParent->m_children.remove(index);
         fParent = NULL;
-        this->unref();  // this call might delete us
+        unref();  // this call might delete us
     }
 }
 
@@ -142,15 +120,15 @@ void Layer::getLocalTransform(SkMatrix* matrix) const {
     SkScalar tx = SkScalarMul(m_anchorPoint.fX, m_size.width());
     SkScalar ty = SkScalarMul(m_anchorPoint.fY, m_size.height());
     matrix->preTranslate(tx, ty);
-    matrix->preConcat(this->getMatrix());
+    matrix->preConcat(getMatrix());
     matrix->preTranslate(-tx, -ty);
 }
 
 void Layer::localToGlobal(SkMatrix* matrix) const {
-    this->getLocalTransform(matrix);
+    getLocalTransform(matrix);
 
-    if (this->isInheritFromRootTransform()) {
-        matrix->postConcat(this->getRootLayer()->getMatrix());
+    if (shouldInheritFromRootTransform()) {
+        matrix->postConcat(getRootLayer()->getMatrix());
         return;
     }
 
@@ -176,14 +154,14 @@ void Layer::onDraw(SkCanvas*, SkScalar opacity) {
 void Layer::draw(SkCanvas* canvas, SkScalar opacity) {
 #if 0
     SkString str1, str2;
- //   this->getMatrix().toDumpString(&str1);
- //   this->getChildrenMatrix().toDumpString(&str2);
+ //   getMatrix().toDumpString(&str1);
+ //   getChildrenMatrix().toDumpString(&str2);
     SkDebugf("--- drawlayer %p opacity %g size [%g %g] pos [%g %g] matrix %s children %s\n",
-             this, opacity * this->getOpacity(), m_size.width(), m_size.height(),
+             this, opacity * getOpacity(), m_size.width(), m_size.height(),
              m_position.fX, m_position.fY, str1.c_str(), str2.c_str());
 #endif
 
-    opacity = SkScalarMul(opacity, this->getOpacity());
+    opacity = SkScalarMul(opacity, getOpacity());
     if (opacity <= 0) {
 //        SkDebugf("---- abort drawing %p opacity %g\n", this, opacity);
         return;
@@ -194,19 +172,19 @@ void Layer::draw(SkCanvas* canvas, SkScalar opacity) {
     // apply our local transform
     {
         SkMatrix tmp;
-        this->getLocalTransform(&tmp);
-        if (this->isInheritFromRootTransform()) {
+        getLocalTransform(&tmp);
+        if (shouldInheritFromRootTransform()) {
             // should we also apply the root's childrenMatrix?
             canvas->setMatrix(getRootLayer()->getMatrix());
         }
         canvas->concat(tmp);
     }
 
-    this->onDraw(canvas, opacity);
+    onDraw(canvas, opacity);
 
 #ifdef DEBUG_DRAW_LAYER_BOUNDS
     {
-        SkRect r = SkRect::MakeSize(this->getSize());
+        SkRect r = SkRect::MakeSize(getSize());
         SkPaint p;
         p.setAntiAlias(true);
         p.setStyle(SkPaint::kStroke_Style);
@@ -218,11 +196,11 @@ void Layer::draw(SkCanvas* canvas, SkScalar opacity) {
     }
 #endif
 
-    int count = this->countChildren();
+    int count = countChildren();
     if (count > 0) {
-        canvas->concat(this->getChildrenMatrix());
+        canvas->concat(getChildrenMatrix());
         for (int i = 0; i < count; i++) {
-            this->getChild(i)->draw(canvas, opacity);
+            getChild(i)->draw(canvas, opacity);
         }
     }
 }

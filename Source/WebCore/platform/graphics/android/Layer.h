@@ -34,24 +34,27 @@ public:
     Layer(const Layer&);
     virtual ~Layer();
 
-    bool isInheritFromRootTransform() const;
+    // Whether the layer should apply its tranform directly onto the root
+    // layer, rather than using the transforms of all ancestor layers. This is
+    // used for fixed position layers.
+    bool shouldInheritFromRootTransform() const { return m_shouldInheritFromRootTransform; }
     SkScalar getOpacity() const { return m_opacity; }
     const SkSize& getSize() const { return m_size; }
     const SkPoint& getPosition() const { return m_position; }
     const SkPoint& getAnchorPoint() const { return m_anchorPoint; }
-    const SkMatrix& getMatrix() const { return fMatrix; }
-    const SkMatrix& getChildrenMatrix() const { return fChildrenMatrix; }
+    const SkMatrix& getMatrix() const { return m_matrix; }
+    const SkMatrix& getChildrenMatrix() const { return m_childrenMatrix; }
 
     SkScalar getWidth() const { return m_size.width(); }
     SkScalar getHeight() const { return m_size.height(); }
 
-    void setInheritFromRootTransform(bool);
+    void setShouldInheritFromRootTransform(bool inherit) { m_shouldInheritFromRootTransform = inherit; }
     void setOpacity(SkScalar opacity) { m_opacity = opacity; }
     void setSize(SkScalar w, SkScalar h) { m_size.set(w, h); }
     void setPosition(SkScalar x, SkScalar y) { m_position.set(x, y); }
     void setAnchorPoint(SkScalar x, SkScalar y) { m_anchorPoint.set(x, y); }
-    void setMatrix(const SkMatrix&);
-    void setChildrenMatrix(const SkMatrix&);
+    void setMatrix(const SkMatrix& matrix) { m_matrix = matrix; }
+    void setChildrenMatrix(const SkMatrix& matrix) { m_childrenMatrix = matrix; }
 
     // children
 
@@ -118,10 +121,6 @@ protected:
     bool m_hasOverflowChildren;
 
 private:
-    enum Flags {
-        kInheritFromRootTransform_Flag = 0x01
-    };
-
     Layer* fParent;
     SkScalar m_opacity;
     SkSize m_size;
@@ -130,9 +129,9 @@ private:
     // The point in the layer used as the origin for local transformations,
     // expressed as a fraction of the layer size.
     SkPoint m_anchorPoint;
-    SkMatrix fMatrix;
-    SkMatrix fChildrenMatrix;
-    uint32_t fFlags;
+    SkMatrix m_matrix;
+    SkMatrix m_childrenMatrix;
+    bool m_shouldInheritFromRootTransform;
 
     SkTDArray<Layer*> m_children;
 
