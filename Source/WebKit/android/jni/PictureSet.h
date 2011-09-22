@@ -87,7 +87,7 @@ namespace android {
             uint32_t elapsed, bool split);
 
         // Update mWidth/mHeight, and adds any additional inval region
-        void checkDimensions(int width, int height, SkRegion* inval);
+        void setDimensions(int width, int height, SkRegion* inval = 0);
         void clear();
         bool draw(SkCanvas* );
         static PictureSet* GetNativePictureSet(JNIEnv* env, jobject jpic);
@@ -113,9 +113,12 @@ namespace android {
         bool validate(const char* label) const;
     private:
         bool emptyPicture(SkPicture* ) const; // true if no text, images, paths
+
 #ifdef FAST_PICTURESET
         BucketMap mBuckets;
         WTF::Vector<Bucket*> mUpdatedBuckets;
+        int mBucketSizeX;
+        int mBucketSizeY;
 #else
         struct Pictures {
             SkRegion mArea;
