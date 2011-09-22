@@ -89,7 +89,7 @@ public:
         return pictureAt(xPtr, yPtr, 0); }
     void reset();
     CachedHistory* rootHistory() const { return mHistory; }
-    const WebCore::LayerAndroid* rootLayer() const { return mRootLayer; }
+    WebCore::LayerAndroid* rootLayer() const { return mRootLayer; }
     bool scrollDelta(WebCore::IntRect& cursorRingBounds, Direction , int* delta);
     const WebCore::IntRect& scrolledBounds() const { return mScrolledBounds; }
     void setCursor(CachedFrame* , CachedNode* );

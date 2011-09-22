@@ -104,7 +104,21 @@ public:
         from this layer's root parent to the layer itself.
         This is the matrix that is applied to the layer during drawing.
      */
-    void localToGlobal(SkMatrix* matrix) const;
+    void localToGlobal(SkMatrix* matrix) const { localToAncestor(0, matrix); }
+
+    /** Return, as a matrix, the transform that converts from this layer's local
+        space to the space of the given ancestor layer. Use NULL for ancestor to
+        represent the root layer. Note that this method must not be called on a
+        fixed position layer with ancestor != NULL.
+
+        For non-fixed position layers, the following holds (in pseudo-code for
+        brevity) ...
+        SkMatrix localToAncestor = layer->localToAncestor(ancestor);
+        SkMatrix ancestorToGlobal = ancestor->localToAncestor(NULL);
+        SkMatrix localToGlobal = layer->localToGlobal();
+        ASSERT(localToAncestor * ancestorToGlobal == localToGlobal);
+     */
+    void localToAncestor(const Layer* ancestor, SkMatrix* matrix) const;
 
     // paint method
 
@@ -115,12 +129,16 @@ public:
 
     void setHasOverflowChildren(bool value) { m_hasOverflowChildren = value; }
 
+    virtual bool contentIsScrollable() const { return false; }
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
     bool m_hasOverflowChildren;
 
 private:
+    bool isAncestor(const Layer*) const;
+
     Layer* fParent;
     SkScalar m_opacity;
     SkSize m_size;

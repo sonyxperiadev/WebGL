@@ -243,7 +243,6 @@ public:
 
     void bounds(SkRect*) const;
 
-    virtual bool contentIsScrollable() const { return false; }
     virtual LayerAndroid* copy() const { return new LayerAndroid(*this); }
 
     void needsRepaint() { m_pictureUsed++; }

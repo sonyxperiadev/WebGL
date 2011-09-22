@@ -58,6 +58,13 @@ public:
         m_scrollLimits.set(x, y, x + width, y + height);
     }
 
+    // Given a rect in the layer, scrolls to bring the rect into view. Uses a
+    // lazy approach, whereby we scroll as little as possible to bring the
+    // entire rect into view. If the size of the rect exceeds that of the
+    // visible area of the layer, we favor the top and left of the rect.
+    // Returns whether or not any scrolling was required.
+    bool scrollRectIntoView(const SkIRect&);
+
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
     friend LayerAndroid* android::deserializeLayer(SkStream* stream);
 

@@ -339,13 +339,48 @@ void scrollToCurrentMatch()
     }
 
     SkRect matchBounds = m_findOnPage.currentMatchBounds();
-    const LayerAndroid* rootLayer = getFrameCache(DontAllowNewer)->rootLayer();
-    const Layer* layerContainingMatch = rootLayer->findById(m_findOnPage.currentMatchLayerId());
+    LayerAndroid* rootLayer = getFrameCache(DontAllowNewer)->rootLayer();
+    Layer* layerContainingMatch = rootLayer->findById(m_findOnPage.currentMatchLayerId());
     ASSERT(layerContainingMatch);
 
-    // FIXME: If the match is in a scrollable layer or a child of such a layer,
-    // we may need to scroll these layers to make sure the match is visible.
-    // See http://b/5262656.
+    // If the match is in a fixed position layer, there's nothing to do.
+    if (layerContainingMatch->shouldInheritFromRootTransform())
+        return;
+
+    // If the match is in a scrollable layer or a descendant of such a layer,
+    // there may be a range of of scroll configurations that will make the
+    // current match visible. Our approach is the simplest possible. Starting at
+    // the layer in which the match is found, we move up the layer tree,
+    // scrolling any scrollable layers as little as possible to make sure that
+    // the current match is in view. This approach has the disadvantage that we
+    // may end up scrolling a larger number of elements than is necessary, which
+    // may be visually jarring. However, minimising the number of layers
+    // scrolled would complicate the code significantly.
+
+    bool didScrollLayer = false;
+    for (Layer* layer = layerContainingMatch; layer; layer = layer->getParent()) {
+        ASSERT(layer->getParent() || layer == rootLayer);
+
+        if (layer->contentIsScrollable()) {
+            // Convert the match location to layer's local space and scroll it.
+            // Repeatedly calling Layer::localToAncestor() is inefficient as
+            // each call repeats part of the calculation. It would be more
+            // efficient to maintain the transform here and update it on each
+            // iteration, but that would mean duplicating logic from
+            // Layer::localToAncestor() and would complicate things.
+            SkMatrix transform;
+            layerContainingMatch->localToAncestor(layer, &transform);
+            SkRect transformedMatchBounds;
+            transform.mapRect(&transformedMatchBounds, matchBounds);
+            SkIRect roundedTransformedMatchBounds;
+            transformedMatchBounds.roundOut(&roundedTransformedMatchBounds);
+            // Only ScrollableLayerAndroid returns true for contentIsScrollable().
+            didScrollLayer |= static_cast<ScrollableLayerAndroid*>(layer)->scrollRectIntoView(roundedTransformedMatchBounds);
+        }
+    }
+    // Invalidate, as the call below to scroll the main page may be a no-op.
+    if (didScrollLayer)
+        viewInvalidate();
 
     // Convert matchBounds to the global space so we can scroll the main page.
     SkMatrix transform;
@@ -429,7 +464,7 @@ bool drawCursorPreamble(CachedRoot* root)
     }
 #if USE(ACCELERATED_COMPOSITING)
     if (node->isInLayer() && root->rootLayer()) {
-        LayerAndroid* layer = const_cast<LayerAndroid*>(root->rootLayer());
+        LayerAndroid* layer = root->rootLayer();
         SkRect visible;
         calcOurContentVisibleRect(&visible);
         layer->updateFixedLayersPositions(visible);
