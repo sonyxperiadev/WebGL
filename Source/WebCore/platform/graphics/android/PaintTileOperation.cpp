@@ -76,14 +76,21 @@ int PaintTileOperation::priority()
     if (!m_tile)
         return -1;
 
-    // first, prioritize higher draw count
+    int priority = 200000;
+
+    // if scrolling, prioritize the prefetch page, otherwise deprioritize
+    TiledPage* page = m_tile->page();
+    if (page && page->isPrefetchPage()) {
+        if (page->glWebViewState()->isScrolling())
+            priority = 0;
+        else
+            priority = 400000;
+    }
+
+    // prioritize higher draw count
     unsigned long long currentDraw = TilesManager::instance()->getDrawGLCount();
     unsigned long long drawDelta = currentDraw - m_tile->drawCount();
-    int priority = 100000 * (int)std::min(drawDelta, (unsigned long long)1000);
-
-    // prioritize the prefetch page, if it exists
-    if (!m_tile->page() || !m_tile->page()->isPrefetchPage())
-        priority += 200000;
+    priority += 100000 * (int)std::min(drawDelta, (unsigned long long)1000);
 
     // prioritize unpainted tiles, within the same drawCount
     if (m_tile->frontTexture())
