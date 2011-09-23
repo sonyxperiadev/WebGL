@@ -68,6 +68,10 @@
 #define RING_COLOR_G 0xb5
 #define RING_COLOR_B 0xe5
 
+// log warnings if scale goes outside this range
+#define MIN_SCALE_WARNING 0.1
+#define MAX_SCALE_WARNING 10
+
 namespace WebCore {
 
 using namespace android;
@@ -557,10 +561,16 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     if (baseForComposited && baseForComposited->countChildren() >= 1)
         compositedRoot = static_cast<LayerAndroid*>(baseForComposited->getChild(0));
 
+    if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
+        XLOGC("WARNING, scale seems corrupted before update: %e", scale);
+
     // Here before we draw, update the BaseTile which has updated content.
     // Inside this function, just do GPU blits from the transfer queue into
     // the BaseTiles' texture.
     TilesManager::instance()->transferQueue()->updateDirtyBaseTiles();
+
+    if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
+        XLOGC("WARNING, scale seems corrupted after update: %e", scale);
 
     // gather the textures we can use
     TilesManager::instance()->gatherLayerTextures();
