@@ -274,7 +274,10 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     m_expandedTileBounds.fRight = lastTileX;
     m_expandedTileBounds.fBottom = lastTileY;
 
-    if (nbTilesHeight * nbTilesWidth > TilesManager::getMaxTextureAllocation() + 1) {
+    // check against corrupted scale values giving bad height/width (use float to avoid overflow)
+    float numTiles = static_cast<float>(nbTilesHeight) * static_cast<float>(nbTilesWidth);
+    if (numTiles > TilesManager::getMaxTextureAllocation() || nbTilesHeight < 1 || nbTilesWidth < 1)
+    {
         XLOGC("ERROR: We don't have enough tiles for this page!"
               " nbTilesHeight %d nbTilesWidth %d", nbTilesHeight, nbTilesWidth);
         return;
