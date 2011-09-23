@@ -42,10 +42,71 @@ struct GLState {
     GLfloat clearColor[4];
 };
 
+
+// While in the queue, the BaseTile can be re-used, the updated bitmap
+// can be discarded. In order to track this obsolete base tiles, we save
+// the Tile's Info to make the comparison.
+// At the time of base tile's dtor or webview destroy, we want to discard
+// all the data in the queue. However, we have to do the Surface Texture
+// update in the same GL context as the UI thread. So we mark the status
+// as pendingDiscard, and delay the Surface Texture operation to the next
+// draw call.
+
+enum TransferItemStatus {
+    emptyItem = 0, // S.T. buffer ready for new content
+    pendingBlit = 1, // Ready for bliting into tile's GL Tex.
+    pendingDiscard = 2 // Waiting for the next draw call to discard
+};
+
+enum TextureUploadType {
+    CpuUpload = 0,
+    GpuUpload = 1
+};
+
+#define DEFAULT_UPLOAD_TYPE GpuUpload
+
+class TileTransferData {
+public:
+    TileTransferData()
+    : status(emptyItem)
+    , savedBaseTilePtr(0)
+    , uploadType(DEFAULT_UPLOAD_TYPE)
+    , bitmap(0)
+    , m_syncKHR(EGL_NO_SYNC_KHR)
+    {
+    }
+
+    ~TileTransferData()
+    {
+        // Bitmap will be created lazily, need to delete them at dtor.
+        delete bitmap;
+    }
+
+    TransferItemStatus status;
+    BaseTile* savedBaseTilePtr;
+    TextureTileInfo tileInfo;
+    TextureUploadType uploadType;
+    // This is only useful in Cpu upload code path, so it will be dynamically
+    // lazily allocated.
+    SkBitmap* bitmap;
+
+    // Sync object for GPU fence, this is the only the info passed from UI
+    // thread to Tex Gen thread. The reason of having this is due to the
+    // missing sync mechanism on Surface Texture on some vendor. b/5122031.
+    // Bascially the idea is that when UI thread utilize one buffer from
+    // the surface texture, we'll need to kick off the GPU commands, and only
+    // when those particular commands finish, we could write into this buffer
+    // again in Tex Gen thread.
+    EGLSyncKHR m_syncKHR;
+};
+
 class TransferQueue {
 public:
     TransferQueue();
     ~TransferQueue();
+
+    // This will be called by the browser through nativeSetProperty
+    void setTextureUploadType(TextureUploadType type);
 
     void updateDirtyBaseTiles();
 
@@ -56,8 +117,9 @@ public:
 
     void discardQueue();
 
-    void addItemInTransferQueue(const TileRenderInfo* info);
-
+    void addItemInTransferQueue(const TileRenderInfo* info,
+                                TextureUploadType type,
+                                const SkBitmap* bitmap);
     // Check if the item @ index is ready for update.
     // The lock will be done when returning true.
     bool readyForUpdate();
@@ -129,6 +191,10 @@ private:
     android::Condition m_transferQueueItemCond;
 
     EGLDisplay m_currentDisplay;
+
+    // This should be GpuUpload for production, but for debug purpose or working
+    // around driver/HW issue, we can set it to CpuUpload.
+    TextureUploadType m_currentUploadType;
 };
 
 } // namespace WebCore

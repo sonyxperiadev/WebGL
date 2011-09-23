@@ -153,7 +153,7 @@ void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
 #if !DEPRECATED_SURFACE_TEXTURE_MODE
         TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
         eglSwapBuffers(eglGetCurrentDisplay(), tileQueue->m_eglSurface);
-        tileQueue->addItemInTransferQueue(&renderInfo);
+        tileQueue->addItemInTransferQueue(&renderInfo, GpuUpload, 0);
         tileQueue->unlockQueue();
 #endif
     }

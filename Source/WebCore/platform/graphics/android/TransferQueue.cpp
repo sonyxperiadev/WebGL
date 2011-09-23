@@ -61,6 +61,7 @@ TransferQueue::TransferQueue()
     , m_sharedSurfaceTextureId(0)
     , m_hasGLContext(true)
     , m_currentDisplay(EGL_NO_DISPLAY)
+    , m_currentUploadType(DEFAULT_UPLOAD_TYPE)
 {
     memset(&m_GLStateBeforeBlit, 0, sizeof(m_GLStateBeforeBlit));
 
@@ -236,13 +237,14 @@ void TransferQueue::setHasGLContext(bool hasContext)
     m_hasGLContext = hasContext;
 }
 
-// Only called when WebView is destroyed.
+// Only called when WebView is destroyed or switching the uploadType.
 void TransferQueue::discardQueue()
 {
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
 
     for (int i = 0 ; i < ST_BUFFER_NUMBER; i++)
-        m_transferQueue[i].status = pendingDiscard;
+        if (m_transferQueue[i].status == pendingBlit)
+            m_transferQueue[i].status = pendingDiscard;
 
     bool GLContextExisted = getHasGLContext();
     // Unblock the Tex Gen thread first before Tile Page deletion.
@@ -257,9 +259,8 @@ void TransferQueue::discardQueue()
 // Call on UI thread to copy from the shared Surface Texture to the BaseTile's texture.
 void TransferQueue::updateDirtyBaseTiles()
 {
-#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
-    saveGLState();
-#endif
+    if (m_currentUploadType == GpuUpload)
+        saveGLState();
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
 
     cleanupTransportQueue();
@@ -278,9 +279,8 @@ void TransferQueue::updateDirtyBaseTiles()
             BaseTileTexture* destTexture = 0;
             if (!obsoleteBaseTile)
                 destTexture = m_transferQueue[index].savedBaseTilePtr->backTexture();
-#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
-            m_sharedSurfaceTexture->updateTexImage();
-#endif
+            if (m_transferQueue[index].uploadType == GpuUpload)
+                m_sharedSurfaceTexture->updateTexImage();
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
             if (obsoleteBaseTile) {
@@ -292,16 +292,16 @@ void TransferQueue::updateDirtyBaseTiles()
             // guarantee that we have a texture to blit into
             destTexture->requireTexture();
 
-#if DEBUG_TRANSFER_USING_CPU_UPLOAD
-            // Here we just need to upload the bitmap content to the GL Texture
-            GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId, 0, 0,
-                                             m_transferQueue[index].bitmap);
-#else
-            blitTileFromQueue(m_fboID, destTexture,
-                              m_sharedSurfaceTextureId,
-                              m_sharedSurfaceTexture->getCurrentTextureTarget(),
-                              index);
-#endif
+            if (m_transferQueue[index].uploadType == CpuUpload) {
+                // Here we just need to upload the bitmap content to the GL Texture
+                GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId, 0, 0,
+                                                 *m_transferQueue[index].bitmap);
+            } else {
+                blitTileFromQueue(m_fboID, destTexture,
+                                  m_sharedSurfaceTextureId,
+                                  m_sharedSurfaceTexture->getCurrentTextureTarget(),
+                                  index);
+            }
 
             // After the base tile copied into the GL texture, we need to
             // update the texture's info such that at draw time, readyFor
@@ -319,9 +319,8 @@ void TransferQueue::updateDirtyBaseTiles()
         index = (index + 1) % ST_BUFFER_NUMBER;
     }
 
-#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
-    restoreGLState();
-#endif
+    if (m_currentUploadType == GpuUpload)
+        restoreGLState();
 
     m_emptyItemCount = ST_BUFFER_NUMBER;
     m_transferQueueItemCond.signal();
@@ -332,55 +331,55 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
 {
     m_transferQueueItemLocks.lock();
     bool ready = readyForUpdate();
+    TextureUploadType currentUploadType = m_currentUploadType;
     m_transferQueueItemLocks.unlock();
     if (!ready) {
         XLOG("Quit bitmap update: not ready! for tile x y %d %d",
              renderInfo->x, renderInfo->y);
         return;
     }
-#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
-    // a) Dequeue the Surface Texture and write into the buffer
-    if (!m_ANW.get()) {
-        XLOG("ERROR: ANW is null");
-        return;
+    if (currentUploadType == GpuUpload) {
+        // a) Dequeue the Surface Texture and write into the buffer
+        if (!m_ANW.get()) {
+            XLOG("ERROR: ANW is null");
+            return;
+        }
+
+        ANativeWindow_Buffer buffer;
+        if (ANativeWindow_lock(m_ANW.get(), &buffer, 0))
+            return;
+
+        uint8_t* img = (uint8_t*)buffer.bits;
+        int row, col;
+        int bpp = 4; // Now we only deal with RGBA8888 format.
+        int width = TilesManager::instance()->tileWidth();
+        int height = TilesManager::instance()->tileHeight();
+        if (!x && !y && bitmap.width() == width && bitmap.height() == height) {
+            bitmap.lockPixels();
+            uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
+            if (buffer.stride != bitmap.width())
+                // Copied line by line since we need to handle the offsets and stride.
+                for (row = 0 ; row < bitmap.height(); row ++) {
+                    uint8_t* dst = &(img[buffer.stride * row * bpp]);
+                    uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
+                    memcpy(dst, src, bpp * bitmap.width());
+                }
+            else
+                memcpy(img, bitmapOrigin, bpp * bitmap.width() * bitmap.height());
+
+            bitmap.unlockPixels();
+        } else {
+            // TODO: implement the partial invalidate here!
+            XLOG("ERROR: don't expect to get here yet before we support partial inval");
+        }
+
+        ANativeWindow_unlockAndPost(m_ANW.get());
     }
 
-    ANativeWindow_Buffer buffer;
-    if (ANativeWindow_lock(m_ANW.get(), &buffer, 0))
-        return;
-
-    uint8_t* img = (uint8_t*)buffer.bits;
-    int row, col;
-    int bpp = 4; // Now we only deal with RGBA8888 format.
-    int width = TilesManager::instance()->tileWidth();
-    int height = TilesManager::instance()->tileHeight();
-    if (!x && !y && bitmap.width() == width && bitmap.height() == height) {
-        bitmap.lockPixels();
-        uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
-        if (buffer.stride != bitmap.width())
-            // Copied line by line since we need to handle the offsets and stride.
-            for (row = 0 ; row < bitmap.height(); row ++) {
-                uint8_t* dst = &(img[buffer.stride * row * bpp]);
-                uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
-                memcpy(dst, src, bpp * bitmap.width());
-            }
-        else
-            memcpy(img, bitmapOrigin, bpp * bitmap.width() * bitmap.height());
-
-        bitmap.unlockPixels();
-    } else {
-        // TODO: implement the partial invalidate here!
-        XLOG("ERROR: don't expect to get here yet before we support partial inval");
-    }
-
-    ANativeWindow_unlockAndPost(m_ANW.get());
-#endif
     m_transferQueueItemLocks.lock();
     // b) After update the Surface Texture, now udpate the transfer queue info.
-    addItemInTransferQueue(renderInfo);
-#if DEBUG_TRANSFER_USING_CPU_UPLOAD
-    bitmap.copyTo(&(m_transferQueue[m_transferQueueIndex].bitmap), bitmap.config());
-#endif
+    addItemInTransferQueue(renderInfo, currentUploadType, &bitmap);
+
     m_transferQueueItemLocks.unlock();
     XLOG("Bitmap updated x, y %d %d, baseTile %p",
          renderInfo->x, renderInfo->y, renderInfo->baseTile);
@@ -388,7 +387,9 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
 
 // Note that there should be lock/unlock around this function call.
 // Currently only called by GLUtils::updateSharedSurfaceTextureWithBitmap.
-void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo)
+void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
+                                           TextureUploadType type,
+                                           const SkBitmap* bitmap)
 {
     m_transferQueueIndex = (m_transferQueueIndex + 1) % ST_BUFFER_NUMBER;
 
@@ -400,6 +401,17 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo)
 
     m_transferQueue[index].savedBaseTilePtr = renderInfo->baseTile;
     m_transferQueue[index].status = pendingBlit;
+    m_transferQueue[index].uploadType = type;
+    if (type == CpuUpload && bitmap) {
+        // Lazily create the bitmap
+        if (!m_transferQueue[index].bitmap) {
+            m_transferQueue[index].bitmap = new SkBitmap();
+            int w = bitmap->width();
+            int h = bitmap->height();
+            m_transferQueue[index].bitmap->setConfig(bitmap->config(), w, h);
+        }
+        bitmap->copyTo(m_transferQueue[index].bitmap, bitmap->config());
+    }
 
     // Now fill the tileInfo.
     TextureTileInfo* textureInfo = &m_transferQueue[index].tileInfo;
@@ -414,6 +426,15 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo)
     m_emptyItemCount--;
 }
 
+void TransferQueue::setTextureUploadType(TextureUploadType type)
+{
+    discardQueue();
+
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
+    m_currentUploadType = type;
+    XLOGC("Now we set the upload to %s", m_currentUploadType == GpuUpload ? "GpuUpload" : "CpuUpload");
+}
+
 // Note: this need to be called within th lock.
 // Only called by updateDirtyBaseTiles() for now
 void TransferQueue::cleanupTransportQueue()
@@ -422,9 +443,11 @@ void TransferQueue::cleanupTransportQueue()
 
     for (int i = 0 ; i < ST_BUFFER_NUMBER; i++) {
         if (m_transferQueue[index].status == pendingDiscard) {
-#if !DEBUG_TRANSFER_USING_CPU_UPLOAD
-            m_sharedSurfaceTexture->updateTexImage();
-#endif
+            // No matter what the current upload type is, as long as there has
+            // been a Surf Tex enqueue operation, this updateTexImage need to
+            // be called to keep things in sync.
+            if (m_transferQueue[index].uploadType == GpuUpload)
+                m_sharedSurfaceTexture->updateTexImage();
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
         }

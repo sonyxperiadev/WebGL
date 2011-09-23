@@ -2630,6 +2630,11 @@ static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
         TilesManager::instance()->setInvertedScreenContrast(contrast);
         return true;
     }
+    if (key == "enable_cpu_upload_path") {
+        TilesManager::instance()->transferQueue()->setTextureUploadType(
+            value == "true" ? CpuUpload : GpuUpload);
+        return true;
+    }
     return false;
 }
 
