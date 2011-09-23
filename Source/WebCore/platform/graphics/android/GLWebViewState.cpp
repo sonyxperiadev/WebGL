@@ -569,8 +569,10 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // the BaseTiles' texture.
     TilesManager::instance()->transferQueue()->updateDirtyBaseTiles();
 
-    if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
+    if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING) {
         XLOGC("WARNING, scale seems corrupted after update: %e", scale);
+        CRASH();
+    }
 
     // gather the textures we can use
     TilesManager::instance()->gatherLayerTextures();
