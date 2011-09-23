@@ -597,12 +597,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
             TilesManager::instance()->setInvertedScreenSwitch(false);
         }
 
-        if (fullScreenInval) {
-            invalRect->setX(0);
-            invalRect->setY(0);
-            invalRect->setWidth(0);
-            invalRect->setHeight(0);
-        } else {
+        if (!fullScreenInval) {
             FloatRect frameworkInval = TilesManager::instance()->shader()->rectInInvScreenCoord(
                     m_frameworkInval);
             // Inflate the invalidate rect to avoid precision lost.
@@ -619,6 +614,18 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
             XLOG("invalRect(%d, %d, %d, %d)", inval.x(),
                     inval.y(), inval.width(), inval.height());
+
+            if (!invalRect->intersects(rect)) {
+                // invalidate is occurring offscreen, do full inval to guarantee redraw
+                fullScreenInval = true;
+            }
+        }
+
+        if (fullScreenInval) {
+            invalRect->setX(0);
+            invalRect->setY(0);
+            invalRect->setWidth(0);
+            invalRect->setHeight(0);
         }
     } else {
         resetFrameworkInval();
