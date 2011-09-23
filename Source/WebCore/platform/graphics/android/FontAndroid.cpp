@@ -485,7 +485,7 @@ private:
 
 // Indexed using enum CustomScript
 const char* TextRunWalker::paths[] = {
-    "/system/fonts/Lohit_Hindi.ttf",
+    "/system/fonts/Lohit-Devanagari.ttf",
     "/system/fonts/DroidSansThai.ttf",
     "/system/fonts/DroidNaskh-Regular.ttf",
     "/system/fonts/DroidSansHebrew-Regular.ttf",
