@@ -30,8 +30,10 @@
 
 #include "BaseTile.h"
 #include "BaseTileTexture.h"
+#include "ImageTexture.h"
 #include "LayerAndroid.h"
 #include "ShaderProgram.h"
+#include "SkBitmapRef.h"
 #include "TexturesGenerator.h"
 #include "TiledPage.h"
 #include "TilesProfiler.h"
@@ -176,6 +178,10 @@ public:
     {
         return m_drawGLCount;
     }
+    void addImage(SkBitmapRef* img);
+    void removeImage(SkBitmapRef* img);
+    ImageTexture* getTextureForImage(SkBitmapRef* img);
+    void showImages();
 
 private:
     TilesManager();
@@ -209,6 +215,7 @@ private:
 
     android::Mutex m_texturesLock;
     android::Mutex m_generatorLock;
+    android::Mutex m_imagesLock;
     android::Condition m_generatorReadyCond;
 
     static TilesManager* gInstance;
@@ -221,6 +228,8 @@ private:
     TilesProfiler m_profiler;
     TilesTracker m_tilesTracker;
     unsigned long long m_drawGLCount;
+
+    HashMap<SkBitmapRef*, ImageTexture*> m_images;
 };
 
 } // namespace WebCore
