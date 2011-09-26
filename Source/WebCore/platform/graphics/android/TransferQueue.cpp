@@ -211,7 +211,8 @@ bool TransferQueue::readyForUpdate()
     // Disable this wait until we figure out why this didn't work on some
     // drivers b/5332112.
 #if 0
-    if (m_currentDisplay != EGL_NO_DISPLAY) {
+    if (m_currentUploadType == GpuUpload
+        && m_currentDisplay != EGL_NO_DISPLAY) {
         // Check the GPU fence
         EGLSyncKHR syncKHR = m_transferQueue[getNextTransferQueueIndex()].m_syncKHR;
         if (syncKHR != EGL_NO_SYNC_KHR)
