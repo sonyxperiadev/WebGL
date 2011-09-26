@@ -101,6 +101,11 @@ namespace WebCore {
         Page* page() const;
         HTMLFrameOwnerElement* ownerElement() const;
 
+#if PLATFORM(ANDROID)
+        // Temporary hack for http://b/5188895
+        bool isDocumentUpToDate() const { return m_isDocumentUpToDate; }
+        void setDocumentIsNotUpToDate() { m_isDocumentUpToDate = false; }
+#endif
         Document* document() const;
         FrameView* view() const;
 
@@ -246,6 +251,11 @@ namespace WebCore {
         bool m_inViewSourceMode;
         bool m_isDisconnected;
         bool m_excludeFromTextSearch;
+
+#if PLATFORM(ANDROID)
+        // Temporary hack for http://b/5188895
+        bool m_isDocumentUpToDate;
+#endif
 
 #if ENABLE(TILED_BACKING_STORE)
     // FIXME: The tiled backing store belongs in FrameView, not Frame.
