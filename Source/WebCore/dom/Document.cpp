@@ -5070,7 +5070,13 @@ DocumentLoader* Document::loader() const
     if (!loader)
         return 0;
     
-    if (m_frame->document() != this)
+#if PLATFORM(ANDROID)
+    // Temporary hack for http://b/5188895
+    bool isDocumentUpToDate = m_frame->isDocumentUpToDate();
+#else
+    bool isDocumentUpToDate = true;
+#endif
+    if (isDocumentUpToDate && m_frame->document() != this)
         return 0;
     
     return loader;

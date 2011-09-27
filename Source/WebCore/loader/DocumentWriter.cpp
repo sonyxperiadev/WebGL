@@ -114,6 +114,10 @@ void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origi
 
     // Create a new document before clearing the frame, because it may need to
     // inherit an aliased security context.
+#if PLATFORM(ANDROID)
+    // Temporary hack for http://b/5188895
+    m_frame->setDocumentIsNotUpToDate();
+#endif
     RefPtr<Document> document = createDocument(url);
     
     // If the new document is for a Plugin but we're supposed to be sandboxed from Plugins,

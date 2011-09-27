@@ -171,6 +171,10 @@ inline Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoader
     , m_inViewSourceMode(false)
     , m_isDisconnected(false)
     , m_excludeFromTextSearch(false)
+#if PLATFORM(ANDROID)
+    // Temporary hack for http://b/5188895
+    , m_isDocumentUpToDate(true)
+#endif
 {
     ASSERT(page);
     AtomicString::init();
@@ -302,6 +306,10 @@ void Frame::setDocument(PassRefPtr<Document> newDoc)
     }
 
     m_doc = newDoc;
+#if PLATFORM(ANDROID)
+    // Temporary hack for http://b/5188895
+    m_isDocumentUpToDate = true;
+#endif
     selection()->updateSecureKeyboardEntryIfActive();
 
     if (m_doc && !m_doc->attached())
