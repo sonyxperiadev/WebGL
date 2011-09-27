@@ -65,17 +65,16 @@
 // In our case, we use 256*256 textures. On the tablet, this equates to
 // at least 60 textures, or 112 with expanded tile boundaries.
 // 112(tiles)*256*256*4(bpp)*2(pages) = 56MB
+// It turns out the viewport dependent value m_maxTextureCount is a reasonable
+// number to cap the layer tile texturs, it worked on both phones and tablets.
+// TODO: after merge the pool of base tiles and layer tiles, we should revisit
+// the logic of allocation management.
 #define MAX_TEXTURE_ALLOCATION ((6+TILE_PREFETCH_DISTANCE*2)*(5+TILE_PREFETCH_DISTANCE*2)*2)
 #define TILE_WIDTH 256
 #define TILE_HEIGHT 256
 #define LAYER_TILE_WIDTH 256
 #define LAYER_TILE_HEIGHT 256
-#define LAYER_TILES 100
 
-// Define a maximum amount of ram used by layers
-#define MAX_LAYERS_ALLOCATION 33554432 // 32Mb
-// Define a maximum amount of ram used by one layer
-#define MAX_LAYER_ALLOCATION 8388608 // 8Mb
 #define BYTES_PER_PIXEL 4 // 8888 config
 
 namespace WebCore {
@@ -105,8 +104,8 @@ TilesManager::TilesManager()
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_availableTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
-    m_tilesTextures.reserveCapacity(LAYER_TILES);
-    m_availableTilesTextures.reserveCapacity(LAYER_TILES);
+    m_tilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
+    m_availableTilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_pixmapsGenerationThread = new TexturesGenerator();
     m_pixmapsGenerationThread->run("TexturesGenerator");
 }
@@ -128,8 +127,9 @@ void TilesManager::allocateTiles()
         nbTexturesAllocated++;
     }
 
-    int nbLayersTexturesToAllocate = LAYER_TILES - m_tilesTextures.size();
-    XLOG("%d layers tiles to allocate (%d textures planned)", nbLayersTexturesToAllocate, LAYER_TILES);
+    int nbLayersTexturesToAllocate = m_maxTextureCount - m_tilesTextures.size();
+    XLOG("%d layers tiles to allocate (%d textures planned)",
+         nbLayersTexturesToAllocate, m_maxTextureCount);
     int nbLayersTexturesAllocated = 0;
     for (int i = 0; i < nbLayersTexturesToAllocate; i++) {
         BaseTileTexture* texture = new BaseTileTexture(
@@ -337,16 +337,6 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     printTextures();
 #endif // DEBUG
     return 0;
-}
-
-int TilesManager::maxLayersAllocation()
-{
-    return MAX_LAYERS_ALLOCATION;
-}
-
-int TilesManager::maxLayerAllocation()
-{
-    return MAX_LAYER_ALLOCATION;
 }
 
 int TilesManager::maxTextureCount()

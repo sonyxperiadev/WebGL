@@ -102,8 +102,6 @@ public:
 
     void resetTextureUsage(TiledPage* page);
 
-    int maxLayersAllocation();
-    int maxLayerAllocation();
     int maxTextureCount();
     void setMaxTextureCount(int max);
     static float tileWidth();
