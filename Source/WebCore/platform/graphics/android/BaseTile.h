@@ -61,6 +61,34 @@ class GLWebViewState;
  */
 class BaseTile : public TextureOwner {
 public:
+
+    // eventually, m_dirty might be rolled into the state machine, but note
+    // that a tile that's continually marked dirty from animation should still
+    // progress through the state machine and be drawn periodically (esp. for
+    // layers)
+
+    //                                /->  TransferredUnvalidated (TQ interrupts paint)    -\   (TQ & paint done)
+    // Unpainted -> PaintingStarted --                                                       ->    ReadyToSwap    -> UpToDate
+    //     ^                          \->  ValidatedUntransferred (paint finish before TQ) -/
+    //     |
+    //     \--... (From any state when marked dirty. should usually come from UpToDate if the updates are locked)
+    //
+
+    enum TextureState{
+        // back texture is completely unpainted
+        Unpainted = 0,
+        // has started painting, but haven't been transferred or validated
+        PaintingStarted = 1,
+        // back texture painted, transferred before validating in PaintBitmap()
+        TransferredUnvalidated = 2,
+        // back texture painted, validated before transferring in TransferQueue
+        ValidatedUntransferred = 3,
+        // back texture has been blitted, will be swapped when next available
+        ReadyToSwap = 4,
+        // has been swapped, is ready to draw, all is well
+        UpToDate = 5,
+    };
+
     BaseTile(bool isLayerTile = false);
     ~BaseTile();
 
@@ -88,15 +116,18 @@ public:
     bool isRepaintPending();
     void setRepaintPending(bool pending);
     float scale() const { return m_scale; }
-    void fullInval();
+    TextureState textureState() const { return m_state; }
 
     int x() const { return m_x; }
     int y() const { return m_y; }
     BaseTileTexture* frontTexture() { return m_frontTexture; }
     BaseTileTexture* backTexture() { return m_backTexture; }
+
+    // only used for prioritization - the higher, the more relevant the tile is
+    unsigned long long drawCount() { return m_drawCount; }
     void discardTextures();
     bool swapTexturesIfNeeded();
-    unsigned long long drawCount() { return m_drawCount; }
+    void backTextureTransfer();
 
     void setGLWebViewState(GLWebViewState* state) { m_glWebViewState = state; }
 
@@ -107,6 +138,8 @@ public:
     TilePainter* painter() { return m_painter; }
 
 private:
+    void validatePaint();
+
     GLWebViewState* m_glWebViewState;
 
     TilePainter* m_painter;
@@ -124,6 +157,10 @@ private:
     // used to signal that the that the tile is out-of-date and needs to be
     // redrawn in the backTexture
     bool m_dirty;
+
+    // currently only for debugging, to be used for tracking down dropped repaints
+    bool m_deferredDirty;
+
     // used to signal that a repaint is pending
     bool m_repaintPending;
     // stores the id of the latest picture from webkit that caused this tile to
@@ -149,18 +186,19 @@ private:
 
     bool m_isLayerTile;
 
-    // this is set when the back texture is finished painting and should be
-    // swapped to the front. it is set with the NEXT drawGL call (see
-    // TilesManager::m_drawGLCount) so that the textures may be blitted at the
-    // beginning of GLWebViewState::drawGL before they are swapped
-
-    // 4 steps for texture: paint -> blit -> swap -> draw
-    unsigned long long m_swapDrawCount;
-
     // the most recent GL draw before this tile was prepared. used for
     // prioritization and caching. tiles with old drawcounts and textures they
     // own are used for new tiles and rendering
     unsigned long long m_drawCount;
+
+    // Tracks the state of painting for the tile. High level overview:
+    // 1) Unpainted - until paint starts (and if marked dirty, in most cases)
+    // 2) PaintingStarted - until paint completes
+    // 3) TransferredUnvalidated - if transferred first
+    //    or ValidatedUntransferred - if validated first
+    // 4) ReadyToSwap - if painted and transferred, but not swapped
+    // 5) UpToDate - until marked dirty again
+    TextureState m_state;
 };
 
 } // namespace WebCore

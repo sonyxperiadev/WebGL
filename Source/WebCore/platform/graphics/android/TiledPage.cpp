@@ -300,6 +300,7 @@ bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapM
         return false;
 
     int swaps = 0;
+    bool fullSwap = true;
     if (swap == SwapWholePage) {
         for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
             for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
@@ -308,31 +309,26 @@ bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapM
                     return false;
             }
         }
-        for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
-            for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
-                BaseTile* t = getBaseTile(x, y);
-                if (t->swapTexturesIfNeeded())
-                    swaps++;
-            }
-        }
-        XLOG("%p whole page swapped %d textures, returning true", this, swaps);
-        return true;
     } else { // SwapWhateveryIsReady
-        bool fullSwap = true;
         for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
             for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
                 BaseTile* t = getBaseTile(x, y);
                 if (!t || !t->isTileReady())
                     fullSwap = false;
-                else {
-                    if (t->swapTexturesIfNeeded())
-                        swaps++;
-                }
             }
         }
-        XLOG("%p greedy swap swapped %d tiles, returning %d", this, swaps, fullSwap);
-        return fullSwap;
     }
+
+    // swap every tile on page (even if off screen)
+    for (int j = 0; j < m_baseTileSize; j++) {
+        BaseTile& tile = m_baseTiles[j];
+        if (tile.swapTexturesIfNeeded())
+            swaps++;
+    }
+
+    XLOG("%p %s swapped %d textures, returning true",
+         this, (swap == SwapWholePage) ? "whole page" : "greedy swap", swaps);
+    return fullSwap;
 }
 
 

@@ -60,6 +60,7 @@ TransferQueue::TransferQueue()
     , m_fboID(0)
     , m_sharedSurfaceTextureId(0)
     , m_hasGLContext(true)
+    , m_interruptedByRemovingOp(false)
     , m_currentDisplay(EGL_NO_DISPLAY)
     , m_currentUploadType(DEFAULT_UPLOAD_TYPE)
 {

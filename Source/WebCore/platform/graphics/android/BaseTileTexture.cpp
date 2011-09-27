@@ -32,10 +32,13 @@
 #include "GLUtils.h"
 #include "TilesManager.h"
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTileTexture", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTileTexture", __VA_ARGS__)
@@ -89,7 +92,12 @@ void BaseTileTexture::discardTexture()
 {
     if (m_ownTextureId)
         GLUtils::deleteTexture(&m_ownTextureId);
-    release(m_owner);
+
+    if (m_owner) {
+        // clear both Tile->Texture and Texture->Tile links
+        m_owner->removeTexture(this);
+        release(m_owner);
+    }
 }
 
 void BaseTileTexture::destroyTextures(SharedTexture** textures)
@@ -227,9 +235,6 @@ bool BaseTileTexture::release(TextureOwner* owner)
     if (m_owner != owner)
         return false;
 
-    // force readyFor to return false next call (even if texture reaquired by same tile)
-    m_ownTextureTileInfo.m_x = -1;
-    m_ownTextureTileInfo.m_y = -1;
     if (!m_busy) {
         m_owner = 0;
     } else {
@@ -271,6 +276,11 @@ void BaseTileTexture::setOwnTextureTileInfoFromQueue(const TextureTileInfo* info
     m_ownTextureTileInfo.m_painter = info->m_painter;
     m_ownTextureTileInfo.m_picture = info->m_picture;
     m_ownTextureTileInfo.m_inverted = TilesManager::instance()->invertedScreen();
+    if (m_owner) {
+        BaseTile* owner = static_cast<BaseTile*>(m_owner);
+        owner->backTextureTransfer();
+    }
+
 }
 
 bool BaseTileTexture::readyFor(BaseTile* baseTile)
