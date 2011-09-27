@@ -686,7 +686,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     if (cacheBuilder().pictureSetDisabled())
         content->clear();
 
-    content->checkDimensions(width, height, &m_addInval);
+    content->setDimensions(width, height, &m_addInval);
 
     // Add the current inval rects to the PictureSet, and rebuild it.
     content->add(m_addInval, 0, 0, false);

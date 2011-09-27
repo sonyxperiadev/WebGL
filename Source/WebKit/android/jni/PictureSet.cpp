@@ -44,6 +44,8 @@
 #define MAX_ADDITIONAL_PICTURES 32
 
 #define BUCKET_SIZE 256
+#define MAX_BUCKET_COUNT_X 16
+#define MAX_BUCKET_COUNT_Y 64
 
 #include <wtf/CurrentTime.h>
 
@@ -65,6 +67,8 @@
 
 #endif // DEBUG
 
+#define MAX(a,b) ((a)<(b)?(b):(a))
+
 #if PICTURE_SET_DEBUG
 class MeasureStream : public SkWStream {
 public:
@@ -81,7 +85,7 @@ namespace android {
 
 PictureSet::PictureSet()
 {
-    mWidth = mHeight = 0;
+    setDimensions(0, 0);
     mBaseArea = mAdditionalArea = 0;
 }
 
@@ -89,11 +93,10 @@ PictureSet::PictureSet(SkPicture* picture)
 {
     mBaseArea = mAdditionalArea = 0;
     if (!picture) {
-        mWidth = mHeight = 0;
+        setDimensions(0, 0);
         return;
     }
-    mWidth = picture->width();
-    mHeight = picture->height();
+    setDimensions(picture->width(), picture->height());
     mBaseArea = mWidth * mHeight;
 #ifdef FAST_PICTURESET
     SkIRect area;
@@ -183,6 +186,7 @@ Bucket* PictureSet::getBucket(int x, int y)
 
     BucketPosition position(x+1, y+1);
     if (!mBuckets.contains(position)) {
+        XLOGC("PictureSet::getBucket(%d, %d) adding new bucket", x, y);
         Bucket* bucket = new Bucket();
         mBuckets.add(position, bucket);
     }
@@ -229,7 +233,7 @@ void PictureSet::addToBucket(Bucket* bucket, int dx, int dy, SkIRect& rect)
 
     // If the inval covers a large area of the base inval, let's repaint the
     // entire bucket.
-    if (rect.width() * rect.height() > MAX_ADDITIONAL_AREA * BUCKET_SIZE * BUCKET_SIZE)
+    if (rect.width() * rect.height() > MAX_ADDITIONAL_AREA * mBucketSizeX * mBucketSizeY)
         resetBase = true;
 
     // let's gather all the BucketPicture intersecting with the new invalidated
@@ -251,7 +255,7 @@ void PictureSet::addToBucket(Bucket* bucket, int dx, int dy, SkIRect& rect)
         // also check that it fully covers the bucket -- otherwise,
         // let's aggregate it with the new inval.
         if (!remove && current->mBase && intersect
-            && (current->mArea.width() < BUCKET_SIZE || current->mArea.height() < BUCKET_SIZE)) {
+            && (current->mArea.width() < mBucketSizeX || current->mArea.height() < mBucketSizeY)) {
             remove = true;
         }
 
@@ -301,18 +305,16 @@ void PictureSet::addToBucket(Bucket* bucket, int dx, int dy, SkIRect& rect)
 
 void PictureSet::gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect& rect)
 {
-    int maxSize = BUCKET_SIZE;
-
     XLOG("\n--- gatherBucketsForArea for rect %d, %d, %d, %d (%d x %d)",
           rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
           rect.width(), rect.height());
 
     int x = rect.fLeft;
     int y = rect.fTop;
-    int firstTileX = rect.fLeft / maxSize;
-    int firstTileY = rect.fTop / maxSize;
-    int lastTileX = rect.fRight / maxSize;
-    int lastTileY = rect.fBottom / maxSize;
+    int firstTileX = rect.fLeft / mBucketSizeX;
+    int firstTileY = rect.fTop / mBucketSizeY;
+    int lastTileX = rect.fRight / mBucketSizeX;
+    int lastTileY = rect.fBottom / mBucketSizeY;
 
     for (int i = firstTileX; i <= lastTileX; i++) {
         for (int j = firstTileY; j <= lastTileY; j++) {
@@ -333,15 +335,13 @@ void PictureSet::splitAdd(const SkIRect& rect)
           rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
           rect.width(), rect.height());
 
-    int maxSize = BUCKET_SIZE;
-
     // TODO: reuse gatherBucketsForArea() (change Bucket to be a class)
     int x = rect.fLeft;
     int y = rect.fTop;
-    int firstTileX = rect.fLeft / maxSize;
-    int firstTileY = rect.fTop / maxSize;
-    int lastTileX = rect.fRight / maxSize;
-    int lastTileY = rect.fBottom / maxSize;
+    int firstTileX = rect.fLeft / mBucketSizeX;
+    int firstTileY = rect.fTop / mBucketSizeY;
+    int lastTileX = rect.fRight / mBucketSizeX;
+    int lastTileY = rect.fBottom / mBucketSizeY;
 
     XLOG("--- firstTile(%d, %d) lastTile(%d, %d)",
           firstTileX, firstTileY,
@@ -354,12 +354,12 @@ void PictureSet::splitAdd(const SkIRect& rect)
                 continue;
 
             SkIRect newRect;
-            int deltaX = i * maxSize;
-            int deltaY = j * maxSize;
+            int deltaX = i * mBucketSizeX;
+            int deltaY = j * mBucketSizeY;
             int left = (i == firstTileX) ? rect.fLeft - deltaX : 0;
             int top = (j == firstTileY) ? rect.fTop - deltaY : 0;
-            int right = (i == lastTileX) ? rect.fRight % maxSize : maxSize;
-            int bottom = (j == lastTileY) ? rect.fBottom % maxSize : maxSize;
+            int right = (i == lastTileX) ? rect.fRight % mBucketSizeX : mBucketSizeX;
+            int bottom = (j == lastTileY) ? rect.fBottom % mBucketSizeY : mBucketSizeY;
 
             newRect.set(left, top, right, bottom);
             addToBucket(bucket, deltaX, deltaY, newRect);
@@ -558,22 +558,30 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
 }
 #endif // FAST_PICTURESET
 
-void PictureSet::checkDimensions(int width, int height, SkRegion* inval)
+void PictureSet::setDimensions(int width, int height, SkRegion* inval)
 {
+    // Note that setDimensions() may be called by our ctor and should behave accordingly
     if (mWidth == width && mHeight == height)
         return;
     DBG_SET_LOGD("%p old:(w=%d,h=%d) new:(w=%d,h=%d)", this,
         mWidth, mHeight, width, height);
-    if (mWidth == width && height > mHeight) { // only grew vertically
-        SkIRect rect;
-        rect.set(0, mHeight, width, height);
-        inval->op(rect, SkRegion::kUnion_Op);
-    } else {
-        clear(); // if both width/height changed, clear the old cache
-        inval->setRect(0, 0, width, height);
+    if (inval) {
+        if (mWidth == width && height > mHeight) { // only grew vertically
+            SkIRect rect;
+            rect.set(0, mHeight, width, height);
+            inval->op(rect, SkRegion::kUnion_Op);
+        } else {
+            inval->setRect(0, 0, width, height);
+        }
     }
+    clear(); // clear the old cache
     mWidth = width;
     mHeight = height;
+#ifdef FAST_PICTURESET
+    mBucketSizeX = MAX(BUCKET_SIZE, (width + MAX_BUCKET_COUNT_X - 1) / MAX_BUCKET_COUNT_X);
+    mBucketSizeY = MAX(BUCKET_SIZE, (height + MAX_BUCKET_COUNT_Y - 1) / MAX_BUCKET_COUNT_Y);
+    XLOGC("mBucketSizeX=%d mBucketSizeY=%d", mBucketSizeX, mBucketSizeY);
+#endif
 }
 
 void PictureSet::clear()
@@ -600,6 +608,7 @@ void PictureSet::clear()
     mPictures.clear();
 #endif // FAST_PICTURESET
     mWidth = mHeight = 0;
+    mBucketSizeX = mBucketSizeY = 0;
 }
 
 bool PictureSet::draw(SkCanvas* canvas)
@@ -890,8 +899,7 @@ void PictureSet::set(const PictureSet& src)
 {
     DBG_SET_LOGD("start %p src=%p", this, &src);
     clear();
-    mWidth = src.mWidth;
-    mHeight = src.mHeight;
+    setDimensions(src.mWidth, src.mHeight);
 #ifdef FAST_PICTURESET
     XLOG("\n--- set picture ---");
     for (BucketMap::const_iterator iter = src.mBuckets.begin();
