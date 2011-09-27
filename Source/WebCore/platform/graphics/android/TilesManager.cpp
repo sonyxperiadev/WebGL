@@ -70,7 +70,7 @@
 #define TILE_HEIGHT 256
 #define LAYER_TILE_WIDTH 256
 #define LAYER_TILE_HEIGHT 256
-#define LAYER_TILES 50
+#define LAYER_TILES 100
 
 // Define a maximum amount of ram used by layers
 #define MAX_LAYERS_ALLOCATION 33554432 // 32Mb
