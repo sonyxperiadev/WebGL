@@ -67,8 +67,6 @@
 
 #endif // DEBUG
 
-#define MAX(a,b) ((a)<(b)?(b):(a))
-
 #if PICTURE_SET_DEBUG
 class MeasureStream : public SkWStream {
 public:
@@ -84,12 +82,16 @@ public:
 namespace android {
 
 PictureSet::PictureSet()
+    : mBucketSizeX(0), mBucketSizeY(0), mBucketCountX(0), mBucketCountY(0),
+      mHeight(0), mWidth(0)
 {
     setDimensions(0, 0);
     mBaseArea = mAdditionalArea = 0;
 }
 
 PictureSet::PictureSet(SkPicture* picture)
+    : mBucketSizeX(0), mBucketSizeY(0), mBucketCountX(0), mBucketCountY(0),
+      mHeight(0), mWidth(0)
 {
     mBaseArea = mAdditionalArea = 0;
     if (!picture) {
@@ -186,7 +188,7 @@ Bucket* PictureSet::getBucket(int x, int y)
 
     BucketPosition position(x+1, y+1);
     if (!mBuckets.contains(position)) {
-        XLOGC("PictureSet::getBucket(%d, %d) adding new bucket", x, y);
+        XLOG("PictureSet::getBucket(%d, %d) adding new bucket", x, y);
         Bucket* bucket = new Bucket();
         mBuckets.add(position, bucket);
     }
@@ -565,22 +567,52 @@ void PictureSet::setDimensions(int width, int height, SkRegion* inval)
         return;
     DBG_SET_LOGD("%p old:(w=%d,h=%d) new:(w=%d,h=%d)", this,
         mWidth, mHeight, width, height);
+    bool clearCache = false;
     if (inval) {
         if (mWidth == width && height > mHeight) { // only grew vertically
             SkIRect rect;
             rect.set(0, mHeight, width, height);
             inval->op(rect, SkRegion::kUnion_Op);
         } else {
+            clearCache = true;
             inval->setRect(0, 0, width, height);
         }
     }
-    clear(); // clear the old cache
+#ifdef FAST_PICTURESET
+    // First figure out how large each bucket would be if we used all of the buckets
+    int tmpSizeX = (width + MAX_BUCKET_COUNT_X - 1) / MAX_BUCKET_COUNT_X;
+    int tmpSizeY = (height + MAX_BUCKET_COUNT_Y - 1) / MAX_BUCKET_COUNT_Y;
+
+    // Then round the bucket size up to the nearest chunk
+    int bucketSizeX = ((tmpSizeX - 1) / BUCKET_SIZE + 1) * BUCKET_SIZE;
+    int bucketSizeY = ((tmpSizeY - 1) / BUCKET_SIZE + 1) * BUCKET_SIZE;
+
+    int bucketCountX = (width + bucketSizeX - 1) / bucketSizeX;
+    int bucketCountY = (height + bucketSizeY - 1) / bucketSizeY;
+
+    // Clear the cache if the horizontal bucket count changed or the vertical
+    // count shrank
+    if (bucketCountX != mBucketCountX || bucketCountY < mBucketCountY)
+        clearCache = true;
+
+    // Or if the bucket size changed
+    if (bucketSizeX != mBucketSizeX || bucketSizeY != mBucketSizeY)
+        clearCache = true;
+
+    XLOG("old width=%d height=%d bucketSizeX=%d bucketSizeY=%d bucketCountX=%d bucketCountY=%d clearCache=%d",
+         mWidth, mHeight, mBucketSizeX, mBucketSizeY, mBucketCountX, mBucketCountY, clearCache);
+    XLOG("new width=%d height=%d bucketSizeX=%d bucketSizeY=%d bucketCountX=%d bucketCountY=%d clearCache=%d",
+         width, height, bucketSizeX, bucketSizeY, bucketCountX, bucketCountY, clearCache);
+#endif
+    if (clearCache)
+        clear();
     mWidth = width;
     mHeight = height;
 #ifdef FAST_PICTURESET
-    mBucketSizeX = MAX(BUCKET_SIZE, (width + MAX_BUCKET_COUNT_X - 1) / MAX_BUCKET_COUNT_X);
-    mBucketSizeY = MAX(BUCKET_SIZE, (height + MAX_BUCKET_COUNT_Y - 1) / MAX_BUCKET_COUNT_Y);
-    XLOGC("mBucketSizeX=%d mBucketSizeY=%d", mBucketSizeX, mBucketSizeY);
+    mBucketSizeX = bucketSizeX;
+    mBucketSizeY = bucketSizeY;
+    mBucketCountX = bucketCountX;
+    mBucketCountY = bucketCountY;
 #endif
 }
 

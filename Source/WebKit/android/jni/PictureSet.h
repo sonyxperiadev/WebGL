@@ -119,6 +119,8 @@ namespace android {
         WTF::Vector<Bucket*> mUpdatedBuckets;
         int mBucketSizeX;
         int mBucketSizeY;
+        int mBucketCountX;
+        int mBucketCountY;
 #else
         struct Pictures {
             SkRegion mArea;
