@@ -142,6 +142,7 @@ struct JavaGlue {
     jfieldID    m_rectFTop;
     jmethodID   m_rectFWidth;
     jmethodID   m_rectFHeight;
+    jmethodID   m_getTextHandleScale;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -171,6 +172,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir)
         "viewInvalidateDelayed", "(JIIII)V");
     m_javaGlue.m_pageSwapCallback = GetJMethod(env, clazz, "pageSwapCallback", "()V");
     m_javaGlue.m_inFullScreenMode = GetJMethod(env, clazz, "inFullScreenMode", "()Z");
+    m_javaGlue.m_getTextHandleScale = GetJMethod(env, clazz, "getTextHandleScale", "()F");
     env->DeleteLocalRef(clazz);
 
     jclass rectClass = env->FindClass("android/graphics/Rect");
@@ -238,6 +240,26 @@ void stopGL()
 
 WebViewCore* getWebViewCore() const {
     return m_viewImpl;
+}
+
+float getTextHandleScale()
+{
+    LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue.object(env);
+    if (!javaObject.get())
+        return 0;
+    float result = env->CallFloatMethod(javaObject.get(), m_javaGlue.m_getTextHandleScale);
+    checkException(env);
+    return result;
+}
+
+void updateSelectionHandles()
+{
+    if (!m_baseLayer)
+        return;
+    // Adjust for device density & scale
+    m_selectText.updateHandleScale(getTextHandleScale());
 }
 
 // removes the cursor altogether (e.g., when going to a new page)
@@ -526,6 +548,10 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
             extra = &m_findOnPage;
             break;
         case DrawExtrasSelection:
+            // This will involve a JNI call, but under normal circumstances we will
+            // not hit this anyway. Only if USE_JAVA_TEXT_SELECTION is disabled
+            // in WebView.java will we hit this (so really debug only)
+            updateSelectionHandles();
             extra = &m_selectText;
             break;
         case DrawExtrasCursorRing:
@@ -644,6 +670,10 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
             extra = &m_findOnPage;
             break;
         case DrawExtrasSelection:
+            // This will involve a JNI call, but under normal circumstances we will
+            // not hit this anyway. Only if USE_JAVA_TEXT_SELECTION is disabled
+            // in WebView.java will we hit this (so really debug only)
+            updateSelectionHandles();
             extra = &m_selectText;
             break;
         case DrawExtrasCursorRing:
@@ -1276,6 +1306,7 @@ bool startSelection(int x, int y)
     const CachedRoot* root = getFrameCache(DontAllowNewer);
     if (!root)
         return false;
+    updateSelectionHandles();
     return m_selectText.startSelection(root, getVisibleRect(), x, y);
 }
 
@@ -1284,6 +1315,7 @@ bool wordSelection(int x, int y)
     const CachedRoot* root = getFrameCache(DontAllowNewer);
     if (!root)
         return false;
+    updateSelectionHandles();
     return m_selectText.wordSelection(root, getVisibleRect(), x, y);
 }
 
@@ -1295,6 +1327,7 @@ bool extendSelection(int x, int y)
 
 bool hitSelection(int x, int y)
 {
+    updateSelectionHandles();
     return m_selectText.hitSelection(x, y);
 }
 

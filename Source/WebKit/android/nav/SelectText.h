@@ -58,11 +58,14 @@ public:
     bool startSelection(const CachedRoot* , const IntRect& vis, int x, int y);
     bool wordSelection(const CachedRoot* , const IntRect& vis, int x, int y);
     void getSelectionRegion(const IntRect& vis, SkRegion *region);
+    void updateHandleScale(float handleScale);
 public:
     float m_inverseScale; // inverse scale, x, y used for drawing select path
     int m_selectX;
     int m_selectY;
 private:
+    int m_controlWidth;
+    int m_controlHeight;
     class FirstCheck;
     class EdgeCheck;
     void drawSelectionPointer(SkCanvas* , IntRect* );
@@ -77,6 +80,8 @@ private:
     static void getSelectionArrow(SkPath* );
     void getSelectionCaret(SkPath* );
     bool hitCorner(int cx, int cy, int x, int y) const;
+    bool hitStartHandle(int x, int y) const;
+    bool hitEndHandle(int x, int y) const;
     void setVisibleRect(const IntRect& );
     void swapAsNeeded();
     SkIPoint m_original; // computed start of extend selection

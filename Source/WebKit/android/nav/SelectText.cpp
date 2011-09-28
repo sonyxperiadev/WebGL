@@ -50,6 +50,7 @@
 
 #define VERBOSE_LOGGING 0
 // #define EXTRA_NOISY_LOGGING 1
+#define DEBUG_TOUCH_HANDLES 0
 
 // TextRunIterator has been copied verbatim from GraphicsContext.cpp
 namespace WebCore {
@@ -1306,8 +1307,10 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
 }
 
 #define CONTROL_NOTCH 16
-#define CONTROL_HEIGHT 35
-#define CONTROL_WIDTH 21
+// TODO: Now that java is the one actually drawing these, get the real values
+// from the drawable itself
+#define CONTROL_HEIGHT 47
+#define CONTROL_WIDTH 26
 #define STROKE_WIDTH 1.0f
 #define STROKE_OUTSET 3.5f
 #define STROKE_I_OUTSET 4 // (int) ceil(STROKE_OUTSET)
@@ -1315,9 +1318,9 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
 #define OUTER_COLOR 0x33000000
 #define INNER_COLOR 0xe6aae300
 
-#define SLOP 35
-
 SelectText::SelectText()
+    : m_controlWidth(CONTROL_WIDTH)
+    , m_controlHeight(CONTROL_HEIGHT)
 {
     m_picture = 0;
     reset();
@@ -1512,14 +1515,31 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas, IntRect* inval)
     paint.setColor(SkColorSetARGB(0x80, 0x83, 0xCC, 0x39));
     canvas->drawPath(path, paint);
     // experiment to draw touchable controls that resize the selection
+    float scale = m_controlHeight / (float)CONTROL_HEIGHT;
     canvas->save();
     canvas->translate(m_selStart.fLeft, m_selStart.fBottom);
+    canvas->scale(scale, scale);
     canvas->drawPicture(m_startControl);
     canvas->restore();
     canvas->save();
     canvas->translate(m_selEnd.fRight, m_selEnd.fBottom);
+    canvas->scale(scale, scale);
     canvas->drawPicture(m_endControl);
     canvas->restore();
+
+#if DEBUG_TOUCH_HANDLES
+    SkRect touchHandleRect;
+    paint.setColor(SkColorSetARGB(0xA0, 0xFF, 0x00, 0x00));
+    touchHandleRect.set(0, m_selStart.fBottom, m_selStart.fLeft, 0);
+    touchHandleRect.fBottom = touchHandleRect.fTop + m_controlHeight;
+    touchHandleRect.fLeft = touchHandleRect.fRight - m_controlWidth;
+    canvas->drawRect(touchHandleRect, paint);
+    touchHandleRect.set(m_selEnd.fRight, m_selEnd.fBottom, 0, 0);
+    touchHandleRect.fBottom = touchHandleRect.fTop + m_controlHeight;
+    touchHandleRect.fRight = touchHandleRect.fLeft + m_controlWidth;
+    canvas->drawRect(touchHandleRect, paint);
+#endif
+
     SkIRect a = diff.getBounds();
     SkIRect b = m_selRegion.getBounds();
     diff.op(m_selRegion, SkRegion::kXOR_Op);
@@ -1759,22 +1779,29 @@ void SelectText::getSelectionCaret(SkPath* path)
 bool SelectText::hitCorner(int cx, int cy, int x, int y) const
 {
     SkIRect test;
-    test.set(cx, cy, cx, cy);
-    test.inset(-SLOP, -SLOP);
+    test.set(cx, cy, cx + m_controlWidth, cy + m_controlHeight);
     return test.contains(x, y);
+}
+
+bool SelectText::hitStartHandle(int x, int y) const
+{
+    int left = m_selStart.fLeft - m_controlWidth;
+    return hitCorner(left, m_selStart.fBottom, x, y);
+}
+
+bool SelectText::hitEndHandle(int x, int y) const
+{
+    int left = m_selEnd.fRight;
+    return hitCorner(left, m_selEnd.fBottom, x, y);
 }
 
 bool SelectText::hitSelection(int x, int y) const
 {
     x -= m_startOffset.fX;
     y -= m_startOffset.fY;
-    int left = m_selStart.fLeft - CONTROL_WIDTH / 2;
-    int top = m_selStart.fBottom + CONTROL_HEIGHT / 2;
-    if (hitCorner(left, top, x, y))
+    if (hitStartHandle(x, y))
         return true;
-    int right = m_selEnd.fRight + CONTROL_WIDTH / 2;
-    int bottom = m_selEnd.fBottom + CONTROL_HEIGHT / 2;
-    if (hitCorner(right, bottom, x, y))
+    if (hitEndHandle(x, y))
         return true;
     return m_selRegion.contains(x, y);
 }
@@ -1897,15 +1924,11 @@ bool SelectText::startSelection(const CachedRoot* root, const IntRect& vis,
         m_startSelection = true;
         return true;
     }
-    int left = m_selStart.fLeft - CONTROL_WIDTH / 2;
-    int top = m_selStart.fBottom + CONTROL_HEIGHT / 2;
-    m_hitTopLeft = hitCorner(left, top, x, y);
-    int right = m_selEnd.fRight + CONTROL_WIDTH / 2;
-    int bottom = m_selEnd.fBottom + CONTROL_HEIGHT / 2;
-    bool hitBottomRight = hitCorner(right, bottom, x, y);
+    m_hitTopLeft = hitStartHandle(x, y);
+    bool hitBottomRight = hitEndHandle(x, y);
     DBG_NAV_LOGD("picture=(%d,%d) left=%d top=%d right=%d bottom=%d x=%d y=%d",
         m_picture->width(), m_picture->height(),left, top, right, bottom, x, y);
-    if (m_hitTopLeft && (!hitBottomRight || y - top < bottom - y)) {
+    if (m_hitTopLeft) {
         DBG_NAV_LOG("hit top left");
         m_original.fX -= m_selStart.fLeft;
         m_original.fY -= (m_selStart.fTop + m_selStart.fBottom) >> 1;
@@ -1915,6 +1938,12 @@ bool SelectText::startSelection(const CachedRoot* root, const IntRect& vis,
         m_original.fY -= (m_selEnd.fTop + m_selEnd.fBottom) >> 1;
     }
     return m_hitTopLeft || hitBottomRight;
+}
+
+void SelectText::updateHandleScale(float handleScale)
+{
+    m_controlHeight = CONTROL_HEIGHT * handleScale;
+    m_controlWidth = CONTROL_WIDTH * handleScale;
 }
 
 /* selects the word at (x, y)
