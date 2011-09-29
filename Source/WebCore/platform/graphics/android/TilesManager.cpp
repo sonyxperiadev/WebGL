@@ -215,16 +215,11 @@ void TilesManager::swapLayersTextures(LayerAndroid* oldTree, LayerAndroid* newTr
     if (newTree)
         newTree->createTexture();
 
-    WTF::Vector<PaintedSurface*> collect;
-    for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
-        PaintedSurface* surface = m_paintedSurfaces[i];
-        if (!surface->layer())
-            collect.append(surface);
-    }
-    for (unsigned int i = 0; i < collect.size(); i++) {
-        m_paintedSurfaces.remove(m_paintedSurfaces.find(collect[i]));
-        SkSafeUnref(collect[i]);
-    }
+    GLWebViewState* oldState = 0;
+    if (oldTree && !newTree)
+        oldState = oldTree->state();
+
+    paintedSurfacesCleanup(oldState);
 }
 
 void TilesManager::addPaintedSurface(PaintedSurface* surface)
@@ -381,6 +376,39 @@ float TilesManager::layerTileWidth()
 float TilesManager::layerTileHeight()
 {
     return LAYER_TILE_HEIGHT;
+}
+
+void TilesManager::paintedSurfacesCleanup(GLWebViewState* state)
+{
+    // PaintedSurfaces are created by LayerAndroid with a refcount of 1,
+    // and just transferred to new (corresponding) layers when a new layer tree
+    // is received.
+    // PaintedSurface also keep a reference on the Layer it currently has, so
+    // when we unref the tree of layer, those layers with a PaintedSurface will
+    // still be around if we do nothing.
+    // Here, if the surface does not have any associated layer, it means that we
+    // received a new layer tree without a corresponding layer (i.e. a layer
+    // using a texture has been removed by webkit).
+    // In that case, we remove the PaintedSurface from our list, and unref it.
+    // If the surface does have a layer, but the GLWebViewState associated to
+    // that layer is different from the one passed in parameter, it means we can
+    // also remove the surface (and we also remove/unref any layer that surface
+    // has). We do this when we deallocate GLWebViewState (i.e. the webview has
+    // been destroyed) and also when we switch to a page without
+    // composited layers.
+
+    WTF::Vector<PaintedSurface*> collect;
+    for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
+        PaintedSurface* surface = m_paintedSurfaces[i];
+        if (!surface->layer() || (state && surface->layer()->state() == state))
+            collect.append(surface);
+    }
+    for (unsigned int i = 0; i < collect.size(); i++) {
+        PaintedSurface* surface = collect[i];
+        m_paintedSurfaces.remove(m_paintedSurfaces.find(surface));
+        surface->removeLayer();
+        SkSafeUnref(surface);
+    }
 }
 
 void TilesManager::unregisterGLWebViewState(GLWebViewState* state)

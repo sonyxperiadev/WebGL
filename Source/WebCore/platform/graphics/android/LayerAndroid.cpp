@@ -170,12 +170,8 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
 
 LayerAndroid::~LayerAndroid()
 {
-    if (m_texture)
-        m_texture->removeLayer(this);
-    SkSafeUnref(m_texture);
     if (m_imageTexture)
         TilesManager::instance()->removeImage(m_imageTexture->imageRef());
-    removeChildren();
     delete m_extra;
     SkSafeUnref(m_recordingPicture);
     m_animations.clear();
@@ -666,6 +662,12 @@ bool LayerAndroid::needsTexture()
         && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
+void LayerAndroid::removeTexture(PaintedSurface* texture)
+{
+    if (texture == m_texture)
+        m_texture = 0;
+}
+
 IntRect LayerAndroid::clippedRect() const
 {
     IntRect r(0, 0, getWidth(), getHeight());
@@ -739,7 +741,7 @@ void LayerAndroid::assignTextureTo(LayerAndroid* newTree)
         if (newLayer && m_texture) {
             m_texture->replaceLayer(newLayer);
             newLayer->m_texture = m_texture;
-            SkSafeRef(newLayer->m_texture);
+            m_texture = 0;
         }
         if (!newLayer && m_texture) {
             m_texture->removeLayer(this);
@@ -801,6 +803,8 @@ void LayerAndroid::clearDirtyRegion()
 
 void LayerAndroid::prepare(GLWebViewState* glWebViewState)
 {
+    m_state = glWebViewState;
+
     int count = this->countChildren();
     if (count > 0) {
         Vector <LayerAndroid*> sublayers;

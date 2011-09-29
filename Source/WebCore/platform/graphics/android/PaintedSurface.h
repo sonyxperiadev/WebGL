@@ -58,14 +58,7 @@ public:
 #endif
         m_tiledTexture = new TiledTexture(this);
     }
-    virtual ~PaintedSurface()
-    {
-        SkSafeUnref(m_layer);
-#ifdef DEBUG_COUNT
-        ClassTracker::instance()->decrement("PaintedSurface");
-#endif
-        delete m_tiledTexture;
-    };
+    virtual ~PaintedSurface();
 
     // PaintedSurface methods
 
@@ -74,6 +67,7 @@ public:
     bool draw();
     void markAsDirty(const SkRegion& dirtyArea);
     bool paint(SkCanvas*);
+    void removeLayer();
     void removeLayer(LayerAndroid* layer);
     void replaceLayer(LayerAndroid* layer);
     bool busy();

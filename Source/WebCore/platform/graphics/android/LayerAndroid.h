@@ -106,7 +106,7 @@ public:
     virtual ~LayerAndroid();
 
     virtual TiledPage* page() { return 0; }
-    virtual GLWebViewState* state() { return 0; }
+    virtual GLWebViewState* state() { return m_state; }
 
     void setBackfaceVisibility(bool value) { m_backfaceVisibility = value; }
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
@@ -120,6 +120,7 @@ public:
     bool outsideViewport();
 
     virtual bool needsTexture();
+    void removeTexture(PaintedSurface*);
 
     // Debug helper methods
     int nbLayers();
@@ -376,6 +377,8 @@ private:
     android::Mutex m_atomicSync;
 
     RenderLayer* m_owningLayer;
+
+    GLWebViewState* m_state;
 
     typedef Layer INHERITED;
 };

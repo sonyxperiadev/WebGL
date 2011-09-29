@@ -116,6 +116,10 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
 
 GLWebViewState::~GLWebViewState()
 {
+    // Unref the existing tree/PaintedSurfaces
+    if (m_previouslyUsedRoot)
+        TilesManager::instance()->swapLayersTextures(m_previouslyUsedRoot, 0);
+
     // Take care of the transfer queue such that Tex Gen thread will not stuck
     TilesManager::instance()->unregisterGLWebViewState(this);
 

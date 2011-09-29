@@ -49,10 +49,30 @@
 
 namespace WebCore {
 
+PaintedSurface::~PaintedSurface()
+{
+    XLOG("dtor of %x m_layer: %x", this, m_layer);
+    android::Mutex::Autolock lock(m_layerLock);
+    SkSafeUnref(m_layer);
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->decrement("PaintedSurface");
+#endif
+    delete m_tiledTexture;
+}
+
 bool PaintedSurface::busy()
 {
     android::Mutex::Autolock lock(m_layerLock);
     return m_busy;
+}
+
+void PaintedSurface::removeLayer()
+{
+    android::Mutex::Autolock lock(m_layerLock);
+    if (m_layer)
+        m_layer->removeTexture(this);
+    SkSafeUnref(m_layer);
+    m_layer = 0;
 }
 
 void PaintedSurface::removeLayer(LayerAndroid* layer)
