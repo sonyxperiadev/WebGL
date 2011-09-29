@@ -659,6 +659,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     SkSafeUnref(baseLayer);
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->showTrackTextures();
+    TilesManager::instance()->showImages();
 #endif
     return ret;
 }

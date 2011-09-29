@@ -73,7 +73,8 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_requestSent(false),
     m_scale(1),
     m_lastComputeTextureSize(0),
-    m_owningLayer(owner)
+    m_owningLayer(owner),
+    m_type(LayerAndroid::WebCoreLayer)
 {
     m_backgroundColor = 0;
 
@@ -83,6 +84,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid");
+    ClassTracker::instance()->add(this);
 #endif
 }
 
@@ -94,7 +96,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_texture(0),
     m_imageTexture(0),
     m_requestSent(false),
-    m_owningLayer(layer.m_owningLayer)
+    m_owningLayer(layer.m_owningLayer),
+    m_type(LayerAndroid::UILayer)
 {
     m_isFixed = layer.m_isFixed;
     m_imageRef = layer.m_imageRef;
@@ -139,7 +142,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     }
 
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("LayerAndroid");
+    ClassTracker::instance()->increment("LayerAndroid - recopy (UI?)");
+    ClassTracker::instance()->add(this);
 #endif
 }
 
@@ -156,7 +160,8 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_requestSent(false),
     m_scale(1),
     m_lastComputeTextureSize(0),
-    m_owningLayer(0)
+    m_owningLayer(0),
+    m_type(LayerAndroid::NavCacheLayer)
 {
     m_backgroundColor = 0;
     m_dirty = false;
@@ -164,7 +169,8 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_iframeOffset.set(0,0);
     m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("LayerAndroid");
+    ClassTracker::instance()->increment("LayerAndroid - from picture");
+    ClassTracker::instance()->add(this);
 #endif
 }
 
@@ -176,7 +182,13 @@ LayerAndroid::~LayerAndroid()
     SkSafeUnref(m_recordingPicture);
     m_animations.clear();
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->decrement("LayerAndroid");
+    ClassTracker::instance()->remove(this);
+    if (m_type == LayerAndroid::WebCoreLayer)
+        ClassTracker::instance()->decrement("LayerAndroid");
+    else if (m_type == LayerAndroid::UILayer)
+        ClassTracker::instance()->decrement("LayerAndroid - recopy (UI)");
+    else if (m_type == LayerAndroid::NavCacheLayer)
+        ClassTracker::instance()->decrement("LayerAndroid - from picture");
 #endif
 }
 

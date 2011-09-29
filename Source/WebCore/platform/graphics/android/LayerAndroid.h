@@ -100,6 +100,7 @@ class PaintedSurface;
 
 class LayerAndroid : public Layer {
 public:
+    enum LayerType { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer };
     LayerAndroid(RenderLayer* owner);
     LayerAndroid(const LayerAndroid& layer);
     LayerAndroid(SkPicture*);
@@ -272,6 +273,10 @@ public:
     void assignTextureTo(LayerAndroid* newTree);
     void createTexture();
 
+    SkBitmapRef* imageRef() { return m_imageRef; }
+    ImageTexture* imageTexture() { return m_imageTexture; }
+    int type() { return m_type; }
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
@@ -379,7 +384,7 @@ private:
     RenderLayer* m_owningLayer;
 
     GLWebViewState* m_state;
-
+    int m_type;
     typedef Layer INHERITED;
 };
 

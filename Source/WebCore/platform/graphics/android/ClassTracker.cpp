@@ -26,6 +26,8 @@
 #include "config.h"
 #include "ClassTracker.h"
 
+#include "LayerAndroid.h"
+
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
@@ -46,6 +48,7 @@ ClassTracker* ClassTracker::gInstance = 0;
 
 void ClassTracker::increment(String name)
 {
+   android::Mutex::Autolock lock(m_lock);
    int value = 0;
    if (m_classes.contains(name))
        value = m_classes.get(name);
@@ -55,6 +58,7 @@ void ClassTracker::increment(String name)
 
 void ClassTracker::decrement(String name)
 {
+   android::Mutex::Autolock lock(m_lock);
    int value = 0;
    if (m_classes.contains(name))
        value = m_classes.get(name);
@@ -62,12 +66,37 @@ void ClassTracker::decrement(String name)
    m_classes.set(name, value - 1);
 }
 
+
+void ClassTracker::add(LayerAndroid* layer)
+{
+   android::Mutex::Autolock lock(m_lock);
+   m_layers.append(layer);
+}
+
+void ClassTracker::remove(LayerAndroid* layer)
+{
+   android::Mutex::Autolock lock(m_lock);
+   m_layers.remove(m_layers.find(layer));
+}
+
 void ClassTracker::show()
 {
+   android::Mutex::Autolock lock(m_lock);
    XLOG("*** Tracking %d classes ***", m_classes.size());
    for (HashMap<String, int>::iterator iter = m_classes.begin(); iter != m_classes.end(); ++iter) {
        XLOG("class %s has %d instances",
             iter->first.latin1().data(), iter->second);
+   }
+   XLOG("*** %d Layers ***", m_layers.size());
+   for (unsigned int i = 0; i < m_layers.size(); i++) {
+       LayerAndroid* layer = m_layers[i];
+       XLOG("[%d/%d] layer %x (%.2f, %.2f) of type %d, refcount(%d) has texture %x has image ref %x (%x) root: %x parent: %x",
+            i, m_layers.size(), layer,
+            layer->getWidth(), layer->getHeight(),
+            layer->type(), layer->getRefCnt(),
+            layer->texture(), layer->imageRef(),
+            layer->imageTexture(), (LayerAndroid*) layer->getRootLayer(),
+            (LayerAndroid*) layer->getParent());
    }
 }
 

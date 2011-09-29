@@ -26,6 +26,7 @@
 #ifndef ClassTracker_h
 #define ClassTracker_h
 
+#include <utils/threads.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/StringHash.h>
 
@@ -34,16 +35,22 @@
 
 namespace WebCore {
 
+class LayerAndroid;
+
 class ClassTracker {
 public:
     static ClassTracker* instance();
     void show();
     void increment(String name);
     void decrement(String name);
+    void add(LayerAndroid*);
+    void remove(LayerAndroid*);
 private:
     ClassTracker() {};
     HashMap<String, int> m_classes;
+    Vector<LayerAndroid*> m_layers;
     static ClassTracker* gInstance;
+    android::Mutex m_lock;
 };
 
 }
