@@ -91,6 +91,8 @@ public:
     GLWebViewState* glWebViewState() { return m_glWebViewState; }
 
     float scale() const { return m_scale; }
+
+    //TODO: clear all textures if this is called with a new value
     void setScale(float scale) { m_scale = scale; m_invScale = 1 / scale; }
 
     void invalidateRect(const IntRect& invalRect, const unsigned int pictureCount);

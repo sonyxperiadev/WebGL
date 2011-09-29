@@ -70,8 +70,8 @@ BaseTile::BaseTile(bool isLayerTile)
     , m_lastDirtyPicture(0)
     , m_isTexturePainted(false)
     , m_isLayerTile(isLayerTile)
-    , m_swapDrawCount(0)
     , m_drawCount(0)
+    , m_state(Unpainted)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("BaseTile");
@@ -113,13 +113,15 @@ BaseTile::~BaseTile()
 
 void BaseTile::setContents(TilePainter* painter, int x, int y, float scale)
 {
-    android::AutoMutex lock(m_atomicSync);
     if ((m_painter != painter)
         || (m_x != x)
         || (m_y != y)
-        || (m_scale != scale))
-        fullInval();
+        || (m_scale != scale)) {
+        // neither texture is relevant
+        discardTextures();
+    }
 
+    android::AutoMutex lock(m_atomicSync);
     m_painter = painter;
     m_x = x;
     m_y = y;
@@ -133,14 +135,15 @@ void BaseTile::reserveTexture()
 
     android::AutoMutex lock(m_atomicSync);
     if (texture && m_backTexture != texture) {
-        m_swapDrawCount = 0; // no longer ready to swap
+        m_state = Unpainted;
         m_backTexture = texture;
     }
 
-    // a texture reservation will only happen if we're dirty, or ready to
-    // swap. if it's the former, ensure it's marked dirty.
-    if (!m_swapDrawCount)
+    if (m_state == UpToDate) {
+        XLOG("moving tile %p to unpainted, since it reserved while up to date", this);
         m_dirty = true;
+        m_state = Unpainted;
+    }
 }
 
 bool BaseTile::removeTexture(BaseTileTexture* texture)
@@ -149,25 +152,24 @@ bool BaseTile::removeTexture(BaseTileTexture* texture)
          this, m_backTexture, m_frontTexture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
-    if (m_frontTexture == texture)
+    if (m_frontTexture == texture) {
+        if (m_state == UpToDate) {
+            XLOG("front texture removed, state was UpToDate, now becoming unpainted, bt is %p", m_backTexture);
+            m_state = Unpainted;
+        }
+
         m_frontTexture = 0;
-    if (m_backTexture == texture)
+    }
+    if (m_backTexture == texture) {
+        m_state = Unpainted;
         m_backTexture = 0;
+    }
 
     // mark dirty regardless of which texture was taken - the back texture may
     // have been ready to swap
     m_dirty = true;
 
     return true;
-}
-
-void BaseTile::fullInval()
-{
-    for (int i = 0; i < m_maxBufferNumber; i++) {
-        m_dirtyArea[i].setEmpty();
-        m_fullRepaint[i] = true;
-    }
-    m_dirty = true;
 }
 
 void BaseTile::markAsDirty(int unsigned pictureCount,
@@ -180,6 +182,20 @@ void BaseTile::markAsDirty(int unsigned pictureCount,
     for (int i = 0; i < m_maxBufferNumber; i++)
         m_dirtyArea[i].op(dirtyArea, SkRegion::kUnion_Op);
     m_dirty = true;
+    if (m_state == UpToDate) {
+        // We only mark a tile as unpainted in 'markAsDirty' if its status is
+        // UpToDate: marking dirty means we need to repaint, but don't stop the
+        // current paint
+        m_state = Unpainted;
+    } else if (m_state != Unpainted) {
+        // layer tiles and prefetch page tiles are potentially marked dirty
+        // while in the process of painting, due to not using an update lock
+
+        // TODO: fix it so that they can paint while deferring the markAsDirty
+        // call (or block updates)
+        XLOG("Warning: tried to mark tile %p at %d, %d islayertile %d as dirty, state %d, page %p",
+              this, m_x, m_y, isLayerTile(), m_state, m_page);
+    }
 }
 
 bool BaseTile::isDirty()
@@ -232,8 +248,9 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
         else
             TilesManager::instance()->shader()->drawQuad(rect, m_frontTexture->m_ownTextureId,
                                                          transparency);
-    } else
-        m_dirty = true;
+    } else {
+        XLOG("tile %p at %d, %d not readyfor (at draw),", this, m_x, m_y);
+    }
 
     m_frontTexture->consumerRelease();
 }
@@ -242,7 +259,7 @@ bool BaseTile::isTileReady()
 {
     // Return true if the tile's most recently drawn texture is up to date
     android::AutoMutex lock(m_atomicSync);
-    BaseTileTexture * texture = m_swapDrawCount ? m_backTexture : m_frontTexture;
+    BaseTileTexture * texture = (m_state == ReadyToSwap) ? m_backTexture : m_frontTexture;
 
     if (!texture)
         return false;
@@ -253,6 +270,9 @@ bool BaseTile::isTileReady()
     if (m_dirty)
         return false;
 
+    if (m_state != ReadyToSwap && m_state != UpToDate)
+        return false;
+
     texture->consumerLock();
     bool ready = texture->readyFor(this);
     texture->consumerRelease();
@@ -260,7 +280,8 @@ bool BaseTile::isTileReady()
     if (ready)
         return true;
 
-    m_dirty = true;
+    XLOG("tile %p at %d, %d not readyfor (at isTileReady)", this, m_x, m_y);
+
     return false;
 }
 
@@ -303,6 +324,11 @@ void BaseTile::paintBitmap()
         m_atomicSync.unlock();
         return;
     }
+    if (m_state != Unpainted) {
+        XLOG("Warning: started painting tile %p, but was at state %d, ft %p bt %p",
+              this, m_state, m_frontTexture, m_backTexture);
+    }
+    m_state = PaintingStarted;
 
     texture->producerAcquireContext();
     TextureInfo* textureInfo = texture->producerLock();
@@ -439,11 +465,10 @@ void BaseTile::paintBitmap()
 
         XLOG("painted tile %p (%d, %d), texture %p, dirty=%d", this, x, y, texture, m_dirty);
 
-        if (!m_dirty) {
-            // swap textures, but WAIT until the next draw call (since we need
-            // to let GLWebViewState blit them at the beginning of drawGL)
-            m_swapDrawCount = TilesManager::instance()->getDrawGLCount() + 1;
-        }
+        validatePaint();
+    } else {
+        XLOG("tile %p no longer owns texture %p, m_state %d. ft %p bt %p",
+             this, texture, m_state, m_frontTexture, m_backTexture);
     }
 
     m_atomicSync.unlock();
@@ -459,25 +484,71 @@ void BaseTile::discardTextures() {
         m_backTexture->release(this);
         m_backTexture = 0;
     }
+    for (int i = 0; i < m_maxBufferNumber; i++) {
+        m_dirtyArea[i].setEmpty();
+        m_fullRepaint[i] = true;
+    }
     m_dirty = true;
+    m_state = Unpainted;
 }
 
 bool BaseTile::swapTexturesIfNeeded() {
     android::AutoMutex lock(m_atomicSync);
-    if (m_swapDrawCount && TilesManager::instance()->getDrawGLCount() >= m_swapDrawCount) {
+    if (m_state == ReadyToSwap) {
         // discard old texture and swap the new one in its place
         if (m_frontTexture)
             m_frontTexture->release(this);
 
-        XLOG("%p's frontTexture was %p, now becoming %p", this, m_frontTexture, m_backTexture);
         m_frontTexture = m_backTexture;
         m_backTexture = 0;
-        m_swapDrawCount = 0;
-        XLOG("display texture for %d, %d front is now %p, texture is %p",
-             m_x, m_y, m_frontTexture, m_backTexture);
+        m_state = UpToDate;
+        XLOG("display texture for %p at %d, %d front is now %p, back is %p",
+             this, m_x, m_y, m_frontTexture, m_backTexture);
+
         return true;
     }
     return false;
+}
+
+void BaseTile::backTextureTransfer() {
+    android::AutoMutex lock(m_atomicSync);
+    if (m_state == PaintingStarted)
+        m_state = TransferredUnvalidated;
+    else if (m_state == ValidatedUntransferred)
+        m_state = ReadyToSwap;
+    else {
+        // shouldn't have transferred a tile in any other state, log
+        XLOG("Note: transferred tile %p at %d %d, state wasn't paintingstarted or validated: %d",
+             this, m_x, m_y, m_state);
+    }
+}
+
+void BaseTile::validatePaint() {
+    // ONLY CALL while m_atomicSync is locked (at the end of paintBitmap())
+
+    if (!m_dirty) {
+        // since after the paint, the tile isn't dirty, 'validate' it - this
+        // may happed before or after the transfer queue operation. Only
+        // when both have happened, mark as 'ReadyToSwap'
+        if (m_state == PaintingStarted)
+            m_state = ValidatedUntransferred;
+        else if (m_state == TransferredUnvalidated)
+            m_state = ReadyToSwap;
+        else {
+            // shouldn't have just finished painting in any other state, log
+            XLOG("Note: validated tile %p at %d %d, state wasn't paintingstarted or transferred %d",
+                  this, m_x, m_y, m_state);
+        }
+
+        if (m_deferredDirty) {
+            XLOG("Note: deferred dirty flag set, possibly a missed paint on tile %p", this);
+            m_deferredDirty = false;
+        }
+    } else {
+        XLOG("Note: paint was unsuccessful.");
+        m_state = Unpainted;
+    }
+
 }
 
 } // namespace WebCore

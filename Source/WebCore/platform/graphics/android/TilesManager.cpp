@@ -314,9 +314,12 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         BaseTile* previousOwner = static_cast<BaseTile*>(farthestTexture->owner());
         if (farthestTexture->acquire(owner)) {
             if (previousOwner) {
-                XLOG("%s texture %p stolen from tile %d, %d, drawCount was %llu (current is %llu)",
+                previousOwner->removeTexture(farthestTexture);
+
+                XLOG("%s texture %p stolen from tile %d, %d for %d, %d, drawCount was %llu (now %llu)",
                      owner->isLayerTile() ? "LAYER" : "BASE",
                      farthestTexture, previousOwner->x(), previousOwner->y(),
+                     owner->x(), owner->y(),
                      oldestDrawCount, getDrawGLCount());
             }
 
