@@ -81,17 +81,23 @@ public:
 
 namespace android {
 
-PictureSet::PictureSet()
-    : mBucketSizeX(0), mBucketSizeY(0), mBucketCountX(0), mBucketCountY(0),
-      mHeight(0), mWidth(0)
+PictureSet::PictureSet() :
+#ifdef FAST_PICTURESET
+    mBucketSizeX(BUCKET_SIZE), mBucketSizeY(BUCKET_SIZE),
+    mBucketCountX(0), mBucketCountY(0),
+#endif
+    mHeight(0), mWidth(0)
 {
     setDimensions(0, 0);
     mBaseArea = mAdditionalArea = 0;
 }
 
-PictureSet::PictureSet(SkPicture* picture)
-    : mBucketSizeX(0), mBucketSizeY(0), mBucketCountX(0), mBucketCountY(0),
-      mHeight(0), mWidth(0)
+PictureSet::PictureSet(SkPicture* picture) :
+#ifdef FAST_PICTURESET
+    mBucketSizeX(BUCKET_SIZE), mBucketSizeY(BUCKET_SIZE),
+    mBucketCountX(0), mBucketCountY(0),
+#endif
+    mHeight(0), mWidth(0)
 {
     mBaseArea = mAdditionalArea = 0;
     if (!picture) {
@@ -311,6 +317,12 @@ void PictureSet::gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect&
           rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
           rect.width(), rect.height());
 
+    if (!mBucketSizeX || !mBucketSizeY) {
+        XLOGC("PictureSet::gatherBucketsForArea() called with bad bucket size: x=%d y=%d",
+              mBucketSizeX, mBucketSizeY);
+        return;
+    }
+
     int x = rect.fLeft;
     int y = rect.fTop;
     int firstTileX = rect.fLeft / mBucketSizeX;
@@ -336,6 +348,12 @@ void PictureSet::splitAdd(const SkIRect& rect)
     XLOG("\n--- splitAdd for rect %d, %d, %d, %d (%d x %d)",
           rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
           rect.width(), rect.height());
+
+    if (!mBucketSizeX || !mBucketSizeY) {
+        XLOGC("PictureSet::splitAdd() called with bad bucket size: x=%d y=%d",
+              mBucketSizeX, mBucketSizeY);
+        return;
+    }
 
     // TODO: reuse gatherBucketsForArea() (change Bucket to be a class)
     int x = rect.fLeft;
@@ -631,6 +649,7 @@ void PictureSet::clear()
          bucket->clear();
     }
     mBuckets.clear();
+    mBucketSizeX = mBucketSizeY = BUCKET_SIZE;
 #else
     Pictures* last = mPictures.end();
     for (Pictures* working = mPictures.begin(); working != last; working++) {
@@ -640,7 +659,6 @@ void PictureSet::clear()
     mPictures.clear();
 #endif // FAST_PICTURESET
     mWidth = mHeight = 0;
-    mBucketSizeX = mBucketSizeY = 0;
 }
 
 bool PictureSet::draw(SkCanvas* canvas)
