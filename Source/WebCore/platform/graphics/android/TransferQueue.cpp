@@ -54,7 +54,7 @@
 
 // Set this to 1 if we would like to take the new GpuUpload approach which
 // relied on the glCopyTexSubImage2D instead of a glDraw call
-#define GPU_UPLOAD_WITHOUT_DRAW 0
+#define GPU_UPLOAD_WITHOUT_DRAW 1
 
 namespace WebCore {
 
