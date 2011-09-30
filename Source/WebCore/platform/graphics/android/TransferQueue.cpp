@@ -173,9 +173,6 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
                                                             0);
     }
     GLUtils::checkEglError("CreateSyncKHR");
-    // Clean up FBO setup.
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
-
     GLUtils::checkGlError("copy the surface texture into the normal one");
 }
 
@@ -260,8 +257,6 @@ void TransferQueue::discardQueue()
 // Call on UI thread to copy from the shared Surface Texture to the BaseTile's texture.
 void TransferQueue::updateDirtyBaseTiles()
 {
-    if (m_currentUploadType == GpuUpload)
-        saveGLState();
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
 
     cleanupTransportQueue();
@@ -272,6 +267,7 @@ void TransferQueue::updateDirtyBaseTiles()
     // the texture and blit that into each BaseTile's texture.
     const int nextItemIndex = getNextTransferQueueIndex();
     int index = nextItemIndex;
+    bool usedFboForUpload = false;
     for (int k = 0; k < ST_BUFFER_NUMBER ; k++) {
         if (m_transferQueue[index].status == pendingBlit) {
             bool obsoleteBaseTile = checkObsolete(index);
@@ -298,6 +294,10 @@ void TransferQueue::updateDirtyBaseTiles()
                 GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId, 0, 0,
                                                  *m_transferQueue[index].bitmap);
             } else {
+                if (!usedFboForUpload) {
+                    saveGLState();
+                    usedFboForUpload = true;
+                }
                 blitTileFromQueue(m_fboID, destTexture,
                                   m_sharedSurfaceTextureId,
                                   m_sharedSurfaceTexture->getCurrentTextureTarget(),
@@ -320,8 +320,13 @@ void TransferQueue::updateDirtyBaseTiles()
         index = (index + 1) % ST_BUFFER_NUMBER;
     }
 
-    if (m_currentUploadType == GpuUpload)
+    // Clean up FBO setup. Doing this for both CPU/GPU upload can make the
+    // dynamic switch possible. Moving this out from the loop can save some
+    // milli-seconds.
+    if (usedFboForUpload) {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
         restoreGLState();
+    }
 
     m_emptyItemCount = ST_BUFFER_NUMBER;
     m_transferQueueItemCond.signal();
@@ -461,7 +466,9 @@ void TransferQueue::saveGLState()
     glGetIntegerv(GL_VIEWPORT, m_GLStateBeforeBlit.viewport);
     glGetBooleanv(GL_SCISSOR_TEST, m_GLStateBeforeBlit.scissor);
     glGetBooleanv(GL_DEPTH_TEST, m_GLStateBeforeBlit.depth);
+#if DEBUG
     glGetFloatv(GL_COLOR_CLEAR_VALUE, m_GLStateBeforeBlit.clearColor);
+#endif
 }
 
 void TransferQueue::setGLStateForCopy(int width, int height)
@@ -470,9 +477,11 @@ void TransferQueue::setGLStateForCopy(int width, int height)
     glViewport(0, 0, width, height);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
-
+    // Clear the content is only for debug purpose.
+#if DEBUG
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
+#endif
 }
 
 void TransferQueue::restoreGLState()
@@ -487,11 +496,12 @@ void TransferQueue::restoreGLState()
 
     if (m_GLStateBeforeBlit.depth[0])
         glEnable(GL_DEPTH_TEST);
-
+#if DEBUG
     glClearColor(m_GLStateBeforeBlit.clearColor[0],
                  m_GLStateBeforeBlit.clearColor[1],
                  m_GLStateBeforeBlit.clearColor[2],
                  m_GLStateBeforeBlit.clearColor[3]);
+#endif
 }
 
 int TransferQueue::getNextTransferQueueIndex()
