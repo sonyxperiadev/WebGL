@@ -52,6 +52,10 @@
 
 #define ST_BUFFER_NUMBER 4
 
+// Set this to 1 if we would like to take the new GpuUpload approach which
+// relied on the glCopyTexSubImage2D instead of a glDraw call
+#define GPU_UPLOAD_WITHOUT_DRAW 0
+
 namespace WebCore {
 
 TransferQueue::TransferQueue()
@@ -86,7 +90,11 @@ void TransferQueue::initSharedSurfaceTextures(int width, int height)
     if (!m_sharedSurfaceTextureId) {
         glGenTextures(1, &m_sharedSurfaceTextureId);
         m_sharedSurfaceTexture =
+#if GPU_UPLOAD_WITHOUT_DRAW
+            new android::SurfaceTexture(m_sharedSurfaceTextureId, true, GL_TEXTURE_2D);
+#else
             new android::SurfaceTexture(m_sharedSurfaceTextureId);
+#endif
         m_ANW = new android::SurfaceTextureClient(m_sharedSurfaceTexture);
         m_sharedSurfaceTexture->setSynchronousMode(true);
         m_sharedSurfaceTexture->setBufferCount(ST_BUFFER_NUMBER+1);
@@ -137,6 +145,18 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
                                       GLuint srcTexId, GLenum srcTexTarget,
                                       int index)
 {
+#if GPU_UPLOAD_WITHOUT_DRAW
+    glBindFramebuffer(GL_FRAMEBUFFER, fboID);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,
+                           GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D,
+                           srcTexId,
+                           0);
+    glBindTexture(GL_TEXTURE_2D, destTex->m_ownTextureId);
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+                        destTex->getSize().width(),
+                        destTex->getSize().height());
+#else
     // Then set up the FBO and copy the SurfTex content in.
     glBindFramebuffer(GL_FRAMEBUFFER, fboID);
     glFramebufferTexture2D(GL_FRAMEBUFFER,
@@ -174,7 +194,7 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
                                                             0);
     }
     GLUtils::checkEglError("CreateSyncKHR");
-    GLUtils::checkGlError("copy the surface texture into the normal one");
+#endif
 }
 
 void TransferQueue::interruptTransferQueue(bool interrupt)
@@ -327,6 +347,7 @@ void TransferQueue::updateDirtyBaseTiles()
     if (usedFboForUpload) {
         glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
         restoreGLState();
+        GLUtils::checkGlError("updateDirtyBaseTiles");
     }
 
     m_emptyItemCount = ST_BUFFER_NUMBER;
