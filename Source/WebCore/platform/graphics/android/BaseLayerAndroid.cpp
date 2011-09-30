@@ -232,13 +232,6 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
     bool scrolling = m_scrollState != NotScrolling;
     bool zooming = ZoomManager::kNoScaleRequest != zoomManager->scaleRequestState();
 
-    // prefetch in the nextTiledPage if unused by zooming (even if not scrolling
-    // since we want the tiles to be ready before they're needed)
-    bool usePrefetchPage = !zooming;
-    nextTiledPage->setIsPrefetchPage(usePrefetchPage);
-    if (usePrefetchPage)
-        prefetchBasePicture(viewport, scale, nextTiledPage);
-
     // When we aren't zooming, we should TRY and swap tile buffers if they're
     // ready. When scrolling, we swap whatever's ready. Otherwise, buffer until
     // the entire page is ready and then swap.
@@ -292,6 +285,13 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
 
     XLOG("scrolling %d, zooming %d, buffersSwapped %d, needsRedraw %d",
          scrolling, zooming, buffersSwapped, needsRedraw);
+
+    // prefetch in the nextTiledPage if unused by zooming (even if not scrolling
+    // since we want the tiles to be ready before they're needed)
+    bool usePrefetchPage = !zooming;
+    nextTiledPage->setIsPrefetchPage(usePrefetchPage);
+    if (usePrefetchPage)
+        prefetchBasePicture(viewport, scale, nextTiledPage);
 
     tiledPage->draw(transparency, preZoomBounds);
 
