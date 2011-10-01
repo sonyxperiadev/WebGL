@@ -43,7 +43,7 @@
 #define MAX_ADDITIONAL_AREA 0.65
 #define MAX_ADDITIONAL_PICTURES 32
 
-#define BUCKET_SIZE 256
+#define BUCKET_SIZE 1024
 #define MAX_BUCKET_COUNT_X 16
 #define MAX_BUCKET_COUNT_Y 64
 
@@ -287,6 +287,38 @@ void PictureSet::addToBucket(Bucket* bucket, int dx, int dy, SkIRect& rect)
 
     first = bucket->begin();
     last = bucket->end();
+
+    bool clearUp = false;
+    if (last - first > MAX_ADDITIONAL_PICTURES) {
+        // too many pictures in the bucket, let's collapse
+        clearUp = true;
+    }
+
+    float bucketBaseArea = 0;
+    float bucketAdditionalArea = 0;
+    for (BucketPicture* current = first; current != last; current++) {
+        float area = current->mArea.width() * current->mArea.height();
+        if (current->mBase)
+            bucketBaseArea += area;
+        else
+            bucketAdditionalArea += area;
+    }
+
+    if (bucketBaseArea > 0 && bucketBaseArea * MAX_ADDITIONAL_AREA <= bucketAdditionalArea) {
+        // additional area too large, not worth maintaining
+        clearUp = true;
+    }
+
+    // To clear things up, we just need to mark the pictures' area as empty
+    // We only keep the base surface.
+    if (clearUp) {
+        for (BucketPicture* current = first; current != last; current++) {
+            if (!current->mBase)
+                current->mArea.setEmpty();
+            SkSafeUnref(current->mPicture);
+            current->mPicture = 0;
+        }
+    }
 
     // let's do a pass to collapse out empty areas
     BucketPicture* writer = first;
