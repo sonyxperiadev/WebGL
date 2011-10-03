@@ -1533,7 +1533,13 @@ bool RenderLayerCompositor::requiresCompositingForPlugin(RenderObject* renderer)
 
     // Don't go into compositing mode if height or width are zero, or size is 1x1.
     IntRect contentBox = pluginRenderer->contentBoxRect();
+#if PLATFORM(ANDROID)
+    // allow all plugins including 1x1 to be composited, so that they are drawn,
+    // and acquire an ANativeWindow on the UI thread
+    return contentBox.height() * contentBox.width() > 0;
+#else
     return contentBox.height() * contentBox.width() > 1;
+#endif
 }
 
 bool RenderLayerCompositor::requiresCompositingForFrame(RenderObject* renderer) const
