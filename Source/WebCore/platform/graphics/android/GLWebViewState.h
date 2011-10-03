@@ -177,7 +177,7 @@ public:
     void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&, bool allowSame);
     void paintExtras();
 
-    void setRings(Vector<IntRect>& rings, bool isPressed);
+    void setRings(Vector<IntRect>& rings, bool isPressed, bool isButton);
     void resetRings();
     void drawFocusRing(SkRect& rect);
 
@@ -271,6 +271,7 @@ private:
     bool m_displayRings;
     SkRegion m_rings;
     bool m_ringsIsPressed;
+    bool m_ringsIsButton;
     int m_focusRingTexture;
 
     bool m_isScrolling;

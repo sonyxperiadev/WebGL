@@ -83,6 +83,8 @@
 #define TRIM_MEMORY_BACKGROUND 40
 // Moderate free (clear cached tiles, keep visible ones)
 #define TRIM_MEMORY_UI_HIDDEN 20
+// Duration to show the pressed cursor ring
+#define PRESSED_STATE_DURATION 400
 
 namespace android {
 
@@ -282,6 +284,7 @@ void hideCursor()
         return;
     DBG_NAV_LOG("");
     hideCursor(root);
+    viewInvalidate();
 }
 
 void hideCursor(CachedRoot* root)
@@ -289,7 +292,6 @@ void hideCursor(CachedRoot* root)
     DBG_NAV_LOG("inner");
     m_viewImpl->m_hasCursorBounds = false;
     root->hideCursor();
-    viewInvalidate();
 }
 
 #if DUMP_NAV_CACHE
@@ -556,7 +558,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
             break;
         case DrawExtrasCursorRing:
             if (drawCursorPreamble(root) && m_ring.setup()) {
-                if (!m_ring.m_isButton)
+                if (m_ring.m_isPressed || m_ringAnimationEnd == UINT_MAX)
                     extra = &m_ring;
                 drawCursorPostamble();
             }
@@ -574,7 +576,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
     if (extra) {
         if (extra == &m_ring) {
             WTF::Vector<IntRect> rings;
-            if (root == m_ring.m_frame)
+            if (!m_ring.m_isButton && root == m_ring.m_frame)
                 rings = m_ring.rings();
             else {
                 // TODO: Fix the navcache to work with layers correctly
@@ -584,11 +586,12 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
                 for (size_t i = 0; i < m_ring.m_node->rings().size(); i++) {
                     IntRect rect = m_ring.m_node->rings().at(i);
                     rect = m_ring.m_frame->adjustBounds(m_ring.m_node, rect);
-                    rect.inflate(4);
+                    if (!m_ring.m_isButton)
+                        rect.inflate(4);
                     rings.append(rect);
                 }
             }
-            m_glWebViewState->setRings(rings, m_ring.m_isPressed);
+            m_glWebViewState->setRings(rings, m_ring.m_isPressed, m_ring.m_isButton);
             extra = 0;
         } else {
             LayerAndroid mainPicture(m_navPictureUI);
@@ -597,13 +600,6 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
                 content->height());
             extra->draw(canvas, &mainPicture, &rect);
             picture.endRecording();
-        }
-    } else if (root && extras == DrawExtrasCursorRing && m_ring.m_isButton) {
-        const CachedFrame* cachedFrame;
-        const CachedNode* cachedCursor = root->currentCursor(&cachedFrame);
-        if (cachedCursor) {
-            rect = cachedCursor->bounds(cachedFrame);
-            allowSame = true;
         }
     }
     m_glWebViewState->setExtra(m_baseLayer, picture, rect, allowSame);
@@ -1246,7 +1242,7 @@ void setFindIsEmpty()
 void showCursorTimed()
 {
     DBG_NAV_LOG("");
-    m_ringAnimationEnd = SkTime::GetMSecs() + 500;
+    m_ringAnimationEnd = SkTime::GetMSecs() + PRESSED_STATE_DURATION;
     viewInvalidate();
 }
 

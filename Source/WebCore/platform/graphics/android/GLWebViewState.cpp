@@ -183,7 +183,7 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
     TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
 }
 
-void GLWebViewState::setRings(Vector<IntRect>& rings, bool isPressed)
+void GLWebViewState::setRings(Vector<IntRect>& rings, bool isPressed, bool isButton)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     m_displayRings = true;
@@ -195,6 +195,7 @@ void GLWebViewState::setRings(Vector<IntRect>& rings, bool isPressed)
             m_rings.op(rings.at(i), SkRegion::kUnion_Op);
     }
     m_ringsIsPressed = isPressed;
+    m_ringsIsButton = isButton;
 }
 
 void GLWebViewState::invalRegion(const SkRegion& region)
@@ -294,6 +295,8 @@ void GLWebViewState::paintExtras()
                 rgnIter.next();
             }
         }
+        if (m_ringsIsButton && m_ringsIsPressed)
+            return;
         SkPath path;
         if (!m_rings.getBoundaryPath(&path))
             return;
