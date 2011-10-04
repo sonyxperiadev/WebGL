@@ -278,6 +278,10 @@ void GLWebViewState::drawFocusRing(SkRect& srcRect)
                                                                RING_COLOR_G,
                                                                RING_COLOR_B);
 
+    if (srcRect.fRight <= srcRect.fLeft || srcRect.fBottom <= srcRect.fTop) {
+        // Invalid rect, reject it
+        return;
+    }
     TilesManager::instance()->shader()->drawQuad(srcRect, m_focusRingTexture,
                                                  RING_COLOR_ALPHA);
 }
@@ -285,6 +289,16 @@ void GLWebViewState::drawFocusRing(SkRect& srcRect)
 void GLWebViewState::paintExtras()
 {
     if (m_displayRings && !m_rings.isEmpty()) {
+        // Update the clip
+        SkIRect skbounds = m_rings.getBounds();
+        if (skbounds.isEmpty())
+            return;
+        FloatRect glclip;
+        glclip.setX(skbounds.fLeft);
+        glclip.setY(skbounds.fTop);
+        glclip.setWidth(skbounds.fRight - skbounds.fLeft);
+        glclip.setHeight(skbounds.fBottom - skbounds.fTop);
+        TilesManager::instance()->shader()->clip(glclip);
         if (m_ringsIsPressed) {
             SkRegion::Iterator rgnIter(m_rings);
             while (!rgnIter.done()) {
@@ -592,9 +606,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
     bool ret = baseLayer->drawGL(currentTime, compositedRoot, rect,
                                  viewport, scale, buffersSwappedPtr);
-    // Reset the clip to make sure we can draw the rings. If this isn't done, the
-    // current clip will be the clip of whatever layer was last drawn
-    TilesManager::instance()->shader()->clip(clip);
     paintExtras();
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
