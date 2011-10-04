@@ -32,6 +32,7 @@
 #include "PictureSet.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkPicture.h"
+#include "TilesManager.h"
 
 #include <JNIUtility.h>
 #include <JNIHelp.h>
@@ -108,6 +109,11 @@ static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jobjec
         LayerAndroid* childLayer = deserializeLayer(stream);
         if (childLayer)
             layer->addChild(childLayer);
+    }
+    // Now double back and delete any imageRefs
+    for (int i = 0; i < layer->countChildren(); i++) {
+        LayerAndroid* childLayer = static_cast<LayerAndroid*>(layer->getChild(i));
+        cleanupImageRefs(childLayer);
     }
     delete stream;
     return layer;
@@ -290,12 +296,15 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
     stream->writeBool(layer->m_preserves3D);
     stream->writeScalar(layer->m_anchorPointZ);
     stream->writeScalar(layer->m_drawOpacity);
-    bool hasContentsImage = layer->m_contentsImage != 0;
+    bool hasContentsImage = layer->m_imageRef != 0;
     stream->writeBool(hasContentsImage);
     if (hasContentsImage) {
         SkFlattenableWriteBuffer buffer(1024);
         buffer.setFlags(SkFlattenableWriteBuffer::kCrossProcess_Flag);
-        layer->m_contentsImage->flatten(buffer);
+        ImageTexture* imagetexture =
+                TilesManager::instance()->getTextureForImage(layer->m_imageRef, false);
+        if (imagetexture && imagetexture->bitmap())
+            imagetexture->bitmap()->flatten(buffer);
         stream->write32(buffer.size());
         buffer.writeToStream(stream);
     }
@@ -374,8 +383,12 @@ LayerAndroid* deserializeLayer(SkStream* stream)
         SkAutoMalloc storage(size);
         stream->read(storage.get(), size);
         SkFlattenableReadBuffer buffer(storage.get(), size);
-        layer->m_contentsImage = new SkBitmap();
-        layer->m_contentsImage->unflatten(buffer);
+        SkBitmap contentsImage;
+        contentsImage.unflatten(buffer);
+        SkBitmapRef* imageRef = new SkBitmapRef(contentsImage);
+        layer->setContentsImage(imageRef);
+        // We delay deleting the imageRef until after deserialization to make
+        // sure we have unique keys
     }
     bool hasRecordingPicture = stream->readBool();
     if (hasRecordingPicture) {
@@ -402,6 +415,17 @@ LayerAndroid* deserializeLayer(SkStream* stream)
     layer->needsRepaint();
     XLOG("Created layer with id %d", layer->uniqueId());
     return layer;
+}
+
+void cleanupImageRefs(LayerAndroid* layer)
+{
+    if (!layer)
+        return;
+    int count = layer->countChildren();
+    for (int i = 0; i < count; i++)
+        cleanupImageRefs(layer->getChild(i));
+    if (layer->m_imageRef)
+        delete layer->m_imageRef;
 }
 
 /*
