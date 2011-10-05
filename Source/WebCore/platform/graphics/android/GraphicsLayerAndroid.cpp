@@ -325,6 +325,7 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
     }
 
     m_contentLayer->setSize(size.width(), size.height());
+    setNeedsDisplay();
     askForSync();
 }
 
@@ -598,6 +599,7 @@ bool GraphicsLayerAndroid::repaint()
             m_foregroundLayer->setPosition(-x, -y);
             // Set the scrollable bounds of the layer.
             m_foregroundLayer->setScrollLimits(-x, -y, m_size.width(), m_size.height());
+            m_foregroundLayer->markAsDirty(m_dirtyRegion);
             m_foregroundLayer->needsRepaint();
         } else {
             // If there is no contents clip, we can draw everything into one
