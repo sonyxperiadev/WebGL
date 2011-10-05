@@ -179,7 +179,7 @@ public:
     }
     void addImage(SkBitmapRef* img);
     void removeImage(SkBitmapRef* img);
-    ImageTexture* getTextureForImage(SkBitmapRef* img);
+    ImageTexture* getTextureForImage(SkBitmapRef* img, bool retain = true);
     void showImages();
 
 private:

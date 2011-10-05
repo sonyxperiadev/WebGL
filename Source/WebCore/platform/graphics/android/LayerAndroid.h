@@ -57,6 +57,7 @@ namespace android {
 class DrawExtra;
 void serializeLayer(WebCore::LayerAndroid* layer, SkWStream* stream);
 WebCore::LayerAndroid* deserializeLayer(SkStream* stream);
+void cleanupImageRefs(WebCore::LayerAndroid* layer);
 }
 
 using namespace android;
@@ -266,8 +267,10 @@ public:
     void setIsIframe(bool isIframe) { m_isIframe = isIframe; }
     float zValue() const { return m_zValue; }
 
+    // ViewStateSerializer friends
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
     friend LayerAndroid* android::deserializeLayer(SkStream* stream);
+    friend void android::cleanupImageRefs(LayerAndroid* layer);
 
     PaintedSurface* texture() { return m_texture; }
     void assignTextureTo(LayerAndroid* newTree);
@@ -324,15 +327,13 @@ private:
     float m_anchorPointZ;
     float m_drawOpacity;
 
-    // Note that m_recordingPicture and m_contentsImage are mutually exclusive;
+    // Note that m_recordingPicture and m_imageRef are mutually exclusive;
     // m_recordingPicture is used when WebKit is asked to paint the layer's
-    // content, while m_contentsImage contains an image that we directly
+    // content, while m_imageRef contains an image that we directly
     // composite, using the layer's dimensions as a destination rect.
     // We do this as if the layer only contains an image, directly compositing
     // it is a much faster method than using m_recordingPicture.
     SkPicture* m_recordingPicture;
-
-    SkBitmap* m_contentsImage;
 
     typedef HashMap<pair<String, int>, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;

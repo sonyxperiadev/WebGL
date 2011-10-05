@@ -458,11 +458,11 @@ void TilesManager::showImages()
     }
 }
 
-ImageTexture* TilesManager::getTextureForImage(SkBitmapRef* img)
+ImageTexture* TilesManager::getTextureForImage(SkBitmapRef* img, bool retain)
 {
     android::Mutex::Autolock lock(m_imagesLock);
     ImageTexture* image = m_images.get(img);
-    if (image)
+    if (retain && image)
         image->retain();
     return image;
 }

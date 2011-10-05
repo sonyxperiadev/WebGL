@@ -70,6 +70,7 @@ public:
     void release();
     unsigned int refCount() { return m_refCount; }
     SkBitmapRef* imageRef() { return m_imageRef; }
+    SkBitmap* bitmap() { return m_image; }
 
 private:
 
