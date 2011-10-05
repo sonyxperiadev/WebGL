@@ -132,7 +132,6 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
     canvas.translate(-renderInfo.x * tileSize.width(), -renderInfo.y * tileSize.height());
     canvas.scale(renderInfo.scale, renderInfo.scale);
     unsigned int pictureCount = 0;
-    renderInfo.tilePainter->beginPaint();
     renderInfo.tilePainter->paint(renderInfo.baseTile, &canvas, &pictureCount);
     if (renderInfo.baseTile->isLayerTile())
         renderInfo.tilePainter->paintExtra(&canvas);
@@ -161,7 +160,6 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
             drawTileInfo(&canvas, renderInfo, pictureCount);
     }
     renderInfo.textureInfo->m_pictureCount = pictureCount;
-    renderInfo.tilePainter->endPaint();
     renderingComplete(renderInfo, &canvas);
     return pictureCount;
 }

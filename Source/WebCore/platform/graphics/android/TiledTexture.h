@@ -34,11 +34,13 @@
 #include "SkRegion.h"
 #include "TextureOwner.h"
 #include "TilePainter.h"
+#include "UpdateManager.h"
 
 class SkCanvas;
 
 namespace WebCore {
 
+class UpdateManager;
 class PaintedSurface;
 
 class TiledTexture : public TilePainter {
@@ -48,6 +50,7 @@ public:
         , m_prevTileX(0)
         , m_prevTileY(0)
         , m_prevScale(1)
+        , m_swapWhateverIsReady(false)
     {
         m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
@@ -62,11 +65,11 @@ public:
         removeTiles();
     };
 
-    void prepare(GLWebViewState* state, bool repaint);
+    void prepare(GLWebViewState* state, bool repaint, bool startFastSwap);
     bool draw();
 
     void prepareTile(bool repaint, int x, int y);
-    void markAsDirty(const SkRegion& dirtyArea);
+    void update(const SkRegion& dirtyArea, SkPicture* picture);
 
     BaseTile* getTile(int x, int y);
 
@@ -77,19 +80,25 @@ public:
     bool paint(BaseTile* tile, SkCanvas*, unsigned int*);
     virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
-    virtual void beginPaint();
-    virtual void endPaint();
 
 private:
+    bool tileIsVisible(BaseTile* tile);
+
+    UpdateManager m_updateManager;
+
     PaintedSurface* m_surface;
     Vector<BaseTile*> m_tiles;
 
+    // tile coordinates in viewport, set in prepare()
     IntRect m_area;
+
     SkRegion m_dirtyRegion;
 
     int m_prevTileX;
     int m_prevTileY;
     float m_prevScale;
+
+    bool m_swapWhateverIsReady;
 };
 
 } // namespace WebCore

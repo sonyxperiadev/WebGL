@@ -26,16 +26,20 @@
 #include "config.h"
 #include "PaintedSurface.h"
 
+
 #include "LayerAndroid.h"
 #include "TilesManager.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "PaintedSurface", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "PaintedSurface", __VA_ARGS__)
@@ -58,12 +62,6 @@ PaintedSurface::~PaintedSurface()
     ClassTracker::instance()->decrement("PaintedSurface");
 #endif
     delete m_tiledTexture;
-}
-
-bool PaintedSurface::busy()
-{
-    android::Mutex::Autolock lock(m_layerLock);
-    return m_busy;
 }
 
 void PaintedSurface::removeLayer()
@@ -96,6 +94,8 @@ void PaintedSurface::replaceLayer(LayerAndroid* layer)
     SkSafeRef(layer);
     SkSafeUnref(m_layer);
     m_layer = layer;
+    if (layer && layer->picture())
+        m_updateManager.updatePicture(layer->picture());
 }
 
 void PaintedSurface::prepare(GLWebViewState* state)
@@ -105,6 +105,18 @@ void PaintedSurface::prepare(GLWebViewState* state)
 
     if (!m_layer->needsTexture())
         return;
+
+    bool startFastSwap = false;
+    if (state->isScrolling()) {
+        // when scrolling, block updates and swap tiles as soon as they're ready
+        startFastSwap = true;
+    } else {
+        // when not, push updates down to TiledTexture in every prepare
+        m_updateManager.swap();
+        m_tiledTexture->update(m_updateManager.getPaintingInval(),
+                               m_updateManager.getPaintingPicture());
+        m_updateManager.clearPaintingInval();
+    }
 
     XLOG("prepare layer %d %x at scale %.2f",
          m_layer->uniqueId(), m_layer,
@@ -128,7 +140,7 @@ void PaintedSurface::prepare(GLWebViewState* state)
     XLOG("layer %d %x prepared at size (%d, %d) @ scale %.2f", m_layer->uniqueId(),
          m_layer, w, h, scale);
 
-    m_tiledTexture->prepare(state, m_pictureUsed != m_layer->pictureUsed());
+    m_tiledTexture->prepare(state, m_pictureUsed != m_layer->pictureUsed(), startFastSwap);
 }
 
 bool PaintedSurface::draw()
@@ -139,44 +151,13 @@ bool PaintedSurface::draw()
     bool askRedraw = false;
     if (m_tiledTexture)
         askRedraw = m_tiledTexture->draw();
+
     return askRedraw;
-}
-
-void PaintedSurface::beginPaint()
-{
-    m_layerLock.lock();
-    m_busy = true;
-    m_layerLock.unlock();
-}
-
-void PaintedSurface::endPaint()
-{
-    m_layerLock.lock();
-    m_busy = false;
-    m_layerLock.unlock();
 }
 
 void PaintedSurface::markAsDirty(const SkRegion& dirtyArea)
 {
-    m_tiledTexture->markAsDirty(dirtyArea);
-}
-
-bool PaintedSurface::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
-{
-    m_layerLock.lock();
-    LayerAndroid* layer = m_layer;
-    SkSafeRef(layer);
-    m_layerLock.unlock();
-
-    if (!layer)
-        return false;
-
-    layer->contentDraw(canvas);
-    m_pictureUsed = layer->pictureUsed();
-    *pictureUsed = m_pictureUsed;
-    SkSafeUnref(layer);
-
-    return true;
+    m_updateManager.updateInval(dirtyArea);
 }
 
 void PaintedSurface::paintExtra(SkCanvas* canvas)

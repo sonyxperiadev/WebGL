@@ -305,6 +305,14 @@ bool BaseTile::intersectWithRect(int x, int y, int tileWidth, int tileHeight,
     return true;
 }
 
+bool BaseTile::isTileVisible(const IntRect& viewTileBounds)
+{
+    return (m_x >= viewTileBounds.x()
+            && m_x < viewTileBounds.x() + viewTileBounds.width()
+            && m_y >= viewTileBounds.y()
+            && m_y < viewTileBounds.y() + viewTileBounds.height());
+}
+
 // This is called from the texture generation thread
 void BaseTile::paintBitmap()
 {
