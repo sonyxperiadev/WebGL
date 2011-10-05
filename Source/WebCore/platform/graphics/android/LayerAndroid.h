@@ -273,6 +273,12 @@ public:
     void assignTextureTo(LayerAndroid* newTree);
     void createTexture();
 
+    // Update layers using another tree. Only works for basic properties
+    // such as the position, the transform. Return true if anything more
+    // complex is needed.
+    bool updateWithTree(LayerAndroid*);
+    bool updateWithLayer(LayerAndroid*);
+
     SkBitmapRef* imageRef() { return m_imageRef; }
     ImageTexture* imageTexture() { return m_imageTexture; }
     int type() { return m_type; }

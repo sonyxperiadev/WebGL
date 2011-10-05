@@ -919,6 +919,19 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 #endif
 }
 
+bool WebViewCore::updateLayers(LayerAndroid* layers)
+{
+    // We update the layers
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
+    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
+    if (root) {
+        root->notifyClientAnimationStarted();
+        LayerAndroid* updatedLayer = root->contentLayer();
+        return layers->updateWithTree(updatedLayer);
+    }
+    return true;
+}
+
 BaseLayerAndroid* WebViewCore::createBaseLayer()
 {
     BaseLayerAndroid* base = new BaseLayerAndroid();
@@ -4119,20 +4132,16 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
         m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
-static jint UpdateLayers(JNIEnv *env, jobject obj, jobject region)
+static bool UpdateLayers(JNIEnv *env, jobject obj, jint jbaseLayer)
 {
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    BaseLayerAndroid* result = viewImpl->createBaseLayer();
-    SkRegion* nativeRegion = GraphicsJNI::getNativeRegion(env, region);
-    if (result) {
-        SkIRect bounds;
-        LayerAndroid* root = static_cast<LayerAndroid*>(result->getChild(0));
-        if (root) {
-            root->bounds().roundOut(&bounds);
-            nativeRegion->setRect(bounds);
-        }
+    BaseLayerAndroid* baseLayer = (BaseLayerAndroid*)  jbaseLayer;
+    if (baseLayer) {
+        LayerAndroid* root = static_cast<LayerAndroid*>(baseLayer->getChild(0));
+        if (root)
+            return viewImpl->updateLayers(root);
     }
-    return reinterpret_cast<jint>(result);
+    return true;
 }
 
 static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
@@ -4707,7 +4716,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
         (void*) GetContentMinPrefWidth },
-    { "nativeUpdateLayers", "(Landroid/graphics/Region;)I",
+    { "nativeUpdateLayers", "(I)Z",
         (void*) UpdateLayers },
     { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)I",
         (void*) RecordContent },

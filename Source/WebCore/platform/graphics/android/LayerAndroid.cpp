@@ -575,6 +575,7 @@ void LayerAndroid::updatePositions()
 void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                              const FloatRect& clipping, float opacity, float scale)
 {
+    m_atomicSync.lock();
     IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
     FloatPoint position(getPosition().fX, getPosition().fY);
@@ -593,6 +594,7 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
                             -originY,
                             -anchorPointZ());
 
+    m_atomicSync.unlock();
     setDrawTransform(localMatrix);
     if (m_drawTransform.isIdentityOrTranslation()) {
         // adjust the translation coordinates of the draw transform matrix so
@@ -760,6 +762,39 @@ void LayerAndroid::assignTextureTo(LayerAndroid* newTree)
             m_texture = 0;
         }
     }
+}
+
+bool LayerAndroid::updateWithTree(LayerAndroid* newTree)
+{
+    bool needsRepaint = false;
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        needsRepaint |= this->getChild(i)->updateWithTree(newTree);
+
+    if (newTree) {
+        LayerAndroid* newLayer = newTree->findById(uniqueId());
+        needsRepaint |= updateWithLayer(newLayer);
+    }
+    return needsRepaint;
+}
+
+bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
+{
+    if (!layer)
+        return true;
+
+    android::AutoMutex lock(m_atomicSync);
+    m_position = layer->m_position;
+    m_anchorPoint = layer->m_anchorPoint;
+    m_size = layer->m_size;
+    m_opacity = layer->m_opacity;
+    m_transform = layer->m_transform;
+
+    if ((m_recordingPicture != layer->m_recordingPicture)
+        || (m_imageRef != layer->m_imageRef))
+        return true;
+
+    return false;
 }
 
 void LayerAndroid::createTexture()
