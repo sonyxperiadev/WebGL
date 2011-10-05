@@ -136,7 +136,6 @@ protected:
 
     bool m_hasOverflowChildren;
 
-private:
     bool isAncestor(const Layer*) const;
 
     Layer* fParent;

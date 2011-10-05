@@ -525,6 +525,7 @@ namespace android {
         // and doing a copy of the layers. The layers' content may be updated
         // as we are calling layersSync().
         BaseLayerAndroid* createBaseLayer();
+        bool updateLayers(LayerAndroid*);
 
         int textWrapWidth() const { return m_textWrapWidth; }
         float scale() const { return m_scale; }
