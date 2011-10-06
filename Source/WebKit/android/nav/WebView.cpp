@@ -529,6 +529,8 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
 
     if (!m_glWebViewState) {
         m_glWebViewState = new GLWebViewState(&m_viewImpl->gButtonMutex);
+        m_glWebViewState->glExtras()->setCursorRingExtra(&m_ring);
+        m_glWebViewState->glExtras()->setFindOnPageExtra(&m_findOnPage);
         if (m_baseLayer->content()) {
             SkRegion region;
             SkIRect rect;
@@ -569,44 +571,28 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
 
     unsigned int pic = m_glWebViewState->currentPictureCounter();
 
-    SkPicture picture;
-    IntRect rect(0, 0, 0, 0);
-    bool allowSame = false;
-    m_glWebViewState->resetRings();
-    if (extra) {
-        if (extra == &m_ring) {
-            WTF::Vector<IntRect> rings;
-            if (!m_ring.m_isButton && root == m_ring.m_frame)
-                rings = m_ring.rings();
-            else {
-                // TODO: Fix the navcache to work with layers correctly
-                // In the meantime, this works around the bug. However, the rings
-                // it produces are not as nice for some reason, thus we use
-                // m_ring.rings() above for the base layer instead of the below
-                for (size_t i = 0; i < m_ring.m_node->rings().size(); i++) {
-                    IntRect rect = m_ring.m_node->rings().at(i);
-                    rect = m_ring.m_frame->adjustBounds(m_ring.m_node, rect);
-                    if (!m_ring.m_isButton)
-                        rect.inflate(4);
-                    rings.append(rect);
-                }
+    if (extra == &m_ring) {
+        if (m_ring.m_isButton || root != m_ring.m_frame) {
+            // TODO: Fix the navcache to work with layers correctly
+            // In the meantime, this works around the bug. However, the rings
+            // it produces are not as nice for some reason, thus we use
+            // m_ring.rings() as produced by navcache for the base layer and
+            // for layers we generate a new ring set
+            m_ring.rings().clear();
+            for (size_t i = 0; i < m_ring.m_node->rings().size(); i++) {
+                IntRect rect = m_ring.m_node->rings().at(i);
+                rect = m_ring.m_frame->adjustBounds(m_ring.m_node, rect);
+                if (!m_ring.m_isButton)
+                    rect.inflate(4);
+                m_ring.rings().append(rect);
             }
-            m_glWebViewState->setRings(rings, m_ring.m_isPressed, m_ring.m_isButton);
-            extra = 0;
-        } else {
-            LayerAndroid mainPicture(m_navPictureUI);
-            PictureSet* content = m_baseLayer->content();
-            SkCanvas* canvas = picture.beginRecording(content->width(),
-                content->height());
-            extra->draw(canvas, &mainPicture, &rect);
-            picture.endRecording();
         }
     }
-    m_glWebViewState->setExtra(m_baseLayer, picture, rect, allowSame);
+    m_glWebViewState->glExtras()->setDrawExtra(extra);
 
     LayerAndroid* compositeLayer = compositeRoot();
     if (compositeLayer)
-        compositeLayer->setExtra(extra);
+        compositeLayer->setExtra(0);
 
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);

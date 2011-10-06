@@ -30,6 +30,7 @@
 
 #include "Color.h"
 #include "DrawExtra.h"
+#include "GLExtras.h"
 #include "IntRect.h"
 #include "SkCanvas.h"
 #include "SkRect.h"
@@ -174,12 +175,9 @@ public:
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
     void setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval, bool showVisualIndicator,
                       bool isPictureAfterFirstLayout);
-    void setExtra(BaseLayerAndroid*, SkPicture&, const IntRect&, bool allowSame);
     void paintExtras();
 
-    void setRings(Vector<IntRect>& rings, bool isPressed, bool isButton);
-    void resetRings();
-    void drawFocusRing(SkRect& rect);
+    GLExtras* glExtras() { return &m_glExtras; }
 
     TiledPage* sibling(TiledPage* page);
     TiledPage* frontPage();
@@ -268,11 +266,7 @@ private:
     double m_delayTimes[MAX_MEASURES_PERF];
     bool m_measurePerfs;
 #endif
-    bool m_displayRings;
-    SkRegion m_rings;
-    bool m_ringsIsPressed;
-    bool m_ringsIsButton;
-    int m_focusRingTexture;
+    GLExtras m_glExtras;
 
     bool m_isScrolling;
     bool m_goingDown;

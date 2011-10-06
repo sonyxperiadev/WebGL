@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, The Android Open Source Project
+ * Copyright 2011, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,56 +23,46 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef android_graphics_DEFINED
-#define android_graphics_DEFINED
+#ifndef GLExtras_h
+#define GLExtras_h
 
-#include "DrawExtra.h"
-#include "IntRect.h"
-#include "SkTypes.h"
-#include "wtf/Vector.h"
-
-namespace WebCore {
-    class GraphicsContext;
-    class GLExtras;
-}
-
-SkCanvas* android_gc2canvas(GraphicsContext* gc);
+#include "SkRect.h"
+#include "SkRegion.h"
 
 namespace android {
-
-class CachedFrame;
-class CachedNode;
-class CachedRoot;
-class WebViewCore;
-
-// Data and methods for cursor rings
-
-// used to inflate node cache entry
-#define CURSOR_RING_HIT_TEST_RADIUS 5
-
-class CursorRing : public DrawExtra {
-public:
-    CursorRing(WebViewCore* core) : m_viewImpl(core) {}
-    virtual ~CursorRing() {}
-    virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
-    void setIsButton(const CachedNode* );
-    bool setup();
-    WTF::Vector<IntRect>& rings() { return m_rings; }
-private:
-    friend class WebView;
-    friend class WebCore::GLExtras;
-    WebViewCore* m_viewImpl; // copy for convenience
-    WTF::Vector<IntRect> m_rings;
-    IntRect m_bounds;
-    IntRect m_absBounds;
-    IntRect m_lastBounds;
-    const CachedRoot* m_root;
-    const CachedFrame* m_frame;
-    const CachedNode* m_node;
-    bool m_isButton;
-    bool m_isPressed;
-};
-
+    class FindOnPage;
+    class CursorRing;
+    class DrawExtra;
 }
 
-#endif
+namespace WebCore {
+
+class GLExtras {
+public:
+    GLExtras();
+    virtual ~GLExtras();
+
+    void drawGL(IntRect& webViewRect, SkRect& viewport, int titleBarHeight);
+    void setFindOnPageExtra(android::FindOnPage* findOnPage) {
+        m_findOnPage = findOnPage;
+    }
+    void setCursorRingExtra(android::CursorRing* ring) { m_ring = ring; }
+    void setDrawExtra(android::DrawExtra* extra) { m_drawExtra = extra; }
+
+private:
+    void drawRing(SkRect& srcRect, int* texture, int r, int g, int b, float a);
+    void drawRegion(const SkRegion& region, bool fill, bool drawBorder,
+                    bool useDark = false);
+    void drawCursorRings();
+    void drawFindOnPage(SkRect& viewport);
+
+    android::FindOnPage* m_findOnPage;
+    android::CursorRing* m_ring;
+    android::DrawExtra* m_drawExtra;
+    int m_lightRingTexture;
+    int m_darkRingTexture;
+};
+
+} // namespace WebCore
+
+#endif // GLExtras_h
