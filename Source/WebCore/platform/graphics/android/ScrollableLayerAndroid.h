@@ -42,6 +42,8 @@ public:
 
     virtual LayerAndroid* copy() const { return new ScrollableLayerAndroid(*this); }
 
+    virtual bool updateWithLayer(LayerAndroid*) { return true; }
+
     // Scrolls to the given position in the layer.
     // Returns whether or not any scrolling was required.
     bool scrollTo(int x, int y);

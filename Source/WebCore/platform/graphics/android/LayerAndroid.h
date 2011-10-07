@@ -280,7 +280,7 @@ public:
     // such as the position, the transform. Return true if anything more
     // complex is needed.
     bool updateWithTree(LayerAndroid*);
-    bool updateWithLayer(LayerAndroid*);
+    virtual bool updateWithLayer(LayerAndroid*);
 
     SkBitmapRef* imageRef() { return m_imageRef; }
     ImageTexture* imageTexture() { return m_imageTexture; }
