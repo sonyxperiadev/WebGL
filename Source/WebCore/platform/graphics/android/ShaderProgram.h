@@ -33,9 +33,6 @@ class ShaderProgram {
 public:
     ShaderProgram();
     void init();
-    int projectionMatrix() { return m_hProjectionMatrix; }
-    int alpha() { return m_hAlpha; }
-    int textureSampler() { return m_hTexSampler; }
     int program() { return m_program; }
 
     // Drawing
@@ -111,6 +108,7 @@ private:
     bool m_blendingEnabled;
 
     int m_program;
+    int m_programInverted;
     int m_videoProgram;
     int m_surfTexOESProgram;
     int m_surfTexOESProgramInverted;
@@ -128,12 +126,16 @@ private:
     IntRect m_webViewRect;
 
     // uniforms
-    int m_hProjectionMatrix;
-    int m_hAlpha;
-    int m_hTexSampler;
-    int m_hVideoProjectionMatrix;
-    int m_hVideoTextureMatrix;
-    int m_hVideoTexSampler;
+    GLint m_hProjectionMatrix;
+    GLint m_hAlpha;
+    GLint m_hTexSampler;
+    GLint m_hProjectionMatrixInverted;
+    GLint m_hAlphaInverted;
+    GLint m_hContrastInverted;
+    GLint m_hTexSamplerInverted;
+    GLint m_hVideoProjectionMatrix;
+    GLint m_hVideoTextureMatrix;
+    GLint m_hVideoTexSampler;
 
     GLint m_hSTOESProjectionMatrix;
     GLint m_hSTOESAlpha;
@@ -150,6 +152,7 @@ private:
 
     // attribs
     GLint m_hPosition;
+    GLint m_hPositionInverted;
     GLint m_hVideoPosition;
 };
 

@@ -515,8 +515,6 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
         XLOG("Reinit shader");
         shader->init();
     }
-    glUseProgram(shader->program());
-    glUniform1i(shader->textureSampler(), 0);
     shader->setViewRect(viewRect);
     shader->setViewport(visibleRect);
     shader->setWebViewRect(webViewRect);
