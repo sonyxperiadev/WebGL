@@ -607,10 +607,48 @@ namespace android {
         // buttons either replace our old ones or should be added to our list.
         // Then check the old buttons to see if any are no longer needed.
         void updateButtonList(WTF::Vector<Container>* buttons);
-        void reset(bool fromConstructor);
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPictureSet(PictureSet* master);
+
+        void doMaxScroll(CacheBuilder::Direction dir);
+        SkPicture* rebuildPicture(const SkIRect& inval);
+        void rebuildPictureSet(PictureSet* );
+        void sendNotifyProgressFinished();
+        /*
+         * Handle a mouse click, either from a touch or trackball press.
+         * @param frame Pointer to the Frame containing the node that was clicked on.
+         * @param node Pointer to the Node that was clicked on.
+         * @param fake This is a fake mouse click, used to put a textfield into focus. Do not
+         *      open the IME.
+         */
+        bool handleMouseClick(WebCore::Frame*, WebCore::Node*, bool fake);
+        WebCore::HTMLAnchorElement* retrieveAnchorElement(int x, int y);
+        WebCore::HTMLElement* retrieveElement(int x, int y,
+            const WebCore::QualifiedName& );
+        WebCore::HTMLImageElement* retrieveImageElement(int x, int y);
+        // below are members responsible for accessibility support
+        String modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int granularity);
+        String modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int granularity);
+        Text* traverseNextContentTextNode(Node* fromNode, Node* toNode ,int direction);
+        bool isVisible(Node* node);
+        bool isHeading(Node* node);
+        String formatMarkup(DOMSelection* selection);
+        void selectAt(int x, int y);
+
+        void scrollNodeIntoView(Frame* frame, Node* node);
+        bool isContentTextNode(Node* node);
+        Node* getIntermediaryInputElement(Node* fromNode, Node* toNode, int direction);
+        bool isContentInputElement(Node* node);
+        bool isDescendantOf(Node* parent, Node* node);
+        void advanceAnchorNode(DOMSelection* selection, int direction, String& markup, bool ignoreFirstNode, ExceptionCode& ec);
+        Node* getNextAnchorNode(Node* anchorNode, bool skipFirstHack, int direction);
+        Node* getImplicitBoundaryNode(Node* node, unsigned offset, int direction);
+
+        // called from constructor, to add this to a global list
+        static void addInstance(WebViewCore*);
+        // called from destructor, to remove this from a global list
+        static void removeInstance(WebViewCore*);
 
         friend class ListBoxReply;
         struct JavaGlue;
@@ -642,8 +680,6 @@ namespace android {
         WebCore::IntPoint m_mousePos;
         bool m_frameCacheOutOfDate;
         bool m_progressDone;
-        int m_lastPassed;
-        int m_lastVelocity;
         CachedHistory m_history;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
@@ -661,57 +697,19 @@ namespace android {
         void pluginInvalTimerFired(WebCore::Timer<WebViewCore>*) {
             this->drawPlugins();
         }
-        int m_screenOnCounter;
 
-        void doMaxScroll(CacheBuilder::Direction dir);
-        SkPicture* rebuildPicture(const SkIRect& inval);
-        void rebuildPictureSet(PictureSet* );
-        void sendNotifyProgressFinished();
-        /*
-         * Handle a mouse click, either from a touch or trackball press.
-         * @param frame Pointer to the Frame containing the node that was clicked on.
-         * @param node Pointer to the Node that was clicked on.
-         * @param fake This is a fake mouse click, used to put a textfield into focus. Do not
-         *      open the IME.
-         */
-        bool handleMouseClick(WebCore::Frame*, WebCore::Node*, bool fake);
-        WebCore::HTMLAnchorElement* retrieveAnchorElement(int x, int y);
-        WebCore::HTMLElement* retrieveElement(int x, int y,
-            const WebCore::QualifiedName& );
-        WebCore::HTMLImageElement* retrieveImageElement(int x, int y);
-        // below are members responsible for accessibility support
-        String modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int granularity);
-        String modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int granularity);
-        Text* traverseNextContentTextNode(Node* fromNode, Node* toNode ,int direction);
-        bool isVisible(Node* node);
-        bool isHeading(Node* node);
-        String formatMarkup(DOMSelection* selection);
-        void selectAt(int x, int y);
+        int m_screenOnCounter;
         Node* m_currentNodeDomNavigationAxis;
-        void scrollNodeIntoView(Frame* frame, Node* node);
-        bool isContentTextNode(Node* node);
-        Node* getIntermediaryInputElement(Node* fromNode, Node* toNode, int direction);
-        bool isContentInputElement(Node* node);
-        bool isDescendantOf(Node* parent, Node* node);
-        void advanceAnchorNode(DOMSelection* selection, int direction, String& markup, bool ignoreFirstNode, ExceptionCode& ec);
-        Node* getNextAnchorNode(Node* anchorNode, bool skipFirstHack, int direction);
-        Node* getImplicitBoundaryNode(Node* node, unsigned offset, int direction);
+        DeviceMotionAndOrientationManager m_deviceMotionAndOrientationManager;
 
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;
 #endif
-#if DEBUG_NAV_UI
-        uint32_t m_now;
-#endif
-        DeviceMotionAndOrientationManager m_deviceMotionAndOrientationManager;
+
 #if USE(CHROME_NETWORK_STACK)
         scoped_refptr<WebRequestContext> m_webRequestContext;
 #endif
 
-        // called from constructor, to add this to a global list
-        static void addInstance(WebViewCore*);
-        // called from destructor, to remove this from a global list
-        static void removeInstance(WebViewCore*);
     };
 
 }   // namespace android

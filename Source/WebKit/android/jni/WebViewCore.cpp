@@ -340,34 +340,64 @@ Mutex WebViewCore::gButtonMutex;
 Mutex WebViewCore::gCursorBoundsMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
-    : m_pluginInvalTimer(this, &WebViewCore::pluginInvalTimerFired)
+    : m_frameCacheKit(0)
+    , m_navPictureKit(0)
+    , m_moveGeneration(0)
+    , m_touchGeneration(0)
+    , m_lastGeneration(0)
+    , m_updatedFrameCache(true)
+    , m_findIsUp(false)
+    , m_hasCursorBounds(false)
+    , m_cursorBounds(WebCore::IntRect(0, 0, 0, 0))
+    , m_cursorHitBounds(WebCore::IntRect(0, 0, 0, 0))
+    , m_cursorFrame(0)
+    , m_cursorLocation(WebCore::IntPoint(0, 0))
+    , m_cursorNode(0)
+    , m_javaGlue(new JavaGlue)
+    , m_mainFrame(mainframe)
+    , m_popupReply(0)
+    , m_lastFocused(0)
+    , m_lastFocusedBounds(WebCore::IntRect(0,0,0,0))
+    , m_blurringNodePointer(0)
+    , m_lastFocusedSelStart(0)
+    , m_lastFocusedSelEnd(0)
+    , m_blockTextfieldUpdates(false)
+    , m_focusBoundsChanged(false)
+    , m_skipContentDraw(false)
+    , m_textGeneration(0)
+    , m_temp(0)
+    , m_tempPict(0)
+    , m_maxXScroll(320/4)
+    , m_maxYScroll(240/4)
+    , m_scrollOffsetX(0)
+    , m_scrollOffsetY(0)
+    , m_mousePos(WebCore::IntPoint(0,0))
+    , m_frameCacheOutOfDate(true)
+    , m_progressDone(false)
+    , m_screenWidth(320)
+    , m_screenHeight(240)
+    , m_textWrapWidth(320)
+    , m_scale(1.0f)
+    , m_domtree_version(0)
+    , m_check_domtree_version(true)
+    , m_groupForVisitedLinks(0)
+    , m_isPaused(false)
+    , m_cacheMode(0)
+    , m_shouldPaintCaret(true)
+    , m_pluginInvalTimer(this, &WebViewCore::pluginInvalTimerFired)
+    , m_screenOnCounter(0)
+    , m_currentNodeDomNavigationAxis(0)
     , m_deviceMotionAndOrientationManager(this)
-{
-    m_mainFrame = mainframe;
-
-    m_popupReply = 0;
-    m_moveGeneration = 0;
-    m_lastGeneration = 0;
-    m_touchGeneration = 0;
-    m_blockTextfieldUpdates = false;
-    // just initial values. These should be set by client
-    m_maxXScroll = 320/4;
-    m_maxYScroll = 240/4;
-    m_textGeneration = 0;
-    m_screenWidth = 320;
-    m_textWrapWidth = 320;
-    m_scale = 1;
 #if ENABLE(TOUCH_EVENTS)
-    m_forwardingTouchEvents = false;
+    , m_forwardingTouchEvents(false)
 #endif
-    m_isPaused = false;
-    m_screenOnCounter = 0;
-    m_shouldPaintCaret = true;
-
+#if USE(CHROME_NETWORK_STACK)
+    , m_webRequestContext(0)
+#endif
+{
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
     jclass clazz = env->GetObjectClass(javaWebViewCore);
-    m_javaGlue = new JavaGlue;
     m_javaGlue->m_obj = env->NewWeakGlobalRef(javaWebViewCore);
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(IIZZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
@@ -423,11 +453,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
-    m_scrollOffsetX = m_scrollOffsetY = 0;
-
     PageGroup::setShouldTrackVisitedLinks(true);
 
-    reset(true);
+    clearContent();
 
     MemoryUsage::setLowMemoryUsageMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_lowMemoryUsageMb));
     MemoryUsage::setHighMemoryUsageMb(env->GetIntField(javaWebViewCore, gWebViewCoreFields.m_highMemoryUsageMb));
@@ -478,45 +506,6 @@ WebViewCore* WebViewCore::getWebViewCore(const WebCore::ScrollView* view)
     if (!webFrameView)
         return 0;
     return webFrameView->webViewCore();
-}
-
-void WebViewCore::reset(bool fromConstructor)
-{
-    DBG_SET_LOG("");
-    if (fromConstructor) {
-        m_frameCacheKit = 0;
-        m_navPictureKit = 0;
-    } else {
-        gFrameCacheMutex.lock();
-        delete m_frameCacheKit;
-        delete m_navPictureKit;
-        m_frameCacheKit = 0;
-        m_navPictureKit = 0;
-        gFrameCacheMutex.unlock();
-    }
-
-    m_lastFocused = 0;
-    m_blurringNodePointer = 0;
-    m_lastFocusedBounds = WebCore::IntRect(0,0,0,0);
-    m_focusBoundsChanged = false;
-    m_lastFocusedSelStart = 0;
-    m_lastFocusedSelEnd = 0;
-    clearContent();
-    m_updatedFrameCache = true;
-    m_frameCacheOutOfDate = true;
-    m_skipContentDraw = false;
-    m_findIsUp = false;
-    m_domtree_version = 0;
-    m_check_domtree_version = true;
-    m_progressDone = false;
-    m_hasCursorBounds = false;
-
-    m_scrollOffsetX = 0;
-    m_scrollOffsetY = 0;
-    m_screenWidth = 0;
-    m_screenHeight = 0;
-    m_groupForVisitedLinks = 0;
-    m_currentNodeDomNavigationAxis = 0;
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -1639,9 +1628,6 @@ void WebViewCore::updateFrameCache()
     TimeCounterAuto counter(TimeCounter::WebViewCoreBuildNavTimeCounter);
 #endif
     m_frameCacheOutOfDate = false;
-#if DEBUG_NAV_UI
-    m_now = SkTime::GetMSecs();
-#endif
     m_temp = new CachedRoot();
     m_temp->init(m_mainFrame, &m_history);
 #if USE(ACCELERATED_COMPOSITING)
