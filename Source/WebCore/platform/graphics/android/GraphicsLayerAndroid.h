@@ -147,7 +147,6 @@ private:
     bool m_haveContents;
     bool m_haveImage;
     bool m_newImage;
-    SkBitmapRef* m_imageRef; // only used to remember previously passed images
 
     SkRegion m_dirtyRegion;
 

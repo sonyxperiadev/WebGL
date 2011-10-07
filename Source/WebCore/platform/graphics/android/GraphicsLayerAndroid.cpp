@@ -120,7 +120,6 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_haveContents(false),
     m_haveImage(false),
     m_newImage(false),
-    m_imageRef(0),
     m_foregroundLayer(0),
     m_foregroundClipLayer(0)
 {
@@ -387,6 +386,7 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
     if (drawsContent == m_drawsContent)
         return;
     GraphicsLayer::setDrawsContent(drawsContent);
+    m_contentLayer->setVisible(drawsContent);
     if (m_drawsContent) {
         m_haveContents = true;
         setNeedsDisplay();
@@ -836,22 +836,14 @@ void GraphicsLayerAndroid::setContentsToImage(Image* image)
     if (image) {
         m_haveContents = true;
         m_haveImage = true;
-        // Only pass the new image if it's a different one
-        if (image->nativeImageForCurrentFrame() != m_imageRef) {
-            m_newImage = true;
-            m_contentLayer->setContentsImage(image->nativeImageForCurrentFrame());
-            // remember the passed image.
-            m_imageRef = image->nativeImageForCurrentFrame();
-            setNeedsDisplay();
-            askForSync();
-        }
+        m_newImage = true;
+        m_contentLayer->setContentsImage(image->nativeImageForCurrentFrame());
     }
-    if (m_haveImage && !image) {
+    if (m_haveImage && !image)
         m_contentLayer->setContentsImage(0);
-        m_imageRef = 0;
-        setNeedsDisplay();
-        askForSync();
-    }
+
+    setNeedsDisplay();
+    askForSync();
 }
 
 void GraphicsLayerAndroid::setContentsToMedia(PlatformLayer* mediaLayer)

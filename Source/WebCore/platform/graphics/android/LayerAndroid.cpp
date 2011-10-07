@@ -778,6 +778,9 @@ bool LayerAndroid::updateWithTree(LayerAndroid* newTree)
     return needsRepaint;
 }
 
+// Return true to indicate to WebViewCore that the updates
+// are too complicated to be fully handled and we need a full
+// call to webkit (e.g. handle repaints)
 bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
 {
     if (!layer)
@@ -789,6 +792,9 @@ bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
     m_size = layer->m_size;
     m_opacity = layer->m_opacity;
     m_transform = layer->m_transform;
+
+    if (m_imageRef != layer->m_imageRef)
+        m_visible = false;
 
     if ((m_recordingPicture != layer->m_recordingPicture)
         || (m_imageRef != layer->m_imageRef))
@@ -879,28 +885,28 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     if (!m_visible)
         return false;
 
-    bool askPaint = false;
+    bool askScreenUpdate = false;
 
     if (m_texture)
-        askPaint |= m_texture->draw();
+        askScreenUpdate |= m_texture->draw();
 
     if (m_imageTexture)
         m_imageTexture->draw(this);
 
     // When the layer is dirty, the UI thread should be notified to redraw.
-    askPaint |= drawChildrenGL(glWebViewState, matrix);
+    askScreenUpdate |= drawChildrenGL(glWebViewState, matrix);
     m_atomicSync.lock();
-    askPaint |= m_dirty;
-    if (askPaint || m_hasRunningAnimations || m_drawTransform.hasPerspective())
+    askScreenUpdate |= m_dirty;
+    if (askScreenUpdate || m_hasRunningAnimations || m_drawTransform.hasPerspective())
         addDirtyArea(glWebViewState);
 
     m_atomicSync.unlock();
-    return askPaint;
+    return askScreenUpdate;
 }
 
 bool LayerAndroid::drawChildrenGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
-    bool askPaint = false;
+    bool askScreenUpdate = false;
     int count = this->countChildren();
     if (count > 0) {
         Vector <LayerAndroid*> sublayers;
@@ -911,11 +917,11 @@ bool LayerAndroid::drawChildrenGL(GLWebViewState* glWebViewState, SkMatrix& matr
         std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
         for (int i = 0; i < count; i++) {
             LayerAndroid* layer = sublayers[i];
-            askPaint |= layer->drawGL(glWebViewState, matrix);
+            askScreenUpdate |= layer->drawGL(glWebViewState, matrix);
         }
     }
 
-    return askPaint;
+    return askScreenUpdate;
 }
 
 void LayerAndroid::extraDraw(SkCanvas* canvas)
