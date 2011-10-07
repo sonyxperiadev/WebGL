@@ -222,7 +222,7 @@ public:
         m_isFindPaintSetUp = false;
         m_lastBounds.setEmpty();
     }
-    virtual ~FindOnPage() { delete m_matches; }
+    virtual ~FindOnPage() { if (m_matches) delete m_matches; }
     void clearCurrentLocation() { m_hasCurrentLocation = false; }
     IntRect currentMatchBounds() const;
     int currentMatchIndex() const { return m_findIndex; }
@@ -234,6 +234,7 @@ public:
     void findNext(bool forward);
     bool isCurrentLocationValid() { return m_hasCurrentLocation; }
     void setMatches(WTF::Vector<MatchInfo>* matches);
+    WTF::Vector<MatchInfo>* matches() { return m_matches; }
 private:
     void drawMatch(const SkRegion& region, SkCanvas* canvas, bool focused);
     void setUpFindPaint();

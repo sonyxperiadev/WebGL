@@ -60,14 +60,6 @@
 
 #define FRAMERATE_CAP 0.01666 // We cap at 60 fps
 
-// Touch ring border width. This is doubled if the ring is not pressed
-#define RING_BORDER_WIDTH 1
-// Color of the ring is 0x6633b5e5 (copied from framework)
-#define RING_COLOR_ALPHA 0.4
-#define RING_COLOR_R 0x33
-#define RING_COLOR_G 0xb5
-#define RING_COLOR_B 0xe5
-
 // log warnings if scale goes outside this range
 #define MIN_SCALE_WARNING 0.1
 #define MAX_SCALE_WARNING 10
@@ -88,8 +80,6 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_globalButtonMutex(buttonMutex)
     , m_baseLayerUpdate(true)
     , m_backgroundColor(SK_ColorWHITE)
-    , m_displayRings(false)
-    , m_focusRingTexture(-1)
     , m_isScrolling(false)
     , m_goingDown(true)
     , m_goingLeft(false)
@@ -171,7 +161,7 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
         SkSafeUnref(m_currentBaseLayer);
         m_currentBaseLayer = layer;
     }
-    m_displayRings = false;
+    m_glExtras.setDrawExtra(0);
     invalRegion(inval);
 
 #ifdef MEASURES_PERF
@@ -181,21 +171,6 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
 #endif
 
     TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
-}
-
-void GLWebViewState::setRings(Vector<IntRect>& rings, bool isPressed, bool isButton)
-{
-    android::Mutex::Autolock lock(m_baseLayerLock);
-    m_displayRings = true;
-    m_rings.setEmpty();
-    for (size_t i = 0; i < rings.size(); i++) {
-        if (i == 0)
-            m_rings.setRect(rings.at(i));
-        else
-            m_rings.op(rings.at(i), SkRegion::kUnion_Op);
-    }
-    m_ringsIsPressed = isPressed;
-    m_ringsIsButton = isButton;
 }
 
 void GLWebViewState::invalRegion(const SkRegion& region)
@@ -223,26 +198,6 @@ void GLWebViewState::unlockBaseLayerUpdate() {
     m_invalidateRegion.setEmpty();
 }
 
-void GLWebViewState::setExtra(BaseLayerAndroid* layer, SkPicture& picture,
-    const IntRect& rect, bool allowSame)
-{
-    android::Mutex::Autolock lock(m_baseLayerLock);
-    if (!m_baseLayerUpdate)
-        return;
-
-    layer->setExtra(picture);
-
-    if (!allowSame && m_lastInval == rect)
-        return;
-
-    if (!rect.isEmpty())
-        inval(rect);
-    if (!m_lastInval.isEmpty())
-        inval(m_lastInval);
-    m_lastInval = rect;
-    m_displayRings = false;
-}
-
 void GLWebViewState::inval(const IntRect& rect)
 {
     if (m_baseLayerUpdate) {
@@ -264,105 +219,6 @@ void GLWebViewState::inval(const IntRect& rect)
         m_invalidateRegion.op(rect.x(), rect.y(), rect.maxX(), rect.maxY(), SkRegion::kUnion_Op);
     }
     TilesManager::instance()->getProfiler()->nextInval(rect, zoomManager()->currentScale());
-}
-
-void GLWebViewState::resetRings()
-{
-    m_displayRings = false;
-}
-
-void GLWebViewState::drawFocusRing(SkRect& srcRect)
-{
-    if (m_focusRingTexture == -1)
-        m_focusRingTexture = GLUtils::createSampleColorTexture(RING_COLOR_R,
-                                                               RING_COLOR_G,
-                                                               RING_COLOR_B);
-
-    if (srcRect.fRight <= srcRect.fLeft || srcRect.fBottom <= srcRect.fTop) {
-        // Invalid rect, reject it
-        return;
-    }
-    TilesManager::instance()->shader()->drawQuad(srcRect, m_focusRingTexture,
-                                                 RING_COLOR_ALPHA);
-}
-
-void GLWebViewState::paintExtras()
-{
-    if (m_displayRings && !m_rings.isEmpty()) {
-        // Update the clip
-        SkIRect skbounds = m_rings.getBounds();
-        if (skbounds.isEmpty())
-            return;
-        FloatRect glclip;
-        glclip.setX(skbounds.fLeft);
-        glclip.setY(skbounds.fTop);
-        glclip.setWidth(skbounds.fRight - skbounds.fLeft);
-        glclip.setHeight(skbounds.fBottom - skbounds.fTop);
-        TilesManager::instance()->shader()->clip(glclip);
-        if (m_ringsIsPressed) {
-            SkRegion::Iterator rgnIter(m_rings);
-            while (!rgnIter.done()) {
-                SkIRect ir = rgnIter.rect();
-                SkRect r;
-                r.set(ir.fLeft, ir.fTop, ir.fRight, ir.fBottom);
-                drawFocusRing(r);
-                rgnIter.next();
-            }
-        }
-        if (m_ringsIsButton && m_ringsIsPressed)
-            return;
-        SkPath path;
-        if (!m_rings.getBoundaryPath(&path))
-            return;
-        SkPath::Iter iter(path, true);
-        SkPath::Verb verb;
-        SkPoint pts[4];
-        SkRegion clip;
-        SkIRect startRect;
-        while ((verb = iter.next(pts)) != SkPath::kDone_Verb) {
-            if (verb == SkPath::kLine_Verb) {
-                SkRect r;
-                r.set(pts, 2);
-                SkIRect line;
-                int borderWidth = RING_BORDER_WIDTH;
-                if (!m_ringsIsPressed)
-                    borderWidth *= 2;
-                line.fLeft = r.fLeft - borderWidth;
-                line.fRight = r.fRight + borderWidth;
-                line.fTop = r.fTop - borderWidth;
-                line.fBottom = r.fBottom + borderWidth;
-                if (clip.intersects(line)) {
-                    clip.op(line, SkRegion::kReverseDifference_Op);
-                    if (clip.isEmpty())
-                        continue; // Nothing to draw, continue
-                    line = clip.getBounds();
-                    if (SkIRect::Intersects(startRect, line)) {
-                        clip.op(startRect, SkRegion::kDifference_Op);
-                        if (clip.isEmpty())
-                            continue; // Nothing to draw, continue
-                        line = clip.getBounds();
-                    }
-                } else {
-                    clip.setRect(line);
-                }
-                r.set(line.fLeft, line.fTop, line.fRight, line.fBottom);
-                drawFocusRing(r);
-                if (!m_ringsIsPressed) {
-                    r.fLeft += RING_BORDER_WIDTH;
-                    r.fRight -= RING_BORDER_WIDTH;
-                    r.fTop += RING_BORDER_WIDTH;
-                    r.fBottom -= RING_BORDER_WIDTH;
-                    drawFocusRing(r);
-                }
-                if (startRect.isEmpty()) {
-                    startRect.set(line.fLeft, line.fTop, line.fRight, line.fBottom);
-                }
-            }
-            if (verb == SkPath::kMove_Verb) {
-                startRect.setEmpty();
-            }
-        }
-    }
 }
 
 unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
@@ -604,7 +460,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
     bool ret = baseLayer->drawGL(currentTime, compositedRoot, rect,
                                  viewport, scale, buffersSwappedPtr);
-    paintExtras();
+    m_glExtras.drawGL(webViewRect, viewport, titleBarHeight);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
