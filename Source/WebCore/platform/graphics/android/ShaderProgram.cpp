@@ -62,6 +62,22 @@ static const char gFragmentShader[] =
     "  gl_FragColor *= alpha; "
     "}\n";
 
+static const char gFragmentShaderInverted[] =
+    "precision mediump float;\n"
+    "varying vec2 v_texCoord; \n"
+    "uniform float alpha; \n"
+    "uniform float contrast; \n"
+    "uniform sampler2D s_texture; \n"
+    "void main() {\n"
+    "  vec4 pixel = texture2D(s_texture, v_texCoord); \n"
+    "  float a = pixel.a; \n"
+    "  float color = a - (0.2989 * pixel.r + 0.5866 * pixel.g + 0.1145 * pixel.b);\n"
+    "  color = ((color - a/2.0) * contrast) + a/2.0; \n"
+    "  pixel.rgb = vec3(color, color, color); \n "
+    "  gl_FragColor = pixel; \n"
+    "  gl_FragColor *= alpha; \n"
+    "}\n";
+
 static const char gVideoVertexShader[] =
     "attribute vec4 vPosition;\n"
     "uniform mat4 textureMatrix;\n"
@@ -186,6 +202,7 @@ ShaderProgram::ShaderProgram()
 void ShaderProgram::init()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
+    m_programInverted = createProgram(gVertexShader, gFragmentShaderInverted);
     m_videoProgram = createProgram(gVideoVertexShader, gVideoFragmentShader);
     m_surfTexOESProgram =
         createProgram(gVertexShader, gSurfaceTextureOESFragmentShader);
@@ -193,6 +210,7 @@ void ShaderProgram::init()
         createProgram(gVertexShader, gSurfaceTextureOESFragmentShaderInverted);
 
     if (m_program == -1
+        || m_programInverted == -1
         || m_videoProgram == -1
         || m_surfTexOESProgram == -1
         || m_surfTexOESProgramInverted == -1)
@@ -202,6 +220,12 @@ void ShaderProgram::init()
     m_hAlpha = glGetUniformLocation(m_program, "alpha");
     m_hTexSampler = glGetUniformLocation(m_program, "s_texture");
     m_hPosition = glGetAttribLocation(m_program, "vPosition");
+
+    m_hProjectionMatrixInverted = glGetUniformLocation(m_programInverted, "projectionMatrix");
+    m_hAlphaInverted = glGetUniformLocation(m_programInverted, "alpha");
+    m_hContrastInverted = glGetUniformLocation(m_surfTexOESProgramInverted, "contrast");
+    m_hTexSamplerInverted = glGetUniformLocation(m_programInverted, "s_texture");
+    m_hPositionInverted = glGetAttribLocation(m_programInverted, "vPosition");
 
     m_hVideoProjectionMatrix =
         glGetUniformLocation(m_videoProgram, "projectionMatrix");
@@ -334,10 +358,22 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
                              GLenum textureTarget, GLint texFilter)
 {
     if (textureTarget == GL_TEXTURE_2D) {
-        drawQuadInternal(geometry, textureId, opacity, m_program,
-                         m_hProjectionMatrix,
-                         m_hTexSampler, GL_TEXTURE_2D,
-                         m_hPosition, alpha(), texFilter);
+        if (!TilesManager::instance()->invertedScreen()) {
+            drawQuadInternal(geometry, textureId, opacity, m_program,
+                             m_hProjectionMatrix,
+                             m_hTexSampler, GL_TEXTURE_2D,
+                             m_hPosition, m_hAlpha, texFilter);
+        } else {
+            // With the new GPU texture upload path, we do not use an FBO
+            // to blit the texture we receive from the TexturesGenerator thread.
+            // To implement inverted rendering, we thus have to do the rendering
+            // live, by using a different shader.
+            drawQuadInternal(geometry, textureId, opacity, m_programInverted,
+                             m_hProjectionMatrixInverted,
+                             m_hTexSamplerInverted, GL_TEXTURE_2D,
+                             m_hPositionInverted, m_hAlphaInverted, texFilter,
+                             m_hContrastInverted);
+        }
     } else if (textureTarget == GL_TEXTURE_EXTERNAL_OES
                && !TilesManager::instance()->invertedScreen()) {
         drawQuadInternal(geometry, textureId, opacity, m_surfTexOESProgram,
@@ -520,10 +556,18 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
     if (textureTarget == GL_TEXTURE_2D) {
-        drawLayerQuadInternal(projectionMatrix, textureId, opacity,
-                              GL_TEXTURE_2D, m_program,
-                              m_hProjectionMatrix, m_hTexSampler,
-                              m_hPosition, alpha());
+        if (!TilesManager::instance()->invertedScreen()) {
+            drawLayerQuadInternal(projectionMatrix, textureId, opacity,
+                                  GL_TEXTURE_2D, m_program,
+                                  m_hProjectionMatrix, m_hTexSampler,
+                                  m_hPosition, m_hAlpha);
+        } else {
+            drawLayerQuadInternal(projectionMatrix, textureId, opacity,
+                                  GL_TEXTURE_2D, m_programInverted,
+                                  m_hProjectionMatrixInverted, m_hTexSamplerInverted,
+                                  m_hPositionInverted, m_hAlphaInverted,
+                                  m_hContrastInverted);
+        }
     } else if (textureTarget == GL_TEXTURE_EXTERNAL_OES
                && !TilesManager::instance()->invertedScreen()) {
         drawLayerQuadInternal(projectionMatrix, textureId, opacity,
