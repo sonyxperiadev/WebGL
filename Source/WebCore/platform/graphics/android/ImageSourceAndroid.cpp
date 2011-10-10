@@ -207,11 +207,7 @@ void ImageSource::clearURL()
 
 void ImageSource::setURL(const String& url) 
 { 
-    if (url.startsWith("data:")) {
-        clearURL();
-    } else {
-        m_decoder.m_url.setUTF16(url.characters(), url.length()); 
-    }
+    m_decoder.m_url.setUTF16(url.characters(), url.length());
 }
 
 #ifdef ANDROID_ANIMATED_GIF
