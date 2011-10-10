@@ -36,20 +36,22 @@
 #include "TilesManager.h"
 #include "TilePainter.h"
 #include "TransformationMatrix.h"
+#include "UpdateManager.h"
 
 class SkCanvas;
 class SkRegion;
 
 namespace WebCore {
 
-class PaintedSurface : public SkRefCnt, TilePainter {
+class UpdateManager;
+
+class PaintedSurface : public SkRefCnt {
 public:
     PaintedSurface(LayerAndroid* layer)
         : m_layer(layer)
         , m_tiledTexture(0)
         , m_scale(0)
         , m_pictureUsed(0)
-        , m_busy(false)
     {
         TilesManager::instance()->addPaintedSurface(this);
         SkSafeRef(m_layer);
@@ -70,18 +72,14 @@ public:
     void removeLayer();
     void removeLayer(LayerAndroid* layer);
     void replaceLayer(LayerAndroid* layer);
-    bool busy();
 
     bool owns(BaseTileTexture* texture);
 
     void computeVisibleArea();
 
-    // TilePainter methods
-    virtual bool paint(BaseTile*, SkCanvas*, unsigned int*);
+    // TilePainter methods for TiledTexture
     virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
-    virtual void beginPaint();
-    virtual void endPaint();
 
     // used by TiledTexture
     const IntRect& area() { return m_area; }
@@ -92,6 +90,8 @@ public:
     TiledTexture* texture() { return m_tiledTexture; }
 
 private:
+    UpdateManager m_updateManager;
+
     LayerAndroid* m_layer;
     TiledTexture* m_tiledTexture;
 
@@ -100,8 +100,6 @@ private:
     float m_scale;
 
     unsigned int m_pictureUsed;
-
-    bool m_busy;
 
     android::Mutex m_layerLock;
 };

@@ -109,6 +109,7 @@ public:
     bool intersectWithRect(int x, int y, int tileWidth, int tileHeight,
                            float scale, const SkRect& dirtyRect,
                            SkRect& realTileRect);
+    bool isTileVisible(const IntRect& viewTileBounds);
 
     void markAsDirty(const unsigned int pictureCount,
                      const SkRegion& dirtyArea);

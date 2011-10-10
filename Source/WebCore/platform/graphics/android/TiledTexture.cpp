@@ -33,11 +33,14 @@
 #include "PaintTileOperation.h"
 #include "SkCanvas.h"
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "TiledTexture", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TiledTexture", __VA_ARGS__)
@@ -51,7 +54,7 @@
 
 namespace WebCore {
 
-void TiledTexture::prepare(GLWebViewState* state, bool repaint)
+void TiledTexture::prepare(GLWebViewState* state, bool repaint, bool startFastSwap)
 {
     if (!m_surface)
         return;
@@ -65,13 +68,6 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
                  visibleArea.y() * m_surface->scale(),
                  ceilf(visibleArea.width() * m_surface->scale()),
                  ceilf(visibleArea.height() * m_surface->scale()));
-
-    for (unsigned int i = 0; i < m_tiles.size(); i++) {
-        BaseTile* tile = m_tiles[i];
-        if (!m_dirtyRegion.isEmpty())
-            tile->markAsDirty(1, m_dirtyRegion);
-    }
-    m_dirtyRegion.setEmpty();
 
     if (area.width() == 0 && area.height() == 0) {
         m_area.setWidth(0);
@@ -89,7 +85,7 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
     m_area.setWidth(ceilf(right) - m_area.x());
     m_area.setHeight(ceilf(bottom) - m_area.y());
 
-    XLOG("for TiledTexture %x, we have a visible area of %d, %d - %d x %d, corresponding to %d, %d x - %d x %d tiles",
+    XLOG("for TiledTexture %p, we have a visible area of %d, %d - %d x %d, corresponding to %d, %d x - %d x %d tiles",
          this,
          visibleArea.x(), visibleArea.y(),
          visibleArea.width(), visibleArea.height(),
@@ -104,6 +100,47 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
 
     m_prevScale = m_surface->scale();
 
+    // unlock if tiles all ready
+    bool tilesAllReady = true;
+    for (unsigned int i = 0; i < m_tiles.size(); i++) {
+        BaseTile* tile = m_tiles[i];
+        if (tile->isTileVisible(m_area) && !tile->isTileReady()) {
+            tilesAllReady = false;
+            break;
+        }
+    }
+
+    // startFastSwap=true will swap all ready tiles each
+    // frame until all visible tiles are up to date
+    if (tilesAllReady)
+        m_swapWhateverIsReady = false;
+    else if (startFastSwap)
+        m_swapWhateverIsReady = true;
+
+    // swap as appropriate
+    for (unsigned int i = 0; i < m_tiles.size(); i++) {
+        BaseTile* tile = m_tiles[i];
+        if (tilesAllReady || m_swapWhateverIsReady)
+            tile->swapTexturesIfNeeded();
+    }
+
+    if (tilesAllReady) {
+        m_updateManager.swap();
+        m_dirtyRegion.op(m_updateManager.getPaintingInval(), SkRegion::kUnion_Op);
+        XLOG("TT %p swapping, now painting with picture %p"
+             this, m_updateManager.getPaintingPicture());
+        m_updateManager.clearPaintingInval();
+    }
+
+    // apply dirty region to affected tiles
+    if (!m_dirtyRegion.isEmpty()) {
+        for (unsigned int i = 0; i < m_tiles.size(); i++) {
+            // TODO: don't mark all tiles dirty
+            m_tiles[i]->markAsDirty(1, m_dirtyRegion);
+        }
+    }
+    m_dirtyRegion.setEmpty();
+
     for (int i = 0; i < m_area.width(); i++) {
         if (goingDown) {
             for (int j = 0; j < m_area.height(); j++) {
@@ -117,9 +154,14 @@ void TiledTexture::prepare(GLWebViewState* state, bool repaint)
     }
 }
 
-void TiledTexture::markAsDirty(const SkRegion& dirtyArea)
+void TiledTexture::update(const SkRegion& invalRegion, SkPicture* picture)
 {
-    m_dirtyRegion.op(dirtyArea, SkRegion::kUnion_Op);
+    XLOG("TT %p, update manager %p updated with picture %p, region empty %d",
+          this, &m_updateManager, picture, invalRegion.isEmpty());
+    // attempt to update inval and picture. these may be deferred below instead
+    // of used immediately.
+    m_updateManager.updateInval(invalRegion);
+    m_updateManager.updatePicture(picture);
 }
 
 void TiledTexture::prepareTile(bool repaint, int x, int y)
@@ -130,6 +172,7 @@ void TiledTexture::prepareTile(bool repaint, int x, int y)
         m_tiles.append(tile);
     }
 
+    XLOG("preparing tile %p, painter is this %p", tile, this);
     tile->setContents(this, x, y, m_surface->scale());
 
     // TODO: move below (which is largely the same for layers / tiled page) into
@@ -160,9 +203,8 @@ bool TiledTexture::draw()
     TilesManager::instance()->getTilesTracker()->trackLayer();
 #endif
 
-    bool askRedraw = false;
     if (m_area.width() == 0 || m_area.height() == 0)
-        return askRedraw;
+        return false;
 
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->trackVisibleLayer();
@@ -172,38 +214,35 @@ bool TiledTexture::draw()
     const float tileWidth = TilesManager::layerTileWidth() * m_invScale;
     const float tileHeight = TilesManager::layerTileHeight() * m_invScale;
     XLOG("draw tile %x, tiles %d", this, m_tiles.size());
-    for (unsigned int i = 0; i <m_tiles.size(); i++) {
+
+    bool askRedraw = false;
+    for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
-        if (tile->x() >= m_area.x()
-            && tile->x() < m_area.x() + m_area.width()
-            && tile->y() >= m_area.y()
-            && tile->y() < m_area.y() + m_area.height()) {
+
+        askRedraw |= !tile->isTileReady();
+        if (tile->isTileVisible(m_area)) {
             SkRect rect;
             rect.fLeft = tile->x() * tileWidth;
             rect.fTop = tile->y() * tileHeight;
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
             XLOG(" - [%d], { painter %x vs %x }, tile %x %d,%d at scale %.2f [ready: %d] dirty: %d",
-                 i, this, tile->painter(), tile, tile->x(), tile->y(), tile->scale(), tile->isTileReady(), tile->isDirty());
-            askRedraw |= !tile->isTileReady();
-            tile->swapTexturesIfNeeded();
+                 i, this, tile->painter(), tile, tile->x(), tile->y(),
+                 tile->scale(), tile->isTileReady(), tile->isDirty());
             tile->draw(m_surface->opacity(), rect, m_surface->scale());
 #ifdef DEBUG
             TilesManager::instance()->getTilesTracker()->track(tile->isTileReady(), tile->backTexture());
 #endif
         }
     }
+
+    // need to redraw if some visible tile wasn't ready
     return askRedraw;
 }
 
 bool TiledTexture::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
 {
-    if (!m_surface)
-        return false;
-
-    XLOG("painting scheduled tile(%x : %d, %d, %.2f, %x) for %x",
-         tile, tile->x(), tile->y(), tile->scale(), tile->painter(), this);
-    return m_surface->paint(tile, canvas, pictureUsed);
+    return m_updateManager.paint(tile, canvas, pictureUsed);
 }
 
 void TiledTexture::paintExtra(SkCanvas* canvas)
@@ -214,18 +253,6 @@ void TiledTexture::paintExtra(SkCanvas* canvas)
 const TransformationMatrix* TiledTexture::transform()
 {
     return m_surface->transform();
-}
-
-void TiledTexture::beginPaint()
-{
-    if (m_surface)
-        m_surface->beginPaint();
-}
-
-void TiledTexture::endPaint()
-{
-    if (m_surface)
-        m_surface->endPaint();
 }
 
 void TiledTexture::removeTiles()
