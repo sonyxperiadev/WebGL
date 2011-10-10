@@ -82,22 +82,18 @@ BaseTileTexture::~BaseTileTexture()
 #endif
 }
 
-void BaseTileTexture::requireTexture()
+void BaseTileTexture::requireGLTexture()
 {
     if (!m_ownTextureId)
         m_ownTextureId = GLUtils::createBaseTileGLTexture(m_size.width(), m_size.height());
 }
 
-void BaseTileTexture::discardTexture()
+void BaseTileTexture::discardGLTexture()
 {
     if (m_ownTextureId)
         GLUtils::deleteTexture(&m_ownTextureId);
 
-    if (m_owner) {
-        // clear both Tile->Texture and Texture->Tile links
-        m_owner->removeTexture(this);
-        release(m_owner);
-    }
+    releaseAndRemoveFromTile();
 }
 
 void BaseTileTexture::destroyTextures(SharedTexture** textures)
@@ -185,19 +181,6 @@ bool BaseTileTexture::acquire(TextureOwner* owner, bool force)
     return setOwner(owner, force);
 }
 
-bool BaseTileTexture::tryAcquire(TextureOwner* owner)
-{
-    m_busyLock.lock();
-    if (!m_busy
-        && m_owner
-        && m_owner->state() != owner->state()) {
-        m_busyLock.unlock();
-        return this->acquire(owner);
-    }
-    m_busyLock.unlock();
-    return false;
-}
-
 bool BaseTileTexture::setOwner(TextureOwner* owner, bool force)
 {
     // if the writable texture is busy (i.e. currently being written to) then we
@@ -232,6 +215,7 @@ bool BaseTileTexture::setOwner(TextureOwner* owner, bool force)
 bool BaseTileTexture::release(TextureOwner* owner)
 {
     android::Mutex::Autolock lock(m_busyLock);
+    XLOG("texture %p releasing tile %p, m_owner %p, m_busy %d", this, owner, m_owner, m_busy);
     if (m_owner != owner)
         return false;
 
@@ -242,6 +226,15 @@ bool BaseTileTexture::release(TextureOwner* owner)
         m_delayedReleaseOwner = owner;
     }
     return true;
+}
+
+void BaseTileTexture::releaseAndRemoveFromTile()
+{
+    if (m_owner) {
+        // clear both Tile->Texture and Texture->Tile links
+        m_owner->removeTexture(this);
+        release(m_owner);
+    }
 }
 
 void BaseTileTexture::setTile(TextureInfo* info, int x, int y,

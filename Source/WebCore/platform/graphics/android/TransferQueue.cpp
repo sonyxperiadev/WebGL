@@ -308,7 +308,7 @@ void TransferQueue::updateDirtyBaseTiles()
             }
 
             // guarantee that we have a texture to blit into
-            destTexture->requireTexture();
+            destTexture->requireGLTexture();
 
             if (m_transferQueue[index].uploadType == CpuUpload) {
                 // Here we just need to upload the bitmap content to the GL Texture
@@ -357,6 +357,21 @@ void TransferQueue::updateDirtyBaseTiles()
 void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
                                           int x, int y, const SkBitmap& bitmap)
 {
+    if (!tryUpdateQueueWithBitmap(renderInfo, x, y, bitmap)) {
+        // failed placing bitmap in queue, discard tile's texture so it will be
+        // re-enqueued (and repainted)
+        BaseTile* tile = renderInfo->baseTile;
+        if (tile) {
+            BaseTileTexture* texture = tile->backTexture();
+            if (texture)
+                texture->releaseAndRemoveFromTile();
+        }
+    }
+}
+
+bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
+                                          int x, int y, const SkBitmap& bitmap)
+{
     m_transferQueueItemLocks.lock();
     bool ready = readyForUpdate();
     TextureUploadType currentUploadType = m_currentUploadType;
@@ -364,18 +379,18 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
     if (!ready) {
         XLOG("Quit bitmap update: not ready! for tile x y %d %d",
              renderInfo->x, renderInfo->y);
-        return;
+        return false;
     }
     if (currentUploadType == GpuUpload) {
         // a) Dequeue the Surface Texture and write into the buffer
         if (!m_ANW.get()) {
             XLOG("ERROR: ANW is null");
-            return;
+            return false;
         }
 
         ANativeWindow_Buffer buffer;
         if (ANativeWindow_lock(m_ANW.get(), &buffer, 0))
-            return;
+            return false;
 
         uint8_t* img = (uint8_t*)buffer.bits;
         int row, col;
@@ -411,6 +426,7 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
     m_transferQueueItemLocks.unlock();
     XLOG("Bitmap updated x, y %d %d, baseTile %p",
          renderInfo->x, renderInfo->y, renderInfo->baseTile);
+    return true;
 }
 
 // Note that there should be lock/unlock around this function call.
@@ -476,6 +492,17 @@ void TransferQueue::cleanupTransportQueue()
             // be called to keep things in sync.
             if (m_transferQueue[index].uploadType == GpuUpload)
                 m_sharedSurfaceTexture->updateTexImage();
+
+            // since tiles in the queue may be from another webview, remove
+            // their textures so that they will be repainted / retransferred
+            BaseTile* tile = m_transferQueue[index].savedBaseTilePtr;
+            if (tile) {
+                BaseTileTexture* texture = tile->backTexture();
+                if (texture)
+                    texture->releaseAndRemoveFromTile();
+            }
+            XLOG("transfer queue discarded tile %p, removed texture", tile);
+
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
         }
