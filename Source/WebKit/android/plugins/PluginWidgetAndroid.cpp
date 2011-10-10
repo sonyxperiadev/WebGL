@@ -76,6 +76,7 @@ PluginWidgetAndroid::PluginWidgetAndroid(WebCore::PluginView* view)
     m_layer = 0;
     m_powerState = kDefault_ANPPowerState;
     m_fullScreenOrientation = -1;
+    m_drawEventDelayed = false;
 }
 
 PluginWidgetAndroid::~PluginWidgetAndroid() {
@@ -173,6 +174,14 @@ bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
 
     m_drawingModel = model;
     return true;
+}
+
+void PluginWidgetAndroid::checkSurfaceReady() {
+    if(!m_drawEventDelayed)
+        return;
+
+    m_drawEventDelayed = false;
+    sendSizeAndVisibilityEvents(true);
 }
 
 // returned rect is in the page coordinate
@@ -382,8 +391,14 @@ bool PluginWidgetAndroid::isAcceptingEvent(ANPEventFlag flag) {
 }
 
 void PluginWidgetAndroid::sendSizeAndVisibilityEvents(const bool updateDimensions) {
-    // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
 
+    if (m_drawingModel == kOpenGL_ANPDrawingModel &&
+            !m_layer->acquireNativeWindowForContent()) {
+        m_drawEventDelayed = true;
+        return;
+    }
+
+    // TODO update the bitmap size based on the zoom? (for kBitmap_ANPDrawingModel)
     const float zoomLevel = m_core->scale();
 
     // notify the plugin of the new size

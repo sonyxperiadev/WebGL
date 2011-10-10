@@ -2044,6 +2044,15 @@ void WebViewCore::sendPluginVisibleScreen()
     }
 }
 
+void WebViewCore::sendPluginSurfaceReady()
+{
+    PluginWidgetAndroid** iter = m_plugins.begin();
+    PluginWidgetAndroid** stop = m_plugins.end();
+    for (; iter < stop; ++iter) {
+        (*iter)->checkSurfaceReady();
+    }
+}
+
 void WebViewCore::sendPluginEvent(const ANPEvent& evt)
 {
     /* The list of plugins may be manipulated as we iterate through the list.
@@ -4544,6 +4553,13 @@ static void ProvideVisitedHistory(JNIEnv *env, jobject obj, jobject hist)
     }
 }
 
+static void PluginSurfaceReady(JNIEnv* env, jobject obj)
+{
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    if (viewImpl)
+        viewImpl->sendPluginSurfaceReady();
+}
+
 // Notification from the UI thread that the plugin's full-screen surface has been discarded
 static void FullScreenPluginHidden(JNIEnv* env, jobject obj, jint npp)
 {
@@ -4740,6 +4756,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ProvideVisitedHistory },
     { "nativeFullScreenPluginHidden", "(I)V",
         (void*) FullScreenPluginHidden },
+    { "nativePluginSurfaceReady", "()V",
+        (void*) PluginSurfaceReady },
     { "nativeValidNodeAndBounds", "(IILandroid/graphics/Rect;)Z",
         (void*) ValidNodeAndBounds },
     { "nativeGetTouchHighlightRects", "(III)Ljava/util/ArrayList;",

@@ -96,6 +96,21 @@ void MediaTexture::initNativeWindowIfNeeded()
         // create a content texture if none exists
         if (!m_contentTexture) {
             m_contentTexture = createTexture();
+
+            // send a message to the WebKit thread to notify the plugin that it can draw
+            if (m_weakWebViewRef) {
+                JNIEnv* env = JSC::Bindings::getJNIEnv();
+                jobject localWebViewRef = env->NewLocalRef(m_weakWebViewRef);
+                if (localWebViewRef) {
+                    jclass wvClass = env->GetObjectClass(localWebViewRef);
+                    jmethodID sendPluginDrawMsg =
+                            env->GetMethodID(wvClass, "sendPluginDrawMsg", "()V");
+                    env->CallVoidMethod(localWebViewRef, sendPluginDrawMsg);
+                    env->DeleteLocalRef(wvClass);
+                    env->DeleteLocalRef(localWebViewRef);
+                }
+                checkException(env);
+            }
         }
 
         // finally create a video texture if needed
@@ -110,6 +125,8 @@ void MediaTexture::initNativeWindowIfNeeded()
         m_newWindowRequest = false;
         m_newWindow = videoTexture->nativeWindow;
     }
+
+    // signal the WebKit thread in case it is waiting
     m_newMediaRequestCond.signal();
 }
 
@@ -253,6 +270,7 @@ void MediaTexture::setDimensions(const ANativeWindow* window,
 void MediaTexture::setFramerateCallback(const ANativeWindow* window,
                                         FramerateCallbackProc callback)
 {
+    XLOG("Release ANW %p (%p):(%p)", this, m_surfaceTexture.get(), m_surfaceTextureClient.get());
     android::Mutex::Autolock lock(m_mediaLock);
     for (unsigned int i = 0; i < m_videoTextures.size(); i++) {
         if (m_videoTextures[i]->nativeWindow.get() == window) {
