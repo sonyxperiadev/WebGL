@@ -31,6 +31,7 @@
 #define FontPlatformData_h
 
 #include "FontOrientation.h"
+#include "TextOrientation.h"
 #include <wtf/text/StringImpl.h>
 
 #ifndef NDEBUG
@@ -52,7 +53,8 @@ public:
 
     FontPlatformData();
     FontPlatformData(const FontPlatformData&);
-    FontPlatformData(SkTypeface*, float textSize, bool fakeBold, bool fakeItalic);
+    FontPlatformData(SkTypeface*, float textSize, bool fakeBold, bool fakeItalic,
+                     FontOrientation = Horizontal, TextOrientation = TextOrientationVerticalRight);
     FontPlatformData(const FontPlatformData& src, float textSize);
     FontPlatformData(float size, bool syntheticBold, bool syntheticOblique);
     FontPlatformData(const FontPlatformData& src, SkTypeface* typeface);
@@ -65,9 +67,8 @@ public:
         return mTypeface == hashTableDeletedFontValue();
     }
 
-    FontOrientation orientation() const { return Horizontal; } // FIXME: Implement.
-    void setOrientation(FontOrientation) { } // FIXME: Implement.
-
+    FontOrientation orientation() const { return mOrientation; }
+    void setOrientation(FontOrientation orientation) { mOrientation = orientation; }
     FontPlatformData& operator=(const FontPlatformData&);
     bool operator==(const FontPlatformData& a) const;
 
@@ -114,6 +115,8 @@ private:
     float       mTextSize;
     bool        mFakeBold;
     bool        mFakeItalic;
+    FontOrientation mOrientation;
+    TextOrientation mTextOrientation;
     mutable RefPtr<RefCountedHarfbuzzFace> m_harfbuzzFace;
 
     static SkTypeface* hashTableDeletedFontValue() {
