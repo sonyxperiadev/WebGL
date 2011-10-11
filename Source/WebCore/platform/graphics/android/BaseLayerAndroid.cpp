@@ -337,9 +337,13 @@ bool BaseLayerAndroid::drawGL(double currentTime, LayerAndroid* compositedRoot,
         TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
 
         compositedRoot->prepare(m_glWebViewState);
-        if (compositedRoot->drawGL(m_glWebViewState, matrix))
-            needsRedraw = true;
-        else if (!animsRunning)
+        if (compositedRoot->drawGL(m_glWebViewState, matrix)) {
+            if (TilesManager::instance()->layerTexturesRemain()) {
+                // only try redrawing for layers if layer textures remain,
+                // otherwise we'll repaint without getting anything done
+                needsRedraw = true;
+            }
+        } else if (!animsRunning)
             m_glWebViewState->resetLayersDirtyArea();
 
     }

@@ -219,8 +219,8 @@ bool TiledTexture::draw()
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
 
-        askRedraw |= !tile->isTileReady();
         if (tile->isTileVisible(m_area)) {
+            askRedraw |= !tile->isTileReady();
             SkRect rect;
             rect.fLeft = tile->x() * tileWidth;
             rect.fTop = tile->y() * tileHeight;
