@@ -87,6 +87,8 @@ public:
 
     void gatherLayerTextures();
     void gatherTextures();
+    bool layerTexturesRemain() { return m_layerTexturesRemain; }
+
     BaseTileTexture* getAvailableTexture(BaseTile* owner);
 
     void markGeneratorAsReady()
@@ -197,10 +199,9 @@ private:
 
     Vector<BaseTileTexture*> m_tilesTextures;
     Vector<BaseTileTexture*> m_availableTilesTextures;
+    bool m_layerTexturesRemain;
 
     Vector<PaintedSurface*> m_paintedSurfaces;
-
-    unsigned int m_layersMemoryUsage;
 
     int m_maxTextureCount;
 

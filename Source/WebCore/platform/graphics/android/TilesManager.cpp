@@ -93,7 +93,7 @@ int TilesManager::getMaxTextureAllocation()
 }
 
 TilesManager::TilesManager()
-    : m_layersMemoryUsage(0)
+    : m_layerTexturesRemain(true)
     , m_maxTextureCount(0)
     , m_generatorReady(false)
     , m_showVisualIndicator(false)
@@ -237,6 +237,7 @@ void TilesManager::gatherLayerTextures()
 {
     android::Mutex::Autolock lock(m_texturesLock);
     m_availableTilesTextures = m_tilesTextures;
+    m_layerTexturesRemain = true;
 }
 
 BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
@@ -325,6 +326,13 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 
             availableTexturePool->remove(availableTexturePool->find(farthestTexture));
             return farthestTexture;
+        }
+    } else {
+        if (owner->isLayerTile()) {
+            // couldn't find a tile for a layer, layers shouldn't request redraw
+            // TODO: once we do layer prefetching, don't set this for those
+            // tiles
+            m_layerTexturesRemain = false;
         }
     }
 
