@@ -1246,6 +1246,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 type = TEXT_INPUT_CACHEDNODETYPE;
                 cachedInput.init();
                 cachedInput.setAutoComplete(input->autoComplete());
+                cachedInput.setSpellcheck(input->spellcheck());
                 cachedInput.setFormPointer(input->form());
                 cachedInput.setIsTextField(true);
                 exported = input->value().threadsafeCopy();

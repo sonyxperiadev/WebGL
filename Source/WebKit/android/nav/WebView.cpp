@@ -2125,6 +2125,12 @@ static jint nativeFocusCandidatePointer(JNIEnv *env, jobject obj)
     return reinterpret_cast<int>(node ? node->nodePointer() : 0);
 }
 
+static jint nativeFocusCandidateIsSpellcheck(JNIEnv *env, jobject obj)
+{
+    const CachedInput* input = getInputCandidate(env, obj);
+    return input ? input->spellcheck() : false;
+}
+
 static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusCandidate(env, obj, 0);
@@ -2835,6 +2841,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateMaxLength },
     { "nativeFocusCandidateIsAutoComplete", "()Z",
         (void*) nativeFocusCandidateIsAutoComplete },
+    { "nativeFocusCandidateIsSpellcheck", "()Z",
+        (void*) nativeFocusCandidateIsSpellcheck },
     { "nativeFocusCandidateName", "()Ljava/lang/String;",
         (void*) nativeFocusCandidateName },
     { "nativeFocusCandidateNodeBounds", "()Landroid/graphics/Rect;",

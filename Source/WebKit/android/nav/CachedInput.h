@@ -78,7 +78,9 @@ public:
     void setPaddingLeft(int left) { mPaddingLeft = left; }
     void setPaddingRight(int right) { mPaddingRight = right; }
     void setPaddingTop(int top) { mPaddingTop = top; }
+    void setSpellcheck(bool spellcheck) { mSpellcheck = spellcheck; }
     void setTextSize(float textSize) { mTextSize = textSize; }
+    bool spellcheck() const { return mSpellcheck; }
     float textSize() const { return mTextSize; }
 
 private:
@@ -94,6 +96,7 @@ private:
     float mTextSize;
     Type mType;
     bool mAutoComplete : 1;
+    bool mSpellcheck : 1;
     bool mIsRtlText : 1;
     bool mIsTextField : 1;
     bool mIsTextArea : 1;
