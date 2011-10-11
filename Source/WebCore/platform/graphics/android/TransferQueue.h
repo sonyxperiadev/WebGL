@@ -112,6 +112,7 @@ public:
 
     void initSharedSurfaceTextures(int width, int height);
 
+    // insert the bitmap into the queue, mark the tile dirty if failing
     void updateQueueWithBitmap(const TileRenderInfo* renderInfo, int x, int y,
                                const SkBitmap& bitmap);
 
@@ -139,6 +140,9 @@ public:
     EGLSurface m_eglSurface;
 
 private:
+    // return true if successfully inserted into queue
+    bool tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo, int x, int y,
+                                  const SkBitmap& bitmap);
     bool getHasGLContext();
     void setHasGLContext(bool hasContext);
 

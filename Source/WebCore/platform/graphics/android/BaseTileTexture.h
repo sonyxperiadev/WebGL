@@ -82,7 +82,9 @@ public:
     // returns false if ownership cannot be transferred because the tile is busy
     bool acquire(TextureOwner* owner, bool force = false);
     bool release(TextureOwner* owner);
-    bool tryAcquire(TextureOwner* owner);
+
+    // removes Tile->Texture, and Texture->Tile links to fully discard the texture
+    void releaseAndRemoveFromTile();
 
     // set the texture owner if not busy. Return false if busy, true otherwise.
     bool setOwner(TextureOwner* owner, bool force = false);
@@ -104,8 +106,8 @@ public:
     // OpenGL ID of backing texture, 0 when not allocated
     GLuint m_ownTextureId;
     // these are used for dynamically (de)allocating backing graphics memory
-    void requireTexture();
-    void discardTexture();
+    void requireGLTexture();
+    void discardGLTexture();
 
     void setOwnTextureTileInfoFromQueue(const TextureTileInfo* info);
 
