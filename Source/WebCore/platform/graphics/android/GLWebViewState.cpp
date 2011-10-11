@@ -205,7 +205,8 @@ void GLWebViewState::inval(const IntRect& rect)
         m_currentPictureCounter++;
         if (!rect.isEmpty()) {
             // find which tiles fall within the invalRect and mark them as dirty
-            frontPage()->invalidateRect(rect, m_currentPictureCounter);
+            m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
+            m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
             if (m_frameworkInval.isEmpty())
                 m_frameworkInval = rect;
             else

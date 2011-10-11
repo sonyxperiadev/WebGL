@@ -169,14 +169,14 @@ void TilesManager::deallocateTextures(bool allTextures)
     for (unsigned int i = 0; i < max; i++) {
         TextureOwner* owner = m_textures[i]->owner();
         if (!owner || owner->drawCount() < sparedDrawCount) {
-            m_textures[i]->discardTexture();
+            m_textures[i]->discardGLTexture();
             dealloc++;
         }
     }
     for (unsigned int i = 0; i < maxLayer; i++) {
         TextureOwner* owner = m_tilesTextures[i]->owner();
         if (!owner || owner->drawCount() < sparedDrawCount) {
-            m_tilesTextures[i]->discardTexture();
+            m_tilesTextures[i]->discardGLTexture();
             dealloc++;
         }
     }

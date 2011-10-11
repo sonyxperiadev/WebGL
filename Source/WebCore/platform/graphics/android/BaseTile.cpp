@@ -135,6 +135,8 @@ void BaseTile::reserveTexture()
 
     android::AutoMutex lock(m_atomicSync);
     if (texture && m_backTexture != texture) {
+        XLOG("tile %p reserving texture %p, back was %p (front %p)",
+             this, texture, m_backTexture, m_frontTexture);
         m_state = Unpainted;
         m_backTexture = texture;
     }
@@ -148,8 +150,8 @@ void BaseTile::reserveTexture()
 
 bool BaseTile::removeTexture(BaseTileTexture* texture)
 {
-    XLOG("%x removeTexture back %x front %x... page %x",
-         this, m_backTexture, m_frontTexture, m_page);
+    XLOG("%p removeTexture %p, back %p front %p... page %p",
+         this, texture, m_backTexture, m_frontTexture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
     if (m_frontTexture == texture) {
@@ -484,6 +486,8 @@ void BaseTile::paintBitmap()
 
 void BaseTile::discardTextures() {
     android::AutoMutex lock(m_atomicSync);
+    XLOG("%p discarding bt %p, ft %p",
+         this, m_backTexture, m_frontTexture);
     if (m_frontTexture) {
         m_frontTexture->release(this);
         m_frontTexture = 0;
