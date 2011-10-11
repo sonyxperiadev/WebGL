@@ -675,6 +675,13 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     if (cacheBuilder().pictureSetDisabled())
         content->clear();
 
+#if USE(ACCELERATED_COMPOSITING)
+    // Detects if the content size has changed
+    bool contentSizeChanged = false;
+    if (content->width() != width || content->height() != height)
+        contentSizeChanged = true;
+#endif
+
     content->setDimensions(width, height, &m_addInval);
 
     // Add the current inval rects to the PictureSet, and rebuild it.
@@ -694,7 +701,24 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         m_addInval.setRect(r);
     }
 
+    // Rebuild the pictureset (webkit repaint)
     rebuildPictureSet(content);
+
+#if USE(ACCELERATED_COMPOSITING)
+    // We repainted the pictureset, but the invals are not always correct when
+    // the content size did change. For now, let's just reset the
+    // inval we will pass to the UI so that it invalidates the entire
+    // content -- tiles will be marked dirty and will have to be repainted.
+    // FIXME: the webkit invals ought to have been enough...
+    if (contentSizeChanged) {
+        SkIRect r;
+        r.fLeft = 0;
+        r.fTop = 0;
+        r.fRight = width;
+        r.fBottom = height;
+        m_addInval.setRect(r);
+    }
+#endif
 
     } // WebViewCoreRecordTimeCounter
 
