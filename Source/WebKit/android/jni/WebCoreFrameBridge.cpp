@@ -981,7 +981,6 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
     env->DeleteLocalRef(jRealm);
     checkException(env);
 }
-#endif
 
 void
 WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert, const std::string& url)
@@ -1024,7 +1023,6 @@ WebFrame::requestClientCert(WebUrlLoaderClient* client, const std::string& hostA
     checkException(env);
 }
 
-#if USE(CHROME_NETWORK_STACK)
 void
 WebFrame::downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength)
 {
@@ -1082,9 +1080,6 @@ WebFrame::didFinishLoading() {
     checkException(env);
 }
 
-#endif
-
-#if USE(CHROME_NETWORK_STACK)
 void WebFrame::setCertificate(const std::string& cert)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -1105,7 +1100,7 @@ void WebFrame::setCertificate(const std::string& cert)
     env->DeleteLocalRef(jCert);
     checkException(env);
 }
-#endif
+#endif // USE(CHROME_NETWORK_STACK)
 
 void WebFrame::autoLogin(const std::string& loginHeader)
 {
