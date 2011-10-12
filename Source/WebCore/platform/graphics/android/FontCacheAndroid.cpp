@@ -177,9 +177,7 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
 
         result = new FontPlatformData(tf, fontDescription.computedSize(),
                             (style & SkTypeface::kBold) && !tf->isBold(),
-                            (style & SkTypeface::kItalic) && !tf->isItalic(),
-                            fontDescription.orientation(),
-                            fontDescription.textOrientation());
+                            (style & SkTypeface::kItalic) && !tf->isItalic());
     }
 
     tf->unref();
