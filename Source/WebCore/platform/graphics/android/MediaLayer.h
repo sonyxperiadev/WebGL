@@ -43,7 +43,7 @@ public:
     virtual bool isMedia() const { return true; }
     virtual LayerAndroid* copy() const { return new MediaLayer(*this); }
 
-    void invertContents(bool invertContent) { m_isContentInverted = invertContent; }
+    void invertContents(bool invert) { m_mediaTexture->invertContents(invert); }
     void setOutlineSize(int size) { m_outlineSize = size; }
 
     // function to setup the primary SurfaceTexture in the renderer's context
@@ -57,7 +57,6 @@ public:
 
 private:
     bool m_isCopy;
-    bool m_isContentInverted;
     int m_outlineSize;
 
     // SurfaceTexture member variables

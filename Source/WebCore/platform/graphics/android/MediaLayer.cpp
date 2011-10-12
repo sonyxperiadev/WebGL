@@ -46,7 +46,6 @@ MediaLayer::MediaLayer(jobject webViewRef) : LayerAndroid((RenderLayer*) NULL)
     m_mediaTexture->incStrong(this);
 
     m_isCopy = false;
-    m_isContentInverted = false;
     m_outlineSize = 0;
     XLOG("Creating Media Layer %p", this);
 }
@@ -57,7 +56,6 @@ MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
     m_mediaTexture->incStrong(this);
 
     m_isCopy = true;
-    m_isContentInverted = layer.m_isContentInverted;
     m_outlineSize = layer.m_outlineSize;
     XLOG("Creating Media Layer Copy %p -> %p", &layer, this);
 }
@@ -86,7 +84,7 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     // the layer's shader draws the content inverted so we must undo
     // that change in the transformation matrix
     TransformationMatrix m = m_drawTransform;
-    if (!m_isContentInverted) {
+    if (!m_mediaTexture->isContentInverted()) {
         m.flipY();
         m.translate(0, -getSize().height());
     }
