@@ -64,6 +64,7 @@ MediaTexture::MediaTexture(jobject webViewRef) : android::LightRefBase<MediaText
     }
 
     m_contentTexture = 0;
+    m_isContentInverted = false;
     m_newWindowRequest = false;
 }
 
@@ -78,6 +79,17 @@ MediaTexture::~MediaTexture()
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         env->DeleteWeakGlobalRef(m_weakWebViewRef);
     }
+}
+
+bool MediaTexture::isContentInverted()
+{
+    android::Mutex::Autolock lock(m_mediaLock);
+    return m_isContentInverted;
+}
+void MediaTexture::invertContents(bool invertContent)
+{
+    android::Mutex::Autolock lock(m_mediaLock);
+    m_isContentInverted = invertContent;
 }
 
 void MediaTexture::initNativeWindowIfNeeded()

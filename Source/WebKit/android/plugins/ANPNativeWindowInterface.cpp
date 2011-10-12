@@ -62,17 +62,9 @@ static ANativeWindow* anp_acquireNativeWindow(NPP instance) {
 }
 
 static void anp_invertPluginContent(NPP instance, bool isContentInverted) {
-    PluginView* pluginView = pluginViewForInstance(instance);
-    PluginWidgetAndroid* pluginWidget = pluginView->platformPluginWidget();
-    WebCore::MediaLayer* mediaLayer = pluginWidget->getLayer();
-
-    // update the layer
-    mediaLayer->invertContents(isContentInverted);
-
-    //force the layer to sync to the UI thread
-    WebViewCore* wvc = pluginWidget->webViewCore();
-    if (wvc)
-        wvc->mainFrame()->page()->chrome()->client()->scheduleCompositingLayerSync();
+    WebCore::MediaLayer* mediaLayer = mediaLayerForInstance(instance);
+    if (mediaLayer)
+        mediaLayer->invertContents(isContentInverted);
 }
 
 
