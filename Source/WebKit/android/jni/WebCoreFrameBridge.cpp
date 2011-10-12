@@ -289,7 +289,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mDidReceiveAuthenticationChallenge = env->GetMethodID(clazz, "didReceiveAuthenticationChallenge",
             "(ILjava/lang/String;Ljava/lang/String;ZZ)V");
     mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[BLjava/lang/String;)V");
-    mJavaFrame->mRequestClientCert = env->GetMethodID(clazz, "requestClientCert", "(I[B)V");
+    mJavaFrame->mRequestClientCert = env->GetMethodID(clazz, "requestClientCert", "(ILjava/lang/String;)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
     mJavaFrame->mDidReceiveData = env->GetMethodID(clazz, "didReceiveData", "([BI)V");
@@ -1009,7 +1009,7 @@ WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const s
 }
 
 void
-WebFrame::requestClientCert(WebUrlLoaderClient* client, const std::string& host_and_port)
+WebFrame::requestClientCert(WebUrlLoaderClient* client, const std::string& hostAndPort)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -1017,13 +1017,10 @@ WebFrame::requestClientCert(WebUrlLoaderClient* client, const std::string& host_
     JNIEnv* env = getJNIEnv();
     int jHandle = reinterpret_cast<int>(client);
 
-    int len = host_and_port.length();
-    jbyteArray jHostAndPort = env->NewByteArray(len);
-    jbyte* bytes = env->GetByteArrayElements(jHostAndPort, NULL);
-    host_and_port.copy(reinterpret_cast<char*>(bytes), len);
+    int len = hostAndPort.length();
+    ScopedLocalRef<jstring> jHostAndPort(env, stdStringToJstring(env, hostAndPort, true));
 
-    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mRequestClientCert, jHandle, jHostAndPort);
-    env->DeleteLocalRef(jHostAndPort);
+    env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mRequestClientCert, jHandle, jHostAndPort.get());
     checkException(env);
 }
 
