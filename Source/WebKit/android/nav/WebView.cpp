@@ -420,7 +420,7 @@ void scrollRectOnScreen(const IntRect& rect)
 {
     if (rect.isEmpty())
         return;
-    SkRect visible;
+    SkRect visible = SkRect::MakeEmpty();
     calcOurContentVisibleRect(&visible);
     int dx = 0;
     int left = rect.x();
