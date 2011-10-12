@@ -29,11 +29,14 @@
 #include "SkDevice.h"
 #include "TilesManager.h"
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ImageTexture", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ImageTexture", __VA_ARGS__)
@@ -84,7 +87,7 @@ ImageTexture::~ImageTexture()
     delete m_image;
 }
 
-void ImageTexture::prepare()
+void ImageTexture::prepareGL()
 {
     if (m_textureId)
         return;
@@ -93,7 +96,7 @@ void ImageTexture::prepare()
     GLUtils::createTextureWithBitmap(m_textureId, *m_image);
 }
 
-void ImageTexture::draw(LayerAndroid* layer)
+void ImageTexture::drawGL(LayerAndroid* layer)
 {
     if (!layer)
         return;
@@ -112,6 +115,11 @@ void ImageTexture::draw(LayerAndroid* layer)
                                                       layer->drawOpacity(), true);
 }
 
+void ImageTexture::drawCanvas(SkCanvas* canvas, SkRect& rect)
+{
+    canvas->drawBitmapRect(*m_image, 0, rect);
+}
+
 void ImageTexture::release()
 {
     if (m_refCount >= 1)
@@ -122,7 +130,8 @@ void ImageTexture::release()
 
 void ImageTexture::deleteTexture()
 {
-   glDeleteTextures(1, &m_textureId);
+   if (m_textureId)
+       glDeleteTextures(1, &m_textureId);
 }
 
 } // namespace WebCore

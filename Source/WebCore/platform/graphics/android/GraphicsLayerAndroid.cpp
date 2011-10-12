@@ -24,6 +24,7 @@
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "Image.h"
+#include "ImagesManager.h"
 #include "Layer.h"
 #include "Length.h"
 #include "MediaLayer.h"
