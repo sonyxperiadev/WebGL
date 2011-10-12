@@ -43,6 +43,9 @@ public:
     MediaTexture(jobject webViewRef);
     ~MediaTexture();
 
+    bool isContentInverted();
+    void invertContents(bool invertContent);
+
     void initNativeWindowIfNeeded();
     void draw(const TransformationMatrix& contentMatrix,
               const TransformationMatrix& videoMatrix,
@@ -71,6 +74,9 @@ private:
     TextureWrapper* m_contentTexture;
     Vector<TextureWrapper*> m_videoTextures;
     Vector<GLuint> m_unusedTextures;
+
+    // used to track if the content is to be drawn inverted
+    bool m_isContentInverted;
 
     // used to generate new video textures
     bool m_newWindowRequest;
