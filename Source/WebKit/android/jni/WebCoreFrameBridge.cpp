@@ -983,7 +983,7 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
 }
 
 void
-WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert, const std::string& url)
+WebFrame::reportSslCertError(WebUrlLoaderClient* client, int error, const std::string& cert, const std::string& url)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -994,16 +994,14 @@ WebFrame::reportSslCertError(WebUrlLoaderClient* client, int cert_error, const s
         return;
     int jHandle = reinterpret_cast<int>(client);
 
+    // Don't copy the null terminator.
     int len = cert.length();
-    jbyteArray jCert = env->NewByteArray(len);
-    jbyte* bytes = env->GetByteArrayElements(jCert, NULL);
-    cert.copy(reinterpret_cast<char*>(bytes), len);
+    ScopedLocalRef<jbyteArray> jCert(env, env->NewByteArray(len));
+    env->SetByteArrayRegion(jCert.get(), 0, len, reinterpret_cast<const jbyte*>(cert.c_str()));
 
-    jstring jUrl = env->NewStringUTF(url.c_str());
+    ScopedLocalRef<jstring> jUrl(env, env->NewStringUTF(url.c_str()));
 
-    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mReportSslCertError, jHandle, cert_error, jCert, jUrl);
-    env->DeleteLocalRef(jCert);
-    env->DeleteLocalRef(jUrl);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mReportSslCertError, jHandle, error, jCert.get(), jUrl.get());
     checkException(env);
 }
 
@@ -1057,12 +1055,10 @@ WebFrame::didReceiveData(const char* data, int size) {
     if (!javaFrame.get())
         return;
 
-    jbyteArray jData = env->NewByteArray(size);
-    jbyte* bytes = env->GetByteArrayElements(jData, NULL);
-    memcpy(reinterpret_cast<char*>(bytes), data, size);
+    ScopedLocalRef<jbyteArray> jData(env, env->NewByteArray(size));
+    env->SetByteArrayRegion(jData.get(), 0, size, reinterpret_cast<const jbyte*>(data));
 
-    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidReceiveData, jData, size);
-    env->DeleteLocalRef(jData);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDidReceiveData, jData.get(), size);
     checkException(env);
 }
 
@@ -1091,13 +1087,11 @@ void WebFrame::setCertificate(const std::string& cert)
         return;
 
     int len = cert.length();
-    jbyteArray jCert = env->NewByteArray(len);
-    jbyte* bytes = env->GetByteArrayElements(jCert, NULL);
-    cert.copy(reinterpret_cast<char*>(bytes), len);
+    ScopedLocalRef<jbyteArray> jCert(env, env->NewByteArray(len));
+    env->SetByteArrayRegion(jCert.get(), 0, len, reinterpret_cast<const jbyte*>(cert.c_str()));
 
-    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mSetCertificate, jCert);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mSetCertificate, jCert.get());
 
-    env->DeleteLocalRef(jCert);
     checkException(env);
 }
 #endif // USE(CHROME_NETWORK_STACK)
