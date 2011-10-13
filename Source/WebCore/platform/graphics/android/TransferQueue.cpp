@@ -361,11 +361,8 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
         // failed placing bitmap in queue, discard tile's texture so it will be
         // re-enqueued (and repainted)
         BaseTile* tile = renderInfo->baseTile;
-        if (tile) {
-            BaseTileTexture* texture = tile->backTexture();
-            if (texture)
-                texture->releaseAndRemoveFromTile();
-        }
+        if (tile)
+            tile->backTextureTransferFail();
     }
 }
 

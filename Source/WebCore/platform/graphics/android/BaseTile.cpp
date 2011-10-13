@@ -535,6 +535,14 @@ void BaseTile::backTextureTransfer() {
     }
 }
 
+void BaseTile::backTextureTransferFail() {
+    // transfer failed for some reason, mark dirty so it will (repaint and) be
+    // retransferred.
+    android::AutoMutex lock(m_atomicSync);
+    m_state = Unpainted;
+    // whether validatePaint is called before or after, it won't do anything
+}
+
 void BaseTile::validatePaint() {
     // ONLY CALL while m_atomicSync is locked (at the end of paintBitmap())
 
