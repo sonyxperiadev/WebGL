@@ -70,7 +70,8 @@ MediaTexture::MediaTexture(jobject webViewRef) : android::LightRefBase<MediaText
 
 MediaTexture::~MediaTexture()
 {
-    deleteTexture(m_contentTexture);
+    if (m_contentTexture)
+        deleteTexture(m_contentTexture, true);
     for (unsigned int i = 0; i < m_videoTextures.size(); i++) {
         deleteTexture(m_videoTextures[i], true);
     }
