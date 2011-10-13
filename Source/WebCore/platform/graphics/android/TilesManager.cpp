@@ -429,52 +429,6 @@ void TilesManager::unregisterGLWebViewState(GLWebViewState* state)
     transferQueue()->discardQueue();
 }
 
-void TilesManager::addImage(SkBitmapRef* imgRef)
-{
-    if (!imgRef)
-        return;
-
-    android::Mutex::Autolock lock(m_imagesLock);
-    if (!m_images.contains(imgRef))
-        m_images.set(imgRef, new ImageTexture(imgRef));
-}
-
-void TilesManager::removeImage(SkBitmapRef* imgRef)
-{
-    android::Mutex::Autolock lock(m_imagesLock);
-    if (!m_images.contains(imgRef))
-        return;
-
-    ImageTexture* image = m_images.get(imgRef);
-    image->release();
-
-    if (!image->refCount()) {
-        m_images.remove(imgRef);
-        delete image;
-    }
-}
-
-void TilesManager::showImages()
-{
-    XLOGC("We have %d images", m_images.size());
-    HashMap<SkBitmapRef*, ImageTexture*>::iterator end = m_images.end();
-    int i = 0;
-    for (HashMap<SkBitmapRef*, ImageTexture*>::iterator it = m_images.begin(); it != end; ++it) {
-        XLOGC("Image %x (%d/%d) has %d references", it->first, i,
-              m_images.size(), it->second->refCount());
-        i++;
-    }
-}
-
-ImageTexture* TilesManager::getTextureForImage(SkBitmapRef* img, bool retain)
-{
-    android::Mutex::Autolock lock(m_imagesLock);
-    ImageTexture* image = m_images.get(img);
-    if (retain && image)
-        image->retain();
-    return image;
-}
-
 TilesManager* TilesManager::instance()
 {
     if (!gInstance) {

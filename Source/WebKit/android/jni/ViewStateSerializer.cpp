@@ -27,6 +27,7 @@
 
 #include "BaseLayerAndroid.h"
 #include "CreateJavaOutputStreamAdaptor.h"
+#include "ImagesManager.h"
 #include "Layer.h"
 #include "LayerAndroid.h"
 #include "PictureSet.h"
@@ -302,7 +303,7 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
         SkFlattenableWriteBuffer buffer(1024);
         buffer.setFlags(SkFlattenableWriteBuffer::kCrossProcess_Flag);
         ImageTexture* imagetexture =
-                TilesManager::instance()->getTextureForImage(layer->m_imageRef, false);
+                ImagesManager::instance()->getTextureForImage(layer->m_imageRef, false);
         if (imagetexture && imagetexture->bitmap())
             imagetexture->bitmap()->flatten(buffer);
         stream->write32(buffer.size());
