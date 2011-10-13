@@ -91,7 +91,6 @@ public:
 
     // private member accessor functions
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread
-    TextureOwner* delayedReleaseOwner() { return m_delayedReleaseOwner; }
 
     bool busy();
     void setNotBusy();
@@ -120,13 +119,9 @@ private:
 
     SkSize m_size;
     SkBitmap::Config m_config;
-    TextureOwner* m_owner;
 
-    // When trying to release a texture, we may delay this if the texture is
-    // currently used (busy being painted). We use the following two variables
-    // to do so in setNotBusy()
-    TextureOwner* m_delayedReleaseOwner;
-    bool m_delayedRelease;
+    // BaseTile owning the texture, only modified by UI thread
+    TextureOwner* m_owner;
 
     // This values signals that the texture is currently in use by the consumer.
     // This allows us to prevent the owner of the texture from changing while the

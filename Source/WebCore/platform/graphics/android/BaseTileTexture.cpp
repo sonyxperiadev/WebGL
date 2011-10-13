@@ -56,8 +56,6 @@ BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
     : DoubleBufferedTexture(eglGetCurrentContext(),
                             TilesManager::instance()->getSharedTextureMode())
     , m_owner(0)
-    , m_delayedReleaseOwner(0)
-    , m_delayedRelease(false)
     , m_busy(false)
 {
     m_size.set(w, h);
@@ -137,13 +135,6 @@ void BaseTileTexture::setNotBusy()
 {
     android::Mutex::Autolock lock(m_busyLock);
     m_busy = false;
-    if (m_delayedRelease) {
-        if (m_owner == m_delayedReleaseOwner)
-            m_owner = 0;
-
-        m_delayedRelease = false;
-        m_delayedReleaseOwner = 0;
-    }
     m_busyCond.signal();
 }
 
@@ -170,13 +161,8 @@ void BaseTileTexture::producerUpdate(TextureInfo* textureInfo, const SkBitmap& b
 
 bool BaseTileTexture::acquire(TextureOwner* owner, bool force)
 {
-    if (m_owner == owner) {
-        if (m_delayedRelease) {
-            m_delayedRelease = false;
-            m_delayedReleaseOwner = 0;
-        }
+    if (m_owner == owner)
         return true;
-    }
 
     return setOwner(owner, force);
 }
@@ -219,17 +205,13 @@ bool BaseTileTexture::release(TextureOwner* owner)
     if (m_owner != owner)
         return false;
 
-    if (!m_busy) {
-        m_owner = 0;
-    } else {
-        m_delayedRelease = true;
-        m_delayedReleaseOwner = owner;
-    }
+    m_owner = 0;
     return true;
 }
 
 void BaseTileTexture::releaseAndRemoveFromTile()
 {
+    // NOTE: only call on UI thread, so m_owner won't be changing
     if (m_owner) {
         // clear both Tile->Texture and Texture->Tile links
         m_owner->removeTexture(this);

@@ -129,6 +129,7 @@ public:
     void discardTextures();
     bool swapTexturesIfNeeded();
     void backTextureTransfer();
+    void backTextureTransferFail();
 
     void setGLWebViewState(GLWebViewState* state) { m_glWebViewState = state; }
 
