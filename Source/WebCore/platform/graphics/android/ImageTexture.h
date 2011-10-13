@@ -63,9 +63,9 @@ public:
     ImageTexture(SkBitmapRef* img);
     virtual ~ImageTexture();
 
-    void prepare();
-    void draw(LayerAndroid* painter);
-    void deleteTexture();
+    void prepareGL();
+    void drawGL(LayerAndroid* painter);
+    void drawCanvas(SkCanvas*, SkRect&);
     void retain() { m_refCount++; }
     void release();
     unsigned int refCount() { return m_refCount; }
@@ -73,6 +73,8 @@ public:
     SkBitmap* bitmap() { return m_image; }
 
 private:
+
+    void deleteTexture();
 
     SkBitmapRef* m_imageRef;
     SkBitmap* m_image;

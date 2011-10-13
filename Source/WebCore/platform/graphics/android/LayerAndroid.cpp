@@ -7,6 +7,7 @@
 #include "ClassTracker.h"
 #include "DrawExtra.h"
 #include "GLUtils.h"
+#include "ImagesManager.h"
 #include "MediaLayer.h"
 #include "PaintedSurface.h"
 #include "ParseCanvas.h"
@@ -16,6 +17,7 @@
 #include "SkPaint.h"
 #include "SkPicture.h"
 #include "TilesManager.h"
+
 #include <wtf/CurrentTime.h>
 #include <math.h>
 
@@ -102,7 +104,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_isFixed = layer.m_isFixed;
     m_imageRef = layer.m_imageRef;
     if (m_imageRef)
-        TilesManager::instance()->addImage(m_imageRef);
+        ImagesManager::instance()->addImage(m_imageRef);
     m_renderLayerPos = layer.m_renderLayerPos;
     m_transform = layer.m_transform;
     m_backfaceVisibility = layer.m_backfaceVisibility;
@@ -177,7 +179,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
 LayerAndroid::~LayerAndroid()
 {
     if (m_imageTexture)
-        TilesManager::instance()->removeImage(m_imageTexture->imageRef());
+        ImagesManager::instance()->removeImage(m_imageTexture->imageRef());
     delete m_extra;
     SkSafeUnref(m_recordingPicture);
     m_animations.clear();
@@ -667,7 +669,7 @@ void LayerAndroid::setContentsImage(SkBitmapRef* img)
     if (!img)
         return;
 
-    TilesManager::instance()->addImage(img);
+    ImagesManager::instance()->addImage(img);
 }
 
 bool LayerAndroid::needsTexture()
@@ -814,7 +816,7 @@ void LayerAndroid::createTexture()
 
     if (m_imageRef) {
         if (!m_imageTexture) {
-            m_imageTexture = TilesManager::instance()->getTextureForImage(m_imageRef);
+            m_imageTexture = ImagesManager::instance()->getTextureForImage(m_imageRef);
             m_dirtyRegion.setEmpty();
         }
         if (m_texture) {
@@ -876,7 +878,7 @@ void LayerAndroid::prepare(GLWebViewState* glWebViewState)
         m_texture->prepare(glWebViewState);
 
     if (m_imageTexture)
-        m_imageTexture->prepare();
+        m_imageTexture->prepareGL();
 }
 
 bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
@@ -891,7 +893,7 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         askScreenUpdate |= m_texture->draw();
 
     if (m_imageTexture)
-        m_imageTexture->draw(this);
+        m_imageTexture->drawGL(this);
 
     // When the layer is dirty, the UI thread should be notified to redraw.
     askScreenUpdate |= drawChildrenGL(glWebViewState, matrix);
@@ -977,6 +979,17 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)
     if (canvasOpacity < 255)
         canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
 
+    if (m_imageRef) {
+        if (!m_imageTexture) {
+            m_imageTexture = ImagesManager::instance()->getTextureForImage(m_imageRef);
+            m_dirtyRegion.setEmpty();
+        }
+        if (m_imageTexture) {
+            SkRect dest;
+            dest.set(0, 0, getSize().width(), getSize().height());
+            m_imageTexture->drawCanvas(canvas, dest);
+        }
+    }
     contentDraw(canvas);
 }
 
