@@ -570,24 +570,6 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
     }
 
     unsigned int pic = m_glWebViewState->currentPictureCounter();
-
-    if (extra == &m_ring) {
-        if (m_ring.m_isButton || root != m_ring.m_frame) {
-            // TODO: Fix the navcache to work with layers correctly
-            // In the meantime, this works around the bug. However, the rings
-            // it produces are not as nice for some reason, thus we use
-            // m_ring.rings() as produced by navcache for the base layer and
-            // for layers we generate a new ring set
-            m_ring.rings().clear();
-            for (size_t i = 0; i < m_ring.m_node->rings().size(); i++) {
-                IntRect rect = m_ring.m_node->rings().at(i);
-                rect = m_ring.m_frame->adjustBounds(m_ring.m_node, rect);
-                if (!m_ring.m_isButton)
-                    rect.inflate(4);
-                m_ring.rings().append(rect);
-            }
-        }
-    }
     m_glWebViewState->glExtras()->setDrawExtra(extra);
 
     LayerAndroid* compositeLayer = compositeRoot();

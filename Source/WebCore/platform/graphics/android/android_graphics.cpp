@@ -132,19 +132,19 @@ void CursorRing::setIsButton(const CachedNode* node)
 
 bool CursorRing::setup()
 {
-    m_node->localCursorRings(m_frame, &m_rings);
+    m_node->cursorRings(m_frame, &m_rings);
     if (!m_rings.size()) {
         DBG_NAV_LOG("!rings.size()");
         m_viewImpl->m_hasCursorBounds = false;
         return false;
     }
     setIsButton(m_node);
-    m_bounds = m_node->localBounds(m_frame);
+    m_bounds = m_node->bounds(m_frame);
     m_viewImpl->updateCursorBounds(m_root, m_frame, m_node);
 
     bool useHitBounds = m_node->useHitBounds();
     if (useHitBounds)
-        m_bounds = m_node->localHitBounds(m_frame);
+        m_bounds = m_node->hitBounds(m_frame);
     if (useHitBounds || m_node->useBounds()) {
         m_rings.clear();
         m_rings.append(m_bounds);
