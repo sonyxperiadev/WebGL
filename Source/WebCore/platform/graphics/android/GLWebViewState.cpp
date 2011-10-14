@@ -295,8 +295,10 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
     // allocate max possible number of tiles visible with this viewport
     int viewMaxTileX = static_cast<int>(ceilf((viewport.width()-1) * invTileContentWidth)) + 1;
     int viewMaxTileY = static_cast<int>(ceilf((viewport.height()-1) * invTileContentHeight)) + 1;
+
+    // NOTE: fetching 4 viewports worth, may need to be adjusted per-device
     int maxTextureCount = (viewMaxTileX + TILE_PREFETCH_DISTANCE * 2) *
-        (viewMaxTileY + TILE_PREFETCH_DISTANCE * 2) * 2;
+        (viewMaxTileY + TILE_PREFETCH_DISTANCE * 2) * 4;
     TilesManager::instance()->setMaxTextureCount(maxTextureCount);
     m_tiledPageA->updateBaseTileSize();
     m_tiledPageB->updateBaseTileSize();
