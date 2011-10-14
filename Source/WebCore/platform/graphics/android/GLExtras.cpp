@@ -202,15 +202,8 @@ void GLExtras::drawFindOnPage(SkRect& viewport)
 void GLExtras::drawGL(IntRect& webViewRect, SkRect& viewport, int titleBarHeight)
 {
     if (m_drawExtra) {
-        // Update the clip. We want to use the screen clip
-        FloatRect glclip;
-        glclip.setX(webViewRect.x());
-        glclip.setY(webViewRect.y() + titleBarHeight);
-        glclip.setWidth(webViewRect.width());
-        glclip.setHeight(webViewRect.height());
-        XLOG("Setting clip [%fx%f, %f, %f]", glclip.x(), glclip.y(),
-             glclip.width(), glclip.height());
-        TilesManager::instance()->shader()->clip(glclip);
+        // TODO: Support clipping
+        glDisable(GL_SCISSOR_TEST);
         if (m_drawExtra == m_ring)
             drawCursorRings();
         else if (m_drawExtra == m_findOnPage)
@@ -218,5 +211,6 @@ void GLExtras::drawGL(IntRect& webViewRect, SkRect& viewport, int titleBarHeight
         else
             XLOGC("m_drawExtra %p is unknown! (cursor: %p, find: %p",
                   m_drawExtra, m_ring, m_findOnPage);
+        glEnable(GL_SCISSOR_TEST);
     }
 }
