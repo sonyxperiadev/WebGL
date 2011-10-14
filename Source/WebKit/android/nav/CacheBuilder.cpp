@@ -1406,7 +1406,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             else if (cachedNode.clip(clip) == false)
                 continue; // skip this node if outside of the clip
         }
-        cachedNode.setNavableRects();
         cachedNode.setColorIndex(colorIndex);
         cachedNode.setExport(exported);
         cachedNode.setHasCursorRing(hasCursorRing);
@@ -1478,7 +1477,6 @@ bool CacheBuilder::CleanUpContainedNodes(CachedRoot* cachedRoot,
             lastNode->hasTagName(HTMLNames::formTag)) {
         lastCached->setBounds(IntRect(0, 0, 0, 0));
         lastCached->mCursorRing.clear();
-        lastCached->setNavableRects();
         return false;
     }
     CachedNode* onlyChildCached = cachedFrame->lastNode();

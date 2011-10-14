@@ -136,7 +136,7 @@ public:
     WebCore::IntRect localHitBounds(const CachedFrame* ) const;
     WebCore::IntRect localRing(const CachedFrame* , size_t part) const;
     void move(int x, int y);
-    int navableRects() const { return mNavableRects; }
+    int navableRects() const { return mCursorRing.size(); }
     void* nodePointer() const { return mNode; }
     bool noSecondChance() const { return mCondition > SECOND_CHANCE_END; }
     const WebCore::IntRect& originalAbsoluteBounds() const {
@@ -169,7 +169,6 @@ public:
     void setIsTransparent(bool isTransparent) { mIsTransparent = isTransparent; }
     void setIsUnclipped(bool unclipped) { mIsUnclipped = unclipped; }
     void setLast() { mLast = true; }
-    void setNavableRects() { mNavableRects = mCursorRing.size(); }
     void setParentGroup(void* group) { mParentGroup = group; }
     void setParentIndex(int parent) { mParentIndex = parent; }
     void setSingleImage(bool single) { mSingleImage = single; }
@@ -195,7 +194,6 @@ private:
     void* mParentGroup; // WebCore::Node*, only used to match pointers
     int mDataIndex; // child frame if a frame; input data index; or -1
     int mIndex; // index of itself, to find first in array (document)
-    int mNavableRects; // FIXME: could be bitfield once I limit max number of rects
     int mParentIndex;
     int mTabIndex;
     int mColorIndex; // index to ring color and other stylable properties
