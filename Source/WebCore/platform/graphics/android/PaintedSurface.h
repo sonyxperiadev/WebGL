@@ -47,19 +47,7 @@ class UpdateManager;
 
 class PaintedSurface : public SkRefCnt {
 public:
-    PaintedSurface(LayerAndroid* layer)
-        : m_layer(layer)
-        , m_tiledTexture(0)
-        , m_scale(0)
-        , m_pictureUsed(0)
-    {
-        TilesManager::instance()->addPaintedSurface(this);
-        SkSafeRef(m_layer);
-#ifdef DEBUG_COUNT
-        ClassTracker::instance()->increment("PaintedSurface");
-#endif
-        m_tiledTexture = new TiledTexture(this);
-    }
+    PaintedSurface(LayerAndroid* layer);
     virtual ~PaintedSurface();
 
     // PaintedSurface methods
