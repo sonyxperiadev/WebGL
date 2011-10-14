@@ -92,10 +92,9 @@ void CachedNode::cursorRings(const CachedFrame* frame,
 
 WebCore::IntRect CachedNode::cursorRingBounds(const CachedFrame* frame) const
 {
-    int partMax = mNavableRects;
-    ASSERT(partMax > 0);
-    WebCore::IntRect bounds = mCursorRing[0];
-    for (int partIndex = 1; partIndex < partMax; partIndex++)
+    int partMax = navableRects();
+    WebCore::IntRect bounds;
+    for (int partIndex = 0; partIndex < partMax; partIndex++)
         bounds.unite(mCursorRing[partIndex]);
     bounds.inflate(CURSOR_RING_HIT_TEST_RADIUS);
     return mIsInLayer ? frame->adjustBounds(this, bounds) : bounds;
@@ -116,7 +115,7 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
         mUseHitBounds = true;
         return;
     }
-    if (mNavableRects <= 1)
+    if (navableRects() <= 1)
         return;
     // if there is more than 1 rect, and the bounds doesn't intersect
     // any other cursor ring bounds, use it
@@ -290,8 +289,8 @@ void CachedNode::move(int x, int y)
 bool CachedNode::partRectsContains(const CachedNode* other) const
 {    
     int outerIndex = 0;
-    int outerMax = mNavableRects;
-    int innerMax = other->mNavableRects;
+    int outerMax = navableRects();
+    int innerMax = other->navableRects();
     do {
         const WebCore::IntRect& outerBounds = mCursorRing[outerIndex];
         int innerIndex = 0;
@@ -403,7 +402,7 @@ void CachedNode::Debug::print() const
     DUMP_NAV_LOGD("// void* mParentGroup=%p; // (%d) \n", b->mParentGroup, mParentGroupIndex);
     DUMP_NAV_LOGD("// int mDataIndex=%d;\n", b->mDataIndex);
     DUMP_NAV_LOGD("// int mIndex=%d;\n", b->mIndex);
-    DUMP_NAV_LOGD("// int mNavableRects=%d;\n", b->mNavableRects);
+    DUMP_NAV_LOGD("// int navableRects()=%d;\n", b->navableRects());
     DUMP_NAV_LOGD("// int mParentIndex=%d;\n", b->mParentIndex);
     DUMP_NAV_LOGD("// int mTabIndex=%d;\n", b->mTabIndex);
     DUMP_NAV_LOGD("// int mColorIndex=%d;\n", b->mColorIndex);
