@@ -1916,15 +1916,16 @@ static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv, jint color,
     return reinterpret_cast<jint>(GET_NATIVE_VIEW(env, obj)->draw(canvas, color, extras, split));
 }
 
-static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect, jobject jviewrect,
-        jfloat scale, jint extras) {
+static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
+                                    jobject jrect, jobject jviewrect,
+                                    jfloat scale, jint extras) {
     WebCore::IntRect viewRect;
     if (jrect == NULL) {
         viewRect = WebCore::IntRect();
     } else {
         viewRect = jrect_to_webrect(env, jrect);
     }
-    WebView *wvInstance = GET_NATIVE_VIEW(env, obj);
+    WebView *wvInstance = (WebView*) nativeView;
     GLDrawFunctor* functor = new GLDrawFunctor(wvInstance, &android::WebView::drawGL,
             viewRect, scale, extras);
     wvInstance->setFunctor((Functor*) functor);
@@ -1964,10 +1965,10 @@ static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect, 
     }
 }
 
-static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
+static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint nativeView)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->compositeRoot();
+    LayerAndroid* root = ((WebView*)nativeView)->compositeRoot();
     if (root)
         return root->evaluateAnimations();
 #endif
@@ -2285,10 +2286,10 @@ static bool nativeMoveCursor(JNIEnv *env, jobject obj,
     return view->moveCursor(key, count, ignoreScroll);
 }
 
-static void nativeRecordButtons(JNIEnv* env, jobject obj, bool hasFocus,
-        bool pressed, bool invalidate)
+static void nativeRecordButtons(JNIEnv* env, jobject obj, jint nativeView,
+                                bool hasFocus, bool pressed, bool invalidate)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
+    WebView* view = (WebView*) nativeView;
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     view->nativeRecordButtons(hasFocus, pressed, invalidate);
 }
@@ -2548,10 +2549,10 @@ static jint nativeSelectionY(JNIEnv *env, jobject obj)
     return GET_NATIVE_VIEW(env, obj)->selectionY();
 }
 
-static void nativeSetSelectionPointer(JNIEnv *env, jobject obj, jboolean set,
-    jfloat scale, jint x, jint y)
+static void nativeSetSelectionPointer(JNIEnv *env, jobject obj, jint nativeView,
+                                      jboolean set, jfloat scale, jint x, jint y)
 {
-    GET_NATIVE_VIEW(env, obj)->setSelectionPointer(set, scale, x, y);
+    ((WebView*)nativeView)->setSelectionPointer(set, scale, x, y);
 }
 
 static void nativeRegisterPageSwapCallback(JNIEnv *env, jobject obj)
@@ -2791,13 +2792,13 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDestroy },
     { "nativeDraw", "(Landroid/graphics/Canvas;IIZ)I",
         (void*) nativeDraw },
-    { "nativeGetDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;FI)I",
+    { "nativeGetDrawGLFunction", "(ILandroid/graphics/Rect;Landroid/graphics/Rect;FI)I",
         (void*) nativeGetDrawGLFunction },
     { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;)V",
         (void*) nativeUpdateDrawGLFunction },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
         (void*) nativeDumpDisplayTree },
-    { "nativeEvaluateLayersAnimations", "()Z",
+    { "nativeEvaluateLayersAnimations", "(I)Z",
         (void*) nativeEvaluateLayersAnimations },
     { "nativeExtendSelection", "(II)V",
         (void*) nativeExtendSelection },
@@ -2875,7 +2876,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveSelection },
     { "nativePointInNavCache", "(III)Z",
         (void*) nativePointInNavCache },
-    { "nativeRecordButtons", "(ZZZ)V",
+    { "nativeRecordButtons", "(IZZZ)V",
         (void*) nativeRecordButtons },
     { "nativeResetSelection", "()V",
         (void*) nativeResetSelection },
@@ -2911,7 +2912,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCopyBaseContentToPicture },
     { "nativeHasContent", "()Z",
         (void*) nativeHasContent },
-    { "nativeSetSelectionPointer", "(ZFII)V",
+    { "nativeSetSelectionPointer", "(IZFII)V",
         (void*) nativeSetSelectionPointer },
     { "nativeShowCursorTimed", "()V",
         (void*) nativeShowCursorTimed },
