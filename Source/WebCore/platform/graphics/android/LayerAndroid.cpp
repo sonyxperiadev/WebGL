@@ -768,6 +768,8 @@ void LayerAndroid::assignTextureTo(LayerAndroid* newTree)
 
 bool LayerAndroid::updateWithTree(LayerAndroid* newTree)
 {
+// Disable fast update for now
+#if (0)
     bool needsRepaint = false;
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
@@ -778,6 +780,9 @@ bool LayerAndroid::updateWithTree(LayerAndroid* newTree)
         needsRepaint |= updateWithLayer(newLayer);
     }
     return needsRepaint;
+#else
+    return true;
+#endif
 }
 
 // Return true to indicate to WebViewCore that the updates

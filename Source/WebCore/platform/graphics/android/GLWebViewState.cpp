@@ -31,6 +31,7 @@
 #include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
 #include "GLUtils.h"
+#include "ImagesManager.h"
 #include "LayerAndroid.h"
 #include "SkPath.h"
 #include "TilesManager.h"
@@ -447,6 +448,11 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // the BaseTiles' texture.
     TilesManager::instance()->transferQueue()->updateDirtyBaseTiles();
 
+    // Upload any pending ImageTexture
+    // Return true if we still have some images to upload.
+    // TODO: upload as many textures as possible within a certain time limit
+    bool ret = ImagesManager::instance()->uploadTextures();
+
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
         XLOGC("WARNING, scale seems corrupted after update: %e", scale);
 
@@ -459,7 +465,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // set up zoom manager, shaders, etc.
     m_backgroundColor = baseLayer->getBackgroundColor();
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
-    bool ret = baseLayer->drawGL(currentTime, compositedRoot, rect,
+    ret |= baseLayer->drawGL(currentTime, compositedRoot, rect,
                                  viewport, scale, buffersSwappedPtr);
     m_glExtras.drawGL(webViewRect, viewport, titleBarHeight);
 

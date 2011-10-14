@@ -105,4 +105,25 @@ ImageTexture* ImagesManager::getTextureForImage(SkBitmapRef* img, bool retain)
     return image;
 }
 
+void ImagesManager::scheduleTextureUpload(ImageTexture* texture)
+{
+    if (m_imagesToUpload.contains(texture))
+        return;
+
+    texture->retain();
+    m_imagesToUpload.append(texture);
+}
+
+bool ImagesManager::uploadTextures()
+{
+    // scheduleUpload and uploadTextures are called on the same thread
+    if (!m_imagesToUpload.size())
+        return false;
+    ImageTexture* texture = m_imagesToUpload.last();
+    texture->uploadGLTexture();
+    m_imagesToUpload.removeLast();
+    removeImage(texture->imageRef());
+    return m_imagesToUpload.size();
+}
+
 } // namespace WebCore
