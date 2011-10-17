@@ -70,6 +70,7 @@ public:
     TileTransferData()
     : status(emptyItem)
     , savedBaseTilePtr(0)
+    , savedBaseTileTexturePtr(0)
     , uploadType(DEFAULT_UPLOAD_TYPE)
     , bitmap(0)
     , m_syncKHR(EGL_NO_SYNC_KHR)
@@ -84,6 +85,7 @@ public:
 
     TransferItemStatus status;
     BaseTile* savedBaseTilePtr;
+    BaseTileTexture* savedBaseTileTexturePtr;
     TextureTileInfo tileInfo;
     TextureUploadType uploadType;
     // This is only useful in Cpu upload code path, so it will be dynamically
