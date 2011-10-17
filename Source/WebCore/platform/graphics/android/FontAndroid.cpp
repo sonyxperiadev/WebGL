@@ -183,8 +183,10 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     SkScalar                    y = SkFloatToScalar(point.y());
     const GlyphBufferGlyph*     glyphs = glyphBuffer.glyphs(from);
     const GlyphBufferAdvance*   adv = glyphBuffer.advances(from);
-    SkAutoSTMalloc<32, SkPoint> storage(numGlyphs);
+    SkAutoSTMalloc<32, SkPoint> storage(numGlyphs), storage2(numGlyphs), storage3(numGlyphs);
     SkPoint*                    pos = storage.get();
+    SkPoint*                    vPosBegin = storage2.get();
+    SkPoint*                    vPosEnd = storage3.get();
 
     SkCanvas* canvas = gc->platformContext()->mCanvas;
 
@@ -221,12 +223,27 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                                 localCount * sizeof(uint16_t),
                                 &pos[localIndex], paint);
     } else {
+        bool isVertical = font->platformData().orientation() == Vertical;
         for (int i = 0; i < numGlyphs; i++) {
             pos[i].set(x, y);
-            x += SkFloatToScalar(adv[i].width());
             y += SkFloatToScalar(adv[i].height());
+            if (isVertical) {
+                SkScalar myWidth = SkFloatToScalar(adv[i].width());
+                vPosBegin[i].set(x + myWidth, y);
+                vPosEnd[i].set(x + myWidth, y - myWidth);
+                x += myWidth;
+
+                SkPath path;
+                path.reset();
+                path.moveTo(vPosBegin[i]);
+                path.lineTo(vPosEnd[i]);
+                canvas->drawTextOnPath(glyphs + i, 2, path, 0, paint);
+            }
+            else
+                x += SkFloatToScalar(adv[i].width());
         }
-        canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, paint);
+        if (!isVertical)
+            canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, paint);
     }
 }
 

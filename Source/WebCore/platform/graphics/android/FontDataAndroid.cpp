@@ -32,6 +32,7 @@
 #include "SimpleFontData.h"
 #include "FloatRect.h"
 #include "FontDescription.h"
+#include "SkFontHost.h"
 #include "SkPaint.h"
 #include "SkTypeface.h"
 #include "SkTime.h"
@@ -57,6 +58,16 @@ void SimpleFontData::platformInit()
     m_fontMetrics.setXHeight(SkScalarToFloat(-skiaFontMetrics.fAscent) * 0.56f);   // hack I stole from the window's port
     m_fontMetrics.setLineSpacing(a + d);
     m_fontMetrics.setLineGap(SkScalarToFloat(skiaFontMetrics.fLeading));
+
+    if (platformData().orientation() == Vertical && !isTextOrientationFallback()) {
+        static const uint32_t vheaTag = SkSetFourByteTag('v', 'h', 'e', 'a');
+        static const uint32_t vorgTag = SkSetFourByteTag('V', 'O', 'R', 'G');
+        const SkFontID fontID = m_platformData.uniqueID();
+        size_t vheaSize = SkFontHost::GetTableSize(fontID, vheaTag);
+        size_t vorgSize = SkFontHost::GetTableSize(fontID, vorgTag);
+        if ((vheaSize > 0) || (vorgSize > 0))
+            m_hasVerticalGlyphs = true;
+    }
 }
 
 void SimpleFontData::platformCharWidthInit()
