@@ -527,7 +527,7 @@ namespace android {
         // This creates a new BaseLayerAndroid by copying the current m_content
         // and doing a copy of the layers. The layers' content may be updated
         // as we are calling layersSync().
-        BaseLayerAndroid* createBaseLayer();
+        BaseLayerAndroid* createBaseLayer(SkRegion*);
         bool updateLayers(LayerAndroid*);
 
         int textWrapWidth() const { return m_textWrapWidth; }

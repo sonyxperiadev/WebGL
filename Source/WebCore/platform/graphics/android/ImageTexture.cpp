@@ -26,6 +26,7 @@
 #include "config.h"
 #include "ImageTexture.h"
 
+#include "ImagesManager.h"
 #include "SkDevice.h"
 #include "TilesManager.h"
 
@@ -88,6 +89,14 @@ ImageTexture::~ImageTexture()
 }
 
 void ImageTexture::prepareGL()
+{
+    if (m_textureId)
+        return;
+
+    ImagesManager::instance()->scheduleTextureUpload(this);
+}
+
+void ImageTexture::uploadGLTexture()
 {
     if (m_textureId)
         return;

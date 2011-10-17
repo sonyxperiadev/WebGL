@@ -945,20 +945,22 @@ bool WebViewCore::updateLayers(LayerAndroid* layers)
     return true;
 }
 
-BaseLayerAndroid* WebViewCore::createBaseLayer()
+BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
 {
     BaseLayerAndroid* base = new BaseLayerAndroid();
     base->setContent(m_content);
 
-    m_skipContentDraw = true;
-    bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
-    m_skipContentDraw = false;
-    // Layout only fails if called during a layout.
-    LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
+    if (!region->isEmpty()) {
+        m_skipContentDraw = true;
+        bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
+        m_skipContentDraw = false;
+        // Layout only fails if called during a layout.
+        LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
+    }
 
 #if USE(ACCELERATED_COMPOSITING)
     // We set the background color
-    if (m_mainFrame && m_mainFrame->document()
+    if (!region->isEmpty() && m_mainFrame && m_mainFrame->document()
         && m_mainFrame->document()->body()) {
         Document* document = m_mainFrame->document();
         RefPtr<RenderStyle> style = document->styleForElementIgnoringPendingStylesheets(document->body());
@@ -1013,7 +1015,7 @@ BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
         region->getBounds().fBottom);
     DBG_SET_LOG("end");
 
-    return createBaseLayer();
+    return createBaseLayer(region);
 }
 
 void WebViewCore::splitContent(PictureSet* content)

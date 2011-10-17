@@ -64,6 +64,7 @@ public:
     virtual ~ImageTexture();
 
     void prepareGL();
+    void uploadGLTexture();
     void drawGL(LayerAndroid* painter);
     void drawCanvas(SkCanvas*, SkRect&);
     void retain() { m_refCount++; }

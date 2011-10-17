@@ -30,6 +30,7 @@
 #include "SkBitmap.h"
 #include "SkBitmapRef.h"
 #include "SkRefCnt.h"
+#include "Vector.h"
 
 namespace WebCore {
 
@@ -43,6 +44,8 @@ public:
     void removeImage(SkBitmapRef* img);
     ImageTexture* getTextureForImage(SkBitmapRef* img, bool retain = true);
     void showImages();
+    void scheduleTextureUpload(ImageTexture* texture);
+    bool uploadTextures();
 
 private:
     ImagesManager() {}
@@ -51,6 +54,7 @@ private:
 
     android::Mutex m_imagesLock;
     HashMap<SkBitmapRef*, ImageTexture*> m_images;
+    Vector<ImageTexture*> m_imagesToUpload;
 };
 
 } // namespace WebCore
