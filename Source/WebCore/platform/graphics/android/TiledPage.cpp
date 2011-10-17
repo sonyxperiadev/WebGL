@@ -142,9 +142,6 @@ void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureC
 
 void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, const SkIRect& tileBounds)
 {
-    if (y < 0)
-        return;
-
     for (int i = 0; i < tilesInRow; i++) {
         int x = firstTileX;
 
@@ -155,9 +152,6 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
             x += (tilesInRow - 1) - i;
         else
             x += i;
-
-        if (x < 0)
-            continue;
 
         BaseTile* currentTile = 0;
         BaseTile* availableTile = 0;
@@ -268,6 +262,14 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
         lastTileY += expandY;
         nbTilesHeight += expandY * 2;
     }
+
+    // crop the prepared region to the contents of the base layer
+    float maxWidthTiles = m_glWebViewState->baseContentWidth() * m_scale / TilesManager::tileWidth();
+    float maxHeightTiles = m_glWebViewState->baseContentHeight() * m_scale / TilesManager::tileHeight();
+    firstTileX = std::max(0, firstTileX);
+    firstTileY = std::max(0, firstTileY);
+    lastTileX = std::min(lastTileX, static_cast<int>(ceilf(maxWidthTiles)) - 1);
+    lastTileY = std::min(lastTileY, static_cast<int>(ceilf(maxHeightTiles)) - 1);
 
     m_expandedTileBounds.fLeft = firstTileX;
     m_expandedTileBounds.fTop = firstTileY;

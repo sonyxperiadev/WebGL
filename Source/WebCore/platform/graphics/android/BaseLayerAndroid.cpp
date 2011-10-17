@@ -57,8 +57,8 @@
 // TODO: dynamically determine based on DPI
 #define PREFETCH_SCALE_MODIFIER 0.3
 #define PREFETCH_OPACITY 1
-#define PREFETCH_X_DIST 1
-#define PREFETCH_Y_DIST 2
+#define PREFETCH_X_DIST 0
+#define PREFETCH_Y_DIST 1
 
 namespace WebCore {
 
