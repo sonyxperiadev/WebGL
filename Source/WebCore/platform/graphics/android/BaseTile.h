@@ -127,6 +127,7 @@ public:
     // only used for prioritization - the higher, the more relevant the tile is
     unsigned long long drawCount() { return m_drawCount; }
     void discardTextures();
+    void discardBackTexture();
     bool swapTexturesIfNeeded();
     void backTextureTransfer();
     void backTextureTransferFail();

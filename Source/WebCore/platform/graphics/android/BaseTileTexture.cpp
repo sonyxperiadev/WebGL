@@ -91,7 +91,11 @@ void BaseTileTexture::discardGLTexture()
     if (m_ownTextureId)
         GLUtils::deleteTexture(&m_ownTextureId);
 
-    releaseAndRemoveFromTile();
+    if (m_owner) {
+        // clear both Tile->Texture and Texture->Tile links
+        m_owner->removeTexture(this);
+        release(m_owner);
+    }
 }
 
 void BaseTileTexture::destroyTextures(SharedTexture** textures)
@@ -207,16 +211,6 @@ bool BaseTileTexture::release(TextureOwner* owner)
 
     m_owner = 0;
     return true;
-}
-
-void BaseTileTexture::releaseAndRemoveFromTile()
-{
-    // NOTE: only call on UI thread, so m_owner won't be changing
-    if (m_owner) {
-        // clear both Tile->Texture and Texture->Tile links
-        m_owner->removeTexture(this);
-        release(m_owner);
-    }
 }
 
 void BaseTileTexture::setTile(TextureInfo* info, int x, int y,

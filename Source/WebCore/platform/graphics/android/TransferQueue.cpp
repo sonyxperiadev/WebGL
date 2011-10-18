@@ -440,6 +440,7 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
         XLOG("ERROR update a tile which is dirty already @ index %d", index);
     }
 
+    m_transferQueue[index].savedBaseTileTexturePtr = renderInfo->baseTile->backTexture();
     m_transferQueue[index].savedBaseTilePtr = renderInfo->baseTile;
     m_transferQueue[index].status = pendingBlit;
     m_transferQueue[index].uploadType = type;
@@ -493,14 +494,16 @@ void TransferQueue::cleanupTransportQueue()
             // since tiles in the queue may be from another webview, remove
             // their textures so that they will be repainted / retransferred
             BaseTile* tile = m_transferQueue[index].savedBaseTilePtr;
-            if (tile) {
-                BaseTileTexture* texture = tile->backTexture();
-                if (texture)
-                    texture->releaseAndRemoveFromTile();
+            BaseTileTexture* texture = m_transferQueue[index].savedBaseTileTexturePtr;
+            if (tile && texture && texture->owner() == tile) {
+                // since tile destruction removes textures on the UI thread, the
+                // texture->owner ptr guarantees the tile is valid
+                tile->discardBackTexture();
+                XLOG("transfer queue discarded tile %p, removed texture", tile);
             }
-            XLOG("transfer queue discarded tile %p, removed texture", tile);
 
             m_transferQueue[index].savedBaseTilePtr = 0;
+            m_transferQueue[index].savedBaseTileTexturePtr = 0;
             m_transferQueue[index].status = emptyItem;
         }
         index = (index + 1) % ST_BUFFER_NUMBER;

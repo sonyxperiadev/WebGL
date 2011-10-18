@@ -504,6 +504,14 @@ void BaseTile::discardTextures() {
     m_state = Unpainted;
 }
 
+void BaseTile::discardBackTexture() {
+    android::AutoMutex lock(m_atomicSync);
+    if (m_backTexture) {
+        m_backTexture->release(this);
+        m_backTexture = 0;
+    }
+}
+
 bool BaseTile::swapTexturesIfNeeded() {
     android::AutoMutex lock(m_atomicSync);
     if (m_state == ReadyToSwap) {
