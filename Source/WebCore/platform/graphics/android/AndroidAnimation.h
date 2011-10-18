@@ -48,25 +48,28 @@ public:
     bool checkIterationsAndProgress(double time, float* finalProgress);
     double applyTimingFunction(float from, float to, double progress,
                                const TimingFunction* timingFunction);
-    virtual bool evaluate(LayerAndroid* layer, double time) = 0;
+    bool evaluate(LayerAndroid* layer, double time);
+    virtual void applyForProgress(LayerAndroid* layer, float progress) = 0;
     static long instancesCount();
     void setName(const String& name) { m_name = name; }
     String name() { return m_name; }
     AnimatedPropertyID type() { return m_type; }
-    bool finished() { return m_finished; }
+    bool fillsBackwards() { return m_fillsBackwards; }
+    bool fillsForwards() { return m_fillsForwards; }
+
 
 protected:
     double m_beginTime;
     double m_elapsedTime;
     double m_duration;
-    bool m_finished;
+    bool m_fillsBackwards;
+    bool m_fillsForwards;
     int m_iterationCount;
     int m_direction;
     RefPtr<TimingFunction> m_timingFunction;
     String m_name;
     AnimatedPropertyID m_type;
     KeyframeValueList* m_operations;
-    LayerAndroid* m_originalLayer;
 };
 
 class AndroidOpacityAnimation : public AndroidAnimation {
@@ -80,7 +83,7 @@ public:
     AndroidOpacityAnimation(AndroidOpacityAnimation* anim);
     virtual PassRefPtr<AndroidAnimation> copy();
 
-    virtual bool evaluate(LayerAndroid* layer, double time);
+    virtual void applyForProgress(LayerAndroid* layer, float progress);
 };
 
 class AndroidTransformAnimation : public AndroidAnimation {
@@ -96,7 +99,7 @@ public:
     AndroidTransformAnimation(AndroidTransformAnimation* anim);
     virtual PassRefPtr<AndroidAnimation> copy();
 
-    virtual bool evaluate(LayerAndroid* layer, double time);
+    virtual void applyForProgress(LayerAndroid* layer, float progress);
 };
 
 } // namespace WebCore
