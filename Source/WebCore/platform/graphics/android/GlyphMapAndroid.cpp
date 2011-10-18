@@ -27,14 +27,14 @@
 #include "config.h"
 
 #include "EmojiFont.h"
-#include "GlyphPageTreeNode.h"
-#include "SkTemplates.h"
-#include "SkPaint.h"
-#include "SkUtils.h"
-#include "SimpleFontData.h"
 #include "Font.h"
-#include "SkFontHost.h"
+#include "GlyphPageTreeNode.h"
 #include "HarfbuzzSkia.h"
+#include "SimpleFontData.h"
+#include "SkFontHost.h"
+#include "SkPaint.h"
+#include "SkTemplates.h"
+#include "SkUtils.h"
 #include "VerticalTextMap.h"
 
 
@@ -42,7 +42,7 @@ using namespace android;
 
 namespace WebCore {
 
-#define NO_BREAK_SPACE_UNICHAR  0xA0
+#define NO_BREAK_SPACE_UNICHAR 0xA0
 
 static int substituteWithVerticalGlyphs(const FontPlatformData& platformData, uint16_t* glyphs, unsigned bufferLength)
 {
@@ -90,8 +90,7 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
     UChar *textBuffer = buffer;
     UChar vTextBuffer[bufferLength];
 
-    if (fontData->platformData().orientation() == Vertical &&
-        !fontData->hasVerticalGlyphs()) {
+    if (fontData->platformData().orientation() == Vertical && !fontData->hasVerticalGlyphs()) {
         // Convert to vertical form if there is no vertical glyphs.
         for (unsigned i = 0; i < bufferLength; ++i) {
             vTextBuffer[i] = VerticalTextMap::getVerticalForm(buffer[i]);

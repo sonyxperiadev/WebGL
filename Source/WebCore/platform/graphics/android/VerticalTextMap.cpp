@@ -24,6 +24,7 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "VerticalTextMap.h"
 
 #include <wtf/Forward.h>
@@ -81,16 +82,14 @@ static const UChar vTextCnvTable[][2] = {
     // {0xff61, 0xfe12},  // halfwidth ideo full stop
 };
 
-using namespace android;
-
 namespace WebCore {
 
-static WTF::Mutex m_verticalTextHashMapMutex;
+static WTF::Mutex verticalTextHashMapMutex;
 static HashMap<UChar, UChar>* verticalTextHashMap = 0;
 
 UChar VerticalTextMap::getVerticalForm(UChar c) {
     {
-        MutexLocker lock(m_verticalTextHashMapMutex);
+        MutexLocker lock(verticalTextHashMapMutex);
         if (!verticalTextHashMap) {
             // Lazy initialization.
             verticalTextHashMap = new HashMap<UChar, UChar>;

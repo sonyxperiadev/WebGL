@@ -27,21 +27,18 @@
 #ifndef android_VerticalTextMap_DEFINED
 #define android_VerticalTextMap_DEFINED
 
-#include "config.h"
 #include "WebViewCore.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/HashMap.h>
 #include <wtf/unicode/CharacterNames.h>
 
-using namespace android;
-
 namespace WebCore {
-    class VerticalTextMap {
-    public:
-        // This function converts given char to its corresponding vertical form.
-        // Rerturns 0 if there is no vertical form.
-        static UChar getVerticalForm(UChar c);
-    };
+class VerticalTextMap {
+public:
+    // This function converts given char to its corresponding vertical form.
+    // Rerturns 0 if there is no vertical form.
+    static UChar getVerticalForm(UChar c);
+};
 }
 
 #endif
