@@ -51,6 +51,10 @@
 
 #endif // DEBUG
 
+// Allows layers using less than MAX_UNCLIPPED_AREA tiles to
+// schedule all of them instead of clipping the area with the visible rect.
+#define MAX_UNCLIPPED_AREA 16
+
 namespace WebCore {
 
 PaintedSurface::PaintedSurface(LayerAndroid* layer)
@@ -208,6 +212,14 @@ void PaintedSurface::computeVisibleArea() {
     IntRect layerRect = (*m_layer->drawTransform()).mapRect(m_area);
     IntRect clippedRect = TilesManager::instance()->shader()->clippedRectWithViewport(layerRect);
     m_visibleArea = (*m_layer->drawTransform()).inverse().mapRect(clippedRect);
+    if (!m_visibleArea.isEmpty()) {
+        float tileWidth = TilesManager::instance()->layerTileWidth();
+        float tileHeight = TilesManager::instance()->layerTileHeight();
+        int w = ceilf(m_area.width() / tileWidth);
+        int h = ceilf(m_area.height() / tileHeight);
+        if (w * h < MAX_UNCLIPPED_AREA)
+            m_visibleArea = m_area;
+    }
 }
 
 bool PaintedSurface::owns(BaseTileTexture* texture)
