@@ -692,13 +692,6 @@ bool GraphicsLayerAndroid::addAnimation(const KeyframeValueList& valueList,
                                         const String& keyframesName,
                                         double beginTime)
 {
-    // For now, let webkit deals with the animations -- the current UI-side
-    // animation code has some annoying bugs, and we improved communication
-    // between webkit and UI enough that performance-wise it's not so much
-    // a problem to let webkit do everything.
-    // TODO: re-enable UI-side animations
-    return false;
-
     if (!anim || anim->isEmptyOrZeroDuration() || valueList.size() < 2)
         return false;
 

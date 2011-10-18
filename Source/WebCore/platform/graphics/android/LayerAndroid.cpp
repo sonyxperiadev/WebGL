@@ -227,9 +227,7 @@ bool LayerAndroid::evaluateAnimations(double time)
         gDebugNbAnims++;
         nbAnims++;
         LayerAndroid* currentLayer = const_cast<LayerAndroid*>(this);
-        if (!(it->second)->finished() &&
-            (it->second)->evaluate(currentLayer, time))
-            m_hasRunningAnimations = true;
+        m_hasRunningAnimations |= (it->second)->evaluate(currentLayer, time);
     }
 
     return hasRunningAnimations || m_hasRunningAnimations;

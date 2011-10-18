@@ -28,11 +28,13 @@
 #include "UnitBezier.h"
 
 #include <wtf/CurrentTime.h>
-
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "AndroidAnimation", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "AndroidAnimation", __VA_ARGS__)
@@ -60,13 +62,13 @@ AndroidAnimation::AndroidAnimation(AnimatedPropertyID type,
                                    double beginTime)
     : m_beginTime(beginTime)
     , m_duration(animation->duration())
-    , m_finished(false)
+    , m_fillsBackwards(animation->fillsBackwards())
+    , m_fillsForwards(animation->fillsForwards())
     , m_iterationCount(animation->iterationCount())
     , m_direction(animation->direction())
     , m_timingFunction(animation->timingFunction())
     , m_type(type)
     , m_operations(operations)
-    , m_originalLayer(0)
 {
     ASSERT(m_timingFunction);
 
@@ -79,14 +81,14 @@ AndroidAnimation::AndroidAnimation(AnimatedPropertyID type,
 AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
     : m_beginTime(anim->m_beginTime)
     , m_duration(anim->m_duration)
-    , m_finished(anim->m_finished)
+    , m_fillsBackwards(anim->m_fillsBackwards)
+    , m_fillsForwards(anim->m_fillsForwards)
     , m_iterationCount(anim->m_iterationCount)
     , m_direction(anim->m_direction)
     , m_timingFunction(anim->m_timingFunction)
     , m_name(anim->name())
     , m_type(anim->m_type)
     , m_operations(anim->m_operations)
-    , m_originalLayer(0)
 {
     gDebugAndroidAnimationInstances++;
 }
@@ -176,6 +178,37 @@ double AndroidAnimation::applyTimingFunction(float from, float to, double progre
     return fractionalTime;
 }
 
+bool AndroidAnimation::evaluate(LayerAndroid* layer, double time)
+{
+    float progress;
+    if (!checkIterationsAndProgress(time, &progress)
+        && !(m_fillsBackwards || m_fillsForwards))
+        return false;
+
+    if (progress < 0) {
+        // The animation hasn't started yet
+        if (m_fillsBackwards) {
+            // in this case we want to apply the initial keyframe to the layer
+            applyForProgress(layer, 0);
+        }
+        // we still want to be evaluated until we get progress > 0
+        return true;
+    }
+
+    if (progress >= 1) {
+        if (!m_fillsForwards)
+            return false;
+        progress = 1;
+    }
+
+    if (!m_operations->size())
+        return false;
+
+    applyForProgress(layer, progress);
+
+    return true;
+}
+
 PassRefPtr<AndroidOpacityAnimation> AndroidOpacityAnimation::create(
                                                 const Animation* animation,
                                                 KeyframeValueList* operations,
@@ -224,26 +257,9 @@ void AndroidAnimation::pickValues(double progress, int* start, int* end)
         *end = foundAt;
 }
 
-bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
+void AndroidOpacityAnimation::applyForProgress(LayerAndroid* layer, float progress)
 {
-    float progress;
-    if (!checkIterationsAndProgress(time, &progress))
-        return false;
-
-    if (progress < 0) // we still want to be evaluated until we get progress > 0
-        return true;
-
-    if (progress >= 1) {
-        m_finished = true;
-        if (layer != m_originalLayer)
-            return false;
-    }
-
-    if (!m_originalLayer)
-        m_originalLayer = layer;
-
     // First, we need to get the from and to values
-
     int from, to;
     pickValues(progress, &from, &to);
     FloatAnimationValue* fromValue = (FloatAnimationValue*) m_operations->at(from);
@@ -260,13 +276,11 @@ bool AndroidOpacityAnimation::evaluate(LayerAndroid* layer, double time)
     const TimingFunction* timingFunction = fromValue->timingFunction();
     progress = applyTimingFunction(fromValue->keyTime(), toValue->keyTime(),
                                    progress, timingFunction);
+
+
     float value = fromValue->value() + ((toValue->value() - fromValue->value()) * progress);
 
     layer->setOpacity(value);
-
-    XLOG("AndroidOpacityAnimation::evaluate(%p, %p, %.2f) value=%.6f", this, layer, time, value);
-
-    return true;
 }
 
 PassRefPtr<AndroidTransformAnimation> AndroidTransformAnimation::create(
@@ -294,39 +308,12 @@ PassRefPtr<AndroidAnimation> AndroidTransformAnimation::copy()
     return adoptRef(new AndroidTransformAnimation(this));
 }
 
-bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
+void AndroidTransformAnimation::applyForProgress(LayerAndroid* layer, float progress)
 {
-    float progress;
-    bool ret = true;
-    if (!checkIterationsAndProgress(time, &progress)) {
-        m_finished = true;
-        ret = false;
-    }
-
-    if (progress < 0) // we still want to be evaluated until we get progress > 0
-        return true;
-
-    if (progress >= 1) {
-        m_finished = true;
-        if (layer != m_originalLayer)
-            return false;
-    }
-
-    if (!m_originalLayer)
-        m_originalLayer = layer;
-
-    IntSize size(layer->getSize().width(), layer->getSize().height());
-    TransformationMatrix matrix;
-    XLOG("Evaluate transforms animations, %d operations, progress %.2f for layer %d (%d, %d)"
-         , m_operations->size(), progress, layer->uniqueId(), size.width(), size.height());
-
-    if (!m_operations->size())
-        return false;
-
     // First, we need to get the from and to values
-
     int from, to;
     pickValues(progress, &from, &to);
+
     TransformAnimationValue* fromValue = (TransformAnimationValue*) m_operations->at(from);
     TransformAnimationValue* toValue = (TransformAnimationValue*) m_operations->at(to);
 
@@ -364,6 +351,7 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
         }
     }
 
+    IntSize size(layer->getSize().width(), layer->getSize().height());
     if (valid) {
         for (size_t i = 0; i < toValue->value()->size(); ++i)
             toValue->value()->operations()[i]->blend(fromValue->value()->at(i),
@@ -379,8 +367,6 @@ bool AndroidTransformAnimation::evaluate(LayerAndroid* layer, double time)
 
     // Set the final transform on the layer
     layer->setTransform(transformMatrix);
-
-    return ret;
 }
 
 } // namespace WebCore
