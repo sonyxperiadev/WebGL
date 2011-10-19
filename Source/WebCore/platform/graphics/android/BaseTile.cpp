@@ -510,6 +510,8 @@ void BaseTile::discardBackTexture() {
         m_backTexture->release(this);
         m_backTexture = 0;
     }
+    m_state = Unpainted;
+    m_dirty = true;
 }
 
 bool BaseTile::swapTexturesIfNeeded() {
@@ -548,6 +550,7 @@ void BaseTile::backTextureTransferFail() {
     // retransferred.
     android::AutoMutex lock(m_atomicSync);
     m_state = Unpainted;
+    m_dirty = true;
     // whether validatePaint is called before or after, it won't do anything
 }
 
@@ -563,9 +566,11 @@ void BaseTile::validatePaint() {
         else if (m_state == TransferredUnvalidated)
             m_state = ReadyToSwap;
         else {
-            // shouldn't have just finished painting in any other state, log
             XLOG("Note: validated tile %p at %d %d, state wasn't paintingstarted or transferred %d",
                   this, m_x, m_y, m_state);
+            // failed transferring, in which case mark dirty (since
+            // paintBitmap() may have cleared m_dirty)
+            m_dirty = true;
         }
 
         if (m_deferredDirty) {
