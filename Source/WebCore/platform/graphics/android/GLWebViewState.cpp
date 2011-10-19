@@ -71,9 +71,9 @@ using namespace android;
 
 GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     : m_zoomManager(this)
-    , m_baseLayer(0)
+    , m_paintingBaseLayer(0)
     , m_currentBaseLayer(0)
-    , m_previouslyUsedRoot(0)
+    , m_currentBaseLayerRoot(0)
     , m_currentPictureCounter(0)
     , m_usePageA(true)
     , m_frameworkInval(0, 0, 0, 0)
@@ -108,8 +108,8 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
 GLWebViewState::~GLWebViewState()
 {
     // Unref the existing tree/PaintedSurfaces
-    if (m_previouslyUsedRoot)
-        TilesManager::instance()->swapLayersTextures(m_previouslyUsedRoot, 0);
+    if (m_currentBaseLayerRoot)
+        TilesManager::instance()->swapLayersTextures(m_currentBaseLayerRoot, 0);
 
     // Take care of the transfer queue such that Tex Gen thread will not stuck
     TilesManager::instance()->unregisterGLWebViewState(this);
@@ -117,17 +117,17 @@ GLWebViewState::~GLWebViewState()
     // We have to destroy the two tiled pages first as their destructor
     // may depend on the existence of this GLWebViewState and some of its
     // instance variables in order to complete.
-    // Explicitely, currently we need to have the m_currentBaseLayer around
+    // Explicitely, currently we need to have the m_paintingBaseLayer around
     // in order to complete any pending paint operations (the tiled pages
     // will remove any pending operations, and wait if one is underway).
     delete m_tiledPageA;
     delete m_tiledPageB;
-    SkSafeUnref(m_previouslyUsedRoot);
+    SkSafeUnref(m_paintingBaseLayer);
     SkSafeUnref(m_currentBaseLayer);
-    SkSafeUnref(m_baseLayer);
-    m_previouslyUsedRoot = 0;
-    m_baseLayer = 0;
+    SkSafeUnref(m_currentBaseLayerRoot);
+    m_paintingBaseLayer = 0;
     m_currentBaseLayer = 0;
+    m_currentBaseLayerRoot = 0;
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("GLWebViewState");
 #endif
@@ -146,21 +146,34 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
         m_baseLayerUpdate = true;
         m_invalidateRegion.setEmpty();
     }
-    if (m_baseLayer && layer)
-        m_baseLayer->swapExtra(layer);
+    if (m_currentBaseLayer && layer)
+        m_currentBaseLayer->swapExtra(layer);
 
     SkSafeRef(layer);
-    SkSafeUnref(m_baseLayer);
-    m_baseLayer = layer;
-    if (m_baseLayer)
-        m_baseLayer->setGLWebViewState(this);
+    SkSafeUnref(m_currentBaseLayer);
+    m_currentBaseLayer = layer;
 
-    // We only update the layers if we are not currently
+
+    // copy content from old composited root to new
+    LayerAndroid* oldRoot = m_currentBaseLayerRoot;
+    if (layer) {
+        layer->setGLWebViewState(this);
+        m_currentBaseLayerRoot = static_cast<LayerAndroid*>(layer->getChild(0));
+        SkSafeRef(m_currentBaseLayerRoot);
+    } else {
+        m_currentBaseLayerRoot = 0;
+    }
+    if (m_currentBaseLayerRoot && oldRoot)
+        TilesManager::instance()->swapLayersTextures(oldRoot, m_currentBaseLayerRoot);
+    SkSafeUnref(oldRoot);
+
+
+    // We only update the base layer if we are not currently
     // waiting for a tiledPage to be painted
     if (m_baseLayerUpdate) {
         SkSafeRef(layer);
-        SkSafeUnref(m_currentBaseLayer);
-        m_currentBaseLayer = layer;
+        SkSafeUnref(m_paintingBaseLayer);
+        m_paintingBaseLayer = layer;
     }
     m_glExtras.setDrawExtra(0);
     invalRegion(inval);
@@ -191,9 +204,9 @@ void GLWebViewState::unlockBaseLayerUpdate() {
 
     m_baseLayerUpdate = true;
     android::Mutex::Autolock lock(m_baseLayerLock);
-    SkSafeRef(m_baseLayer);
-    SkSafeUnref(m_currentBaseLayer);
-    m_currentBaseLayer = m_baseLayer;
+    SkSafeRef(m_currentBaseLayer);
+    SkSafeUnref(m_paintingBaseLayer);
+    m_paintingBaseLayer = m_currentBaseLayer;
 
     invalRegion(m_invalidateRegion);
     m_invalidateRegion.setEmpty();
@@ -226,9 +239,9 @@ void GLWebViewState::inval(const IntRect& rect)
 unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
-    if (m_currentBaseLayer) {
+    if (m_paintingBaseLayer) {
         m_globalButtonMutex->lock();
-        m_currentBaseLayer->drawCanvas(canvas);
+        m_paintingBaseLayer->drawCanvas(canvas);
         m_globalButtonMutex->unlock();
     }
     return m_currentPictureCounter;
@@ -262,11 +275,11 @@ void GLWebViewState::swapPages()
 
 int GLWebViewState::baseContentWidth()
 {
-    return m_currentBaseLayer ? m_currentBaseLayer->content()->width() : 0;
+    return m_paintingBaseLayer ? m_paintingBaseLayer->content()->width() : 0;
 }
 int GLWebViewState::baseContentHeight()
 {
-    return m_currentBaseLayer ? m_currentBaseLayer->content()->height() : 0;
+    return m_paintingBaseLayer ? m_paintingBaseLayer->content()->height() : 0;
 }
 
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
@@ -404,15 +417,11 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 #endif
 
     m_baseLayerLock.lock();
-    BaseLayerAndroid* baseLayer = m_currentBaseLayer;
+    BaseLayerAndroid* baseLayer = m_paintingBaseLayer;
     SkSafeRef(baseLayer);
-    BaseLayerAndroid* baseForComposited = m_baseLayer;
-    SkSafeRef(baseForComposited);
     m_baseLayerLock.unlock();
-    if (!baseLayer) {
-        SkSafeUnref(baseForComposited);
-        return false;
-    }
+    if (!baseLayer)
+         return false;
 
     float viewWidth = (viewport.fRight - viewport.fLeft) * TILE_PREFETCH_RATIO;
     float viewHeight = (viewport.fBottom - viewport.fTop) * TILE_PREFETCH_RATIO;
@@ -427,16 +436,17 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     resetLayersDirtyArea();
 
-    if (!baseForComposited ||
-        (baseForComposited && !baseForComposited->countChildren())) {
-        SkSafeRef(baseLayer);
-        SkSafeUnref(baseForComposited);
-        baseForComposited = baseLayer;
-    }
+    LayerAndroid* compositedRoot = m_currentBaseLayerRoot;
+    LayerAndroid* paintingBaseLayerRoot = 0;
+    if (baseLayer && baseLayer->countChildren() >= 1)
+        paintingBaseLayerRoot = static_cast<LayerAndroid*>(baseLayer->getChild(0));
 
-    LayerAndroid* compositedRoot = 0;
-    if (baseForComposited && baseForComposited->countChildren() >= 1)
-        compositedRoot = static_cast<LayerAndroid*>(baseForComposited->getChild(0));
+    // when adding or removing layers, use the the paintingBaseLayer's tree so
+    // that content that moves to the base layer from a layer is synchronized
+    bool paintingHasLayers = (paintingBaseLayerRoot == 0);
+    bool currentHasLayers = (m_currentBaseLayerRoot == 0);
+    if (paintingHasLayers != currentHasLayers)
+        compositedRoot = paintingBaseLayerRoot;
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
         XLOGC("WARNING, scale seems corrupted before update: %e", scale);
@@ -459,9 +469,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // gather the textures we can use
     TilesManager::instance()->gatherLayerTextures();
 
-    if (compositedRoot != m_previouslyUsedRoot)
-        TilesManager::instance()->swapLayersTextures(m_previouslyUsedRoot, compositedRoot);
-
     // set up zoom manager, shaders, etc.
     m_backgroundColor = baseLayer->getBackgroundColor();
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
@@ -470,10 +477,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     m_glExtras.drawGL(webViewRect, viewport, titleBarHeight);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    SkSafeRef(compositedRoot);
-    SkSafeUnref(m_previouslyUsedRoot);
-    m_previouslyUsedRoot = compositedRoot;
 
     ret |= TilesManager::instance()->invertedScreenSwitch();
 
@@ -530,7 +533,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     }
 #endif
 
-    SkSafeUnref(baseForComposited);
     SkSafeUnref(baseLayer);
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->showTrackTextures();
