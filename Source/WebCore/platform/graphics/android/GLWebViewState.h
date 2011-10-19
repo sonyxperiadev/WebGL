@@ -219,7 +219,6 @@ public:
     void resetFrameworkInval();
     void addDirtyArea(const IntRect& rect);
     void resetLayersDirtyArea();
-    LayerAndroid* previouslyUsedRoot() { return m_previouslyUsedRoot; }
 
     bool goingDown() { return m_goingDown; }
     bool goingLeft() { return m_goingLeft; }
@@ -242,9 +241,9 @@ private:
     SkIRect m_futureViewportTileBounds;
     SkIRect m_preZoomBounds;
     android::Mutex m_baseLayerLock;
-    BaseLayerAndroid* m_baseLayer;
+    BaseLayerAndroid* m_paintingBaseLayer;
     BaseLayerAndroid* m_currentBaseLayer;
-    LayerAndroid* m_previouslyUsedRoot;
+    LayerAndroid* m_currentBaseLayerRoot;
 
     unsigned int m_currentPictureCounter;
     bool m_usePageA;
