@@ -3367,6 +3367,10 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                 if (!fake) {
                     RenderTextControl* rtc
                             = static_cast<RenderTextControl*> (renderer);
+                    // Force an update of the navcache as this will fire off a
+                    // message to WebView that *must* have an updated focus.
+                    m_frameCacheOutOfDate = true;
+                    updateFrameCache();
                     requestKeyboardWithSelection(focusNode, rtc->selectionStart(),
                             rtc->selectionEnd());
                 }
