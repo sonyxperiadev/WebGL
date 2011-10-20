@@ -75,13 +75,12 @@ public:
     float scale() { return m_scale; }
     float opacity();
     unsigned int pictureUsed() { return m_pictureUsed; }
-    TiledTexture* texture() { return m_tiledTexture; }
 
 private:
     UpdateManager m_updateManager;
 
     LayerAndroid* m_layer;
-    TiledTexture* m_tiledTexture;
+    DualTiledTexture* m_tiledTexture;
 
     IntRect m_area;
     IntRect m_visibleArea;

@@ -86,6 +86,7 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_goingLeft(false)
     , m_expandedTileBoundsX(0)
     , m_expandedTileBoundsY(0)
+    , m_scale(1)
 {
     m_viewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
@@ -394,6 +395,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& webViewRect, int titleBarHeight,
                             IntRect& clip, float scale, bool* buffersSwappedPtr)
 {
+    m_scale = scale;
     TilesManager::instance()->getProfiler()->nextFrame(viewport.fLeft,
                                                        viewport.fTop,
                                                        viewport.fRight,

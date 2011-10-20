@@ -231,6 +231,8 @@ public:
     int expandedTileBoundsX() { return m_expandedTileBoundsX; }
     int expandedTileBoundsY() { return m_expandedTileBoundsY; }
 
+    float scale() { return m_scale; }
+
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
     void invalRegion(const SkRegion& region);
@@ -274,6 +276,8 @@ private:
 
     int m_expandedTileBoundsX;
     int m_expandedTileBoundsY;
+
+    float m_scale;
 };
 
 } // namespace WebCore

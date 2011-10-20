@@ -49,7 +49,7 @@ public:
         : m_surface(surface)
         , m_prevTileX(0)
         , m_prevTileY(0)
-        , m_prevScale(1)
+        , m_scale(1)
         , m_swapWhateverIsReady(false)
     {
         m_dirtyRegion.setEmpty();
@@ -65,7 +65,8 @@ public:
         removeTiles();
     };
 
-    void prepare(GLWebViewState* state, bool repaint, bool startFastSwap);
+    void prepare(GLWebViewState* state, float scale, bool repaint,
+                 bool startFastSwap, IntRect& visibleArea);
     bool draw();
 
     void prepareTile(bool repaint, int x, int y);
@@ -74,12 +75,18 @@ public:
     BaseTile* getTile(int x, int y);
 
     void removeTiles();
+    void discardTextures();
     bool owns(BaseTileTexture* texture);
 
     // TilePainter methods
     bool paint(BaseTile* tile, SkCanvas*, unsigned int*);
     virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
+
+    float scale() { return m_scale; }
+    bool ready();
+
+    PaintedSurface* surface() { return m_surface; }
 
 private:
     bool tileIsVisible(BaseTile* tile);
@@ -96,9 +103,34 @@ private:
 
     int m_prevTileX;
     int m_prevTileY;
-    float m_prevScale;
+    float m_scale;
 
     bool m_swapWhateverIsReady;
+};
+
+class DualTiledTexture {
+public:
+    DualTiledTexture(PaintedSurface* surface);
+    ~DualTiledTexture();
+    void prepare(GLWebViewState* state, float scale, bool repaint,
+                 bool startFastSwap, IntRect& area);
+    void swap();
+    bool draw();
+    void update(const SkRegion& dirtyArea, SkPicture* picture);
+    bool owns(BaseTileTexture* texture);
+private:
+    // Delay before we schedule a new tile at the new scale factor
+    static const double s_zoomUpdateDelay = 0.2; // 200 ms
+
+    TiledTexture* m_frontTexture;
+    TiledTexture* m_backTexture;
+    TiledTexture* m_textureA;
+    TiledTexture* m_textureB;
+    float m_scale;
+    float m_futureScale;
+    double m_zoomUpdateTime;
+    bool m_zooming;
+    IntRect m_preZoomVisibleArea;
 };
 
 } // namespace WebCore
