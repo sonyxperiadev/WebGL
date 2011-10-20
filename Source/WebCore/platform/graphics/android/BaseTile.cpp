@@ -190,13 +190,14 @@ void BaseTile::markAsDirty(int unsigned pictureCount,
         // current paint
         m_state = Unpainted;
     } else if (m_state != Unpainted) {
-        // layer tiles and prefetch page tiles are potentially marked dirty
-        // while in the process of painting, due to not using an update lock
-
         // TODO: fix it so that they can paint while deferring the markAsDirty
         // call (or block updates)
         XLOG("Warning: tried to mark tile %p at %d, %d islayertile %d as dirty, state %d, page %p",
               this, m_x, m_y, isLayerTile(), m_state, m_page);
+
+        // prefetch tiles can be marked dirty while in the process of painting,
+        // due to not using an update lock. force them to fail validate step.
+        m_state = Unpainted;
     }
 }
 
