@@ -124,7 +124,7 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 #if USE(ACCELERATED_COMPOSITING)
 
 void BaseLayerAndroid::prefetchBasePicture(SkRect& viewport, float currentScale,
-                                           TiledPage* prefetchTiledPage)
+                                           TiledPage* prefetchTiledPage, bool draw)
 {
     SkIRect bounds;
     float prefetchScale = currentScale * PREFETCH_SCALE_MODIFIER;
@@ -162,7 +162,8 @@ void BaseLayerAndroid::prefetchBasePicture(SkRect& viewport, float currentScale,
     prefetchTiledPage->swapBuffersIfReady(bounds,
                                           prefetchScale,
                                           TiledPage::SwapWhateverIsReady);
-    prefetchTiledPage->draw(PREFETCH_OPACITY, bounds);
+    if (draw)
+        prefetchTiledPage->draw(PREFETCH_OPACITY, bounds);
 }
 
 bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
@@ -235,7 +236,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
     // When we aren't zooming, we should TRY and swap tile buffers if they're
     // ready. When scrolling, we swap whatever's ready. Otherwise, buffer until
     // the entire page is ready and then swap.
-    bool buffersSwapped = false;
+    bool tilesFinished = false;
     if (!zooming) {
         TiledPage::SwapMethod swapMethod;
         if (scrolling)
@@ -243,13 +244,13 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
         else
             swapMethod = TiledPage::SwapWholePage;
 
-        buffersSwapped = tiledPage->swapBuffersIfReady(preZoomBounds,
+        tilesFinished = tiledPage->swapBuffersIfReady(preZoomBounds,
                                                        zoomManager->currentScale(),
                                                        swapMethod);
 
-        if (buffersSwappedPtr && buffersSwapped)
+        if (buffersSwappedPtr && tilesFinished)
             *buffersSwappedPtr = true;
-        if (buffersSwapped) {
+        if (tilesFinished) {
             if (m_scrollState == ScrollingFinishPaint) {
                 m_scrollState = NotScrolling;
                 scrolling = false;
@@ -265,7 +266,7 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
     }
 
 
-    bool needsRedraw = scrolling || zooming || !buffersSwapped;
+    bool needsRedraw = scrolling || zooming || !tilesFinished;
 
     // if we don't expect to redraw, unlock the invals
     if (!needsRedraw)
@@ -283,15 +284,19 @@ bool BaseLayerAndroid::drawBasePictureInGL(SkRect& viewport, float scale,
                                TiledPage::ExpandedBounds);
     }
 
-    XLOG("scrolling %d, zooming %d, buffersSwapped %d, needsRedraw %d",
-         scrolling, zooming, buffersSwapped, needsRedraw);
+    XLOG("scrolling %d, zooming %d, tilesFinished %d, needsRedraw %d",
+         scrolling, zooming, tilesFinished, needsRedraw);
 
     // prefetch in the nextTiledPage if unused by zooming (even if not scrolling
     // since we want the tiles to be ready before they're needed)
     bool usePrefetchPage = !zooming;
     nextTiledPage->setIsPrefetchPage(usePrefetchPage);
-    if (usePrefetchPage)
-        prefetchBasePicture(viewport, scale, nextTiledPage);
+    if (usePrefetchPage) {
+        // if the non-prefetch page isn't missing tiles, don't bother drawing
+        // prefetch page
+        bool drawPrefetchPage = tiledPage->hasMissingContent(preZoomBounds);
+        prefetchBasePicture(viewport, scale, nextTiledPage, drawPrefetchPage);
+    }
 
     tiledPage->draw(transparency, preZoomBounds);
 
