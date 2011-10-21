@@ -52,17 +52,20 @@ private:
 
 class ScaleFilter : public OperationFilter {
 public:
-    ScaleFilter(float scale) : m_scale(scale) {}
+    ScaleFilter(TilePainter* painter, float scale)
+        : m_painter(painter)
+        , m_scale(scale) {}
     virtual bool check(QueuedOperation* operation)
     {
         if (operation->type() == QueuedOperation::PaintTile) {
             PaintTileOperation* op = static_cast<PaintTileOperation*>(operation);
-            if (op->scale() != m_scale)
+            if ((op->painter() == m_painter) && (op->scale() != m_scale))
                 return true;
         }
         return false;
     }
 private:
+    TilePainter* m_painter;
     float m_scale;
 };
 

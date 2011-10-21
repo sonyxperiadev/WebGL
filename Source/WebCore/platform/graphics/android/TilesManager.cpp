@@ -277,7 +277,7 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     const unsigned int max = availableTexturePool->size();
     for (unsigned int i = 0; i < max; i++) {
         BaseTileTexture* texture = (*availableTexturePool)[i];
-        TextureOwner* currentOwner = texture->owner();
+        BaseTile* currentOwner = static_cast<BaseTile*>(texture->owner());
 
         if (texture->busy()) {
             // don't bother, since the acquire() will likely fail
@@ -296,7 +296,7 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
             continue;
         }
 
-        if (currentOwner->page() == owner->page() && texture->scale() != owner->scale()) {
+        if (currentOwner->painter() == owner->painter() && texture->scale() != owner->scale()) {
             // if we render the back page with one scale, then another while
             // still zooming, we recycle the tiles with the old scale instead of
             // taking ones from the front page
