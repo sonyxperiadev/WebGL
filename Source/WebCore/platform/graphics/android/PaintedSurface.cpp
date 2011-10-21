@@ -68,7 +68,7 @@ PaintedSurface::PaintedSurface(LayerAndroid* layer)
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("PaintedSurface");
 #endif
-    m_tiledTexture = new TiledTexture(this);
+    m_tiledTexture = new DualTiledTexture(this);
     if (layer && layer->picture())
         m_updateManager.updatePicture(layer->picture());
 }
@@ -142,7 +142,6 @@ void PaintedSurface::prepare(GLWebViewState* state)
          m_layer->uniqueId(), m_layer,
          m_layer->getScale());
 
-    float scale = m_layer->getScale();
     int w = m_layer->getSize().width();
     int h = m_layer->getSize().height();
 
@@ -154,13 +153,13 @@ void PaintedSurface::prepare(GLWebViewState* state)
 
     computeVisibleArea();
 
-    if (scale != m_scale)
-        m_scale = scale;
+    m_scale = state->scale();
 
-    XLOG("layer %d %x prepared at size (%d, %d) @ scale %.2f", m_layer->uniqueId(),
-         m_layer, w, h, scale);
+    XLOGC("%x layer %d %x prepared at size (%d, %d) @ scale %.2f", this, m_layer->uniqueId(),
+         m_layer, w, h, m_scale);
 
-    m_tiledTexture->prepare(state, m_pictureUsed != m_layer->pictureUsed(), startFastSwap);
+    m_tiledTexture->prepare(state, m_scale, m_pictureUsed != m_layer->pictureUsed(),
+                            startFastSwap, m_visibleArea);
 }
 
 bool PaintedSurface::draw()
