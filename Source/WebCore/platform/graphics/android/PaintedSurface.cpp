@@ -155,7 +155,7 @@ void PaintedSurface::prepare(GLWebViewState* state)
 
     m_scale = state->scale();
 
-    XLOGC("%x layer %d %x prepared at size (%d, %d) @ scale %.2f", this, m_layer->uniqueId(),
+    XLOG("%x layer %d %x prepared at size (%d, %d) @ scale %.2f", this, m_layer->uniqueId(),
          m_layer, w, h, m_scale);
 
     m_tiledTexture->prepare(state, m_scale, m_pictureUsed != m_layer->pictureUsed(),
