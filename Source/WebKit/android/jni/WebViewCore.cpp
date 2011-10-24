@@ -832,10 +832,12 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
 
     WebCore::PlatformGraphicsContext pgc(recordingCanvas);
     WebCore::GraphicsContext gc(&pgc);
-    recordingCanvas->translate(-inval.fLeft, -inval.fTop);
+    IntPoint origin = view->minimumScrollPosition();
+    WebCore::IntRect drawArea(inval.fLeft + origin.x(), inval.fTop + origin.y(),
+            inval.width(), inval.height());
+    recordingCanvas->translate(-drawArea.x(), -drawArea.y());
     recordingCanvas->save();
-    view->platformWidget()->draw(&gc, WebCore::IntRect(inval.fLeft,
-        inval.fTop, inval.width(), inval.height()));
+    view->platformWidget()->draw(&gc, drawArea);
     m_rebuildInval.op(inval, SkRegion::kUnion_Op);
     DBG_SET_LOGD("m_rebuildInval={%d,%d,r=%d,b=%d}",
         m_rebuildInval.getBounds().fLeft, m_rebuildInval.getBounds().fTop,
@@ -1094,7 +1096,10 @@ void WebViewCore::didFirstLayout()
             // When redirect with locked history, we would like to reset the
             // scale factor. This is important for www.yahoo.com as it is
             // redirected to www.yahoo.com/?rs=1 on load.
-            || loadType == WebCore::FrameLoadTypeRedirectWithLockedBackForwardList);
+            || loadType == WebCore::FrameLoadTypeRedirectWithLockedBackForwardList
+            // When "request desktop page" is used, we want to treat it as
+            // a newly-loaded page.
+            || loadType == WebCore::FrameLoadTypeSame);
     checkException(env);
 
     DBG_NAV_LOG("call updateFrameCache");
@@ -1340,11 +1345,11 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             if (width != screenWidth) {
                 m_mainFrame->view()->setUseFixedLayout(true);
                 m_mainFrame->view()->setFixedLayoutSize(IntSize(width, height));
-            } else {
+            } else
                 m_mainFrame->view()->setUseFixedLayout(false);
-            }
             r->setNeedsLayoutAndPrefWidthsRecalc();
-            m_mainFrame->view()->forceLayout();
+            if (m_mainFrame->view()->didFirstLayout())
+                m_mainFrame->view()->forceLayout();
 
             // scroll to restore current screen center
             if (node) {
@@ -1382,9 +1387,8 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
         if (width != screenWidth) {
             m_mainFrame->view()->setUseFixedLayout(true);
             m_mainFrame->view()->setFixedLayoutSize(IntSize(width, height));
-        } else {
+        } else
             m_mainFrame->view()->setUseFixedLayout(false);
-        }
     }
 
     // update the currently visible screen as perceived by the plugin
