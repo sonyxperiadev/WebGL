@@ -50,11 +50,6 @@ PassRefPtr<WebUrlLoader> WebUrlLoader::start(FrameLoaderClient* client, WebCore:
     FrameLoaderClientAndroid* androidClient = static_cast<FrameLoaderClientAndroid*>(client);
     WebFrame* webFrame = androidClient->webFrame();
 
-    if (webFrame->blockNetworkLoads() &&
-        (resourceRequest.url().protocolIs("http") ||
-         resourceRequest.url().protocolIs("https")))
-        return NULL;
-
     webFrame->maybeSavePassword(androidClient->getFrame(), resourceRequest);
 
     RefPtr<WebUrlLoader> loader = WebUrlLoader::create(webFrame, resourceHandle, resourceRequest);

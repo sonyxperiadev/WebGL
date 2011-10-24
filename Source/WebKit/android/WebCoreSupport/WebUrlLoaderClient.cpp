@@ -110,7 +110,8 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
     , m_sync(false)
     , m_finished(false)
 {
-    WebResourceRequest webResourceRequest(resourceRequest);
+    bool block = webFrame->blockNetworkLoads() && (resourceRequest.url().protocolIs("http") || resourceRequest.url().protocolIs("https"));
+    WebResourceRequest webResourceRequest(resourceRequest, block);
     UrlInterceptResponse* intercept = webFrame->shouldInterceptRequest(resourceRequest.url().string());
     if (intercept) {
         m_request = new WebRequest(this, webResourceRequest, intercept);

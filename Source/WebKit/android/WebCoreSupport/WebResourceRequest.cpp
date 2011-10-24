@@ -34,22 +34,33 @@ using namespace WebCore;
 
 namespace android {
 
-WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceRequest)
+WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceRequest, bool shouldBlockNetworkLoads)
 {
     // Set the load flags based on the WebCore request.
     m_loadFlags = net::LOAD_NORMAL;
-    switch (resourceRequest.cachePolicy()) {
-    case ReloadIgnoringCacheData:
-        m_loadFlags |= net::LOAD_VALIDATE_CACHE;
-        break;
-    case ReturnCacheDataElseLoad:
-        m_loadFlags |= net::LOAD_PREFERRING_CACHE;
-        break;
-    case ReturnCacheDataDontLoad:
+
+    if (shouldBlockNetworkLoads) {
+        // In the case that the embedder has blocked network loads, we only
+        // ever try to serve content out of the cache. If WebCore has set
+        // ReloadIgnoringCacheData, we would normally attempt to validate
+        // the cached data before serving it. In the absence of network
+        // we can't do that, so we will just return whatever we have in the
+        // cache (which may well be nothing).
         m_loadFlags |= net::LOAD_ONLY_FROM_CACHE;
-        break;
-    case UseProtocolCachePolicy:
-        break;
+    } else {
+        switch (resourceRequest.cachePolicy()) {
+        case ReloadIgnoringCacheData:
+            m_loadFlags |= net::LOAD_VALIDATE_CACHE;
+            break;
+        case ReturnCacheDataElseLoad:
+            m_loadFlags |= net::LOAD_PREFERRING_CACHE;
+            break;
+        case ReturnCacheDataDontLoad:
+            m_loadFlags |= net::LOAD_ONLY_FROM_CACHE;
+            break;
+        case UseProtocolCachePolicy:
+            break;
+        }
     }
 
     // TODO: We should consider setting these flags and net::LOAD_DO_NOT_SEND_AUTH_DATA

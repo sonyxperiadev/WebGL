@@ -39,7 +39,7 @@ namespace android {
 class WebResourceRequest {
 
 public:
-    WebResourceRequest(const WebCore::ResourceRequest&);
+    WebResourceRequest(const WebCore::ResourceRequest&, bool shouldBlockNetworkLoads);
 
     const std::string& method() const
     {
