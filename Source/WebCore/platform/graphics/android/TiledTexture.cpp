@@ -71,7 +71,7 @@ bool TiledTexture::ready() {
     // FIXME: have a better system -- maybe keeping the last scale factor
     // able to fully render everything
     return !TilesManager::instance()->layerTexturesRemain()
-           || (tilesAllReady && tilesVisible);
+            || !tilesVisible || tilesAllReady;
 }
 
 void TiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
