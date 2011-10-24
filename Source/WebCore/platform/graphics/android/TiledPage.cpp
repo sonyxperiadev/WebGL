@@ -383,10 +383,6 @@ bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUse
     return true;
 }
 
-void TiledPage::paintExtra(SkCanvas* canvas)
-{
-}
-
 TiledPage* TiledPage::sibling()
 {
     if (!m_glWebViewState)

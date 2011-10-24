@@ -572,10 +572,6 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
     unsigned int pic = m_glWebViewState->currentPictureCounter();
     m_glWebViewState->glExtras()->setDrawExtra(extra);
 
-    LayerAndroid* compositeLayer = compositeRoot();
-    if (compositeLayer)
-        compositeLayer->setExtra(0);
-
     SkRect visibleRect;
     calcOurContentVisibleRect(&visibleRect);
     // Make sure we have valid coordinates. We might not have valid coords
@@ -650,28 +646,27 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
         default:
             ;
     }
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* compositeLayer = compositeRoot();
+    if (compositeLayer) {
+        SkRect visible;
+        calcOurContentVisibleRect(&visible);
+        // call this to be sure we've adjusted for any scrolling or animations
+        // before we actually draw
+        compositeLayer->updateFixedLayersPositions(visible);
+        compositeLayer->updatePositions();
+        // We have to set the canvas' matrix on the base layer
+        // (to have fixed layers work as intended)
+        SkAutoCanvasRestore restore(canvas, true);
+        m_baseLayer->setMatrix(canvas->getTotalMatrix());
+        canvas->resetMatrix();
+        m_baseLayer->draw(canvas);
+    }
+#endif
     if (extra) {
         IntRect dummy; // inval area, unused for now
         extra->draw(canvas, &mainPicture, &dummy);
     }
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* compositeLayer = compositeRoot();
-    if (!compositeLayer)
-        return ret;
-    compositeLayer->setExtra(extra);
-    SkRect visible;
-    calcOurContentVisibleRect(&visible);
-    // call this to be sure we've adjusted for any scrolling or animations
-    // before we actually draw
-    compositeLayer->updateFixedLayersPositions(visible);
-    compositeLayer->updatePositions();
-    // We have to set the canvas' matrix on the base layer
-    // (to have fixed layers work as intended)
-    SkAutoCanvasRestore restore(canvas, true);
-    m_baseLayer->setMatrix(canvas->getTotalMatrix());
-    canvas->resetMatrix();
-    m_baseLayer->draw(canvas);
-#endif
     return ret;
 }
 

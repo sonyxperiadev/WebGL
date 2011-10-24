@@ -147,8 +147,6 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
         m_baseLayerUpdate = true;
         m_invalidateRegion.setEmpty();
     }
-    if (m_currentBaseLayer && layer)
-        m_currentBaseLayer->swapExtra(layer);
 
     SkSafeRef(layer);
     SkSafeUnref(m_currentBaseLayer);

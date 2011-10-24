@@ -257,11 +257,6 @@ bool TiledTexture::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* picture
     return m_updateManager.paint(tile, canvas, pictureUsed);
 }
 
-void TiledTexture::paintExtra(SkCanvas* canvas)
-{
-    m_surface->paintExtra(canvas);
-}
-
 const TransformationMatrix* TiledTexture::transform()
 {
     return m_surface->transform();

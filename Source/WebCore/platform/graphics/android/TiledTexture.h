@@ -80,7 +80,6 @@ public:
 
     // TilePainter methods
     bool paint(BaseTile* tile, SkCanvas*, unsigned int*);
-    virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
 
     float scale() { return m_scale; }

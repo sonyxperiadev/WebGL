@@ -233,7 +233,6 @@ public:
     {
         return static_cast<LayerAndroid*>(this->INHERITED::getChild(index));
     }
-    void setExtra(DrawExtra* extra); // does not assign ownership
     int uniqueId() const { return m_uniqueId; }
     bool isFixed() { return m_isFixed; }
 
@@ -257,7 +256,6 @@ public:
     const SkRegion& dirtyRegion() { return m_dirtyRegion; }
 
     void contentDraw(SkCanvas*);
-    void extraDraw(SkCanvas*);
 
     virtual bool isMedia() const { return false; }
     virtual bool isVideo() const { return false; }
@@ -357,7 +355,6 @@ private:
 
     FloatRect m_clippingRect;
 
-    SkPicture* m_extra;
     int m_uniqueId;
 
     PaintedSurface* m_texture;

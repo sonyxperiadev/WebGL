@@ -66,7 +66,6 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_preserves3D(false),
     m_anchorPointZ(0),
     m_recordingPicture(0),
-    m_extra(0),
     m_uniqueId(++gUniqueId),
     m_texture(0),
     m_imageRef(0),
@@ -93,7 +92,6 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_haveClip(layer.m_haveClip),
     m_isIframe(layer.m_isIframe),
-    m_extra(0), // deliberately not copied
     m_uniqueId(layer.m_uniqueId),
     m_texture(0),
     m_imageTexture(0),
@@ -154,7 +152,6 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_isFixed(false),
     m_isIframe(false),
     m_recordingPicture(picture),
-    m_extra(0),
     m_uniqueId(-1),
     m_texture(0),
     m_imageRef(0),
@@ -180,7 +177,6 @@ LayerAndroid::~LayerAndroid()
 {
     if (m_imageTexture)
         ImagesManager::instance()->removeImage(m_imageTexture->imageRef());
-    delete m_extra;
     SkSafeUnref(m_recordingPicture);
     m_animations.clear();
 #ifdef DEBUG_COUNT
@@ -929,14 +925,6 @@ bool LayerAndroid::drawChildrenGL(GLWebViewState* glWebViewState, SkMatrix& matr
     return askScreenUpdate;
 }
 
-void LayerAndroid::extraDraw(SkCanvas* canvas)
-{
-    m_atomicSync.lock();
-    if (m_extra)
-        canvas->drawPicture(*m_extra);
-    m_atomicSync.unlock();
-}
-
 void LayerAndroid::contentDraw(SkCanvas* canvas)
 {
     if (m_recordingPicture)
@@ -1228,32 +1216,6 @@ LayerAndroid* LayerAndroid::findById(int match)
             return result;
     }
     return 0;
-}
-
-void LayerAndroid::setExtra(DrawExtra* extra)
-{
-    for (int i = 0; i < countChildren(); i++)
-        getChild(i)->setExtra(extra);
-
-    android::AutoMutex lock(m_atomicSync);
-    if (extra || (m_extra && !extra))
-        m_dirty = true;
-
-    delete m_extra;
-    m_extra = 0;
-
-    if (!extra)
-        return;
-
-    if (m_recordingPicture) {
-        IntRect dummy; // inval area, unused for now
-        m_extra = new SkPicture();
-        SkCanvas* canvas = m_extra->beginRecording(m_recordingPicture->width(),
-                                                   m_recordingPicture->height());
-        extra->draw(canvas, this, &dummy);
-        m_extra->endRecording();
-        needsRepaint();
-    }
 }
 
 } // namespace WebCore

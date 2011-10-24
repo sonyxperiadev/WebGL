@@ -53,7 +53,6 @@ public:
     Color getBackgroundColor() { return m_color; }
 #endif
     void setContent(const android::PictureSet& src);
-    void setExtra(SkPicture& extra);
     android::PictureSet* content() { return &m_content; }
     // This method will paint using the current PictureSet onto
     // the passed canvas. We used it to paint the GL tiles as well as
@@ -63,7 +62,6 @@ public:
 
     bool drawGL(double currentTime, LayerAndroid* compositedRoot, IntRect& rect,
                 SkRect& viewport, float scale, bool* buffersSwappedPtr);
-    void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
 private:
 #if USE(ACCELERATED_COMPOSITING)
     void prefetchBasePicture(SkRect& viewport, float currentScale,
@@ -76,7 +74,6 @@ private:
     Color m_color;
 #endif
     android::PictureSet m_content;
-    SkPicture m_extra;
     SkRect m_previousVisible;
 
     ScrollState m_scrollState;
