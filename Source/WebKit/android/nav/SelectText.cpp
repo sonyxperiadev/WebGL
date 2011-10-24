@@ -1478,7 +1478,8 @@ static void addEnd(SkRegion* diff, const SkIRect& rect)
     diff->op(bounds, SkRegion::kUnion_Op);
 }
 
-void SelectText::getSelectionRegion(const IntRect& vis, SkRegion *region)
+void SelectText::getSelectionRegion(const IntRect& vis, SkRegion *region,
+                                    LayerAndroid* root)
 {
     SkIRect ivisBounds = vis;
     ivisBounds.join(m_selStart);
@@ -1486,6 +1487,14 @@ void SelectText::getSelectionRegion(const IntRect& vis, SkRegion *region)
     region->setEmpty();
     buildSelection(*m_picture, ivisBounds, m_selStart, m_startBase,
         m_selEnd, m_endBase, region);
+    if (root && m_layerId) {
+        Layer* layer = root->findById(m_layerId);
+        while (layer) {
+            const SkPoint& pos = layer->getPosition();
+            region->translate(pos.fX, pos.fY);
+            layer = layer->getParent();
+        }
+    }
 }
 
 void SelectText::drawSelectionRegion(SkCanvas* canvas, IntRect* inval)
