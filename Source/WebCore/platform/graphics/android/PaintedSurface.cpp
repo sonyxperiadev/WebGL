@@ -214,8 +214,8 @@ void PaintedSurface::computeVisibleArea() {
     if (!m_visibleArea.isEmpty()) {
         float tileWidth = TilesManager::instance()->layerTileWidth();
         float tileHeight = TilesManager::instance()->layerTileHeight();
-        int w = ceilf(m_area.width() / tileWidth);
-        int h = ceilf(m_area.height() / tileHeight);
+        int w = ceilf(m_area.width() * m_scale / tileWidth);
+        int h = ceilf(m_area.height() * m_scale / tileHeight);
         if (w * h < MAX_UNCLIPPED_AREA)
             m_visibleArea = m_area;
     }
