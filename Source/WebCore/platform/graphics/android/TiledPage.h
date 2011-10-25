@@ -73,7 +73,8 @@ public:
     // dirty (and thus repaint needed)
     bool updateTileDirtiness(const SkIRect& tileBounds);
 
-    // check to see if the page is ready for display
+    // returns true if the page can't draw the entire region (may still be stale)
+    bool hasMissingContent(const SkIRect& tileBounds);
 
     // swap 'buffers' by swapping each modified texture
     bool swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapMethod swap);

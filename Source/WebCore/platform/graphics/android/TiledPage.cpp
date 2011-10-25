@@ -290,6 +290,19 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     m_prepare = true;
 }
 
+bool TiledPage::hasMissingContent(const SkIRect& tileBounds)
+{
+    int neededTiles = tileBounds.width() * tileBounds.height();
+    for (int j = 0; j < m_baseTileSize; j++) {
+        BaseTile& tile = m_baseTiles[j];
+        if (tileBounds.contains(tile.x(), tile.y())) {
+            if (tile.frontTexture())
+                neededTiles--;
+        }
+    }
+    return neededTiles > 0;
+}
+
 bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapMethod swap)
 {
     if (!m_glWebViewState)
@@ -342,18 +355,9 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
     const float tileWidth = TilesManager::tileWidth() * m_invScale;
     const float tileHeight = TilesManager::tileHeight() * m_invScale;
 
-    SkIRect actualTileBounds = tileBounds;
-    actualTileBounds.fTop -= m_glWebViewState->expandedTileBoundsY();
-    actualTileBounds.fBottom += m_glWebViewState->expandedTileBoundsY();
-    actualTileBounds.fLeft -= m_glWebViewState->expandedTileBoundsX();
-    actualTileBounds.fRight += m_glWebViewState->expandedTileBoundsX();
-
-    actualTileBounds.fTop = std::max(0, actualTileBounds.fTop);
-    actualTileBounds.fLeft = std::max(0, actualTileBounds.fLeft);
-
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
-        bool tileInView = actualTileBounds.contains(tile.x(), tile.y());
+        bool tileInView = tileBounds.contains(tile.x(), tile.y());
         if (tileInView) {
             SkRect rect;
             rect.fLeft = tile.x() * tileWidth;
