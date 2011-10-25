@@ -236,12 +236,16 @@ void GLWebViewState::inval(const IntRect& rect)
 
 unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
-    android::Mutex::Autolock lock(m_baseLayerLock);
-    if (m_paintingBaseLayer) {
+    m_baseLayerLock.lock();
+    BaseLayerAndroid* base = m_paintingBaseLayer;
+    SkSafeRef(base);
+    m_baseLayerLock.unlock();
+    if (base) {
         m_globalButtonMutex->lock();
-        m_paintingBaseLayer->drawCanvas(canvas);
+        base->drawCanvas(canvas);
         m_globalButtonMutex->unlock();
     }
+    SkSafeUnref(base);
     return m_currentPictureCounter;
 }
 

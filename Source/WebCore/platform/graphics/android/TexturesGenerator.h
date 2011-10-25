@@ -42,7 +42,7 @@ class LayerAndroid;
 
 class TexturesGenerator : public Thread {
 public:
-    TexturesGenerator() : Thread()
+    TexturesGenerator() : Thread(false)
         , m_waitForCompletion(false)
         , m_currentOperation(0) { }
     virtual ~TexturesGenerator() { }
