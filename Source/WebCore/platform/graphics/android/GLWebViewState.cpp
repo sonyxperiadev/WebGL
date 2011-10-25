@@ -164,10 +164,9 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
     } else {
         m_currentBaseLayerRoot = 0;
     }
-    if (m_currentBaseLayerRoot && oldRoot)
+    if (oldRoot != m_currentBaseLayerRoot)
         TilesManager::instance()->swapLayersTextures(oldRoot, m_currentBaseLayerRoot);
     SkSafeUnref(oldRoot);
-
 
     // We only update the base layer if we are not currently
     // waiting for a tiledPage to be painted
