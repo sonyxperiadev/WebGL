@@ -782,6 +782,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 
 void GraphicsContext::fillRect(const FloatRect& rect)
 {
+    save();
     SkPaint paint;
 
     m_data->setupPaintFill(&paint);
@@ -791,6 +792,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
                  m_state.fillGradient.get());
 
     GC2CANVAS(this)->drawRect(rect, paint);
+    restore();
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace)
@@ -799,6 +801,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
         return;
 
     if (color.rgb() & 0xFF000000) {
+        save();
         SkPaint paint;
 
         m_data->setupPaintCommon(&paint);
@@ -828,6 +831,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
         paint.setAntiAlias(false);
 
         GC2CANVAS(this)->drawRect(rect, paint);
+        restore();
     }
 }
 
