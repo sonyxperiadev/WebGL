@@ -1552,7 +1552,7 @@ void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndic
 
 void getTextSelectionRegion(SkRegion *region)
 {
-    m_selectText.getSelectionRegion(getVisibleRect(), region);
+    m_selectText.getSelectionRegion(getVisibleRect(), region, compositeRoot());
 }
 
 void replaceBaseContent(PictureSet* set)
