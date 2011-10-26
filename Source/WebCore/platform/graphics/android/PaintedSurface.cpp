@@ -179,19 +179,6 @@ void PaintedSurface::markAsDirty(const SkRegion& dirtyArea)
     m_updateManager.updateInval(dirtyArea);
 }
 
-void PaintedSurface::paintExtra(SkCanvas* canvas)
-{
-    m_layerLock.lock();
-    LayerAndroid* layer = m_layer;
-    SkSafeRef(layer);
-    m_layerLock.unlock();
-
-    if (layer)
-        layer->extraDraw(canvas);
-
-    SkSafeUnref(layer);
-}
-
 float PaintedSurface::opacity() {
     if (m_layer)
         return m_layer->drawOpacity();

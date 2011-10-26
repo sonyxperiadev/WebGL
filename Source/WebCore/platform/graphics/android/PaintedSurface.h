@@ -66,7 +66,6 @@ public:
     void computeVisibleArea();
 
     // TilePainter methods for TiledTexture
-    virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
 
     // used by TiledTexture

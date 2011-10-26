@@ -101,14 +101,6 @@ void BaseLayerAndroid::setContent(const PictureSet& src)
     // setSize(src.width(), src.height());
 }
 
-void BaseLayerAndroid::setExtra(SkPicture& src)
-{
-#if USE(ACCELERATED_COMPOSITING)
-    android::Mutex::Autolock lock(m_drawLock);
-#endif
-    m_extra.swap(src);
-}
-
 void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 {
 #if USE(ACCELERATED_COMPOSITING)
@@ -116,9 +108,6 @@ void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 #endif
     if (!m_content.isEmpty())
         m_content.draw(canvas);
-    // TODO : replace with !m_extra.isEmpty() once such a call exists
-    if (m_extra.width() > 0)
-        m_extra.draw(canvas);
 }
 
 #if USE(ACCELERATED_COMPOSITING)

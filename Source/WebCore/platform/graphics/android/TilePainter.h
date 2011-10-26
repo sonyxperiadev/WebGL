@@ -38,7 +38,6 @@ class TilePainter {
 public:
    virtual ~TilePainter() { }
    virtual bool paint(BaseTile* tile, SkCanvas*, unsigned int*) = 0;
-   virtual void paintExtra(SkCanvas*) = 0;
    virtual const TransformationMatrix* transform() { return 0; }
 };
 

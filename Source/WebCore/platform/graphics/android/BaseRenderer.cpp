@@ -133,8 +133,6 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
     canvas.scale(renderInfo.scale, renderInfo.scale);
     unsigned int pictureCount = 0;
     renderInfo.tilePainter->paint(renderInfo.baseTile, &canvas, &pictureCount);
-    if (renderInfo.baseTile->isLayerTile())
-        renderInfo.tilePainter->paintExtra(&canvas);
 
     if (visualIndicator) {
         canvas.restore();
