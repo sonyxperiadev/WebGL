@@ -1555,6 +1555,11 @@ void getTextSelectionRegion(SkRegion *region)
     m_selectText.getSelectionRegion(getVisibleRect(), region, compositeRoot());
 }
 
+void getTextSelectionHandles(int* handles)
+{
+    m_selectText.getSelectionHandles(handles);
+}
+
 void replaceBaseContent(PictureSet* set)
 {
     if (!m_baseLayer)
@@ -1984,12 +1989,22 @@ static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject inv
                                             registerPageSwapCallback);
 }
 
-static void nativeGetTextSelectionRegion(JNIEnv *env, jobject obj, jobject region)
+static void nativeGetTextSelectionRegion(JNIEnv *env, jobject obj, jint view,
+                                         jobject region)
 {
     if (!region)
         return;
     SkRegion* nregion = GraphicsJNI::getNativeRegion(env, region);
-    GET_NATIVE_VIEW(env, obj)->getTextSelectionRegion(nregion);
+    ((WebView*)view)->getTextSelectionRegion(nregion);
+}
+
+static void nativeGetSelectionHandles(JNIEnv *env, jobject obj, jint view,
+                                      jintArray arr)
+{
+    int handles[4];
+    ((WebView*)view)->getTextSelectionHandles(handles);
+    env->SetIntArrayRegion(arr, 0, 4, handles);
+    checkException(env);
 }
 
 static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj)
@@ -2897,8 +2912,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetBaseLayer", "(ILandroid/graphics/Region;ZZZ)V",
         (void*) nativeSetBaseLayer },
-    { "nativeGetTextSelectionRegion", "(Landroid/graphics/Region;)V",
+    { "nativeGetTextSelectionRegion", "(ILandroid/graphics/Region;)V",
         (void*) nativeGetTextSelectionRegion },
+    { "nativeGetSelectionHandles", "(I[I)V",
+        (void*) nativeGetSelectionHandles },
     { "nativeGetBaseLayer", "()I",
         (void*) nativeGetBaseLayer },
     { "nativeReplaceBaseContent", "(I)V",
