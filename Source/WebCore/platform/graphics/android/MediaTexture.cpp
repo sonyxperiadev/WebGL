@@ -159,7 +159,7 @@ void MediaTexture::draw(const TransformationMatrix& contentMatrix,
 
         if (!video->surfaceTexture.get() || video->dimensions.isEmpty()
                 || !video->mediaListener->isFrameAvailable())
-            return;
+            continue;
 
         video->surfaceTexture->updateTexImage();
 
