@@ -129,6 +129,14 @@ void WebAutofill::formsSeenImpl()
 
 void WebAutofill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldElement)
 {
+    if (!enabled()) {
+        // In case that we've just been disabled and the last time we got autofill
+        // suggestions we told Java about them, clear that bit Java side now
+        // we're disabled.
+        mWebViewCore->setWebTextViewAutoFillable(FORM_NOT_AUTOFILLABLE, string16());
+        return;
+    }
+
     ASSERT(formFieldElement);
 
     Document* doc = formFieldElement->document();
@@ -149,13 +157,7 @@ void WebAutofill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
         mLastSearchDomVersion = domVersion;
     }
 
-    if (!enabled()) {
-        // In case that we've just been disabled and the last time we got autofill
-        // suggestions and told Java about them, clear that bit Java side now
-        // we're disabled.
-        mWebViewCore->setWebTextViewAutoFillable(FORM_NOT_AUTOFILLABLE, string16());
-        return;
-    }
+    ASSERT(mFormManager);
 
     // Get the FormField from the Node.
     webkit_glue::FormField* formField = new webkit_glue::FormField;
