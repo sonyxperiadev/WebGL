@@ -408,6 +408,8 @@ void ShaderProgram::setViewRect(const IntRect& viewRect)
 
     translate.scale3d(1, -1, 1);
     m_documentToInvScreenMatrix = scale * translate * m_projectionMatrix;
+
+    m_documentViewport = m_documentToScreenMatrix.inverse().mapRect(viewRect);
 }
 
 // This function transform a clip rect extracted from the current layer
@@ -435,6 +437,11 @@ FloatRect ShaderProgram::rectInInvScreenCoord(const FloatRect& rect)
 FloatRect ShaderProgram::rectInScreenCoord(const FloatRect& rect)
 {
     return m_documentToScreenMatrix.mapRect(rect);
+}
+
+FloatRect ShaderProgram::convertScreenCoordToDocumentCoord(const FloatRect& rect)
+{
+    return m_documentToScreenMatrix.inverse().mapRect(rect);
 }
 
 FloatRect ShaderProgram::convertInvScreenCoordToScreenCoord(const FloatRect& rect)

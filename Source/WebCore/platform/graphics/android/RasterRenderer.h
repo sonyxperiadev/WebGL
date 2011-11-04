@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "BaseRenderer.h"
+#include "SkBitmap.h"
 #include "SkRect.h"
 
 class SkCanvas;
@@ -49,6 +50,9 @@ protected:
     virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas);
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas);
     virtual const String* getPerformanceTags(int& tagCount);
+
+private:
+    SkBitmap m_bitmap;
 
 };
 

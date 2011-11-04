@@ -1,6 +1,8 @@
 #include "config.h"
 #include "ScrollableLayerAndroid.h"
 
+#include "GLWebViewState.h"
+
 #if USE(ACCELERATED_COMPOSITING)
 
 namespace WebCore {
@@ -19,6 +21,10 @@ bool ScrollableLayerAndroid::scrollTo(int x, int y)
         return false;
 
     setPosition(m_scrollLimits.fLeft - newX, m_scrollLimits.fTop - newY);
+
+    if (state())
+        state()->scrolledLayer(this);
+
     return true;
 }
 

@@ -99,9 +99,25 @@ class RenderLayer;
 class TiledPage;
 class PaintedSurface;
 
+class TexturesResult {
+public:
+    TexturesResult()
+        : fixed(0)
+        , scrollable(0)
+        , clipped(0)
+        , full(0)
+    {}
+
+    int fixed;
+    int scrollable;
+    int clipped;
+    int full;
+};
+
 class LayerAndroid : public Layer {
 public:
     enum LayerType { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer };
+
     LayerAndroid(RenderLayer* owner);
     LayerAndroid(const LayerAndroid& layer);
     LayerAndroid(SkPicture*);
@@ -121,6 +137,9 @@ public:
     IntRect clippedRect() const;
     bool outsideViewport();
 
+    IntRect unclippedArea();
+    IntRect visibleArea();
+
     virtual bool needsTexture();
     void removeTexture(PaintedSurface*);
 
@@ -129,11 +148,17 @@ public:
     int nbTexturedLayers();
     void showLayer(int indent);
 
+    void computeTexturesAmount(TexturesResult*);
+
     float getScale() { return m_scale; }
+
+    void setState(GLWebViewState*);
 
     // draw layer and its children via Z, pre-order traversal
     virtual bool drawGL(GLWebViewState*, SkMatrix&);
     bool drawChildrenGL(GLWebViewState*, SkMatrix&);
+    virtual bool drawCanvas(SkCanvas*);
+    bool drawChildrenCanvas(SkCanvas*);
 
     // prepare layer and its children via reverse-Z, post-order traversal
     void prepare(GLWebViewState*);
@@ -212,7 +237,7 @@ public:
         This call is recursive, so it should be called on the root of the
         hierarchy.
     */
-    void updateFixedLayersPositions(SkRect viewPort, LayerAndroid* parentIframeLayer = 0);
+    bool updateFixedLayersPositions(SkRect viewPort, LayerAndroid* parentIframeLayer = 0);
 
     /** Call this to update the position attribute, so that later calls
         like bounds() will report the corrected position.
@@ -283,6 +308,9 @@ public:
     SkBitmapRef* imageRef() { return m_imageRef; }
     ImageTexture* imageTexture() { return m_imageTexture; }
     int type() { return m_type; }
+
+    bool hasText() { return m_hasText; }
+    void checkTextPresence();
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
@@ -387,8 +415,11 @@ private:
 
     RenderLayer* m_owningLayer;
 
-    GLWebViewState* m_state;
     int m_type;
+    GLWebViewState* m_state;
+
+    bool m_hasText;
+
     typedef Layer INHERITED;
 };
 

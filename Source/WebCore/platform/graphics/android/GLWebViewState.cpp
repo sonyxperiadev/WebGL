@@ -33,10 +33,13 @@
 #include "GLUtils.h"
 #include "ImagesManager.h"
 #include "LayerAndroid.h"
+#include "ScrollableLayerAndroid.h"
 #include "SkPath.h"
 #include "TilesManager.h"
 #include "TilesTracker.h"
 #include <wtf/CurrentTime.h>
+
+#include <pthread.h>
 
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
@@ -86,6 +89,7 @@ GLWebViewState::GLWebViewState()
     , m_expandedTileBoundsX(0)
     , m_expandedTileBoundsY(0)
     , m_scale(1)
+    , m_layersRenderingMode(kAllTextures)
 {
     m_viewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
@@ -151,7 +155,6 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
     SkSafeUnref(m_currentBaseLayer);
     m_currentBaseLayer = layer;
 
-
     // copy content from old composited root to new
     LayerAndroid* oldRoot = m_currentBaseLayerRoot;
     if (layer) {
@@ -173,7 +176,13 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
         m_paintingBaseLayer = layer;
     }
     m_glExtras.setDrawExtra(0);
-    invalRegion(inval);
+
+    // TODO: do the union of both layers tree to compute
+    // the minimum inval instead of doing a fullInval()
+    if (m_layersRenderingMode == kSingleSurfaceRendering)
+        fullInval();
+    else
+        invalRegion(inval);
 
 #ifdef MEASURES_PERF
     if (m_measurePerfs && !showVisualIndicator)
@@ -182,6 +191,14 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
 #endif
 
     TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
+}
+
+void GLWebViewState::scrolledLayer(ScrollableLayerAndroid*)
+{
+    // TODO: only inval the area of the scrolled layer instead of
+    // doing a fullInval()
+    if (m_layersRenderingMode == kSingleSurfaceRendering)
+        fullInval();
 }
 
 void GLWebViewState::invalRegion(const SkRegion& region)
@@ -241,6 +258,11 @@ unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
     m_baseLayerLock.unlock();
     if (base) {
         base->drawCanvas(canvas);
+        if (m_layersRenderingMode == kSingleSurfaceRendering) {
+            LayerAndroid* rootLayer = static_cast<LayerAndroid*>(base->getChild(0));
+            if (rootLayer)
+                rootLayer->drawCanvas(canvas);
+        }
     }
     SkSafeUnref(base);
     return m_currentPictureCounter;
@@ -402,6 +424,69 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
     return currentTime;
 }
 
+bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
+{
+    bool invalBase = false;
+    int maxTextures = TilesManager::instance()->maxTextureCount();
+    LayersRenderingMode layersRenderingMode = m_layersRenderingMode;
+
+    m_layersRenderingMode = kSingleSurfaceRendering;
+    if (nbTexturesNeeded.fixed < maxTextures)
+        m_layersRenderingMode = kFixedLayers;
+    if (nbTexturesNeeded.scrollable < maxTextures)
+        m_layersRenderingMode = kScrollableAndFixedLayers;
+    if (nbTexturesNeeded.clipped < maxTextures)
+        m_layersRenderingMode = kClippedTextures;
+    if (nbTexturesNeeded.full < maxTextures)
+        m_layersRenderingMode = kAllTextures;
+
+    if (m_layersRenderingMode < layersRenderingMode
+        && m_layersRenderingMode != kAllTextures)
+        invalBase = true;
+
+    if (m_layersRenderingMode > layersRenderingMode
+        && m_layersRenderingMode != kClippedTextures)
+        invalBase = true;
+
+#ifdef DEBUG
+    if (m_layersRenderingMode != layersRenderingMode) {
+        char* mode[] = { "kAllTextures", "kClippedTextures",
+            "kScrollableAndFixedLayers", "kFixedLayers", "kSingleSurfaceRendering" };
+        XLOGC("Change from mode %s to %s -- We need textures: fixed: %d,"
+              " scrollable: %d, clipped: %d, full: %d, max textures: %d",
+              static_cast<char*>(mode[layersRenderingMode]),
+              static_cast<char*>(mode[m_layersRenderingMode]),
+              nbTexturesNeeded.fixed,
+              nbTexturesNeeded.scrollable,
+              nbTexturesNeeded.clipped,
+              nbTexturesNeeded.full, maxTextures);
+    }
+#endif
+
+    // For now, anything below kClippedTextures is equivalent
+    // to kSingleSurfaceRendering
+    // TODO: implement the other rendering modes
+    if (m_layersRenderingMode > kClippedTextures)
+        m_layersRenderingMode = kSingleSurfaceRendering;
+
+    // update the base surface if needed
+    if (m_layersRenderingMode != layersRenderingMode
+        && invalBase) {
+        m_tiledPageA->discardTextures();
+        m_tiledPageB->discardTextures();
+        fullInval();
+        return true;
+    }
+    return false;
+}
+
+void GLWebViewState::fullInval()
+{
+    // TODO -- use base layer's size.
+    IntRect ir(0, 0, 1E6, 1E6);
+    inval(ir);
+}
+
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& webViewRect, int titleBarHeight,
                             IntRect& clip, float scale, bool* buffersSwappedPtr)
@@ -475,10 +560,45 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // set up zoom manager, shaders, etc.
     m_backgroundColor = baseLayer->getBackgroundColor();
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
+
+    if (compositedRoot)
+        compositedRoot->setState(this);
+
+    bool animsRunning = false;
+    TexturesResult nbTexturesNeeded;
+    if (compositedRoot) {
+        TransformationMatrix ident;
+        animsRunning = compositedRoot->evaluateAnimations();
+        bool hasFixedElements = compositedRoot->updateFixedLayersPositions(viewport);
+        if (m_layersRenderingMode == kSingleSurfaceRendering) {
+            // If we are in single surface rendering, we may have to fully
+            // invalidate if we have fixed elements or if we have CSS
+            // animations.
+            // TODO: compute the minimum invals
+            if (animsRunning || hasFixedElements)
+                fullInval();
+        }
+
+        // TODO: get the base document area for the original clip
+        FloatRect clip(0, 0, 1E6, 1E6);
+        compositedRoot->updateGLPositionsAndScale(ident, clip, 1, zoomManager()->layersScale());
+        compositedRoot->prepare(this);
+
+        ret |= animsRunning;
+
+        compositedRoot->computeTexturesAmount(&nbTexturesNeeded);
+    }
+    ret |= setLayersRenderingMode(nbTexturesNeeded);
+
+    // Clean up GL textures for video layer.
+    TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
+
     ret |= baseLayer->drawGL(currentTime, compositedRoot, rect,
                                  viewport, scale, buffersSwappedPtr);
+
     FloatRect extrasclip(0, 0, rect.width(), rect.height());
     TilesManager::instance()->shader()->clip(extrasclip);
+
     m_glExtras.drawGL(webViewRect, viewport, titleBarHeight);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -543,6 +663,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     TilesManager::instance()->getTilesTracker()->showTrackTextures();
     ImagesManager::instance()->showImages();
 #endif
+
     return ret;
 }
 

@@ -142,24 +142,17 @@ void PaintedSurface::prepare(GLWebViewState* state)
          m_layer->uniqueId(), m_layer,
          m_layer->getScale());
 
-    int w = m_layer->getSize().width();
-    int h = m_layer->getSize().height();
-
-    if (w != m_area.width())
-        m_area.setWidth(w);
-
-    if (h != m_area.height())
-        m_area.setHeight(h);
-
-    computeVisibleArea();
+    IntRect visibleArea = computeVisibleArea(m_layer);
 
     m_scale = state->scale();
 
-    XLOG("%x layer %d %x prepared at size (%d, %d) @ scale %.2f", this, m_layer->uniqueId(),
-         m_layer, w, h, m_scale);
+    // If we do not have text, we may as well limit ourselves to
+    // a scale factor of one... this saves up textures.
+    if (m_scale > 1 && !m_layer->hasText())
+        m_scale = 1;
 
     m_tiledTexture->prepare(state, m_scale, m_pictureUsed != m_layer->pictureUsed(),
-                            startFastSwap, m_visibleArea);
+                            startFastSwap, visibleArea);
 }
 
 bool PaintedSurface::draw()
@@ -192,20 +185,53 @@ const TransformationMatrix* PaintedSurface::transform() {
     return m_layer->drawTransform();
 }
 
-void PaintedSurface::computeVisibleArea() {
+void PaintedSurface::computeTexturesAmount(TexturesResult* result)
+{
+    if (!m_tiledTexture)
+        return;
+
     if (!m_layer)
         return;
-    IntRect layerRect = (*m_layer->drawTransform()).mapRect(m_area);
-    IntRect clippedRect = TilesManager::instance()->shader()->clippedRectWithViewport(layerRect);
-    m_visibleArea = (*m_layer->drawTransform()).inverse().mapRect(clippedRect);
-    if (!m_visibleArea.isEmpty()) {
-        float tileWidth = TilesManager::instance()->layerTileWidth();
-        float tileHeight = TilesManager::instance()->layerTileHeight();
-        int w = ceilf(m_area.width() * m_scale / tileWidth);
-        int h = ceilf(m_area.height() * m_scale / tileHeight);
-        if (w * h < MAX_UNCLIPPED_AREA)
-            m_visibleArea = m_area;
-    }
+
+    IntRect unclippedArea = m_layer->unclippedArea();
+    IntRect clippedVisibleArea = m_layer->visibleArea();
+    // get two numbers here:
+    // - textures needed for a clipped area
+    // - textures needed for an un-clipped area
+    int nbTexturesUnclipped = m_tiledTexture->nbTextures(unclippedArea, m_scale);
+    int nbTexturesClipped = m_tiledTexture->nbTextures(clippedVisibleArea, m_scale);
+
+    // Set kFixedLayers level
+    if (m_layer->isFixed())
+        result->fixed += nbTexturesClipped;
+
+    // Set kScrollableAndFixedLayers level
+    if (m_layer->contentIsScrollable()
+        || m_layer->isFixed())
+        result->scrollable += nbTexturesClipped;
+
+    // Set kClippedTextures level
+    result->clipped += nbTexturesClipped;
+
+    // Set kAllTextures level
+    if (m_layer->contentIsScrollable())
+        result->full += nbTexturesClipped;
+    else
+        result->full += nbTexturesUnclipped;
+}
+
+IntRect PaintedSurface::computeVisibleArea(LayerAndroid* layer) {
+    IntRect area;
+    if (!layer)
+        return area;
+
+    if (!layer->contentIsScrollable()
+        && layer->state()->layersRenderingMode() == GLWebViewState::kAllTextures)
+        area = layer->unclippedArea();
+    else
+        area = layer->visibleArea();
+
+    return area;
 }
 
 bool PaintedSurface::owns(BaseTileTexture* texture)

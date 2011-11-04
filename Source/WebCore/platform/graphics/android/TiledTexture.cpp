@@ -59,12 +59,13 @@ bool TiledTexture::ready() {
     bool tilesVisible = false;
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
-        if (tile->isTileVisible(m_area) && !tile->isTileReady()) {
-            tilesAllReady = false;
-            break;
-        }
-        if (tile->isTileVisible(m_area))
+        if (tile->isTileVisible(m_area)) {
             tilesVisible = true;
+            if (!tile->isTileReady()) {
+                tilesAllReady = false;
+                break;
+            }
+        }
     }
     // For now, if no textures are available, consider ourselves as ready
     // in order to unblock the zooming process.
@@ -74,8 +75,34 @@ bool TiledTexture::ready() {
             || !tilesVisible || tilesAllReady;
 }
 
+IntRect TiledTexture::computeTilesArea(IntRect& visibleArea, float scale)
+{
+    IntRect computedArea;
+    IntRect area(visibleArea.x() * scale,
+                 visibleArea.y() * scale,
+                 ceilf(visibleArea.width() * scale),
+                 ceilf(visibleArea.height() * scale));
+
+    if (area.width() == 0 && area.height() == 0) {
+        computedArea.setWidth(0);
+        computedArea.setHeight(0);
+        return computedArea;
+    }
+
+    int tileWidth = TilesManager::instance()->layerTileWidth();
+    int tileHeight = TilesManager::instance()->layerTileHeight();
+
+    computedArea.setX(area.x() / tileWidth);
+    computedArea.setY(area.y() / tileHeight);
+    float right = (area.x() + area.width()) / (float) tileWidth;
+    float bottom = (area.y() + area.height()) / (float) tileHeight;
+    computedArea.setWidth(ceilf(right) - computedArea.x());
+    computedArea.setHeight(ceilf(bottom) - computedArea.y());
+    return computedArea;
+}
+
 void TiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
-                           bool startFastSwap, IntRect& visibleArea)
+                           bool startFastSwap, IntRect& area)
 {
     if (!m_surface)
         return;
@@ -83,29 +110,12 @@ void TiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
     if (!m_surface->layer())
         return;
 
-    // first, how many tiles do we need
-    IntRect area(visibleArea.x() * scale,
-                 visibleArea.y() * scale,
-                 ceilf(visibleArea.width() * scale),
-                 ceilf(visibleArea.height() * scale));
-
-    if (area.width() == 0 && area.height() == 0) {
-        m_area.setWidth(0);
-        m_area.setHeight(0);
+    m_area = computeTilesArea(area, scale);
+    if (m_area.isEmpty())
         return;
-    }
 
-    int tileWidth = TilesManager::instance()->layerTileWidth();
-    int tileHeight = TilesManager::instance()->layerTileHeight();
-
-    m_area.setX(area.x() / tileWidth);
-    m_area.setY(area.y() / tileHeight);
-    float right = (area.x() + area.width()) / (float) tileWidth;
-    float bottom = (area.y() + area.height()) / (float) tileHeight;
-    m_area.setWidth(ceilf(right) - m_area.x());
-    m_area.setHeight(ceilf(bottom) - m_area.y());
-
-    XLOG("for TiledTexture %p, we prepare with scale %.2f, have a visible area of %d, %d - %d x %d, corresponding to %d, %d x - %d x %d tiles",
+    XLOG("for TiledTexture %p, we prepare with scale %.2f, have a visible area of "
+         " %d, %d - %d x %d, corresponding to %d, %d x - %d x %d tiles",
          this, scale,
          visibleArea.x(), visibleArea.y(),
          visibleArea.width(), visibleArea.height(),
@@ -208,6 +218,12 @@ BaseTile* TiledTexture::getTile(int x, int y)
             return tile;
     }
     return 0;
+}
+
+int TiledTexture::nbTextures(IntRect& area, float scale)
+{
+    IntRect computedTilesArea = computeTilesArea(area, scale);
+    return computedTilesArea.width() * computedTilesArea.height();
 }
 
 bool TiledTexture::draw()

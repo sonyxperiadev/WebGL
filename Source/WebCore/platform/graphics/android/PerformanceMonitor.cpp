@@ -27,6 +27,11 @@
 
 #include <wtf/text/CString.h>
 
+#include <wtf/CurrentTime.h>
+#include <cutils/log.h>
+#include <wtf/text/CString.h>
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "PerformanceMonitor", __VA_ARGS__)
+
 namespace WebCore {
 
 PerformanceMonitor::PerformanceMonitor()
@@ -76,6 +81,24 @@ float PerformanceMonitor::getAverageDuration(const String &tag)
     if (tag.isEmpty() || !m_tags.contains(tag))
         return 0;
     return m_tags.get(tag)->average_ms;
+}
+
+void PerformanceMonitor::display(int limit)
+{
+    bool shown = false;
+    HashMap<String, PerfItem*, StringHash>::iterator end = m_tags.end();
+    for (HashMap<String, PerfItem*, StringHash>::iterator it = m_tags.begin(); it != end; ++it) {
+        PerfItem* item = it->second;
+        if (item->average_ms > limit) {
+           if (!shown) {
+                XLOGC("=== DISPLAY MONITOR ====");
+                shown = true;
+           }
+           XLOGC("item %s took longer than %d ms: %.2f", it->first.latin1().data(), limit, item->average_ms);
+        }
+    }
+    if (shown)
+        XLOGC("=== END DISPLAY MONITOR ====");
 }
 
 } // namespace WebCore

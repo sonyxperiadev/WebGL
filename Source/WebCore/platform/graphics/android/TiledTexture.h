@@ -65,6 +65,8 @@ public:
         removeTiles();
     };
 
+    IntRect computeTilesArea(IntRect& visibleArea, float scale);
+
     void prepare(GLWebViewState* state, float scale, bool repaint,
                  bool startFastSwap, IntRect& visibleArea);
     bool draw();
@@ -86,6 +88,8 @@ public:
     bool ready();
 
     PaintedSurface* surface() { return m_surface; }
+
+    int nbTextures(IntRect& area, float scale);
 
 private:
     bool tileIsVisible(BaseTile* tile);
@@ -117,6 +121,15 @@ public:
     bool draw();
     void update(const SkRegion& dirtyArea, SkPicture* picture);
     bool owns(BaseTileTexture* texture);
+
+    int nbTextures(IntRect& area, float scale)
+    {
+        // TODO: consider the zooming case for the backTexture
+        if (!m_frontTexture)
+            return 0;
+        return m_frontTexture->nbTextures(area, scale);
+    }
+
 private:
     // Delay before we schedule a new tile at the new scale factor
     static const double s_zoomUpdateDelay = 0.2; // 200 ms
