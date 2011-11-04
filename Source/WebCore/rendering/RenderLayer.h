@@ -354,7 +354,7 @@ public:
       if (hasOverflowScroll())
           return true;
 #endif
-      return !hasAutoZIndex() || renderer()->isRenderView() || (isComposited() && isFixed()) || m_shouldComposite;
+      return !hasAutoZIndex() || renderer()->isRenderView() || (isComposited() && isFixed());
     }
 #else
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
