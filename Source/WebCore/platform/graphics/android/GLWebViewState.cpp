@@ -308,8 +308,10 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
     // allocate max possible number of tiles visible with this viewport
     int viewMaxTileX = static_cast<int>(ceilf((viewport.width()-1) * invTileContentWidth)) + 1;
     int viewMaxTileY = static_cast<int>(ceilf((viewport.height()-1) * invTileContentHeight)) + 1;
-    int maxTextureCount = (viewMaxTileX + TILE_PREFETCH_DISTANCE * 2) *
-        (viewMaxTileY + TILE_PREFETCH_DISTANCE * 2) * 2;
+
+    int maxTextureCount = (viewMaxTileX + m_expandedTileBoundsX * 2) *
+        (viewMaxTileY + m_expandedTileBoundsY * 2) * 2;
+
     TilesManager::instance()->setMaxTextureCount(maxTextureCount);
     m_tiledPageA->updateBaseTileSize();
     m_tiledPageB->updateBaseTileSize();
@@ -425,8 +427,9 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     float viewWidth = (viewport.fRight - viewport.fLeft) * TILE_PREFETCH_RATIO;
     float viewHeight = (viewport.fBottom - viewport.fTop) * TILE_PREFETCH_RATIO;
-    bool useHorzPrefetch = viewWidth < baseContentWidth();
-    bool useVertPrefetch = viewHeight < baseContentHeight();
+    bool useMinimalMemory = TilesManager::instance()->useMinimalMemory();
+    bool useHorzPrefetch = useMinimalMemory ? 0 : viewWidth < baseContentWidth();
+    bool useVertPrefetch = useMinimalMemory ? 0 : viewHeight < baseContentHeight();
     m_expandedTileBoundsX = (useHorzPrefetch) ? TILE_PREFETCH_DISTANCE : 0;
     m_expandedTileBoundsY = (useVertPrefetch) ? TILE_PREFETCH_DISTANCE : 0;
 
