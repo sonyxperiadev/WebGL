@@ -474,6 +474,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
     ret |= baseLayer->drawGL(currentTime, compositedRoot, rect,
                                  viewport, scale, buffersSwappedPtr);
+    FloatRect extrasclip(0, 0, rect.width(), rect.height());
+    TilesManager::instance()->shader()->clip(extrasclip);
     m_glExtras.drawGL(webViewRect, viewport, titleBarHeight);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
