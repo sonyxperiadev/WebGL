@@ -170,6 +170,16 @@ public:
         m_shader.setContrast(contrast);
     }
 
+    void setUseMinimalMemory(bool useMinimalMemory)
+    {
+        m_useMinimalMemory = useMinimalMemory;
+    }
+
+    bool useMinimalMemory()
+    {
+        return m_useMinimalMemory;
+    }
+
     void incDrawGLCount()
     {
         m_drawGLCount++;
@@ -206,6 +216,8 @@ private:
     bool m_showVisualIndicator;
     bool m_invertedScreen;
     bool m_invertedScreenSwitch;
+
+    bool m_useMinimalMemory;
 
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 

@@ -99,6 +99,7 @@ TilesManager::TilesManager()
     , m_showVisualIndicator(false)
     , m_invertedScreen(false)
     , m_invertedScreenSwitch(false)
+    , m_useMinimalMemory(true)
     , m_drawGLCount(1)
 {
     XLOG("TilesManager ctor");

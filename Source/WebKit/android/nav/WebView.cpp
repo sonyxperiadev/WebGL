@@ -2639,14 +2639,18 @@ static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
             TilesManager::instance()->setInvertedScreen(false);
         return true;
     }
-    if (key == "inverted_contrast") {
+    else if (key == "inverted_contrast") {
         float contrast = value.toFloat();
         TilesManager::instance()->setInvertedScreenContrast(contrast);
         return true;
     }
-    if (key == "enable_cpu_upload_path") {
+    else if (key == "enable_cpu_upload_path") {
         TilesManager::instance()->transferQueue()->setTextureUploadType(
             value == "true" ? CpuUpload : GpuUpload);
+        return true;
+    }
+    else if (key == "use_minimal_memory") {
+        TilesManager::instance()->setUseMinimalMemory(value == "true");
         return true;
     }
     return false;
