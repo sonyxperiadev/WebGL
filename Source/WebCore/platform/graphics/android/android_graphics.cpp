@@ -112,22 +112,6 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
 void CursorRing::setIsButton(const CachedNode* node)
 {
     m_isButton = false;
-    m_viewImpl->gButtonMutex.lock();
-    // If this is a button drawn by us (rather than webkit) do not draw the
-    // cursor ring, since its cursor will be shown by a change in what we draw.
-    // Should be in sync with recordButtons, since that will be called
-    // before this.
-    if (m_viewImpl->m_buttons.size() > 0) {
-        WebCore::Node* cursorPointer = (WebCore::Node*) node->nodePointer();
-        Container* end = m_viewImpl->m_buttons.end();
-        for (Container* ptr = m_viewImpl->m_buttons.begin(); ptr != end; ptr++) {
-            if (ptr->matches(cursorPointer)) {
-                m_isButton = true;
-                break;
-            }
-        }
-    }
-    m_viewImpl->gButtonMutex.unlock();
 }
 
 bool CursorRing::setup()

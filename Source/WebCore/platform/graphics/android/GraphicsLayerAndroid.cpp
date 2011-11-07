@@ -652,7 +652,7 @@ bool GraphicsLayerAndroid::paintContext(SkPicture* context,
     if (!canvas)
         return false;
 
-    PlatformGraphicsContext platformContext(canvas, 0);
+    PlatformGraphicsContext platformContext(canvas);
     GraphicsContext graphicsContext(&platformContext);
 
     paintGraphicsLayerContents(graphicsContext, rect);

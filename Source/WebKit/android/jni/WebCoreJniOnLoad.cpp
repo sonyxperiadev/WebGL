@@ -304,7 +304,7 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
     bmp.setConfig(SkBitmap::kARGB_8888_Config, width, height);
     bmp.allocPixels();
     SkCanvas canvas(bmp);
-    PlatformGraphicsContext ctx(&canvas, NULL);
+    PlatformGraphicsContext ctx(&canvas);
     GraphicsContext gc(&ctx);
     frame->view()->paintContents(&gc, IntRect(0, 0, width, height));
 

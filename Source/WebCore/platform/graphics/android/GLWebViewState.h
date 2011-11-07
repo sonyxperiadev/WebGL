@@ -165,7 +165,7 @@ class LayerAndroid;
 
 class GLWebViewState {
 public:
-    GLWebViewState(android::Mutex* globalButtonMutex);
+    GLWebViewState();
     ~GLWebViewState();
 
     ZoomManager* zoomManager() { return &m_zoomManager; }
@@ -254,7 +254,6 @@ private:
     IntRect m_lastInval;
     IntRect m_frameworkInval;
     IntRect m_frameworkLayersInval;
-    android::Mutex* m_globalButtonMutex;
 
     bool m_baseLayerUpdate;
     SkRegion m_invalidateRegion;

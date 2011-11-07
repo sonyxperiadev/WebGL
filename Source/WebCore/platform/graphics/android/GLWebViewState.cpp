@@ -69,7 +69,7 @@ namespace WebCore {
 
 using namespace android;
 
-GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
+GLWebViewState::GLWebViewState()
     : m_zoomManager(this)
     , m_paintingBaseLayer(0)
     , m_currentBaseLayer(0)
@@ -78,7 +78,6 @@ GLWebViewState::GLWebViewState(android::Mutex* buttonMutex)
     , m_usePageA(true)
     , m_frameworkInval(0, 0, 0, 0)
     , m_frameworkLayersInval(0, 0, 0, 0)
-    , m_globalButtonMutex(buttonMutex)
     , m_baseLayerUpdate(true)
     , m_backgroundColor(SK_ColorWHITE)
     , m_isScrolling(false)
@@ -241,9 +240,7 @@ unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
     SkSafeRef(base);
     m_baseLayerLock.unlock();
     if (base) {
-        m_globalButtonMutex->lock();
         base->drawCanvas(canvas);
-        m_globalButtonMutex->unlock();
     }
     SkSafeUnref(base);
     return m_currentPictureCounter;

@@ -303,58 +303,6 @@ void debugDump()
 }
 #endif
 
-// Traverse our stored array of buttons that are in our picture, and update
-// their subpictures according to their current state.
-// Called from the UI thread.  This is the one place in the UI thread where we
-// access the buttons stored in the WebCore thread.
-// hasFocus keeps track of whether the WebView has focus && windowFocus.
-// If not, we do not want to draw the button in a selected or pressed state
-void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
-{
-    bool cursorIsOnButton = false;
-    const CachedFrame* cachedFrame;
-    const CachedNode* cachedCursor = 0;
-    // Lock the mutex, since we now share with the WebCore thread.
-    m_viewImpl->gButtonMutex.lock();
-    if (m_viewImpl->m_buttons.size() && m_buttonSkin) {
-        // FIXME: In a future change, we should keep track of whether the selection
-        // has changed to short circuit (note that we would still need to update
-        // if we received new buttons from the WebCore thread).
-        WebCore::Node* cursor = 0;
-        CachedRoot* root = getFrameCache(DontAllowNewer);
-        if (root) {
-            cachedCursor = root->currentCursor(&cachedFrame);
-            if (cachedCursor)
-                cursor = (WebCore::Node*) cachedCursor->nodePointer();
-        }
-
-        // Traverse the array, and update each button, depending on whether it
-        // is selected.
-        Container* end = m_viewImpl->m_buttons.end();
-        for (Container* ptr = m_viewImpl->m_buttons.begin(); ptr != end; ptr++) {
-            RenderSkinAndroid::State state = RenderSkinAndroid::kNormal;
-            if (ptr->matches(cursor)) {
-                cursorIsOnButton = true;
-                // If the WebView is out of focus/window focus, set the state to
-                // normal, but still keep track of the fact that the selected is a
-                // button
-                if (hasFocus) {
-                    if (pressed || m_ring.m_isPressed)
-                        state = RenderSkinAndroid::kPressed;
-                    else if (SkTime::GetMSecs() < m_ringAnimationEnd)
-                        state = RenderSkinAndroid::kFocused;
-                }
-            }
-            ptr->updateFocusState(state, m_buttonSkin);
-        }
-    }
-    m_viewImpl->gButtonMutex.unlock();
-    if (invalidate && cachedCursor && cursorIsOnButton) {
-        const WebCore::IntRect& b = cachedCursor->bounds(cachedFrame);
-        viewInvalidateRect(b.x(), b.y(), b.maxX(), b.maxY());
-    }
-}
-
 void scrollToCurrentMatch()
 {
     if (!m_findOnPage.currentMatchIsInLayer()) {
@@ -528,7 +476,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
         return false;
 
     if (!m_glWebViewState) {
-        m_glWebViewState = new GLWebViewState(&m_viewImpl->gButtonMutex);
+        m_glWebViewState = new GLWebViewState();
         m_glWebViewState->glExtras()->setCursorRingExtra(&m_ring);
         m_glWebViewState->glExtras()->setFindOnPageExtra(&m_findOnPage);
         if (m_baseLayer->content()) {
@@ -638,8 +586,7 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
             break;
         case DrawExtrasCursorRing:
             if (drawCursorPreamble(root) && m_ring.setup()) {
-                if (!m_ring.m_isButton)
-                    extra = &m_ring;
+                extra = &m_ring;
                 drawCursorPostamble();
             }
             break;
@@ -2296,14 +2243,6 @@ static bool nativeMoveCursor(JNIEnv *env, jobject obj,
     return view->moveCursor(key, count, ignoreScroll);
 }
 
-static void nativeRecordButtons(JNIEnv* env, jobject obj, jint nativeView,
-                                bool hasFocus, bool pressed, bool invalidate)
-{
-    WebView* view = (WebView*) nativeView;
-    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->nativeRecordButtons(hasFocus, pressed, invalidate);
-}
-
 static void nativeSetFindIsUp(JNIEnv *env, jobject obj, jboolean isUp)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2886,8 +2825,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveSelection },
     { "nativePointInNavCache", "(III)Z",
         (void*) nativePointInNavCache },
-    { "nativeRecordButtons", "(IZZZ)V",
-        (void*) nativeRecordButtons },
     { "nativeResetSelection", "()V",
         (void*) nativeResetSelection },
     { "nativeSelectableText", "()Landroid/graphics/Point;",

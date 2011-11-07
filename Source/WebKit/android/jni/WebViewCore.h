@@ -595,21 +595,12 @@ namespace android {
         IntPoint m_cursorLocation;
         void* m_cursorNode;
         static Mutex gCursorBoundsMutex;
-        // These two fields go together: we use the mutex to protect access to
-        // m_buttons, so that we, and webview.cpp can look/modify the m_buttons
-        // field safely from our respective threads
-        static Mutex gButtonMutex;
-        WTF::Vector<Container> m_buttons;
         // end of shared members
 
         // internal functions
     private:
         CacheBuilder& cacheBuilder();
         WebCore::Node* currentFocus();
-        // Compare the new set of buttons to the old one.  All of the new
-        // buttons either replace our old ones or should be added to our list.
-        // Then check the old buttons to see if any are no longer needed.
-        void updateButtonList(WTF::Vector<Container>* buttons);
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPictureSet(PictureSet* master);

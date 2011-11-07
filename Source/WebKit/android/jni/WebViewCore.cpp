@@ -336,7 +336,6 @@ static jmethodID GetJMethod(JNIEnv* env, jclass clazz, const char name[], const 
 }
 
 Mutex WebViewCore::gFrameCacheMutex;
-Mutex WebViewCore::gButtonMutex;
 Mutex WebViewCore::gCursorBoundsMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
@@ -560,19 +559,10 @@ void WebViewCore::recordPicture(SkPicture* picture)
                             view->contentsHeight(), PICT_RECORD_FLAGS);
     SkAutoMemoryUsageProbe mup(__FUNCTION__);
 
-    // Copy m_buttons so we can pass it to our graphics context.
-    gButtonMutex.lock();
-    WTF::Vector<Container> buttons(m_buttons);
-    gButtonMutex.unlock();
-
-    WebCore::PlatformGraphicsContext pgc(arp.getRecordingCanvas(), &buttons);
+    WebCore::PlatformGraphicsContext pgc(arp.getRecordingCanvas());
     WebCore::GraphicsContext gc(&pgc);
     view->platformWidget()->draw(&gc, WebCore::IntRect(0, 0,
         view->contentsWidth(), view->contentsHeight()));
-
-    gButtonMutex.lock();
-    updateButtonList(&buttons);
-    gButtonMutex.unlock();
 }
 
 void WebViewCore::recordPictureSet(PictureSet* content)
@@ -786,43 +776,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     }
 }
 
-void WebViewCore::updateButtonList(WTF::Vector<Container>* buttons)
-{
-    // All the entries in buttons are either updates of previous entries in
-    // m_buttons or they need to be added to it.
-    Container* end = buttons->end();
-    for (Container* updatedContainer = buttons->begin();
-            updatedContainer != end; updatedContainer++) {
-        bool updated = false;
-        // Search for a previous entry that references the same node as our new
-        // data
-        Container* lastPossibleMatch = m_buttons.end();
-        for (Container* possibleMatch = m_buttons.begin();
-                possibleMatch != lastPossibleMatch; possibleMatch++) {
-            if (updatedContainer->matches(possibleMatch->node())) {
-                // Update our record, and skip to the next one.
-                possibleMatch->setRect(updatedContainer->rect());
-                updated = true;
-                break;
-            }
-        }
-        if (!updated) {
-            // This is a brand new button, so append it to m_buttons
-            m_buttons.append(*updatedContainer);
-        }
-    }
-    size_t i = 0;
-    // count will decrease each time one is removed, so check count each time.
-    while (i < m_buttons.size()) {
-        if (m_buttons[i].canBeRemoved()) {
-            m_buttons[i] = m_buttons.last();
-            m_buttons.removeLast();
-        } else {
-            i++;
-        }
-    }
-}
-
 // note: updateCursorBounds is called directly by the WebView thread
 // This needs to be called each time we call CachedRoot::setCursor() with
 // non-null CachedNode/CachedFrame, since otherwise the WebViewCore's data
@@ -877,11 +830,7 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
     SkAutoMemoryUsageProbe mup(__FUNCTION__);
     SkCanvas* recordingCanvas = arp.getRecordingCanvas();
 
-    gButtonMutex.lock();
-    WTF::Vector<Container> buttons(m_buttons);
-    gButtonMutex.unlock();
-
-    WebCore::PlatformGraphicsContext pgc(recordingCanvas, &buttons);
+    WebCore::PlatformGraphicsContext pgc(recordingCanvas);
     WebCore::GraphicsContext gc(&pgc);
     recordingCanvas->translate(-inval.fLeft, -inval.fTop);
     recordingCanvas->save();
@@ -891,10 +840,6 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
     DBG_SET_LOGD("m_rebuildInval={%d,%d,r=%d,b=%d}",
         m_rebuildInval.getBounds().fLeft, m_rebuildInval.getBounds().fTop,
         m_rebuildInval.getBounds().fRight, m_rebuildInval.getBounds().fBottom);
-
-    gButtonMutex.lock();
-    updateButtonList(&buttons);
-    gButtonMutex.unlock();
 
     return picture;
 }

@@ -234,17 +234,18 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const PaintInfo& info, c
     // If it is a disabled button, simply paint it to the master picture.
     Node* node = obj->node();
     Element* formControlElement = static_cast<Element*>(node);
-    if (formControlElement && !formControlElement->isEnabledFormControl()) {
+    if (formControlElement) {
         android::WebFrame* webFrame = getWebFrame(node);
         if (webFrame) {
             RenderSkinAndroid* skins = webFrame->renderSkins();
-            if (skins)
-                skins->renderSkinButton()->draw(getCanvasFromInfo(info), rect,
-                                                RenderSkinAndroid::kDisabled);
+            if (skins) {
+                RenderSkinAndroid::State state = RenderSkinAndroid::kNormal;
+                if (!formControlElement->isEnabledFormControl())
+                    state = RenderSkinAndroid::kDisabled;
+                skins->renderSkinButton()->draw(getCanvasFromInfo(info), rect, state);
+            }
         }
-    } else
-        // Store all the important information in the platform context.
-        info.context->platformContext()->storeButtonInfo(node, rect);
+    }
 
     // We always return false so we do not request to be redrawn.
     return false;
