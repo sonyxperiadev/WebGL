@@ -202,8 +202,6 @@ void GLExtras::drawFindOnPage(SkRect& viewport)
 void GLExtras::drawGL(IntRect& webViewRect, SkRect& viewport, int titleBarHeight)
 {
     if (m_drawExtra) {
-        // TODO: Support clipping
-        glDisable(GL_SCISSOR_TEST);
         if (m_drawExtra == m_ring)
             drawCursorRings();
         else if (m_drawExtra == m_findOnPage)
@@ -211,6 +209,5 @@ void GLExtras::drawGL(IntRect& webViewRect, SkRect& viewport, int titleBarHeight
         else
             XLOGC("m_drawExtra %p is unknown! (cursor: %p, find: %p",
                   m_drawExtra, m_ring, m_findOnPage);
-        glEnable(GL_SCISSOR_TEST);
     }
 }
