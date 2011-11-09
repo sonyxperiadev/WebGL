@@ -464,10 +464,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // TODO: upload as many textures as possible within a certain time limit
     bool ret = ImagesManager::instance()->uploadTextures();
 
-    if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING) {
+    if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
         XLOGC("WARNING, scale seems corrupted after update: %e", scale);
-        CRASH();
-    }
 
     // gather the textures we can use
     TilesManager::instance()->gatherLayerTextures();
