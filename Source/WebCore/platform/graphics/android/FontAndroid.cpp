@@ -59,6 +59,9 @@ using namespace android;
 
 namespace WebCore {
 
+typedef std::pair<int, float> FallbackFontKey;
+typedef HashMap<FallbackFontKey, FontPlatformData*> FallbackHash;
+
 static void updateForFont(SkPaint* paint, const SimpleFontData* font) {
     font->platformData().setupPaint(paint);
     paint->setTextEncoding(SkPaint::kGlyphID_TextEncoding);
@@ -456,7 +459,6 @@ private:
     };
 
     static const char* paths[NUM_SCRIPTS];
-    static const FontPlatformData* s_fallbackPlatformData[NUM_SCRIPTS];
 
     void setupFontForScriptRun();
     const FontPlatformData* setupComplexFont(CustomScript script,
@@ -512,9 +514,6 @@ const char* TextRunWalker::paths[] = {
     "/system/fonts/Lohit-Tamil.ttf",
     "/system/fonts/DroidSansThai.ttf"
 };
-
-// Indexed using enum CustomScript
-const FontPlatformData* TextRunWalker::s_fallbackPlatformData[] = {};
 
 TextRunWalker::TextRunWalker(const TextRun& run, unsigned startingX, const Font* font)
     : m_font(font)
@@ -672,17 +671,23 @@ const FontPlatformData* TextRunWalker::setupComplexFont(
         CustomScript script,
         const FontPlatformData& platformData)
 {
-    if (!s_fallbackPlatformData[script]) {
+    static FallbackHash fallbackPlatformData;
+
+    FallbackFontKey key(script, platformData.size());
+    FontPlatformData* newPlatformData = 0;
+
+    if (!fallbackPlatformData.contains(key)) {
         SkTypeface* typeface = SkTypeface::CreateFromFile(paths[script]);
-        s_fallbackPlatformData[script] = new FontPlatformData(platformData, typeface);
+        newPlatformData = new FontPlatformData(platformData, typeface);
         SkSafeUnref(typeface);
+        fallbackPlatformData.set(key, newPlatformData);
     }
 
-    // If we couldn't allocate a new FontPlatformData, revert to the one passed
-    if (!s_fallbackPlatformData[script])
-        return &platformData;
+    if (!newPlatformData)
+        newPlatformData = fallbackPlatformData.get(key);
 
-    return s_fallbackPlatformData[script];
+    // If we couldn't allocate a new FontPlatformData, revert to the one passed
+    return newPlatformData ? newPlatformData : &platformData;
 }
 
 void TextRunWalker::setupFontForScriptRun()
