@@ -100,7 +100,8 @@ void ScrollView::platformSetScrollPosition(const WebCore::IntPoint& pt)
 {
     if (parent()) // don't attempt to scroll subframes; they're fully visible
         return;
-    PlatformBridge::setScrollPosition(this, pt.x(), pt.y());
+    PlatformBridge::setScrollPosition(this, m_scrollOrigin.x() + pt.x(),
+            m_scrollOrigin.y() + pt.y());
 }
 
 void ScrollView::platformSetScrollbarModes()
@@ -119,7 +120,9 @@ void ScrollView::platformScrollbarModes(ScrollbarMode& h, ScrollbarMode& v) cons
 
 void ScrollView::platformRepaintContentRectangle(const IntRect &rect, bool now)
 {
-    android::WebViewCore::getWebViewCore(this)->contentInvalidate(rect);
+    IntRect offsetRect = rect;
+    offsetRect.move(m_scrollOrigin.x(), m_scrollOrigin.y());
+    android::WebViewCore::getWebViewCore(this)->contentInvalidate(offsetRect);
 }
 
 #ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS

@@ -2117,6 +2117,25 @@ static void OrientationChanged(JNIEnv *env, jobject obj, int orientation)
     pFrame->sendOrientationChangeEvent(orientation);
 }
 
+static jboolean GetShouldStartScrolledRight(JNIEnv *env, jobject obj,
+        jint browserFrame)
+{
+    jboolean startScrolledRight = false; // default is start scrolled left
+    WebCore::Frame* frame = reinterpret_cast<WebCore::Frame*>(browserFrame);
+    WebCore::Document* document = frame->document();
+    if (document) {
+        RenderStyle* style = document->renderer()->style();
+        WritingMode writingMode = style->writingMode();
+        LOG_ASSERT(writingMode != WebCore::BottomToTopWritingMode,
+                "BottomToTopWritingMode isn't supported");
+        if (writingMode == WebCore::RightToLeftWritingMode)
+            startScrolledRight = true; // vertical-rl pages start scrolled right
+        else if (writingMode == WebCore::TopToBottomWritingMode)
+            startScrolledRight = !style->isLeftToRightDirection(); // RTL starts right
+    }
+    return startScrolledRight;
+}
+
 #if USE(CHROME_NETWORK_STACK)
 
 static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
@@ -2315,6 +2334,8 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) SslCertErrorCancel },
     { "nativeSslClientCert", "(I[B[[B)V",
         (void*) SslClientCert },
+    { "nativeGetShouldStartScrolledRight", "(I)Z",
+        (void*) GetShouldStartScrolledRight },
 };
 
 int registerWebFrame(JNIEnv* env)
