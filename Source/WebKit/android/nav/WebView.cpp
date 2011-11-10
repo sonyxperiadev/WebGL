@@ -204,6 +204,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir)
     m_ringAnimationEnd = 0;
     m_baseLayer = 0;
     m_glDrawFunctor = 0;
+    m_isDrawingPaused = false;
     m_buttonSkin = drawableDir.isEmpty() ? 0 : new RenderSkinButton(drawableDir);
 #if USE(ACCELERATED_COMPOSITING)
     m_glWebViewState = 0;
@@ -542,7 +543,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
         }
     }
     if (ret || m_glWebViewState->currentPictureCounter() != pic)
-        return true;
+        return !m_isDrawingPaused;
 #endif
     return false;
 }
@@ -1544,6 +1545,7 @@ BaseLayerAndroid* getBaseLayer() {
     return m_baseLayer;
 }
 
+    bool m_isDrawingPaused;
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
     CachedRoot* m_frameCacheUI; // navigation data ready for use
@@ -2703,6 +2705,12 @@ static int nativeGetBackgroundColor(JNIEnv* env, jobject obj)
     return SK_ColorWHITE;
 }
 
+static void nativeSetPauseDrawing(JNIEnv *env, jobject obj, jint nativeView,
+                                      jboolean pause)
+{
+    ((WebView*)nativeView)->m_isDrawingPaused = pause;
+}
+
 /*
  * JNI registration
  */
@@ -2915,6 +2923,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeGetProperty },
     { "nativeOnTrimMemory", "(I)V",
         (void*) nativeOnTrimMemory },
+    { "nativeSetPauseDrawing", "(IZ)V",
+        (void*) nativeSetPauseDrawing },
 };
 
 int registerWebView(JNIEnv* env)
