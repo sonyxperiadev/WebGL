@@ -374,8 +374,8 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
 
 bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
 {
-    // TODO: consider other flags so the pre-rendered tiles aren't so ugly
-    static SkPaintFlagsDrawFilter prefetchFilter(SkPaint::kAllFlags, 0);
+    static SkPaintFlagsDrawFilter prefetchFilter(SkPaint::kAllFlags,
+                                                 SkPaint::kAntiAlias_Flag);
 
     if (!m_glWebViewState)
         return false;
