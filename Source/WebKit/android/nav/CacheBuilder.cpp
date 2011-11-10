@@ -2882,8 +2882,6 @@ bool CacheBuilder::setData(CachedFrame* cachedFrame)
     RenderLayer* layer = renderer->enclosingLayer();
     if (layer == NULL)
         return false;
-    if (layer->width() == 0 || layer->height() == 0)
-        return false;
     if (!frame->view())
         return false;
     int x, y;
