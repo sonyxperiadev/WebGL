@@ -48,6 +48,7 @@ public:
 
     // The image is wider than the RenderObject, so this accounts for that.
     static int extraWidth() { return arrowMargin[RenderSkinAndroid::DrawableResolution()]; }
+    static int minHeight();
     static int padding() { return padMargin[RenderSkinAndroid::DrawableResolution()]; }
 
 
