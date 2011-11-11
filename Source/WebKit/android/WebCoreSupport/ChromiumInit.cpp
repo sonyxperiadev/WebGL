@@ -68,8 +68,7 @@ void initChromium()
     if (!initCalled) {
         logging::SetLogMessageHandler(logMessageHandler);
         networkChangeNotifier.reset(net::NetworkChangeNotifier::Create());
-        // Disable SPDY for bug 5226268 [Browser] http keep-alive packets are sent too frequently to network
-        // net::HttpNetworkLayer::EnableSpdy("npn");
+        net::HttpNetworkLayer::EnableSpdy("npn");
         initCalled = true;
         jni::SetJavaVM(JSC::Bindings::getJavaVM());
     }
