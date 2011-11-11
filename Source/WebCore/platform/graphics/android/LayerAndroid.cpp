@@ -55,6 +55,87 @@ private:
     int m_opacity;
 };
 
+class HasTextBounder : public SkBounder {
+    virtual bool onIRect(const SkIRect& rect)
+    {
+        return false;
+    }
+};
+
+class HasTextCanvas : public SkCanvas {
+public:
+    HasTextCanvas(SkBounder* bounder, SkPicture* picture)
+        : m_picture(picture)
+        , m_hasText(false)
+    {
+        setBounder(bounder);
+    }
+
+    void setHasText()
+    {
+        m_hasText = true;
+        m_picture->abortPlayback();
+    }
+
+    bool hasText()
+    {
+        return m_hasText;
+    }
+
+    virtual bool clipPath(const SkPath&, SkRegion::Op) {
+        return true;
+    }
+
+    virtual void commonDrawBitmap(const SkBitmap& bitmap,
+                                  const SkIRect* rect,
+                                  const SkMatrix&,
+                                  const SkPaint&) {}
+
+    virtual void drawPaint(const SkPaint& paint) {}
+    virtual void drawPath(const SkPath&, const SkPaint& paint) {}
+    virtual void drawPoints(PointMode, size_t,
+                            const SkPoint [], const SkPaint& paint) {}
+
+    virtual void drawRect(const SkRect& , const SkPaint& paint) {}
+    virtual void drawSprite(const SkBitmap& , int , int ,
+                            const SkPaint* paint = NULL) {}
+
+    virtual void drawText(const void*, size_t byteLength, SkScalar,
+                          SkScalar, const SkPaint& paint)
+    {
+        setHasText();
+    }
+
+    virtual void drawPosText(const void* , size_t byteLength,
+                             const SkPoint [], const SkPaint& paint)
+    {
+        setHasText();
+    }
+
+    virtual void drawPosTextH(const void*, size_t byteLength,
+                              const SkScalar [], SkScalar,
+                              const SkPaint& paint)
+    {
+        setHasText();
+    }
+
+    virtual void drawTextOnPath(const void*, size_t byteLength,
+                                const SkPath&, const SkMatrix*,
+                                const SkPaint& paint)
+    {
+        setHasText();
+    }
+
+    virtual void drawPicture(SkPicture& picture) {
+        SkCanvas::drawPicture(picture);
+    }
+
+private:
+
+    SkPicture* m_picture;
+    bool m_hasText;
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 
 LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
@@ -75,7 +156,9 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(owner),
-    m_type(LayerAndroid::WebCoreLayer)
+    m_type(LayerAndroid::WebCoreLayer),
+    m_state(0),
+    m_hasText(true)
 {
     m_backgroundColor = 0;
 
@@ -97,7 +180,9 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_imageTexture(0),
     m_requestSent(false),
     m_owningLayer(layer.m_owningLayer),
-    m_type(LayerAndroid::UILayer)
+    m_type(LayerAndroid::UILayer),
+    m_state(0),
+    m_hasText(true)
 {
     m_isFixed = layer.m_isFixed;
     m_imageRef = layer.m_imageRef;
@@ -141,10 +226,29 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
         m_animations.add(key, (it->second)->copy());
     }
 
+    m_hasText = layer.m_hasText;
+
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid - recopy (UI?)");
     ClassTracker::instance()->add(this);
 #endif
+}
+
+void LayerAndroid::checkTextPresence()
+{
+    if (m_recordingPicture) {
+        // Let's check if we have text or not. If we don't, we can limit
+        // ourselves to scale 1!
+        HasTextBounder hasTextBounder;
+        HasTextCanvas checker(&hasTextBounder, m_recordingPicture);
+        SkBitmap bitmap;
+        bitmap.setConfig(SkBitmap::kARGB_8888_Config,
+                         m_recordingPicture->width(),
+                         m_recordingPicture->height());
+        checker.setBitmapDevice(bitmap);
+        checker.drawPicture(*m_recordingPicture);
+        m_hasText = checker.hasText();
+    }
 }
 
 LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
@@ -160,7 +264,9 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(0),
-    m_type(LayerAndroid::NavCacheLayer)
+    m_type(LayerAndroid::NavCacheLayer),
+    m_state(0),
+    m_hasText(true)
 {
     m_backgroundColor = 0;
     m_dirty = false;
@@ -234,7 +340,8 @@ void LayerAndroid::addDirtyArea(GLWebViewState* glWebViewState)
     IntSize layerSize(getSize().width(), getSize().height());
 
     FloatRect area = TilesManager::instance()->shader()->rectInInvScreenCoord(m_drawTransform, layerSize);
-    FloatRect clip = TilesManager::instance()->shader()->convertScreenCoordToInvScreenCoord(m_clippingRect);
+    FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(m_clippingRect);
+    FloatRect clip = TilesManager::instance()->shader()->convertScreenCoordToInvScreenCoord(clippingRect);
 
     area.intersect(clip);
     IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
@@ -489,8 +596,9 @@ const LayerAndroid* LayerAndroid::find(int* xPtr, int* yPtr, SkPicture* root) co
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* parentIframeLayer)
+bool LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* parentIframeLayer)
 {
+    bool hasFixedElements = false;
     XLOG("updating fixed positions, using viewport %fx%f - %fx%f",
          viewport.fLeft, viewport.fTop,
          viewport.width(), viewport.height());
@@ -509,6 +617,7 @@ void LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* par
     }
 
     if (m_isFixed) {
+        hasFixedElements = true;
         // So if this is a fixed layer inside a iframe, use the iframe offset
         // and the iframe's size as the viewport and pass to the children
         if (parentIframeLayer) {
@@ -546,7 +655,9 @@ void LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* par
 
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
-        this->getChild(i)->updateFixedLayersPositions(viewport, parentIframeLayer);
+        hasFixedElements |= this->getChild(i)->updateFixedLayersPositions(viewport, parentIframeLayer);
+
+    return hasFixedElements;
 }
 
 void LayerAndroid::updatePositions()
@@ -614,9 +725,9 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     setDrawOpacity(opacity);
 
     if (m_haveClip) {
-        // The clipping rect calculation and intersetion will be done in Screen Coord now.
-        FloatRect clip =
-            TilesManager::instance()->shader()->rectInScreenCoord(m_drawTransform, layerSize);
+        // The clipping rect calculation and intersetion will be done in documents coordinates.
+        FloatRect rect(0, 0, layerSize.width(), layerSize.height());
+        FloatRect clip = m_drawTransform.mapRect(rect);
         clip.intersect(clipping);
         setDrawClip(clip);
     } else {
@@ -707,6 +818,15 @@ int LayerAndroid::nbTexturedLayers()
     return nb;
 }
 
+void LayerAndroid::computeTexturesAmount(TexturesResult* result)
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->computeTexturesAmount(result);
+    if (m_texture && m_visible)
+        m_texture->computeTexturesAmount(result);
+}
+
 void LayerAndroid::showLayer(int indent)
 {
     char spaces[256];
@@ -714,15 +834,26 @@ void LayerAndroid::showLayer(int indent)
     for (int i = 0; i < indent; i++)
         spaces[i] = ' ';
 
-    if (!indent)
+    if (!indent) {
         XLOGC("\n\n--- LAYERS TREE ---");
+        IntRect documentViewport(TilesManager::instance()->shader()->documentViewport());
+        XLOGC("documentViewport(%d, %d, %d, %d)",
+              documentViewport.x(), documentViewport.y(),
+              documentViewport.width(), documentViewport.height());
+    }
 
     IntRect r(0, 0, getWidth(), getHeight());
     IntRect tr = m_drawTransform.mapRect(r);
-    XLOGC("%s [%d:0x%x] - %s - (%d, %d, %d, %d) %s prepareContext(%d), pic w: %d h: %d",
+    IntRect visible = visibleArea();
+    IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
+                 m_clippingRect.width(), m_clippingRect.height());
+    XLOGC("%s [%d:0x%x] - %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
+          "clip (%d, %d, %d, %d) %s prepareContext(%d), pic w: %d h: %d",
           spaces, uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
           tr.x(), tr.y(), tr.width(), tr.height(),
+          visible.x(), visible.y(), visible.width(), visible.height(),
+          clip.x(), clip.y(), clip.width(), clip.height(),
           contentIsScrollable() ? "SCROLLABLE" : "",
           prepareContext(),
           m_recordingPicture ? m_recordingPicture->width() : -1,
@@ -855,6 +986,15 @@ void LayerAndroid::clearDirtyRegion()
     m_dirtyRegion.setEmpty();
 }
 
+void LayerAndroid::setState(GLWebViewState* state)
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->setState(state);
+
+    m_state = state;
+}
+
 void LayerAndroid::prepare(GLWebViewState* glWebViewState)
 {
     m_state = glWebViewState;
@@ -880,9 +1020,80 @@ void LayerAndroid::prepare(GLWebViewState* glWebViewState)
         m_imageTexture->prepareGL();
 }
 
+IntRect LayerAndroid::unclippedArea()
+{
+    IntRect area;
+    area.setX(0);
+    area.setY(0);
+    area.setWidth(getSize().width());
+    area.setHeight(getSize().height());
+    return area;
+}
+
+IntRect LayerAndroid::visibleArea()
+{
+    IntRect area = unclippedArea();
+    // First, we get the transformed area of the layer,
+    // in document coordinates
+    IntRect rect = m_drawTransform.mapRect(area);
+    int dx = rect.x();
+    int dy = rect.y();
+
+    // Then we apply the clipping
+    IntRect clip(m_clippingRect);
+    rect.intersect(clip);
+
+    // Now clip with the viewport in documents coordinate
+    IntRect documentViewport(TilesManager::instance()->shader()->documentViewport());
+    rect.intersect(documentViewport);
+
+    // Finally, let's return the visible area, in layers coordinate
+    rect.move(-dx, -dy);
+    return rect;
+}
+
+bool LayerAndroid::drawCanvas(SkCanvas* canvas)
+{
+    if (!m_visible)
+        return false;
+
+    bool askScreenUpdate = false;
+
+    {
+        SkAutoCanvasRestore acr(canvas, true);
+        SkRect r;
+        r.set(m_clippingRect.x(), m_clippingRect.y(),
+              m_clippingRect.x() + m_clippingRect.width(),
+              m_clippingRect.y() + m_clippingRect.height());
+        canvas->clipRect(r);
+        SkMatrix matrix;
+        GLUtils::toSkMatrix(matrix, m_drawTransform);
+        SkMatrix canvasMatrix = canvas->getTotalMatrix();
+        matrix.postConcat(canvasMatrix);
+        canvas->setMatrix(matrix);
+        SkRect layerRect;
+        layerRect.fLeft = 0;
+        layerRect.fTop = 0;
+        layerRect.fRight = getWidth();
+        layerRect.fBottom = getHeight();
+        onDraw(canvas, m_drawOpacity);
+    }
+
+    // When the layer is dirty, the UI thread should be notified to redraw.
+    askScreenUpdate |= drawChildrenCanvas(canvas);
+    m_atomicSync.lock();
+    askScreenUpdate |= m_dirty;
+    if (askScreenUpdate || m_hasRunningAnimations || m_drawTransform.hasPerspective())
+        addDirtyArea(m_state);
+
+    m_atomicSync.unlock();
+    return askScreenUpdate;
+}
+
 bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
-    TilesManager::instance()->shader()->clip(m_clippingRect);
+    FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(m_clippingRect);
+    TilesManager::instance()->shader()->clip(clippingRect);
     if (!m_visible)
         return false;
 
@@ -902,6 +1113,26 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         addDirtyArea(glWebViewState);
 
     m_atomicSync.unlock();
+    return askScreenUpdate;
+}
+
+bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas)
+{
+    bool askScreenUpdate = false;
+    int count = this->countChildren();
+    if (count > 0) {
+        Vector <LayerAndroid*> sublayers;
+        for (int i = 0; i < count; i++)
+            sublayers.append(this->getChild(i));
+
+        // now we sort for the transparency
+        std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
+        for (int i = 0; i < count; i++) {
+            LayerAndroid* layer = sublayers[i];
+            askScreenUpdate |= layer->drawCanvas(canvas);
+        }
+    }
+
     return askScreenUpdate;
 }
 

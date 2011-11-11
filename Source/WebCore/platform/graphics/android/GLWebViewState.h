@@ -57,6 +57,8 @@ namespace WebCore {
 
 class BaseLayerAndroid;
 class LayerAndroid;
+class ScrollableLayerAndroid;
+class TexturesResult;
 
 /////////////////////////////////////////////////////////////////////////////////
 // GL Architecture
@@ -208,6 +210,9 @@ public:
                 int titleBarHeight, IntRect& screenClip,
                 float scale);
 
+    bool setLayersRenderingMode(TexturesResult&);
+    void fullInval();
+
     bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                 IntRect& webViewRect, int titleBarHeight,
                 IntRect& clip, float scale, bool* buffersSwappedPtr);
@@ -231,6 +236,18 @@ public:
     int expandedTileBoundsY() { return m_expandedTileBoundsY; }
 
     float scale() { return m_scale; }
+
+    enum LayersRenderingMode {
+        kAllTextures              = 0, // all layers are drawn with textures fully covering them
+        kClippedTextures          = 1, // all layers are drawn, but their textures will be clipped
+        kScrollableAndFixedLayers = 2, // only scrollable and fixed layers will be drawn
+        kFixedLayers              = 3, // only fixed layers will be drawn
+        kSingleSurfaceRendering   = 4  // no layers will be drawn on separate textures
+                                       // -- everything is drawn on the base surface.
+    };
+
+    LayersRenderingMode layersRenderingMode() { return m_layersRenderingMode; }
+    void scrolledLayer(ScrollableLayerAndroid*);
 
 private:
     void inval(const IntRect& rect); // caller must hold m_baseLayerLock
@@ -276,6 +293,8 @@ private:
     int m_expandedTileBoundsY;
 
     float m_scale;
+
+    LayersRenderingMode m_layersRenderingMode;
 };
 
 } // namespace WebCore

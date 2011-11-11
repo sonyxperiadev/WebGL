@@ -122,6 +122,7 @@ public:
 
     // paint method
 
+    virtual bool drawCanvas(SkCanvas*) { return false; }
     void draw(SkCanvas*, SkScalar opacity);
     void draw(SkCanvas* canvas) {
         this->draw(canvas, SK_Scalar1);

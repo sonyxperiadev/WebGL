@@ -67,6 +67,7 @@ public:
 
     FloatRect rectInInvScreenCoord(const FloatRect& rect);
     FloatRect rectInScreenCoord(const FloatRect& rect);
+    FloatRect convertScreenCoordToDocumentCoord(const FloatRect& rect);
     FloatRect convertInvScreenCoordToScreenCoord(const FloatRect& rect);
     FloatRect convertScreenCoordToInvScreenCoord(const FloatRect& rect);
 
@@ -75,6 +76,7 @@ public:
     void setScreenClip(const IntRect& clip);
     void clip(const FloatRect& rect);
     IntRect clippedRectWithViewport(const IntRect& rect, int margin = 0);
+    FloatRect documentViewport() { return m_documentViewport; }
 
     void resetBlending();
     float contrast() { return m_contrast; }
@@ -124,6 +126,8 @@ private:
     IntRect m_screenClip;
     int m_titleBarHeight;
     IntRect m_webViewRect;
+
+    FloatRect m_documentViewport;
 
     // uniforms
     GLint m_hProjectionMatrix;

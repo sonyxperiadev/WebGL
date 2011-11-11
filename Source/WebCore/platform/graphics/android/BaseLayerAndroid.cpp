@@ -101,13 +101,14 @@ void BaseLayerAndroid::setContent(const PictureSet& src)
     // setSize(src.width(), src.height());
 }
 
-void BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
+bool BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 {
 #if USE(ACCELERATED_COMPOSITING)
     android::Mutex::Autolock lock(m_drawLock);
 #endif
     if (!m_content.isEmpty())
         m_content.draw(canvas);
+    return true;
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -307,16 +308,6 @@ bool BaseLayerAndroid::drawGL(double currentTime, LayerAndroid* compositedRoot,
         m_glWebViewState->resetFrameworkInval();
 
     if (compositedRoot) {
-        TransformationMatrix ident;
-
-        bool animsRunning = compositedRoot->evaluateAnimations();
-        if (animsRunning)
-            needsRedraw = true;
-
-        compositedRoot->updateFixedLayersPositions(visibleRect);
-        FloatRect clip(0, 0, viewRect.width(), viewRect.height());
-        compositedRoot->updateGLPositionsAndScale(
-            ident, clip, 1, m_glWebViewState->zoomManager()->layersScale());
         SkMatrix matrix;
         matrix.setTranslate(viewRect.x(), viewRect.y());
 
@@ -326,20 +317,16 @@ bool BaseLayerAndroid::drawGL(double currentTime, LayerAndroid* compositedRoot,
               compositedRoot->nbLayers(),
               compositedRoot->nbTexturedLayers());
 #endif
-
-        // Clean up GL textures for video layer.
-        TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
-
-        compositedRoot->prepare(m_glWebViewState);
-        if (compositedRoot->drawGL(m_glWebViewState, matrix)) {
+        // For now, we render layers only if the rendering mode
+        // is kAllTextures or kClippedTextures
+        if (m_glWebViewState->layersRenderingMode() < GLWebViewState::kScrollableAndFixedLayers
+            && compositedRoot->drawGL(m_glWebViewState, matrix)) {
             if (TilesManager::instance()->layerTexturesRemain()) {
                 // only try redrawing for layers if layer textures remain,
                 // otherwise we'll repaint without getting anything done
                 needsRedraw = true;
             }
-        } else if (!animsRunning)
-            m_glWebViewState->resetLayersDirtyArea();
-
+        }
     }
 
     m_previousVisible = visibleRect;

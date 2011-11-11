@@ -48,6 +48,7 @@ public:
     void start(const String &tag);
     void stop(const String &tag);
     float getAverageDuration(const String &tag);
+    void display(int limit);
 
 private:
     HashMap<String, PerfItem*, StringHash> m_tags;

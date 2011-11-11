@@ -63,14 +63,13 @@ public:
 
     bool owns(BaseTileTexture* texture);
 
-    void computeVisibleArea();
+    void computeTexturesAmount(TexturesResult*);
+    IntRect computeVisibleArea(LayerAndroid*);
 
     // TilePainter methods for TiledTexture
     virtual const TransformationMatrix* transform();
 
     // used by TiledTexture
-    const IntRect& area() { return m_area; }
-    const IntRect& visibleArea() { return m_visibleArea; }
     float scale() { return m_scale; }
     float opacity();
     unsigned int pictureUsed() { return m_pictureUsed; }
@@ -81,8 +80,6 @@ private:
     LayerAndroid* m_layer;
     DualTiledTexture* m_tiledTexture;
 
-    IntRect m_area;
-    IntRect m_visibleArea;
     float m_scale;
 
     unsigned int m_pictureUsed;

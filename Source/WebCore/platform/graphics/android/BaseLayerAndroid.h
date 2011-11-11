@@ -58,7 +58,7 @@ public:
     // the passed canvas. We used it to paint the GL tiles as well as
     // WebView::copyBaseContentToPicture(), so a lock is necessary as
     // we are running in different threads.
-    void drawCanvas(SkCanvas* canvas);
+    virtual bool drawCanvas(SkCanvas* canvas);
 
     bool drawGL(double currentTime, LayerAndroid* compositedRoot, IntRect& rect,
                 SkRect& viewport, float scale, bool* buffersSwappedPtr);
