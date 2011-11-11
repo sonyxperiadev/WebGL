@@ -58,14 +58,14 @@ enum BorderStyle {
 // width on all sides, except on the right when it's significantly
 // wider to allow for the arrow.
 const int RenderSkinCombo::arrowMargin[ResolutionCount] = {
-    22, // Medium resolution
-    34, // High resolution
-    46 // Extra high resolution
+    16, // Medium resolution
+    25, // High resolution
+    34 // Extra high resolution
 };
 const int RenderSkinCombo::padMargin[ResolutionCount] = {
-    2, // Medium resolution
-    5, // High resolution
-    6 // Extra high resolution
+    1, // Medium resolution
+    1, // High resolution
+    1 // Extra high resolution
 };
 
 namespace {
@@ -76,15 +76,15 @@ namespace {
 // right hand border width happens to be the same as arrowMargin
 // defined above.
 const int stretchMargin[RenderSkinAndroid::ResolutionCount] = { // border width for the bottom and left of the 9-patch
-    3, // Medium resolution
-    5, // High resolution
-    6 // Extra high resolution
+    2, // Medium resolution
+    2, // High resolution
+    3 // Extra high resolution
 
 };
 const int stretchTop[RenderSkinAndroid::ResolutionCount] = { // border width for the top of the 9-patch
-    15, // Medium resolution
+    16, // Medium resolution
     23, // High resolution
-    34 // Extra high resolution
+    32 // Extra high resolution
 };
 
 // Finally, if the border is defined by the CSS, we only draw the
@@ -95,9 +95,16 @@ const int stretchTop[RenderSkinAndroid::ResolutionCount] = { // border width for
 // image is the same as stretchMargin above, but we need to know the width
 // of the arrow.
 const int arrowWidth[RenderSkinAndroid::ResolutionCount] = {
-    22, // Medium resolution
-    31, // High resolution
-    42 // Extra high resolution
+    18, // Medium resolution
+    27, // High resolution
+    36 // Extra high resolution
+};
+
+// scale factors for various resolutions
+const float scaleFactor[RenderSkinAndroid::ResolutionCount] = {
+    1.0f, // medium res
+    1.5f, // high res
+    2.0f  // extra high res
 };
 
 // Store the calculated 9 patch margins for each border style.
@@ -108,6 +115,11 @@ bool isDecodingAttempted = false; // True if we've tried to decode the assets
 bool isDecoded = false;           // True if all assets were decoded
 
 } // namespace
+
+int RenderSkinCombo::minHeight() {
+    return SkScalarRound(stretchTop[RenderSkinAndroid::DrawableResolution()]
+            / scaleFactor[RenderSkinAndroid::DrawableResolution()]);
+}
 
 void RenderSkinCombo::Decode()
 {
@@ -135,9 +147,9 @@ void RenderSkinCombo::Decode()
     // Calculate 9 patch margins.
     SkIRect fullAssetMargin;
     fullAssetMargin.fLeft = stretchMargin[res];
-    fullAssetMargin.fTop = stretchTop[res];
+    fullAssetMargin.fTop = stretchMargin[res];
     fullAssetMargin.fRight = arrowMargin[res] + stretchMargin[res];
-    fullAssetMargin.fBottom = stretchMargin[res];
+    fullAssetMargin.fBottom = stretchTop[res];
 
     SkIRect noBorderMargin;
     noBorderMargin.fLeft = 0;
@@ -157,8 +169,9 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
     if (!isDecoded)
         return true;
 
+    int resolution = RenderSkinAndroid::DrawableResolution();
     State state = (element->isElementNode() && static_cast<Element*>(element)->isEnabledFormControl()) ? kNormal : kDisabled;
-    height = std::max(height, (stretchMargin[RenderSkinAndroid::DrawableResolution()]<<1) + 1);
+    height = std::max(height, (stretchMargin[resolution] * 2));
 
     SkRect bounds;
     BorderStyle drawBorder = FullAsset;
@@ -185,7 +198,15 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
         bounds.fBottom -= SkIntToScalar(style->borderBottomWidth());
         drawBorder = NoBorder;
     }
+    float scale = scaleFactor[resolution];
+    bounds.fLeft = bounds.fLeft * scale;
+    bounds.fRight = bounds.fRight * scale;
+    bounds.fTop = bounds.fTop * scale;
+    bounds.fBottom = bounds.fBottom * scale;
+    int count = canvas->save();
+    canvas->scale(1.0f / scale, 1.0f / scale);
     SkNinePatch::DrawNine(canvas, bounds, bitmaps[state][drawBorder], margin[drawBorder]);
+    canvas->restoreToCount(count);
     return false;
 }
 

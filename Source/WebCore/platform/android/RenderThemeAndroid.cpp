@@ -428,6 +428,7 @@ static void adjustMenuListStyleCommon(RenderStyle* style)
     style->setPaddingTop(Length(RenderSkinCombo::padding(), Fixed));
     style->setPaddingBottom(Length(RenderSkinCombo::padding(), Fixed));
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
+    style->setMinHeight(Length(RenderSkinCombo::minHeight(), Fixed));
 }
 
 void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
