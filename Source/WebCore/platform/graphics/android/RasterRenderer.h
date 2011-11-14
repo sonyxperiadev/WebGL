@@ -52,7 +52,7 @@ protected:
     virtual const String* getPerformanceTags(int& tagCount);
 
 private:
-    SkBitmap m_bitmap;
+    static SkBitmap* g_bitmap;
 
 };
 
