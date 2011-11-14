@@ -335,7 +335,6 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
     int top = viewRect.y();
     int width = viewRect.width();
     int height = viewRect.height();
-    glViewport(left, top, width, height);
 
     ShaderProgram* shader = TilesManager::instance()->shader();
     if (shader->program() == -1) {
@@ -343,11 +342,17 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
         shader->init();
     }
     shader->setViewRect(viewRect);
-    shader->setViewport(visibleRect);
+    shader->setViewport(visibleRect, scale);
     shader->setWebViewRect(webViewRect);
     shader->setTitleBarHeight(titleBarHeight);
     shader->setScreenClip(screenClip);
     shader->resetBlending();
+
+    shader->calculateAnimationDelta();
+
+    glViewport(left + shader->getAnimationDeltaX(),
+               top - shader->getAnimationDeltaY(),
+               width, height);
 
     double currentTime = WTF::currentTime();
 

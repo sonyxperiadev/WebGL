@@ -36,7 +36,7 @@ public:
     int program() { return m_program; }
 
     // Drawing
-    void setViewport(SkRect& viewport);
+    void setViewport(SkRect& viewport, float scale);
     float zValue(const TransformationMatrix& drawMatrix, float w, float h);
 
     // For drawQuad and drawLayerQuad, they can handle 3 cases for now:
@@ -88,6 +88,18 @@ public:
             contrast = MAX_CONTRAST;
         m_contrast = contrast;
     }
+    void setWebViewMatrix(const float* matrix, bool alphaLayer);
+
+    // This delta is the delta from the layout pos and the current animation pos.
+    // Basically, in terms of layout, the webview is still in the original layout
+    // pos, as without animation. Such that the viewport and visible rect etc are
+    // still in that pos, too, except the clipping info.
+    // Our rendering approach is after applying all the matrix, webView is
+    // rendered as if it was at the original layout pos, but then offset the
+    // glViewport to match the animation.
+    void calculateAnimationDelta();
+    int getAnimationDeltaX() { return m_animationDelta.x(); }
+    int getAnimationDeltaY() { return m_animationDelta.y(); }
 
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
@@ -158,6 +170,22 @@ private:
     GLint m_hPosition;
     GLint m_hPositionInverted;
     GLint m_hVideoPosition;
+
+    bool  m_alphaLayer;
+    TransformationMatrix m_webViewMatrix;
+    float m_currentScale;
+
+    // After the webViewTranform, we need to reposition the rect to match our viewport.
+    // Basically, the webViewTransformMatrix should apply on the screen resolution.
+    // So we start by doing the scale and translate to get each tile into screen coordinates.
+    // After applying the webViewTransformMatrix, b/c the way it currently set up
+    // for scroll and titlebar, we need to offset both of them.
+    // Finally, map everything back to (-1, 1) by using the m_projectionMatrix.
+    // TODO: Given that m_webViewMatrix contains most of the tranformation
+    // information, we should be able to get rid of some parameter we got from
+    // Java side and simplify our code.
+    TransformationMatrix  m_repositionMatrix;
+    IntPoint m_animationDelta;
 };
 
 } // namespace WebCore

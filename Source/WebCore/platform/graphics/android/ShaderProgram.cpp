@@ -195,6 +195,8 @@ GLuint ShaderProgram::createProgram(const char* pVertexSource, const char* pFrag
 ShaderProgram::ShaderProgram()
     : m_blendingEnabled(false)
     , m_contrast(1)
+    , m_alphaLayer(false)
+    , m_currentScale(1.0f)
 {
     init();
 }
@@ -286,13 +288,14 @@ void ShaderProgram::setBlendingState(bool enableBlending)
 // Drawing
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void ShaderProgram::setViewport(SkRect& viewport)
+void ShaderProgram::setViewport(SkRect& viewport, float scale)
 {
     TransformationMatrix ortho;
     GLUtils::setOrthographicMatrix(ortho, viewport.fLeft, viewport.fTop,
                                    viewport.fRight, viewport.fBottom, -1000, 1000);
     m_projectionMatrix = ortho;
     m_viewport = viewport;
+    m_currentScale = scale;
 }
 
 void ShaderProgram::setProjectionMatrix(SkRect& geometry, GLint projectionMatrixHandle)
@@ -302,7 +305,12 @@ void ShaderProgram::setProjectionMatrix(SkRect& geometry, GLint projectionMatrix
     TransformationMatrix scale;
     scale.scale3d(geometry.width(), geometry.height(), 1.0);
 
-    TransformationMatrix total = m_projectionMatrix * translate * scale;
+    TransformationMatrix total;
+    if (!m_alphaLayer)
+        total = m_projectionMatrix * m_repositionMatrix * m_webViewMatrix
+                * translate * scale;
+    else
+        total = m_projectionMatrix * translate * scale;
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, total);
@@ -560,7 +568,13 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
     // move the drawing depending on where the texture is on the layer
     modifiedDrawMatrix.translate(geometry.fLeft, geometry.fTop);
     modifiedDrawMatrix.scale3d(geometry.width(), geometry.height(), 1);
-    TransformationMatrix renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
+
+    TransformationMatrix renderMatrix;
+    if (!m_alphaLayer)
+        renderMatrix = m_projectionMatrix * m_repositionMatrix
+                       * m_webViewMatrix * modifiedDrawMatrix;
+    else
+        renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
@@ -625,6 +639,44 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
 
     setBlendingState(false);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+void ShaderProgram::setWebViewMatrix(const float* matrix, bool alphaLayer)
+{
+    GLUtils::convertToTransformationMatrix(matrix, m_webViewMatrix);
+    m_alphaLayer = alphaLayer;
+}
+
+void ShaderProgram::calculateAnimationDelta()
+{
+    // The matrix contains the scrolling info, so this rect is starting from
+    // the m_viewport.
+    // So we just need to map the webview's visible rect using the matrix,
+    // calculate the difference b/t transformed rect and the webViewRect,
+    // then we can get the delta x , y caused by the animation.
+    // Note that the Y is for reporting back to GL viewport, so it is inverted.
+    // When it is alpha animation, then we rely on the framework implementation
+    // such that there is no matrix applied in native webkit.
+    if (!m_alphaLayer) {
+        FloatRect rect(m_viewport.fLeft * m_currentScale,
+                       m_viewport.fTop * m_currentScale,
+                       m_webViewRect.width(),
+                       m_webViewRect.height());
+        rect = m_webViewMatrix.mapRect(rect);
+        m_animationDelta.setX(rect.x() - m_webViewRect.x() );
+        m_animationDelta.setY(rect.y() + rect.height() - m_webViewRect.y()
+                              - m_webViewRect.height() - m_titleBarHeight);
+
+        m_repositionMatrix.makeIdentity();
+        m_repositionMatrix.translate3d(-m_webViewRect.x(), -m_webViewRect.y() - m_titleBarHeight, 0);
+        m_repositionMatrix.translate3d(m_viewport.fLeft * m_currentScale, m_viewport.fTop * m_currentScale, 0);
+        m_repositionMatrix.translate3d(-m_animationDelta.x(), -m_animationDelta.y(), 0);
+    } else {
+        m_animationDelta.setX(0);
+        m_animationDelta.setY(0);
+        m_repositionMatrix.makeIdentity();
+    }
+
 }
 
 } // namespace WebCore
