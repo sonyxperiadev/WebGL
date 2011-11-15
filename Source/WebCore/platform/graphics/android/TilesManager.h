@@ -110,7 +110,7 @@ public:
     static float tileHeight();
     static float layerTileWidth();
     static float layerTileHeight();
-    void paintedSurfacesCleanup(GLWebViewState* state);
+    void paintedSurfacesCleanup(GLWebViewState* state = 0);
     void unregisterGLWebViewState(GLWebViewState* state);
 
     void allocateTiles();
@@ -188,6 +188,11 @@ public:
     unsigned long long getDrawGLCount()
     {
         return m_drawGLCount;
+    }
+
+    int getPaintedSurfaceCount()
+    {
+        return m_paintedSurfaces.size();
     }
 
 private:

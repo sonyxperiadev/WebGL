@@ -23,6 +23,7 @@ Layer::Layer() {
     m_shouldInheritFromRootTransform = false;
 
     m_hasOverflowChildren = false;
+    m_state = 0;
 
 #ifdef DEBUG_TRACK_NEW_DELETE
     gLayerAllocCount += 1;
@@ -42,6 +43,7 @@ Layer::Layer(const Layer& src) : INHERITED() {
     m_shouldInheritFromRootTransform = src.m_shouldInheritFromRootTransform;
 
     m_hasOverflowChildren = src.m_hasOverflowChildren;
+    m_state = 0;
 
 #ifdef DEBUG_TRACK_NEW_DELETE
     gLayerAllocCount += 1;
@@ -224,4 +226,11 @@ bool Layer::isAncestor(const Layer* possibleAncestor) const {
             return true;
     }
     return false;
+}
+
+void Layer::setState(WebCore::GLWebViewState* state) {
+    m_state = state;
+    int count = countChildren();
+    for (int i = 0; i < count; i++)
+        m_children[i]->setState(state);
 }

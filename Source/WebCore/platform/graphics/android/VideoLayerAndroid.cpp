@@ -142,7 +142,7 @@ GLuint VideoLayerAndroid::createBackgroundTexture()
     return texture;
 }
 
-bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
+bool VideoLayerAndroid::drawGL()
 {
     // Lazily allocated the textures.
     if (!m_createdTexture) {
@@ -224,7 +224,7 @@ bool VideoLayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         }
     }
 
-    return drawChildrenGL(glWebViewState, matrix);
+    return drawChildrenGL();
 }
 
 }

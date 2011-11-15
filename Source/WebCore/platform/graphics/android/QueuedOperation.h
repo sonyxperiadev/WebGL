@@ -26,9 +26,9 @@
 #ifndef QueuedOperation_h
 #define QueuedOperation_h
 
-#include "TiledPage.h"
-
 namespace WebCore {
+
+class TiledPage;
 
 class QueuedOperation {
 public:

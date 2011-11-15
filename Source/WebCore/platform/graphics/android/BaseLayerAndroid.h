@@ -48,7 +48,6 @@ public:
     virtual ~BaseLayerAndroid();
 
 #if USE(ACCELERATED_COMPOSITING)
-    void setGLWebViewState(GLWebViewState* infos) { m_glWebViewState = infos; }
     void setBackgroundColor(Color& color) { m_color = color; }
     Color getBackgroundColor() { return m_color; }
 #endif
@@ -60,21 +59,29 @@ public:
     // we are running in different threads.
     virtual bool drawCanvas(SkCanvas* canvas);
 
-    bool drawGL(double currentTime, LayerAndroid* compositedRoot, IntRect& rect,
-                SkRect& viewport, float scale, bool* buffersSwappedPtr);
+    void updateLayerPositions(SkRect& visibleRect);
+    bool prepare(double currentTime, IntRect& viewRect,
+                 SkRect& visibleRect, float scale);
+    bool drawGL(IntRect& viewRect, SkRect& visibleRect, float scale);
+
+    // rendering asset management
+    void swapTiles();
+    void setIsDrawing(bool isDrawing);
+    void setIsPainting(Layer* drawingTree);
+    void mergeInvalsInto(Layer* replacementTree);
+    bool isReady();
+
 private:
 #if USE(ACCELERATED_COMPOSITING)
     void prefetchBasePicture(SkRect& viewport, float currentScale,
                              TiledPage* prefetchTiledPage, bool draw);
-    bool drawBasePictureInGL(SkRect& viewport, float scale, double currentTime,
-                             bool* buffersSwappedPtr);
+    bool prepareBasePictureInGL(SkRect& viewport, float scale, double currentTime);
+    void drawBasePictureInGL();
 
-    GLWebViewState* m_glWebViewState;
     android::Mutex m_drawLock;
     Color m_color;
 #endif
     android::PictureSet m_content;
-    SkRect m_previousVisible;
 
     ScrollState m_scrollState;
 };

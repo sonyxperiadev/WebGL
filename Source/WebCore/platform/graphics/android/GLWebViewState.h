@@ -36,6 +36,7 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "TiledPage.h"
+#include "TreeManager.h"
 #include "ZoomManager.h"
 #include <utils/threads.h>
 
@@ -200,15 +201,13 @@ public:
 
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
 
-    void lockBaseLayerUpdate() { m_baseLayerUpdate = false; }
-    void unlockBaseLayerUpdate();
-
     void setIsScrolling(bool isScrolling) { m_isScrolling = isScrolling; }
     bool isScrolling() { return m_isScrolling; }
 
-    double setupDrawing(IntRect& rect, SkRect& viewport, IntRect& webViewRect,
-                int titleBarHeight, IntRect& screenClip,
-                float scale);
+    void drawBackground(Color& backgroundColor);
+    double setupDrawing(IntRect& viewRect, SkRect& visibleRect,
+                        IntRect& webViewRect, int titleBarHeight,
+                        IntRect& screenClip, float scale);
 
     bool setLayersRenderingMode(TexturesResult&);
     void fullInval();
@@ -249,9 +248,10 @@ public:
     LayersRenderingMode layersRenderingMode() { return m_layersRenderingMode; }
     void scrolledLayer(ScrollableLayerAndroid*);
 
-private:
-    void inval(const IntRect& rect); // caller must hold m_baseLayerLock
     void invalRegion(const SkRegion& region);
+
+private:
+    void inval(const IntRect& rect);
 
     ZoomManager m_zoomManager;
     android::Mutex m_tiledPageLock;
@@ -259,10 +259,6 @@ private:
     SkIRect m_viewportTileBounds;
     SkIRect m_futureViewportTileBounds;
     SkIRect m_preZoomBounds;
-    android::Mutex m_baseLayerLock;
-    BaseLayerAndroid* m_paintingBaseLayer;
-    BaseLayerAndroid* m_currentBaseLayer;
-    LayerAndroid* m_currentBaseLayerRoot;
 
     unsigned int m_currentPictureCounter;
     bool m_usePageA;
@@ -271,11 +267,6 @@ private:
     IntRect m_lastInval;
     IntRect m_frameworkInval;
     IntRect m_frameworkLayersInval;
-
-    bool m_baseLayerUpdate;
-    SkRegion m_invalidateRegion;
-
-    Color m_backgroundColor;
 
 #ifdef MEASURES_PERF
     unsigned int m_totalTimeCounter;
@@ -295,6 +286,7 @@ private:
     float m_scale;
 
     LayersRenderingMode m_layersRenderingMode;
+    TreeManager m_treeManager;
 };
 
 } // namespace WebCore

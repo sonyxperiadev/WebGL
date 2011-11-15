@@ -37,6 +37,7 @@
 #include "SkPath.h"
 #include "TilesManager.h"
 #include "TilesTracker.h"
+#include "TreeManager.h"
 #include <wtf/CurrentTime.h>
 
 #include <pthread.h>
@@ -74,15 +75,10 @@ using namespace android;
 
 GLWebViewState::GLWebViewState()
     : m_zoomManager(this)
-    , m_paintingBaseLayer(0)
-    , m_currentBaseLayer(0)
-    , m_currentBaseLayerRoot(0)
     , m_currentPictureCounter(0)
     , m_usePageA(true)
     , m_frameworkInval(0, 0, 0, 0)
     , m_frameworkLayersInval(0, 0, 0, 0)
-    , m_baseLayerUpdate(true)
-    , m_backgroundColor(SK_ColorWHITE)
     , m_isScrolling(false)
     , m_goingDown(true)
     , m_goingLeft(false)
@@ -111,10 +107,6 @@ GLWebViewState::GLWebViewState()
 
 GLWebViewState::~GLWebViewState()
 {
-    // Unref the existing tree/PaintedSurfaces
-    if (m_currentBaseLayerRoot)
-        TilesManager::instance()->swapLayersTextures(m_currentBaseLayerRoot, 0);
-
     // Take care of the transfer queue such that Tex Gen thread will not stuck
     TilesManager::instance()->unregisterGLWebViewState(this);
 
@@ -126,12 +118,6 @@ GLWebViewState::~GLWebViewState()
     // will remove any pending operations, and wait if one is underway).
     delete m_tiledPageA;
     delete m_tiledPageB;
-    SkSafeUnref(m_paintingBaseLayer);
-    SkSafeUnref(m_currentBaseLayer);
-    SkSafeUnref(m_currentBaseLayerRoot);
-    m_paintingBaseLayer = 0;
-    m_currentBaseLayer = 0;
-    m_currentBaseLayerRoot = 0;
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("GLWebViewState");
 #endif
@@ -141,48 +127,18 @@ GLWebViewState::~GLWebViewState()
 void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval,
                                   bool showVisualIndicator, bool isPictureAfterFirstLayout)
 {
-    android::Mutex::Autolock lock(m_baseLayerLock);
     if (!layer || isPictureAfterFirstLayout) {
+        // TODO: move this into TreeManager
         m_tiledPageA->discardTextures();
         m_tiledPageB->discardTextures();
     }
-    if (isPictureAfterFirstLayout) {
-        m_baseLayerUpdate = true;
-        m_invalidateRegion.setEmpty();
-    }
-
-    SkSafeRef(layer);
-    SkSafeUnref(m_currentBaseLayer);
-    m_currentBaseLayer = layer;
-
-    // copy content from old composited root to new
-    LayerAndroid* oldRoot = m_currentBaseLayerRoot;
     if (layer) {
-        layer->setGLWebViewState(this);
-        m_currentBaseLayerRoot = static_cast<LayerAndroid*>(layer->getChild(0));
-        SkSafeRef(m_currentBaseLayerRoot);
-    } else {
-        m_currentBaseLayerRoot = 0;
+        XLOG("new base layer %p, (inval region empty %d) with child %p", layer, inval.isEmpty(), layer->getChild(0));
+        layer->setState(this);
+        layer->markAsDirty(inval); // TODO: set in webview.cpp
     }
-    if (oldRoot != m_currentBaseLayerRoot)
-        TilesManager::instance()->swapLayersTextures(oldRoot, m_currentBaseLayerRoot);
-    SkSafeUnref(oldRoot);
-
-    // We only update the base layer if we are not currently
-    // waiting for a tiledPage to be painted
-    if (m_baseLayerUpdate) {
-        SkSafeRef(layer);
-        SkSafeUnref(m_paintingBaseLayer);
-        m_paintingBaseLayer = layer;
-    }
+    m_treeManager.updateWithTree(layer, isPictureAfterFirstLayout);
     m_glExtras.setDrawExtra(0);
-
-    // TODO: do the union of both layers tree to compute
-    // the minimum inval instead of doing a fullInval()
-    if (m_layersRenderingMode == kSingleSurfaceRendering)
-        fullInval();
-    else
-        invalRegion(inval);
 
 #ifdef MEASURES_PERF
     if (m_measurePerfs && !showVisualIndicator)
@@ -203,6 +159,12 @@ void GLWebViewState::scrolledLayer(ScrollableLayerAndroid*)
 
 void GLWebViewState::invalRegion(const SkRegion& region)
 {
+    if (m_layersRenderingMode == kSingleSurfaceRendering) {
+        // TODO: do the union of both layers tree to compute
+        //the minimum inval instead of doing a fullInval()
+        fullInval();
+        return;
+    }
     SkRegion::Iterator iterator(region);
     while (!iterator.done()) {
         SkIRect r = iterator.rect();
@@ -212,59 +174,27 @@ void GLWebViewState::invalRegion(const SkRegion& region)
     }
 }
 
-void GLWebViewState::unlockBaseLayerUpdate() {
-    if (m_baseLayerUpdate)
-        return;
-
-    m_baseLayerUpdate = true;
-    android::Mutex::Autolock lock(m_baseLayerLock);
-    SkSafeRef(m_currentBaseLayer);
-    SkSafeUnref(m_paintingBaseLayer);
-    m_paintingBaseLayer = m_currentBaseLayer;
-
-    invalRegion(m_invalidateRegion);
-    m_invalidateRegion.setEmpty();
-}
-
 void GLWebViewState::inval(const IntRect& rect)
 {
-    if (m_baseLayerUpdate) {
-        // base layer isn't locked, so go ahead and issue the inval to both tiled pages
-        m_currentPictureCounter++;
-        if (!rect.isEmpty()) {
-            // find which tiles fall within the invalRect and mark them as dirty
-            m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
-            m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
-            if (m_frameworkInval.isEmpty())
-                m_frameworkInval = rect;
-            else
-                m_frameworkInval.unite(rect);
-            XLOG("intermediate invalRect(%d, %d, %d, %d) after unite with rect %d %d %d %d", m_frameworkInval.x(),
-                 m_frameworkInval.y(), m_frameworkInval.width(), m_frameworkInval.height(),
-                 rect.x(), rect.y(), rect.width(), rect.height());
-        }
-    } else {
-        // base layer is locked, so defer invalidation until unlockBaseLayerUpdate()
-        m_invalidateRegion.op(rect.x(), rect.y(), rect.maxX(), rect.maxY(), SkRegion::kUnion_Op);
+    m_currentPictureCounter++;
+    if (!rect.isEmpty()) {
+        // find which tiles fall within the invalRect and mark them as dirty
+        m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
+        m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
+        if (m_frameworkInval.isEmpty())
+            m_frameworkInval = rect;
+        else
+            m_frameworkInval.unite(rect);
+        XLOG("intermediate invalRect(%d, %d, %d, %d) after unite with rect %d %d %d %d", m_frameworkInval.x(),
+             m_frameworkInval.y(), m_frameworkInval.width(), m_frameworkInval.height(),
+             rect.x(), rect.y(), rect.width(), rect.height());
     }
     TilesManager::instance()->getProfiler()->nextInval(rect, zoomManager()->currentScale());
 }
 
 unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
-    m_baseLayerLock.lock();
-    BaseLayerAndroid* base = m_paintingBaseLayer;
-    SkSafeRef(base);
-    m_baseLayerLock.unlock();
-    if (base) {
-        base->drawCanvas(canvas);
-        if (m_layersRenderingMode == kSingleSurfaceRendering) {
-            LayerAndroid* rootLayer = static_cast<LayerAndroid*>(base->getChild(0));
-            if (rootLayer)
-                rootLayer->drawCanvas(canvas);
-        }
-    }
-    SkSafeUnref(base);
+    m_treeManager.drawCanvas(canvas, m_layersRenderingMode == kSingleSurfaceRendering);
     return m_currentPictureCounter;
 }
 
@@ -296,11 +226,11 @@ void GLWebViewState::swapPages()
 
 int GLWebViewState::baseContentWidth()
 {
-    return m_paintingBaseLayer ? m_paintingBaseLayer->content()->width() : 0;
+    return m_treeManager.baseContentWidth();
 }
 int GLWebViewState::baseContentHeight()
 {
-    return m_paintingBaseLayer ? m_paintingBaseLayer->content()->height() : 0;
+    return m_treeManager.baseContentHeight();
 }
 
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
@@ -381,27 +311,29 @@ void GLWebViewState::resetLayersDirtyArea()
     m_frameworkLayersInval.setHeight(0);
 }
 
+void GLWebViewState::drawBackground(Color& backgroundColor)
+{
+    if (TilesManager::instance()->invertedScreen()) {
+        float color = 1.0 - ((((float) backgroundColor.red() / 255.0) +
+                      ((float) backgroundColor.green() / 255.0) +
+                      ((float) backgroundColor.blue() / 255.0)) / 3.0);
+        glClearColor(color, color, color, 1);
+    } else {
+        glClearColor((float)backgroundColor.red() / 255.0,
+                     (float)backgroundColor.green() / 255.0,
+                     (float)backgroundColor.blue() / 255.0, 1);
+    }
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
 double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
-                                  IntRect& webViewRect, int titleBarHeight,
-                                  IntRect& screenClip, float scale)
+                                    IntRect& webViewRect, int titleBarHeight,
+                                    IntRect& screenClip, float scale)
 {
     int left = viewRect.x();
     int top = viewRect.y();
     int width = viewRect.width();
     int height = viewRect.height();
-
-    if (TilesManager::instance()->invertedScreen()) {
-        float color = 1.0 - ((((float) m_backgroundColor.red() / 255.0) +
-                      ((float) m_backgroundColor.green() / 255.0) +
-                      ((float) m_backgroundColor.blue() / 255.0)) / 3.0);
-        glClearColor(color, color, color, 1);
-    } else {
-        glClearColor((float)m_backgroundColor.red() / 255.0,
-                     (float)m_backgroundColor.green() / 255.0,
-                     (float)m_backgroundColor.blue() / 255.0, 1);
-    }
-    glClear(GL_COLOR_BUFFER_BIT);
-
     glViewport(left, top, width, height);
 
     ShaderProgram* shader = TilesManager::instance()->shader();
@@ -503,13 +435,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     TilesManager::instance()->getTilesTracker()->clear();
 #endif
 
-    m_baseLayerLock.lock();
-    BaseLayerAndroid* baseLayer = m_paintingBaseLayer;
-    SkSafeRef(baseLayer);
-    m_baseLayerLock.unlock();
-    if (!baseLayer)
-         return false;
-
     float viewWidth = (viewport.fRight - viewport.fLeft) * TILE_PREFETCH_RATIO;
     float viewHeight = (viewport.fBottom - viewport.fTop) * TILE_PREFETCH_RATIO;
     bool useMinimalMemory = TilesManager::instance()->useMinimalMemory();
@@ -524,17 +449,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     resetLayersDirtyArea();
 
-    LayerAndroid* compositedRoot = m_currentBaseLayerRoot;
-    LayerAndroid* paintingBaseLayerRoot = 0;
-    if (baseLayer && baseLayer->countChildren() >= 1)
-        paintingBaseLayerRoot = static_cast<LayerAndroid*>(baseLayer->getChild(0));
-
     // when adding or removing layers, use the the paintingBaseLayer's tree so
     // that content that moves to the base layer from a layer is synchronized
-    bool paintingHasLayers = (paintingBaseLayerRoot == 0);
-    bool currentHasLayers = (m_currentBaseLayerRoot == 0);
-    if (paintingHasLayers != currentHasLayers)
-        compositedRoot = paintingBaseLayerRoot;
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
         XLOGC("WARNING, scale seems corrupted before update: %e", scale);
@@ -555,44 +471,18 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // gather the textures we can use
     TilesManager::instance()->gatherLayerTextures();
 
-    // set up zoom manager, shaders, etc.
-    m_backgroundColor = baseLayer->getBackgroundColor();
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
 
-    if (compositedRoot)
-        compositedRoot->setState(this);
 
-    bool animsRunning = false;
     TexturesResult nbTexturesNeeded;
-    if (compositedRoot) {
-        TransformationMatrix ident;
-        animsRunning = compositedRoot->evaluateAnimations();
-        bool hasFixedElements = compositedRoot->updateFixedLayersPositions(viewport);
-        if (m_layersRenderingMode == kSingleSurfaceRendering) {
-            // If we are in single surface rendering, we may have to fully
-            // invalidate if we have fixed elements or if we have CSS
-            // animations.
-            // TODO: compute the minimum invals
-            if (animsRunning || hasFixedElements)
-                fullInval();
-        }
+    bool fastSwap = isScrolling() || m_layersRenderingMode == kSingleSurfaceRendering;
+    ret |= m_treeManager.drawGL(currentTime, rect, viewport,
+                                scale, fastSwap,
+                                buffersSwappedPtr, &nbTexturesNeeded);
+    if (!ret)
+        resetFrameworkInval();
 
-        // TODO: get the base document area for the original clip
-        FloatRect clip(0, 0, 1E6, 1E6);
-        compositedRoot->updateGLPositionsAndScale(ident, clip, 1, zoomManager()->layersScale());
-        compositedRoot->prepare(this);
-
-        ret |= animsRunning;
-
-        compositedRoot->computeTexturesAmount(&nbTexturesNeeded);
-    }
     ret |= setLayersRenderingMode(nbTexturesNeeded);
-
-    // Clean up GL textures for video layer.
-    TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
-
-    ret |= baseLayer->drawGL(currentTime, compositedRoot, rect,
-                                 viewport, scale, buffersSwappedPtr);
 
     FloatRect extrasclip(0, 0, rect.width(), rect.height());
     TilesManager::instance()->shader()->clip(extrasclip);
@@ -601,6 +491,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    // Clean up GL textures for video layer.
+    TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
     ret |= TilesManager::instance()->invertedScreenSwitch();
 
     if (ret) {
@@ -656,7 +548,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     }
 #endif
 
-    SkSafeUnref(baseLayer);
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->showTrackTextures();
     ImagesManager::instance()->showImages();
