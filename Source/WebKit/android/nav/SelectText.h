@@ -59,7 +59,7 @@ public:
     bool wordSelection(const CachedRoot* , const IntRect& vis, int x, int y);
     void getSelectionRegion(const IntRect& vis, SkRegion *region, LayerAndroid* root);
     void updateHandleScale(float handleScale);
-    void getSelectionHandles(int* handles);
+    void getSelectionHandles(int* handles, LayerAndroid* root);
 public:
     float m_inverseScale; // inverse scale, x, y used for drawing select path
     int m_selectX;

@@ -1505,7 +1505,7 @@ void getTextSelectionRegion(SkRegion *region)
 
 void getTextSelectionHandles(int* handles)
 {
-    m_selectText.getSelectionHandles(handles);
+    m_selectText.getSelectionHandles(handles, compositeRoot());
 }
 
 void replaceBaseContent(PictureSet* set)

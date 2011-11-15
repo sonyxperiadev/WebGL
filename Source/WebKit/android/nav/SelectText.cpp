@@ -1829,12 +1829,23 @@ bool SelectText::hitSelection(int x, int y) const
     return m_selRegion.contains(x, y);
 }
 
-void SelectText::getSelectionHandles(int* handles)
+void SelectText::getSelectionHandles(int* handles, LayerAndroid* root)
 {
     handles[0] = m_selStart.fLeft;
     handles[1] = m_selStart.fBottom;
     handles[2] = m_selEnd.fRight;
     handles[3] = m_selEnd.fBottom;
+    if (root && m_layerId) {
+        Layer* layer = root->findById(m_layerId);
+        while (layer) {
+            const SkPoint& pos = layer->getPosition();
+            handles[0] += pos.fX;
+            handles[2] += pos.fX;
+            handles[1] += pos.fY;
+            handles[3] += pos.fY;
+            layer = layer->getParent();
+        }
+    }
 }
 
 void SelectText::moveSelection(const IntRect& vis, int x, int y)
