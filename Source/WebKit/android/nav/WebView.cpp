@@ -2042,7 +2042,7 @@ static jobject nativeFocusCandidateNodeBounds(JNIEnv *env, jobject obj)
 {
     const CachedFrame* frame;
     const CachedNode* node = getFocusCandidate(env, obj, &frame);
-    WebCore::IntRect bounds = node ? node->bounds(frame)
+    WebCore::IntRect bounds = node ? node->originalAbsoluteBounds()
         : WebCore::IntRect(0, 0, 0, 0);
     // Inset the rect by 1 unit, so that the focus candidate's border can still
     // be seen behind it.
