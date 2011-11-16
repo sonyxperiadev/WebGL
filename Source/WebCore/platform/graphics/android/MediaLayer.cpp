@@ -68,7 +68,8 @@ MediaLayer::~MediaLayer()
 
 bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
 {
-    TilesManager::instance()->shader()->clip(drawClip());
+    FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(drawClip());
+    TilesManager::instance()->shader()->clip(clippingRect);
 
     // when the plugin gains focus webkit applies an outline to the
     // widget, which causes the layer to expand to accommodate the
