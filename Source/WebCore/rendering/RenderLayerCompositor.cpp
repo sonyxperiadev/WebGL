@@ -764,7 +764,18 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 
                 // If we have to make a layer for this child, make one now so we can have a contents layer
                 // (since we need to ensure that the -ve z-order child renders underneath our contents).
+#ifdef ANDROID
+                // Normally we try to reduce the number of layers by not promoting all fixed
+                // or scrollable elements to their own compositing layer. But in the case that
+                // we have such an element in the negative z-order, we must make it a layer
+                // otherwise the content will be painted at a higher z-index. This breaks pages
+                // that set a large image with a z-index of -1 to implement a background image,
+                // for example.
+                bool childRequiresCompositing = childState.m_hasFixedElement || childState.m_hasScrollableElement;
+                if (!willBeComposited && (childState.m_subtreeIsCompositing || childRequiresCompositing)) {
+#else
                 if (!willBeComposited && childState.m_subtreeIsCompositing) {
+#endif
                     // make layer compositing
                     layer->setMustOverlapCompositedLayers(true);
                     childState.m_compositingAncestor = layer;
