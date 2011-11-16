@@ -90,6 +90,7 @@ static jobject getCacheResult(JNIEnv* env, jobject, jstring url)
     String urlWtfString = jstringToWtfString(env, url);
     Vector<char> encodedUrl;
     base64Encode(urlWtfString.utf8().data(), urlWtfString.length(), encodedUrl, false /*insertLFs*/);
+    encodedUrl.append('\0');
     String filePath = pathByAppendingComponent(getCacheFileBaseDir(env), encodedUrl.data());
     if (!result->writeToFile(filePath))
         return 0;

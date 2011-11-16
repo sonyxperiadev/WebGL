@@ -134,11 +134,11 @@ bool CacheResult::writeToFile(const String& filePath) const
     if (!thread)
         return false;
 
-    CacheResult* me = const_cast<CacheResult*>(this);
-    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(me, &CacheResult::writeToFileImpl));
-
     m_filePath = filePath.threadsafeCopy();
     m_isAsyncOperationInProgress = true;
+
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(const_cast<CacheResult*>(this), &CacheResult::writeToFileImpl));
+
     while (m_isAsyncOperationInProgress)
         m_condition.wait(m_mutex);
 
@@ -213,10 +213,9 @@ HttpResponseHeaders* CacheResult::responseHeaders() const
     if (!thread)
         return 0;
 
-    CacheResult* me = const_cast<CacheResult*>(this);
-    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(me, &CacheResult::responseHeadersImpl));
-
     m_isAsyncOperationInProgress = true;
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(const_cast<CacheResult*>(this), &CacheResult::responseHeadersImpl));
+
     while (m_isAsyncOperationInProgress)
         m_condition.wait(m_mutex);
 
