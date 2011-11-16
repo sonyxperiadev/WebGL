@@ -409,7 +409,8 @@ void ShaderProgram::setViewRect(const IntRect& viewRect)
     translate.scale3d(1, -1, 1);
     m_documentToInvScreenMatrix = scale * translate * m_projectionMatrix;
 
-    m_documentViewport = m_documentToScreenMatrix.inverse().mapRect(viewRect);
+    IntRect rect(0, 0, m_webViewRect.width(), m_webViewRect.height());
+    m_documentViewport = m_documentToScreenMatrix.inverse().mapRect(rect);
 }
 
 // This function transform a clip rect extracted from the current layer
