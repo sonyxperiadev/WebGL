@@ -297,8 +297,11 @@ void TransferQueue::updateDirtyBaseTiles()
             BaseTileTexture* destTexture = 0;
             if (!obsoleteBaseTile)
                 destTexture = m_transferQueue[index].savedBaseTilePtr->backTexture();
-            if (m_transferQueue[index].uploadType == GpuUpload)
-                m_sharedSurfaceTexture->updateTexImage();
+            if (m_transferQueue[index].uploadType == GpuUpload) {
+                status_t result = m_sharedSurfaceTexture->updateTexImage();
+                if (result != OK)
+                    XLOGC("unexpected error: updateTexImage return %d", result);
+            }
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
             if (obsoleteBaseTile) {
@@ -491,8 +494,11 @@ void TransferQueue::cleanupTransportQueue()
             // No matter what the current upload type is, as long as there has
             // been a Surf Tex enqueue operation, this updateTexImage need to
             // be called to keep things in sync.
-            if (m_transferQueue[index].uploadType == GpuUpload)
-                m_sharedSurfaceTexture->updateTexImage();
+            if (m_transferQueue[index].uploadType == GpuUpload) {
+                status_t result = m_sharedSurfaceTexture->updateTexImage();
+                if (result != OK)
+                    XLOGC("unexpected error: updateTexImage return %d", result);
+            }
 
             // since tiles in the queue may be from another webview, remove
             // their textures so that they will be repainted / retransferred
