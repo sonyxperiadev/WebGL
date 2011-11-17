@@ -26,7 +26,6 @@
 #ifndef ImageTexture_h
 #define ImageTexture_h
 
-#include "ClassTracker.h"
 #include "GLUtils.h"
 #include "SkBitmap.h"
 #include "SkBitmapRef.h"

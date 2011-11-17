@@ -66,7 +66,7 @@ MediaLayer::~MediaLayer()
     m_mediaTexture->decStrong(this);
 }
 
-bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
+bool MediaLayer::drawGL()
 {
     FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(drawClip());
     TilesManager::instance()->shader()->clip(clippingRect);
@@ -93,7 +93,7 @@ bool MediaLayer::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
     // draw any content or video if present
     m_mediaTexture->draw(m, m_drawTransform, mediaBounds);
 
-    return drawChildrenGL(glWebViewState, matrix);
+    return drawChildrenGL();
 }
 
 ANativeWindow* MediaLayer::acquireNativeWindowForContent()

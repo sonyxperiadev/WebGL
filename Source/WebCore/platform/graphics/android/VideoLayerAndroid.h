@@ -56,7 +56,7 @@ public:
     virtual LayerAndroid* copy() const { return new VideoLayerAndroid(*this); }
 
     // The following 3 functions are called in UI thread only.
-    virtual bool drawGL(GLWebViewState*, SkMatrix& matrix);
+    virtual bool drawGL();
     void setSurfaceTexture(sp<SurfaceTexture> texture, int textureName, PlayerState playerState);
     GLuint createBackgroundTexture();
     GLuint createSpinnerOuterTexture();

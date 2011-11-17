@@ -152,18 +152,15 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_imageRef(0),
     m_imageTexture(0),
     m_pictureUsed(0),
-    m_requestSent(false),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(owner),
     m_type(LayerAndroid::WebCoreLayer),
-    m_state(0),
     m_hasText(true)
 {
     m_backgroundColor = 0;
 
     m_preserves3D = false;
-    m_dirty = false;
     m_iframeOffset.set(0,0);
     m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
@@ -178,10 +175,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_uniqueId(layer.m_uniqueId),
     m_texture(0),
     m_imageTexture(0),
-    m_requestSent(false),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
-    m_state(0),
     m_hasText(true)
 {
     m_isFixed = layer.m_isFixed;
@@ -211,7 +206,6 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_anchorPointZ = layer.m_anchorPointZ;
     m_drawTransform = layer.m_drawTransform;
     m_childrenTransform = layer.m_childrenTransform;
-    m_dirty = layer.m_dirty;
     m_pictureUsed = layer.m_pictureUsed;
     m_dirtyRegion = layer.m_dirtyRegion;
     m_scale = layer.m_scale;
@@ -256,20 +250,17 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_isFixed(false),
     m_isIframe(false),
     m_recordingPicture(picture),
-    m_uniqueId(-1),
+    m_uniqueId(++gUniqueId),
     m_texture(0),
     m_imageRef(0),
     m_imageTexture(0),
-    m_requestSent(false),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(0),
     m_type(LayerAndroid::NavCacheLayer),
-    m_state(0),
     m_hasText(true)
 {
     m_backgroundColor = 0;
-    m_dirty = false;
     SkSafeRef(m_recordingPicture);
     m_iframeOffset.set(0,0);
     m_dirtyRegion.setEmpty();
@@ -335,7 +326,7 @@ bool LayerAndroid::evaluateAnimations(double time)
     return hasRunningAnimations || m_hasRunningAnimations;
 }
 
-void LayerAndroid::addDirtyArea(GLWebViewState* glWebViewState)
+void LayerAndroid::addDirtyArea()
 {
     IntSize layerSize(getSize().width(), getSize().height());
 
@@ -345,7 +336,7 @@ void LayerAndroid::addDirtyArea(GLWebViewState* glWebViewState)
 
     area.intersect(clip);
     IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
-    glWebViewState->addDirtyArea(dirtyArea);
+    m_state->addDirtyArea(dirtyArea);
 }
 
 void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> prpAnim)
@@ -820,6 +811,9 @@ int LayerAndroid::nbTexturedLayers()
 
 void LayerAndroid::computeTexturesAmount(TexturesResult* result)
 {
+    if (!result)
+        return;
+
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
         this->getChild(i)->computeTexturesAmount(result);
@@ -864,31 +858,61 @@ void LayerAndroid::showLayer(int indent)
         this->getChild(i)->showLayer(indent + 1);
 }
 
-// We go through our tree, and if we have layer in the new
-// tree that is similar, we transfer our texture to it.
-// Otherwise, we remove ourselves from the texture so
-// that TilesManager::swapLayersTextures() have a chance
-// at deallocating the textures (PaintedSurfaces)
-void LayerAndroid::assignTextureTo(LayerAndroid* newTree)
+void LayerAndroid::swapTiles()
 {
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
-        this->getChild(i)->assignTextureTo(newTree);
+        this->getChild(i)->swapTiles();
 
-    if (newTree) {
-        LayerAndroid* newLayer = newTree->findById(uniqueId());
-        if (newLayer == this)
-            return;
-        if (newLayer && m_texture) {
-            m_texture->replaceLayer(newLayer);
-            newLayer->m_texture = m_texture;
-            m_texture = 0;
-        }
-        if (!newLayer && m_texture) {
-            m_texture->removeLayer(this);
-            m_texture = 0;
-        }
+    if (m_texture)
+        m_texture->swapTiles();
+}
+
+void LayerAndroid::setIsDrawing(bool isDrawing)
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->setIsDrawing(isDrawing);
+
+    if (m_texture) {
+        m_texture->setDrawingLayer(isDrawing ? this : 0);
+        m_texture->clearPaintingLayer();
     }
+}
+
+void LayerAndroid::setIsPainting(Layer* drawingTree)
+{
+    XLOG("setting layer %p as painting, needs texture %d, drawing tree %p",
+         this, needsTexture(), drawingTree);
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->setIsPainting(drawingTree);
+
+    obtainTextureForPainting(static_cast<LayerAndroid*>(drawingTree));
+}
+
+void LayerAndroid::mergeInvalsInto(Layer* replacementTree)
+{
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        this->getChild(i)->mergeInvalsInto(replacementTree);
+
+    LayerAndroid* replacementLayer = static_cast<LayerAndroid*>(replacementTree)->findById(uniqueId());
+    if (replacementLayer)
+        replacementLayer->markAsDirty(m_dirtyRegion);
+}
+
+bool LayerAndroid::isReady()
+{
+    int count = countChildren();
+    for (int i = 0; i < count; i++)
+        if (!getChild(i)->isReady())
+            return false;
+
+    if (m_texture)
+        return m_texture->isReady();
+    // TODO: image, check if uploaded?
+    return true;
 }
 
 bool LayerAndroid::updateWithTree(LayerAndroid* newTree)
@@ -935,12 +959,8 @@ bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
     return false;
 }
 
-void LayerAndroid::createTexture()
+void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingTree)
 {
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->createTexture();
-
     if (!needsTexture())
         return;
 
@@ -950,27 +970,32 @@ void LayerAndroid::createTexture()
             m_dirtyRegion.setEmpty();
         }
         if (m_texture) {
-            m_texture->removeLayer(this);
+            m_texture->setDrawingLayer(0);
+            m_texture->clearPaintingLayer();
             m_texture = 0;
         }
     } else {
+        if (drawingTree) {
+            LayerAndroid* drawingLayer = drawingTree->findById(uniqueId());
+            if (drawingLayer) {
+                // if a previous tree had the same layer, paint with that painted surface
+                m_texture = drawingLayer->m_texture;
+            }
+        }
+
         if (!m_texture)
-            m_texture = new PaintedSurface(this);
+            m_texture = new PaintedSurface();
 
         // pass the invalidated regions to the PaintedSurface
-        m_texture->markAsDirty(m_dirtyRegion);
+        m_texture->setPaintingLayer(this, m_dirtyRegion);
         m_dirtyRegion.setEmpty();
     }
 }
 
+
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 {
     return a->zValue() > b->zValue();
-}
-
-void LayerAndroid::markAsDirty(const SkRegion& dirtyArea)
-{
-    m_dirtyRegion.op(dirtyArea, SkRegion::kUnion_Op);
 }
 
 // We call this in WebViewCore, when copying the tree of layers.
@@ -986,18 +1011,9 @@ void LayerAndroid::clearDirtyRegion()
     m_dirtyRegion.setEmpty();
 }
 
-void LayerAndroid::setState(GLWebViewState* state)
+void LayerAndroid::prepare()
 {
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->setState(state);
-
-    m_state = state;
-}
-
-void LayerAndroid::prepare(GLWebViewState* glWebViewState)
-{
-    m_state = glWebViewState;
+    XLOG("LA %p preparing, m_texture %p", this, m_texture);
 
     int count = this->countChildren();
     if (count > 0) {
@@ -1010,11 +1026,11 @@ void LayerAndroid::prepare(GLWebViewState* glWebViewState)
 
         // iterate in reverse so top layers get textures first
         for (int i = count-1; i >= 0; i--)
-            sublayers[i]->prepare(glWebViewState);
+            sublayers[i]->prepare();
     }
 
     if (m_texture)
-        m_texture->prepare(glWebViewState);
+        m_texture->prepare(m_state);
 
     if (m_imageTexture)
         m_imageTexture->prepareGL();
@@ -1082,15 +1098,14 @@ bool LayerAndroid::drawCanvas(SkCanvas* canvas)
     // When the layer is dirty, the UI thread should be notified to redraw.
     askScreenUpdate |= drawChildrenCanvas(canvas);
     m_atomicSync.lock();
-    askScreenUpdate |= m_dirty;
     if (askScreenUpdate || m_hasRunningAnimations || m_drawTransform.hasPerspective())
-        addDirtyArea(m_state);
+        addDirtyArea();
 
     m_atomicSync.unlock();
     return askScreenUpdate;
 }
 
-bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
+bool LayerAndroid::drawGL()
 {
     FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(m_clippingRect);
     TilesManager::instance()->shader()->clip(clippingRect);
@@ -1106,11 +1121,10 @@ bool LayerAndroid::drawGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
         m_imageTexture->drawGL(this);
 
     // When the layer is dirty, the UI thread should be notified to redraw.
-    askScreenUpdate |= drawChildrenGL(glWebViewState, matrix);
+    askScreenUpdate |= drawChildrenGL();
     m_atomicSync.lock();
-    askScreenUpdate |= m_dirty;
     if (askScreenUpdate || m_hasRunningAnimations || m_drawTransform.hasPerspective())
-        addDirtyArea(glWebViewState);
+        addDirtyArea();
 
     m_atomicSync.unlock();
     return askScreenUpdate;
@@ -1136,7 +1150,7 @@ bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas)
     return askScreenUpdate;
 }
 
-bool LayerAndroid::drawChildrenGL(GLWebViewState* glWebViewState, SkMatrix& matrix)
+bool LayerAndroid::drawChildrenGL()
 {
     bool askScreenUpdate = false;
     int count = this->countChildren();
@@ -1149,7 +1163,7 @@ bool LayerAndroid::drawChildrenGL(GLWebViewState* glWebViewState, SkMatrix& matr
         std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
         for (int i = 0; i < count; i++) {
             LayerAndroid* layer = sublayers[i];
-            askScreenUpdate |= layer->drawGL(glWebViewState, matrix);
+            askScreenUpdate |= layer->drawGL();
         }
     }
 

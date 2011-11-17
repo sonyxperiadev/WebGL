@@ -17,17 +17,24 @@
 #ifndef Layer_DEFINED
 #define Layer_DEFINED
 
+#include "TestExport.h"
 #include "SkRefCnt.h"
 #include "SkTDArray.h"
 #include "SkColor.h"
 #include "SkMatrix.h"
 #include "SkPoint.h"
 #include "SkRect.h"
+#include "SkRegion.h"
 #include "SkSize.h"
+
+namespace WebCore {
+class IntRect;
+class GLWebViewState;
+};
 
 class SkCanvas;
 
-class Layer : public SkRefCnt {
+class TEST_EXPORT Layer : public SkRefCnt {
 
 public:
     Layer();
@@ -56,7 +63,42 @@ public:
     void setMatrix(const SkMatrix& matrix) { m_matrix = matrix; }
     void setChildrenMatrix(const SkMatrix& matrix) { m_childrenMatrix = matrix; }
 
-    // children
+// rendering asset management
+
+    // tell rendering assets to update their tile content with most recent painted data
+    virtual void swapTiles() {}
+
+    // tell rendering assets to use this layer tree for drawing
+    virtual void setIsDrawing(bool isDrawing) {}
+
+    // take rendering assets from drawing tree, or create if they don't exist
+    virtual void setIsPainting(Layer* drawingTree) {}
+
+    // if a similar layer exists in the replacement tree, add invals to it
+    virtual void mergeInvalsInto(Layer* replacementTree) {}
+
+    void markAsDirty(const SkRegion& invalRegion) {
+        m_dirtyRegion.op(invalRegion, SkRegion::kUnion_Op);
+    }
+
+    bool isDirty() {
+        return !m_dirtyRegion.isEmpty();
+    }
+
+// drawing
+
+    virtual bool isReady() { return false; }
+
+    // TODO: clean out several of these, leave them in GLWebViewState
+
+    virtual bool prepare(double currentTime, WebCore::IntRect& viewRect,
+                         SkRect& visibleRect, float scale) { return 0; }
+    virtual bool drawGL(WebCore::IntRect& viewRect,
+                        SkRect& visibleRect, float scale) { return 0; }
+    WebCore::GLWebViewState* state() { return m_state; }
+    void setState(WebCore::GLWebViewState* state);
+
+// children
 
     /** Return the number of layers in our child list.
      */
@@ -152,6 +194,11 @@ protected:
     bool m_shouldInheritFromRootTransform;
 
     SkTDArray<Layer*> m_children;
+
+    // invalidation region
+    SkRegion m_dirtyRegion;
+
+    WebCore::GLWebViewState* m_state;
 
     typedef SkRefCnt INHERITED;
 };

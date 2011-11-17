@@ -208,21 +208,6 @@ void TilesManager::printTextures()
 #endif // DEBUG
 }
 
-void TilesManager::swapLayersTextures(LayerAndroid* oldTree, LayerAndroid* newTree)
-{
-    if (oldTree)
-        oldTree->assignTextureTo(newTree);
-
-    if (newTree)
-        newTree->createTexture();
-
-    GLWebViewState* oldState = 0;
-    if (oldTree && !newTree)
-        oldState = oldTree->state();
-
-    paintedSurfacesCleanup(oldState);
-}
-
 void TilesManager::addPaintedSurface(PaintedSurface* surface)
 {
     m_paintedSurfaces.append(surface);
@@ -412,13 +397,24 @@ void TilesManager::paintedSurfacesCleanup(GLWebViewState* state)
     WTF::Vector<PaintedSurface*> collect;
     for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
         PaintedSurface* surface = m_paintedSurfaces[i];
-        if (!surface->layer() || (state && surface->layer()->state() == state))
+
+        Layer* drawing = surface->drawingLayer();
+        Layer* painting = surface->paintingLayer();
+
+        XLOG("considering PS %p, drawing %p, painting %p", surface, drawing, painting);
+
+        bool drawingMatchesState = state && drawing && (drawing->state() == state);
+        bool paintingMatchesState = state && painting && (painting->state() == state);
+
+        if ((!painting && !drawing) || drawingMatchesState || paintingMatchesState) {
+            XLOG("trying to remove PS %p, painting %p, drawing %p, DMS %d, PMS %d",
+                 surface, painting, drawing, drawingMatchesState, paintingMatchesState);
             collect.append(surface);
+        }
     }
     for (unsigned int i = 0; i < collect.size(); i++) {
         PaintedSurface* surface = collect[i];
         m_paintedSurfaces.remove(m_paintedSurfaces.find(surface));
-        surface->removeLayer();
         SkSafeUnref(surface);
     }
 }
