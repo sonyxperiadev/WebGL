@@ -209,7 +209,7 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
     if (m_drawingTree) {
         bool drawingReady = didTreeSwap || m_drawingTree->isReady();
 
-        if (didTreeSwap || m_fastSwapMode)
+        if (drawingReady || m_fastSwapMode)
             m_drawingTree->swapTiles();
 
         if (drawingReady) {
