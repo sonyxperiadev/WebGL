@@ -359,7 +359,13 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
 bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
 {
     bool invalBase = false;
-    int maxTextures = TilesManager::instance()->maxTextureCount();
+
+    if (!nbTexturesNeeded.full)
+        TilesManager::instance()->setMaxLayerTextureCount(0);
+    else
+        TilesManager::instance()->setMaxLayerTextureCount((2*nbTexturesNeeded.full)+1);
+
+    int maxTextures = TilesManager::instance()->maxLayerTextureCount();
     LayersRenderingMode layersRenderingMode = m_layersRenderingMode;
 
     m_layersRenderingMode = kSingleSurfaceRendering;

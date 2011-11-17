@@ -105,7 +105,9 @@ public:
     void resetTextureUsage(TiledPage* page);
 
     int maxTextureCount();
+    int maxLayerTextureCount();
     void setMaxTextureCount(int max);
+    void setMaxLayerTextureCount(int max);
     static float tileWidth();
     static float tileHeight();
     static float layerTileWidth();
@@ -205,6 +207,9 @@ private:
             m_generatorReadyCond.wait(m_generatorLock);
     }
 
+    void deallocateTexturesVector(unsigned long long sparedDrawCount,
+                                  WTF::Vector<BaseTileTexture*>& textures);
+
     Vector<BaseTileTexture*> m_textures;
     Vector<BaseTileTexture*> m_availableTextures;
 
@@ -215,6 +220,7 @@ private:
     Vector<PaintedSurface*> m_paintedSurfaces;
 
     int m_maxTextureCount;
+    int m_maxLayerTextureCount;
 
     bool m_generatorReady;
 
@@ -240,6 +246,8 @@ private:
     TilesProfiler m_profiler;
     TilesTracker m_tilesTracker;
     unsigned long long m_drawGLCount;
+    double m_lastTimeLayersUsed;
+    bool m_hasLayerTextures;
 };
 
 } // namespace WebCore
