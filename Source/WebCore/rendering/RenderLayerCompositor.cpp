@@ -650,7 +650,7 @@ bool RenderLayerCompositor::checkForFixedLayers(Vector<RenderLayer*>* list, bool
                     IntRect bounds = aLayer->renderer()->localToAbsoluteQuad(
                         FloatRect(aLayer->localBoundingBox())).enclosingBoundingBox();
                     if (bounds.contains(currentLayerBounds)
-                        && needsToBeComposited(aLayer)) {
+                        && needsToBeComposited(aLayer) && aLayer->isStackingContext()) {
                         needComposite = false;
                         break;
                     }
