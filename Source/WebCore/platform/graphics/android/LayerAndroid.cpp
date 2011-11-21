@@ -770,7 +770,7 @@ void LayerAndroid::setContentsImage(SkBitmapRef* img)
 
 bool LayerAndroid::needsTexture()
 {
-    return m_imageRef || (prepareContext()
+    return m_imageRef || (m_recordingPicture
         && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
@@ -842,14 +842,15 @@ void LayerAndroid::showLayer(int indent)
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
                  m_clippingRect.width(), m_clippingRect.height());
     XLOGC("%s [%d:0x%x] - %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
-          "clip (%d, %d, %d, %d) %s prepareContext(%d), pic w: %d h: %d",
+          "clip (%d, %d, %d, %d) %s %s prepareContext(%x), pic w: %d h: %d",
           spaces, uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
           tr.x(), tr.y(), tr.width(), tr.height(),
           visible.x(), visible.y(), visible.width(), visible.height(),
           clip.x(), clip.y(), clip.width(), clip.height(),
           contentIsScrollable() ? "SCROLLABLE" : "",
-          prepareContext(),
+          isFixed() ? "FIXED" : "",
+          m_recordingPicture,
           m_recordingPicture ? m_recordingPicture->width() : -1,
           m_recordingPicture ? m_recordingPicture->height() : -1);
 

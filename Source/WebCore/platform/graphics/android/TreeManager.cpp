@@ -186,6 +186,10 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
         ret |= m_paintingTree->prepare(currentTime, viewRect,
                                        visibleRect, scale);
 
+        if (m_paintingTree->countChildren()) {
+            LayerAndroid* laTree = static_cast<LayerAndroid*>(m_paintingTree->getChild(0));
+            laTree->computeTexturesAmount(texturesResultPtr);
+        }
         if (/*!m_fastSwapMode && */ m_paintingTree->isReady()) {
             XLOG("have painting tree %p ready, swapping!", m_paintingTree);
             didTreeSwap = true;
@@ -197,6 +201,10 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
         XLOG("preparing drawing tree %p", m_drawingTree);
         ret |= m_drawingTree->prepare(currentTime, viewRect,
                                       visibleRect, scale);
+        if (m_drawingTree->countChildren()) {
+            LayerAndroid* laTree = static_cast<LayerAndroid*>(m_drawingTree->getChild(0));
+            laTree->computeTexturesAmount(texturesResultPtr);
+        }
     }
 
     if (!m_isAnimating) {
@@ -226,7 +234,6 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
                   m_drawingTree, m_animationOffset, m_isAnimating);
 #endif
             LayerAndroid* laTree = static_cast<LayerAndroid*>(m_drawingTree->getChild(0));
-            laTree->computeTexturesAmount(texturesResultPtr);
             m_isAnimating = laTree->evaluateAnimations(currentTime - m_animationOffset);
             if (!m_isAnimating)
                 m_animationOffset = 0;
