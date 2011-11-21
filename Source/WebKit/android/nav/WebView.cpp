@@ -149,8 +149,10 @@ struct JavaGlue {
     }
 } m_javaGlue;
 
-WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir) :
+WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
+        bool isHighEndGfx) :
     m_ring((WebViewCore*) viewImpl)
+    , m_isHighEndGfx(isHighEndGfx)
 {
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
@@ -454,6 +456,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
 
     if (!m_glWebViewState) {
         m_glWebViewState = new GLWebViewState();
+        m_glWebViewState->setHighEndGfx(m_isHighEndGfx);
         m_glWebViewState->glExtras()->setCursorRingExtra(&m_ring);
         m_glWebViewState->glExtras()->setFindOnPageExtra(&m_findOnPage);
         if (m_baseLayer->content()) {
@@ -1542,6 +1545,7 @@ private: // local state for WebView
 #endif
     RenderSkinButton* m_buttonSkin;
     SkRect m_visibleRect;
+    bool m_isHighEndGfx;
 }; // end of WebView class
 
 
@@ -1662,10 +1666,11 @@ static void nativeClearCursor(JNIEnv *env, jobject obj)
     view->clearCursor();
 }
 
-static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl, jstring drawableDir)
+static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl,
+                         jstring drawableDir, jboolean isHighEndGfx)
 {
     WTF::String dir = jstringToWtfString(env, drawableDir);
-    WebView* webview = new WebView(env, obj, viewImpl, dir);
+    WebView* webview = new WebView(env, obj, viewImpl, dir, isHighEndGfx);
     // NEED THIS OR SOMETHING LIKE IT!
     //Release(obj);
 }
@@ -2708,7 +2713,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCacheHitNodePointer },
     { "nativeClearCursor", "()V",
         (void*) nativeClearCursor },
-    { "nativeCreate", "(ILjava/lang/String;)V",
+    { "nativeCreate", "(ILjava/lang/String;Z)V",
         (void*) nativeCreate },
     { "nativeCursorFramePointer", "()I",
         (void*) nativeCursorFramePointer },
