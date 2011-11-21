@@ -86,6 +86,7 @@ GLWebViewState::GLWebViewState()
     , m_expandedTileBoundsY(0)
     , m_scale(1)
     , m_layersRenderingMode(kAllTextures)
+    , m_highEndGfx(false)
 {
     m_viewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
@@ -262,7 +263,7 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
     int viewMaxTileY = static_cast<int>(ceilf((viewport.height()-1) * invTileContentHeight)) + 1;
 
     int maxTextureCount = (viewMaxTileX + m_expandedTileBoundsX * 2) *
-        (viewMaxTileY + m_expandedTileBoundsY * 2) * 2;
+        (viewMaxTileY + m_expandedTileBoundsY * 2) * (m_highEndGfx ? 4 : 2);
 
     TilesManager::instance()->setMaxTextureCount(maxTextureCount);
     m_tiledPageA->updateBaseTileSize();

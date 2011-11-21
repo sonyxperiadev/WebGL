@@ -233,6 +233,7 @@ public:
 
     int expandedTileBoundsX() { return m_expandedTileBoundsX; }
     int expandedTileBoundsY() { return m_expandedTileBoundsY; }
+    void setHighEndGfx(bool highEnd) { m_highEndGfx = highEnd; }
 
     float scale() { return m_scale; }
 
@@ -282,6 +283,7 @@ private:
 
     int m_expandedTileBoundsX;
     int m_expandedTileBoundsY;
+    bool m_highEndGfx;
 
     float m_scale;
 
