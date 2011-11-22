@@ -75,7 +75,7 @@ public:
 
     void clear();
     
-    bool stillNeedsLoad() const { return !errorOccurred() && status() == Unknown && !isLoading(); }
+    bool stillNeedsLoad() const { return (!errorOccurred() && status() == Unknown && !isLoading()) || (m_autoLoadWasPreventedBySettings && !inCache()); }
     void load();
 
     // ImageObserver
@@ -85,6 +85,8 @@ public:
     virtual bool shouldPauseAnimation(const Image*);
     virtual void animationAdvanced(const Image*);
     virtual void changedInRect(const Image*, const IntRect&);
+
+    void setAutoLoadWasPreventedBySettings(bool prevented) { m_autoLoadWasPreventedBySettings = prevented; }
 
 private:
     void createImage();
@@ -98,6 +100,7 @@ private:
     RefPtr<Image> m_image;
     Timer<CachedImage> m_decodedDataDeletionTimer;
     bool m_shouldPaintBrokenImage;
+    bool m_autoLoadWasPreventedBySettings;
 };
 
 }

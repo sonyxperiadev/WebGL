@@ -127,6 +127,7 @@ public:
 
     bool isLoading() const { return m_loading; }
     void setLoading(bool b) { m_loading = b; }
+    virtual bool stillNeedsLoad() const { return false; }
 
     virtual bool isImage() const { return false; }
     bool isLinkResource() const

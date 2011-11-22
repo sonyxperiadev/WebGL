@@ -138,14 +138,21 @@ CachedImage* CachedResourceLoader::requestImage(const String& url)
         }
     }
     CachedImage* resource = static_cast<CachedImage*>(requestResource(CachedResource::ImageResource, url, String()));
-    if (autoLoadImages() && resource && resource->stillNeedsLoad()) {
+    if (resource) {
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
-        if (shouldBlockNetworkImage(url)) {
-            return resource;
-        }
+        resource->setAutoLoadWasPreventedBySettings(!autoLoadImages() || shouldBlockNetworkImage(url));
+#else
+        resource->setAutoLoadWasPreventedBySettings(!autoLoadImages());
 #endif
-        resource->setLoading(true);
-        load(resource, true);
+        if (autoLoadImages() && resource->stillNeedsLoad()) {
+#ifdef ANDROID_BLOCK_NETWORK_IMAGE
+            if (shouldBlockNetworkImage(url)) {
+                return resource;
+            }
+#endif
+            resource->setLoading(true);
+            load(resource, true);
+        }
     }
     return resource;
 }
@@ -520,9 +527,12 @@ void CachedResourceLoader::setAutoLoadImages(bool enable)
             if (shouldBlockNetworkImage(image->url()))
                 continue;
 #endif
+            image->setAutoLoadWasPreventedBySettings(false);
 
-            if (image->stillNeedsLoad())
+            if (image->stillNeedsLoad()) {
+                image->setLoading(true);
                 load(image, true);
+            }
         }
     }
 }
@@ -536,7 +546,6 @@ bool CachedResourceLoader::shouldBlockNetworkImage(const String& url) const
     KURL kurl = m_document->completeURL(url);
     if (kurl.protocolIs("http") || kurl.protocolIs("https"))
         return true;
-
     return false;
 }
 
@@ -555,8 +564,11 @@ void CachedResourceLoader::setBlockNetworkImage(bool block)
         CachedResource* resource = it->second.get();
         if (resource->type() == CachedResource::ImageResource) {
             CachedImage* image = const_cast<CachedImage*>(static_cast<const CachedImage*>(resource));
-            if (image->stillNeedsLoad())
+            image->setAutoLoadWasPreventedBySettings(false);
+            if (image->stillNeedsLoad()) {
+                image->setLoading(true);
                 load(image, true);
+            }
         }
     }
 }

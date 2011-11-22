@@ -57,6 +57,7 @@ CachedImage::CachedImage(const String& url)
     , m_image(0)
     , m_decodedDataDeletionTimer(this, &CachedImage::decodedDataDeletionTimerFired)
     , m_shouldPaintBrokenImage(true)
+    , m_autoLoadWasPreventedBySettings(false)
 {
     setStatus(Unknown);
 }
@@ -66,6 +67,7 @@ CachedImage::CachedImage(Image* image)
     , m_image(image)
     , m_decodedDataDeletionTimer(this, &CachedImage::decodedDataDeletionTimerFired)
     , m_shouldPaintBrokenImage(true)
+    , m_autoLoadWasPreventedBySettings(false)
 {
     setStatus(Cached);
     setLoading(false);
