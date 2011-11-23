@@ -1115,11 +1115,13 @@ bool LayerAndroid::drawGL()
 
     bool askScreenUpdate = false;
 
-    if (m_texture)
-        askScreenUpdate |= m_texture->draw();
+    if (m_state->layersRenderingMode() < GLWebViewState::kScrollableAndFixedLayers) {
+        if (m_texture)
+            askScreenUpdate |= m_texture->draw();
 
-    if (m_imageTexture)
-        m_imageTexture->drawGL(this);
+        if (m_imageTexture)
+            m_imageTexture->drawGL(this);
+    }
 
     // When the layer is dirty, the UI thread should be notified to redraw.
     askScreenUpdate |= drawChildrenGL();
