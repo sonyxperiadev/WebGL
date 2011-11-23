@@ -724,15 +724,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     if (layer->isFixed())
         compositingState.m_hasFixedElement = true;
 #endif
-
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    // we don't want to signal that the subtree is compositing if the reason
-    // is because the layer is an overflow layer -- doing so would trigger
-    // all the above layers to be composited unnecessarily
-    if (willBeComposited && !layer->hasOverflowScroll() && !layer->isFixed()) {
-#else
     if (willBeComposited) {
-#endif
         // Tell the parent it has compositing descendants.
         compositingState.m_subtreeIsCompositing = true;
         // This layer now acts as the ancestor for kids.
