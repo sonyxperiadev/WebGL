@@ -145,8 +145,8 @@ private:
     bool m_needsNotifyClient;
 
     bool m_haveContents;
-    bool m_haveImage;
     bool m_newImage;
+    Image* m_image;
 
     SkRegion m_dirtyRegion;
 

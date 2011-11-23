@@ -35,17 +35,18 @@
 namespace WebCore {
 
 class ImageTexture;
+class GLWebViewState;
 
 class ImagesManager {
 public:
     static ImagesManager* instance();
 
-    void addImage(SkBitmapRef* img);
-    void removeImage(SkBitmapRef* img);
-    ImageTexture* getTextureForImage(SkBitmapRef* img, bool retain = true);
-    void showImages();
-    void scheduleTextureUpload(ImageTexture* texture);
-    bool uploadTextures();
+    ImageTexture* setImage(SkBitmapRef* imgRef);
+    ImageTexture* retainImage(unsigned imgCRC);
+    void releaseImage(unsigned imgCRC);
+
+    bool prepareTextures(GLWebViewState*);
+    int nbTextures();
 
 private:
     ImagesManager() {}
@@ -53,8 +54,7 @@ private:
     static ImagesManager* gInstance;
 
     android::Mutex m_imagesLock;
-    HashMap<SkBitmapRef*, ImageTexture*> m_images;
-    Vector<ImageTexture*> m_imagesToUpload;
+    HashMap<unsigned, ImageTexture*> m_images;
 };
 
 } // namespace WebCore

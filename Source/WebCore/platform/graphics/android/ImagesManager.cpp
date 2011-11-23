@@ -26,6 +26,9 @@
 #include "config.h"
 #include "ImagesManager.h"
 
+#include "SkCanvas.h"
+#include "SkDevice.h"
+#include "SkRefCnt.h"
 #include "ImageTexture.h"
 
 #include <cutils/log.h>
@@ -59,71 +62,88 @@ ImagesManager* ImagesManager::instance()
 
 ImagesManager* ImagesManager::gInstance = 0;
 
-void ImagesManager::addImage(SkBitmapRef* imgRef)
+ImageTexture* ImagesManager::setImage(SkBitmapRef* imgRef)
 {
     if (!imgRef)
-        return;
+        return 0;
 
-    android::Mutex::Autolock lock(m_imagesLock);
-    if (!m_images.contains(imgRef))
-        m_images.set(imgRef, new ImageTexture(imgRef));
-}
+    SkBitmap* bitmap = &imgRef->bitmap();
+    ImageTexture* image = 0;
+    SkBitmap* img = 0;
+    unsigned crc = 0;
 
-void ImagesManager::removeImage(SkBitmapRef* imgRef)
-{
-    android::Mutex::Autolock lock(m_imagesLock);
-    if (!m_images.contains(imgRef))
-        return;
+    img = ImageTexture::convertBitmap(bitmap);
+    crc = ImageTexture::computeCRC(img);
 
-    ImageTexture* image = m_images.get(imgRef);
-    image->release();
-
-    if (!image->refCount()) {
-        m_images.remove(imgRef);
-        delete image;
+    {
+        android::Mutex::Autolock lock(m_imagesLock);
+        if (m_images.contains(crc)) {
+            image = m_images.get(crc);
+            SkSafeRef(image);
+            return image;
+        }
     }
-}
 
-void ImagesManager::showImages()
-{
-    XLOGC("We have %d images", m_images.size());
-    HashMap<SkBitmapRef*, ImageTexture*>::iterator end = m_images.end();
-    int i = 0;
-    for (HashMap<SkBitmapRef*, ImageTexture*>::iterator it = m_images.begin(); it != end; ++it) {
-        XLOGC("Image %x (%d/%d) has %d references", it->first, i,
-              m_images.size(), it->second->refCount());
-        i++;
-    }
-}
+    // the image is not in the map, we add it
 
-ImageTexture* ImagesManager::getTextureForImage(SkBitmapRef* img, bool retain)
-{
+    image = new ImageTexture(img, crc);
+
     android::Mutex::Autolock lock(m_imagesLock);
-    ImageTexture* image = m_images.get(img);
-    if (retain && image)
-        image->retain();
+    m_images.set(crc, image);
+
     return image;
 }
 
-void ImagesManager::scheduleTextureUpload(ImageTexture* texture)
+ImageTexture* ImagesManager::retainImage(unsigned imgCRC)
 {
-    if (m_imagesToUpload.contains(texture))
-        return;
+    if (!imgCRC)
+        return 0;
 
-    texture->retain();
-    m_imagesToUpload.append(texture);
+    android::Mutex::Autolock lock(m_imagesLock);
+    ImageTexture* image = 0;
+    if (m_images.contains(imgCRC)) {
+        image = m_images.get(imgCRC);
+        SkSafeRef(image);
+    }
+    return image;
 }
 
-bool ImagesManager::uploadTextures()
+void ImagesManager::releaseImage(unsigned imgCRC)
 {
-    // scheduleUpload and uploadTextures are called on the same thread
-    if (!m_imagesToUpload.size())
-        return false;
-    ImageTexture* texture = m_imagesToUpload.last();
-    texture->uploadGLTexture();
-    m_imagesToUpload.removeLast();
-    removeImage(texture->imageRef());
-    return m_imagesToUpload.size();
+    if (!imgCRC)
+        return;
+
+    android::Mutex::Autolock lock(m_imagesLock);
+    if (m_images.contains(imgCRC)) {
+        ImageTexture* image = m_images.get(imgCRC);
+        if (image->getRefCnt() == 1)
+            m_images.remove(imgCRC);
+        SkSafeUnref(image);
+    }
+}
+
+int ImagesManager::nbTextures()
+{
+    android::Mutex::Autolock lock(m_imagesLock);
+    HashMap<unsigned, ImageTexture*>::iterator end = m_images.end();
+    int i = 0;
+    int nb = 0;
+    for (HashMap<unsigned, ImageTexture*>::iterator it = m_images.begin(); it != end; ++it) {
+        nb += it->second->nbTextures();
+        i++;
+    }
+    return nb;
+}
+
+bool ImagesManager::prepareTextures(GLWebViewState* state)
+{
+    bool ret = false;
+    android::Mutex::Autolock lock(m_imagesLock);
+    HashMap<unsigned, ImageTexture*>::iterator end = m_images.end();
+    for (HashMap<unsigned, ImageTexture*>::iterator it = m_images.begin(); it != end; ++it) {
+        ret |= it->second->prepareGL(state);
+    }
+    return ret;
 }
 
 } // namespace WebCore

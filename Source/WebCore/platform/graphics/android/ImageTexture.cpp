@@ -27,8 +27,11 @@
 #include "ImageTexture.h"
 
 #include "ImagesManager.h"
+#include "LayerAndroid.h"
 #include "SkDevice.h"
+#include "SkPicture.h"
 #include "TilesManager.h"
+#include "TiledTexture.h"
 
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
@@ -51,33 +54,57 @@
 
 namespace WebCore {
 
-ImageTexture::ImageTexture(SkBitmapRef* img)
-    : m_imageRef(img)
-    , m_image(0)
-    , m_textureId(0)
-    , m_refCount(0)
+// CRC computation adapted from Tools/DumpRenderTree/CyclicRedundancyCheck.cpp
+static void makeCrcTable(unsigned crcTable[256])
+{
+    for (unsigned i = 0; i < 256; i++) {
+        unsigned c = i;
+        for (int k = 0; k < 8; k++) {
+            if (c & 1)
+                c = -306674912 ^ ((c >> 1) & 0x7fffffff);
+            else
+                c = c >> 1;
+        }
+        crcTable[i] = c;
+    }
+}
+
+unsigned computeCrc(uint8_t* buffer, size_t size)
+{
+    static unsigned crcTable[256];
+    static bool crcTableComputed = false;
+    if (!crcTableComputed) {
+        makeCrcTable(crcTable);
+        crcTableComputed = true;
+    }
+
+    unsigned crc = 0xffffffffL;
+    for (size_t i = 0; i < size; ++i)
+        crc = crcTable[(crc ^ buffer[i]) & 0xff] ^ ((crc >> 8) & 0x00ffffffL);
+    return crc ^ 0xffffffffL;
+}
+
+ImageTexture::ImageTexture(SkBitmap* bmp, unsigned crc)
+    : m_image(bmp)
+    , m_texture(0)
+    , m_layer(0)
+    , m_picture(0)
+    , m_crc(crc)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("ImageTexture");
 #endif
-    if (!m_imageRef)
+    if (!m_image)
         return;
 
-    SkBitmap* bitmap = &m_imageRef->bitmap();
-    m_image = new SkBitmap();
-    int w = bitmap->width();
-    int h = bitmap->height();
-    m_image->setConfig(SkBitmap::kARGB_8888_Config, w, h);
-    m_image->allocPixels();
-    SkDevice* device = new SkDevice(NULL, *m_image, false);
-    SkCanvas canvas;
-    canvas.setDevice(device);
-    device->unref();
-    SkRect dest;
-    dest.set(0, 0, w, h);
-    m_image->setIsOpaque(false);
-    m_image->eraseARGB(0, 0, 0, 0);
-    canvas.drawBitmapRect(*bitmap, 0, dest);
+    // NOTE: This constructor is called on the webcore thread
+
+    // Create a picture containing the image (needed for TiledTexture)
+    m_picture = new SkPicture();
+    SkCanvas* pcanvas = m_picture->beginRecording(m_image->width(), m_image->height());
+    pcanvas->clear(SkColorSetARGBInline(0, 0, 0, 0));
+    pcanvas->drawBitmap(*m_image, 0, 0);
+    m_picture->endRecording();
 }
 
 ImageTexture::~ImageTexture()
@@ -86,61 +113,142 @@ ImageTexture::~ImageTexture()
     ClassTracker::instance()->decrement("ImageTexture");
 #endif
     delete m_image;
+    delete m_texture;
+    SkSafeUnref(m_picture);
 }
 
-void ImageTexture::prepareGL()
+SkBitmap* ImageTexture::convertBitmap(SkBitmap* bitmap)
 {
-    if (m_textureId)
-        return;
+    SkBitmap* img = new SkBitmap();
+    int w = bitmap->width();
+    int h = bitmap->height();
 
-    ImagesManager::instance()->scheduleTextureUpload(this);
+    // Create a copy of the image
+    img->setConfig(SkBitmap::kARGB_8888_Config, w, h);
+    img->allocPixels();
+    SkDevice* device = new SkDevice(NULL, *img, false);
+    SkCanvas canvas;
+    canvas.setDevice(device);
+    device->unref();
+    SkRect dest;
+    dest.set(0, 0, w, h);
+    img->setIsOpaque(false);
+    img->eraseARGB(0, 0, 0, 0);
+    canvas.drawBitmapRect(*bitmap, 0, dest);
+
+    return img;
 }
 
-void ImageTexture::uploadGLTexture()
+unsigned ImageTexture::computeCRC(const SkBitmap* bitmap)
 {
-    if (m_textureId)
-        return;
+    if (!bitmap)
+        return 0;
+    bitmap->lockPixels();
+    uint8_t* img = static_cast<uint8_t*>(bitmap->getPixels());
+    unsigned crc = computeCrc(img, bitmap->getSize());
+    bitmap->unlockPixels();
+    return crc;
+}
 
-    glGenTextures(1, &m_textureId);
-    GLUtils::createTextureWithBitmap(m_textureId, *m_image);
+bool ImageTexture::equalsCRC(unsigned crc)
+{
+    return m_crc == crc;
+}
+
+int ImageTexture::nbTextures()
+{
+    if (!hasContentToShow())
+        return 0;
+    if (!m_texture)
+        return 0;
+
+    // TODO: take in account the visible clip (need to maintain
+    // a list of the clients layer, etc.)
+    IntRect visibleArea(0, 0, m_image->width(), m_image->height());
+    int nbTextures = m_texture->nbTextures(visibleArea, 1.0);
+    XLOG("ImageTexture %p, %d x %d needs %d textures",
+          this, m_image->width(), m_image->height(),
+          nbTextures);
+    return nbTextures;
+}
+
+bool ImageTexture::hasContentToShow()
+{
+    // Don't display 1x1 image -- no need to allocate a full texture for this
+    if (!m_image)
+        return false;
+    if (m_image->width() == 1 && m_image->height() == 1)
+        return false;
+    return true;
+}
+
+bool ImageTexture::prepareGL(GLWebViewState* state)
+{
+    if (!hasContentToShow())
+        return false;
+
+    if (!m_texture && m_picture) {
+        m_texture = new TiledTexture(this);
+        SkRegion region;
+        region.setRect(0, 0, m_image->width(), m_image->height());
+        m_texture->update(region, m_picture);
+    }
+
+    if (!m_texture)
+        return false;
+
+    IntRect visibleArea(0, 0, m_image->width(), m_image->height());
+    m_texture->prepare(state, 1.0, true, true, visibleArea);
+    if (m_texture->ready()) {
+        m_texture->swapTiles();
+        return false;
+    }
+    return true;
+}
+
+const TransformationMatrix* ImageTexture::transform()
+{
+    if (!m_layer)
+        return 0;
+
+    FloatPoint p(0, 0);
+    p = m_layer->drawTransform()->mapPoint(p);
+    IntRect layerArea = m_layer->unclippedArea();
+    float scaleW = static_cast<float>(layerArea.width()) / static_cast<float>(m_image->width());
+    float scaleH = static_cast<float>(layerArea.height()) / static_cast<float>(m_image->height());
+    TransformationMatrix d = *(m_layer->drawTransform());
+    TransformationMatrix m;
+    m.scaleNonUniform(scaleW, scaleH);
+    m_layerMatrix = d.multiply(m);
+    return &m_layerMatrix;
+}
+
+float ImageTexture::opacity()
+{
+    if (!m_layer)
+        return 1.0;
+    return m_layer->drawOpacity();
 }
 
 void ImageTexture::drawGL(LayerAndroid* layer)
 {
     if (!layer)
         return;
-    if (!m_textureId)
-        return;
-    if (!m_image)
+    if (!hasContentToShow())
         return;
 
-    SkRect rect;
-    rect.fLeft = 0;
-    rect.fTop = 0;
-    rect.fRight = layer->getSize().width();
-    rect.fBottom = layer->getSize().height();
-    TilesManager::instance()->shader()->drawLayerQuad(*layer->drawTransform(),
-                                                      rect, m_textureId,
-                                                      layer->drawOpacity(), true);
+    // TiledTexture::draw() will call us back to know the
+    // transform and opacity, so we need to set m_layer
+    m_layer = layer;
+    if (m_texture)
+        m_texture->draw();
+    m_layer = 0;
 }
 
 void ImageTexture::drawCanvas(SkCanvas* canvas, SkRect& rect)
 {
-    canvas->drawBitmapRect(*m_image, 0, rect);
-}
-
-void ImageTexture::release()
-{
-    if (m_refCount >= 1)
-        m_refCount--;
-    if (!m_refCount)
-        deleteTexture();
-}
-
-void ImageTexture::deleteTexture()
-{
-   if (m_textureId)
-       glDeleteTextures(1, &m_textureId);
+    if (canvas && m_image)
+        canvas->drawBitmapRect(*m_image, 0, rect);
 }
 
 } // namespace WebCore

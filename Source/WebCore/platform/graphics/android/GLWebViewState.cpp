@@ -479,7 +479,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // Upload any pending ImageTexture
     // Return true if we still have some images to upload.
     // TODO: upload as many textures as possible within a certain time limit
-    bool ret = ImagesManager::instance()->uploadTextures();
+    bool ret = ImagesManager::instance()->prepareTextures(this);
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
         XLOGC("WARNING, scale seems corrupted after update: %e", scale);
@@ -499,6 +499,13 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     if (!ret)
         resetFrameworkInval();
 
+    int nbTexturesForImages = ImagesManager::instance()->nbTextures();
+    XLOG("*** We have %d textures for images, %d full, %d clipped, total %d / %d",
+          nbTexturesForImages, nbTexturesNeeded.full, nbTexturesNeeded.clipped,
+          nbTexturesNeeded.full + nbTexturesForImages,
+          nbTexturesNeeded.clipped + nbTexturesForImages);
+    nbTexturesNeeded.full += nbTexturesForImages;
+    nbTexturesNeeded.clipped += nbTexturesForImages;
     ret |= setLayersRenderingMode(nbTexturesNeeded);
 
     FloatRect extrasclip(0, 0, rect.width(), rect.height());

@@ -29,57 +29,78 @@
 #include "GLUtils.h"
 #include "SkBitmap.h"
 #include "SkBitmapRef.h"
+#include "SkPicture.h"
 #include "SkRefCnt.h"
 #include "LayerAndroid.h"
 
 namespace WebCore {
 
 class LayerAndroid;
+class TexturesResult;
+class TiledTexture;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Image sharing codepath for layers
 /////////////////////////////////////////////////////////////////////////////////
 //
-// We receive an SkBitmapRef on the webcore thread; from this we create
-// an ImageTexture instance and keep it in TilesManager in a hashmap
-// (see TilesManager::addImage())
+// Layers containing only an image take a slightly different codepath;
+// GraphicsLayer::setContentsToImage() is called on the webcore thread,
+// passing an Image instance. We get the native image (an SkBitmap) and create
+// an ImageTexture instance with it (or increment the refcount of an existing
+// instance if the SkBitmap is similar to one already stored in ImagesManager,
+// i.e. if two GraphicsLayer share the same image).
 //
-// The ImageTexture will recopy the pointed SkBitmap locally (so we can safely
-// use it on the texture generation thread), and just use the SkBitmapRef as a
-// key.
+// To detect if an image is similar, we compute and use a CRC. Each ImageTexture
+// is stored in ImagesManager using its CRC as a hash key.
+// Simply comparing the address is not enough -- different image could end up
+// at the same address (i.e. the image is deallocated then a new one is
+// reallocated at the old address)
 //
-// Layers on the shared image path will ask TilesManager for the corresponding
-// ImageTexture, instead of using a PaintedSurface+TiledTexture.
-// When the ImageTexture is prepared for the first time, we directly upload
-// the bitmap to a texture.
+// Each ImageTexture's CRC being unique, LayerAndroid instances simply store that
+// and retain/release the corresponding ImageTexture (so that
+// queued painting request will work correctly and not crash...).
+// LayerAndroid running on the UI thread will get the corresponding
+// ImageTexture at draw time.
 //
-// TODO: limit how many ImageTextures can be uploaded in one draw cycle
-// TODO: limit the size of ImageTextures (use a TiledTexture when needed)
+// ImageTexture recopy the original SkBitmap so that they can safely be used
+// on a different thread; it uses TiledTexture to allocate and paint the image,
+// so that we can share the same textures and limits as the rest of the layers.
 //
 /////////////////////////////////////////////////////////////////////////////////
-class ImageTexture {
+class ImageTexture : public SurfacePainter {
 public:
-    ImageTexture(SkBitmapRef* img);
+    ImageTexture(SkBitmap* bmp, unsigned crc);
     virtual ~ImageTexture();
 
-    void prepareGL();
-    void uploadGLTexture();
+    bool prepareGL(GLWebViewState*);
     void drawGL(LayerAndroid* painter);
     void drawCanvas(SkCanvas*, SkRect&);
-    void retain() { m_refCount++; }
-    void release();
-    unsigned int refCount() { return m_refCount; }
-    SkBitmapRef* imageRef() { return m_imageRef; }
+    bool hasContentToShow();
     SkBitmap* bitmap() { return m_image; }
+    unsigned imageCRC() { return m_crc; }
+
+    static SkBitmap* convertBitmap(SkBitmap* bitmap);
+
+    static unsigned computeCRC(const SkBitmap* bitmap);
+    bool equalsCRC(unsigned crc);
+
+    // methods used by TiledTexture
+    virtual const TransformationMatrix* transform();
+    virtual float opacity();
+
+    int nbTextures();
+
+    virtual SurfaceType type() { return SurfacePainter::ImageSurface; }
 
 private:
 
-    void deleteTexture();
-
     SkBitmapRef* m_imageRef;
     SkBitmap* m_image;
-    GLuint m_textureId;
-    unsigned int m_refCount;
+    TiledTexture* m_texture;
+    LayerAndroid* m_layer;
+    SkPicture* m_picture;
+    TransformationMatrix m_layerMatrix;
+    unsigned m_crc;
 };
 
 } // namespace WebCore

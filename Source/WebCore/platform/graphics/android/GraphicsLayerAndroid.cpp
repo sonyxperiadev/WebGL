@@ -119,8 +119,8 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_needsRepaint(false),
     m_needsNotifyClient(false),
     m_haveContents(false),
-    m_haveImage(false),
     m_newImage(false),
+    m_image(0),
     m_foregroundLayer(0),
     m_foregroundClipLayer(0)
 {
@@ -132,6 +132,9 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
 
 GraphicsLayerAndroid::~GraphicsLayerAndroid()
 {
+    if (m_image)
+        m_image->deref();
+
     m_contentLayer->unref();
     SkSafeUnref(m_foregroundLayer);
     SkSafeUnref(m_foregroundClipLayer);
@@ -557,7 +560,7 @@ bool GraphicsLayerAndroid::repaint()
     LOG("(%x) repaint(), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
         this, gPaused, m_needsRepaint, m_haveContents);
 
-    if (!gPaused && m_haveContents && m_needsRepaint && !m_haveImage) {
+    if (!gPaused && m_haveContents && m_needsRepaint && !m_image) {
         // with SkPicture, we request the entire layer's content.
         IntRect layerBounds(0, 0, m_size.width(), m_size.height());
 
@@ -639,7 +642,7 @@ bool GraphicsLayerAndroid::repaint()
 
         return true;
     }
-    if (m_needsRepaint && m_haveImage && m_newImage) {
+    if (m_needsRepaint && m_image && m_newImage) {
         // We need to tell the GL thread that we will need to repaint the
         // texture. Only do so if we effectively have a new image!
         m_contentLayer->markAsDirty(m_dirtyRegion);
@@ -672,7 +675,7 @@ void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
 {
     // rect is in the render object coordinates
 
-    if (!m_haveImage && !drawsContent()) {
+    if (!m_image && !drawsContent()) {
         LOG("(%x) setNeedsDisplay(%.2f,%.2f,%.2f,%.2f) doesn't have content, bypass...",
             this, rect.x(), rect.y(), rect.width(), rect.height());
         return;
@@ -836,14 +839,23 @@ void GraphicsLayerAndroid::resumeAnimations()
 void GraphicsLayerAndroid::setContentsToImage(Image* image)
 {
     TLOG("(%x) setContentsToImage", this, image);
-    if (image) {
+    if (image && image != m_image) {
+        image->ref();
+        if (m_image)
+            m_image->deref();
+        m_image = image;
+
+        SkBitmapRef* bitmap = image->nativeImageForCurrentFrame();
+        m_contentLayer->setContentsImage(bitmap);
+
         m_haveContents = true;
-        m_haveImage = true;
         m_newImage = true;
-        m_contentLayer->setContentsImage(image->nativeImageForCurrentFrame());
     }
-    if (m_haveImage && !image)
+    if (!image && m_image) {
         m_contentLayer->setContentsImage(0);
+        m_image->deref();
+        m_image = 0;
+    }
 
     setNeedsDisplay();
     askForSync();

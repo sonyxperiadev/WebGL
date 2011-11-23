@@ -268,7 +268,7 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
     }
 
     if (m_frontTexture->readyFor(this)) {
-        if (isLayerTile())
+        if (isLayerTile() && m_painter && m_painter->transform())
             TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
                                                               rect, m_frontTexture->m_ownTextureId,
                                                               transparency, true);

@@ -260,7 +260,7 @@ public:
     /** This sets a content image -- calling it means we will use
         the image directly when drawing the layer instead of using
         the content painted by WebKit.
-        Images are handled in TilesManager, as they can be shared
+        Images are handled in ImagesManager, as they can be shared
         between layers.
     */
     void setContentsImage(SkBitmapRef* img);
@@ -298,8 +298,6 @@ public:
     bool updateWithTree(LayerAndroid*);
     virtual bool updateWithLayer(LayerAndroid*);
 
-    SkBitmapRef* imageRef() { return m_imageRef; }
-    ImageTexture* imageTexture() { return m_imageTexture; }
     int type() { return m_type; }
 
     bool hasText() { return m_hasText; }
@@ -387,8 +385,7 @@ private:
     int m_uniqueId;
 
     PaintedSurface* m_texture;
-    SkBitmapRef* m_imageRef;
-    ImageTexture* m_imageTexture;
+    unsigned m_imageCRC;
 
     unsigned int m_pictureUsed;
 

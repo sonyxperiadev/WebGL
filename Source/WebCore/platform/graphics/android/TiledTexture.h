@@ -39,11 +39,9 @@ class SkCanvas;
 
 namespace WebCore {
 
-class PaintedSurface;
-
 class TiledTexture : public TilePainter {
 public:
-    TiledTexture(PaintedSurface* surface)
+    TiledTexture(SurfacePainter* surface)
         : m_paintingPicture(0)
         , m_surface(surface)
         , m_prevTileX(0)
@@ -82,8 +80,6 @@ public:
     float scale() { return m_scale; }
     bool ready();
 
-    PaintedSurface* surface() { return m_surface; }
-
     int nbTextures(IntRect& area, float scale);
 
 private:
@@ -95,7 +91,7 @@ private:
     android::Mutex m_paintingPictureSync;
     SkPicture* m_paintingPicture;
 
-    PaintedSurface* m_surface;
+    SurfacePainter* m_surface;
     Vector<BaseTile*> m_tiles;
 
     // tile coordinates in viewport, set in prepare()
@@ -112,7 +108,7 @@ private:
 
 class DualTiledTexture {
 public:
-    DualTiledTexture(PaintedSurface* surface);
+    DualTiledTexture(SurfacePainter* surface);
     ~DualTiledTexture();
     void prepare(GLWebViewState* state, float scale, bool repaint,
                  bool startFastSwap, IntRect& area);

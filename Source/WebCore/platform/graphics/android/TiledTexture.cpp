@@ -204,6 +204,7 @@ void TiledTexture::prepareTile(bool repaint, int x, int y)
 
     if (tile->isDirty() || !tile->frontTexture())
         tile->reserveTexture();
+
     bool hasPicture = m_paintingPicture != 0; // safely read on UI thread, since only UI thread writes
     if (tile->backTexture() && tile->isDirty() && !tile->isRepaintPending() && hasPicture) {
         PaintTileOperation *operation = new PaintTileOperation(tile, m_surface);
@@ -229,6 +230,9 @@ int TiledTexture::nbTextures(IntRect& area, float scale)
 
 bool TiledTexture::draw()
 {
+    if (!m_surface)
+        return true;
+
     XLOG("TT %p draw", this);
 
 #ifdef DEBUG
@@ -257,8 +261,8 @@ bool TiledTexture::draw()
             rect.fTop = tile->y() * tileHeight;
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
-            XLOG("- [%d], { painter %x vs %x }, tile %x %d,%d at scale %.2f vs %.2f [ready: %d] dirty: %d",
-                 i, this, tile->painter(), tile, tile->x(), tile->y(),
+            XLOG("- [%d], { painter %x vs %x }, tile %x (layer tile: %d) %d,%d at scale %.2f vs %.2f [ready: %d] dirty: %d",
+                 i, this, tile->painter(), tile, tile->isLayerTile(), tile->x(), tile->y(),
                  tile->scale(), m_scale, tile->isTileReady(), tile->isDirty());
             tile->draw(m_surface->opacity(), rect, m_scale);
 #ifdef DEBUG
@@ -283,7 +287,7 @@ bool TiledTexture::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* picture
         return false;
     }
 
-    XLOG("TT %p painting with picture %p", this, picture);
+    XLOG("TT %p painting tile %d, %d with picture %p", this, tile->x(), tile->y(), picture);
 
     canvas->drawPicture(*picture);
 
@@ -294,6 +298,8 @@ bool TiledTexture::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* picture
 
 const TransformationMatrix* TiledTexture::transform()
 {
+    if (!m_surface)
+        return 0;
     return m_surface->transform();
 }
 
@@ -323,7 +329,7 @@ bool TiledTexture::owns(BaseTileTexture* texture)
     return false;
 }
 
-DualTiledTexture::DualTiledTexture(PaintedSurface* surface)
+DualTiledTexture::DualTiledTexture(SurfacePainter* surface)
 {
     m_textureA = new TiledTexture(surface);
     m_textureB = new TiledTexture(surface);

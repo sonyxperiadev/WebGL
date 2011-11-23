@@ -88,6 +88,8 @@ public:
     void gatherLayerTextures();
     void gatherTextures();
     bool layerTexturesRemain() { return m_layerTexturesRemain; }
+    void gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
+                               int* nbLayerTextures, int* nbAllocatedLayerTextures);
 
     BaseTileTexture* getAvailableTexture(BaseTile* owner);
 
