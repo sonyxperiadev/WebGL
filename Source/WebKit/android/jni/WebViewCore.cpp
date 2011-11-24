@@ -897,17 +897,15 @@ BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
     BaseLayerAndroid* base = new BaseLayerAndroid();
     base->setContent(m_content);
 
-    if (!region->isEmpty()) {
-        m_skipContentDraw = true;
-        bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
-        m_skipContentDraw = false;
-        // Layout only fails if called during a layout.
-        LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
-    }
+    m_skipContentDraw = true;
+    bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
+    m_skipContentDraw = false;
+    // Layout only fails if called during a layout.
+    LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
 
 #if USE(ACCELERATED_COMPOSITING)
     // We set the background color
-    if (!region->isEmpty() && m_mainFrame && m_mainFrame->document()
+    if (m_mainFrame && m_mainFrame->document()
         && m_mainFrame->document()->body()) {
         Document* document = m_mainFrame->document();
         RefPtr<RenderStyle> style = document->styleForElementIgnoringPendingStylesheets(document->body());
