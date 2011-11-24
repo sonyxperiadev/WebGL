@@ -573,11 +573,18 @@ void SVGInlineTextBox::paintDecorationWithStyle(GraphicsContext* context, ETextD
         width *= scalingFactor;
         decorationOrigin.scale(scalingFactor, scalingFactor);
 
+#if PLATFORM(ANDROID)
+        // Android does not support GraphicsContext::setCTM().
+        AffineTransform scaleTransform;
+        scaleTransform.scale(1 / scalingFactor);
+        context->concatCTM(scaleTransform);
+#else
         AffineTransform newTransform = context->getCTM();
         newTransform.scale(1 / scalingFactor);
         normalizeTransform(newTransform);
 
         context->setCTM(newTransform);
+#endif
     }
 
     decorationOrigin.move(0, -scaledFontMetrics.floatAscent() + positionOffsetForDecoration(decoration, scaledFontMetrics, thickness));
@@ -622,6 +629,13 @@ void SVGInlineTextBox::paintTextWithShadows(GraphicsContext* context, RenderStyl
 
         AffineTransform originalTransform;
         if (scalingFactor != 1) {
+#if PLATFORM(ANDROID)
+            // Android does not support GraphicsContext::setCTM().
+            context->save();
+            AffineTransform scaleTransform;
+            scaleTransform.scale(1 / scalingFactor);
+            context->concatCTM(scaleTransform);
+#else
             originalTransform = context->getCTM();
 
             AffineTransform newTransform = originalTransform;
@@ -629,12 +643,18 @@ void SVGInlineTextBox::paintTextWithShadows(GraphicsContext* context, RenderStyl
             normalizeTransform(newTransform);
 
             context->setCTM(newTransform);
+#endif
         }
 
         scaledFont.drawText(context, textRun, textOrigin + extraOffset, startPosition, endPosition);
 
         if (scalingFactor != 1)
+#if PLATFORM(ANDROID)
+            // Android does not support GraphicsContext::setCTM().
+            context->restore();
+#else
             context->setCTM(originalTransform);
+#endif
 
         restoreGraphicsContextAfterTextPainting(context, textRun);
 

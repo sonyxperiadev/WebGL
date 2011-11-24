@@ -1207,10 +1207,11 @@ AffineTransform GraphicsContext::getCTM() const
 
 void GraphicsContext::setCTM(const AffineTransform& transform)
 {
-    if (paintingDisabled())
-        return;
-
-    GC2CANVAS(this)->setMatrix(transform);
+    // The SkPicture mode of Skia does not support SkCanvas::setMatrix(), so we
+    // can not simply use that method here. We could calculate the transform
+    // required to achieve the desired matrix and use SkCanvas::concat(), but
+    // there's currently no need for this.
+    ASSERT_NOT_REACHED();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
