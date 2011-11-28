@@ -370,8 +370,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
         updateLayerPositions(visibleRect);
         // For now, we render layers only if the rendering mode
         // is kAllTextures or kClippedTextures
-        if (m_state->layersRenderingMode() < GLWebViewState::kScrollableAndFixedLayers
-            && compositedRoot->drawGL()) {
+        if (compositedRoot->drawGL()) {
             if (TilesManager::instance()->layerTexturesRemain()) {
                 // only try redrawing for layers if layer textures remain,
                 // otherwise we'll repaint without getting anything done

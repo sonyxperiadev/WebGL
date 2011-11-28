@@ -379,6 +379,9 @@ bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
     if (nbTexturesNeeded.full < maxTextures)
         m_layersRenderingMode = kAllTextures;
 
+    if (!maxTextures && !nbTexturesNeeded.full)
+        m_layersRenderingMode = kAllTextures;
+
     if (m_layersRenderingMode < layersRenderingMode
         && m_layersRenderingMode != kAllTextures)
         invalBase = true;
