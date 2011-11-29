@@ -562,6 +562,15 @@ void GLUtils::createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
 }
 
+void GLUtils::convertToTransformationMatrix(const float* matrix, TransformationMatrix& transformMatrix)
+{
+    transformMatrix.setMatrix(
+        matrix[0], matrix[1], matrix[2], matrix[3],
+        matrix[4], matrix[5], matrix[6], matrix[7],
+        matrix[8], matrix[9], matrix[10], matrix[11],
+        matrix[12], matrix[13], matrix[14], matrix[15]);
+}
+
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
