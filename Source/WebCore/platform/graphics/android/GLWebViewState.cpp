@@ -84,9 +84,9 @@ GLWebViewState::GLWebViewState()
     , m_goingLeft(false)
     , m_expandedTileBoundsX(0)
     , m_expandedTileBoundsY(0)
+    , m_highEndGfx(false)
     , m_scale(1)
     , m_layersRenderingMode(kAllTextures)
-    , m_highEndGfx(false)
 {
     m_viewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
@@ -431,7 +431,8 @@ void GLWebViewState::fullInval()
 
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& webViewRect, int titleBarHeight,
-                            IntRect& clip, float scale, bool* buffersSwappedPtr)
+                            IntRect& clip, float scale,
+                            bool* treesSwappedPtr, bool* newTreeHasAnimPtr)
 {
     m_scale = scale;
     TilesManager::instance()->getProfiler()->nextFrame(viewport.fLeft,
@@ -488,7 +489,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     bool fastSwap = isScrolling() || m_layersRenderingMode == kSingleSurfaceRendering;
     ret |= m_treeManager.drawGL(currentTime, rect, viewport,
                                 scale, fastSwap,
-                                buffersSwappedPtr, &nbTexturesNeeded);
+                                treesSwappedPtr, newTreeHasAnimPtr,
+                                &nbTexturesNeeded);
     if (!ret)
         resetFrameworkInval();
 

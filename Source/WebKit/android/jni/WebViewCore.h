@@ -529,6 +529,7 @@ namespace android {
         // as we are calling layersSync().
         BaseLayerAndroid* createBaseLayer(SkRegion*);
         bool updateLayers(LayerAndroid*);
+        void notifyAnimationStarted();
 
         int textWrapWidth() const { return m_textWrapWidth; }
         float scale() const { return m_scale; }

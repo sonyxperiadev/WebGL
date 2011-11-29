@@ -290,7 +290,7 @@ public:
     friend void android::cleanupImageRefs(LayerAndroid* layer);
 
     PaintedSurface* texture() { return m_texture; }
-    void obtainTextureForPainting(LayerAndroid* drawingTree);
+    void obtainTextureForPainting(LayerAndroid* drawingLayer);
 
     // Update layers using another tree. Only works for basic properties
     // such as the position, the transform. Return true if anything more
@@ -323,6 +323,7 @@ private:
     friend class CachedLayer::Debug; // debugging access only
 #endif
 
+    void copyAnimationStartTimes(LayerAndroid* oldLayer);
     void findInner(FindState&) const;
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;

@@ -885,11 +885,21 @@ bool WebViewCore::updateLayers(LayerAndroid* layers)
     ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
     GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
     if (root) {
-        root->notifyClientAnimationStarted();
         LayerAndroid* updatedLayer = root->contentLayer();
         return layers->updateWithTree(updatedLayer);
     }
     return true;
+}
+
+void WebViewCore::notifyAnimationStarted()
+{
+    // We notify webkit that the animations have begun
+    // TODO: handle case where not all have begun
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
+    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
+    if (root)
+        root->notifyClientAnimationStarted();
+
 }
 
 BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
@@ -920,7 +930,6 @@ BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
     ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
     GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
     if (root) {
-        root->notifyClientAnimationStarted();
         LayerAndroid* copyLayer = new LayerAndroid(*root->contentLayer());
         base->addChild(copyLayer);
         copyLayer->unref();
@@ -4104,9 +4113,9 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
         m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
-static bool UpdateLayers(JNIEnv *env, jobject obj, jint jbaseLayer)
+static bool UpdateLayers(JNIEnv *env, jobject obj, jint nativeClass, jint jbaseLayer)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = (WebViewCore*) nativeClass;
     BaseLayerAndroid* baseLayer = (BaseLayerAndroid*)  jbaseLayer;
     if (baseLayer) {
         LayerAndroid* root = static_cast<LayerAndroid*>(baseLayer->getChild(0));
@@ -4114,6 +4123,12 @@ static bool UpdateLayers(JNIEnv *env, jobject obj, jint jbaseLayer)
             return viewImpl->updateLayers(root);
     }
     return true;
+}
+
+static void NotifyAnimationStarted(JNIEnv *env, jobject obj, jint nativeClass)
+{
+    WebViewCore* viewImpl = (WebViewCore*) nativeClass;
+    viewImpl->notifyAnimationStarted();
 }
 
 static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
@@ -4695,8 +4710,10 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
         (void*) GetContentMinPrefWidth },
-    { "nativeUpdateLayers", "(I)Z",
+    { "nativeUpdateLayers", "(II)Z",
         (void*) UpdateLayers },
+    { "nativeNotifyAnimationStarted", "(I)V",
+        (void*) NotifyAnimationStarted },
     { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)I",
         (void*) RecordContent },
     { "setViewportSettingsFromNative", "()V",

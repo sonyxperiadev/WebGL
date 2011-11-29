@@ -331,6 +331,9 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
 
 void GraphicsLayerAndroid::setBackfaceVisibility(bool b)
 {
+    if (b == m_backfaceVisibility)
+        return;
+
     GraphicsLayer::setBackfaceVisibility(b);
     m_contentLayer->setBackfaceVisibility(b);
     askForSync();
@@ -397,7 +400,7 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
 
 void GraphicsLayerAndroid::setBackgroundColor(const Color& color)
 {
-    if (color == m_backgroundColor)
+    if (color == m_backgroundColor && m_backgroundColorSet)
         return;
     LOG("(%x) setBackgroundColor", this);
     GraphicsLayer::setBackgroundColor(color);
@@ -409,6 +412,9 @@ void GraphicsLayerAndroid::setBackgroundColor(const Color& color)
 
 void GraphicsLayerAndroid::clearBackgroundColor()
 {
+    if (!m_backgroundColorSet)
+        return;
+
     LOG("(%x) clearBackgroundColor", this);
     GraphicsLayer::clearBackgroundColor();
     askForSync();

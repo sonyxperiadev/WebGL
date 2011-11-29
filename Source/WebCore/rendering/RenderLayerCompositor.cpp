@@ -1578,7 +1578,12 @@ bool RenderLayerCompositor::requiresCompositingForAnimation(RenderObject* render
         return false;
 
     if (AnimationController* animController = renderer->animation()) {
+#if PLATFORM(ANDROID)
+        // android renders an opacity animation much faster if it's composited
+        return (animController->isRunningAnimationOnRenderer(renderer, CSSPropertyOpacity))
+#else
         return (animController->isRunningAnimationOnRenderer(renderer, CSSPropertyOpacity) && inCompositingMode())
+#endif
             || animController->isRunningAnimationOnRenderer(renderer, CSSPropertyWebkitTransform);
     }
     return false;
