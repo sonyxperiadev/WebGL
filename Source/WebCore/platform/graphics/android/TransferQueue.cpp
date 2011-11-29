@@ -97,7 +97,7 @@ void TransferQueue::initSharedSurfaceTextures(int width, int height)
 #endif
         m_ANW = new android::SurfaceTextureClient(m_sharedSurfaceTexture);
         m_sharedSurfaceTexture->setSynchronousMode(true);
-        m_sharedSurfaceTexture->setBufferCount(ST_BUFFER_NUMBER+1);
+        m_sharedSurfaceTexture->setBufferCount(ST_BUFFER_NUMBER);
 
         int result = native_window_set_buffers_geometry(m_ANW.get(),
                 width, height, HAL_PIXEL_FORMAT_RGBA_8888);
