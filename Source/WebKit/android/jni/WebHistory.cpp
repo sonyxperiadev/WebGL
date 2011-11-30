@@ -490,7 +490,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
 
     // Read the original url
     // Read the expected length of the string.
-    int l;
+    unsigned l;
     memcpy(&l, data, sizeofUnsigned);
     // Increment data pointer by the size of an unsigned int.
     data += sizeofUnsigned;
