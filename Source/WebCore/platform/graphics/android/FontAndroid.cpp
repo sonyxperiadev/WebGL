@@ -98,6 +98,10 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
         SkLayerDrawLooper* looper = new SkLayerDrawLooper;
         paint->setLooper(looper)->unref();
 
+        // The layerDrawLooper uses at the root paint to determine the text
+        // encoding so we need to make sure it is properly configured.
+        updateForFont(paint, font);
+
         // Specify the behavior of the looper
         SkLayerDrawLooper::LayerInfo info;
         info.fPaintBits = SkLayerDrawLooper::kEntirePaint_Bits;
