@@ -214,7 +214,8 @@ public:
 
     bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                 IntRect& webViewRect, int titleBarHeight,
-                IntRect& clip, float scale, bool* buffersSwappedPtr);
+                IntRect& clip, float scale,
+                bool* treesSwappedPtr, bool* newTreeHasAnimPtr);
 
 #ifdef MEASURES_PERF
     void dumpMeasures();

@@ -48,7 +48,7 @@ public:
 
     bool drawGL(double currentTime, IntRect& viewRect,
                 SkRect& visibleRect, float scale,
-                bool enterFastSwapMode, bool* buffersSwappedPtr,
+                bool enterFastSwapMode, bool* treesSwappedPtr, bool* newTreeHasAnimPtr,
                 TexturesResult* texturesResultPtr);
 
     void drawCanvas(SkCanvas* canvas, bool drawLayers);
@@ -70,10 +70,6 @@ private:
     Layer* m_queuedTree;
 
     bool m_fastSwapMode;
-
-    double m_animationOffset;
-    double m_lastFrameTime;
-    bool m_isAnimating;
 };
 
 } // namespace WebCore

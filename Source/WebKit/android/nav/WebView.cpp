@@ -172,7 +172,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
         "viewInvalidateDelayed", "(JIIII)V");
-    m_javaGlue.m_pageSwapCallback = GetJMethod(env, clazz, "pageSwapCallback", "()V");
+    m_javaGlue.m_pageSwapCallback = GetJMethod(env, clazz, "pageSwapCallback", "(Z)V");
     m_javaGlue.m_inFullScreenMode = GetJMethod(env, clazz, "inFullScreenMode", "()Z");
     m_javaGlue.m_getTextHandleScale = GetJMethod(env, clazz, "getTextHandleScale", "()F");
     env->DeleteLocalRef(clazz);
@@ -505,17 +505,18 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
     // once the correct scale is set
     if (!m_visibleRect.hasValidCoordinates())
         return false;
-    bool pagesSwapped = false;
+    bool treesSwapped = false;
+    bool newTreeHasAnim = false;
     bool ret = m_glWebViewState->drawGL(viewRect, m_visibleRect, invalRect,
                                         webViewRect, titleBarHeight, clip, scale,
-                                        &pagesSwapped);
-    if (m_pageSwapCallbackRegistered && pagesSwapped) {
+                                        &treesSwapped, &newTreeHasAnim);
+    if (treesSwapped && (m_pageSwapCallbackRegistered || newTreeHasAnim)) {
         m_pageSwapCallbackRegistered = false;
         LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         AutoJObject javaObject = m_javaGlue.object(env);
         if (javaObject.get()) {
-            env->CallVoidMethod(javaObject.get(), m_javaGlue.m_pageSwapCallback);
+            env->CallVoidMethod(javaObject.get(), m_javaGlue.m_pageSwapCallback, newTreeHasAnim);
             checkException(env);
         }
     }

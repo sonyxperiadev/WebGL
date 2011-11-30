@@ -132,6 +132,10 @@ void TreeManager::clearTrees()
 // or start painting it if we aren't
 void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
 {
+    XLOG("updateWithTree - %p, has children %d, has animations %d",
+         newTree, newTree && newTree->countChildren(),
+         newTree && newTree->countChildren()
+             ? static_cast<LayerAndroid*>(newTree->getChild(0))->hasAnimations() : 0);
 
     // can't have a queued tree unless have a painting tree too
     ASSERT(m_paintingTree || !m_queuedTree);
@@ -143,10 +147,6 @@ void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
     if (!newTree || brandNew) {
         clearTrees();
         if (brandNew) {
-            m_animationOffset = 0;
-            m_isAnimating = false;
-            m_lastFrameTime = WTF::currentTime();
-
             m_paintingTree = newTree;
             m_paintingTree->setIsPainting(m_drawingTree);
         }
@@ -159,6 +159,11 @@ void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
             // have a queued tree, copy over invals so the regions are
             // eventually repainted
             m_queuedTree->mergeInvalsInto(newTree);
+
+            XLOG("DISCARDING tree - %p, has children %d, has animations %d",
+                 newTree, newTree && newTree->countChildren(),
+                 newTree && newTree->countChildren()
+                     ? static_cast<LayerAndroid*>(newTree->getChild(0))->hasAnimations() : 0);
         }
         SkSafeUnref(m_queuedTree);
         m_queuedTree = newTree;
@@ -172,7 +177,7 @@ void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
 
 bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
                          SkRect& visibleRect, float scale,
-                         bool enterFastSwapMode, bool* buffersSwappedPtr,
+                         bool enterFastSwapMode, bool* treesSwappedPtr, bool* newTreeHasAnimPtr,
                          TexturesResult* texturesResultPtr)
 {
     m_fastSwapMode |= enterFastSwapMode;
@@ -185,17 +190,20 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
     if (m_paintingTree) {
         ret |= m_paintingTree->prepare(currentTime, viewRect,
                                        visibleRect, scale);
+        LayerAndroid* laTree = 0;
 
         if (m_paintingTree->countChildren()) {
-            LayerAndroid* laTree = static_cast<LayerAndroid*>(m_paintingTree->getChild(0));
+            laTree = static_cast<LayerAndroid*>(m_paintingTree->getChild(0));
             laTree->computeTexturesAmount(texturesResultPtr);
         }
         if (/*!m_fastSwapMode && */ m_paintingTree->isReady()) {
             XLOG("have painting tree %p ready, swapping!", m_paintingTree);
             didTreeSwap = true;
             swap();
-            if (buffersSwappedPtr)
-                *buffersSwappedPtr = true;
+            if (treesSwappedPtr)
+                *treesSwappedPtr = true;
+            if (laTree && newTreeHasAnimPtr)
+                *newTreeHasAnimPtr = laTree->hasAnimations();
         }
     } else if (m_drawingTree) {
         XLOG("preparing drawing tree %p", m_drawingTree);
@@ -207,17 +215,11 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
         }
     }
 
-    if (!m_isAnimating) {
-        m_animationOffset += currentTime - m_lastFrameTime;
-#ifdef ANIM_DEBUG
-        XLOGC("adding to %f", m_animationOffset);
-#endif
-    }
 
     if (m_drawingTree) {
         bool drawingReady = didTreeSwap || m_drawingTree->isReady();
 
-        if (drawingReady || m_fastSwapMode)
+        if (didTreeSwap || m_fastSwapMode || (drawingReady && !m_paintingTree))
             m_drawingTree->swapTiles();
 
         if (drawingReady) {
@@ -229,18 +231,8 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
         }
 
         if (m_drawingTree->countChildren()) {
-#ifdef ANIM_DEBUG
-            XLOGC("drawing tree %p with animation time offset of %f, locked %d",
-                  m_drawingTree, m_animationOffset, m_isAnimating);
-#endif
             LayerAndroid* laTree = static_cast<LayerAndroid*>(m_drawingTree->getChild(0));
-            m_isAnimating = laTree->evaluateAnimations(currentTime - m_animationOffset);
-            if (!m_isAnimating)
-                m_animationOffset = 0;
-            ret |= m_isAnimating;
-        } else if (!m_paintingTree) {
-            m_animationOffset = 0;
-            m_isAnimating = false;
+            ret |= laTree->evaluateAnimations(currentTime);
         }
         XLOG("drawing tree %p", m_drawingTree);
         ret |= m_drawingTree->drawGL(viewRect, visibleRect, scale);
@@ -249,8 +241,6 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
         Color defaultBackground = Color::white;
         m_paintingTree->state()->drawBackground(defaultBackground);
     }
-
-    m_lastFrameTime = currentTime;
 
     if (m_paintingTree) {
         XLOG("still have painting tree %p", m_paintingTree);

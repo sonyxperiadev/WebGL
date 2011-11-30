@@ -879,6 +879,12 @@ void LayerAndroid::setIsDrawing(bool isDrawing)
         m_texture->setDrawingLayer(isDrawing ? this : 0);
         m_texture->clearPaintingLayer();
     }
+
+    // tell auto-initializing animations to start now
+    KeyframesMap::const_iterator localBegin = m_animations.begin();
+    KeyframesMap::const_iterator localEnd = m_animations.end();
+    for (KeyframesMap::const_iterator localIt = localBegin; localIt != localEnd; ++localIt)
+        (localIt->second)->suggestBeginTime(WTF::currentTime());
 }
 
 void LayerAndroid::setIsPainting(Layer* drawingTree)
@@ -889,7 +895,34 @@ void LayerAndroid::setIsPainting(Layer* drawingTree)
     for (int i = 0; i < count; i++)
         this->getChild(i)->setIsPainting(drawingTree);
 
-    obtainTextureForPainting(static_cast<LayerAndroid*>(drawingTree));
+
+    LayerAndroid* drawingLayer = 0;
+    if (drawingTree)
+        drawingLayer = static_cast<LayerAndroid*>(drawingTree)->findById(uniqueId());
+
+    copyAnimationStartTimes(drawingLayer);
+    obtainTextureForPainting(drawingLayer);
+}
+
+void LayerAndroid::copyAnimationStartTimes(LayerAndroid* oldLayer)
+{
+    if (!oldLayer)
+        return;
+
+    // copy animation start times, if applicable
+    KeyframesMap::const_iterator localBegin = m_animations.begin();
+    KeyframesMap::const_iterator localEnd = m_animations.end();
+    for (KeyframesMap::const_iterator localIt = localBegin; localIt != localEnd; ++localIt) {
+        KeyframesMap::const_iterator oldBegin = oldLayer->m_animations.begin();
+        KeyframesMap::const_iterator oldEnd = oldLayer->m_animations.end();
+        for (KeyframesMap::const_iterator oldIt = oldBegin; oldIt != oldEnd; ++oldIt) {
+            if ((localIt->second)->uniqueId() == (oldIt->second)->uniqueId()) {
+                // animations are identical, try to copy start time of the old
+                // one, which will have been initialized some time in the past
+                (localIt->second)->suggestBeginTime((oldIt->second)->beginTime());
+            }
+        }
+    }
 }
 
 void LayerAndroid::mergeInvalsInto(Layer* replacementTree)
@@ -960,7 +993,7 @@ bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
     return false;
 }
 
-void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingTree)
+void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingLayer)
 {
     if (!needsTexture())
         return;
@@ -976,12 +1009,9 @@ void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingTree)
             m_texture = 0;
         }
     } else {
-        if (drawingTree) {
-            LayerAndroid* drawingLayer = drawingTree->findById(uniqueId());
-            if (drawingLayer) {
-                // if a previous tree had the same layer, paint with that painted surface
-                m_texture = drawingLayer->m_texture;
-            }
+        if (drawingLayer) {
+            // if a previous tree had the same layer, paint with that painted surface
+            m_texture = drawingLayer->m_texture;
         }
 
         if (!m_texture)
