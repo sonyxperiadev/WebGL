@@ -364,6 +364,7 @@ void DualTiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
     if (m_zooming && m_zoomUpdateTime < WTF::currentTime()) {
         m_backTexture->prepare(state, m_futureScale, repaint, startFastSwap, visibleArea);
         if (m_backTexture->ready()) {
+            m_backTexture->swapTiles();
             swap();
             m_zooming = false;
         }
