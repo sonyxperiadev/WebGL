@@ -242,9 +242,6 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     int nbTilesWidth = tileBounds.width();
     int nbTilesHeight = tileBounds.height();
 
-    int lastTileX = tileBounds.fRight - 1;
-    int lastTileY = tileBounds.fBottom - 1;
-
     // Expand number of tiles to allow tiles outside of viewport to be prepared for
     // smoother scrolling.
     int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
@@ -256,21 +253,27 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
         int expandY = m_glWebViewState->expandedTileBoundsY();
 
         firstTileX -= expandX;
-        lastTileX += expandX;
         nbTilesWidth += expandX * 2;
 
         firstTileY -= expandY;
-        lastTileY += expandY;
         nbTilesHeight += expandY * 2;
     }
 
     // crop the prepared region to the contents of the base layer
     float maxWidthTiles = m_glWebViewState->baseContentWidth() * m_scale / TilesManager::tileWidth();
     float maxHeightTiles = m_glWebViewState->baseContentHeight() * m_scale / TilesManager::tileHeight();
-    firstTileX = std::max(0, firstTileX);
-    firstTileY = std::max(0, firstTileY);
-    lastTileX = std::min(lastTileX, static_cast<int>(ceilf(maxWidthTiles)) - 1);
-    lastTileY = std::min(lastTileY, static_cast<int>(ceilf(maxHeightTiles)) - 1);
+
+    // adjust perimeter to not go outside base content bounds
+    if (firstTileX < 0) {
+        nbTilesWidth += firstTileX;
+        firstTileX = 0;
+    }
+    if (firstTileY < 0) {
+        nbTilesHeight += firstTileY;
+        firstTileY = 0;
+    }
+    nbTilesWidth = std::min(nbTilesWidth, static_cast<int>(ceilf(maxWidthTiles)) - firstTileX);
+    nbTilesHeight = std::min(nbTilesHeight, static_cast<int>(ceilf(maxHeightTiles)) - firstTileY);
 
     // check against corrupted scale values giving bad height/width (use float to avoid overflow)
     float numTiles = static_cast<float>(nbTilesHeight) * static_cast<float>(nbTilesWidth);
