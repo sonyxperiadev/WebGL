@@ -1562,6 +1562,13 @@ void RenderBox::computeLogicalWidth()
     // https://bugs.webkit.org/show_bug.cgi?id=46418
     if (hasOverrideSize() &&  parent()->style()->boxOrient() == HORIZONTAL
             && parent()->isFlexibleBox() && parent()->isFlexingChildren()) {
+#if PLATFORM(ANDROID)
+        // Strangely, the slider is get overrided as width 0 on youtube.com
+        // The wrong width will cause the touch hit test for the slider failed.
+        // This WAR should be safe since it is only targeted to slider.
+        // TODO: root cause this and see if any webkit update fix this.
+        if (!(isSlider() &&  overrideSize() == 0))
+#endif
         setLogicalWidth(overrideSize());
         return;
     }
