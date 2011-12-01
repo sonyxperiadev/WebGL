@@ -28,6 +28,7 @@
 
 #include "Layer.h"
 #include "BaseLayerAndroid.h"
+#include "ScrollableLayerAndroid.h"
 #include "TilesManager.h"
 
 #include <cutils/log.h>
@@ -173,6 +174,23 @@ void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
     // don't have painting tree, paint this one!
     m_paintingTree = newTree;
     m_paintingTree->setIsPainting(m_drawingTree);
+}
+
+void TreeManager::updateScrollableLayerInTree(Layer* tree, int layerId, int x, int y)
+{
+    LayerAndroid* layer;
+    if (tree && tree->countChildren()) {
+        layer = static_cast<LayerAndroid*>(tree->getChild(0))->findById(layerId);
+        if (layer && layer->contentIsScrollable())
+            static_cast<ScrollableLayerAndroid*>(layer)->scrollTo(x, y);
+    }
+}
+
+void TreeManager::updateScrollableLayer(int layerId, int x, int y)
+{
+    updateScrollableLayerInTree(m_queuedTree, layerId, x, y);
+    updateScrollableLayerInTree(m_paintingTree, layerId, x, y);
+    updateScrollableLayerInTree(m_drawingTree, layerId, x, y);
 }
 
 bool TreeManager::drawGL(double currentTime, IntRect& viewRect,

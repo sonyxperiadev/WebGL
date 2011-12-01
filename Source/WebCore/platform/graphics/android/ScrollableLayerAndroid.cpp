@@ -22,9 +22,6 @@ bool ScrollableLayerAndroid::scrollTo(int x, int y)
 
     setPosition(m_scrollLimits.fLeft - newX, m_scrollLimits.fTop - newY);
 
-    if (state())
-        state()->scrolledLayer(this);
-
     return true;
 }
 
