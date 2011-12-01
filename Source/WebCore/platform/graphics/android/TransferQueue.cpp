@@ -50,7 +50,7 @@
 
 #endif // DEBUG
 
-#define ST_BUFFER_NUMBER 4
+#define ST_BUFFER_NUMBER 6
 
 // Set this to 1 if we would like to take the new GpuUpload approach which
 // relied on the glCopyTexSubImage2D instead of a glDraw call
