@@ -2096,6 +2096,15 @@ static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
     return input->getType();
 }
 
+static int nativeFocusCandidateLayerId(JNIEnv *env, jobject obj)
+{
+    const CachedFrame* frame;
+    const CachedNode* node = getFocusNode(env, obj, &frame);
+    if (!node)
+        return -1;
+    return frame->layer(node)->uniqueId();
+}
+
 static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
 {
     const CachedNode* node = getFocusNode(env, obj);
@@ -2791,6 +2800,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateTextSize },
     { "nativeFocusCandidateType", "()I",
         (void*) nativeFocusCandidateType },
+    { "nativeFocusCandidateLayerId", "()I",
+        (void*) nativeFocusCandidateLayerId },
     { "nativeFocusIsPlugin", "()Z",
         (void*) nativeFocusIsPlugin },
     { "nativeFocusNodeBounds", "()Landroid/graphics/Rect;",
