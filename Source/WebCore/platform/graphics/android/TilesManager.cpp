@@ -189,6 +189,23 @@ void TilesManager::deallocateTexturesVector(unsigned long long sparedDrawCount,
          dealloc, max, maxLayer);
 }
 
+void TilesManager::gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
+                                        int* nbLayerTextures, int* nbAllocatedLayerTextures)
+{
+    *nbTextures = m_textures.size();
+    for (unsigned int i = 0; i < m_textures.size(); i++) {
+        BaseTileTexture* texture = m_textures[i];
+        if (texture->m_ownTextureId)
+            *nbAllocatedTextures += 1;
+    }
+    *nbLayerTextures = m_tilesTextures.size();
+    for (unsigned int i = 0; i < m_tilesTextures.size(); i++) {
+        BaseTileTexture* texture = m_tilesTextures[i];
+        if (texture->m_ownTextureId)
+            *nbAllocatedLayerTextures += 1;
+    }
+}
+
 void TilesManager::printTextures()
 {
 #ifdef DEBUG

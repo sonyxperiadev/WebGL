@@ -149,8 +149,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_recordingPicture(0),
     m_uniqueId(++gUniqueId),
     m_texture(0),
-    m_imageRef(0),
-    m_imageTexture(0),
+    m_imageCRC(0),
     m_pictureUsed(0),
     m_scale(1),
     m_lastComputeTextureSize(0),
@@ -174,15 +173,15 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_isIframe(layer.m_isIframe),
     m_uniqueId(layer.m_uniqueId),
     m_texture(0),
-    m_imageTexture(0),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
     m_hasText(true)
 {
     m_isFixed = layer.m_isFixed;
-    m_imageRef = layer.m_imageRef;
-    if (m_imageRef)
-        ImagesManager::instance()->addImage(m_imageRef);
+    m_imageCRC = layer.m_imageCRC;
+    if (m_imageCRC)
+        ImagesManager::instance()->retainImage(m_imageCRC);
+
     m_renderLayerPos = layer.m_renderLayerPos;
     m_transform = layer.m_transform;
     m_backfaceVisibility = layer.m_backfaceVisibility;
@@ -223,7 +222,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_hasText = layer.m_hasText;
 
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("LayerAndroid - recopy (UI?)");
+    ClassTracker::instance()->increment("LayerAndroid - recopy (UI)");
     ClassTracker::instance()->add(this);
 #endif
 }
@@ -252,8 +251,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_recordingPicture(picture),
     m_uniqueId(++gUniqueId),
     m_texture(0),
-    m_imageRef(0),
-    m_imageTexture(0),
+    m_imageCRC(0),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(0),
@@ -272,8 +270,9 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
 
 LayerAndroid::~LayerAndroid()
 {
-    if (m_imageTexture)
-        ImagesManager::instance()->removeImage(m_imageTexture->imageRef());
+    if (m_imageCRC)
+        ImagesManager::instance()->releaseImage(m_imageCRC);
+
     SkSafeUnref(m_recordingPicture);
     m_animations.clear();
 #ifdef DEBUG_COUNT
@@ -761,16 +760,14 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
 
 void LayerAndroid::setContentsImage(SkBitmapRef* img)
 {
-    m_imageRef = img;
-    if (!img)
-        return;
-
-    ImagesManager::instance()->addImage(img);
+    ImageTexture* image = ImagesManager::instance()->setImage(img);
+    ImagesManager::instance()->releaseImage(m_imageCRC);
+    m_imageCRC = image ? image->imageCRC() : 0;
 }
 
 bool LayerAndroid::needsTexture()
 {
-    return m_imageRef || (m_recordingPicture
+    return m_imageCRC || (m_recordingPicture
         && m_recordingPicture->width() && m_recordingPicture->height());
 }
 
@@ -841,10 +838,11 @@ void LayerAndroid::showLayer(int indent)
     IntRect visible = visibleArea();
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
                  m_clippingRect.width(), m_clippingRect.height());
-    XLOGC("%s [%d:0x%x] - %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
+    XLOGC("%s [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
           "clip (%d, %d, %d, %d) %s %s prepareContext(%x), pic w: %d h: %d",
           spaces, uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
+          m_imageCRC ? "has an image" : "no image",
           tr.x(), tr.y(), tr.width(), tr.height(),
           visible.x(), visible.y(), visible.width(), visible.height(),
           clip.x(), clip.y(), clip.width(), clip.height(),
@@ -983,11 +981,11 @@ bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
     m_opacity = layer->m_opacity;
     m_transform = layer->m_transform;
 
-    if (m_imageRef != layer->m_imageRef)
+    if (m_imageCRC != layer->m_imageCRC)
         m_visible = false;
 
     if ((m_recordingPicture != layer->m_recordingPicture)
-        || (m_imageRef != layer->m_imageRef))
+        || (m_imageCRC != layer->m_imageCRC))
         return true;
 
     return false;
@@ -998,11 +996,7 @@ void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingLayer)
     if (!needsTexture())
         return;
 
-    if (m_imageRef) {
-        if (!m_imageTexture) {
-            m_imageTexture = ImagesManager::instance()->getTextureForImage(m_imageRef);
-            m_dirtyRegion.setEmpty();
-        }
+    if (m_imageCRC) {
         if (m_texture) {
             m_texture->setDrawingLayer(0);
             m_texture->clearPaintingLayer();
@@ -1019,8 +1013,8 @@ void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingLayer)
 
         // pass the invalidated regions to the PaintedSurface
         m_texture->setPaintingLayer(this, m_dirtyRegion);
-        m_dirtyRegion.setEmpty();
     }
+    m_dirtyRegion.setEmpty();
 }
 
 
@@ -1062,9 +1056,6 @@ void LayerAndroid::prepare()
 
     if (m_texture)
         m_texture->prepare(m_state);
-
-    if (m_imageTexture)
-        m_imageTexture->prepareGL();
 }
 
 IntRect LayerAndroid::unclippedArea()
@@ -1148,9 +1139,12 @@ bool LayerAndroid::drawGL()
     if (m_state->layersRenderingMode() < GLWebViewState::kScrollableAndFixedLayers) {
         if (m_texture)
             askScreenUpdate |= m_texture->draw();
-
-        if (m_imageTexture)
-            m_imageTexture->drawGL(this);
+        if (m_imageCRC) {
+            ImageTexture* imageTexture = ImagesManager::instance()->retainImage(m_imageCRC);
+            if (imageTexture)
+                imageTexture->drawGL(this);
+            ImagesManager::instance()->releaseImage(m_imageCRC);
+        }
     }
 
     // When the layer is dirty, the UI thread should be notified to redraw.
@@ -1248,16 +1242,15 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)
     if (canvasOpacity < 255)
         canvas->setDrawFilter(new OpacityDrawFilter(canvasOpacity));
 
-    if (m_imageRef) {
-        if (!m_imageTexture) {
-            m_imageTexture = ImagesManager::instance()->getTextureForImage(m_imageRef);
-            m_dirtyRegion.setEmpty();
-        }
-        if (m_imageTexture) {
+    if (m_imageCRC) {
+        ImageTexture* imageTexture = ImagesManager::instance()->retainImage(m_imageCRC);
+        m_dirtyRegion.setEmpty();
+        if (imageTexture) {
             SkRect dest;
             dest.set(0, 0, getSize().width(), getSize().height());
-            m_imageTexture->drawCanvas(canvas, dest);
+            imageTexture->drawCanvas(canvas, dest);
         }
+        ImagesManager::instance()->releaseImage(m_imageCRC);
     }
     contentDraw(canvas);
 }

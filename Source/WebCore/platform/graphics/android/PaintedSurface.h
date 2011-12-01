@@ -43,7 +43,7 @@ namespace WebCore {
 
 class DualTiledTexture;
 
-class PaintedSurface : public SkRefCnt {
+class PaintedSurface : public SurfacePainter {
 public:
     PaintedSurface();
     virtual ~PaintedSurface();
@@ -71,10 +71,10 @@ public:
 
     // TilePainter methods for TiledTexture
     virtual const TransformationMatrix* transform();
+    virtual float opacity();
 
     // used by TiledTexture
     float scale() { return m_scale; }
-    float opacity();
     unsigned int pictureUsed() { return m_pictureUsed; }
 
 private:
