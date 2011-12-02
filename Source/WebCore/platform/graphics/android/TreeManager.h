@@ -28,6 +28,7 @@
 
 #include "TestExport.h"
 #include <utils/threads.h>
+#include "PerformanceMonitor.h"
 
 class Layer;
 class SkRect;
@@ -46,6 +47,8 @@ public:
 
     void updateWithTree(Layer* tree, bool brandNew);
 
+    void updateScrollableLayer(int layerId, int x, int y);
+
     bool drawGL(double currentTime, IntRect& viewRect,
                 SkRect& visibleRect, float scale,
                 bool enterFastSwapMode, bool* treesSwappedPtr, bool* newTreeHasAnimPtr,
@@ -60,6 +63,8 @@ public:
     int baseContentHeight();
 
 private:
+    static void updateScrollableLayerInTree(Layer* tree, int layerId, int x, int y);
+
     void swap();
     void clearTrees();
 
@@ -70,6 +75,7 @@ private:
     Layer* m_queuedTree;
 
     bool m_fastSwapMode;
+    PerformanceMonitor m_perf;
 };
 
 } // namespace WebCore

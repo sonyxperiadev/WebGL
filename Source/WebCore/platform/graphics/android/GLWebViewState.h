@@ -248,7 +248,7 @@ public:
     };
 
     LayersRenderingMode layersRenderingMode() { return m_layersRenderingMode; }
-    void scrolledLayer(ScrollableLayerAndroid*);
+    void scrollLayer(int layerId, int x, int y);
 
     void invalRegion(const SkRegion& region);
 

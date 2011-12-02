@@ -1093,6 +1093,12 @@ int scrollableLayer(int x, int y, SkIRect* layerRect, SkIRect* bounds)
     return 0;
 }
 
+void scrollLayer(int layerId, int x, int y)
+{
+    if (m_glWebViewState)
+        m_glWebViewState->scrollLayer(layerId, x, y);
+}
+
 int getBlockLeftEdge(int x, int y, float scale)
 {
     CachedRoot* root = getFrameCache(AllowNewer);
@@ -2668,6 +2674,9 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     WebView* view = GET_NATIVE_VIEW(env, obj);
+    view->scrollLayer(layerId, x, y);
+
+    //TODO: the below only needed for the SW rendering path
     LayerAndroid* root = view->compositeRoot();
     if (!root)
         return false;

@@ -150,8 +150,10 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
     TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
 }
 
-void GLWebViewState::scrolledLayer(ScrollableLayerAndroid*)
+void GLWebViewState::scrollLayer(int layerId, int x, int y)
 {
+    m_treeManager.updateScrollableLayer(layerId, x, y);
+
     // TODO: only inval the area of the scrolled layer instead of
     // doing a fullInval()
     if (m_layersRenderingMode == kSingleSurfaceRendering)
