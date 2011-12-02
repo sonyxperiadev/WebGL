@@ -204,8 +204,12 @@ void BaseTile::markAsDirty(int unsigned pictureCount,
         }
         cliperator.next();
     }
+
+    /*
+      NOT FUNCTIONING CORRECTLY, TEMPORARILY DISABLED
     if (!intersect)
         return;
+    */
 
     m_dirty = true;
     if (m_state == UpToDate) {
