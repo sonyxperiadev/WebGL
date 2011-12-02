@@ -257,23 +257,27 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
 
         firstTileY -= expandY;
         nbTilesHeight += expandY * 2;
-
-        // crop the prepared region to the contents of the base layer
-        float maxWidthTiles = m_glWebViewState->baseContentWidth() * m_scale / TilesManager::tileWidth();
-        float maxHeightTiles = m_glWebViewState->baseContentHeight() * m_scale / TilesManager::tileHeight();
-
-        // adjust perimeter to not go outside base content bounds
-        if (firstTileX < 0) {
-            nbTilesWidth += firstTileX;
-            firstTileX = 0;
-        }
-        if (firstTileY < 0) {
-            nbTilesHeight += firstTileY;
-            firstTileY = 0;
-        }
-        nbTilesWidth = std::min(nbTilesWidth, static_cast<int>(ceilf(maxWidthTiles)) - firstTileX);
-        nbTilesHeight = std::min(nbTilesHeight, static_cast<int>(ceilf(maxHeightTiles)) - firstTileY);
     }
+
+    // crop the tile bounds in each dimension to the larger of the base layer or viewport
+    float maxBaseX = m_glWebViewState->baseContentWidth() * m_scale / TilesManager::tileWidth();
+    float maxBaseY = m_glWebViewState->baseContentHeight() * m_scale / TilesManager::tileHeight();
+    int maxX = std::max(static_cast<int>(ceilf(maxBaseX)),
+                        m_glWebViewState->viewportTileBounds().width());
+    int maxY = std::max(static_cast<int>(ceilf(maxBaseY)),
+                        m_glWebViewState->viewportTileBounds().height());
+
+    // adjust perimeter to not go outside cropped region
+    if (firstTileX < 0) {
+        nbTilesWidth += firstTileX;
+        firstTileX = 0;
+    }
+    if (firstTileY < 0) {
+        nbTilesHeight += firstTileY;
+        firstTileY = 0;
+    }
+    nbTilesWidth = std::min(nbTilesWidth, maxX - firstTileX);
+    nbTilesHeight = std::min(nbTilesHeight, maxY - firstTileY);
 
     // check against corrupted scale values giving bad height/width (use float to avoid overflow)
     float numTiles = static_cast<float>(nbTilesHeight) * static_cast<float>(nbTilesWidth);
