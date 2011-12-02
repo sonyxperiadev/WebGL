@@ -1465,8 +1465,11 @@ void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndic
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (layer) {
+        // TODO: the below tree copies are only necessary in software rendering
         LayerAndroid* newCompositeRoot = static_cast<LayerAndroid*>(layer->getChild(0));
         copyScrollPositionRecursive(compositeRoot(), newCompositeRoot);
+        if (newCompositeRoot)
+            newCompositeRoot->copyAnimationStartTimesRecursive(compositeRoot());
     }
 #endif
     SkSafeUnref(m_baseLayer);

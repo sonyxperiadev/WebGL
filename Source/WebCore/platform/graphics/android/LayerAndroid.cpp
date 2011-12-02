@@ -902,6 +902,20 @@ void LayerAndroid::setIsPainting(Layer* drawingTree)
     obtainTextureForPainting(drawingLayer);
 }
 
+void LayerAndroid::copyAnimationStartTimesRecursive(LayerAndroid* oldTree)
+{
+    // used for copying UI-side animation start times in software rendering mode
+    if (!oldTree)
+        return;
+
+    for (int i = 0; i < countChildren(); i++)
+        this->getChild(i)->copyAnimationStartTimesRecursive(oldTree);
+
+    LayerAndroid* layer = oldTree->findById(uniqueId());
+    if (layer)
+        copyAnimationStartTimes(layer);
+}
+
 void LayerAndroid::copyAnimationStartTimes(LayerAndroid* oldLayer)
 {
     if (!oldLayer)

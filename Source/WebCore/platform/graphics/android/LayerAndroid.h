@@ -303,6 +303,8 @@ public:
     bool hasText() { return m_hasText; }
     void checkTextPresence();
 
+    void copyAnimationStartTimesRecursive(LayerAndroid* oldTree);
+
 // rendering asset management
     void swapTiles();
     void setIsDrawing(bool isDrawing);
