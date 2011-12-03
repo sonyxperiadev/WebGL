@@ -214,6 +214,7 @@ public:
     void removeAnimationsForKeyframes(const String& name);
     bool evaluateAnimations();
     bool evaluateAnimations(double time);
+    void initAnimations();
     bool hasAnimations() const;
     void addDirtyArea();
 

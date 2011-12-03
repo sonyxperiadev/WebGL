@@ -215,8 +215,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 
     KeyframesMap::const_iterator end = layer.m_animations.end();
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it) {
-        pair<String, int> key((it->second)->name(), (it->second)->type());
-        m_animations.add(key, (it->second)->copy());
+        m_animations.add(it->first, it->second);
     }
 
     m_hasText = layer.m_hasText;
@@ -325,6 +324,17 @@ bool LayerAndroid::evaluateAnimations(double time)
     return hasRunningAnimations || m_hasRunningAnimations;
 }
 
+void LayerAndroid::initAnimations() {
+    // tell auto-initializing animations to start now
+    for (int i = 0; i < countChildren(); i++)
+        getChild(i)->initAnimations();
+
+    KeyframesMap::const_iterator localBegin = m_animations.begin();
+    KeyframesMap::const_iterator localEnd = m_animations.end();
+    for (KeyframesMap::const_iterator localIt = localBegin; localIt != localEnd; ++localIt)
+        (localIt->second)->suggestBeginTime(WTF::currentTime());
+}
+
 void LayerAndroid::addDirtyArea()
 {
     IntSize layerSize(getSize().width(), getSize().height());
@@ -369,7 +379,7 @@ void LayerAndroid::removeAnimationsForKeyframes(const String& name)
     }
 
     for (unsigned int i = 0; i < toDelete.size(); i++)
-            m_animations.remove(toDelete[i]);
+        m_animations.remove(toDelete[i]);
 }
 
 // We only use the bounding rect of the layer as mask...
@@ -877,12 +887,6 @@ void LayerAndroid::setIsDrawing(bool isDrawing)
         m_texture->setDrawingLayer(isDrawing ? this : 0);
         m_texture->clearPaintingLayer();
     }
-
-    // tell auto-initializing animations to start now
-    KeyframesMap::const_iterator localBegin = m_animations.begin();
-    KeyframesMap::const_iterator localEnd = m_animations.end();
-    for (KeyframesMap::const_iterator localIt = localBegin; localIt != localEnd; ++localIt)
-        (localIt->second)->suggestBeginTime(WTF::currentTime());
 }
 
 void LayerAndroid::setIsPainting(Layer* drawingTree)
@@ -898,43 +902,7 @@ void LayerAndroid::setIsPainting(Layer* drawingTree)
     if (drawingTree)
         drawingLayer = static_cast<LayerAndroid*>(drawingTree)->findById(uniqueId());
 
-    copyAnimationStartTimes(drawingLayer);
     obtainTextureForPainting(drawingLayer);
-}
-
-void LayerAndroid::copyAnimationStartTimesRecursive(LayerAndroid* oldTree)
-{
-    // used for copying UI-side animation start times in software rendering mode
-    if (!oldTree)
-        return;
-
-    for (int i = 0; i < countChildren(); i++)
-        this->getChild(i)->copyAnimationStartTimesRecursive(oldTree);
-
-    LayerAndroid* layer = oldTree->findById(uniqueId());
-    if (layer)
-        copyAnimationStartTimes(layer);
-}
-
-void LayerAndroid::copyAnimationStartTimes(LayerAndroid* oldLayer)
-{
-    if (!oldLayer)
-        return;
-
-    // copy animation start times, if applicable
-    KeyframesMap::const_iterator localBegin = m_animations.begin();
-    KeyframesMap::const_iterator localEnd = m_animations.end();
-    for (KeyframesMap::const_iterator localIt = localBegin; localIt != localEnd; ++localIt) {
-        KeyframesMap::const_iterator oldBegin = oldLayer->m_animations.begin();
-        KeyframesMap::const_iterator oldEnd = oldLayer->m_animations.end();
-        for (KeyframesMap::const_iterator oldIt = oldBegin; oldIt != oldEnd; ++oldIt) {
-            if ((localIt->second)->uniqueId() == (oldIt->second)->uniqueId()) {
-                // animations are identical, try to copy start time of the old
-                // one, which will have been initialized some time in the past
-                (localIt->second)->suggestBeginTime((oldIt->second)->beginTime());
-            }
-        }
-    }
 }
 
 void LayerAndroid::mergeInvalsInto(Layer* replacementTree)

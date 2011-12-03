@@ -1468,8 +1468,6 @@ void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndic
         // TODO: the below tree copies are only necessary in software rendering
         LayerAndroid* newCompositeRoot = static_cast<LayerAndroid*>(layer->getChild(0));
         copyScrollPositionRecursive(compositeRoot(), newCompositeRoot);
-        if (newCompositeRoot)
-            newCompositeRoot->copyAnimationStartTimesRecursive(compositeRoot());
     }
 #endif
     SkSafeUnref(m_baseLayer);
@@ -1915,10 +1913,13 @@ static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
 
 static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint nativeView)
 {
+    // only call in software rendering, initialize and evaluate animations
 #if USE(ACCELERATED_COMPOSITING)
     LayerAndroid* root = ((WebView*)nativeView)->compositeRoot();
-    if (root)
+    if (root) {
+        root->initAnimations();
         return root->evaluateAnimations();
+    }
 #endif
     return false;
 }

@@ -88,6 +88,8 @@ void TreeManager::swap()
     // painting tree becomes the drawing tree
     XLOG("drawing tree %p", m_paintingTree);
     m_paintingTree->setIsDrawing(true);
+    if (m_paintingTree->countChildren())
+        static_cast<LayerAndroid*>(m_paintingTree->getChild(0))->initAnimations();
 
     if (m_queuedTree) {
         // start painting with the queued tree
@@ -206,14 +208,20 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
     bool ret = false;
     bool didTreeSwap = false;
     if (m_paintingTree) {
-        ret |= m_paintingTree->prepare(currentTime, viewRect,
-                                       visibleRect, scale);
-        LayerAndroid* laTree = 0;
+        XLOG("preparing painting tree %p", m_paintingTree);
 
+        LayerAndroid* laTree = 0;
         if (m_paintingTree->countChildren()) {
             laTree = static_cast<LayerAndroid*>(m_paintingTree->getChild(0));
-            laTree->computeTexturesAmount(texturesResultPtr);
+            ret |= laTree->evaluateAnimations(currentTime);
         }
+
+        ret |= m_paintingTree->prepare(currentTime, viewRect,
+                                       visibleRect, scale);
+
+        if (laTree)
+            laTree->computeTexturesAmount(texturesResultPtr);
+
         if (/*!m_fastSwapMode && */ m_paintingTree->isReady()) {
             XLOG("have painting tree %p ready, swapping!", m_paintingTree);
             didTreeSwap = true;

@@ -79,23 +79,6 @@ AndroidAnimation::AndroidAnimation(AnimatedPropertyID type,
     gDebugAndroidAnimationInstances++;
 }
 
-AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
-    : m_beginTime(anim->m_beginTime)
-    , m_duration(anim->m_duration)
-    , m_fillsBackwards(anim->m_fillsBackwards)
-    , m_fillsForwards(anim->m_fillsForwards)
-    , m_iterationCount(anim->m_iterationCount)
-    , m_direction(anim->m_direction)
-    , m_timingFunction(anim->m_timingFunction)
-    , m_name(anim->name())
-    , m_type(anim->m_type)
-    , m_operations(anim->m_operations)
-    , m_uniqueId(anim->m_uniqueId)
-    , m_hasFinished(anim->m_hasFinished)
-{
-    gDebugAndroidAnimationInstances++;
-}
-
 AndroidAnimation::~AndroidAnimation()
 {
     gDebugAndroidAnimationInstances--;
@@ -109,8 +92,7 @@ void AndroidAnimation::suggestBeginTime(double time)
 
 double AndroidAnimation::elapsedTime(double time)
 {
-    suggestBeginTime(time);
-    double elapsedTime = time - m_beginTime;
+    double elapsedTime = (m_beginTime < 0.000001) ? 0 : time - m_beginTime;
 
     if (m_duration <= 0)
       m_duration = 0.000001;
@@ -201,7 +183,7 @@ bool AndroidAnimation::evaluate(LayerAndroid* layer, double time)
 
     if (progress < 0) {
         // The animation hasn't started yet
-        if (m_fillsBackwards) {
+        if (m_fillsBackwards || m_beginTime <= 0.000001) {
             // in this case we want to apply the initial keyframe to the layer
             applyForProgress(layer, 0);
         }
@@ -237,16 +219,6 @@ AndroidOpacityAnimation::AndroidOpacityAnimation(const Animation* animation,
                                                  double beginTime)
     : AndroidAnimation(AnimatedPropertyOpacity, animation, operations, beginTime)
 {
-}
-
-AndroidOpacityAnimation::AndroidOpacityAnimation(AndroidOpacityAnimation* anim)
-    : AndroidAnimation(anim)
-{
-}
-
-PassRefPtr<AndroidAnimation> AndroidOpacityAnimation::copy()
-{
-    return adoptRef(new AndroidOpacityAnimation(this));
 }
 
 void AndroidAnimation::pickValues(double progress, int* start, int* end)
@@ -310,16 +282,6 @@ AndroidTransformAnimation::AndroidTransformAnimation(const Animation* animation,
                                                      double beginTime)
     : AndroidAnimation(AnimatedPropertyWebkitTransform, animation, operations, beginTime)
 {
-}
-
-AndroidTransformAnimation::AndroidTransformAnimation(AndroidTransformAnimation* anim)
-    : AndroidAnimation(anim)
-{
-}
-
-PassRefPtr<AndroidAnimation> AndroidTransformAnimation::copy()
-{
-    return adoptRef(new AndroidTransformAnimation(this));
 }
 
 void AndroidTransformAnimation::applyForProgress(LayerAndroid* layer, float progress)
