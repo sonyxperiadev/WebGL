@@ -1269,6 +1269,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             type = TEXT_INPUT_CACHEDNODETYPE;
             cachedInput.setFormPointer(area->form());
             cachedInput.setIsTextArea(true);
+            cachedInput.setSpellcheck(area->spellcheck());
             exported = area->value().threadsafeCopy();
         } else if (node->hasTagName(HTMLNames::aTag)) {
             const HTMLAnchorElement* anchorNode = 
