@@ -184,11 +184,10 @@ bool TexturesGenerator::threadLoop()
             m_currentOperation->run();
         }
 
+        QueuedOperation* oldOperation = m_currentOperation;
         mRequestedOperationsLock.lock();
-        if (m_currentOperation) {
-            delete m_currentOperation;
+        if (m_currentOperation)
             m_currentOperation = 0;
-        }
         if (!mRequestedOperations.size())
             stop = true;
         if (m_waitForCompletion) {
@@ -197,7 +196,8 @@ bool TexturesGenerator::threadLoop()
             mRequestedOperationsCond.signal();
         }
         mRequestedOperationsLock.unlock();
-
+        if (oldOperation)
+            delete oldOperation; // delete outside lock
     }
     XLOG("threadLoop empty");
 
