@@ -1161,8 +1161,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         absBounds.move(globalOffsetX, globalOffsetY);
         hasClip = nodeRenderer->hasOverflowClip();
 
-        if (node->hasTagName(HTMLNames::canvasTag))
-            mPictureSetDisabled = true;
         if (checkForPluginViewThatWantsFocus(nodeRenderer)) {
             bounds = absBounds;
             isUnclipped = true;
