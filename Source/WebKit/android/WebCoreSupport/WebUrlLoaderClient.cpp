@@ -324,16 +324,6 @@ void WebUrlLoaderClient::cancelSslCertError(int cert_error)
     this->Release();
 }
 
-void WebUrlLoaderClient::sslClientCert(EVP_PKEY* pkey, net::X509Certificate* chain)
-{
-    base::Thread* thread = ioThread();
-    scoped_refptr<net::X509Certificate> scopedChain(chain);
-    if (isActive() && thread)
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::sslClientCert, pkey, scopedChain));
-    this->Release();
-}
-
-
 void WebUrlLoaderClient::finish()
 {
     m_finished = true;
@@ -492,12 +482,22 @@ void WebUrlLoaderClient::reportSslCertError(int cert_error, net::X509Certificate
     m_webFrame->reportSslCertError(this, cert_error, chain_bytes[0], m_request->getUrl());
 }
 
+void WebUrlLoaderClient::sslClientCert(EVP_PKEY* pkey, net::X509Certificate* chain)
+{
+    base::Thread* thread = ioThread();
+    scoped_refptr<net::X509Certificate> scopedChain(chain);
+    if (isActive() && thread)
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request.get(), &WebRequest::sslClientCert, pkey, scopedChain));
+    this->Release();
+}
+
 void WebUrlLoaderClient::requestClientCert(net::SSLCertRequestInfo* cert_request_info)
 {
     if (!isActive())
         return;
 
     std::string host_and_port = cert_request_info->host_and_port;
+    this->AddRef();
     m_webFrame->requestClientCert(this, host_and_port);
 }
 

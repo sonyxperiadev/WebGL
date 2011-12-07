@@ -74,7 +74,6 @@ public:
     void cancelAuth();
     void proceedSslCertError();
     void cancelSslCertError(int cert_error);
-    void sslClientCert(EVP_PKEY* pkey, net::X509Certificate* chain);
 
     typedef void CallbackFunction(void*);
 
@@ -92,6 +91,8 @@ public:
     void willSendRequest(PassOwnPtr<WebResponse>);
     void authRequired(scoped_refptr<net::AuthChallengeInfo>, bool firstTime, bool suppressDialog);
     void reportSslCertError(int cert_error, net::X509Certificate* cert);
+
+    void sslClientCert(EVP_PKEY* pkey, net::X509Certificate* chain);
     void requestClientCert(net::SSLCertRequestInfo* cert);
 
     // Handle to the chrome IO thread
