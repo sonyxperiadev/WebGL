@@ -1419,8 +1419,15 @@ void RenderLayer::scrollTo(int x, int y)
     }
 
     // Just schedule a full repaint of our object.
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    // On android, scrollable areas are put on composited layers, so we
+    // do not need to repaint simply because we are scrolling
+    if (view && !hasOverflowScroll())
+        renderer()->repaintUsingContainer(repaintContainer, rectForRepaint);
+#else
     if (view)
         renderer()->repaintUsingContainer(repaintContainer, rectForRepaint);
+#endif
 
     // Schedule the scroll DOM event.
     renderer()->node()->document()->eventQueue()->enqueueOrDispatchScrollEvent(renderer()->node(), EventQueue::ScrollEventElementTarget);
