@@ -224,8 +224,19 @@ BaseTile* TiledTexture::getTile(int x, int y)
 
 int TiledTexture::nbTextures(IntRect& area, float scale)
 {
-    IntRect computedTilesArea = computeTilesArea(area, scale);
-    return computedTilesArea.width() * computedTilesArea.height();
+    IntRect tileBounds = computeTilesArea(area, scale);
+    int numberTextures = tileBounds.width() * tileBounds.height();
+
+    // add the number of dirty tiles in the bounds, as they take up double
+    // textures for double buffering
+    for (unsigned int i = 0; i <m_tiles.size(); i++) {
+        BaseTile* tile = m_tiles[i];
+        if (tile->isDirty()
+                && tile->x() >= tileBounds.x() && tile->x() <= tileBounds.maxX()
+                && tile->y() >= tileBounds.y() && tile->y() <= tileBounds.maxY())
+            numberTextures++;
+    }
+    return numberTextures;
 }
 
 bool TiledTexture::draw()
