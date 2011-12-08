@@ -264,6 +264,7 @@ bool BaseLayerAndroid::prepareBasePictureInGL(SkRect& viewport, float scale,
     // the two pages (current one and future one with the new scale factor)
     if (zoomManager->didReceivedRequest()) {
         float nextTiledPageTransparency = 1;
+        m_state->resetFrameworkInval();
         zoomManager->processTransition(currentTime, scale, &doZoomPageSwap,
                                        &nextTiledPageTransparency, &transparency);
         nextTiledPage->prepareForDrawGL(nextTiledPageTransparency, viewportTileBounds);
