@@ -812,7 +812,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                 else {
 #ifdef ANDROID_LAYOUT
                     // ignore text wrap for textField or menuList
-                    if (doTextWrap && (o->isTextField() || o->isMenuList() || o->isFloating()))
+                    if (doTextWrap && (o->isTextField() || o->isMenuList()))
                         doTextWrap = false;
 #endif
                     if (o->isFloating())
