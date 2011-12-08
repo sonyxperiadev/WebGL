@@ -611,7 +611,14 @@ bool GraphicsLayerAndroid::repaint()
             m_foregroundLayer->setPosition(-x, -y);
             // Set the scrollable bounds of the layer.
             m_foregroundLayer->setScrollLimits(-x, -y, m_size.width(), m_size.height());
-            m_foregroundLayer->markAsDirty(m_dirtyRegion);
+
+            // Invalidate the entire layer for now, as webkit will only send the
+            // setNeedsDisplayInRect() for the visible (clipped) scrollable area,
+            // offsetting the invals by the scroll position would not be enough.
+            // TODO: have webkit send us invals even for non visible area
+            SkRegion region;
+            region.setRect(0, 0, contentsRect.width(), contentsRect.height());
+            m_foregroundLayer->markAsDirty(region);
             m_foregroundLayer->needsRepaint();
         } else {
             // If there is no contents clip, we can draw everything into one
