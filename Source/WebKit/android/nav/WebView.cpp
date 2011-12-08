@@ -2108,11 +2108,14 @@ static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
 
 static int nativeFocusCandidateLayerId(JNIEnv *env, jobject obj)
 {
-    const CachedFrame* frame;
+    const CachedFrame* frame = 0;
     const CachedNode* node = getFocusNode(env, obj, &frame);
-    if (!node)
+    if (!node || !frame)
         return -1;
-    return frame->layer(node)->uniqueId();
+    const CachedLayer* layer = frame->layer(node);
+    if (!layer)
+        return -1;
+    return layer->uniqueId();
 }
 
 static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
