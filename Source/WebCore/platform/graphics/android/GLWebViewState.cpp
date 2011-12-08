@@ -343,8 +343,8 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
         XLOG("Reinit shader");
         shader->init();
     }
-    shader->setViewRect(viewRect);
     shader->setViewport(visibleRect, scale);
+    shader->setViewRect(viewRect);
     shader->setWebViewRect(webViewRect);
     shader->setTitleBarHeight(titleBarHeight);
     shader->setScreenClip(screenClip);
