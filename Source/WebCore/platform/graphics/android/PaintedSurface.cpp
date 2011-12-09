@@ -52,9 +52,8 @@
 
 #endif // DEBUG
 
-// Allows layers using less than MAX_UNCLIPPED_AREA tiles to
-// schedule all of them instead of clipping the area with the visible rect.
-#define MAX_UNCLIPPED_AREA 16
+// Layers with an area larger than 2048*2048 should never be unclipped
+#define MAX_UNCLIPPED_AREA 4194304
 
 namespace WebCore {
 
@@ -203,10 +202,14 @@ IntRect PaintedSurface::computeVisibleArea(LayerAndroid* layer) {
         return area;
 
     if (!layer->contentIsScrollable()
-        && layer->state()->layersRenderingMode() == GLWebViewState::kAllTextures)
+        && layer->state()->layersRenderingMode() == GLWebViewState::kAllTextures) {
         area = layer->unclippedArea();
-    else
+        double total = ((double) area.width()) * ((double) area.height());
+        if (total > MAX_UNCLIPPED_AREA)
+            area = layer->visibleArea();
+    } else {
         area = layer->visibleArea();
+    }
 
     return area;
 }
