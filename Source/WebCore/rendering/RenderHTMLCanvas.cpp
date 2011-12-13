@@ -47,13 +47,9 @@ RenderHTMLCanvas::RenderHTMLCanvas(HTMLCanvasElement* element)
 
 bool RenderHTMLCanvas::requiresLayer() const
 {
-#if PLATFORM(ANDROID)
-    return true;
-#endif
-
     if (RenderReplaced::requiresLayer())
         return true;
-
+    
     HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(node());
     return canvas && canvas->renderingContext() && canvas->renderingContext()->isAccelerated();
 }
