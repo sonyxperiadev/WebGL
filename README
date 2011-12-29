@@ -1,0 +1,15 @@
+
+This repository holds modifications that will enable WebGL
+functionality in the Android browser. It is based on ics-mr1,
+and requires that webkit is built with USE_ACCELERATED_COMPOSITING
+and that the browser application is built with hardwareAccelerated=true.
+
+To try this out, apply the patch to external/webkit in ics-mr1,
+and build with "make libwebcore".
+
+This is still work in progress but we wanted to make it available
+as soon as possible. Feedback is welcome!
+
+
+-- Anders Edenbrandt, Sony Ericsson Mobile Communications AB
+
