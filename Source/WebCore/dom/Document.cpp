@@ -7,6 +7,7 @@
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -435,6 +436,9 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_eventQueue(EventQueue::create(this))
 #if ENABLE(WML)
     , m_containsWMLContent(false)
+#endif
+#if ENABLE(WEBGL) && PLATFORM(ANDROID)
+    , m_containsWebGLContent(false)
 #endif
     , m_weakReference(DocumentWeakReference::create(this))
     , m_idAttributeName(idAttr)

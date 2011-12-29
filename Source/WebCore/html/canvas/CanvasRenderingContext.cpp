@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -93,6 +94,65 @@ void CanvasRenderingContext::checkOrigin(const KURL& url)
         canvas()->setOriginTainted();
     else
         m_cleanOrigins.add(url.string());
+}
+
+
+
+bool CanvasRenderingContext::wouldTaintOrigin(const CanvasPattern* pattern)
+{
+    if (canvas()->originClean() && pattern && !pattern->originClean())
+        return true;
+    return false;
+}
+
+bool CanvasRenderingContext::wouldTaintOrigin(const HTMLCanvasElement* sourceCanvas)
+{
+    if (canvas()->originClean() && sourceCanvas && !sourceCanvas->originClean())
+        return true;
+    return false;
+}
+
+bool CanvasRenderingContext::wouldTaintOrigin(const HTMLImageElement* image)
+{
+    if (!image || !canvas()->originClean())
+        return false;
+
+    CachedImage* cachedImage = image->cachedImage();
+    if (wouldTaintOrigin(cachedImage->response().url()))
+        return true;
+
+    if (!cachedImage->image()->hasSingleSecurityOrigin())
+        return true;
+
+    return false;
+}
+
+bool CanvasRenderingContext::wouldTaintOrigin(const HTMLVideoElement* video)
+{
+#if ENABLE(VIDEO)
+    if (!video || !canvas()->originClean())
+        return false;
+
+    if (wouldTaintOrigin(KURL(ParsedURLString, video->currentSrc())))
+        return true;
+
+    if (!video->hasSingleSecurityOrigin())
+        return true;
+#endif
+
+    return false;
+}
+
+bool CanvasRenderingContext::wouldTaintOrigin(const KURL& url)
+{
+    if (!canvas()->originClean() || m_cleanOrigins.contains(url.string()))
+        return false;
+
+    if (canvas()->securityOrigin().taintsCanvas(url))
+        return true;
+
+    m_cleanOrigins.add(url.string());
+    return false;
 }
 
 } // namespace WebCore

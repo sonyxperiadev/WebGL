@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
+ * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -113,6 +114,9 @@ HTMLCanvasElement::~HTMLCanvasElement()
     HashSet<CanvasObserver*>::iterator end = m_observers.end();
     for (HashSet<CanvasObserver*>::iterator it = m_observers.begin(); it != end; ++it)
         (*it)->canvasDestroyed(this);
+#if PLATFORM(ANDROID)
+    document()->unregisterForDocumentActivationCallbacks(this);
+#endif
 }
 
 void HTMLCanvasElement::parseMappedAttribute(Attribute* attr)
@@ -202,6 +206,10 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
                 if (m_context) {
                     // Need to make sure a RenderLayer and compositing layer get created for the Canvas
                     setNeedsStyleRecalc(SyntheticStyleChange);
+#if PLATFORM(ANDROID)
+                    document()->registerForDocumentActivationCallbacks(this);
+                    document()->setContainsWebGLContent(true);
+#endif
                 }
             }
             return m_context.get();
@@ -309,6 +317,24 @@ bool HTMLCanvasElement::is3D() const
 {
     return m_context && m_context->is3d();
 }
+
+#if PLATFORM(ANDROID)
+void HTMLCanvasElement::documentDidBecomeActive()
+{
+    if (m_context && m_context->is3d()) {
+        WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
+        context3D->recreateSurface();
+    }
+}
+
+void HTMLCanvasElement::documentWillBecomeInactive()
+{
+    if (m_context && m_context->is3d()) {
+        WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
+        context3D->releaseSurface();
+    }
+}
+#endif
 #endif
 
 void HTMLCanvasElement::makeRenderingResultsAvailable()

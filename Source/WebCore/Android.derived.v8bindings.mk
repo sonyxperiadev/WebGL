@@ -1,5 +1,6 @@
 ##
 ## Copyright 2009, The Android Open Source Project
+## Copyright (C) 2011, Sony Ericsson Mobile Communications AB
 ##
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions
@@ -320,6 +321,13 @@ GEN := \
     $(intermediates)/bindings/V8WebGLTexture.h \
     $(intermediates)/bindings/V8WebGLUniformLocation.h \
     $(intermediates)/bindings/V8WebGLVertexArrayObjectOES.h
+
+ifeq ($(ENABLE_WEBGL), true)
+GEN += \
+    $(intermediates)/bindings/V8OESStandardDerivatives.h \
+    $(intermediates)/bindings/V8WebGLContextEvent.h \
+    $(intermediates)/bindings/V8WebKitLoseContext.h
+endif
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<

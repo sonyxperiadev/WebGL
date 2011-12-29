@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -449,6 +450,9 @@ module html {
         const unsigned int CONTEXT_LOST_WEBGL                 = 0x9242;
         const unsigned int UNPACK_COLORSPACE_CONVERSION_WEBGL = 0x9243;
         const unsigned int BROWSER_DEFAULT_WEBGL              = 0x9244;
+
+        readonly attribute unsigned int drawingBufferWidth;
+        readonly attribute unsigned int drawingBufferHeight;
 
         [StrictTypeChecking] void         activeTexture(in unsigned long texture) raises(DOMException);
         [StrictTypeChecking] void         attachShader(in WebGLProgram program, in WebGLShader shader) raises(DOMException);

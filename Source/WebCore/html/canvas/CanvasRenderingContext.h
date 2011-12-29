@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,6 +71,12 @@ protected:
     void checkOrigin(const HTMLImageElement*);
     void checkOrigin(const HTMLVideoElement*);
     void checkOrigin(const KURL&);
+
+    bool wouldTaintOrigin(const CanvasPattern*);
+    bool wouldTaintOrigin(const HTMLCanvasElement*);
+    bool wouldTaintOrigin(const HTMLImageElement*);
+    bool wouldTaintOrigin(const HTMLVideoElement*);
+    bool wouldTaintOrigin(const KURL&);
 
 private:
     HTMLCanvasElement* m_canvas;

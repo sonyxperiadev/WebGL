@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,6 +89,9 @@ class Extensions3D;
 class Extensions3DOpenGL;
 #endif
 class HostWindow;
+#if PLATFORM(ANDROID)
+class HTMLCanvasElement;
+#endif
 class Image;
 class ImageData;
 #if USE(CAIRO)
@@ -101,7 +105,7 @@ struct ActiveInfo {
 };
 
 // FIXME: ideally this would be used on all platforms.
-#if PLATFORM(CHROMIUM) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(ANDROID) || PLATFORM(CHROMIUM) || PLATFORM(QT) || PLATFORM(GTK)
 class GraphicsContext3DInternal;
 #endif
 
@@ -452,7 +456,12 @@ public:
 
     void setContextLostCallback(PassOwnPtr<ContextLostCallback>);
 
+#if PLATFORM(ANDROID)
+    static PassRefPtr<GraphicsContext3D> create(HTMLCanvasElement*, Attributes,
+                                                HostWindow*, RenderStyle = RenderOffscreen);
+#else
     static PassRefPtr<GraphicsContext3D> create(Attributes, HostWindow*, RenderStyle = RenderOffscreen);
+#endif
     ~GraphicsContext3D();
 
 #if PLATFORM(MAC)
@@ -474,6 +483,12 @@ public:
 #elif PLATFORM(GTK)
     PlatformGraphicsContext3D platformGraphicsContext3D();
     Platform3DObject platformTexture() const { return m_texture; }
+#elif PLATFORM(ANDROID)
+    PlatformGraphicsContext3D platformGraphicsContext3D();
+    Platform3DObject platformTexture() const;
+#if USE(ACCELERATED_COMPOSITING)
+    PlatformLayer* platformLayer() const;
+#endif
 #else
     PlatformGraphicsContext3D platformGraphicsContext3D() const { return NullPlatformGraphicsContext3D; }
     Platform3DObject platformTexture() const { return NullPlatform3DObject; }
@@ -770,12 +785,18 @@ public:
                        int canvasWidth, int canvasHeight, PlatformContextCairo* context);
 #endif
 
+#if PLATFORM(ANDROID)
+    void recreateSurface();
+    void releaseSurface();
+#endif
+
     void markContextChanged();
     void markLayerComposited();
     bool layerComposited() const;
 
     void paintRenderingResultsToCanvas(CanvasRenderingContext* context);
     PassRefPtr<ImageData> paintRenderingResultsToImageData();
+    bool paintCompositedResultsToCanvas(CanvasRenderingContext* context);
 
 #if PLATFORM(QT)
     bool paintsIntoCanvasBuffer() const { return true; }
@@ -821,7 +842,12 @@ public:
     IntSize getInternalFramebufferSize();
 
   private:
+#if PLATFORM(ANDROID)
+    GraphicsContext3D(HTMLCanvasElement* canvas, Attributes attrs,
+                      HostWindow* hostWindow, bool renderDirectlyToHostWindow);
+#else
     GraphicsContext3D(Attributes attrs, HostWindow* hostWindow, bool renderDirectlyToHostWindow);
+#endif
 
     // Each platform must provide an implementation of this method.
     //
@@ -929,7 +955,7 @@ public:
 #endif
 
     // FIXME: ideally this would be used on all platforms.
-#if PLATFORM(CHROMIUM) || PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(ANDROID) || PLATFORM(CHROMIUM) || PLATFORM(QT) || PLATFORM(GTK)
     friend class GraphicsContext3DInternal;
     OwnPtr<GraphicsContext3DInternal> m_internal;
 #endif

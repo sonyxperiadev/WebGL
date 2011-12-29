@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
+ * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,6 +122,9 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_haveContents(false),
     m_newImage(false),
     m_image(0),
+#if ENABLE(WEBGL)
+    m_is3DCanvas(false),
+#endif
     m_foregroundLayer(0),
     m_foregroundClipLayer(0)
 {
@@ -454,6 +458,14 @@ void GraphicsLayerAndroid::setNeedsDisplay()
     FloatRect rect(0, 0, m_size.width(), m_size.height());
     setNeedsDisplayInRect(rect);
 }
+
+#if ENABLE(WEBGL)
+void GraphicsLayerAndroid::setContentsNeedsDisplay()
+{
+    if (m_is3DCanvas)
+        setNeedsDisplay();
+}
+#endif
 
 // Helper to set and clear the painting phase as well as auto restore the
 // original phase.
@@ -896,6 +908,30 @@ void GraphicsLayerAndroid::setContentsToMedia(PlatformLayer* mediaLayer)
         askForSync();
     }
 }
+
+#if ENABLE(WEBGL)
+void GraphicsLayerAndroid::setContentsToCanvas(PlatformLayer* canvasLayer)
+{
+    if (m_contentLayer != canvasLayer && canvasLayer) {
+
+        // TODO add a copy method to LayerAndroid to sync everything
+        // copy data from the original content layer to the new one
+        canvasLayer->setPosition(m_contentLayer->getPosition().fX,
+                                 m_contentLayer->getPosition().fY);
+        canvasLayer->setSize(m_contentLayer->getWidth(), m_contentLayer->getHeight());
+        canvasLayer->setDrawTransform(*(m_contentLayer->drawTransform()));
+
+        canvasLayer->ref();
+        m_contentLayer->unref();
+        m_contentLayer = canvasLayer;
+
+        m_needsSyncChildren = true;
+        m_is3DCanvas = true;
+
+        setDrawsContent(true);
+    }
+}
+#endif
 
 PlatformLayer* GraphicsLayerAndroid::platformLayer() const
 {

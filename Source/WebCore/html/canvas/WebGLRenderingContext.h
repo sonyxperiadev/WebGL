@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,6 +71,9 @@ public:
     virtual bool is3d() const { return true; }
     virtual bool isAccelerated() const { return true; }
     virtual bool paintsIntoCanvasBuffer() const;
+
+    GC3Dsizei drawingBufferWidth();
+    GC3Dsizei drawingBufferHeight();
 
     void activeTexture(GC3Denum texture, ExceptionCode&);
     void attachShader(WebGLProgram*, WebGLShader*, ExceptionCode&);
@@ -297,6 +301,11 @@ public:
     int getNumberOfExtensions();
     WebGLExtension* getExtensionNumber(int i);
 
+#if PLATFORM(ANDROID)
+    void recreateSurface();
+    void releaseSurface();
+#endif
+
   private:
     friend class WebGLObject;
     friend class OESVertexArrayObject;
@@ -348,7 +357,7 @@ public:
     bool validateWebGLObject(WebGLObject*);
 
 #if ENABLE(VIDEO)
-    PassRefPtr<Image> videoFrameToImage(HTMLVideoElement*);
+    PassRefPtr<Image> videoFrameToImage(HTMLVideoElement*, ExceptionCode& ec);
 #endif
 
     RefPtr<GraphicsContext3D> m_context;
