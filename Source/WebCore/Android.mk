@@ -714,7 +714,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/Extensions3DAndroid.cpp \
 	platform/graphics/android/GraphicsContext3DAndroid.cpp \
 	platform/graphics/android/GraphicsContext3DInternal.cpp \
-	platform/graphics/android/WebGLLayer.cpp
+	platform/graphics/android/GraphicsContext3DProxy.cpp \
+	platform/graphics/android/WebGLLayer.cpp \
+	platform/image-decoders/png/PNGImageDecoder.cpp
 endif
 
 ifeq ($(ENABLE_SVG), true)

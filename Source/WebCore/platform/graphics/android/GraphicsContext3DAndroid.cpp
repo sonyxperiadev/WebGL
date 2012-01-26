@@ -125,12 +125,13 @@ bool GraphicsContext3D::getImageData(Image* image,
     bool hasAlpha = (image->data() && image->isBitmapImage()) ?
         static_cast<BitmapImage*>(image)->frameHasAlphaAtIndex(0) : true;
     ImageDecoder* decoder = 0;
-    void/*RGBA32Buffer*/* buf = 0;
+    ImageFrame* buf = 0;
 
-    /*
     if ((ignoreGammaAndColorProfile || (hasAlpha && !premultiplyAlpha)) && image->data()) {
         // Attempt to get raw unpremultiplied image data
-        decoder = ImageDecoder::create(*(image->data()), premultiplyAlpha, ignoreGammaAndColorProfile);
+        decoder = ImageDecoder::create(*(image->data()),
+                                       premultiplyAlpha ? ImageSource::AlphaPremultiplied : ImageSource::AlphaNotPremultiplied,
+                                       ignoreGammaAndColorProfile ? ImageSource::GammaAndColorProfileIgnored : ImageSource::GammaAndColorProfileApplied);
         if (decoder) {
             decoder->setData(image->data(), true);
             buf = decoder->frameBufferAtIndex(0);
@@ -138,7 +139,7 @@ bool GraphicsContext3D::getImageData(Image* image,
                 neededAlphaOp = AlphaDoPremultiply;
         }
     }
-    */
+
     SkBitmapRef* bitmapRef = 0;
     if (!buf) {
         bitmapRef = image->nativeImageForCurrentFrame();
@@ -148,7 +149,7 @@ bool GraphicsContext3D::getImageData(Image* image,
             neededAlphaOp = AlphaDoUnmultiply;
     }
 
-    SkBitmap& bitmap = /*buf ? buf->bitmap() :*/ bitmapRef->bitmap();
+    SkBitmap& bitmap = buf ? buf->bitmap() : bitmapRef->bitmap();
     unsigned char* pixels = 0;
     int rowBytes = 0;
     uint32_t* tmpPixels = 0;
@@ -315,11 +316,12 @@ void GraphicsContext3D::attachShader(Platform3DObject program, Platform3DObject 
 
 void GraphicsContext3D::bindAttribLocation(Platform3DObject program, GC3Duint index, const String& name)
 {
-    LOGWEBGL("glBindAttribLocation(%d, %d, %s)", program, index, name.utf8().data());
+    CString cs = name.utf8();
+    LOGWEBGL("glBindAttribLocation(%d, %d, %s)", program, index, cs.data());
     if (!program)
         return;
     makeContextCurrent();
-    glBindAttribLocation(program, index, name.utf8().data());
+    glBindAttribLocation(program, index, cs.data());
 }
 
 void GraphicsContext3D::bindBuffer(GC3Denum target, Platform3DObject buffer)
@@ -656,13 +658,14 @@ void GraphicsContext3D::getAttachedShaders(Platform3DObject program, GC3Dsizei m
 
 GC3Dint GraphicsContext3D::getAttribLocation(Platform3DObject program, const String& name)
 {
-    LOGWEBGL("glGetAttribLocation(%lu, %s)", program, name.utf8().data());
+    CString cs = name.utf8();
+    LOGWEBGL("glGetAttribLocation(%lu, %s)", program, cs.data());
     if (!program) {
         return -1;
     }
     makeContextCurrent();
 
-    return glGetAttribLocation(program, name.utf8().data());
+    return glGetAttribLocation(program, cs.data());
 }
 
 void GraphicsContext3D::getBooleanv(GC3Denum pname, GC3Dboolean* value)
@@ -806,9 +809,10 @@ void GraphicsContext3D::getUniformiv(Platform3DObject program, GC3Dint location,
 
 GC3Dint GraphicsContext3D::getUniformLocation(Platform3DObject program, const String& name)
 {
-    LOGWEBGL("glGetUniformLocation(%lu, %s)", program, name.utf8().data());
+    CString cs = name.utf8();
+    LOGWEBGL("glGetUniformLocation(%lu, %s)", program, cs.data());
     makeContextCurrent();
-    return glGetUniformLocation(program, name.utf8().data());
+    return glGetUniformLocation(program, cs.data());
 }
 
 void GraphicsContext3D::getVertexAttribfv(GC3Duint index, GC3Denum pname, GC3Dfloat* value)

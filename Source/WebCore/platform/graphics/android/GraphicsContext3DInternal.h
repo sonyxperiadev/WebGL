@@ -47,8 +47,23 @@
 #include <ui/GraphicBuffer.h>
 
 #include <utils/Log.h>
-//#define LOGWEBGL(...) ((void)android_printLog(ANDROID_LOG_DEBUG, "WebGL", __VA_ARGS__))
+
+#undef WEBGL_LOGGING
+//#define WEBGL_LOGGING 1
+#ifdef WEBGL_LOGGING
+#define LOGWEBGL(...) ((void)android_printLog(ANDROID_LOG_DEBUG, "WebGL", __VA_ARGS__))
+#else
 #define LOGWEBGL(...)
+#endif
+
+#undef WEBGL_PROFILING
+//#define WEBGL_PROFILING 1
+#ifdef WEBGL_PROFILING
+#define PROFWEBGL(...) ((void)android_printLog(ANDROID_LOG_DEBUG, "WebGL", __VA_ARGS__))
+#else
+#define PROFWEBGL(...)
+#endif
+
 
 using namespace android;
 
@@ -63,22 +78,8 @@ typedef enum {
     THREAD_STATE_STOP
 } thread_state_t;
 
-typedef enum {
-    FBO_STATE_FREE,
-    FBO_STATE_DEQUEUED,
-    FBO_STATE_LOCKED
-} fbo_state_t;
-
-typedef struct {
-    fbo_state_t m_state;
-    GLuint      m_texture;
-    GLuint      m_fbo;
-    GLuint      m_depthBuffer;
-    EGLImageKHR m_image;
-    EGLSyncKHR  m_sync;
-    GLuint      m_drawingTexture;
-    sp<GraphicBuffer> m_grBuffer;
-} fbo_t;
+class GraphicsContext3DProxy;
+class FBO;
 
 class GraphicsContext3DInternal : public RefCounted<GraphicsContext3DInternal> {
 public:
@@ -103,8 +104,8 @@ public:
     void markLayerComposited() { m_layerComposited = true; }
     bool layerComposited() const { return m_layerComposited; }
 
-    GLuint lockFrontTexture(SkRect& rect);
-    void releaseFrontTexture(GLuint texture);
+    bool lockFrontBuffer(EGLImageKHR& image, int& width, int& height, SkRect& rect, bool& requestUpdate);
+    void releaseFrontBuffer();
 
     void paintRenderingResultsToCanvas(CanvasRenderingContext* context);
     PassRefPtr<ImageData> paintRenderingResultsToImageData();
@@ -143,20 +144,22 @@ public:
         return tmp;
     }
 
-private:
     static EGLint checkEGLError(const char* s);
     static GLint checkGLError(const char* s);
 
+private:
     bool initEGL();
     bool createContext(bool createEGLContext);
     void deleteContext(bool deleteEGLContext);
     EGLSurface createPbufferSurface(int width, int height);
 
+    RefPtr<GraphicsContext3DProxy> m_proxy;
     WebGLLayer *m_compositingLayer;
     HTMLCanvasElement* m_canvas;
     GraphicsContext3D::Attributes m_attrs;
     bool m_layerComposited;
     bool m_canvasDirty;
+    bool m_requestedUpdate;
 
     int m_width;
     int m_height;
@@ -169,16 +172,13 @@ private:
     EGLContext m_context;
 
     // Routines for FBOs
-    void createFBO(fbo_t *fbo, int width, int height);
-    void deleteFBO(fbo_t* fbo);
-    GLuint currentFBO() { return m_fbo[m_currentIndex].m_fbo; }
-    GLuint createTexture(EGLImageKHR image, int width, int height);
+    GLuint currentFBO();
 
-    fbo_t                m_fbo[2];
+    FBO*                 m_fbo[2];
     int                  m_currentIndex;
     GLuint               m_boundFBO;
-    fbo_t*               m_frontFBO;
-    fbo_t*               m_pendingFBO;
+    FBO*                 m_frontFBO;
+    FBO*                 m_pendingFBO;
     WTF::Mutex           m_fboMutex;
     WTF::ThreadCondition m_fboCondition;
 

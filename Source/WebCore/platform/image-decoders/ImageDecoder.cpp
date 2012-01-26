@@ -94,7 +94,6 @@ bool matchesCURSignature(char* contents)
 
 }
 
-#if !OS(ANDROID)
 // This method requires BMPImageDecoder, PNGImageDecoder, ICOImageDecoder and
 // JPEGDecoder, which aren't used on Android, and which don't all compile.
 // TODO: Find a better fix.
@@ -112,6 +111,7 @@ ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaO
     if (matchesPNGSignature(contents))
         return new PNGImageDecoder(alphaOption, gammaAndColorProfileOption);
 
+#if !OS(ANDROID)
     if (matchesJPEGSignature(contents))
         return new JPEGImageDecoder(alphaOption, gammaAndColorProfileOption);
 
@@ -125,10 +125,10 @@ ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaO
 
     if (matchesICOSignature(contents) || matchesCURSignature(contents))
         return new ICOImageDecoder(alphaOption, gammaAndColorProfileOption);
+#endif // !OS(ANDROID)
 
     return 0;
 }
-#endif // !OS(ANDROID)
 
 #if !USE(SKIA)
 

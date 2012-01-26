@@ -11,5 +11,14 @@ This is still work in progress but we wanted to make it available
 as soon as possible. Feedback is welcome!
 
 
--- Anders Edenbrandt, Sony Ericsson Mobile Communications AB
+===== 27 jan 2012 =====
+
+Some updates:
+  - stability fixes
+  - image decoder
+  - redesign of how the FBOs are used
+  - other bug fixes
+
+
+-- Anders Edenbrandt, Sony Mobile Communications
 

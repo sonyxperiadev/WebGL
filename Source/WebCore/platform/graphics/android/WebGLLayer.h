@@ -31,7 +31,9 @@
 #if ENABLE(WEBGL) && USE(ACCELERATED_COMPOSITING)
 
 #include "GLUtils.h"
+#include "GraphicsContext3DProxy.h"
 #include "LayerAndroid.h"
+#include "RefPtr.h"
 #include <jni.h>
 
 namespace WebCore {
@@ -40,16 +42,19 @@ class GraphicsContext3DInternal;
 
 class WebGLLayer : public LayerAndroid {
 public:
-    WebGLLayer();
+    WebGLLayer(GraphicsContext3DProxy* proxy);
     WebGLLayer(const WebGLLayer& layer);
+    virtual ~WebGLLayer();
 
     virtual LayerAndroid* copy() const { return new WebGLLayer(*this); }
     virtual bool drawGL();
 
-    void setGraphicsContext(GraphicsContext3DInternal* context) { m_context = context; }
-    
 private:
-    GraphicsContext3DInternal* m_context;
+    GLuint createTexture(EGLImageKHR image, int width, int height);
+
+    RefPtr<GraphicsContext3DProxy> m_proxy;
+    EGLImageKHR m_eglImages[2];
+    GLuint      m_textures[2];
 };
 
 } // namespace WebCore

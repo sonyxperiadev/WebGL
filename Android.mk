@@ -151,6 +151,8 @@ LOCAL_C_INCLUDES := \
 	external/jpeg \
 	external/libxml2/include \
 	external/libxslt \
+	external/libpng \
+	external/zlib \
 	external/hyphenation \
 	external/skia/emoji \
 	external/skia/gpu/include \
@@ -412,7 +414,7 @@ LOCAL_CFLAGS += -DSUPPORT_COMPLEX_SCRIPTS=1
 endif
 
 # Build the list of static libraries
-LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu
+LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu libpng
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 LOCAL_STATIC_LIBRARIES += libv8
 endif

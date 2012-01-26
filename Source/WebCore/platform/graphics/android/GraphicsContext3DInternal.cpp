@@ -51,6 +51,54 @@
 
 namespace WebCore {
 
+typedef enum {
+    FBO_STATE_FREE,
+    FBO_STATE_DEQUEUED,
+    FBO_STATE_LOCKED,
+    FBO_STATE_FRONT
+} fbo_state_t;
+
+class FBO {
+public:
+    static FBO* createFBO(EGLDisplay dpy, int width, int height);
+    ~FBO();
+
+    fbo_state_t state() { return m_state; }
+    void setState(fbo_state_t state) { m_state = state; }
+
+    EGLSyncKHR sync() { return m_sync; }
+    void setSync(EGLSyncKHR sync) { m_sync = sync; }
+
+    GLuint fbo() { return m_fbo; }
+
+    EGLImageKHR image() { return m_image; }
+
+    bool lockGraphicBuffer(void** ptr) {
+        return (m_grBuffer.get() && (m_grBuffer->lock(GraphicBuffer::USAGE_SW_READ_RARELY, ptr) == NO_ERROR));
+    }
+    void unlockGraphicBuffer() {
+        if (m_grBuffer.get())
+            m_grBuffer->unlock();
+    }
+
+    int bytesPerRow() { return m_grBuffer.get() ? m_grBuffer->getStride() * 4 : 0; }
+
+private:
+    FBO(EGLDisplay dpy);
+    bool init(int width, int height);
+    GLuint createTexture(EGLImageKHR image, int width, int height);
+
+    EGLDisplay  m_dpy;
+    fbo_state_t m_state;
+    GLuint      m_texture;
+    GLuint      m_fbo;
+    GLuint      m_depthBuffer;
+    EGLImageKHR m_image;
+    EGLSyncKHR  m_sync;
+    sp<GraphicBuffer> m_grBuffer;
+};
+
+
 #define CANVAS_MAX_WIDTH    1280
 #define CANVAS_MAX_HEIGHT   1280
 
@@ -83,11 +131,13 @@ GLint GraphicsContext3DInternal::checkGLError(const char* s)
 GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
                                                      GraphicsContext3D::Attributes attrs,
                                                      HostWindow* hostWindow)
-    : m_compositingLayer(new WebGLLayer())
+    : m_proxy(new GraphicsContext3DProxy())
+    , m_compositingLayer(new WebGLLayer(m_proxy.get()))
     , m_canvas(canvas)
     , m_attrs(attrs)
     , m_layerComposited(false)
     , m_canvasDirty(false)
+    , m_requestedUpdate(false)
     , m_width(1)
     , m_height(1)
     , m_maxwidth(CANVAS_MAX_WIDTH)
@@ -97,14 +147,16 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
     , m_surface(EGL_NO_SURFACE)
     , m_context(EGL_NO_CONTEXT)
     , m_currentIndex(-1)
+    , m_syncThread(0)
+    , m_threadState(THREAD_STATE_STOPPED)
     , m_syncTimer(this, &GraphicsContext3DInternal::syncTimerFired)
     , m_syncRequested(false)
     , m_extensions(0)
     , m_contextId(0)
 {
-    LOGWEBGL("GraphicsContext3DInternal() = %p", this);
+    LOGWEBGL("GraphicsContext3DInternal() = %p, m_compositingLayer = %p", this, m_compositingLayer);
     m_compositingLayer->ref();
-    m_compositingLayer->setGraphicsContext(this);
+    m_proxy->setGraphicsContext(this);
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebViewCore* core = WebViewCore::getWebViewCore(m_canvas->document()->view());
@@ -116,9 +168,17 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
         env->DeleteLocalRef(webViewClass);
     }
 
-    if (!initEGL() ||
-        !createContext(true))
+    if (!initEGL())
         return;
+
+    if (!createContext(true)) {
+        LOGWEBGL("Create context failed. Perform JS garbage collection and try again.");
+        m_canvas->document()->frame()->script()->lowMemoryNotification();
+        if (!createContext(true)) {
+            LOGWEBGL("Create context still failed: aborting.");
+            return;
+        }
+    }
 
     const char *ext = (const char *)glGetString(GL_EXTENSIONS);
     // Only willing to support GL_OES_texture_npot at this time
@@ -160,12 +220,12 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
 
 GraphicsContext3DInternal::~GraphicsContext3DInternal()
 {
-    LOGWEBGL("~GraphicsContext3DInternal()");
+    LOGWEBGL("~GraphicsContext3DInternal(), this = %p", this);
 
     stopSyncThread();
 
+    m_proxy->setGraphicsContext(0);
     MutexLocker lock(m_fboMutex);
-    m_compositingLayer->setGraphicsContext(0);
     m_compositingLayer->unref();
     m_compositingLayer = 0;
     deleteContext(true);
@@ -258,11 +318,11 @@ bool GraphicsContext3DInternal::createContext(bool createEGLContext)
         EGL_CONTEXT_CLIENT_VERSION, 2,
         EGL_NONE};
 
-    m_surface = createPbufferSurface(1, 1);
-
     if (createEGLContext) {
+        m_surface = createPbufferSurface(1, 1);
         m_context = eglCreateContext(m_dpy, m_config, EGL_NO_CONTEXT, context_attribs);
         EGLint error = checkEGLError("eglCreateContext");
+        /*
         if (error == EGL_BAD_ALLOC) {
             // Probably too many contexts. Force a JS garbage collection, and then try again.
             // This typically only happens in Khronos Conformance tests.
@@ -271,11 +331,21 @@ bool GraphicsContext3DInternal::createContext(bool createEGLContext)
             m_context = eglCreateContext(m_dpy, m_config, EGL_NO_CONTEXT, context_attribs);
             checkEGLError("eglCreateContext");
         }
+        */
+    }
+    if (m_context == EGL_NO_CONTEXT) {
+        deleteContext(createEGLContext);
+        return false;
     }
 
     makeContextCurrent();
-    createFBO(&m_fbo[0], m_width > 0 ? m_width : 1, m_height > 0 ? m_height : 1);
-    createFBO(&m_fbo[1], m_width > 0 ? m_width : 1, m_height > 0 ? m_height : 1);
+    bool success = ((m_fbo[0] = FBO::createFBO(m_dpy, m_width > 0 ? m_width : 1, m_height > 0 ? m_height : 1)) != 0) &&
+        ((m_fbo[1] = FBO::createFBO(m_dpy, m_width > 0 ? m_width : 1, m_height > 0 ? m_height : 1)) != 0);
+    if (!success) {
+        LOGWEBGL("Failed to create FBO");
+        deleteContext(createEGLContext);
+        return false;
+    }
 
     m_currentIndex = 0;
     m_boundFBO = currentFBO();
@@ -283,7 +353,7 @@ bool GraphicsContext3DInternal::createContext(bool createEGLContext)
     m_pendingFBO = 0;
     glBindFramebuffer(GL_FRAMEBUFFER, m_boundFBO);
 
-    return (m_context != EGL_NO_CONTEXT);
+    return true;
 }
 
 void GraphicsContext3DInternal::deleteContext(bool deleteEGLContext)
@@ -291,20 +361,27 @@ void GraphicsContext3DInternal::deleteContext(bool deleteEGLContext)
     LOGWEBGL("deleteContext(%s)", deleteEGLContext ? "true" : "false");
 
     makeContextCurrent();
-    deleteFBO(&m_fbo[0]);
-    deleteFBO(&m_fbo[1]);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    for (int i = 0; i < 2; i++) {
+        if (m_fbo[i]) {
+            delete m_fbo[i];
+            m_fbo[i] = 0;
+        }
+    }
     m_currentIndex = -1;
     m_frontFBO = 0;
     m_pendingFBO = 0;
 
     eglMakeCurrent(m_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    if (m_surface != EGL_NO_SURFACE) {
-        eglDestroySurface(m_dpy, m_surface);
-        m_surface = EGL_NO_SURFACE;
-    }
-    if (deleteEGLContext && m_context != EGL_NO_CONTEXT) {
-        eglDestroyContext(m_dpy, m_context);
-        m_context = EGL_NO_CONTEXT;
+    if (deleteEGLContext) {
+        if (m_surface != EGL_NO_SURFACE) {
+            eglDestroySurface(m_dpy, m_surface);
+            m_surface = EGL_NO_SURFACE;
+        }
+        if (m_context != EGL_NO_CONTEXT) {
+            eglDestroyContext(m_dpy, m_context);
+            m_context = EGL_NO_CONTEXT;
+        }
     }
 }
 
@@ -338,99 +415,127 @@ void GraphicsContext3DInternal::synthesizeGLError(unsigned long error)
     m_syntheticErrors.add(error);
 }
 
-void GraphicsContext3DInternal::createFBO(fbo_t *fbo, int width, int height)
+GLuint GraphicsContext3DInternal::currentFBO()
+{
+    return (m_currentIndex >= 0 && m_fbo[m_currentIndex]) ? m_fbo[m_currentIndex]->fbo() : 0;
+}
+
+FBO* FBO::createFBO(EGLDisplay dpy, int width, int height)
 {
     LOGWEBGL("createFBO()");
+    FBO* fbo = new FBO(dpy);
 
+    if (!fbo->init(width, height)) {
+        delete fbo;
+        return 0;
+    }
+    return fbo;
+}
+
+FBO::FBO(EGLDisplay dpy)
+    : m_dpy(dpy)
+    , m_state(FBO_STATE_FREE)
+    , m_texture(0)
+    , m_fbo(0)
+    , m_depthBuffer(0)
+    , m_image(0)
+    , m_sync(0)
+    , m_grBuffer(0)
+{
+}
+
+bool FBO::init(int width, int height)
+{
     // 1. Allocate a graphic buffer
     sp<ISurfaceComposer> composer(ComposerService::getComposerService());
     sp<IGraphicBufferAlloc> mGraphicBufferAlloc = composer->createGraphicBufferAlloc();
     status_t error;
-    fbo->m_grBuffer = mGraphicBufferAlloc->createGraphicBuffer(width, height,
-                                                               HAL_PIXEL_FORMAT_RGBA_8888,
-                                                               GRALLOC_USAGE_HW_TEXTURE, &error);
-    if (fbo->m_grBuffer->initCheck() == NO_ERROR) {
-        LOGWEBGL(" allocated GraphicBuffer");
-    }
-    else {
-        LOGWEBGL(" failed to allocate GraphicBuffer, error = %d", error);
-    }
-
-    // 2. Create an EGLImage from the graphic buffer
+    ANativeWindowBuffer* clientBuf;
     const EGLint attrs[] = {
         //        EGL_IMAGE_PRESERVED_KHR,    EGL_TRUE,
         EGL_NONE,                   EGL_NONE
     };
-    ANativeWindowBuffer* clientBuf = fbo->m_grBuffer->getNativeBuffer();
-    fbo->m_image = eglCreateImageKHR(m_dpy,
-                                     EGL_NO_CONTEXT,
-                                     EGL_NATIVE_BUFFER_ANDROID,
-                                     (EGLClientBuffer)clientBuf,
-                                     attrs);
-    checkEGLError("eglCreateImageKHR");
+    GLenum status;
 
+    m_grBuffer = mGraphicBufferAlloc->createGraphicBuffer(width, height,
+                                                          HAL_PIXEL_FORMAT_RGBA_8888,
+                                                          GRALLOC_USAGE_HW_TEXTURE, &error);
+    if (error != NO_ERROR) {
+        LOGWEBGL(" failed to allocate GraphicBuffer, error = %d", error);
+        return false;
+    }
+    clientBuf = m_grBuffer->getNativeBuffer();
+    if (clientBuf->handle == 0) {
+        LOGWEBGL(" empty handle in GraphicBuffer");
+        return false;
+    }
+
+    // 2. Create an EGLImage from the graphic buffer
+    m_image = eglCreateImageKHR(m_dpy,
+                                EGL_NO_CONTEXT,
+                                EGL_NATIVE_BUFFER_ANDROID,
+                                (EGLClientBuffer)clientBuf,
+                                attrs);
+    if (GraphicsContext3DInternal::checkEGLError("eglCreateImageKHR") != EGL_SUCCESS) {
+        LOGWEBGL("eglCreateImageKHR() failed");
+        return false;
+    }
 
     // 3. Create a texture from the EGLImage
-    fbo->m_texture = createTexture(fbo->m_image, width, height);
-
-    /*
-    fbo->m_image = eglCreateImageKHR(m_dpy,
-                                     EGL_NO_CONTEXT,
-                                     EGL_GL_TEXTURE_2D_KHR,
-                                     reinterpret_cast<EGLClientBuffer>(fbo->m_texture),
-                                     attrs);
-    checkEGLError("eglCreateImageKHR");
-    */
+    m_texture = createTexture(m_image, width, height);
+    if (m_texture == 0) {
+        LOGWEBGL("createTexture() failed");
+        return false;
+    }
 
     // 4. Create the Framebuffer Object from the texture
-    glGenFramebuffers(1, &fbo->m_fbo);
-    glGenRenderbuffers(1, &fbo->m_depthBuffer);
+    glGenFramebuffers(1, &m_fbo);
+    glGenRenderbuffers(1, &m_depthBuffer);
 
-    glBindRenderbuffer(GL_RENDERBUFFER, fbo->m_depthBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_depthBuffer);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
-    checkGLError("glRenderbufferStorage");
+    if (GraphicsContext3DInternal::checkGLError("glRenderbufferStorage") != GL_NO_ERROR) {
+        return false;
+    }
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo->m_fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->m_texture, 0);
-    checkGLError("glFramebufferTexture2D");
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->m_depthBuffer);
-    checkGLError("glFramebufferRenderbuffer");
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture, 0);
+    if (GraphicsContext3DInternal::checkGLError("glFramebufferTexture2D") != GL_NO_ERROR) {
+        return false;
+    }
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthBuffer);
+    if (GraphicsContext3DInternal::checkGLError("glFramebufferRenderbuffer") != GL_NO_ERROR) {
+        return false;
+    }
 
-    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    checkGLError("glCheckFramebufferStatus");
+    status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         LOGWEBGL("Framebuffer incomplete: %d", status);
+        return false;
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    fbo->m_state = FBO_STATE_FREE;
+    m_state = FBO_STATE_FREE;
+    return true;
 }
 
-void GraphicsContext3DInternal::deleteFBO(fbo_t* fbo)
+FBO::~FBO()
 {
-    LOGWEBGL("deleteFBO()");
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    if (fbo->m_image) {
-        eglDestroyImageKHR(m_dpy, fbo->m_image);
-        checkEGLError("eglDestroyImageKHR");
+    LOGWEBGL("FBO::~FBO()");
+    if (m_image) {
+        eglDestroyImageKHR(m_dpy, m_image);
+        GraphicsContext3DInternal::checkEGLError("eglDestroyImageKHR");
     }
-
-    if (fbo->m_texture)
-        glDeleteTextures(1, &fbo->m_texture);
-    if (fbo->m_depthBuffer)
-        glDeleteRenderbuffers(1, &fbo->m_depthBuffer);
-    if (fbo->m_fbo)
-        glDeleteFramebuffers(1, &fbo->m_fbo);
-
-    // FIXME: Does the eglImage own the GraphicBuffer?
-    // fbo->m_grBuffer.clear();
-
-    memset(fbo, 0, sizeof(fbo_t));
+    if (m_texture)
+        glDeleteTextures(1, &m_texture);
+    if (m_depthBuffer)
+        glDeleteRenderbuffers(1, &m_depthBuffer);
+    if (m_fbo)
+        glDeleteFramebuffers(1, &m_fbo);
 }
 
-GLuint GraphicsContext3DInternal::createTexture(EGLImageKHR image, int width, int height)
+GLuint FBO::createTexture(EGLImageKHR image, int width, int height)
 {
     LOGWEBGL("createTexture(image = %p)", image);
     GLuint texture;
@@ -445,16 +550,20 @@ GLuint GraphicsContext3DInternal::createTexture(EGLImageKHR image, int width, in
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+    bool error = false;
     if (image) {
         glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)image);
-        checkGLError("glEGLImageTargetTexture2DOES");
+        error = (GraphicsContext3DInternal::checkGLError("glEGLImageTargetTexture2DOES") != GL_NO_ERROR);
     }
     else {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-        checkGLError("glTexImage2D()");
+        error = (GraphicsContext3DInternal::checkGLError("glTexImage2D()") != GL_NO_ERROR);
     }
-
     glBindTexture(GL_TEXTURE_2D, 0);
+    if (error) {
+        glDeleteTextures(1, &texture);
+        texture = 0;
+    }
 
     return texture;
 }
@@ -490,7 +599,7 @@ void GraphicsContext3DInternal::stopSyncThread()
 }
 
 void* GraphicsContext3DInternal::syncThreadStart(void* ctx)
-{    
+{
     GraphicsContext3DInternal* context = static_cast<GraphicsContext3DInternal*>(ctx);
     context->runSyncThread();
 
@@ -500,7 +609,7 @@ void* GraphicsContext3DInternal::syncThreadStart(void* ctx)
 void GraphicsContext3DInternal::runSyncThread()
 {
     LOGWEBGL("SyncThread: starting");
-    fbo_t* fbo = 0;
+    FBO* fbo = 0;
 
     MutexLocker lock(m_threadMutex);
     m_threadState = THREAD_STATE_RUN;
@@ -511,7 +620,7 @@ void GraphicsContext3DInternal::runSyncThread()
         while (m_threadState == THREAD_STATE_RUN) {
             {
                 MutexLocker lock(m_fboMutex);
-                if (m_pendingFBO != 0 && m_pendingFBO->m_state == FBO_STATE_LOCKED) {
+                if (m_pendingFBO != 0 && m_pendingFBO->state() == FBO_STATE_LOCKED) {
                     fbo = m_pendingFBO;
                     break;
                 }
@@ -522,28 +631,34 @@ void GraphicsContext3DInternal::runSyncThread()
         if (m_threadState != THREAD_STATE_RUN)
             break;
 
-        m_eglClientWaitSyncKHR(m_dpy, fbo->m_sync, 0, 0);
-        m_eglDestroySyncKHR(m_dpy, fbo->m_sync);
+        m_eglClientWaitSyncKHR(m_dpy, fbo->sync(), 0, 0);
+        m_eglDestroySyncKHR(m_dpy, fbo->sync());
         LOGWEBGL("SyncThread: returned after waiting for Sync");
 
         {
             MutexLocker lock(m_fboMutex);
             m_pendingFBO = 0;
-            fbo->m_sync = 0;
-            fbo->m_state = FBO_STATE_FREE;
+            fbo->setSync(0);
+            fbo->setState(FBO_STATE_FRONT);
             m_frontFBO = fbo;
+            FBO* backFBO = (m_fbo[0] == m_frontFBO) ? m_fbo[1] : m_fbo[0];
+            if (backFBO)
+                backFBO->setState(FBO_STATE_FREE);
             m_layerComposited = true;
             m_fboCondition.broadcast();
         }
-    
+
         // Invalidate the canvas region
-        RenderObject* renderer = m_canvas->renderer();
-        if (renderer && renderer->isBox() && m_postInvalidate) {
-            IntRect rect = ((RenderBox*)renderer)->absoluteContentBox();
-            LOGWEBGL("SyncThread: invalidating [%d, %d, %d, %d]", rect.x(), rect.y(), rect.width(), rect.height());
-            JNIEnv* env = JSC::Bindings::getJNIEnv();
-            env->CallVoidMethod(m_webView, m_postInvalidate, rect.x(), rect.y(),
-                                rect.x() + rect.width(), rect.y() + rect.height());
+        if (!m_requestedUpdate) {
+            RenderObject* renderer = m_canvas->renderer();
+            if (renderer && renderer->isBox() && m_postInvalidate) {
+                IntRect rect = ((RenderBox*)renderer)->absoluteContentBox();
+                LOGWEBGL("SyncThread: invalidating [%d, %d, %d, %d]", rect.x(), rect.y(), rect.width(), rect.height());
+                JNIEnv* env = JSC::Bindings::getJNIEnv();
+                env->CallVoidMethod(m_webView, m_postInvalidate, rect.x(), rect.y(),
+                                    rect.x() + rect.width(), rect.y() + rect.height());
+                PROFWEBGL("invalidated()");
+            }
         }
     }
 
@@ -562,24 +677,26 @@ PlatformLayer* GraphicsContext3DInternal::platformLayer() const
 void GraphicsContext3DInternal::reshape(int width, int height)
 {
     LOGWEBGL("reshape(%d, %d)", width, height);
-    //bool mustRestoreFBO = (m_boundFBO != currentFBO());
+    bool mustRestoreFBO = (m_boundFBO != currentFBO());
 
     m_width = width > m_maxwidth ? m_maxwidth : width;
     m_height = height > m_maxheight ? m_maxheight : height;
 
     stopSyncThread();
     makeContextCurrent();
+    m_proxy->setGraphicsContext(0);
     {
         MutexLocker lock(m_fboMutex);
         deleteContext(false);
-        createContext(false);
 
-        m_currentIndex = 0;
-        //if (!mustRestoreFBO) {
-        m_boundFBO = currentFBO();
-        //}
-        glBindFramebuffer(GL_FRAMEBUFFER, m_boundFBO);
+        if (createContext(false)) {
+            if (!mustRestoreFBO) {
+                m_boundFBO = currentFBO();
+            }
+            glBindFramebuffer(GL_FRAMEBUFFER, m_boundFBO);
+        }
     }
+    m_proxy->setGraphicsContext(this);
     startSyncThread();
 }
 
@@ -596,12 +713,16 @@ void GraphicsContext3DInternal::recreateSurface()
 void GraphicsContext3DInternal::releaseSurface()
 {
     LOGWEBGL("releaseSurface(%d)", m_contextId);
-    MutexLocker lock(m_fboMutex);
     if (m_currentIndex < 0)
         // We don't have any current surface
         return;
     stopSyncThread();
-    deleteContext(false);
+    m_proxy->setGraphicsContext(0);
+    {
+        MutexLocker lock(m_fboMutex);
+        deleteContext(false);
+    }
+    m_proxy->setGraphicsContext(this);
 }
 
 void GraphicsContext3DInternal::syncTimerFired(Timer<GraphicsContext3DInternal>*)
@@ -622,6 +743,7 @@ void GraphicsContext3DInternal::markContextChanged()
 
 void GraphicsContext3DInternal::swapBuffers()
 {
+    PROFWEBGL("+swapBuffers()");
     LOGWEBGL("+swapBuffers()");
 
     if (m_currentIndex < 0)
@@ -629,75 +751,82 @@ void GraphicsContext3DInternal::swapBuffers()
 
     makeContextCurrent();
     MutexLocker lock(m_fboMutex);
-    fbo_t* fbo = &m_fbo[m_currentIndex];
+    FBO* fbo = m_fbo[m_currentIndex];
     LOGWEBGL("swap: currentIndex = %d, currentFBO = %p", m_currentIndex, fbo);
     while (m_pendingFBO != 0) {
         m_fboCondition.wait(m_fboMutex);
     }
-    bool mustRestoreFBO = (m_boundFBO != fbo->m_fbo);
+    bool mustRestoreFBO = (m_boundFBO != fbo->fbo());
     if (mustRestoreFBO) {
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo->m_fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo->fbo());
     }
 
     // Create the fence sync and notify the sync thread
-    fbo->m_sync = m_eglCreateSyncKHR(m_dpy, EGL_SYNC_FENCE_KHR, 0);
+    fbo->setSync(m_eglCreateSyncKHR(m_dpy, EGL_SYNC_FENCE_KHR, 0));
     glFlush();
     m_pendingFBO = fbo;
-    m_pendingFBO->m_state = FBO_STATE_LOCKED;
+    m_pendingFBO->setState(FBO_STATE_LOCKED);
     m_threadCondition.broadcast();
 
     // Dequeue a new buffer
     int index = m_currentIndex ? 0 : 1;
-    fbo = &m_fbo[index];
-    while (fbo->m_state != FBO_STATE_FREE) {
+    fbo = m_fbo[index];
+    while (fbo->state() != FBO_STATE_FREE) {
         m_fboCondition.wait(m_fboMutex);
     }
     m_currentIndex = index;
     LOGWEBGL("swap: currentIndex = %d, currentFBO = %p", m_currentIndex, fbo);
-    fbo->m_state = FBO_STATE_DEQUEUED;
+    fbo->setState(FBO_STATE_DEQUEUED);
 
     if (!mustRestoreFBO) {
-        m_boundFBO = fbo->m_fbo;
+        m_boundFBO = fbo->fbo();
     }
     glBindFramebuffer(GL_FRAMEBUFFER, m_boundFBO);
     m_canvasDirty = false;
     LOGWEBGL("-swapBuffers()");
 }
 
-GLuint GraphicsContext3DInternal::lockFrontTexture(SkRect& rect)
+bool GraphicsContext3DInternal::lockFrontBuffer(EGLImageKHR& image, int& width, int& height,
+                                                SkRect& rect, bool& requestUpdate)
 {
-    LOGWEBGL("+GraphicsContext3DInternal::lockFrontTexture()");
+#ifdef WEBGL_PROFILING
+    nsecs_t time1 = systemTime();
+    static nsecs_t lastTime = 0;
+    nsecs_t elapsedTime = time1 - lastTime;
+    lastTime = time1;
+    PROFWEBGL("GraphicsContext3DInternal::drawGL(), time since last drawGL = %7.4f ms", elapsedTime / 1000000.0);
+#endif
+    LOGWEBGL("+GraphicsContext3DInternal::lockFrontBuffer()");
     MutexLocker lock(m_fboMutex);
 
-    fbo_t *fbo = m_frontFBO;
-    if (!fbo || !fbo->m_image) {
-        LOGWEBGL("-GraphicsContext3DInternal::lockFrontTexture(), fbo = %p", fbo);
+    FBO* fbo = m_frontFBO;
+    if (!fbo || !fbo->image()) {
+        LOGWEBGL("-GraphicsContext3DInternal::lockFrontBuffer(), fbo = %p", fbo);
         return false;
     }
 
-    // If necessary, create the texture
-    if (fbo->m_drawingTexture == 0)
-        fbo->m_drawingTexture = createTexture(fbo->m_image, m_width, m_height);
+    image = fbo->image();
+    width = m_width;
+    height = m_height;
+    m_requestedUpdate = requestUpdate = m_canvasDirty;
 
     RenderObject* renderer = m_canvas->renderer();
     if (renderer && renderer->isBox()) {
-        RenderBox* box = (RenderBox*)renderer; 
+        RenderBox* box = (RenderBox*)renderer;
         rect.set(box->borderLeft() + box->paddingLeft(),
                  box->borderTop() + box->paddingTop(),
                  box->borderLeft() + box->paddingLeft() + box->contentWidth(),
                  box->borderTop() + box->paddingTop() + box->contentHeight());
     }
 
-    LOGWEBGL("-GraphicsContext3DInternal::lockFrontTexture()");
-    return fbo->m_drawingTexture;
+    LOGWEBGL("-GraphicsContext3DInternal::lockFrontBuffer()");
+    return true;
 }
 
-void GraphicsContext3DInternal::releaseFrontTexture(GLuint texture)
+void GraphicsContext3DInternal::releaseFrontBuffer()
 {
-    LOGWEBGL("+GraphicsContext3DInternal::releaseFrontTexture()");
+    LOGWEBGL("GraphicsContext3DInternal::releaseFrontBuffer()");
     MutexLocker lock(m_fboMutex);
-
-    LOGWEBGL("-GraphicsContext3DInternal::releaseFrontTexture()");
 }
 
 void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingContext* context)
@@ -740,15 +869,15 @@ bool GraphicsContext3DInternal::paintCompositedResultsToCanvas(CanvasRenderingCo
 
     MutexLocker lock(m_fboMutex);
 
-    fbo_t *fbo = m_frontFBO;
-    if (!fbo || !fbo->m_grBuffer.get())
+    FBO* fbo = m_frontFBO;
+    if (!fbo)
         return false;
 
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, m_width, m_height, fbo->m_grBuffer->getStride() * 4);
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, m_width, m_height, fbo->bytesPerRow());
 
     unsigned char* bits = NULL;
-    if (fbo->m_grBuffer->lock(GraphicBuffer::USAGE_SW_READ_RARELY, (void**)&bits) == NO_ERROR) {
+    if (fbo->lockGraphicBuffer((void**)&bits)) {
         bitmap.setPixels(bits);
 
         SkRect  dstRect;
@@ -759,7 +888,7 @@ bool GraphicsContext3DInternal::paintCompositedResultsToCanvas(CanvasRenderingCo
         canvas.drawBitmapRect(bitmap, 0, dstRect);
         canvas.restore();
         bitmap.setPixels(0);
-        fbo->m_grBuffer->unlock();
+        fbo->unlockGraphicBuffer();
     }
 
     return true;
@@ -802,13 +931,13 @@ void GraphicsContext3DInternal::compileShader(Platform3DObject shader)
         LOGWEBGL("  shader validation failed");
         return;
     }
-    int len = src.length();
-    CString cstr = src.utf8();
+    int len = entry.source.length();
+    CString cstr = entry.source.utf8();
     const char* s = cstr.data();
 
-    LOGWEBGL("glShaderSource(%s)", s);
+    LOGWEBGL("glShaderSource(%s)", cstr.data());
     glShaderSource(shader, 1, &s, &len);
- 
+
     LOGWEBGL("glCompileShader()");
     glCompileShader(shader);
 }
@@ -868,7 +997,6 @@ void GraphicsContext3DInternal::shaderSource(Platform3DObject shader, const Stri
     entry.source = string;
 
     m_shaderSourceMap.set(shader, entry);
-    LOGWEBGL("entry.source = %s", entry.source.utf8().data());
 }
 
 void GraphicsContext3DInternal::viewport(long x, long y, unsigned long width, unsigned long height)

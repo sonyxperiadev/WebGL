@@ -2016,11 +2016,14 @@ WebGLExtension* WebGLRenderingContext::getExtension(const String& name)
         }
         return m_oesVertexArrayObject.get();
     }
+    /*
+     * Removed since GPU lacks support for this.
     if (equalIgnoringCase(name, "WEBKIT_lose_context")) {
         if (!m_webkitLoseContext)
             m_webkitLoseContext = WebKitLoseContext::create(this);
         return m_webkitLoseContext.get();
     }
+    */
 
     return 0;
 }
@@ -4011,7 +4014,7 @@ void WebGLRenderingContext::onLostContext()
 void WebGLRenderingContext::restoreContext()
 {
 #if PLATFORM(ANDROID)
-    RefPtr<GraphicsContext3D> context(GraphicsContext3D::create(canvas(), m_attributes, canvas()->document()->view()->root()->hostWindow()));
+    RefPtr<GraphicsContext3D> context(GraphicsContext3D::create(canvas(), m_attributes, 0/*canvas()->document()->view()->root()->hostWindow()*/));
 #else
     RefPtr<GraphicsContext3D> context(GraphicsContext3D::create(m_attributes, canvas()->document()->view()->root()->hostWindow()));
 #endif
