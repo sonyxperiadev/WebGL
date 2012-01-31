@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+# Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -130,8 +130,12 @@ bool GraphicsContext3D::getImageData(Image* image,
     if ((ignoreGammaAndColorProfile || (hasAlpha && !premultiplyAlpha)) && image->data()) {
         // Attempt to get raw unpremultiplied image data
         decoder = ImageDecoder::create(*(image->data()),
-                                       premultiplyAlpha ? ImageSource::AlphaPremultiplied : ImageSource::AlphaNotPremultiplied,
-                                       ignoreGammaAndColorProfile ? ImageSource::GammaAndColorProfileIgnored : ImageSource::GammaAndColorProfileApplied);
+                                       premultiplyAlpha ?
+                                         ImageSource::AlphaPremultiplied :
+                                         ImageSource::AlphaNotPremultiplied,
+                                       ignoreGammaAndColorProfile ?
+                                         ImageSource::GammaAndColorProfileIgnored :
+                                         ImageSource::GammaAndColorProfileApplied);
         if (decoder) {
             decoder->setData(image->data(), true);
             buf = decoder->frameBufferAtIndex(0);
@@ -172,15 +176,19 @@ bool GraphicsContext3D::getImageData(Image* image,
         LOGWEBGL("  skiaConfig = kARGB_8888_Config");
         pixels = reinterpret_cast<unsigned char*>(bitmap.getPixels());
         rowBytes = bitmap.rowBytes();
-        if (!pixels)
+        if (!pixels) {
+            bitmap.unlockPixels();
             return false;
+        }
     }
     else if (skiaConfig == SkBitmap::kIndex8_Config) {
         LOGWEBGL("  skiaConfig = kIndex8_Config");
         rowBytes = width * 4;
         tmpPixels = (uint32_t*)fastMalloc(width * height * 4);
-        if (!tmpPixels)
+        if (!tmpPixels) {
+            bitmap.unlockPixels();
             return false;
+        }
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                 SkPMColor c = bitmap.getIndex8Color(j, i);
@@ -314,7 +322,8 @@ void GraphicsContext3D::attachShader(Platform3DObject program, Platform3DObject 
     glAttachShader(program, shader);
 }
 
-void GraphicsContext3D::bindAttribLocation(Platform3DObject program, GC3Duint index, const String& name)
+void GraphicsContext3D::bindAttribLocation(Platform3DObject program, GC3Duint index,
+                                           const String& name)
 {
     CString cs = name.utf8();
     LOGWEBGL("glBindAttribLocation(%d, %d, %s)", program, index, cs.data());
@@ -352,7 +361,8 @@ void GraphicsContext3D::bindTexture(GC3Denum target, Platform3DObject texture)
     glBindTexture(target, texture);
 }
 
-void GraphicsContext3D::blendColor(GC3Dclampf red, GC3Dclampf green, GC3Dclampf blue, GC3Dclampf alpha)
+void GraphicsContext3D::blendColor(GC3Dclampf red, GC3Dclampf green,
+                                   GC3Dclampf blue, GC3Dclampf alpha)
 {
     LOGWEBGL("glBlendColor(%lf, %lf, %lf, %lf)", red, green, blue, alpha);
     makeContextCurrent();
@@ -380,7 +390,8 @@ void GraphicsContext3D::blendFunc(GC3Denum sfactor, GC3Denum dfactor)
     glBlendFunc(sfactor, dfactor);
 }
 
-void GraphicsContext3D::blendFuncSeparate(GC3Denum srcRGB, GC3Denum dstRGB, GC3Denum srcAlpha, GC3Denum dstAlpha)
+void GraphicsContext3D::blendFuncSeparate(GC3Denum srcRGB, GC3Denum dstRGB,
+                                          GC3Denum srcAlpha, GC3Denum dstAlpha)
 {
     LOGWEBGL("glBlendFuncSeparate(%lu, %lu, %lu, %lu)", srcRGB, dstRGB, srcAlpha, dstAlpha);
     makeContextCurrent();
@@ -394,14 +405,16 @@ void GraphicsContext3D::bufferData(GC3Denum target, GC3Dsizeiptr size, GC3Denum 
     glBufferData(target, size, 0, usage);
 }
 
-void GraphicsContext3D::bufferData(GC3Denum target, GC3Dsizeiptr size, const void* data, GC3Denum usage)
+void GraphicsContext3D::bufferData(GC3Denum target, GC3Dsizeiptr size,
+                                   const void* data, GC3Denum usage)
 {
     LOGWEBGL("glBufferData(%lu, %d, %p, %lu)", target, size, data, usage);
     makeContextCurrent();
     glBufferData(target, size, data, usage);
 }
 
-void GraphicsContext3D::bufferSubData(GC3Denum target, GC3Dintptr offset, GC3Dsizeiptr size, const void* data)
+void GraphicsContext3D::bufferSubData(GC3Denum target, GC3Dintptr offset,
+                                      GC3Dsizeiptr size, const void* data)
 {
     LOGWEBGL("glBufferSubData(%lu, %ld, %d, %p)", target, offset, size, data);
     makeContextCurrent();
@@ -422,7 +435,8 @@ void GraphicsContext3D::clear(GC3Dbitfield mask)
     glClear(mask);
 }
 
-void GraphicsContext3D::clearColor(GC3Dclampf red, GC3Dclampf green, GC3Dclampf blue, GC3Dclampf alpha)
+void GraphicsContext3D::clearColor(GC3Dclampf red, GC3Dclampf green,
+                                   GC3Dclampf blue, GC3Dclampf alpha)
 {
     LOGWEBGL("glClearColor(%.2lf, %.2lf, %.2lf, %.2lf)", red, green, blue, alpha);
     makeContextCurrent();
@@ -443,7 +457,8 @@ void GraphicsContext3D::clearStencil(GC3Dint s)
     glClearStencil(s);
 }
 
-void GraphicsContext3D::colorMask(GC3Dboolean red, GC3Dboolean green, GC3Dboolean blue, GC3Dboolean alpha)
+void GraphicsContext3D::colorMask(GC3Dboolean red, GC3Dboolean green,
+                                  GC3Dboolean blue, GC3Dboolean alpha)
 {
     LOGWEBGL("glColorMask(%s, %s, %s, %s)", red ? "true" : "false", green ? "true" : "false",
              blue ? "true" : "false", alpha ? "true" : "false");
@@ -459,19 +474,21 @@ void GraphicsContext3D::compileShader(Platform3DObject shader)
 }
 
 void GraphicsContext3D::copyTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat,
-                                       GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Dint border)
+                                       GC3Dint x, GC3Dint y, GC3Dsizei width,
+                                       GC3Dsizei height, GC3Dint border)
 {
-    LOGWEBGL("glCopyTexImage2D(%lu, %ld, %lu, %ld, %ld, %lu, %lu, %ld", target, level, internalformat,
-             x, y, width, height, border);
+    LOGWEBGL("glCopyTexImage2D(%lu, %ld, %lu, %ld, %ld, %lu, %lu, %ld",
+             target, level, internalformat, x, y, width, height, border);
     makeContextCurrent();
     glCopyTexImage2D(target, level, internalformat, x, y, width, height, border);
 }
 
-void GraphicsContext3D::copyTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset,
-                                          GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height)
+void GraphicsContext3D::copyTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset,
+                                          GC3Dint yoffset, GC3Dint x, GC3Dint y, GC3Dsizei width,
+                                          GC3Dsizei height)
 {
-    LOGWEBGL("glCopyTexSubImage2D(%lu, %ld, %ld, %ld, %ld, %ld, %lu, %lu)", target, level, xoffset,
-             yoffset, x, y, width, height);
+    LOGWEBGL("glCopyTexSubImage2D(%lu, %ld, %ld, %ld, %ld, %ld, %lu, %lu)",
+             target, level, xoffset, yoffset, x, y, width, height);
     makeContextCurrent();
     glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
 }
@@ -532,7 +549,8 @@ void GraphicsContext3D::drawArrays(GC3Denum mode, GC3Dint first, GC3Dsizei count
     glDrawArrays(mode, first, count);
 }
 
-void GraphicsContext3D::drawElements(GC3Denum mode, GC3Dsizei count, GC3Denum type, GC3Dintptr offset)
+void GraphicsContext3D::drawElements(GC3Denum mode, GC3Dsizei count,
+                                     GC3Denum type, GC3Dintptr offset)
 {
     LOGWEBGL("glDrawElements(%lu, %lu, %lu, %ld)", mode, count, type, offset);
     makeContextCurrent();
@@ -568,7 +586,8 @@ void GraphicsContext3D::flush()
 }
 
 void GraphicsContext3D::framebufferRenderbuffer(GC3Denum target, GC3Denum attachment,
-                                                GC3Denum renderbuffertarget, Platform3DObject renderbuffer)
+                                                GC3Denum renderbuffertarget,
+                                                Platform3DObject renderbuffer)
 {
     LOGWEBGL("glFramebufferRenderbuffer(%lu, %lu, %lu, %lu)", target, attachment,
              renderbuffertarget, renderbuffer);
@@ -576,10 +595,12 @@ void GraphicsContext3D::framebufferRenderbuffer(GC3Denum target, GC3Denum attach
     glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer);
 }
 
-void GraphicsContext3D::framebufferTexture2D(GC3Denum target, GC3Denum attachment, GC3Denum textarget,
-                                             Platform3DObject texture, GC3Dint level)
+void GraphicsContext3D::framebufferTexture2D(GC3Denum target, GC3Denum attachment,
+                                             GC3Denum textarget, Platform3DObject texture,
+                                             GC3Dint level)
 {
-    LOGWEBGL("glFramebufferTexture2D(%lu, %lu, %lu, %lu, %ld)", target, attachment, textarget, texture, level);
+    LOGWEBGL("glFramebufferTexture2D(%lu, %lu, %lu, %lu, %ld)",
+             target, attachment, textarget, texture, level);
     makeContextCurrent();
     glFramebufferTexture2D(target, attachment, textarget, texture, level);
 }
@@ -1014,7 +1035,8 @@ void GraphicsContext3D::stencilOp(GC3Denum fail, GC3Denum zfail, GC3Denum zpass)
     glStencilOp(fail, zfail, zpass);
 }
 
-void GraphicsContext3D::stencilOpSeparate(GC3Denum face, GC3Denum fail, GC3Denum zfail, GC3Denum zpass)
+void GraphicsContext3D::stencilOpSeparate(GC3Denum face, GC3Denum fail,
+                                          GC3Denum zfail, GC3Denum zpass)
 {
     LOGWEBGL("glStencilOpSeparate(%lu, %lu, %lu, %lu)", face, fail, zfail, zpass);
     makeContextCurrent();
@@ -1148,7 +1170,8 @@ void GraphicsContext3D::uniform3iv(GC3Dint location, GC3Dint* v, GC3Dsizei size)
     glUniform3iv(location, size, v);
 }
 
-void GraphicsContext3D::uniform4f(GC3Dint location, GC3Dfloat x, GC3Dfloat y, GC3Dfloat z, GC3Dfloat w)
+void GraphicsContext3D::uniform4f(GC3Dint location, GC3Dfloat x, GC3Dfloat y,
+                                  GC3Dfloat z, GC3Dfloat w)
 {
     LOGWEBGL("glUniform4f(%ld, %f, %f, %f, %f)", location, x, y, z, w);
     makeContextCurrent();
@@ -1176,23 +1199,29 @@ void GraphicsContext3D::uniform4iv(GC3Dint location, GC3Dint* v, GC3Dsizei size)
     glUniform4iv(location, size, v);
 }
 
-void GraphicsContext3D::uniformMatrix2fv(GC3Dint location, GC3Dboolean transpose, GC3Dfloat* value, GC3Dsizei size)
+void GraphicsContext3D::uniformMatrix2fv(GC3Dint location, GC3Dboolean transpose,
+                                         GC3Dfloat* value, GC3Dsizei size)
 {
-    LOGWEBGL("glUniformMatrix2fv(%ld, %s, %p, %d)", location, transpose ? "true" : "false", value, size);
+    LOGWEBGL("glUniformMatrix2fv(%ld, %s, %p, %d)",
+             location, transpose ? "true" : "false", value, size);
     makeContextCurrent();
     glUniformMatrix2fv(location, size, transpose, value);
 }
 
-void GraphicsContext3D::uniformMatrix3fv(GC3Dint location, GC3Dboolean transpose, GC3Dfloat* value, GC3Dsizei size)
+void GraphicsContext3D::uniformMatrix3fv(GC3Dint location, GC3Dboolean transpose,
+                                         GC3Dfloat* value, GC3Dsizei size)
 {
-    LOGWEBGL("glUniformMatrix3fv(%ld, %s, %p, %d)", location, transpose ? "true" : "false", value, size);
+    LOGWEBGL("glUniformMatrix3fv(%ld, %s, %p, %d)",
+             location, transpose ? "true" : "false", value, size);
     makeContextCurrent();
     glUniformMatrix3fv(location, size, transpose, value);
 }
 
-void GraphicsContext3D::uniformMatrix4fv(GC3Dint location, GC3Dboolean transpose, GC3Dfloat* value, GC3Dsizei size)
+void GraphicsContext3D::uniformMatrix4fv(GC3Dint location, GC3Dboolean transpose,
+                                         GC3Dfloat* value, GC3Dsizei size)
 {
-    LOGWEBGL("glUniformMatrix4fv(%ld, %s, %p, %d)", location, transpose ? "true" : "false", value, size);
+    LOGWEBGL("glUniformMatrix4fv(%ld, %s, %p, %d)",
+             location, transpose ? "true" : "false", value, size);
     makeContextCurrent();
     glUniformMatrix4fv(location, size, transpose, value);
 }
@@ -1253,7 +1282,8 @@ void GraphicsContext3D::vertexAttrib3fv(GC3Duint index, GC3Dfloat* values)
     glVertexAttrib3fv(index, values);
 }
 
-void GraphicsContext3D::vertexAttrib4f(GC3Duint index, GC3Dfloat x, GC3Dfloat y, GC3Dfloat z, GC3Dfloat w)
+void GraphicsContext3D::vertexAttrib4f(GC3Duint index, GC3Dfloat x, GC3Dfloat y,
+                                       GC3Dfloat z, GC3Dfloat w)
 {
     LOGWEBGL("glVertexAttrib4f(%lu, %f, %f, %f, %f)", index, x, y, z, w);
     makeContextCurrent();
@@ -1268,7 +1298,8 @@ void GraphicsContext3D::vertexAttrib4fv(GC3Duint index, GC3Dfloat* values)
 }
 
 void GraphicsContext3D::vertexAttribPointer(GC3Duint index, GC3Dint size, GC3Denum type,
-                                            GC3Dboolean normalized, GC3Dsizei stride, GC3Dintptr offset)
+                                            GC3Dboolean normalized, GC3Dsizei stride,
+                                            GC3Dintptr offset)
 {
     LOGWEBGL("glVertexAttribPointer(%lu, %d, %d, %s, %lu, %lu)", index, size, type,
              normalized ? "true" : "false", stride, offset);

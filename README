@@ -20,5 +20,12 @@ Some updates:
   - other bug fixes
 
 
+===== 31 jan 2012 =====
+
+Updates:
+  - added implementation for WEBGL_lose_context extension
+  - some code cleanup and bug fixes
+
+
 -- Anders Edenbrandt, Sony Mobile Communications
 

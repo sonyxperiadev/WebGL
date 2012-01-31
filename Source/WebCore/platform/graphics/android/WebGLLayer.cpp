@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -105,7 +105,8 @@ bool WebGLLayer::drawGL()
         bool locked = m_proxy->lockFrontBuffer(eglImage, width, height, localBounds, requestUpdate);
         if (locked) {
             GLuint texture;
-            LOGWEBGL("WebGLLayer::drawGL(), this = %p, m_proxy = %p, eglImage = %d", this, m_proxy.get(), eglImage);
+            LOGWEBGL("WebGLLayer::drawGL(), this = %p, m_proxy = %p, eglImage = %d",
+                     this, m_proxy.get(), eglImage);
             if (m_eglImages[0] == eglImage) {
                 texture = m_textures[0];
             }
@@ -128,7 +129,8 @@ bool WebGLLayer::drawGL()
             TransformationMatrix transform = m_drawTransform;
             transform = transform.translate(0, 2 * localBounds.top() + localBounds.height());
             transform = transform.scale3d(1.0, -1.0, 1.0);
-            TilesManager::instance()->shader()->drawLayerQuad(transform, localBounds, texture, 1.0f, true);
+            TilesManager::instance()->shader()->drawLayerQuad(transform, localBounds,
+                                                              texture, 1.0f, true);
             m_proxy->releaseFrontBuffer();
             askScreenUpdate |= requestUpdate;
         }

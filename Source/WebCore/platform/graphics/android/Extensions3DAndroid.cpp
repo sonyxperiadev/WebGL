@@ -70,8 +70,10 @@ void Extensions3DAndroid::blitFramebuffer(long srcX0, long srcY0, long srcX1, lo
 {
 }
 
-void Extensions3DAndroid::renderbufferStorageMultisample(unsigned long target, unsigned long samples,
-                                                         unsigned long internalformat, unsigned long width,
+void Extensions3DAndroid::renderbufferStorageMultisample(unsigned long target,
+                                                         unsigned long samples,
+                                                         unsigned long internalformat,
+                                                         unsigned long width,
                                                          unsigned long height)
 {
 }

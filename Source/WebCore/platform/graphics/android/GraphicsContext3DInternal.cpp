@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@
 #include <surfaceflinger/IGraphicBufferAlloc.h>
 #include <JNIUtility.h>
 
+#if ENABLE(WEBGL)
 namespace WebCore {
 
 typedef enum {
@@ -74,7 +75,8 @@ public:
     EGLImageKHR image() { return m_image; }
 
     bool lockGraphicBuffer(void** ptr) {
-        return (m_grBuffer.get() && (m_grBuffer->lock(GraphicBuffer::USAGE_SW_READ_RARELY, ptr) == NO_ERROR));
+        return (m_grBuffer.get() &&
+                (m_grBuffer->lock(GraphicBuffer::USAGE_SW_READ_RARELY, ptr) == NO_ERROR));
     }
     void unlockGraphicBuffer() {
         if (m_grBuffer.get())
@@ -158,21 +160,29 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
     m_compositingLayer->ref();
     m_proxy->setGraphicsContext(this);
 
+    if (!m_canvas || !m_canvas->document() || !m_canvas->document()->view())
+        return;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     WebViewCore* core = WebViewCore::getWebViewCore(m_canvas->document()->view());
+    if (!core)
+        return;
     jobject tmp = core->getWebViewJavaObject();
     m_webView = env->NewGlobalRef(tmp);
-    if (m_webView) {
-        jclass webViewClass = env->GetObjectClass(m_webView);
-        m_postInvalidate = env->GetMethodID(webViewClass, "postInvalidate", "(IIII)V");
-        env->DeleteLocalRef(webViewClass);
-    }
+    if (!m_webView)
+        return;
+    jclass webViewClass = env->GetObjectClass(m_webView);
+    m_postInvalidate = env->GetMethodID(webViewClass, "postInvalidate", "(IIII)V");
+    env->DeleteLocalRef(webViewClass);
+    if (!m_postInvalidate)
+        return;
 
     if (!initEGL())
         return;
 
     if (!createContext(true)) {
         LOGWEBGL("Create context failed. Perform JS garbage collection and try again.");
+        // Probably too many contexts. Force a JS garbage collection, and then try again.
+        // This typically only happens in Khronos Conformance tests.
         m_canvas->document()->frame()->script()->lowMemoryNotification();
         if (!createContext(true)) {
             LOGWEBGL("Create context still failed: aborting.");
@@ -182,7 +192,8 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
 
     const char *ext = (const char *)glGetString(GL_EXTENSIONS);
     // Only willing to support GL_OES_texture_npot at this time
-    m_extensions.set(new Extensions3DAndroid(strstr(ext, "GL_OES_texture_npot") ? "GL_OES_texture_npot" : ""));
+    m_extensions.set(new Extensions3DAndroid(strstr(ext, "GL_OES_texture_npot") ?
+                                             "GL_OES_texture_npot" : ""));
     LOGWEBGL("GL_EXTENSIONS = %s", ext);
 
     // ANGLE initialization.
@@ -236,15 +247,13 @@ GraphicsContext3DInternal::~GraphicsContext3DInternal()
 
 bool GraphicsContext3DInternal::initEGL()
 {
-    EGLBoolean returnValue;
-    EGLint     majorVersion;
-    EGLint     minorVersion;
-
     m_dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (m_dpy == EGL_NO_DISPLAY)
         return false;
 
-    returnValue = eglInitialize(m_dpy, &majorVersion, &minorVersion);
+    EGLint     majorVersion;
+    EGLint     minorVersion;
+    EGLBoolean returnValue = eglInitialize(m_dpy, &majorVersion, &minorVersion);
     if (returnValue != EGL_TRUE)
         return false;
 
@@ -267,9 +276,7 @@ bool GraphicsContext3DInternal::initEGL()
     config_attribs[p++] = EGL_RED_SIZE;
     config_attribs[p++] = 8;
     config_attribs[p++] = EGL_SURFACE_TYPE;
-    // If the platform does not have common configurations for both PBUFFER and WINDOW,
-    // we will have to create two separate configs. For now, one seems to be enough.
-    config_attribs[p++] = EGL_PBUFFER_BIT | EGL_WINDOW_BIT;
+    config_attribs[p++] = EGL_PBUFFER_BIT;
     config_attribs[p++] = EGL_RENDERABLE_TYPE;
     config_attribs[p++] = EGL_OPENGL_ES2_BIT;
     config_attribs[p++] = EGL_ALPHA_SIZE;
@@ -321,17 +328,6 @@ bool GraphicsContext3DInternal::createContext(bool createEGLContext)
     if (createEGLContext) {
         m_surface = createPbufferSurface(1, 1);
         m_context = eglCreateContext(m_dpy, m_config, EGL_NO_CONTEXT, context_attribs);
-        EGLint error = checkEGLError("eglCreateContext");
-        /*
-        if (error == EGL_BAD_ALLOC) {
-            // Probably too many contexts. Force a JS garbage collection, and then try again.
-            // This typically only happens in Khronos Conformance tests.
-            LOGWEBGL(" error == EGL_BAD_ALLOC: try again after GC");
-            m_canvas->document()->frame()->script()->lowMemoryNotification();
-            m_context = eglCreateContext(m_dpy, m_config, EGL_NO_CONTEXT, context_attribs);
-            checkEGLError("eglCreateContext");
-        }
-        */
     }
     if (m_context == EGL_NO_CONTEXT) {
         deleteContext(createEGLContext);
@@ -449,14 +445,8 @@ bool FBO::init(int width, int height)
     // 1. Allocate a graphic buffer
     sp<ISurfaceComposer> composer(ComposerService::getComposerService());
     sp<IGraphicBufferAlloc> mGraphicBufferAlloc = composer->createGraphicBufferAlloc();
-    status_t error;
-    ANativeWindowBuffer* clientBuf;
-    const EGLint attrs[] = {
-        //        EGL_IMAGE_PRESERVED_KHR,    EGL_TRUE,
-        EGL_NONE,                   EGL_NONE
-    };
-    GLenum status;
 
+    status_t error;
     m_grBuffer = mGraphicBufferAlloc->createGraphicBuffer(width, height,
                                                           HAL_PIXEL_FORMAT_RGBA_8888,
                                                           GRALLOC_USAGE_HW_TEXTURE, &error);
@@ -464,13 +454,27 @@ bool FBO::init(int width, int height)
         LOGWEBGL(" failed to allocate GraphicBuffer, error = %d", error);
         return false;
     }
-    clientBuf = m_grBuffer->getNativeBuffer();
+
+    void *addr = 0;
+    if (m_grBuffer->lock(GRALLOC_USAGE_SW_WRITE_RARELY, &addr) != NO_ERROR) {
+        LOGWEBGL("  failed to lock the GraphicBuffer");
+        return false;
+    }
+    // WebGL requires all buffers to be initialized to 0.
+    memset(addr, 0, width * height * 4);
+    m_grBuffer->unlock();
+
+    ANativeWindowBuffer* clientBuf = m_grBuffer->getNativeBuffer();
     if (clientBuf->handle == 0) {
         LOGWEBGL(" empty handle in GraphicBuffer");
         return false;
     }
 
     // 2. Create an EGLImage from the graphic buffer
+    const EGLint attrs[] = {
+        EGL_IMAGE_PRESERVED_KHR, EGL_TRUE,
+        EGL_NONE,                EGL_NONE
+    };
     m_image = eglCreateImageKHR(m_dpy,
                                 EGL_NO_CONTEXT,
                                 EGL_NATIVE_BUFFER_ANDROID,
@@ -509,7 +513,7 @@ bool FBO::init(int width, int height)
         return false;
     }
 
-    status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         LOGWEBGL("Framebuffer incomplete: %d", status);
         return false;
@@ -553,7 +557,8 @@ GLuint FBO::createTexture(EGLImageKHR image, int width, int height)
     bool error = false;
     if (image) {
         glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)image);
-        error = (GraphicsContext3DInternal::checkGLError("glEGLImageTargetTexture2DOES") != GL_NO_ERROR);
+        error = (GraphicsContext3DInternal::checkGLError("glEGLImageTargetTexture2DOES")
+                 != GL_NO_ERROR);
     }
     else {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
@@ -620,7 +625,7 @@ void GraphicsContext3DInternal::runSyncThread()
         while (m_threadState == THREAD_STATE_RUN) {
             {
                 MutexLocker lock(m_fboMutex);
-                if (m_pendingFBO != 0 && m_pendingFBO->state() == FBO_STATE_LOCKED) {
+                if (m_pendingFBO != 0) {
                     fbo = m_pendingFBO;
                     break;
                 }
@@ -640,10 +645,15 @@ void GraphicsContext3DInternal::runSyncThread()
             m_pendingFBO = 0;
             fbo->setSync(0);
             fbo->setState(FBO_STATE_FRONT);
-            m_frontFBO = fbo;
-            FBO* backFBO = (m_fbo[0] == m_frontFBO) ? m_fbo[1] : m_fbo[0];
-            if (backFBO)
+            FBO* backFBO = (m_fbo[0] == fbo) ? m_fbo[1] : m_fbo[0];
+            if (backFBO) {
+                while (backFBO->state() == FBO_STATE_LOCKED) {
+                    // The previous front buffer is being used by the UI thread.
+                    m_fboCondition.wait(m_fboMutex);
+                }
                 backFBO->setState(FBO_STATE_FREE);
+            }
+            m_frontFBO = fbo;
             m_layerComposited = true;
             m_fboCondition.broadcast();
         }
@@ -653,7 +663,8 @@ void GraphicsContext3DInternal::runSyncThread()
             RenderObject* renderer = m_canvas->renderer();
             if (renderer && renderer->isBox() && m_postInvalidate) {
                 IntRect rect = ((RenderBox*)renderer)->absoluteContentBox();
-                LOGWEBGL("SyncThread: invalidating [%d, %d, %d, %d]", rect.x(), rect.y(), rect.width(), rect.height());
+                LOGWEBGL("SyncThread: invalidating [%d, %d, %d, %d]",
+                         rect.x(), rect.y(), rect.width(), rect.height());
                 JNIEnv* env = JSC::Bindings::getJNIEnv();
                 env->CallVoidMethod(m_webView, m_postInvalidate, rect.x(), rect.y(),
                                     rect.x() + rect.width(), rect.y() + rect.height());
@@ -765,7 +776,6 @@ void GraphicsContext3DInternal::swapBuffers()
     fbo->setSync(m_eglCreateSyncKHR(m_dpy, EGL_SYNC_FENCE_KHR, 0));
     glFlush();
     m_pendingFBO = fbo;
-    m_pendingFBO->setState(FBO_STATE_LOCKED);
     m_threadCondition.broadcast();
 
     // Dequeue a new buffer
@@ -794,7 +804,8 @@ bool GraphicsContext3DInternal::lockFrontBuffer(EGLImageKHR& image, int& width, 
     static nsecs_t lastTime = 0;
     nsecs_t elapsedTime = time1 - lastTime;
     lastTime = time1;
-    PROFWEBGL("GraphicsContext3DInternal::drawGL(), time since last drawGL = %7.4f ms", elapsedTime / 1000000.0);
+    PROFWEBGL("GraphicsContext3DInternal::drawGL(), time since last drawGL = %7.4f ms",
+              elapsedTime / 1000000.0);
 #endif
     LOGWEBGL("+GraphicsContext3DInternal::lockFrontBuffer()");
     MutexLocker lock(m_fboMutex);
@@ -805,6 +816,7 @@ bool GraphicsContext3DInternal::lockFrontBuffer(EGLImageKHR& image, int& width, 
         return false;
     }
 
+    fbo->setState(FBO_STATE_LOCKED);
     image = fbo->image();
     width = m_width;
     height = m_height;
@@ -827,13 +839,20 @@ void GraphicsContext3DInternal::releaseFrontBuffer()
 {
     LOGWEBGL("GraphicsContext3DInternal::releaseFrontBuffer()");
     MutexLocker lock(m_fboMutex);
+    FBO* fbo = m_frontFBO;
+
+    if (fbo) {
+        fbo->setState(FBO_STATE_FRONT);
+        m_fboCondition.broadcast();
+    }
 }
 
 void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingContext* context)
 {
     LOGWEBGL("+paintRenderingResultsToCanvas()");
     ImageBuffer* imageBuffer = context->canvas()->buffer();
-    const SkBitmap& canvasBitmap = imageBuffer->context()->platformContext()->mCanvas->getDevice()->accessBitmap(false);
+    const SkBitmap& canvasBitmap =
+        imageBuffer->context()->platformContext()->mCanvas->getDevice()->accessBitmap(false);
     SkCanvas canvas(canvasBitmap);
 
     SkBitmap bitmap;
@@ -864,7 +883,8 @@ bool GraphicsContext3DInternal::paintCompositedResultsToCanvas(CanvasRenderingCo
 {
     LOGWEBGL("paintCompositedResultsToCanvas()");
     ImageBuffer* imageBuffer = context->canvas()->buffer();
-    const SkBitmap& canvasBitmap = imageBuffer->context()->platformContext()->mCanvas->getDevice()->accessBitmap(false);
+    const SkBitmap& canvasBitmap =
+        imageBuffer->context()->platformContext()->mCanvas->getDevice()->accessBitmap(false);
     SkCanvas canvas(canvasBitmap);
 
     MutexLocker lock(m_fboMutex);
@@ -898,6 +918,7 @@ void GraphicsContext3DInternal::bindFramebuffer(GC3Denum target, Platform3DObjec
 {
     LOGWEBGL("bindFrameBuffer()");
     makeContextCurrent();
+    MutexLocker lock(m_fboMutex);
     if (!buffer) {
         buffer = currentFBO();
     }
@@ -918,7 +939,8 @@ void GraphicsContext3DInternal::compileShader(Platform3DObject shader)
     int shaderType;
     glGetShaderiv(shader, GL_SHADER_TYPE, &shaderType);
 
-    ANGLEShaderType ast = shaderType == GL_VERTEX_SHADER ? SHADER_TYPE_VERTEX : SHADER_TYPE_FRAGMENT;
+    ANGLEShaderType ast = shaderType == GL_VERTEX_SHADER ?
+        SHADER_TYPE_VERTEX : SHADER_TYPE_FRAGMENT;
 
     String src;
     String log;
@@ -1009,3 +1031,4 @@ void GraphicsContext3DInternal::viewport(long x, long y, unsigned long width, un
     m_savedViewport.height = height;
 }
 }
+#endif // ENABLE(WEBGL)

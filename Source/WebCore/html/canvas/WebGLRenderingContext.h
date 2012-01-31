@@ -278,9 +278,16 @@ public:
 
     void viewport(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height);
 
-    void forceLostContext();
-    void onLostContext();
-    void restoreContext();
+    // WEBKIT_lose_context support
+    enum LostContextMode {
+        // Lost context occurred at the graphics system level.
+        RealLostContext,
+
+        // Lost context provoked by WEBKIT_lose_context.
+        SyntheticLostContext
+    };
+    void forceLostContext(LostContextMode);
+    void forceRestoreContext();
 
     GraphicsContext3D* graphicsContext3D() const { return m_context.get(); }
 #if USE(ACCELERATED_COMPOSITING)
@@ -370,6 +377,7 @@ public:
         WebGLRenderingContext* m_context;
     };
 
+    bool m_restoreAllowed;
     WebGLRenderingContextRestoreTimer m_restoreTimer;
 
     bool m_needsUpdate;
@@ -620,6 +628,10 @@ public:
     void initVertexAttrib0();
     bool simulateVertexAttrib0(GC3Dsizei numVertex);
     void restoreStatesAfterVertexAttrib0Simulation();
+
+    void loseContext();
+    // Helper for restoration after context lost.
+    void maybeRestoreContext(LostContextMode);
 
     friend class WebGLStateRestorer;
 };

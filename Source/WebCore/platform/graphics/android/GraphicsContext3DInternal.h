@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -83,7 +83,8 @@ class FBO;
 
 class GraphicsContext3DInternal : public RefCounted<GraphicsContext3DInternal> {
 public:
-    GraphicsContext3DInternal(HTMLCanvasElement* canvas, GraphicsContext3D::Attributes attrs, HostWindow* hostWindow);
+    GraphicsContext3DInternal(HTMLCanvasElement* canvas, GraphicsContext3D::Attributes attrs,
+                              HostWindow* hostWindow);
     ~GraphicsContext3DInternal();
 
     bool isValid() { return m_contextId > 0; }
@@ -104,7 +105,8 @@ public:
     void markLayerComposited() { m_layerComposited = true; }
     bool layerComposited() const { return m_layerComposited; }
 
-    bool lockFrontBuffer(EGLImageKHR& image, int& width, int& height, SkRect& rect, bool& requestUpdate);
+    bool lockFrontBuffer(EGLImageKHR& image, int& width, int& height,
+                         SkRect& rect, bool& requestUpdate);
     void releaseFrontBuffer();
 
     void paintRenderingResultsToCanvas(CanvasRenderingContext* context);

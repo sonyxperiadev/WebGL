@@ -913,9 +913,7 @@ void GraphicsLayerAndroid::setContentsToMedia(PlatformLayer* mediaLayer)
 void GraphicsLayerAndroid::setContentsToCanvas(PlatformLayer* canvasLayer)
 {
     if (m_contentLayer != canvasLayer && canvasLayer) {
-
-        // TODO add a copy method to LayerAndroid to sync everything
-        // copy data from the original content layer to the new one
+        // Copy data from the original content layer to the new one
         canvasLayer->setPosition(m_contentLayer->getPosition().fX,
                                  m_contentLayer->getPosition().fY);
         canvasLayer->setSize(m_contentLayer->getWidth(), m_contentLayer->getHeight());

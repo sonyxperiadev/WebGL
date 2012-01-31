@@ -1,6 +1,6 @@
 ##
 ## Copyright 2009, The Android Open Source Project
-## Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+## Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
 ##
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions

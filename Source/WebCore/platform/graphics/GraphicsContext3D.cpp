@@ -59,7 +59,11 @@ namespace {
 
 PassRefPtr<DrawingBuffer> GraphicsContext3D::createDrawingBuffer(const IntSize& size)
 {
+#if ENABLE(ACCELERATED_2D_CANVAS)
     return DrawingBuffer::create(this, size);
+#else
+    return 0;
+#endif
 }
 
 bool GraphicsContext3D::texImage2DResourceSafe(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Denum format, GC3Denum type, GC3Dint unpackAlignment)
