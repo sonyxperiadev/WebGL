@@ -6,7 +6,8 @@
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
- * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communcations AB
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -1041,6 +1042,10 @@ public:
 #if ENABLE(WEBGL) && PLATFORM(ANDROID)
     void setContainsWebGLContent(bool value) { m_containsWebGLContent = value; }
     bool containsWebGLContent() const { return m_containsWebGLContent; }
+    void suspendDocument();
+    void resumeDocument();
+    void registerForDocumentSuspendCallbacks(Element*);
+    void unregisterForDocumentSuspendCallbacks(Element*);
 #endif
 
     bool containsValidityStyleRules() const { return m_containsValidityStyleRules; }
@@ -1379,6 +1384,7 @@ private:
 
 #if ENABLE(WEBGL) && PLATFORM(ANDROID)
     bool m_containsWebGLContent;
+    HashSet<Element*> m_documentSuspendCallbackElements;
 #endif
 
     RefPtr<DocumentWeakReference> m_weakReference;

@@ -7,7 +7,8 @@
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
- * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communcations AB
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -5090,4 +5091,29 @@ DocumentLoader* Document::loader() const
     return loader;
 }
 
+#if ENABLE(WEBGL) && PLATFORM(ANDROID)
+void Document::suspendDocument()
+{
+    HashSet<Element*>::iterator end = m_documentSuspendCallbackElements.end();
+    for (HashSet<Element*>::iterator i = m_documentSuspendCallbackElements.begin(); i != end; ++i)
+        (*i)->documentWasSuspended();
+}
+
+void Document::resumeDocument()
+{
+    HashSet<Element*>::iterator end = m_documentSuspendCallbackElements.end();
+    for (HashSet<Element*>::iterator i = m_documentSuspendCallbackElements.begin(); i != end; ++i)
+        (*i)->documentWillResume();
+}
+
+void Document::registerForDocumentSuspendCallbacks(Element* e)
+{
+    m_documentSuspendCallbackElements.add(e);
+}
+
+void Document::unregisterForDocumentSuspendCallbacks(Element* e)
+{
+    m_documentSuspendCallbackElements.remove(e);
+}
+#endif
 } // namespace WebCore

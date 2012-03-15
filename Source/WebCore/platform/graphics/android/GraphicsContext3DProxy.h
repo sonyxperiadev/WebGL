@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2012, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,14 +47,17 @@ public:
     ~GraphicsContext3DProxy();
 
     void setGraphicsContext(GraphicsContext3DInternal* context);
+    void incr();
+    void decr();
 
-    bool lockFrontBuffer(EGLImageKHR& image, int& width, int& height,
-                         SkRect& rect, bool& requestUpdate);
+    bool lockFrontBuffer(GLuint& texture, SkRect& rect);
     void releaseFrontBuffer();
 
 private:
     WTF::Mutex                 m_mutex;
     GraphicsContext3DInternal* m_context;
+    GLuint m_texture;
+    int m_refcount;
 };
 
 }

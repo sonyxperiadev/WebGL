@@ -4,6 +4,8 @@
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -350,6 +352,11 @@ public:
     virtual bool isSpellCheckingEnabled() const;
 
     PassRefPtr<WebKitAnimationList> webkitGetAnimations() const;
+
+#if ENABLE(WEBGL) && PLATFORM(ANDROID)
+    virtual void documentWasSuspended() {}
+    virtual void documentWillResume() {}
+#endif
 
 protected:
     Element(const QualifiedName& tagName, Document* document, ConstructionType type)

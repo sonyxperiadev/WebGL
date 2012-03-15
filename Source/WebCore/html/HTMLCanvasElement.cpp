@@ -2,7 +2,8 @@
  * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
- * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -114,8 +115,9 @@ HTMLCanvasElement::~HTMLCanvasElement()
     HashSet<CanvasObserver*>::iterator end = m_observers.end();
     for (HashSet<CanvasObserver*>::iterator it = m_observers.begin(); it != end; ++it)
         (*it)->canvasDestroyed(this);
-#if PLATFORM(ANDROID)
+#if ENABLE(WEBGL) && PLATFORM(ANDROID)
     document()->unregisterForDocumentActivationCallbacks(this);
+    document()->unregisterForDocumentSuspendCallbacks(this);
 #endif
 }
 
@@ -208,6 +210,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
                     setNeedsStyleRecalc(SyntheticStyleChange);
 #if PLATFORM(ANDROID)
                     document()->registerForDocumentActivationCallbacks(this);
+                    document()->registerForDocumentSuspendCallbacks(this);
                     document()->setContainsWebGLContent(true);
 #endif
                 }
@@ -332,6 +335,22 @@ void HTMLCanvasElement::documentWillBecomeInactive()
     if (m_context && m_context->is3d()) {
         WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
         context3D->releaseSurface();
+    }
+}
+
+void HTMLCanvasElement::documentWasSuspended()
+{
+    if (m_context && m_context->is3d()) {
+        WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
+        context3D->releaseSurface();
+    }
+}
+
+void HTMLCanvasElement::documentWillResume()
+{
+    if (m_context && m_context->is3d()) {
+        WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
+        context3D->recreateSurface();
     }
 }
 #endif

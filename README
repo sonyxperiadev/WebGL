@@ -27,5 +27,16 @@ Updates:
   - some code cleanup and bug fixes
 
 
--- Anders Edenbrandt, Sony Mobile Communications
+===== 31 jan 2012 =====
+
+Updates:
+  - cleaned up buffer handling, allowing for arbitrary
+      number of buffers
+  - removed rect from invalidation
+  - removed screen update request from drawGL
+  - releasing buffers when the browser is paused
+  - added missing method 'slice' for typed arrays
+  - fixed bug in bindFramebuffer
+
+-- Anders Edenbrandt, Sony Mobile Communications AB
 

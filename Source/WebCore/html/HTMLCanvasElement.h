@@ -2,7 +2,8 @@
  * Copyright (C) 2004, 2006, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
- * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -128,6 +129,8 @@ public:
 #if PLATFORM(ANDROID)
     void documentDidBecomeActive();
     void documentWillBecomeInactive();
+    void documentWasSuspended();
+    void documentWillResume();
 #endif
 #endif
 
