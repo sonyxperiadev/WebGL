@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,27 +53,19 @@
 #if ENABLE(WEBGL)
 namespace WebCore {
 
-typedef enum {
-    FBO_STATE_FREE,
-    FBO_STATE_DEQUEUED,
-    FBO_STATE_LOCKED,
-    FBO_STATE_FRONT
-} fbo_state_t;
-
 class FBO {
 public:
     static FBO* createFBO(EGLDisplay dpy, int width, int height);
     ~FBO();
 
-    fbo_state_t state() { return m_state; }
-    void setState(fbo_state_t state) { m_state = state; }
-
     EGLSyncKHR sync() { return m_sync; }
     void setSync(EGLSyncKHR sync) { m_sync = sync; }
 
     GLuint fbo() { return m_fbo; }
-
     EGLImageKHR image() { return m_image; }
+
+    bool isLocked() { return m_locked; }
+    void setLocked(bool locked) { m_locked = locked; }
 
     bool lockGraphicBuffer(void** ptr) {
         return (m_grBuffer.get() &&
@@ -91,13 +84,14 @@ private:
     GLuint createTexture(EGLImageKHR image, int width, int height);
 
     EGLDisplay  m_dpy;
-    fbo_state_t m_state;
     GLuint      m_texture;
     GLuint      m_fbo;
     GLuint      m_depthBuffer;
     EGLImageKHR m_image;
     EGLSyncKHR  m_sync;
+    sp<IGraphicBufferAlloc> m_graphicBufferAlloc;
     sp<GraphicBuffer> m_grBuffer;
+    bool        m_locked;
 };
 
 
@@ -139,7 +133,6 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
     , m_attrs(attrs)
     , m_layerComposited(false)
     , m_canvasDirty(false)
-    , m_requestedUpdate(false)
     , m_width(1)
     , m_height(1)
     , m_maxwidth(CANVAS_MAX_WIDTH)
@@ -148,7 +141,6 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
     , m_config(0)
     , m_surface(EGL_NO_SURFACE)
     , m_context(EGL_NO_CONTEXT)
-    , m_currentIndex(-1)
     , m_syncThread(0)
     , m_threadState(THREAD_STATE_STOPPED)
     , m_syncTimer(this, &GraphicsContext3DInternal::syncTimerFired)
@@ -171,7 +163,7 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
     if (!m_webView)
         return;
     jclass webViewClass = env->GetObjectClass(m_webView);
-    m_postInvalidate = env->GetMethodID(webViewClass, "postInvalidate", "(IIII)V");
+    m_postInvalidate = env->GetMethodID(webViewClass, "postInvalidate", "()V");
     env->DeleteLocalRef(webViewClass);
     if (!m_postInvalidate)
         return;
@@ -210,10 +202,6 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
 
     resources.MaxDrawBuffers = 1;
     m_compiler.setResources(resources);
-
-    m_eglCreateSyncKHR = (PFNEGLCREATESYNCKHRPROC)eglGetProcAddress("eglCreateSyncKHR");
-    m_eglDestroySyncKHR = (PFNEGLDESTROYSYNCKHRPROC)eglGetProcAddress("eglDestroySyncKHR");
-    m_eglClientWaitSyncKHR = (PFNEGLCLIENTWAITSYNCKHRPROC)eglGetProcAddress("eglClientWaitSyncKHR");
 
     m_savedViewport.x = 0;
     m_savedViewport.y = 0;
@@ -301,23 +289,6 @@ bool GraphicsContext3DInternal::initEGL()
     return (eglChooseConfig(m_dpy, config_attribs, &m_config, 1, &num_configs) == EGL_TRUE);
 }
 
-EGLSurface GraphicsContext3DInternal::createPbufferSurface(int width, int height)
-{
-    LOGWEBGL("createPbufferSurface(%d, %d)", width, height);
-    if (width == 0 || height == 0)
-        width = height = 1;
-
-    EGLint surface_attribs[] = {
-        EGL_WIDTH, width,
-        EGL_HEIGHT, height,
-        EGL_NONE};
-
-    EGLSurface surface = eglCreatePbufferSurface(m_dpy, m_config, surface_attribs);
-    checkEGLError("eglCreatePbufferSurface");
-
-    return surface;
-}
-
 bool GraphicsContext3DInternal::createContext(bool createEGLContext)
 {
     LOGWEBGL("createContext()");
@@ -326,7 +297,11 @@ bool GraphicsContext3DInternal::createContext(bool createEGLContext)
         EGL_NONE};
 
     if (createEGLContext) {
-        m_surface = createPbufferSurface(1, 1);
+        EGLint surface_attribs[] = {
+            EGL_WIDTH, 1,
+            EGL_HEIGHT, 1,
+            EGL_NONE};
+        m_surface = eglCreatePbufferSurface(m_dpy, m_config, surface_attribs);
         m_context = eglCreateContext(m_dpy, m_config, EGL_NO_CONTEXT, context_attribs);
     }
     if (m_context == EGL_NO_CONTEXT) {
@@ -335,18 +310,20 @@ bool GraphicsContext3DInternal::createContext(bool createEGLContext)
     }
 
     makeContextCurrent();
-    bool success = ((m_fbo[0] = FBO::createFBO(m_dpy, m_width > 0 ? m_width : 1, m_height > 0 ? m_height : 1)) != 0) &&
-        ((m_fbo[1] = FBO::createFBO(m_dpy, m_width > 0 ? m_width : 1, m_height > 0 ? m_height : 1)) != 0);
-    if (!success) {
-        LOGWEBGL("Failed to create FBO");
-        deleteContext(createEGLContext);
-        return false;
+    for (int i = 0; i < NUM_BUFFERS; i++) {
+        FBO* tmp = FBO::createFBO(m_dpy, m_width > 0 ? m_width : 1, m_height > 0 ? m_height : 1);
+        if (tmp == 0) {
+            LOGWEBGL("Failed to create FBO");
+            deleteContext(createEGLContext);
+            return false;
+        }
+        m_fbo[i] = tmp;
+        m_freeBuffers.append(tmp);
     }
 
-    m_currentIndex = 0;
-    m_boundFBO = currentFBO();
+    m_currentFBO = dequeueBuffer();
+    m_boundFBO = m_currentFBO->fbo();
     m_frontFBO = 0;
-    m_pendingFBO = 0;
     glBindFramebuffer(GL_FRAMEBUFFER, m_boundFBO);
 
     return true;
@@ -358,15 +335,18 @@ void GraphicsContext3DInternal::deleteContext(bool deleteEGLContext)
 
     makeContextCurrent();
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    for (int i = 0; i < 2; i++) {
+
+    m_freeBuffers.clear();
+    m_queuedBuffers.clear();
+    m_preparedBuffers.clear();
+    for (int i = 0; i < NUM_BUFFERS; i++) {
         if (m_fbo[i]) {
             delete m_fbo[i];
             m_fbo[i] = 0;
         }
     }
-    m_currentIndex = -1;
+    m_currentFBO = 0;
     m_frontFBO = 0;
-    m_pendingFBO = 0;
 
     eglMakeCurrent(m_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     if (deleteEGLContext) {
@@ -411,11 +391,6 @@ void GraphicsContext3DInternal::synthesizeGLError(unsigned long error)
     m_syntheticErrors.add(error);
 }
 
-GLuint GraphicsContext3DInternal::currentFBO()
-{
-    return (m_currentIndex >= 0 && m_fbo[m_currentIndex]) ? m_fbo[m_currentIndex]->fbo() : 0;
-}
-
 FBO* FBO::createFBO(EGLDisplay dpy, int width, int height)
 {
     LOGWEBGL("createFBO()");
@@ -430,13 +405,13 @@ FBO* FBO::createFBO(EGLDisplay dpy, int width, int height)
 
 FBO::FBO(EGLDisplay dpy)
     : m_dpy(dpy)
-    , m_state(FBO_STATE_FREE)
     , m_texture(0)
     , m_fbo(0)
     , m_depthBuffer(0)
     , m_image(0)
     , m_sync(0)
     , m_grBuffer(0)
+    , m_locked(false)
 {
 }
 
@@ -444,12 +419,12 @@ bool FBO::init(int width, int height)
 {
     // 1. Allocate a graphic buffer
     sp<ISurfaceComposer> composer(ComposerService::getComposerService());
-    sp<IGraphicBufferAlloc> mGraphicBufferAlloc = composer->createGraphicBufferAlloc();
+    m_graphicBufferAlloc = composer->createGraphicBufferAlloc();
 
     status_t error;
-    m_grBuffer = mGraphicBufferAlloc->createGraphicBuffer(width, height,
-                                                          HAL_PIXEL_FORMAT_RGBA_8888,
-                                                          GRALLOC_USAGE_HW_TEXTURE, &error);
+    m_grBuffer = m_graphicBufferAlloc->createGraphicBuffer(width, height,
+                                                           HAL_PIXEL_FORMAT_RGBA_8888,
+                                                           GRALLOC_USAGE_HW_TEXTURE, &error);
     if (error != NO_ERROR) {
         LOGWEBGL(" failed to allocate GraphicBuffer, error = %d", error);
         return false;
@@ -520,7 +495,6 @@ bool FBO::init(int width, int height)
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    m_state = FBO_STATE_FREE;
     return true;
 }
 
@@ -625,51 +599,36 @@ void GraphicsContext3DInternal::runSyncThread()
         while (m_threadState == THREAD_STATE_RUN) {
             {
                 MutexLocker lock(m_fboMutex);
-                if (m_pendingFBO != 0) {
-                    fbo = m_pendingFBO;
+                if (!m_queuedBuffers.isEmpty()) {
+                    fbo = m_queuedBuffers.takeFirst();
                     break;
                 }
             }
             m_threadCondition.wait(m_threadMutex);
         }
-        LOGWEBGL("SyncThread: woke after waiting for FBO, m_pendingFBO = %p", fbo);
+        LOGWEBGL("SyncThread: woke after waiting for FBO, fbo = %p", fbo);
         if (m_threadState != THREAD_STATE_RUN)
             break;
 
-        m_eglClientWaitSyncKHR(m_dpy, fbo->sync(), 0, 0);
-        m_eglDestroySyncKHR(m_dpy, fbo->sync());
-        LOGWEBGL("SyncThread: returned after waiting for Sync");
+        if (fbo->sync() != EGL_NO_SYNC_KHR) {
+            eglClientWaitSyncKHR(m_dpy, fbo->sync(), 0, 0);
+            eglDestroySyncKHR(m_dpy, fbo->sync());
+            fbo->setSync(EGL_NO_SYNC_KHR);
+            LOGWEBGL("SyncThread: returned after waiting for Sync");
+        }
 
         {
             MutexLocker lock(m_fboMutex);
-            m_pendingFBO = 0;
-            fbo->setSync(0);
-            fbo->setState(FBO_STATE_FRONT);
-            FBO* backFBO = (m_fbo[0] == fbo) ? m_fbo[1] : m_fbo[0];
-            if (backFBO) {
-                while (backFBO->state() == FBO_STATE_LOCKED) {
-                    // The previous front buffer is being used by the UI thread.
-                    m_fboCondition.wait(m_fboMutex);
-                }
-                backFBO->setState(FBO_STATE_FREE);
-            }
-            m_frontFBO = fbo;
-            m_layerComposited = true;
-            m_fboCondition.broadcast();
+            m_preparedBuffers.append(fbo);
+            LOGWEBGL("SyncThread: prepared buffer = %p", fbo);
+            updateFrontBuffer();
         }
 
         // Invalidate the canvas region
-        if (!m_requestedUpdate) {
-            RenderObject* renderer = m_canvas->renderer();
-            if (renderer && renderer->isBox() && m_postInvalidate) {
-                IntRect rect = ((RenderBox*)renderer)->absoluteContentBox();
-                LOGWEBGL("SyncThread: invalidating [%d, %d, %d, %d]",
-                         rect.x(), rect.y(), rect.width(), rect.height());
-                JNIEnv* env = JSC::Bindings::getJNIEnv();
-                env->CallVoidMethod(m_webView, m_postInvalidate, rect.x(), rect.y(),
-                                    rect.x() + rect.width(), rect.y() + rect.height());
-                PROFWEBGL("invalidated()");
-            }
+        RenderObject* renderer = m_canvas->renderer();
+        if (renderer && renderer->isBox() && m_postInvalidate) {
+            JNIEnv* env = JSC::Bindings::getJNIEnv();
+            env->CallVoidMethod(m_webView, m_postInvalidate);
         }
     }
 
@@ -688,7 +647,7 @@ PlatformLayer* GraphicsContext3DInternal::platformLayer() const
 void GraphicsContext3DInternal::reshape(int width, int height)
 {
     LOGWEBGL("reshape(%d, %d)", width, height);
-    bool mustRestoreFBO = (m_boundFBO != currentFBO());
+    bool mustRestoreFBO = (m_boundFBO != (m_currentFBO ? m_currentFBO->fbo() : 0));
 
     m_width = width > m_maxwidth ? m_maxwidth : width;
     m_height = height > m_maxheight ? m_maxheight : height;
@@ -702,7 +661,7 @@ void GraphicsContext3DInternal::reshape(int width, int height)
 
         if (createContext(false)) {
             if (!mustRestoreFBO) {
-                m_boundFBO = currentFBO();
+                m_boundFBO = m_currentFBO->fbo();
             }
             glBindFramebuffer(GL_FRAMEBUFFER, m_boundFBO);
         }
@@ -714,7 +673,7 @@ void GraphicsContext3DInternal::reshape(int width, int height)
 void GraphicsContext3DInternal::recreateSurface()
 {
     LOGWEBGL("recreateSurface()");
-    if (m_currentIndex >= 0)
+    if (m_currentFBO != 0)
         // We already have a current surface
         return;
     reshape(m_width, m_height);
@@ -724,7 +683,7 @@ void GraphicsContext3DInternal::recreateSurface()
 void GraphicsContext3DInternal::releaseSurface()
 {
     LOGWEBGL("releaseSurface(%d)", m_contextId);
-    if (m_currentIndex < 0)
+    if (m_currentFBO == 0)
         // We don't have any current surface
         return;
     stopSyncThread();
@@ -733,13 +692,17 @@ void GraphicsContext3DInternal::releaseSurface()
         MutexLocker lock(m_fboMutex);
         deleteContext(false);
     }
+    makeContextCurrent();
     m_proxy->setGraphicsContext(this);
 }
 
 void GraphicsContext3DInternal::syncTimerFired(Timer<GraphicsContext3DInternal>*)
 {
     m_syncRequested = false;
-    swapBuffers();
+
+    // Do not perform the composition step if it is an offscreen canvas
+    if (m_canvas->renderer())
+        swapBuffers();
 }
 
 void GraphicsContext3DInternal::markContextChanged()
@@ -752,75 +715,88 @@ void GraphicsContext3DInternal::markContextChanged()
     m_layerComposited = false;
 }
 
+/*
+ * Must hold m_fboMutex when calling this function.
+ */
+FBO* GraphicsContext3DInternal::dequeueBuffer()
+{
+    LOGWEBGL("GraphicsContext3DInternal::dequeueBuffer()");
+    while (m_freeBuffers.isEmpty()) {
+        m_fboCondition.wait(m_fboMutex);
+    }
+    FBO* fbo = m_freeBuffers.takeFirst();
+
+    if (fbo->sync() != EGL_NO_SYNC_KHR) {
+        eglClientWaitSyncKHR(m_dpy, fbo->sync(), 0, 0);
+        eglDestroySyncKHR(m_dpy, fbo->sync());
+        fbo->setSync(EGL_NO_SYNC_KHR);
+    }
+
+    return fbo;
+}
+
 void GraphicsContext3DInternal::swapBuffers()
 {
-    PROFWEBGL("+swapBuffers()");
     LOGWEBGL("+swapBuffers()");
 
-    if (m_currentIndex < 0)
+    MutexLocker lock(m_fboMutex);
+    FBO* fbo = m_currentFBO;
+    if (fbo == 0)
         return;
 
     makeContextCurrent();
-    MutexLocker lock(m_fboMutex);
-    FBO* fbo = m_fbo[m_currentIndex];
-    LOGWEBGL("swap: currentIndex = %d, currentFBO = %p", m_currentIndex, fbo);
-    while (m_pendingFBO != 0) {
-        m_fboCondition.wait(m_fboMutex);
-    }
+
     bool mustRestoreFBO = (m_boundFBO != fbo->fbo());
     if (mustRestoreFBO) {
         glBindFramebuffer(GL_FRAMEBUFFER, fbo->fbo());
     }
 
     // Create the fence sync and notify the sync thread
-    fbo->setSync(m_eglCreateSyncKHR(m_dpy, EGL_SYNC_FENCE_KHR, 0));
+    fbo->setSync(eglCreateSyncKHR(m_dpy, EGL_SYNC_FENCE_KHR, 0));
     glFlush();
-    m_pendingFBO = fbo;
+    m_queuedBuffers.append(fbo);
     m_threadCondition.broadcast();
 
     // Dequeue a new buffer
-    int index = m_currentIndex ? 0 : 1;
-    fbo = m_fbo[index];
-    while (fbo->state() != FBO_STATE_FREE) {
-        m_fboCondition.wait(m_fboMutex);
-    }
-    m_currentIndex = index;
-    LOGWEBGL("swap: currentIndex = %d, currentFBO = %p", m_currentIndex, fbo);
-    fbo->setState(FBO_STATE_DEQUEUED);
+    fbo = dequeueBuffer();
+    m_currentFBO = fbo;
 
     if (!mustRestoreFBO) {
-        m_boundFBO = fbo->fbo();
+        m_boundFBO = m_currentFBO->fbo();
     }
     glBindFramebuffer(GL_FRAMEBUFFER, m_boundFBO);
     m_canvasDirty = false;
+    m_layerComposited = true;
     LOGWEBGL("-swapBuffers()");
 }
 
-bool GraphicsContext3DInternal::lockFrontBuffer(EGLImageKHR& image, int& width, int& height,
-                                                SkRect& rect, bool& requestUpdate)
+void GraphicsContext3DInternal::updateFrontBuffer()
 {
-#ifdef WEBGL_PROFILING
-    nsecs_t time1 = systemTime();
-    static nsecs_t lastTime = 0;
-    nsecs_t elapsedTime = time1 - lastTime;
-    lastTime = time1;
-    PROFWEBGL("GraphicsContext3DInternal::drawGL(), time since last drawGL = %7.4f ms",
-              elapsedTime / 1000000.0);
-#endif
-    LOGWEBGL("+GraphicsContext3DInternal::lockFrontBuffer()");
-    MutexLocker lock(m_fboMutex);
+    if (!m_preparedBuffers.isEmpty()) {
+        if (m_frontFBO == 0) {
+            m_frontFBO = m_preparedBuffers.takeFirst();
+        }
+        else if (!m_frontFBO->isLocked()) {
+            m_freeBuffers.append(m_frontFBO);
+            m_frontFBO = m_preparedBuffers.takeFirst();
+            m_fboCondition.broadcast();
+        }
+    }
+}
 
+bool GraphicsContext3DInternal::lockFrontBuffer(EGLImageKHR& image, SkRect& rect)
+{
+    LOGWEBGL("GraphicsContext3DInternal::lockFrontBuffer()");
+    MutexLocker lock(m_fboMutex);
     FBO* fbo = m_frontFBO;
+
     if (!fbo || !fbo->image()) {
         LOGWEBGL("-GraphicsContext3DInternal::lockFrontBuffer(), fbo = %p", fbo);
         return false;
     }
 
-    fbo->setState(FBO_STATE_LOCKED);
+    fbo->setLocked(true);
     image = fbo->image();
-    width = m_width;
-    height = m_height;
-    m_requestedUpdate = requestUpdate = m_canvasDirty;
 
     RenderObject* renderer = m_canvas->renderer();
     if (renderer && renderer->isBox()) {
@@ -831,7 +807,6 @@ bool GraphicsContext3DInternal::lockFrontBuffer(EGLImageKHR& image, int& width, 
                  box->borderTop() + box->paddingTop() + box->contentHeight());
     }
 
-    LOGWEBGL("-GraphicsContext3DInternal::lockFrontBuffer()");
     return true;
 }
 
@@ -842,9 +817,13 @@ void GraphicsContext3DInternal::releaseFrontBuffer()
     FBO* fbo = m_frontFBO;
 
     if (fbo) {
-        fbo->setState(FBO_STATE_FRONT);
-        m_fboCondition.broadcast();
+        fbo->setLocked(false);
+        if (fbo->sync() != EGL_NO_SYNC_KHR) {
+            eglDestroySyncKHR(m_dpy, fbo->sync());
+        }
+        fbo->setSync(eglCreateSyncKHR(m_dpy, EGL_SYNC_FENCE_KHR, 0));
     }
+    updateFrontBuffer();
 }
 
 void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingContext* context)
@@ -919,8 +898,8 @@ void GraphicsContext3DInternal::bindFramebuffer(GC3Denum target, Platform3DObjec
     LOGWEBGL("bindFrameBuffer()");
     makeContextCurrent();
     MutexLocker lock(m_fboMutex);
-    if (!buffer) {
-        buffer = currentFBO();
+    if (!buffer && m_currentFBO) {
+        buffer = m_currentFBO->fbo();
     }
     glBindFramebuffer(target, buffer);
     m_boundFBO = buffer;

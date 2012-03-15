@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -342,9 +343,8 @@ void GraphicsContext3D::bindBuffer(GC3Denum target, Platform3DObject buffer)
 
 void GraphicsContext3D::bindFramebuffer(GC3Denum target, Platform3DObject framebuffer)
 {
-    LOGWEBGL("glBindFrameBuffer(%d, %d)", target, framebuffer);
-    makeContextCurrent();
-    glBindFramebuffer(target, framebuffer);
+    LOGWEBGL("bindFrameBuffer(%d, %d)", target, framebuffer);
+    m_internal->bindFramebuffer(target, framebuffer);
 }
 
 void GraphicsContext3D::bindRenderbuffer(GC3Denum target, Platform3DObject renderbuffer)

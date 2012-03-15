@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,11 +37,14 @@ class ArrayBuffer : public RefCounted<ArrayBuffer> {
   public:
     static PassRefPtr<ArrayBuffer> create(unsigned numElements, unsigned elementByteSize);
     static PassRefPtr<ArrayBuffer> create(ArrayBuffer*);
-    static PassRefPtr<ArrayBuffer> create(void* source, unsigned byteLength);
+    static PassRefPtr<ArrayBuffer> create(const void* source, unsigned byteLength);
 
     void* data();
     const void* data() const;
     unsigned byteLength() const;
+
+    PassRefPtr<ArrayBuffer> slice(int begin, int end) const;
+    PassRefPtr<ArrayBuffer> slice(int begin) const;
 
     ~ArrayBuffer();
 
@@ -47,6 +52,9 @@ class ArrayBuffer : public RefCounted<ArrayBuffer> {
     ArrayBuffer(void* data, unsigned sizeInBytes);
     ArrayBuffer(unsigned numElements, unsigned elementByteSize);
     static void* tryAllocate(unsigned numElements, unsigned elementByteSize);
+    PassRefPtr<ArrayBuffer> sliceImpl(unsigned begin, unsigned end) const;
+    unsigned clampIndex(int index) const;
+
     unsigned m_sizeInBytes;
     void* m_data;
 };

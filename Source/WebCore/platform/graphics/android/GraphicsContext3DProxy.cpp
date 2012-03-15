@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2012, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,14 +49,40 @@ void GraphicsContext3DProxy::setGraphicsContext(GraphicsContext3DInternal* conte
     m_context = context;
 }
 
-bool GraphicsContext3DProxy::lockFrontBuffer(EGLImageKHR& image, int& width, int& height,
-                                             SkRect& rect, bool& requestUpdate)
+void GraphicsContext3DProxy::incr()
+{
+    MutexLocker lock(m_mutex);
+    m_refcount++;
+}
+
+void GraphicsContext3DProxy::decr()
+{
+    MutexLocker lock(m_mutex);
+    m_refcount--;
+    if (m_refcount == 0) {
+        glDeleteTextures(1, &m_texture);
+        m_texture = 0;
+    }
+}
+
+bool GraphicsContext3DProxy::lockFrontBuffer(GLuint& texture, SkRect& rect)
 {
     MutexLocker lock(m_mutex);
     if (!m_context) {
         return false;
     }
-    return m_context->lockFrontBuffer(image, width, height, rect, requestUpdate);
+    EGLImageKHR image;
+    bool locked = m_context->lockFrontBuffer(image, rect);
+    if (locked) {
+        if (m_texture == 0)
+            glGenTextures(1, &m_texture);
+
+        glBindTexture(GL_TEXTURE_EXTERNAL_OES, m_texture);
+        glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image);
+        texture = m_texture;
+    }
+
+    return locked;
 }
 
 void GraphicsContext3DProxy::releaseFrontBuffer()
@@ -64,6 +91,7 @@ void GraphicsContext3DProxy::releaseFrontBuffer()
     if (!m_context) {
         return;
     }
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
     m_context->releaseFrontBuffer();
 }
 }

@@ -11,7 +11,7 @@ This is still work in progress but we wanted to make it available
 as soon as possible. Feedback is welcome!
 
 
-===== 27 jan 2012 =====
+===== 27 Jan 2012 =====
 
 Some updates:
   - stability fixes
@@ -20,12 +20,23 @@ Some updates:
   - other bug fixes
 
 
-===== 31 jan 2012 =====
+===== 31 Jan 2012 =====
 
 Updates:
   - added implementation for WEBGL_lose_context extension
   - some code cleanup and bug fixes
 
 
--- Anders Edenbrandt, Sony Mobile Communications
+===== 15 March 2012 =====
+
+Updates:
+  - cleaned up buffer handling, allowing for arbitrary
+      number of buffers
+  - removed rect from invalidation
+  - removed screen update request from drawGL
+  - releasing buffers when the browser is paused
+  - added missing method 'slice' for typed arrays
+  - fixed bug in bindFramebuffer
+
+-- Anders Edenbrandt, Sony Mobile Communications AB
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012, Sony Mobile Communications AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +40,7 @@
 #include "TransformationMatrix.h"
 #include "WebGLLayer.h"
 
+#include <wtf/Deque.h>
 #include <wtf/RefPtr.h>
 
 #include <EGL/egl.h>
@@ -56,14 +58,8 @@
 #define LOGWEBGL(...)
 #endif
 
-#undef WEBGL_PROFILING
-//#define WEBGL_PROFILING 1
-#ifdef WEBGL_PROFILING
-#define PROFWEBGL(...) ((void)android_printLog(ANDROID_LOG_DEBUG, "WebGL", __VA_ARGS__))
-#else
-#define PROFWEBGL(...)
-#endif
-
+// This can be increased to 3, for example, if that has a positive impact on performance.
+#define NUM_BUFFERS 2
 
 using namespace android;
 
@@ -105,8 +101,8 @@ public:
     void markLayerComposited() { m_layerComposited = true; }
     bool layerComposited() const { return m_layerComposited; }
 
-    bool lockFrontBuffer(EGLImageKHR& image, int& width, int& height,
-                         SkRect& rect, bool& requestUpdate);
+    void updateFrontBuffer();
+    bool lockFrontBuffer(EGLImageKHR& image, SkRect& rect);
     void releaseFrontBuffer();
 
     void paintRenderingResultsToCanvas(CanvasRenderingContext* context);
@@ -153,7 +149,6 @@ private:
     bool initEGL();
     bool createContext(bool createEGLContext);
     void deleteContext(bool deleteEGLContext);
-    EGLSurface createPbufferSurface(int width, int height);
 
     RefPtr<GraphicsContext3DProxy> m_proxy;
     WebGLLayer *m_compositingLayer;
@@ -161,7 +156,6 @@ private:
     GraphicsContext3D::Attributes m_attrs;
     bool m_layerComposited;
     bool m_canvasDirty;
-    bool m_requestedUpdate;
 
     int m_width;
     int m_height;
@@ -174,20 +168,15 @@ private:
     EGLContext m_context;
 
     // Routines for FBOs
-    GLuint currentFBO();
-
-    FBO*                 m_fbo[2];
-    int                  m_currentIndex;
+    FBO*                 m_fbo[NUM_BUFFERS];
     GLuint               m_boundFBO;
+    FBO*                 m_currentFBO;
     FBO*                 m_frontFBO;
-    FBO*                 m_pendingFBO;
+    Deque<FBO*>          m_freeBuffers;
+    Deque<FBO*>          m_queuedBuffers;
+    Deque<FBO*>          m_preparedBuffers;
     WTF::Mutex           m_fboMutex;
     WTF::ThreadCondition m_fboCondition;
-
-    // Function pointers for the EGL fence sync commands
-    PFNEGLCREATESYNCKHRPROC     m_eglCreateSyncKHR;
-    PFNEGLDESTROYSYNCKHRPROC    m_eglDestroySyncKHR;
-    PFNEGLCLIENTWAITSYNCKHRPROC m_eglClientWaitSyncKHR;
 
     void startSyncThread();
     void stopSyncThread();
@@ -199,6 +188,7 @@ private:
     WTF::ThreadCondition m_threadCondition;
 
     void syncTimerFired(Timer<GraphicsContext3DInternal>*);
+    FBO* dequeueBuffer();
     void swapBuffers();
     Timer<GraphicsContext3DInternal> m_syncTimer;
     bool m_syncRequested;

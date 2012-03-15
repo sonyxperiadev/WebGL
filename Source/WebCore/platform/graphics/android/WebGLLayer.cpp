@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,55 +40,19 @@ WebGLLayer::WebGLLayer(GraphicsContext3DProxy* proxy)
     : LayerAndroid((RenderLayer*)0)
     , m_proxy(proxy)
 {
-    LOGWEBGL("WebGLLayer::WebGLLayer(GraphicsContext3DProxy* %p), this = %p", proxy, this);
-    for (int i = 0; i < 2; i++) {
-        m_eglImages[i] = 0;
-        m_textures[i] = 0;
-    }
+    m_proxy->incr();
 }
 
 WebGLLayer::WebGLLayer(const WebGLLayer& layer)
     : LayerAndroid(layer)
     , m_proxy(layer.m_proxy)
 {
-    LOGWEBGL("WebGLLayer::WebGLLayer(const WebGLLayer& %p), this = %p", &layer, this);
-    for (int i = 0; i < 2; i++) {
-        m_eglImages[i] = layer.m_eglImages[i];
-        m_textures[i] = layer.m_textures[i];
-    }
+    m_proxy->incr();
 }
 
 WebGLLayer::~WebGLLayer()
 {
-    LOGWEBGL("WebGLLayer::~WebGLLayer(), this = %p", this);
-    for (int i = 0; i < 2; i++) {
-        if (m_textures[i] != 0) {
-            LOGWEBGL("glDeleteTextures(1, %d)", m_textures[i]);
-            glDeleteTextures(1, &m_textures[i]);
-            LOGWEBGL("glGetError() = %d", glGetError());
-        }
-    }
-}
-
-GLuint WebGLLayer::createTexture(EGLImageKHR image, int width, int height)
-{
-    LOGWEBGL("WebGLLayer::createTexture(image = %p)", image);
-    GLuint texture;
-
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)image);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    return texture;
+    m_proxy->decr();
 }
 
 bool WebGLLayer::drawGL()
@@ -97,42 +62,17 @@ bool WebGLLayer::drawGL()
     askScreenUpdate |= LayerAndroid::drawGL();
 
     if (m_proxy.get()) {
-        EGLImageKHR eglImage;
-        int width;
-        int height;
+        GLuint texture;
         SkRect localBounds;
-        bool requestUpdate;
-        bool locked = m_proxy->lockFrontBuffer(eglImage, width, height, localBounds, requestUpdate);
+        bool locked = m_proxy->lockFrontBuffer(texture, localBounds);
         if (locked) {
-            GLuint texture;
-            LOGWEBGL("WebGLLayer::drawGL(), this = %p, m_proxy = %p, eglImage = %d",
-                     this, m_proxy.get(), eglImage);
-            if (m_eglImages[0] == eglImage) {
-                texture = m_textures[0];
-            }
-            else if (m_eglImages[1] == eglImage) {
-                texture = m_textures[1];
-            }
-            else {
-                // New buffer
-                int idx = 0;
-                if (m_eglImages[idx] != 0)
-                    idx++;
-                if (m_eglImages[idx] != 0)
-                    return false;
-                m_eglImages[idx] = eglImage;
-                m_textures[idx] = createTexture(eglImage, width, height);
-                texture = m_textures[idx];
-            }
-
             // Flip the y-coordinate
             TransformationMatrix transform = m_drawTransform;
             transform = transform.translate(0, 2 * localBounds.top() + localBounds.height());
             transform = transform.scale3d(1.0, -1.0, 1.0);
             TilesManager::instance()->shader()->drawLayerQuad(transform, localBounds,
-                                                              texture, 1.0f, true);
+                                                              texture, 1.0f, true, GL_TEXTURE_EXTERNAL_OES);
             m_proxy->releaseFrontBuffer();
-            askScreenUpdate |= requestUpdate;
         }
     }
 

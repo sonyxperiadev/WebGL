@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -54,15 +55,16 @@ v8::Handle<v8::Value> constructWebGLArrayWithArrayBufferArgument(const v8::Argum
         if (!ok)
             return throwError("Could not convert argument 1 to a number");
     }
-    if ((buf->byteLength() - offset) % sizeof(ElementType))
-        return throwError("ArrayBuffer length minus the byteOffset is not a multiple of the element size.", V8Proxy::RangeError);
-    uint32_t length = (buf->byteLength() - offset) / sizeof(ElementType);
+    uint32_t length = 0;
     if (argLen > 2) {
         length = toUInt32(args[2], ok);
         if (!ok)
             return throwError("Could not convert argument 2 to a number");
+    } else {
+        if ((buf->byteLength() - offset) % sizeof(ElementType))
+            return throwError("ArrayBuffer length minus the byteOffset is not a multiple of the element size.", V8Proxy::RangeError);
+        length = (buf->byteLength() - offset) / sizeof(ElementType);
     }
-
     RefPtr<ArrayClass> array = ArrayClass::create(buf, offset, length);
     if (!array) {
         V8Proxy::setDOMException(INDEX_SIZE_ERR);
