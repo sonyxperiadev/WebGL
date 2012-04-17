@@ -113,7 +113,7 @@ TilesManager::TilesManager()
     m_tilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_availableTilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_pixmapsGenerationThread = new TexturesGenerator();
-    m_pixmapsGenerationThread->run("TexturesGenerator", android::PRIORITY_BACKGROUND);
+    m_pixmapsGenerationThread->run("TexturesGenerator");
 }
 
 void TilesManager::allocateTiles()

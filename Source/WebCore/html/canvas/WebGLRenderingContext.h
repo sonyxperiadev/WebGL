@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -102,8 +103,12 @@ public:
     void colorMask(GC3Dboolean red, GC3Dboolean green, GC3Dboolean blue, GC3Dboolean alpha);
     void compileShader(WebGLShader*, ExceptionCode&);
 
-    // void compressedTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Dsizei imageSize, const void* data);
-    // void compressedTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei GC3Dsizei height, GC3Denum format, GC3Dsizei imageSize, const void* data);
+    void compressedTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat,
+                              GC3Dsizei width, GC3Dsizei height, GC3Dint border,
+                              ArrayBufferView* data);
+    void compressedTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset,
+                                 GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height,
+                                 GC3Denum format, ArrayBufferView* data);
 
     void copyTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Dint border);
     void copyTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height);
@@ -531,6 +536,9 @@ public:
 
     // Helper function to get the bound framebuffer's height.
     int getBoundFramebufferHeight();
+
+    // Helper function to verify limits on the length of uniform and attribute locations.
+    bool validateLocationLength(const String&);
 
     // Helper function to check if size is non-negative.
     // Generate GL error and return false for negative inputs; otherwise, return true.

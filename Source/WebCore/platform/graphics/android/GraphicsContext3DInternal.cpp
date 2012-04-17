@@ -183,10 +183,16 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
     }
 
     const char *ext = (const char *)glGetString(GL_EXTENSIONS);
-    // Only willing to support GL_OES_texture_npot at this time
-    m_extensions.set(new Extensions3DAndroid(strstr(ext, "GL_OES_texture_npot") ?
-                                             "GL_OES_texture_npot" : ""));
     LOGWEBGL("GL_EXTENSIONS = %s", ext);
+    // Want to keep control of which extensions are used
+    String extensions = "";
+    if (strstr(ext, "GL_OES_texture_npot"))
+        extensions.append("GL_OES_texture_npot");
+    if (strstr(ext, "GL_OES_packed_depth_stencil"))
+        extensions.append(" GL_OES_packed_depth_stencil");
+    if (strstr(ext, "GL_OES_texture_float"))
+        extensions.append(" GL_OES_texture_float");
+    m_extensions.set(new Extensions3DAndroid(extensions));
 
     // ANGLE initialization.
     ShBuiltInResources resources;
@@ -625,8 +631,7 @@ void GraphicsContext3DInternal::runSyncThread()
         }
 
         // Invalidate the canvas region
-        RenderObject* renderer = m_canvas->renderer();
-        if (renderer && renderer->isBox() && m_postInvalidate) {
+        if (m_postInvalidate) {
             JNIEnv* env = JSC::Bindings::getJNIEnv();
             env->CallVoidMethod(m_webView, m_postInvalidate);
         }
@@ -801,10 +806,10 @@ bool GraphicsContext3DInternal::lockFrontBuffer(EGLImageKHR& image, SkRect& rect
     RenderObject* renderer = m_canvas->renderer();
     if (renderer && renderer->isBox()) {
         RenderBox* box = (RenderBox*)renderer;
-        rect.set(box->borderLeft() + box->paddingLeft(),
-                 box->borderTop() + box->paddingTop(),
-                 box->borderLeft() + box->paddingLeft() + box->contentWidth(),
-                 box->borderTop() + box->paddingTop() + box->contentHeight());
+        rect.setXYWH(box->borderLeft() + box->paddingLeft(),
+                     box->borderTop() + box->paddingTop(),
+                     box->contentWidth(),
+                     box->contentHeight());
     }
 
     return true;
@@ -828,7 +833,7 @@ void GraphicsContext3DInternal::releaseFrontBuffer()
 
 void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingContext* context)
 {
-    LOGWEBGL("+paintRenderingResultsToCanvas()");
+    LOGWEBGL("paintRenderingResultsToCanvas()");
     ImageBuffer* imageBuffer = context->canvas()->buffer();
     const SkBitmap& canvasBitmap =
         imageBuffer->context()->platformContext()->mCanvas->getDevice()->accessBitmap(false);
@@ -843,17 +848,15 @@ void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingCon
     SkRect  dstRect;
     dstRect.iset(0, 0, imageBuffer->size().width(), imageBuffer->size().height());
     canvas.drawBitmapRect(bitmap, 0, dstRect);
-    LOGWEBGL("-paintRenderingResultsToCanvas()");
 }
 
 PassRefPtr<ImageData> GraphicsContext3DInternal::paintRenderingResultsToImageData()
 {
-    LOGWEBGL("+paintRenderingResultsToImageData()");
+    LOGWEBGL("paintRenderingResultsToImageData()");
     RefPtr<ImageData> imageData = ImageData::create(IntSize(m_width, m_height));
     unsigned char* pixels = imageData->data()->data()->data();
 
     glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    LOGWEBGL("-paintRenderingResultsToImageData()");
 
     return imageData;
 }
@@ -895,7 +898,7 @@ bool GraphicsContext3DInternal::paintCompositedResultsToCanvas(CanvasRenderingCo
 
 void GraphicsContext3DInternal::bindFramebuffer(GC3Denum target, Platform3DObject buffer)
 {
-    LOGWEBGL("bindFrameBuffer()");
+    LOGWEBGL("glBindFrameBuffer(%d, %d)", target, buffer);
     makeContextCurrent();
     MutexLocker lock(m_fboMutex);
     if (!buffer && m_currentFBO) {

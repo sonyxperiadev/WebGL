@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,8 +61,11 @@ public:
     // needToInitializeRenderbuffers is true.
     bool onAccess(bool needToInitializeRenderbuffers);
 
-    // Return false does not mean COMPLETE, might still be INCOMPLETE.
-    bool isIncomplete(bool checkInternalFormat) const;
+    // Software version of glCheckFramebufferStatus(), except that when
+    // FRAMEBUFFER_COMPLETE is returned, it is still possible for
+    // glCheckFramebufferStatus() to return FRAMEBUFFER_UNSUPPORTED,
+    // depending on hardware implementation.
+    GC3Denum checkStatus() const;
 
     bool hasEverBeenBound() const { return object() && m_hasEverBeenBound; }
 

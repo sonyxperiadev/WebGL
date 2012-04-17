@@ -38,5 +38,19 @@ Updates:
   - added missing method 'slice' for typed arrays
   - fixed bug in bindFramebuffer
 
+
+===== 16 April 2012 =====
+
+Updates to fix some test failures in Khronos Conformance Test Suite:
+  - Increase max identifier length in shaders to 256
+  - Add length check on uniforms and attributes
+  - Add minimal support for compressed textures
+      (that is, just return the correct error codes)
+  - Add support for Uint8ClampedByteArray
+  - Modify how error checking is done on framebuffer operations
+  - Activate the GL_OES_packed_depth_stencil extension
+  - Activate the GL_OES_texture_float extension
+
+
 -- Anders Edenbrandt, Sony Mobile Communications AB
 

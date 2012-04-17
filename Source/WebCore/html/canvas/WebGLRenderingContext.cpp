@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,6 +53,7 @@
 #include "RenderLayer.h"
 #include "Settings.h"
 #include "Uint16Array.h"
+#include "Uint32Array.h"
 #include "WebGLActiveInfo.h"
 #include "WebGLBuffer.h"
 #include "WebGLContextAttributes.h"
@@ -666,6 +668,8 @@ void WebGLRenderingContext::bindAttribLocation(WebGLProgram* program, GC3Duint i
     UNUSED_PARAM(ec);
     if (isContextLost() || !validateWebGLObject(program))
         return;
+    if (!validateLocationLength(name))
+        return;
     if (!validateString(name))
         return;
     m_context->bindAttribLocation(objectOrZero(program), index, name);
@@ -965,9 +969,10 @@ GC3Denum WebGLRenderingContext::checkFramebufferStatus(GC3Denum target)
     }
     if (!m_framebufferBinding || !m_framebufferBinding->object())
         return GraphicsContext3D::FRAMEBUFFER_COMPLETE;
-    if (m_framebufferBinding->isIncomplete(true))
-        return GraphicsContext3D::FRAMEBUFFER_UNSUPPORTED;
-    unsigned long result = m_context->checkFramebufferStatus(target);
+    GC3Denum result = m_framebufferBinding->checkStatus();
+    if (result != GraphicsContext3D::FRAMEBUFFER_COMPLETE)
+        return result;
+    result = m_context->checkFramebufferStatus(target);
     cleanupAfterGraphicsCall(false);
     return result;
 }
@@ -1046,6 +1051,34 @@ void WebGLRenderingContext::compileShader(WebGLShader* shader, ExceptionCode& ec
         return;
     m_context->compileShader(objectOrZero(shader));
     cleanupAfterGraphicsCall(false);
+}
+
+void WebGLRenderingContext::compressedTexImage2D(GC3Denum target, GC3Dint level,
+                                                 GC3Denum internalformat, GC3Dsizei width,
+                                                 GC3Dsizei height, GC3Dint border,
+                                                 ArrayBufferView* data)
+{
+    if (isContextLost())
+        return;
+    if (!validateTexFuncLevel(target, level))
+        return;
+
+    // Currently, we have no support for compressed textures:
+    m_context->synthesizeGLError(GraphicsContext3D::INVALID_ENUM);
+}
+
+void WebGLRenderingContext::compressedTexSubImage2D(GC3Denum target, GC3Dint level,
+                                                    GC3Dint xoffset, GC3Dint yoffset,
+                                                    GC3Dsizei width, GC3Dsizei height,
+                                                    GC3Denum format, ArrayBufferView* data)
+{
+    if (isContextLost())
+        return;
+    if (!validateTexFuncLevel(target, level))
+        return;
+
+    // Currently, we have no support for compressed textures:
+    m_context->synthesizeGLError(GraphicsContext3D::INVALID_ENUM);
 }
 
 void WebGLRenderingContext::copyTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Dint border)
@@ -1921,6 +1954,8 @@ GC3Dint WebGLRenderingContext::getAttribLocation(WebGLProgram* program, const St
 {
     if (isContextLost())
         return -1;
+    if (!validateLocationLength(name))
+        return -1;
     if (!validateString(name))
         return -1;
     return m_context->getAttribLocation(objectOrZero(program), name);
@@ -2023,35 +2058,50 @@ WebGLGetInfo WebGLRenderingContext::getFramebufferAttachmentParameter(GC3Denum t
         return WebGLGetInfo();
     }
 
-    if (!m_framebufferBinding || !m_framebufferBinding->object() || m_framebufferBinding->isIncomplete(false)) {
+    if (!m_framebufferBinding || !m_framebufferBinding->object()) {
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
         return WebGLGetInfo();
     }
 
-    if (pname != GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) {
-        WebGLStateRestorer(this, false);
-        GC3Dint value = 0;
-        m_context->getFramebufferAttachmentParameteriv(target, attachment, pname, &value);
+    WebGLObject* object = m_framebufferBinding->getAttachment(attachment);
+    if (!object) {
         if (pname == GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE)
-            return WebGLGetInfo(static_cast<unsigned int>(value));
-        return WebGLGetInfo(value);
+            return WebGLGetInfo(GraphicsContext3D::NONE);
+        // OpenGL ES 2.0 specifies INVALID_ENUM in this case, while desktop GL
+        // specifies INVALID_OPERATION.
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_ENUM);
+        return WebGLGetInfo();
     }
 
-    WebGLStateRestorer(this, false);
-    GC3Dint type = 0;
-    m_context->getFramebufferAttachmentParameteriv(target, attachment, GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE, &type);
-    if (!type)
-        return WebGLGetInfo();
-    GC3Dint value = 0;
-    m_context->getFramebufferAttachmentParameteriv(target, attachment, GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &value);
-    switch (type) {
-    case GraphicsContext3D::RENDERBUFFER:
-        return WebGLGetInfo(PassRefPtr<WebGLRenderbuffer>(findRenderbuffer(static_cast<Platform3DObject>(value))));
-    case GraphicsContext3D::TEXTURE:
-        return WebGLGetInfo(PassRefPtr<WebGLTexture>(findTexture(static_cast<Platform3DObject>(value))));
-    default:
-        // FIXME: raise exception?
-        return WebGLGetInfo();
+    ASSERT(object->isTexture() || object->isRenderbuffer());
+    if (object->isTexture()) {
+        switch (pname) {
+        case GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE:
+            return WebGLGetInfo(GraphicsContext3D::TEXTURE);
+        case GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:
+            return WebGLGetInfo(PassRefPtr<WebGLTexture>(reinterpret_cast<WebGLTexture*>(object)));
+        case GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL:
+        case GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE:
+            {
+                WebGLStateRestorer(this, false);
+                GC3Dint value = 0;
+                m_context->getFramebufferAttachmentParameteriv(target, attachment, pname, &value);
+                return WebGLGetInfo(value);
+            }
+        default:
+            m_context->synthesizeGLError(GraphicsContext3D::INVALID_ENUM);
+            return WebGLGetInfo();
+        }
+    } else {
+        switch (pname) {
+        case GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE:
+            return WebGLGetInfo(GraphicsContext3D::RENDERBUFFER);
+        case GraphicsContext3D::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:
+            return WebGLGetInfo(PassRefPtr<WebGLRenderbuffer>(reinterpret_cast<WebGLRenderbuffer*>(object)));
+        default:
+            m_context->synthesizeGLError(GraphicsContext3D::INVALID_ENUM);
+            return WebGLGetInfo();
+        }
     }
 }
 
@@ -2095,8 +2145,8 @@ WebGLGetInfo WebGLRenderingContext::getParameter(GC3Denum pname, ExceptionCode& 
     case GraphicsContext3D::COLOR_WRITEMASK:
         return getBooleanArrayParameter(pname);
     case GraphicsContext3D::COMPRESSED_TEXTURE_FORMATS:
-        // Defined as null in the spec
-        return WebGLGetInfo();
+        // Currently, we have no support for compressed textures:
+        return WebGLGetInfo(Uint32Array::create(0, 0));
     case GraphicsContext3D::CULL_FACE:
         return getBooleanParameter(pname);
     case GraphicsContext3D::CULL_FACE_MODE:
@@ -2590,6 +2640,8 @@ PassRefPtr<WebGLUniformLocation> WebGLRenderingContext::getUniformLocation(WebGL
 {
     UNUSED_PARAM(ec);
     if (isContextLost() || !validateWebGLObject(program))
+        return 0;
+    if (!validateLocationLength(name))
         return 0;
     if (!validateString(name))
         return 0;
@@ -4346,6 +4398,16 @@ WebGLTexture* WebGLRenderingContext::validateTextureBinding(GC3Denum target, boo
     if (!tex)
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
     return tex;
+}
+
+bool WebGLRenderingContext::validateLocationLength(const String& string)
+{
+    const unsigned maxWebGLLocationLength = 256;
+    if (string.length() > maxWebGLLocationLength) {
+        m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
+        return false;
+    }
+    return true;
 }
 
 bool WebGLRenderingContext::validateSize(GC3Dint x, GC3Dint y)

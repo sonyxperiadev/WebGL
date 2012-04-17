@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +37,7 @@
 
 namespace WebCore {
 
-Extensions3DAndroid::Extensions3DAndroid(const char* extensions)
+Extensions3DAndroid::Extensions3DAndroid(const String& extensions)
     : m_extensions(extensions)
 {
 }

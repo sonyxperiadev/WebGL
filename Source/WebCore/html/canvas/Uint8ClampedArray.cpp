@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
- * Copyright (C) 2012 Sony Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,39 +25,49 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef Uint8Array_h
-#define Uint8Array_h
-
-#include "IntegralTypedArrayBase.h"
+#include "config.h"
+#include "Uint8ClampedArray.h"
 
 namespace WebCore {
 
-class ArrayBuffer;
+PassRefPtr<Uint8ClampedArray> Uint8ClampedArray::create(unsigned length)
+{
+    return TypedArrayBase<unsigned char>::create<Uint8ClampedArray>(length);
+}
 
-class Uint8Array : public IntegralTypedArrayBase<unsigned char> {
-public:
-    static PassRefPtr<Uint8Array> create(unsigned length);
-    static PassRefPtr<Uint8Array> create(unsigned char* array, unsigned length);
-    static PassRefPtr<Uint8Array> create(PassRefPtr<ArrayBuffer> buffer, unsigned byteOffset, unsigned length);
+PassRefPtr<Uint8ClampedArray> Uint8ClampedArray::create(unsigned char* array, unsigned length)
+{
+    return TypedArrayBase<unsigned char>::create<Uint8ClampedArray>(array, length);
+}
 
-    // Can’t use "using" here due to a bug in the RVCT compiler.
-    void set(TypedArrayBase<unsigned char>* array, unsigned offset, ExceptionCode& ec) { TypedArrayBase<unsigned char>::set(array, offset, ec); }
-    void set(unsigned index, double value) { IntegralTypedArrayBase<unsigned char>::set(index, value); }
+PassRefPtr<Uint8ClampedArray> Uint8ClampedArray::create(PassRefPtr<ArrayBuffer> buffer, unsigned byteOffset, unsigned length)
+{
+    return TypedArrayBase<unsigned char>::create<Uint8ClampedArray>(buffer, byteOffset, length);
+}
 
-    PassRefPtr<Uint8Array> subarray(int start) const;
-    PassRefPtr<Uint8Array> subarray(int start, int end) const;
+void Uint8ClampedArray::set(unsigned index, double value)
+{
+    if (index >= m_length)
+        return;
+    if (isnan(value) || value < 0)
+        value = 0;
+    else if (value > 255)
+        value = 255;
+    data()[index] = static_cast<unsigned char>(value + 0.5);
+}
 
-protected:
-    Uint8Array(PassRefPtr<ArrayBuffer> buffer,
-                           unsigned byteOffset,
-                           unsigned length);
-    // Make constructor visible to superclass.
-    friend class TypedArrayBase<unsigned char>;
+Uint8ClampedArray::Uint8ClampedArray(PassRefPtr<ArrayBuffer> buffer, unsigned byteOffset, unsigned length)
+  : Uint8Array(buffer, byteOffset, length)
+{
+}
 
-    // Overridden from ArrayBufferView.
-    virtual bool isUnsignedByteArray() const { return true; }
-};
+PassRefPtr<Uint8ClampedArray> Uint8ClampedArray::subarray(int start) const
+{
+    return subarray(start, length());
+}
 
-} // namespace WebCore
-
-#endif // Uint8Array_h
+PassRefPtr<Uint8ClampedArray> Uint8ClampedArray::subarray(int start, int end) const
+{
+    return subarrayImpl<Uint8ClampedArray>(start, end);
+}
+}

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,6 +42,7 @@ class ArrayBufferView : public RefCounted<ArrayBufferView> {
   public:
     virtual bool isByteArray() const { return false; }
     virtual bool isUnsignedByteArray() const { return false; }
+    virtual bool isUnsignedByteClampedArray() const { return false; }
     virtual bool isShortArray() const { return false; }
     virtual bool isUnsignedShortArray() const { return false; }
     virtual bool isIntArray() const { return false; }

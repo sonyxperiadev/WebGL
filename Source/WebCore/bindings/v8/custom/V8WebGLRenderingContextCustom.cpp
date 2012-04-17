@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2012 Sony Mobile Communications AB
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -148,6 +149,8 @@ static v8::Handle<v8::Value> toV8Object(const WebGLGetInfo& info)
         return toV8(info.getWebGLTexture());
     case WebGLGetInfo::kTypeWebGLUnsignedByteArray:
         return toV8(info.getWebGLUnsignedByteArray());
+    case WebGLGetInfo::kTypeWebGLUnsignedIntArray:
+        return toV8(info.getWebGLUnsignedIntArray());
     case WebGLGetInfo::kTypeWebGLVertexArrayObjectOES:
         return toV8(info.getWebGLVertexArrayObjectOES());
     default:

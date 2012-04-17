@@ -1,6 +1,7 @@
 ##
 ## Copyright 2009, The Android Open Source Project
 ## Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
+## Copyright (C) 2012 Sony Mobile Communications AB
 ##
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions
@@ -387,6 +388,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/Uint16Array.cpp \
 	html/canvas/Uint32Array.cpp \
 	html/canvas/Uint8Array.cpp \
+	html/canvas/Uint8ClampedArray.cpp \
 	html/canvas/WebGLExtension.cpp \
 	html/canvas/WebGLObject.cpp \
 	html/canvas/WebGLVertexArrayObjectOES.cpp

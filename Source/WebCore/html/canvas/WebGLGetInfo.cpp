@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All Rights Reserved.
  * Copyright (C) 2009 Google Inc. All Rights Reserved.
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -135,6 +136,16 @@ WebGLGetInfo::WebGLGetInfo(PassRefPtr<Uint8Array> value)
 {
 }
 
+WebGLGetInfo::WebGLGetInfo(PassRefPtr<Uint32Array> value)
+    : m_type(kTypeWebGLUnsignedIntArray)
+    , m_bool(false)
+    , m_float(0)
+    , m_int(0)
+    , m_unsignedInt(0)
+    , m_webglUnsignedIntArray(value)
+{
+}
+
 WebGLGetInfo::WebGLGetInfo(PassRefPtr<WebGLVertexArrayObjectOES> value)
     : m_type(kTypeWebGLVertexArrayObjectOES)
     , m_webglVertexArrayObject(value)
@@ -232,6 +243,12 @@ PassRefPtr<Uint8Array> WebGLGetInfo::getWebGLUnsignedByteArray() const
 {
     ASSERT(getType() == kTypeWebGLUnsignedByteArray);
     return m_webglUnsignedByteArray;
+}
+
+PassRefPtr<Uint32Array> WebGLGetInfo::getWebGLUnsignedIntArray() const
+{
+    ASSERT(getType() == kTypeWebGLUnsignedIntArray);
+    return m_webglUnsignedIntArray;
 }
 
 PassRefPtr<WebGLVertexArrayObjectOES> WebGLGetInfo::getWebGLVertexArrayObjectOES() const

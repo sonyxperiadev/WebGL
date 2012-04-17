@@ -1,6 +1,7 @@
 ##
 ## Copyright 2009, The Android Open Source Project
-## Copyright (C) 2011, Sony Ericsson Mobile Communications AB
+## Copyright (C) 2011 Sony Ericsson Mobile Communications AB
+## Copyright (C) 2012 Sony Mobile Communications AB
 ##
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions
@@ -308,6 +309,7 @@ GEN := \
     $(intermediates)/bindings/V8OESTextureFloat.h \
     $(intermediates)/bindings/V8OESVertexArrayObject.h \
     $(intermediates)/bindings/V8Uint8Array.h \
+    $(intermediates)/bindings/V8Uint8ClampedArray.h \
     $(intermediates)/bindings/V8Uint16Array.h \
     $(intermediates)/bindings/V8Uint32Array.h \
     $(intermediates)/bindings/V8WebGLActiveInfo.h \
