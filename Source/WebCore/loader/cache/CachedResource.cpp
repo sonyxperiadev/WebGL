@@ -31,6 +31,7 @@
 #include "CachedResourceHandle.h"
 #include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
+#include "CrossOriginAccessControl.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "KURL.h"
@@ -62,7 +63,11 @@ static ResourceLoadPriority defaultPriorityForResourceType(CachedResource::Type 
         case CachedResource::ImageResource:
             return ResourceLoadPriorityLow;
 #if ENABLE(LINK_PREFETCH)
-        case CachedResource::LinkResource:
+        case CachedResource::LinkPrefetch:
+            return ResourceLoadPriorityVeryLow;
+        case CachedResource::LinkPrerender:
+            return ResourceLoadPriorityVeryLow;
+        case CachedResource::LinkSubresource:
             return ResourceLoadPriorityVeryLow;
 #endif
     }
@@ -74,8 +79,8 @@ static ResourceLoadPriority defaultPriorityForResourceType(CachedResource::Type 
 static RefCountedLeakCounter cachedResourceLeakCounter("CachedResource");
 #endif
 
-CachedResource::CachedResource(const String& url, Type type)
-    : m_url(url)
+CachedResource::CachedResource(const ResourceRequest& request, Type type)
+    : m_resourceRequest(request)
     , m_request(0)
     , m_loadPriority(defaultPriorityForResourceType(type))
     , m_responseTimestamp(currentTime())
@@ -166,6 +171,12 @@ void CachedResource::error(CachedResource::Status status)
 void CachedResource::finish()
 {
     m_status = Cached;
+}
+
+bool CachedResource::passesAccessControlCheck(SecurityOrigin* securityOrigin)
+{
+    String errorDescription;
+    return WebCore::passesAccessControlCheck(m_response, resourceRequest().allowCookies(), securityOrigin, errorDescription);
 }
 
 bool CachedResource::isExpired() const

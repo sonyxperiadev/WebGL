@@ -2869,7 +2869,7 @@ void WebGLRenderingContext::polygonOffset(GC3Dfloat factor, GC3Dfloat units)
     cleanupAfterGraphicsCall(false);
 }
 
-void WebGLRenderingContext::readPixels(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, ArrayBufferView* pixels, ExceptionCode& ec)
+void WebGLRenderingContext::readPixels(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, ArrayBufferView* pixels, ExceptionCode&)
 {
     if (isContextLost())
         return;
@@ -3323,7 +3323,7 @@ void WebGLRenderingContext::texImage2D(GC3Denum target, GC3Dint level, GC3Denum 
     if (isContextLost())
         return;
     RefPtr<Image> image = videoFrameToImage(video, ec);
-    if (!video)
+    if (!image)
         return;
     texImage2DImpl(target, level, internalformat, format, type, image.get(), m_unpackFlipY, m_unpackPremultiplyAlpha, ec);
 }
@@ -3502,7 +3502,7 @@ void WebGLRenderingContext::texSubImage2D(GC3Denum target, GC3Dint level, GC3Din
     if (isContextLost())
         return;
     RefPtr<Image> image = videoFrameToImage(video, ec);
-    if (!video)
+    if (!image)
         return;
     texSubImage2DImpl(target, level, xoffset, yoffset, format, type, image.get(), m_unpackFlipY, m_unpackPremultiplyAlpha, ec);
 }

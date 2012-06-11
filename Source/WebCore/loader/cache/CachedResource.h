@@ -28,6 +28,7 @@
 #include "PlatformString.h"
 #include "PurgePriority.h"
 #include "ResourceLoadPriority.h"
+#include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
@@ -46,6 +47,7 @@ class CachedResourceRequest;
 class Frame;
 class InspectorResource;
 class PurgeableBuffer;
+class SecurityOrigin;
 
 // A resource that is held in the cache. Classes who want to use this object should derive
 // from CachedResourceClient, to get the function calls in case the requested data has arrived.
@@ -65,7 +67,9 @@ public:
         , XSLStyleSheet
 #endif
 #if ENABLE(LINK_PREFETCH)
-        , LinkResource
+        , LinkPrefetch
+        , LinkPrerender
+        , LinkSubresource
 #endif
     };
 
@@ -77,7 +81,7 @@ public:
         DecodeError
     };
 
-    CachedResource(const String& url, Type);
+    CachedResource(const ResourceRequest&, Type);
     virtual ~CachedResource();
     
     virtual void load(CachedResourceLoader* cachedResourceLoader)  { load(cachedResourceLoader, false, DoSecurityCheck, true); }
@@ -90,7 +94,8 @@ public:
 
     virtual bool shouldIgnoreHTTPStatusCodeErrors() const { return false; }
 
-    const String &url() const { return m_url; }
+    ResourceRequest& resourceRequest() { return m_resourceRequest; }
+    const KURL& url() const { return m_resourceRequest.url();}
     Type type() const { return static_cast<Type>(m_type); }
     
     ResourceLoadPriority loadPriority() const { return m_loadPriority; }
@@ -133,7 +138,7 @@ public:
     bool isLinkResource() const
     {
 #if ENABLE(LINK_PREFETCH)
-        return type() == LinkResource;
+        return type() == LinkPrefetch || type() == LinkPrerender || type() == LinkSubresource;
 #else
         return false;
 #endif
@@ -145,6 +150,8 @@ public:
     // Computes the status of an object after loading.  
     // Updates the expire date on the cache entry file
     void finish();
+
+    bool passesAccessControlCheck(SecurityOrigin*);
 
     // Called by the cache if the object has been removed from the cache
     // while still being referenced. This means the object should delete itself
@@ -228,7 +235,7 @@ protected:
     
     HashCountedSet<CachedResourceClient*> m_clients;
 
-    String m_url;
+    ResourceRequest m_resourceRequest;
     String m_accept;
     CachedResourceRequest* m_request;
     ResourceLoadPriority m_loadPriority;

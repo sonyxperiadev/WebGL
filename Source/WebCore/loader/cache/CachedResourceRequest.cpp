@@ -42,11 +42,8 @@
 
 namespace WebCore {
     
-static ResourceRequest::TargetType cachedResourceTypeToTargetType(CachedResource::Type type, ResourceLoadPriority priority)
+static ResourceRequest::TargetType cachedResourceTypeToTargetType(CachedResource::Type type)
 {
-#if !ENABLE(LINK_PREFETCH)
-    UNUSED_PARAM(priority);
-#endif
     switch (type) {
     case CachedResource::CSSStyleSheet:
 #if ENABLE(XSLT)
@@ -60,9 +57,11 @@ static ResourceRequest::TargetType cachedResourceTypeToTargetType(CachedResource
     case CachedResource::ImageResource:
         return ResourceRequest::TargetIsImage;
 #if ENABLE(LINK_PREFETCH)
-    case CachedResource::LinkResource:
-        if (priority == ResourceLoadPriorityLowest)
-            return ResourceRequest::TargetIsPrefetch;
+    case CachedResource::LinkPrefetch:
+        return ResourceRequest::TargetIsPrefetch;
+    case CachedResource::LinkPrerender:
+        return ResourceRequest::TargetIsSubresource;
+    case CachedResource::LinkSubresource:
         return ResourceRequest::TargetIsSubresource;
 #endif
     }
@@ -89,8 +88,8 @@ PassRefPtr<CachedResourceRequest> CachedResourceRequest::load(CachedResourceLoad
 {
     RefPtr<CachedResourceRequest> request = adoptRef(new CachedResourceRequest(cachedResourceLoader, resource, incremental));
 
-    ResourceRequest resourceRequest(resource->url());
-    resourceRequest.setTargetType(cachedResourceTypeToTargetType(resource->type(), resource->loadPriority()));
+    ResourceRequest resourceRequest = resource->resourceRequest();
+    resourceRequest.setTargetType(cachedResourceTypeToTargetType(resource->type()));
 
     if (!resource->accept().isEmpty())
         resourceRequest.setHTTPAccept(resource->accept());
@@ -113,7 +112,7 @@ PassRefPtr<CachedResourceRequest> CachedResourceRequest::load(CachedResourceLoad
     }
     
 #if ENABLE(LINK_PREFETCH)
-    if (resource->type() == CachedResource::LinkResource)
+    if (resource->type() == CachedResource::LinkPrefetch || resource->type() == CachedResource::LinkPrerender || resource->type() == CachedResource::LinkSubresource)
         resourceRequest.setHTTPHeaderField("Purpose", "prefetch");
 #endif
 
@@ -124,7 +123,7 @@ PassRefPtr<CachedResourceRequest> CachedResourceRequest::load(CachedResourceLoad
         request.get(), resourceRequest, priority, securityCheck, sendResourceLoadCallbacks);
     if (!loader || loader->reachedTerminalState()) {
         // FIXME: What if resources in other frames were waiting for this revalidation?
-        LOG(ResourceLoading, "Cannot start loading '%s'", resource->url().latin1().data());
+        LOG(ResourceLoading, "Cannot start loading '%s'", resource->url().string().latin1().data());
         cachedResourceLoader->decrementRequestCount(resource);
         cachedResourceLoader->loadFinishing();
         if (resource->resourceToRevalidate()) 
@@ -149,7 +148,7 @@ void CachedResourceRequest::didFinishLoading(SubresourceLoader* loader, double)
 
     ASSERT(loader == m_loader.get());
     ASSERT(!m_resource->resourceToRevalidate());
-    LOG(ResourceLoading, "Received '%s'.", m_resource->url().latin1().data());
+    LOG(ResourceLoading, "Received '%s'.", m_resource->url().string().latin1().data());
 
     // Prevent the document from being destroyed before we are done with
     // the cachedResourceLoader that it will delete when the document gets deleted.
@@ -181,7 +180,7 @@ void CachedResourceRequest::didFail(bool cancelled)
     if (m_finishing)
         return;
 
-    LOG(ResourceLoading, "Failed to load '%s' (cancelled=%d).\n", m_resource->url().latin1().data(), cancelled);
+    LOG(ResourceLoading, "Failed to load '%s' (cancelled=%d).\n", m_resource->url().string().latin1().data(), cancelled);
 
     // Prevent the document from being destroyed before we are done with
     // the cachedResourceLoader that it will delete when the document gets deleted.

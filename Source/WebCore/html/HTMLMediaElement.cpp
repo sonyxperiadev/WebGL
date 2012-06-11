@@ -89,16 +89,16 @@ using namespace std;
 namespace WebCore {
 
 #if !LOG_DISABLED
-static String urlForLogging(const String& url)
+static const char* urlForLogging(const KURL& url)
 {
     static const unsigned maximumURLLengthForLogging = 128;
 
-    if (url.length() < maximumURLLengthForLogging)
-        return url;
-    return url.substring(0, maximumURLLengthForLogging) + "...";
+    if (url.string().length() < maximumURLLengthForLogging)
+        return url.string().utf8().data();
+    return String(url.string().substring(0, maximumURLLengthForLogging) + "...").utf8().data();
 }
 
-static const char *boolString(bool val)
+static const char* boolString(bool val)
 {
     return val ? "true" : "false";
 }
@@ -473,11 +473,6 @@ void HTMLMediaElement::setSrc(const String& url)
     setAttribute(srcAttr, url);
 }
 
-String HTMLMediaElement::currentSrc() const
-{
-    return m_currentSrc;
-}
-
 HTMLMediaElement::NetworkState HTMLMediaElement::networkState() const
 {
     return m_networkState;
@@ -694,7 +689,7 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
 {
     ASSERT(isSafeToLoadURL(initialURL, Complain));
 
-    LOG(Media, "HTMLMediaElement::loadResource(%s, %s)", urlForLogging(initialURL.string()).utf8().data(), contentType.raw().utf8().data());
+    LOG(Media, "HTMLMediaElement::loadResource(%s, %s)", urlForLogging(initialURL), contentType.raw().utf8().data());
 
     Frame* frame = document()->frame();
     if (!frame)
@@ -712,7 +707,7 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
 
     m_currentSrc = url;
 
-    LOG(Media, "HTMLMediaElement::loadResource - m_currentSrc -> %s", urlForLogging(m_currentSrc).utf8().data());
+    LOG(Media, "HTMLMediaElement::loadResource - m_currentSrc -> %s", urlForLogging(m_currentSrc));
 
     if (m_sendProgressEvents) 
         startProgressEventTimer();
@@ -732,7 +727,7 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
     else
         m_player->setMediaElementType(MediaPlayer::Audio);
 #endif
-    m_player->load(m_currentSrc, contentType);
+    m_player->load(m_currentSrc.string(), contentType);
 
     // If there is no poster to display, allow the media engine to render video frames as soon as
     // they are available.
@@ -745,7 +740,7 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
 bool HTMLMediaElement::isSafeToLoadURL(const KURL& url, InvalidSourceAction actionIfInvalid)
 {
     if (!url.isValid()) {
-        LOG(Media, "HTMLMediaElement::isSafeToLoadURL(%s) -> FALSE because url is invalid", urlForLogging(url.string()).utf8().data());
+        LOG(Media, "HTMLMediaElement::isSafeToLoadURL(%s) -> FALSE because url is invalid", urlForLogging(url));
         return false;
     }
 
@@ -753,7 +748,7 @@ bool HTMLMediaElement::isSafeToLoadURL(const KURL& url, InvalidSourceAction acti
     if (!frame || !document()->securityOrigin()->canDisplay(url)) {
         if (actionIfInvalid == Complain)
             FrameLoader::reportLocalLoadFailed(frame, url.string());
-        LOG(Media, "HTMLMediaElement::isSafeToLoadURL(%s) -> FALSE rejected by SecurityOrigin", urlForLogging(url.string()).utf8().data());
+        LOG(Media, "HTMLMediaElement::isSafeToLoadURL(%s) -> FALSE rejected by SecurityOrigin", urlForLogging(url));
         return false;
     }
 
@@ -1741,7 +1736,7 @@ KURL HTMLMediaElement::selectNextSourceChild(ContentType *contentType, InvalidSo
         mediaURL = source->getNonEmptyURLAttribute(srcAttr);
 #if !LOG_DISABLED
         if (shouldLog)
-            LOG(Media, "HTMLMediaElement::selectNextSourceChild - 'src' is %s", urlForLogging(mediaURL).utf8().data());
+            LOG(Media, "HTMLMediaElement::selectNextSourceChild - 'src' is %s", urlForLogging(mediaURL));
 #endif
         if (mediaURL.isEmpty())
             goto check_again;
@@ -1792,7 +1787,7 @@ check_again:
 
 #if !LOG_DISABLED
     if (shouldLog)
-        LOG(Media, "HTMLMediaElement::selectNextSourceChild -> %p, %s", m_currentSourceNode, canUse ? urlForLogging(mediaURL.string()).utf8().data() : "");
+        LOG(Media, "HTMLMediaElement::selectNextSourceChild -> %p, %s", m_currentSourceNode, canUse ? urlForLogging(mediaURL) : "");
 #endif
     return canUse ? mediaURL : KURL();
 }
@@ -1804,7 +1799,7 @@ void HTMLMediaElement::sourceWasAdded(HTMLSourceElement* source)
 #if !LOG_DISABLED
     if (source->hasTagName(sourceTag)) {
         KURL url = source->getNonEmptyURLAttribute(srcAttr);
-        LOG(Media, "HTMLMediaElement::sourceWasAdded - 'src' is %s", urlForLogging(url).utf8().data());
+        LOG(Media, "HTMLMediaElement::sourceWasAdded - 'src' is %s", urlForLogging(url));
     }
 #endif
     
@@ -1851,7 +1846,7 @@ void HTMLMediaElement::sourceWillBeRemoved(HTMLSourceElement* source)
 #if !LOG_DISABLED
     if (source->hasTagName(sourceTag)) {
         KURL url = source->getNonEmptyURLAttribute(srcAttr);
-        LOG(Media, "HTMLMediaElement::sourceWillBeRemoved - 'src' is %s", urlForLogging(url).utf8().data());
+        LOG(Media, "HTMLMediaElement::sourceWillBeRemoved - 'src' is %s", urlForLogging(url));
     }
 #endif
 
@@ -2462,10 +2457,10 @@ void HTMLMediaElement::getPluginProxyParams(KURL& url, Vector<String>& names, Ve
     if (!isSafeToLoadURL(url, Complain))
         url = selectNextSourceChild(0, DoNothing);
 
-    m_currentSrc = url.string();
-    if (url.isValid() && loader && loader->willLoadMediaElementURL(url)) {
+    m_currentSrc = url;
+    if (url.isValid() && frame && frame->loader()->willLoadMediaElementURL(url)) {
         names.append("_media_element_src_");
-        values.append(m_currentSrc);
+        values.append(m_currentSrc.string());
     }
 }
 

@@ -52,8 +52,8 @@ using std::max;
 
 namespace WebCore {
 
-CachedImage::CachedImage(const String& url)
-    : CachedResource(url, ImageResource)
+CachedImage::CachedImage(const ResourceRequest& resourceRequest)
+    : CachedResource(resourceRequest, ImageResource)
     , m_image(0)
     , m_decodedDataDeletionTimer(this, &CachedImage::decodedDataDeletionTimerFired)
     , m_shouldPaintBrokenImage(true)
@@ -63,7 +63,7 @@ CachedImage::CachedImage(const String& url)
 }
 
 CachedImage::CachedImage(Image* image)
-    : CachedResource(String(), ImageResource)
+    : CachedResource(ResourceRequest(), ImageResource)
     , m_image(image)
     , m_decodedDataDeletionTimer(this, &CachedImage::decodedDataDeletionTimerFired)
     , m_shouldPaintBrokenImage(true)
@@ -86,7 +86,7 @@ void CachedImage::decodedDataDeletionTimerFired(Timer<CachedImage>*)
 void CachedImage::load(CachedResourceLoader* cachedResourceLoader)
 {
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
-    if (!cachedResourceLoader || (cachedResourceLoader->autoLoadImages() && !cachedResourceLoader->shouldBlockNetworkImage(m_url)))
+    if (!cachedResourceLoader || (cachedResourceLoader->autoLoadImages() && !cachedResourceLoader->shouldBlockNetworkImage(m_resourceRequest.url())))
 #else
     if (!cachedResourceLoader || cachedResourceLoader->autoLoadImages())
 #endif
@@ -231,7 +231,7 @@ void CachedImage::checkShouldPaintBrokenImage()
     if (!frame)
         return;
 
-    m_shouldPaintBrokenImage = frame->loader()->client()->shouldPaintBrokenImage(KURL(ParsedURLString, m_url));
+    m_shouldPaintBrokenImage = frame->loader()->client()->shouldPaintBrokenImage(m_resourceRequest.url());
 }
 
 void CachedImage::clear()

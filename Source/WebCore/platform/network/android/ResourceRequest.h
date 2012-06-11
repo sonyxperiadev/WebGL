@@ -28,7 +28,6 @@
 #ifndef ResourceRequest_h
 #define ResourceRequest_h
 
-#include "CachedResource.h"
 #include "ResourceRequestBase.h"
 
 namespace WebCore {
